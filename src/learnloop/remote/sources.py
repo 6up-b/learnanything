@@ -391,7 +391,10 @@ def plan_passages(
                                       limit=max(1, min(int(limit), 12)), targets=targets)
     rewrite = search.get("rewrite") or {"status": search.get("status"), "calls": 0}
     embedding = search.get("query_embedding") or {"status": search.get("status"), "calls": 0}
-    steps = (rewrite, embedding, verification)
+    # The fallback space's query (local contextual retrieval P1, Codex review
+    # F2): already in the search's calls and dollars; listed as its own step.
+    fallback_query = search.get("fallback_query_embedding")
+    steps = (rewrite, embedding, verification, *((fallback_query,) if fallback_query else ()))
     calls = int(search.get("calls") or 0) + int(verification.get("calls") or 0)
     # Marginal dollars at the worst case (plan_library_search's convention):
     # metered steps at their estimate, subscription steps at 0 (their tokens,
@@ -400,6 +403,7 @@ def plan_passages(
     plan = {
         "dry_run": True, "retrieval": search.get("status"), "rewrite": rewrite, "query_embedding": embedding,
         "verification": verification, "calls": calls,
+        **({"fallback_query_embedding": fallback_query} if fallback_query else {}),
         "estimated_tokens": sum(int(step.get("estimated_tokens") or 0) for step in steps),
         "estimated_usd": None if any(cost is None for cost in costs) else round(sum(costs), 6),
         "cost_basis": sorted({str(step.get("cost_basis")) for step in steps if step.get("cost_basis")}),

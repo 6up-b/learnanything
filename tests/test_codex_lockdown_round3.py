@@ -485,6 +485,18 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/content/authoring/concept_animation.py", "provision_animation_venv", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "render_scene", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "check_generator_answers", "subprocess.run"),
+    # E1's harness (experiments, owner-run): the metered worker under its scope,
+    # nvidia-smi probes, the env's version listing. Fixed argv lists, no shell.
+    ("src/learnloop/experiments/contextual_embeddings/e1/gpu_meter.py", "supervise", "subprocess.Popen"),
+    ("src/learnloop/experiments/contextual_embeddings/e1/run.py", "environment_versions", "subprocess.run"),
+    ("src/learnloop/experiments/contextual_embeddings/e1/worker.py", "run_nvidia_smi", "subprocess.run"),
+    # Local contextual retrieval P1a (moved from E1): the launcher's
+    # systemd-run scope under the meter (an argv list built by launcher.py),
+    # nvidia-smi probes, and the owner-run setup's uv venv / uv pip install /
+    # pinned download / epoch probe in the separate env (argv lists, no shell).
+    ("src/learnloop/local_embeddings/gpu_meter.py", "supervise", "subprocess.Popen"),
+    ("src/learnloop/local_embeddings/setup.py", "run_setup", "subprocess.run"),
+    ("src/learnloop/local_embeddings/worker.py", "run_nvidia_smi", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_equivalence_checks", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_generator_tests", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_sandboxed_python", "subprocess.run"),

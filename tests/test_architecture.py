@@ -47,10 +47,22 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
+        # Local contextual retrieval P1a (migration 219): the embedding space
+        # registry, the append-only retrieval feedback and the DERIVED fusion
+        # posterior (replaced whole by its replayer and the refit).
+        "src/learnloop/db/stores/retrieval_spaces.py",
+        # The local space's per-vault vector cache (a derived file outside
+        # state.sqlite, written only by the index job).
+        "src/learnloop/local_embeddings/cache.py",
         "src/learnloop/db/stores/judgments.py",
         # Exam protection by extraction identity (Codex review F3): exam-qualified
         # copies appended to the held-out signal ledger, never an update.
         "src/learnloop/db/stores/held_out_signals.py",
+        # Research experiment E0 (Codex review F1): the redaction of a SERVICE
+        # copy's protected block text before any production path reads it; the
+        # function refuses any database outside fixtures-local, and the frozen
+        # corpus copies are only ever opened read-only.
+        "src/learnloop/experiments/contextual_embeddings/system_arms.py",
         # Facet identity: applied merge/absorb actions and their facet_merges rows.
         "src/learnloop/db/stores/facet_identity.py",
         "src/learnloop/projects/experiment_store.py",

@@ -740,6 +740,7 @@ def find_sources(
         vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=rewrite,
         extra_lists=extra, embedder=embedder, rewrite_client=rewrite_client, owner_id=owner_id or query_hash,
         deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF, eligible=eligibility,
+        consumer=f"find_sources:{intent}",
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]
@@ -795,6 +796,14 @@ def find_sources(
                                          expansion=expansion_of.get(hit.key)))
         if intent == "explain" and not verify:
             verification = {"status": "not_requested", "label": "unverified: retrieval rank only"}
+    if result.hits:
+        # Local contextual retrieval P1 (Codex review F9): the passages this
+        # service returns are its delivery, in their final order (nothing is
+        # logged while no new embedding space is on).
+        from learnloop.source_retrieval.feedback import deliver
+
+        order = deliver(vault, repository, search, [(hit["extraction_id"], hit["span_id"]) for hit in result.hits])
+        result.hits = [result.hits[index] for index in order]
     remaining = len(pool) - len(page)
     lists_open = [name for name, ended in search.list_ends.items() if not ended]
     if remaining > 0 or lists_open:

@@ -30,6 +30,7 @@ from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
+from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 NOW = "2026-10-20T10:00:00Z"
@@ -74,9 +75,9 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 and RW7a's 217 (their own two tables each, altering nothing) follow on the way to head.
-    assert [migration.version for migration in applied] == [215, 216, 217, 218, 219]  # and T1's 218, RW2d's 219
+    assert [migration.version for migration in applied] == [215, 216, 217, 218, 219, 220]  # and T1's 218, RW2d's 219, local retrieval P1's 220
     after = _schema(database)
-    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - RW2D_ALTERED_TABLES == set(), "215 alters nothing"
     return database
 

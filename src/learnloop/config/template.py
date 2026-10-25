@@ -1555,6 +1555,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # inert. Every snapshot moves only because the effective config gains the
     # key; all of them were recomputed from the composed defaults
     # (defaults_fingerprint_for_version).
+    # Local contextual retrieval P1 (spec_local_contextual_retrieval_v1; docs/reviews/
+    # retrieval-local-p1.md) adds [embedding.local] (enabled = false until the owner runs
+    # `learnloop embeddings local setup`), [embedding.fallback] (the Voyage space, enabled =
+    # false, $1 per run keep cap) and [embedding.source_space] (default qwen, learned_fusion and
+    # exploration off): modelled defaults only, left out of the decision-only template. With
+    # them at their defaults retrieval is exactly today's (no scoring, scheduling, projection
+    # or serving change); every snapshot moves only because the effective config gains them.
     "mvp-0.9": "fdfdfd5b835cb398b4ebb6982355a7261226146ba24e146692e8a1d1bdebedaa",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
@@ -1617,6 +1624,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.10": "bb69372ec7c27757bc2bd21280427d29e87da0bc7b6706ef8e218433f3d1b888",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
@@ -1687,6 +1695,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.11": "8e20d34f929fe9645f6c33a6b0930c41aae885132e90f288b1f0dbc2b86dda14",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
@@ -1751,6 +1760,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.12": "7b1819dd7ffc05619c03adb07c51682005f0fda81567936e00e0cb9ad5e8ba9e",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
@@ -1810,6 +1820,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.13": "7da75e01714ad5d09e5f26843c3793fd5cd0474ea24f5ab594803f0d2b32e5e7",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
@@ -1868,6 +1879,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.14": "fe673ecd0b5c844d1b9eca7a1e7fc98dc42d15cf26db700e24e820617b467f8a",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
@@ -1924,6 +1936,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.15": "a12748a23c68f89f5a7df52a10df22ab2f40fe03e874f726a7d06e12b8f238ab",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
@@ -1987,6 +2000,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.16": "7e2eed3e592f492c3861aabf9bea17cfe6e9be5e26881963c34b44c4e2df6627",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
@@ -2046,6 +2060,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.17": "555c1072ef2a1c61fd63953f7d4fd00b877ddb4e0676210c51bc9639ee456d03",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
@@ -2098,6 +2113,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.18": "38a1ee235ecef955d983fee034c76e9ebff32f83157ec2a1709a40a351087e5f",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
@@ -2150,6 +2166,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.19": "f519ef47814404c55d0598252d5b1c43fbcfe35e2da762a3dd8d9d6a2c80ad98",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
@@ -2198,6 +2215,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.20": "533bd9a9b1c94dee2f995700e01c51577d8f114b9d2475a9085a066a190d128c",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
@@ -2255,6 +2273,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.21": "acbac96ff909ab5191fda94d88f2f7bc5b3b06a4df6b605d88f1950d40b2b332",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
@@ -2304,6 +2323,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.22": "437b11814ffe2e576b10b7a5c6de9e48a1e262c399e01c7e4cf91722486f7421",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
@@ -2348,6 +2368,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.23": "98ea7ce5583b940437aba954c0cffc09104f7e400bff1cc3ceb926b496147e9a",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
@@ -2389,6 +2410,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.24": "ee6276342c9eb1c6f6cdc496a7266ed081ac64e0239642e88659d0aa23ad4e0c",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
@@ -2428,6 +2450,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.25": "061ddde1c0d0812b60ae63734c32dc8400d53c4ed6d757e8640dbba6967e8cd9",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
@@ -2466,6 +2489,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.26": "ae0e6ae70e3ace973d52d3b0cd92b1467917f96e76ee5d1080714c8730860261",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
@@ -2504,6 +2528,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.27": "fdb6817f8f8369060d16c91764189b6cf3a415d5867acddd6cd01e7fe7e59522",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
@@ -2531,6 +2556,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.29": "c3ed91ec61b0fb48d057d8b928804a4a9f6baddbe1587efc9f88f33ace46b7b7",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
@@ -2552,6 +2578,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # used: AD2+AD3 lands after DL2, orchestrator decision 2026-10-20). New vaults start
     # here until mvp-0.31 landed (the template's LATEST_ALGORITHM_VERSION).
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.30": "09fec9ee4dc7d36f22092bab8d6722aad8b32cd830a64ab38a867d24cd05e2aa",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
@@ -2567,6 +2594,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # `learnloop upgrade` (default target) from mvp-0.30, or from
     # mvp-0.9 onwards through the chain. New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     "mvp-0.31": "57089a49ba041f3ca7c2914a34c3933ae96e30c383ae93a79e13ba0af4411ff4",
 }
 

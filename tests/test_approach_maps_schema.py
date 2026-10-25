@@ -26,6 +26,7 @@ from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
+from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
@@ -63,8 +64,8 @@ def _upgrade(tmp_path: Path) -> Path:
     assert [migration.version for migration in applied][0] == 211
     after = _schema(database)
     # Adaptive difficulty AD1's 213 (its receipts) follows on the way to head.
-    # ... and adaptive difficulty's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their two tables each), and RW2d's 219.
-    assert set(after) - set(before) - AD1_ADDED_OBJECTS - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
+    # ... and adaptive difficulty's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their two tables each), RW2d's 219 and local retrieval P1's 220.
+    assert set(after) - set(before) - AD1_ADDED_OBJECTS - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
                                         "approach_maps_no_update", "approach_maps_no_delete"}
     # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.

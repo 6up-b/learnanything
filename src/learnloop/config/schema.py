@@ -1071,6 +1071,31 @@ class OpenAIEmbeddingProviderConfig(OpenAICompatibleProviderConfig):
     max_input_tokens: int = Field(default=32768, gt=0)
 
 
+#: Local contextual retrieval P1b (spec_local_contextual_retrieval_v1 §8): the
+#: hosted fallback space's embedding-only profile type. It serves only the
+#: source-retrieval fallback space (``embedding.fallback.provider``); every AI
+#: task, the ``embedding`` task included, refuses it (``ai.routing``), so no
+#: route or ``LEARNLOOP_AI_PROVIDER`` can send generation or Qwen-route text to it.
+VOYAGE_CONTEXTUAL_PROFILE_TYPE = "voyage_contextual_embedding"
+
+
+class VoyageContextualEmbeddingProviderConfig(AIProviderConfig):
+    """``voyage-context-4`` through ``POST /v1/contextualizedembeddings``.
+
+    Grouped windows (``input_type="document"``) and single-chunk queries
+    (``input_type="query"``), 1024-d float, L2-normalized. ``api_key_env`` names
+    the key (default ``VOYAGE_API_KEY``, loaded from the settings file like any
+    key); receipts record the name and its availability, never the value."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["voyage_contextual_embedding"] = "voyage_contextual_embedding"
+    model: str = "voyage-context-4"
+    base_url: str = "https://api.voyageai.com/v1"
+    api_key_env: str = "VOYAGE_API_KEY"
+    dimensions: int = Field(default=1024, gt=0)
+
+
 DECIDER_PROFILE_TYPE = "decider"
 DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
 DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
@@ -1173,7 +1198,8 @@ AIProviderProfile = Annotated[
     | OpenRouterProviderConfig
     | OpenAIEmbeddingProviderConfig
     | DeciderProviderConfig
-    | ChatGPTPlanProviderConfig,
+    | ChatGPTPlanProviderConfig
+    | VoyageContextualEmbeddingProviderConfig,
     Field(discriminator="type"),
 ]
 
@@ -2812,6 +2838,62 @@ class PFConfig(BaseModel):
     scaling: PFScalingConfig = Field(default_factory=PFScalingConfig)
 
 
+class LocalEmbeddingConfig(BaseModel):
+    """Local contextual retrieval P1a (spec_local_contextual_retrieval_v1 §4).
+
+    The local pplx v2 9B document space. ``enabled = false`` (the default) is
+    the kill switch: nothing is queued, launched or read, and retrieval is
+    exactly today's. It stays off until the owner runs ``learnloop embeddings
+    local setup`` (the separate environment and the pinned model files under
+    ``~/.local/share/learnloop``). ``index_on_extract`` queues a
+    ``local_source_index`` job after each extraction (only while enabled);
+    ``index_batch_minutes`` (keep: an operational default the owner can tune,
+    §9.6) lets a burst of re-extractions load the 9B once.
+    """
+
+    enabled: bool = False
+    index_on_extract: bool = True
+    index_batch_minutes: float = Field(default=15.0, ge=0)
+
+
+class FallbackEmbeddingConfig(BaseModel):
+    """Local contextual retrieval P1b (spec §8): the hosted Voyage fallback space.
+
+    ``enabled = false`` (the default) is the kill switch: nothing is queued or
+    sent. With it on (and ``embedding.enabled``), ``provider`` names the
+    ``voyage_contextual_embedding`` profile, each extraction queues a capped
+    backfill when ``maintain_index`` is on, and the resolver queries the space
+    only for extractions no higher-weighted space covers. One backfill run is
+    capped at ``max_cost_usd_per_run`` (keep: spending authority is the
+    owner's, §9.6), admitted at ``price_per_million`` (Voyage's published
+    $0.12/M; the free tier is never assumed).
+    """
+
+    enabled: bool = False
+    provider: str = "voyage_context"
+    maintain_index: bool = True
+    max_cost_usd_per_run: float = Field(default=1.0, ge=0)
+    price_per_million: float = Field(default=0.12, ge=0)
+
+
+class SourceSpaceConfig(BaseModel):
+    """The source-space resolver and its fusion (spec §5, §9.2).
+
+    ``default`` is the seed: the fusion's prior mean puts full weight on it
+    (Qwen until P3's owner-confirmed seed decision). ``learned_fusion = false``
+    (the default; orchestrator scoping 2026-10-24) serves the seed weights and
+    only LOGS what the learned rule would do; ``exploration = false`` (its own
+    switch) never reorders anything, and when on it may reorder only spans the
+    posterior cannot order (a gap smaller than its own posterior spread).
+    ``log_feedback`` records deliveries and signals while a new space is on.
+    """
+
+    default: Literal["qwen", "local:grouped", "local:singleton", "voyage"] = "qwen"
+    learned_fusion: bool = False
+    exploration: bool = False
+    log_feedback: bool = True
+
+
 class EmbeddingConfig(BaseModel):
     enabled: bool = False
     backfill_enabled: bool = False
@@ -2832,6 +2914,12 @@ class EmbeddingConfig(BaseModel):
     # 4,000-block book cost about $0.01 at the default model's price).
     backfill_sources_on_extract: bool = True
     source_backfill_max_cost_usd: float = Field(default=1.0, ge=0)
+    # Local contextual retrieval P1a/P1b (spec_local_contextual_retrieval_v1):
+    # the local 9B space, the Voyage fallback and the space resolver. All off
+    # or at the seed by default: retrieval is exactly today's.
+    local: LocalEmbeddingConfig = Field(default_factory=LocalEmbeddingConfig)
+    fallback: FallbackEmbeddingConfig = Field(default_factory=FallbackEmbeddingConfig)
+    source_space: SourceSpaceConfig = Field(default_factory=SourceSpaceConfig)
 
     @computed_field
     @property

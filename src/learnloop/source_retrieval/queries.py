@@ -43,6 +43,11 @@ REWRITE_PROMPT_VERSION = "source_query_rewrite.v1"
 #: longest question and context plus instructions, schema and framing).
 REWRITE_INPUT_TOKENS_BOUND = 6_000
 MAX_QUERY_CHARS = 2000
+#: structural: the stand-in a dry run plans for a query text it cannot know
+#: yet (the rewrite's): MAX_QUERY_CHARS code points at UTF-8's longest
+#: encoding, four bytes each, so a valid rewrite in any script admits under
+#: the plan (Codex re-review F2). Never looked up in a cache.
+LARGEST_QUERY_TEXT = "\U0010ffff" * MAX_QUERY_CHARS
 MAX_CONTEXT_CHARS = 700
 MAX_KEYWORDS = 12
 #: One embedding request for the original and the rewritten query, at most a cent.
@@ -219,6 +224,7 @@ def embed_query_texts(
 
 
 __all__ = [
+    "LARGEST_QUERY_TEXT",
     "MAX_QUERY_CHARS",
     "QUERY_EMBEDDING_CAPS",
     "QUERY_RECORD_KIND",

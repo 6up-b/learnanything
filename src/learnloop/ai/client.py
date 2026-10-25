@@ -60,6 +60,10 @@ def make_ai_provider_client_from_profile(
         from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
 
         return OpenAIEmbeddingProviderClient(provider_name, profile)
+    if provider_type == "voyage_contextual_embedding":
+        from learnloop.ai.providers.voyage_contextual import VoyageContextualClient
+
+        return VoyageContextualClient(provider_name, profile)
     if provider_type == "openai_chat":
         from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 

@@ -192,6 +192,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # Spec §8.3: each item forecast receipt joined to its bound attempt and
     # scored, with §5.3's event read as the AD replayer reads it.
     DerivedStateReplayer("item_forecast_scores", frozenset({"item_forecast_scores"})),
+    # Local contextual retrieval P1a (migration 220): the fusion posterior per
+    # context, refitted from the append-only retrieval_feedback receipts in
+    # order (deterministic: no random step, fitted_at from the inputs). It
+    # reads receipts only, never learner state, and changes no evidence.
+    DerivedStateReplayer("retrieval_fusion_posteriors", frozenset({"retrieval_fusion_posteriors"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -580,6 +585,17 @@ def _run_item_forecast_scores(
                           details=report)
 
 
+def _run_retrieval_fusion_posteriors(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.local_embeddings.fusion import refit_posteriors
+
+    # Whole-vault: one learner's signals are pooled across every context.
+    report = refit_posteriors(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -594,6 +610,7 @@ _RUNNERS = {
     "retrieval_intervention_outcomes": _run_retrieval_intervention_outcomes,
     "adaptive_difficulty": _run_adaptive_difficulty,
     "item_forecast_scores": _run_item_forecast_scores,
+    "retrieval_fusion_posteriors": _run_retrieval_fusion_posteriors,
 }
 
 

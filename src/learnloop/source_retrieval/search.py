@@ -68,6 +68,7 @@ from learnloop.source_retrieval.queries import (
     rewritten_text,
 )
 from learnloop.source_retrieval.recipes import block_record_id, section_path, split_record_id
+from learnloop.source_retrieval.spaces import query_kind, resolver_active
 from learnloop.vault.models import LoadedVault
 
 #: Each list contributes at most this many candidates to the fusion.
@@ -139,6 +140,16 @@ class SpanSearch:
     #: With ``roles``: how many spans each kind of role evidence admitted
     #: (ingest hints, RW4e proposals, low-confidence proposals).
     role_basis: dict[str, int] = field(default_factory=dict)
+    #: Local contextual retrieval P1 (spec_local_contextual_retrieval_v1 §5):
+    #: which embedding spaces contributed the meaning ranking and why, the
+    #: served and would-be learned weights, the exploration draw and the
+    #: feedback receipt. Empty (and absent from ``describe``) while no new
+    #: space is switched on: today's result, byte for byte.
+    space_selection: dict[str, Any] = field(default_factory=dict)
+    #: The in-memory resolution behind ``space_selection`` (never serialized):
+    #: the consumer's delivery boundary records its final order against it
+    #: (``source_retrieval.feedback.deliver``; Codex review F9).
+    resolution: Any = field(default=None, repr=False, compare=False)
 
     @property
     def basis(self) -> str:
@@ -163,6 +174,8 @@ class SpanSearch:
         if self.roles:
             value["roles"] = list(self.roles)
             value["role_basis"] = dict(self.role_basis)
+        if self.space_selection:
+            value["space_selection"] = dict(self.space_selection)
         return value
 
 
@@ -284,6 +297,7 @@ def search_spans(
     roles: Sequence[str] = (),
     list_depth: int | Mapping[str, int] = LIST_DEPTH,
     eligible: Eligibility | None = None,
+    consumer: str | None = None,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
@@ -315,6 +329,11 @@ def search_spans(
     ``eligible`` (fix round 3): the caller's effective eligibility, which
     the ``roles`` filter asks whether a confident passage remains (None: the
     scope's, exam material withheld). It decides only that fallback.
+
+    ``consumer`` (local contextual retrieval P1) names the caller for the
+    space resolver's per-consumer weights and its feedback receipts. The
+    resolver runs only while ``embedding.local.enabled`` or
+    ``embedding.fallback.enabled`` is on; otherwise nothing here changes.
     """
 
     config = vault.config.source_retrieval
@@ -332,6 +351,7 @@ def search_spans(
             return int(list_depth.get(name, LIST_DEPTH))
         return int(list_depth)
 
+    resolution: Any = None
     permitted_roles: set[SpanKey] | None = None
     if roles:
         permitted_roles, result.role_basis = role_filter(vault, repository, scope, roles, eligible=eligible)
@@ -391,7 +411,15 @@ def search_spans(
         else:
             index = load_dense_index(vault, repository, scope)
         result.dense = index.describe()
-        if index.usable:
+        if resolver_active(vault.config):
+            resolution = _resolved_meaning(
+                vault, repository, scope, result, lists, index=index, retrieval_text=retrieval_text,
+                rewrite_result=rewrite_result, keep=keep, depth=depth, embedder=embedder, owner_id=owner_id,
+                budget=budget, deadline=deadline, query_vectors=query_vectors,
+                consumer=consumer or "unspecified",
+                kind=query_kind(roles=roles, context_text=context_text,
+                                rewritten=rewrite_result is not None and rewrite_result.ok))
+        elif index.usable:
             if index.status == "partial" and index.reason:
                 result.notes.append(index.reason)
             texts = {"query": retrieval_text}
@@ -442,7 +470,8 @@ def search_spans(
         raise ValueError(f"Unknown source_retrieval pool {mode!r}; expected one of {', '.join(POOL_MODES)}")
     fallback = None
     if mode == POOL_DENSE_PLUS_BM25 and deep:  # a typing search is keyword only either way
-        dense_status = (result.dense or {}).get("status")
+        dense_status = (result.space_selection.get("coverage") if result.space_selection
+                        else (result.dense or {}).get("status"))
         if dense_status != "ready":
             fallback = f"the dense index is {dense_status or 'unused'}, not complete"
         elif not by_id.get("meaning"):
@@ -480,8 +509,88 @@ def search_spans(
         result.hits.append(_hit(block, scope, ranks[record_id], titles[key[0]], pool_roles.get(record_id)))
         if len(result.hits) >= cap:
             break
+    if resolution is not None:
+        _log_delivery(vault, repository, result, resolution, owner_id=owner_id)
     result.timings_ms["total"] = _ms(started)
     return result
+
+
+def _resolved_meaning(vault: LoadedVault, repository: Repository, scope: Scope, result: SpanSearch,
+                      lists: dict[str, list[SpanKey]], *, index: DenseIndex, retrieval_text: str,
+                      rewrite_result: Rewrite | None, keep: Any, depth: Any, embedder: Any, owner_id: str,
+                      budget: SpendBudget | None, deadline: float | None,
+                      query_vectors: Mapping[str, np.ndarray] | None, consumer: str, kind: str) -> Any:
+    """The meaning lists through the space resolver (spec §5): each contributing
+    space ranks its own extractions, the rankings fuse by rank. With Qwen the
+    only contributor the lists are exactly today's."""
+
+    from learnloop.source_retrieval import feedback
+    from learnloop.source_retrieval.spaces import meaning_lists, resolve_source_spaces, space_ranks
+
+    receipt_id = feedback.new_receipt_id()
+    resolution = resolve_source_spaces(vault, repository, scope, consumer=consumer, query_kind=kind,
+                                       deadline=deadline, qwen_index=index, receipt_id=receipt_id)
+    resolution.owner_id = owner_id
+    if index.usable and index.status == "partial" and index.reason:
+        result.notes.append(index.reason)
+    elif not index.usable and index.reason and not resolution.assignment:
+        result.notes.append(index.reason)
+    texts = {"query": retrieval_text}
+    if rewrite_result is not None and rewrite_result.ok:
+        texts["rewrite"] = rewritten_text(rewrite_result)
+
+    def qwen_vectors() -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+        if query_vectors is not None:
+            result.query_embedding = {"status": "provided"}
+            return {key: value for key, value in query_vectors.items() if key in texts}, result.query_embedding
+        if deadline is not None and time.monotonic() >= deadline:
+            result.query_embedding = {"status": "timed_out", "reason": "the retrieval time box ran out"}
+            return {}, result.query_embedding
+        step = time.monotonic()
+        vectors, result.query_embedding = embed_query_texts(
+            vault, repository, texts, embedder=embedder, owner_id=owner_id, budget=budget, deadline=deadline)
+        result.timings_ms["query_embedding"] = _ms(step)
+        return vectors, result.query_embedding
+
+    def permit(record_id: str) -> bool:
+        return keep(split_record_id(record_id))
+
+    built = meaning_lists(vault, repository, resolution, texts, qwen_index=index, qwen_vectors=qwen_vectors,
+                          depth=depth, permit=permit, owner_id=owner_id, deadline=deadline, budget=budget)
+    result.notes.extend(built["notes"])
+    ranks = space_ranks(built["per_space"], identities={name: state.list_key
+                                                         for name, state in resolution.spaces.items()})
+    for name, key in (("meaning", "query"), ("rewrite_meaning", "rewrite")):
+        ranked = built["fused"].get(key)
+        if ranked is None:
+            continue
+        result.list_depths[name] = depth(name)
+        result.list_ends[name] = built["ends"].get(key, True)
+        if ranked:
+            lists[name] = [split_record_id(record_id) for record_id in ranked]
+    resolution.space_ranks = ranks
+    result.space_selection = resolution.describe()
+    result.resolution = resolution
+    return resolution
+
+
+def _log_delivery(vault: LoadedVault, repository: Repository, result: SpanSearch, resolution: Any, *,
+                  owner_id: str) -> None:
+    """The query receipt of one resolved search, with its candidates' ranks
+    (never fails the search). The DELIVERED rows are written at each
+    consumer's delivery boundary (``feedback.deliver``; Codex review F9)."""
+
+    from learnloop.source_retrieval import feedback
+
+    if not vault.config.embedding.source_space.log_feedback or not result.hits:
+        return
+    written = feedback.log_search(
+        repository, receipt_id=resolution.receipt_id, consumer=resolution.consumer,
+        query_kind=resolution.query_kind, owner_id=owner_id, resolution=result.space_selection,
+        hits=result.hits, space_ranks=resolution.space_ranks, lists_available=resolution.lists_available,
+        queried=resolution.queried(), query_propensity=resolution.query_propensity,
+        query_set_propensity=resolution.query_set_propensity)
+    result.space_selection["logged"] = written
 
 
 __all__ = [

@@ -141,6 +141,24 @@ def check_ai_runtime(
             provider_revision=report.actual_revision,
             message=report.message,
         )
+    if provider_type == "voyage_contextual_embedding":
+        # Local contextual retrieval P1b: the fallback space's key, by name only.
+        api_key_env = getattr(profile, "api_key_env", None) or "VOYAGE_API_KEY"
+        if not os.environ.get(api_key_env):
+            return AIRuntimeReport(
+                status="provider_auth_required",
+                active_provider=selected,
+                provider_type=provider_type,
+                model=profile.model,
+                message=f"Environment variable {api_key_env} is required.",
+            )
+        return AIRuntimeReport(
+            status="ready",
+            active_provider=selected,
+            provider_type=provider_type,
+            model=profile.model,
+            message="The fallback embedding space's provider is ready.",
+        )
     if provider_type in {"openai_chat", "openrouter", "openai_embedding"}:
         if provider_type == "openai_embedding":
             profile = profile.model_copy(update={"model": config.embedding.model})

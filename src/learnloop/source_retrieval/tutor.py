@@ -283,7 +283,7 @@ def tutor_pool(
         deep=True, rewrite=rewrite, extra_lists=lists, embedder=embedder,
         rewrite_client=rewrite_client, owner_id=owner_id, deadline=deadline,
         pool_dense=config.tutor_candidate_pool + WITHHOLD_SPARE, query_vectors=query_vectors,
-        rewritten=rewritten, pool=pool, pool_extras=pool_extras,
+        rewritten=rewritten, pool=pool, pool_extras=pool_extras, consumer="tutor",
     )
     hits = list(search.hits)
     withheld: list[str] = []
@@ -406,10 +406,11 @@ class TutorSpanProvider:
             return None, {**manifest, "basis": "lo_provenance",
                           "reason": f"verification {verification.status}"}
         complete = vault.config.tutor_qa.expanded_delivery
-        spans = [span_context(hit, complete=complete) for hit in verification.picks]
+        picks = _delivered(vault, repository, search, list(verification.picks))
+        spans = [span_context(hit, complete=complete) for hit in picks]
         spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
-        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(verification.picks),
-                       "span_keys": [hit.record_id for hit in verification.picks],
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(picks),
+                       "span_keys": [hit.record_id for hit in picks],
                        **({"references": references} if references else {})}
 
     def _remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit],
@@ -455,7 +456,7 @@ class TutorSpanProvider:
         if status not in ("verified", "cached"):
             return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
         by_key = {hit.key: hit for hit in pool}
-        chosen = [by_key[key] for key in picks if key in by_key]
+        chosen = _delivered(vault, repository, search, [by_key[key] for key in picks if key in by_key])
         complete = vault.config.tutor_qa.expanded_delivery
         spans, references = with_references(vault, repository,
                                              [span_context(hit, complete=complete) for hit in chosen], scope,
@@ -463,6 +464,16 @@ class TutorSpanProvider:
         return spans, {**manifest, "basis": "retrieved_verified", "spans": len(chosen),
                        "span_keys": [hit.record_id for hit in chosen],
                        **({"references": references} if references else {})}
+
+
+def _delivered(vault: LoadedVault, repository: Repository, search: SpanSearch, picks: list[SpanHit]) -> list[SpanHit]:
+    """The verified spans the tutor is given, recorded as this consumer's
+    delivery in their final order (local contextual retrieval P1, Codex
+    review F9; nothing is logged while no new embedding space is on)."""
+
+    from learnloop.source_retrieval.feedback import deliver
+
+    return [picks[index] for index in deliver(vault, repository, search, [hit.key for hit in picks])]
 
 
 class PinnedSpanProvider:

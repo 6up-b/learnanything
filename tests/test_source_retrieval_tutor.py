@@ -337,3 +337,35 @@ def test_the_tutor_does_not_rewrite_questions_by_default(tmp_path):
     assert manifest["search"]["rewrite"] == {"status": "disabled",
                                              "reason": "source_retrieval.tutor_query_rewrite is false"}
     assert manifest["elapsed_ms"] >= 0
+
+
+def test_the_tutor_records_as_delivered_only_the_spans_it_was_given(tmp_path, monkeypatch):
+    """Local contextual retrieval, Codex review F9: the search's candidate pool
+    is not a delivery. With a new embedding space on, the delivered rows are
+    exactly the verified spans the tutor was given, in that order, and the
+    tutor's validated citations join them."""
+
+    import sqlite3
+
+    from learnloop.db.stores.retrieval_spaces import feedback_rows
+    from learnloop.source_retrieval import fallback_space
+    from tests.local_embeddings_fakes import VOYAGE_PROFILE, FakeVoyageClient
+
+    paths, repository = setup(tmp_path)
+    append_config_toml(paths.root, VOYAGE_PROFILE)
+    client = FakeVoyageClient()
+    monkeypatch.setattr(fallback_space, "fallback_client", lambda _vault: (client, None))
+    tutor = CitingTutor()
+    span_provider, _llm = provider()
+    clear_cache()
+    result = ask(paths, repository, tutor, span_provider=span_provider)
+    spans = [(span["extraction_id"], span["span_id"]) for span in tutor.contexts[0].source_spans
+             if span["relation"] == "retrieved"]
+    with closing(sqlite3.connect(repository.sqlite_path)) as connection:
+        rows = feedback_rows(connection)
+    query = [row for row in rows if row["event"] == "query"]
+    delivered = [(row["extraction_id"], row["span_id"]) for row in rows if row["event"] == "delivered"]
+    assert len(query) == 1 and len(query[0]["payload"]["candidates"]) > len(spans)
+    assert spans and delivered == spans
+    cited = {(row["extraction_id"], row["span_id"]) for row in rows if row["event"] == "cited"}
+    assert cited == {(c["extraction_id"], c["span_id"]) for c in result["citations"]} and cited <= set(delivered)

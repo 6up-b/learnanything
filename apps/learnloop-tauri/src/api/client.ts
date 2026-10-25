@@ -1538,6 +1538,11 @@ export const api = {
   // rewrite a conceptual question. Typing runs the local keyword search only.
   readerSearchSources: (input: { query: string; limit?: number; deep?: boolean }) =>
     call<ReaderSourceSearchDto>("reader_search_sources", { input }),
+  // Local contextual retrieval P1: the learner opened a library search result
+  // (a relevance signal on the result's receipt; nothing is recorded while no
+  // new embedding space is on).
+  readerRetrievalOpen: (input: { receiptId: string; extractionId: string; spanId: string }) =>
+    call<{ recorded: boolean }>("reader_retrieval_open", { input }),
   // Slice 2 T6: a span's provenance-linked LOs, else labelled nearest-LO suggestions.
   readerSpanLearningObjects: (input: { extractionId: string; spanId: string }) =>
     call<ReaderSpanLearningObjectsDto>("reader_span_learning_objects", { input }),

@@ -117,6 +117,10 @@ KNOWN_JOB_TYPES = frozenset(
         "append_synthesis",
         "extraction_repair",
         "source_embedding_backfill",
+        # Local contextual retrieval P1a/P1b: the local 9B index batch and the
+        # Voyage fallback backfill (each queued only while its switch is on).
+        "local_source_index",
+        "source_fallback_backfill",
     }
 )
 

@@ -30,6 +30,7 @@ from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
+from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 NOW = "2026-10-21T10:00:00Z"
@@ -69,9 +70,9 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 (its own two tables, altering nothing) lands with 217 on the way to head.
-    assert [migration.version for migration in applied] == [216, 217, 218, 219]  # and T1's 218, RW2d's 219
+    assert [migration.version for migration in applied] == [216, 217, 218, 219, 220]  # and T1's 218, RW2d's 219, local retrieval P1's 220
     after = _schema(database)
-    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - RW2D_ALTERED_TABLES == set(), "217 alters nothing"
     return database
 
@@ -151,8 +152,8 @@ def test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables(tmp_
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 219
-    # RW5a's 216 landed after RW7a; AD2+AD3's 214 joined them at its compose round, T1's 218 and RW2d's 219 after.
-    assert {214, 215, 216, 217, 218, 219} <= set(applied_versions(HEAD))
+    # RW5a's 216 landed after RW7a; AD2+AD3's 214 joined them at its compose round, T1's 218, RW2d's 219 and local retrieval P1's 220 after.
+    assert {214, 215, 216, 217, 218, 219, 220} <= set(applied_versions(HEAD))
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("reader_path_sections", "reader_path_depths"):

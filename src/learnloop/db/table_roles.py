@@ -191,6 +191,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("diagnostic_surface_generation_needs", TableRole.WORKFLOW),
     ("discrimination_profile_matches", TableRole.RECEIPT),
     ("elicitation_events", TableRole.COMPAT),
+    # Local contextual retrieval P1a (migration 220): each embedding space a
+    # vault has used for source retrieval, its pins, status and canaries
+    # (mutable: epoch_drift, retired; preserved across replay).
+    ("embedding_spaces", TableRole.WORKFLOW),
     ("embedding_vectors", TableRole.WORKFLOW),
     ("entity_source_links", TableRole.RAW_LEDGER),
     # Q9 (migration 205): each event a regrade re-mints records the ids it
@@ -449,6 +453,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reference_key_checks", TableRole.RAW_LEDGER),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
+    # Local contextual retrieval P1a (migration 220): append-only delivery and
+    # signal receipts (citations, opens, anchors) and the fusion posterior
+    # DERIVED from them (one replayer: retrieval_fusion_posteriors).
+    ("retrieval_feedback", TableRole.RECEIPT),
+    ("retrieval_fusion_posteriors", TableRole.DERIVED),
     # Canonical sources S5: what retrieval showed or served (append-only facts)
     # and its outcome join (one replayer: retrieval_intervention_outcomes).
     ("retrieval_intervention_outcomes", TableRole.DERIVED),

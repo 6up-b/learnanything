@@ -2381,7 +2381,14 @@ export function ReaderScreen({
                       <Card
                         key={`${hit.extractionId}/${hit.spanId}`}
                         onClick={() => {
-                          if (card && opening === null) void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+                          if (card && opening === null) {
+                            const receiptId = searchResults.retrievalReceiptId;
+                            if (receiptId) {
+                              // Local contextual retrieval P1: the open is a relevance signal (never blocks the open).
+                              void api.readerRetrievalOpen({ receiptId, extractionId: hit.extractionId, spanId: hit.spanId }).catch(() => undefined);
+                            }
+                            void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+                          }
                         }}
                         style={{ display: "flex", flexDirection: "column", gap: 4, cursor: card ? "pointer" : "default" }}
                       >

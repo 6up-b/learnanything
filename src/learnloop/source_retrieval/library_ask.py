@@ -688,6 +688,25 @@ def ask_library(
     }
 
 
+def _record_ask_citations(vault: LoadedVault, repository: Repository, row: Mapping[str, Any],
+                          citations: Sequence[Mapping[str, Any]]) -> int:
+    """Local contextual retrieval P1 (spec §9.2, Codex review F11): the pinned
+    tutor answer's validated citations are relevance signals on the passages
+    the ask's own searches delivered (joined by their receipts). Nothing is
+    read while no new embedding space is on; never fails the answer."""
+
+    embedding = vault.config.embedding
+    if not (embedding.local.enabled or embedding.fallback.enabled) or not embedding.source_space.log_feedback:
+        return 0
+    from learnloop.source_retrieval.feedback import record_receipt_citations
+
+    manifest = row.get("manifest") or {}
+    searches = [(manifest.get("main") or {}).get("search") or {}]
+    searches += [((entry.get("manifest") or {}).get("search") or {}) for entry in manifest.get("expansions") or ()]
+    receipts = [str((search.get("space_selection") or {}).get("receipt_id") or "") for search in searches]
+    return record_receipt_citations(repository, receipt_ids=receipts, citations=citations)
+
+
 def ask_row(repository: Repository, ask_id: str) -> dict[str, Any]:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = ask_store.ask_row(connection, ask_id)
@@ -1217,6 +1236,7 @@ def ask_tutor(
     _event(repository, "library_tutor_asked", {
         "extraction_id": row["extraction_id"], "span_count": len(grounded),
     }, subject_id=row["extraction_id"], clock=clock)
+    _record_ask_citations(vault, repository, row, result.get("citations") or [])
     return {
         "ask_id": ask_id, "event_id": result["event_id"],
         "reader_answer_event_id": result.get("reader_answer_event_id"),

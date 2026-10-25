@@ -1,0 +1,309 @@
+"""`learnloop experiments`: research experiments on vault copies (never production).
+
+`experiments e0 prepare` makes backup-API copies of vaults under a
+`fixtures-local` directory (never `arxiv_v2`). `experiments e0 run --dry-run`
+plans E0 on those copies with zero network calls and no writes to them: the
+frozen plan, the estimate against the $25 cap, and which keys are present
+(names only). A run without `--dry-run` is the paid run: it needs
+`--i-am-authorized-to-spend` (an orchestrator step after review) and a dry
+run that fits. `experiments e0 report` renders the aggregate report.
+
+The experiment package is imported only inside these commands.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+experiments_app = typer.Typer(no_args_is_help=True,
+                              help="Research experiments on vault copies (never production serving).")
+e0_app = typer.Typer(no_args_is_help=True, help="E0: hosted contextual source embeddings, no GPU (spec §5).")
+experiments_app.add_typer(e0_app, name="e0")
+
+_DEFAULT_ROOT = Path("fixtures-local") / "contextual-embeddings"
+
+
+def _fail(exc: Exception) -> None:
+    """Print a failure's SAFE message only (never a provider's text, which can
+    echo a credential: fix round 4, High 8) and exit 1, unchained."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import safe_message
+
+    typer.echo(json.dumps({"status": "invalid", "reason": safe_message(exc)}, sort_keys=True))
+    raise typer.Exit(code=1) from None
+
+
+@e0_app.command("prepare")
+def e0_prepare(
+    source: Annotated[list[Path], typer.Option("--from", help="A vault root to copy (repeatable; never arxiv_v2).")],
+    label: Annotated[str, typer.Option("--label", help="Suffix of each copy's directory, such as a date.")],
+    dest: Annotated[Path, typer.Option("--dest", help="Under a fixtures-local directory.")] = _DEFAULT_ROOT / "vaults",
+) -> None:
+    """Copy vaults through SQLite's backup API (WAL state included) for E0."""
+
+    from learnloop.experiments.contextual_embeddings.corpus import prepare_copies
+
+    try:
+        copies = prepare_copies(source, dest, label=label)
+    except (ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(json.dumps({"status": "ok", "copies": copies}, sort_keys=True, indent=2))
+
+
+@e0_app.command("run")
+def e0_run(
+    copy: Annotated[list[Path], typer.Option("--copy", help="A prepared vault copy (repeatable).")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: no network, nothing written to the copies.")] = False,
+    env_file: Annotated[list[Path] | None, typer.Option(
+        "--env-file", help="Load only the named key variables from this dotenv file (repeatable; never printed; a "
+                           "variable with different values in two files is refused).")] = None,
+    preflight_only: Annotated[bool, typer.Option(
+        "--preflight-only", help="Load the env files and report the paid run's checks (keys present/absent only); "
+                                 "no network, nothing spent.")] = False,
+    perplexity_key_env: Annotated[str, typer.Option("--perplexity-key-env")] = "PERPLEXITY_API_KEY",
+    voyage_key_env: Annotated[str, typer.Option("--voyage-key-env")] = "VOYAGE_API_KEY",
+    openrouter_key_env: Annotated[str, typer.Option("--openrouter-key-env")] = "OPENROUTER_API_KEY",
+    anthropic_key_env: Annotated[str, typer.Option(
+        "--anthropic-key-env", help="The Messages API key variable (loaded only through --env-file).")] = "ANTHROPIC_API_KEY",
+    reserve_share: Annotated[float, typer.Option(
+        "--reserve-share", min=0.0, max=1.0, help="Source families reserved before question writing.")] = 0.0,
+    out: Annotated[Path | None, typer.Option("--out", help="Write the plan (JSON) here.")] = None,
+    markdown: Annotated[Path | None, typer.Option("--markdown", help="Write the plan (Markdown) here.")] = None,
+    run_dir: Annotated[Path, typer.Option("--run-dir", help="The paid run's private directory.")] = _DEFAULT_ROOT / "runs",
+    authorized: Annotated[bool, typer.Option(
+        "--i-am-authorized-to-spend", help="The orchestrator's explicit authorization for the paid run.")] = False,
+    reader_latency_budget_s: Annotated[float | None, typer.Option(
+        "--reader-latency-budget-s", min=0.1,
+        help="The pinned Reader p95 answer budget for S2/S4 (unset: those rules fail closed).")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    new_authorization: Annotated[str | None, typer.Option(
+        "--new-authorization",
+        help="The orchestrator's reason for a new plan's budget while another plan's ledger exists (that "
+             "ledger is sealed and its spend carried: the cap is cumulative).")] = None,
+    reuse_run: Annotated[str | None, typer.Option(
+        "--reuse-run",
+        help="An earlier run id under --run-dir whose content-keyed stores this plan reuses (checkpoints, "
+             "vectors, service copies, records); its ledger prices the remaining work.")] = None,
+) -> None:
+    """Plan (--dry-run), check (--preflight-only) or run E0 on prepared copies within the $40 cap."""
+
+    from learnloop.experiments.contextual_embeddings.runner import dry_run as plan_dry_run, render_markdown
+
+    key_envs = {"perplexity": perplexity_key_env, "voyage": voyage_key_env, "openrouter": openrouter_key_env,
+                "anthropic": anthropic_key_env}
+    try:
+        from learnloop.experiments.contextual_embeddings.runner import require_paid_authorization
+
+        if preflight_only:
+            from learnloop.experiments.contextual_embeddings.runner import preflight
+
+            report = preflight(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share,
+                               reuse_run=reuse_run)
+            typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2, default=str))
+            if not report["ready"]:
+                raise typer.Exit(code=1)
+            return
+        if not dry_run and not authorized:
+            require_paid_authorization(authorized=False, dry_run_ok=False)
+        plan = plan_dry_run(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share,
+                            reuse_run=reuse_run)
+        if out is not None:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(plan, sort_keys=True, indent=1, default=str) + "\n", encoding="utf-8")
+        if markdown is not None:
+            markdown.parent.mkdir(parents=True, exist_ok=True)
+            markdown.write_text(render_markdown(plan), encoding="utf-8")
+        if not dry_run:
+            from learnloop.cli.receipts import bind_command_repository
+            from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown
+            from learnloop.experiments.contextual_embeddings.live import run_live
+
+            # Every E0 Codex turn must be the locked-down one (security lockdown 55063be64).
+            require_codex_lockdown()
+            # The estimate must fit what is left of the CUMULATIVE cap (relabel round).
+            budget = plan.get("budget") or {"fits": plan["totals"]["fits_cap"]}
+            require_paid_authorization(authorized=authorized, dry_run_ok=bool(budget["fits"]),
+                                       unverified_prices=plan.get("prices", {}).get("unverified"))
+            # Receipts go to each copy's experiment repository, never to a vault
+            # found from the working directory (Codex review F4).
+            result = run_live(copy, plan=plan, run_dir=run_dir, key_envs=key_envs,
+                              reader_latency_budget_s=reader_latency_budget_s,
+                              bind_receipts=bind_command_repository, new_authorization=new_authorization,
+                              reuse_run=reuse_run)
+            typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
+            return
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001 - every failure prints its safe message only (High 8)
+        _fail(exc)
+    if json_output:
+        typer.echo(json.dumps(plan, sort_keys=True, default=str))
+    else:
+        typer.echo(render_markdown(plan))
+
+
+@e0_app.command("report")
+def e0_report(
+    results: Annotated[Path, typer.Option("--results", help="A results JSON written by the paid run.")],
+    out: Annotated[Path | None, typer.Option("--out", help="Write the Markdown report here.")] = None,
+) -> None:
+    """Render the aggregate E0 report (refuses private fields)."""
+
+    from learnloop.experiments.contextual_embeddings.report import render
+
+    try:
+        text = render(json.loads(results.read_text(encoding="utf-8")))
+    except (ValueError, OSError) as exc:
+        _fail(exc)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+    typer.echo(text)
+
+
+# -- E1: local pplx v2-context-9b (spec §8) -------------------------------------------------
+e1_app = typer.Typer(no_args_is_help=True, help="E1: local pplx v2-context-9b batch pilot (spec §8).")
+experiments_app.add_typer(e1_app, name="e1")
+_E1_ROOT = _DEFAULT_ROOT / "e1"
+
+
+def _e1_plan(path: Path) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+@e1_app.command("import")
+def e1_import(
+    e0_run: Annotated[Path, typer.Option("--e0-run", help="A FINISHED E0 run directory (runs/<e0 plan id>).")],
+    e0_vaults: Annotated[Path, typer.Option("--e0-vaults", help="E0's frozen vault copies directory.")],
+    dest: Annotated[Path | None, typer.Option("--dest", help="Under fixtures-local (default e1/imports/<run>).")] = None,
+) -> None:
+    """Copy a finished E0 run's outputs into E1's fixtures-local (backup API; read-only on E0)."""
+
+    from learnloop.experiments.contextual_embeddings.e1.replay import import_e0
+
+    try:
+        manifest = import_e0(e0_run, e0_vaults, dest or _E1_ROOT / "imports" / e0_run.name)
+    except (ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(json.dumps({"status": "ok", "e0_run_id": manifest["e0_run_id"], "copies": manifest["labels"]},
+                          sort_keys=True, indent=2))
+
+
+@e1_app.command("plan")
+def e1_plan(
+    e0_run: Annotated[Path | None, typer.Option("--e0-run", help="Plan from E0's frozen manifests (provisional).")] = None,
+    import_dir: Annotated[Path | None, typer.Option("--import", help="Plan from a verified E1 import (frozen).")] = None,
+    env_file: Annotated[list[Path] | None, typer.Option("--env-file", help="Report key presence (names only).")] = None,
+    out: Annotated[Path | None, typer.Option("--out", help="Write the plan (JSON) here.")] = None,
+    markdown: Annotated[Path | None, typer.Option("--markdown", help="Write the plan (Markdown) here.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """The E1 dry run: the plan, GPU-hours and dollar estimates; no network, nothing written to the inputs."""
+
+    from learnloop.experiments.contextual_embeddings.e1.plan import render_markdown
+    from learnloop.experiments.contextual_embeddings.e1.run import dry_run as e1_dry_run
+
+    try:
+        plan = e1_dry_run(e0_run_dir=e0_run, import_dir=import_dir, env_file=env_file or [])
+    except Exception as exc:  # noqa: BLE001 - the safe message only
+        _fail(exc)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(plan, sort_keys=True, indent=1, default=str) + "\n", encoding="utf-8")
+    if markdown is not None:
+        markdown.parent.mkdir(parents=True, exist_ok=True)
+        markdown.write_text(render_markdown(plan), encoding="utf-8")
+    typer.echo(json.dumps(plan, sort_keys=True, default=str) if json_output else render_markdown(plan))
+
+
+@e1_app.command("preflight")
+def e1_preflight(
+    import_dir: Annotated[Path, typer.Option("--import", help="The E1 import.")],
+    plan_path: Annotated[Path, typer.Option("--plan", help="The frozen E1 plan (JSON from `e1 plan --import`).")],
+    model_dir: Annotated[Path, typer.Option("--model-dir", help="The downloaded model at the pinned revision.")],
+    env_python: Annotated[Path, typer.Option("--env-python", help="The SEPARATE environment's interpreter.")],
+    verify_weights: Annotated[bool, typer.Option("--verify-weights", help="Hash every shard (~34 GB read).")] = False,
+) -> None:
+    """Every check the GPU stage needs (resources measured now), nothing loaded."""
+
+    from learnloop.experiments.contextual_embeddings.e1.replay import ImportLayout
+    from learnloop.experiments.contextual_embeddings.e1.run import preflight
+
+    try:
+        report = preflight(_e1_plan(plan_path), ImportLayout(import_dir), model_dir=model_dir, env_python=env_python,
+                           verify_weights=verify_weights)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc)
+    typer.echo(json.dumps(report, sort_keys=True, indent=2, default=str))
+    if not report["ready"]:
+        raise typer.Exit(code=1)
+
+
+@e1_app.command("run")
+def e1_run(
+    stage: Annotated[str, typer.Option("--stage", help="local (GPU), labels (paid) or score.")],
+    import_dir: Annotated[Path, typer.Option("--import", help="The E1 import.")],
+    plan_path: Annotated[Path, typer.Option("--plan", help="The frozen E1 plan.")],
+    model_dir: Annotated[Path | None, typer.Option("--model-dir")] = None,
+    env_python: Annotated[Path | None, typer.Option("--env-python")] = None,
+    idle_gpu: Annotated[bool, typer.Option(
+        "--i-have-an-idle-gpu-slot", help="The owner's idle GPU slot (local stage).")] = False,
+    authorized: Annotated[bool, typer.Option(
+        "--i-am-authorized-to-spend", help="The orchestrator's authorization (labels stage, <= $5).")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="labels: exact counts and estimate, no network.")] = False,
+    smoke_only: Annotated[bool, typer.Option(
+        "--smoke-only", help="local: load, the smoke checks, unload; no profiling or encoding (metered).")] = False,
+    env_file: Annotated[list[Path] | None, typer.Option("--env-file", help="Load only the named keys.")] = None,
+    new_authorization: Annotated[str | None, typer.Option("--new-authorization")] = None,
+) -> None:
+    """Run one E1 stage of a frozen plan."""
+
+    from learnloop.experiments.contextual_embeddings.e1.replay import ImportLayout
+    from learnloop.experiments.contextual_embeddings.e1 import run as e1
+
+    layout = ImportLayout(import_dir)
+    try:
+        plan = _e1_plan(plan_path)
+        if stage == "local":
+            if not idle_gpu or model_dir is None or env_python is None:
+                raise ValueError("the local stage needs --i-have-an-idle-gpu-slot, --model-dir and --env-python")
+            from learnloop.experiments.contextual_embeddings.e1.local import ScopedLauncher
+
+            ready = e1.preflight(plan, layout, model_dir=model_dir, env_python=env_python)
+            if not ready["ready"]:
+                typer.echo(json.dumps(ready, sort_keys=True, indent=2, default=str))
+                raise typer.Exit(code=1)
+            result = e1.run_local(plan, layout, model_dir=model_dir, launcher=ScopedLauncher(env_python),
+                                  check_plan=False, smoke_only=smoke_only)
+        elif stage == "labels":
+            result = e1.run_labels(plan, layout, authorized=authorized, dry_run_only=dry_run,
+                                   env_file=env_file or [], new_authorization=new_authorization)
+        elif stage == "score":
+            result = e1.score(plan, layout)
+        else:
+            raise ValueError("--stage is local, labels or score")
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc)
+    typer.echo(json.dumps(result, sort_keys=True, indent=2, default=str))
+
+
+@e1_app.command("report")
+def e1_report(
+    results: Annotated[Path, typer.Option("--results", help="results.json from `e1 run --stage score`.")],
+    out: Annotated[Path | None, typer.Option("--out", help="Write the Markdown report here.")] = None,
+) -> None:
+    """Render the aggregate E1 report (refuses private fields)."""
+
+    from learnloop.experiments.contextual_embeddings.e1.report import render
+
+    try:
+        text = render(json.loads(results.read_text(encoding="utf-8")))
+    except (ValueError, OSError) as exc:
+        _fail(exc)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+    typer.echo(text)

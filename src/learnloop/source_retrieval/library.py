@@ -35,6 +35,7 @@ from learnloop.source_retrieval.contracts import QueryRewrite
 from learnloop.source_retrieval.corpus import Scope, library_scope
 from learnloop.source_retrieval.dense import dense_coverage
 from learnloop.source_retrieval.queries import (
+    LARGEST_QUERY_TEXT,
     MAX_QUERY_CHARS,
     QUERY_EMBEDDING_CAPS,
     QUERY_RECORD_KIND,
@@ -133,8 +134,13 @@ def search_library(
         vault, repository, needle, scope, limit=limit, deep=deep, include_substring=True,
         prefix_last=not deep, embedder=embedder, rewrite_client=rewrite_client,
         owner_id="library", deadline=(time.monotonic() + config.retrieval_timeout_seconds) if deep else None,
-        budget=budget,
+        budget=budget, consumer="library",
     )
+    # Local contextual retrieval P1 (Codex review F9): the results shown are
+    # this consumer's delivery (nothing is logged while no new space is on).
+    from learnloop.source_retrieval.feedback import deliver
+
+    shown = [search.hits[index] for index in deliver(vault, repository, search, [hit.key for hit in search.hits])]
     hits = [{
         "source_id": hit.source_id,
         "source_title": hit.source_title,
@@ -144,21 +150,39 @@ def search_library(
         "page": hit.page,
         "snippet": _snippet(hit.text, needle),
         "matched_by": sorted(hit.ranks),
-    } for hit in search.hits]
-    return {
+    } for hit in shown]
+    response = {
         "query": needle, "hits": hits, "searched_sources": len(scope.extractions),
         "basis": search.basis, "deep": deep,
         "meaning_search": meaning_search_state(vault, repository, scope, embedder=embedder),
         "retrieval": search.describe(),
     }
+    receipt = (search.space_selection or {}).get("receipt_id")
+    if receipt and (search.space_selection or {}).get("logged"):
+        # The result's receipt, sent back when the learner opens a hit
+        # (``reader.retrieval_open``; Codex review F11). Absent unless a new
+        # embedding space is on and the search was logged.
+        response["retrieval_receipt_id"] = receipt
+    return response
+
+
+#: structural: the texts a deep search embeds per query encoder (the question and its rewrite).
+QUERY_TEXTS = 2
 
 
 def deep_search_caps(*, max_calls: int, max_tokens: int, max_cost_usd: float) -> SpendCaps:
     """One budget for a deep search's paid steps: the rewrite (and its retry) and
-    the query embedding (the question and its rewrite)."""
+    each paid query encoder's embedding of the question and its rewrite.
 
-    return SpendCaps(max_candidates=3, max_pairs=0, max_retries=1, max_calls=max_calls,
-                     max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd)
+    The candidate allowance is structural, sized for every paid query encoder
+    the resolver may ask (Qwen's and the hosted fallback's; Codex re-review
+    F17): the caller's explicit limits (calls, tokens, dollars) are what bound
+    the search."""
+
+    from learnloop.source_retrieval.spaces import PAID_QUERY_SPACES
+
+    return SpendCaps(max_candidates=1 + QUERY_TEXTS * len(PAID_QUERY_SPACES), max_pairs=0, max_retries=1,
+                     max_calls=max_calls, max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd)
 
 
 def plan_library_search(vault: LoadedVault, repository: Repository, *, query: str, deep: bool,
@@ -212,21 +236,23 @@ def plan_library_search(vault: LoadedVault, repository: Repository, *, query: st
                          else total_usd + view["marginal_usd"] + retry["marginal_usd"])
     plan["rewrite"] = rewrite
     meaning = plan["meaning_search"]
+    # The rewrite's text is unknown until it runs: each query embedding plans
+    # it at its largest encoding and never as a cached text (Codex re-review F2).
+    unknown = 1 if rewrite.get("status") == "would_call" else 0
     if meaning["status"] in {"ready", "partial"}:
         texts = {query_id(needle): needle}
-        if rewrite.get("status") == "would_call":
-            # The rewrite's text is unknown until it runs: plan its worst case.
-            texts["rewrite"] = "x" * MAX_QUERY_CHARS
         model_id = vault.config.embedding.model
         cached = cached_query_vectors(repository, model_id, texts, record_kind=QUERY_RECORD_KIND)
         pending = {key: text for key, text in texts.items() if key not in cached}
-        tokens = sum(estimated_tokens(text) for text in pending.values())
+        tokens = sum(estimated_tokens(text) for text in pending.values()) + unknown * estimated_tokens(
+            LARGEST_QUERY_TEXT)
+        texts_count, pending_count = len(texts) + unknown, len(pending) + unknown
         price, price_source = query_embedding_price(model_id, config.query_embedding_price_per_million)
-        embedding = {"status": "would_call" if pending else "cached", "model_id": model_id,
-                     "texts": len(texts), "pending": len(pending), "calls": 1 if pending else 0,
+        embedding = {"status": "would_call" if pending_count else "cached", "model_id": model_id,
+                     "texts": texts_count, "pending": pending_count, "calls": 1 if pending_count else 0,
                      "estimated_tokens": tokens,
                      "estimated_usd": (tokens * price / 1_000_000 if price is not None
-                                       else (0.0 if not pending else None)),
+                                       else (0.0 if not pending_count else None)),
                      "price_per_million": price, "price_source": price_source}
         calls += int(embedding["calls"])
         if total_usd is not None:
@@ -234,6 +260,19 @@ def plan_library_search(vault: LoadedVault, repository: Repository, *, query: st
     else:
         embedding = {"status": "unused", "calls": 0, "reason": meaning.get("reason")}
     plan["query_embedding"] = embedding
+    # Codex review F2: the hosted fallback space's query is a paid request of
+    # the same search, planned at its worst case (queried whenever it serves a
+    # source in scope) under the same caller budget.
+    from learnloop.source_retrieval.spaces import resolver_active
+
+    if resolver_active(vault.config):
+        from learnloop.source_retrieval.fallback_space import plan_query
+
+        fallback_query = plan_query(vault, repository, {"query": needle}, unknown=unknown)
+        plan["fallback_query_embedding"] = fallback_query
+        calls += int(fallback_query["calls"])
+        if total_usd is not None:
+            total_usd += float(fallback_query["estimated_usd"])
     plan["caps"] = (caps.as_dict() if caps is not None else
                     {"rewrite": rewrite_caps(vault).as_dict(), "query_embedding": QUERY_EMBEDDING_CAPS.as_dict()})
     plan["time_box_seconds"] = config.retrieval_timeout_seconds

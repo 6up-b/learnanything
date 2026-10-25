@@ -835,6 +835,7 @@ def ask_question(
         # provided-span allowlist. Today can then link this exact discussion
         # instead of guessing from the broader learning-object source set.
         source_context["citations"] = citations
+        _record_retrieval_citations(vault, repository, source_context, citations)
     learner_gap = _learner_gap_reading(answer, model=getattr(client, "model", None))
     if learner_gap is not None:
         source_context = dict(source_context or {})
@@ -1056,6 +1057,33 @@ def _learner_gap_reading(answer: Any, *, model: Any = None) -> dict[str, Any] | 
     reading["prompt_version"] = TUTOR_QA_PROMPT_VERSION
     reading["model"] = str(model) if model else None
     return reading
+
+
+def _record_retrieval_citations(vault: LoadedVault, repository: Repository,
+                                source_context: Mapping[str, Any] | None,
+                                citations: list[dict[str, Any]]) -> None:
+    """Local contextual retrieval P1 (spec §9.2): a validated citation is a
+    relevance signal on the span the tutor's search delivered. It joins that
+    search's delivery receipt by the question's retrieval owner id; with no
+    logged delivery (no new embedding space on) nothing is written. Never
+    fails the answer. While neither new space is switched on (the defaults)
+    nothing is read either, so today's path does no new work."""
+
+    embedding = vault.config.embedding
+    if not (embedding.local.enabled or embedding.fallback.enabled) or not embedding.source_space.log_feedback:
+        return
+    retrieval = (source_context or {}).get("source_retrieval") or {}
+    owner_id = str(retrieval.get("owner_id") or "") if isinstance(retrieval, Mapping) else ""
+    if not owner_id:
+        return
+    from learnloop.db.stores.retrieval_spaces import has_tables, record_citation_signals
+
+    try:
+        with repository.connection() as connection:
+            if has_tables(connection):
+                record_citation_signals(connection, consumer="tutor", owner_id=owner_id, citations=citations)
+    except Exception:  # noqa: BLE001 - a signal never fails the answer
+        logger.warning("retrieval citations could not be logged", exc_info=True)
 
 
 def _validated_citations(answer: Any, source_spans: list[dict[str, Any]]) -> list[dict[str, Any]]:

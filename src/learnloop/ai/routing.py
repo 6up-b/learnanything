@@ -13,6 +13,7 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.config import LearnLoopConfig
 from learnloop.config.schema import (
     CHATGPT_PLAN_PROFILE_TYPE, DECIDER_PROFILE_TYPE, DEFAULT_DECIDER_PROVIDER, DEFAULT_EMBEDDING_PROVIDER,
+    VOYAGE_CONTEXTUAL_PROFILE_TYPE,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -488,6 +489,14 @@ def route_profile_mismatch(
     profile_type = profile.type.strip().lower()
     embedding_profile = profile_type == EMBEDDING_PROFILE_TYPE
     decider_profile = profile_type == DECIDER_PROFILE_TYPE
+    if profile_type == VOYAGE_CONTEXTUAL_PROFILE_TYPE:
+        # Local contextual retrieval P1b: the fallback space's profile serves
+        # that space alone (source_retrieval.fallback_space), never an AI task,
+        # the Qwen embedding route included.
+        return (
+            f"{provider_name!r} is the source-retrieval fallback space's embedding-only profile; "
+            f"it cannot serve {task or 'generation'} work."
+        )
     if task == "embedding" and not embedding_profile:
         return f"Embedding requires an {EMBEDDING_PROFILE_TYPE} profile; {provider_name!r} is {profile.type!r}."
     if task in DECIDER_TASKS and not decider_profile:
@@ -535,6 +544,9 @@ def is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool:
     Unknown names are left to the caller's own validation.
     """
 
+    profile = config.ai.providers.get(provider_name)
+    if profile is not None and profile.type.strip().lower() == VOYAGE_CONTEXTUAL_PROFILE_TYPE:
+        return False
     return not (is_embedding_profile(config, provider_name) or is_decider_profile(config, provider_name))
 
 
