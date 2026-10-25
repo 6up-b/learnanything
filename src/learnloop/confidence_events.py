@@ -34,6 +34,17 @@ A held grade is "held for review", never a score (THE predicate). The card
 keeps its own rule (protected past work keeps its result there, so its
 confidence event stays with it).
 
+Consistency (review F2): an attempt's outcome, its hedge read, whether its
+grade is held and the taps so far are read in ONE read snapshot
+(:func:`learner_events`, ``diagnosis.split.live.current_confidence``, the
+router card's gatherer), so a regrade committed between two reads never
+yields an event that neither revision recorded.
+
+Kill switch (review F5): ``teacher.confidence_events_enabled`` (default on;
+:func:`enabled`), read by every reader. Off, no reader carries an event or
+the limit, and each context is its predecessor's (the card is a
+``learner_state_card_v1`` card).
+
 TE0 changes model contexts and the card only: no persisted meaning, no
 learned weight (the tap/hedge recalibration is LP-min, later). Read-only;
 nothing is written and no model is called.
@@ -81,6 +92,13 @@ _HEDGE_WORDS = {
     "confident": "the grader read the answer as confident",
     "mixed": "the grader read parts of the answer as hedged",
 }
+
+
+def enabled(vault: Any) -> bool:
+    """TE0's kill switch, ``teacher.confidence_events_enabled`` (default on)."""
+
+    teacher = getattr(getattr(vault, "config", None), "teacher", None)
+    return bool(getattr(teacher, "confidence_events_enabled", True))
 
 
 @dataclass(frozen=True)
@@ -145,6 +163,21 @@ def event_text(reading: Reading | None, result: str) -> str | None:
         parts.append(_HEDGE_WORDS.get(reading.hedge, f"the grader read the answer as {reading.hedge}"))
     parts.append(_RESULT_WORDS.get(result, str(result).replace("_", " ")))
     return "; ".join(parts)
+
+
+def current_block(reading: Reading | None, result: str, taps: Sequence[Any] = ()) -> dict[str, Any] | None:
+    """The diagnosed attempt's block (version, note, event and the stated
+    limit over ``taps``, which include its own); None with no reading. Live
+    and offline diagnosis both build it here (review F4)."""
+
+    event = event_text(reading, result)
+    if event is None:
+        return None
+    block: dict[str, Any] = {"version": VERSION, "note": NOTE, "event": event}
+    limit = taps_limit(taps)
+    if limit:
+        block["taps_so_far"] = limit
+    return block
 
 
 def taps_limit(taps: Sequence[Any]) -> str | None:
@@ -236,15 +269,20 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
     ``before_iso``, newest first, each "YYYY-MM-DD: <event>", with the stated
     limit. An attempt the shared protection withholds contributes nothing.
     None when there is no event (the context then renders exactly as before
-    TE0), and when the protection cannot be read (fail closed)."""
+    TE0), when the protection cannot be read (fail closed), and with the
+    kill switch off. The outcomes, hedge reads, held grades and taps are
+    read in one snapshot (review F2)."""
 
     from learnloop import learner_protection as protection
+    from learnloop.db.stores.write_provenance import read_snapshot
 
+    if not enabled(vault):
+        return None
     los = [str(lo) for lo in dict.fromkeys(learning_object_ids) if lo]
     if not los:
         return None
     marks = ",".join("?" for _ in los)
-    with repository.connection() as connection:
+    with repository.connection() as connection, read_snapshot(connection):
         columns = _columns(connection, "practice_attempts")
         if "answer_confidence" not in columns:
             return None
@@ -256,6 +294,8 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
             (*los, before_iso),
         )]
         found = readings(connection, rows)
+        held = protection.held_attempts(connection, list(found)) if found else frozenset()
+        taps = taps_before(connection, before_iso) if found else []
     if not found:
         return None
     # The shared protection, read only when there is something to show.
@@ -273,9 +313,6 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
             bucket.append(row)
     if not kept:
         return None
-    with repository.connection() as connection:
-        held = protection.held_attempts(connection, [row["id"] for bucket in kept.values() for row in bucket])
-        taps = taps_before(connection, before_iso)
     topics = []
     for lo in los:
         events = []
@@ -308,6 +345,8 @@ __all__ = [
     "Reading",
     "VERSION",
     "combine_hedges",
+    "current_block",
+    "enabled",
     "event_text",
     "hedge_from_record",
     "learner_events",

@@ -900,6 +900,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
     "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
+    "teacher": "teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor)",
 }
 
 

@@ -33,7 +33,8 @@ event in words, the tap and the grader's hedge read with the outcome
 (``confidence_event``: the blind record's own read for an overlaid attempt,
 else the current grading evidence's), from ``learnloop.confidence_events``.
 Both are measurement fields, never diagnosis prose; an attempt with neither
-renders exactly as before.
+renders exactly as before, and so does every attempt with the kill switch
+``teacher.confidence_events_enabled`` off.
 """
 
 from __future__ import annotations
@@ -732,8 +733,10 @@ class VaultHistoryStore:
                 "learner_answer_md, rubric_score, correctness, hints_used, primed, "
                 f"created_at, {tap_column} FROM practice_attempts ORDER BY created_at, id"
             )]
-            # TE0: the grader's hedge read of each attempt's current grading.
-            hedges = confidence_events.read_hedges(connection)
+            # TE0: the grader's hedge read of each attempt's current grading
+            # (none read with the kill switch off: the history is its predecessor's).
+            confidence_on = confidence_events.enabled(self.vault)
+            hedges = confidence_events.read_hedges(connection) if confidence_on else {}
             evidence: dict[str, dict[str, float]] = {}
             #: Attempts with a PF-c unverified criterion row (review F4): those
             #: rows are neither failures nor passes in the history.
@@ -825,12 +828,13 @@ class VaultHistoryStore:
                     fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
                     contract=contracts.get(attempt_id),
                 )
-            record = _with_confidence(
-                record, row.get("answer_confidence"),
-                confidence_events.hedge_from_record(self._blind[attempt_id]) if attempt_id in self._blind
-                else hedges.get(attempt_id),
-                held=attempt_id in held,
-            )
+            if confidence_on:
+                record = _with_confidence(
+                    record, row.get("answer_confidence"),
+                    confidence_events.hedge_from_record(self._blind[attempt_id]) if attempt_id in self._blind
+                    else hedges.get(attempt_id),
+                    held=attempt_id in held,
+                )
             if attempt_id in held:
                 record = replace(record, score=None)
             self._attempts.append(record)

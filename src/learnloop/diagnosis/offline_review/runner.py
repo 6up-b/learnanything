@@ -99,6 +99,7 @@ from learnloop.diagnosis.split.legacy_view import (
     legacy_view_from_grading_proposal,
     stored_legacy_view,
 )
+from learnloop.diagnosis.split.live import confidence_for_offline_target
 from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION, DiagnosisSettings
 from learnloop.ids import new_ulid
@@ -1325,9 +1326,17 @@ class ReviewRun:
             if record is None or diagnosis_client is None:
                 continue
             answer = self.target_answer(target, planted)
+            # Teacher TE0 (review F4): the same confidence block live diagnosis
+            # gives, from this arm's own blind record (the tap and the taps
+            # before it from the review's copy; a planted target, only its
+            # record's hedge read).
+            confidence = confidence_for_offline_target(
+                self.vault, self.repository, attempt_id=target["attempt_id"], completed_at=target["completed_at"],
+                record=record, planted=is_planted,
+            )
             current = current_attempt_from(
                 self.vault, item, attempt_id=target["attempt_id"], completed_at=target["completed_at"],
-                learner_answer_md=answer, blind_grade=record,
+                learner_answer_md=answer, blind_grade=record, confidence=confidence,
             )
             store = planted_history_store(self.vault, planted[target["attempt_id"]]) if is_planted else real_store
             rubric = resolved_rubric(self.vault, item)

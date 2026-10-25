@@ -186,7 +186,7 @@ def current_attempt_for(
         # Fix rounds 11 and 14: the CURRENT symbolic switch, read from the
         # live config file per job (a drain's captured vault may be stale).
         trace = trace_for_attempt(repository, attempt, symbolic_enabled=symbolic_switch_now(vault))
-        confidence = current_confidence(repository, attempt, record)
+        confidence = current_confidence(repository, attempt, record, vault=vault)
     return current_attempt_from(
         vault,
         item,
@@ -200,20 +200,35 @@ def current_attempt_for(
     )
 
 
-def current_confidence(repository: Any, attempt: Mapping[str, Any],
-                       record: Mapping[str, Any]) -> dict[str, Any] | None:
+def current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapping[str, Any], *,
+                       vault: Any = None, vault_grade: bool = True) -> dict[str, Any] | None:
     """Teacher TE0 (spec_teacher_v1 §15.2): the diagnosed attempt's confidence
     event (its tap, and the hedge read of the grade the diagnoser is shown:
-    the blind record's own, else the current grading evidence's) with the
-    stated limit on the taps up to and including this one; None with
-    neither a tap nor a hedge read (the context renders as before). The
-    diagnoser is history-aware; the blind grader never reads any of it."""
+    the blind record's own, else, with ``vault_grade``, the current grading
+    evidence's) with the stated limit on the taps up to and including this
+    one; None with neither a tap nor a hedge read (the context renders as
+    before), and None with ``vault``'s kill switch off. The diagnoser is
+    history-aware; the blind grader never reads any of it.
+
+    The outcome is THE held predicate's (review F1): a grade the record holds
+    (``grade_held_for_review``) or, with ``vault_grade``, one the ledger holds
+    now (``learner_protection.held_attempts``) is "held for review", never a
+    score. Everything is read in one snapshot (review F2). ``vault_grade``
+    off (offline diagnosis, whose record is the review's own blind grade)
+    reads only the tap and the taps from the database, so the vault's
+    grading is never mixed into another grade's event."""
 
     from learnloop import confidence_events as ce
+    from learnloop.db.stores.write_provenance import read_snapshot
+    from learnloop.learner_protection import held_attempts
+    from learnloop.outcome_contract import grade_held_for_review
 
+    if vault is not None and not ce.enabled(vault):
+        return None
     attempt_id = str(attempt["id"])
     completed_at = str(attempt.get("created_at") or "")
-    with repository.connection() as connection:
+    held = grade_held_for_review(record.get("grading_support"))
+    with repository.connection() as connection, read_snapshot(connection):
         tap = attempt.get("answer_confidence")
         if "answer_confidence" not in attempt:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
@@ -223,18 +238,41 @@ def current_confidence(repository: Any, attempt: Mapping[str, Any],
                 ).fetchone()
                 tap = found[0] if found is not None else None
         hedge = ce.hedge_from_record(record)
-        if hedge is None:
+        if hedge is None and vault_grade:
             hedge = ce.read_hedges(connection, [attempt_id]).get(attempt_id)
         reading = ce.Reading(tap=ce.valid_tap(tap), hedge=hedge)
         if not reading.present:
             return None
+        if vault_grade and not held:
+            held = attempt_id in held_attempts(connection, [attempt_id])
         taps = ce.taps_before(connection, completed_at)
-    result = ce.result_class(record.get("rubric_score"), record.get("max_points"))
-    block: dict[str, Any] = {"version": ce.VERSION, "note": ce.NOTE, "event": ce.event_text(reading, result)}
-    limit = ce.taps_limit([*taps, *([reading.tap] if reading.tap is not None else [])])
-    if limit:
-        block["taps_so_far"] = limit
-    return block
+    result = ce.result_class(record.get("rubric_score"), record.get("max_points"), held=held)
+    return ce.current_block(reading, result, [*taps, *([reading.tap] if reading.tap is not None else [])])
+
+
+def confidence_for_offline_target(vault: Any, repository: Any, *, attempt_id: str, completed_at: str,
+                                  record: Mapping[str, Any], planted: bool) -> dict[str, Any] | None:
+    """Review F4: the confidence block an offline diagnosis arm is given, the
+    same assembly as live (:func:`current_confidence`) over the arm's own
+    blind record. A real target reads its tap and the taps before it from
+    the review's copy; a planted target has no tap and no taps (its history
+    is planted), so only its record's hedge read shows. None with the kill
+    switch off or with no reading."""
+
+    from learnloop import confidence_events as ce
+    from learnloop.outcome_contract import grade_held_for_review
+
+    if not ce.enabled(vault):
+        return None
+    if not planted and repository is not None:
+        return current_confidence(repository, {"id": attempt_id, "created_at": completed_at}, record,
+                                  vault=vault, vault_grade=False)
+    reading = ce.Reading(hedge=ce.hedge_from_record(record))
+    if not reading.present:
+        return None
+    result = ce.result_class(record.get("rubric_score"), record.get("max_points"),
+                             held=grade_held_for_review(record.get("grading_support")))
+    return ce.current_block(reading, result)
 
 
 def needs_diagnosis(record: Mapping[str, Any]) -> bool:

@@ -55,7 +55,12 @@ its confidence event (its tap and the grader's hedge read with its result,
 rendered by ``learnloop.confidence_events``), the candidate topics' events in
 the 7-day window are listed, and the limit is stated when the taps so far do
 not span the scale. A protected attempt keeps its result here, so its event
-(which names no question and no answer) stays with it.
+(which names no question and no answer) stays with it. Each topic lists at
+most ``confidence_events.CONTEXT_EVENT_LIMIT`` events (newest first; the rest
+are counted in ``confidence_omitted``), and every read is in one snapshot, so
+an attempt's result and its hedge read are one revision's (review F2, F3).
+With the kill switch ``teacher.confidence_events_enabled`` off nothing is
+read and the card is the predecessor's (review F5).
 
 A section that cannot be read is named in ``unknowns`` rather than guessed.
 Read-only; nothing is written and no model is called.
@@ -73,6 +78,7 @@ from learnloop import confidence_events
 from learnloop import learner_protection as protection
 from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
+from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.learner_protection import PastWork, Withheld, attempt_result, past_work_text, statement_text
 from learnloop.router.card import (
     EXCERPT_LIMIT,
@@ -188,7 +194,10 @@ class CardGatherer:
         # The shared protection (learner_protection): the withheld items, by the
         # one exam predicate and the rest (unavailable: nothing shows).
         withheld = self._withheld_items(unknowns)
-        with self.repository.connection() as connection:
+        confidence_on = confidence_events.enabled(vault)
+        # One read snapshot (TE0 review F2): an attempt's result, its held
+        # status and its hedge read are one committed revision's.
+        with self.repository.connection() as connection, read_snapshot(connection):
             past = PastWork(connection, vault, self.repository, withheld=withheld, unknowns=unknowns)
             rule = CardText(past)
             as_of = connection.execute(
@@ -204,8 +213,9 @@ class CardGatherer:
             reports = self._self_reports(connection, set(los), titles, now_iso, unknowns)
             evidence_sections = self._evidence_sections(connection, los, titles, now_iso, withheld, unknowns)
             recent = self._recent_work(attempts, held, past, rule, titles)
-            confidence_7d, confidence_limit = self._confidence(connection, attempts, candidate_los, recent, held,
-                                                               now_iso, unknowns)
+            confidence_7d, confidence_limit, confidence_omitted = (
+                self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns)
+                if confidence_on else ({}, None, 0))
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
         session = {
             "plan_id": state.plan_id,
@@ -244,18 +254,22 @@ class CardGatherer:
             evidence_sections=evidence_sections,
             confidence_7d=confidence_7d,
             confidence_limit=confidence_limit,
+            confidence_omitted=confidence_omitted,
+            confidence_enabled=confidence_on,
         )
 
     @staticmethod
     def _confidence(
         connection: Any, attempts: Sequence[Mapping[str, Any]], candidate_los: Sequence[str],
         recent: list[dict[str, Any]], held: frozenset[str], now_iso: str, unknowns: list[str],
-    ) -> tuple[dict[str, list[dict[str, Any]]], str | None]:
+    ) -> tuple[dict[str, list[dict[str, Any]]], str | None, int]:
         """TE0 (spec_teacher_v1 §15.2): the confidence events. Each shown
         attempt gains its event (``recent``, in place), the candidate topics'
         events in the 7-day window are returned by topic, and the stated limit.
         An attempt with neither a tap nor a hedge read has no event; nothing
-        here is a count or a threshold."""
+        here is a count or a threshold. Each topic keeps its newest
+        ``CONTEXT_EVENT_LIMIT`` events (a prompt-size bound, ``keep``); the
+        number left out is returned with them."""
 
         now = parse_utc(now_iso)
         since = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ") if now is not None else None
@@ -270,19 +284,24 @@ class CardGatherer:
         except Exception:  # noqa: BLE001 - named as unknown, never guessed
             _LOG.warning("router card: confidence not read", exc_info=True)
             unknowns.append("confidence taps and the grader's hedge reads could not be read")
-            return {}, None
+            return {}, None, 0
         for entry in recent:
             event = confidence_events.event_text(found.get(str(entry["attempt_id"])), str(entry["result"]))
             if event:
                 entry["confidence"] = event
         by_lo: dict[str, list[dict[str, Any]]] = {}
-        for row in window:
+        omitted = 0
+        for row in window:  # newest first
             result = attempt_result(row["correctness"], row["id"] in held)
             event = confidence_events.event_text(found.get(str(row["id"])), result)
-            if event:
-                by_lo.setdefault(str(row["learning_object_id"]), []).append(
-                    {"attempt_id": row["id"], "at": row["created_at"], "event": event})
-        return by_lo, confidence_events.taps_limit(taps)
+            if not event:
+                continue
+            bucket = by_lo.setdefault(str(row["learning_object_id"]), [])
+            if len(bucket) >= confidence_events.CONTEXT_EVENT_LIMIT:
+                omitted += 1
+                continue
+            bucket.append({"attempt_id": row["id"], "at": row["created_at"], "event": event})
+        return by_lo, confidence_events.taps_limit(taps), omitted
 
     @staticmethod
     def _evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str,

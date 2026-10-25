@@ -1110,6 +1110,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW2d's successor: workbench stuck steps and help before the first step as field "
         "signals that keep an LO out of fast-track and teach it first; zero-mass rows that never reach the "
         "record; off, the predecessor's derivation, Phase 6 serving and plans."),
+    # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
+    # events in model contexts and on the router card. A boolean (classified
+    # so every new key has a rule); the events are context, never a weight,
+    # and nothing that scores, schedules, projects or serves reads them. Off
+    # restores every reader's predecessor context exactly.
+    _ConfigRule(_exact(
+        "teacher.confidence_events_enabled",
+    ), "structural", "operational",
+        "kill switch for TE0's confidence events (the tap and the grader's hedge read with the outcome) in the "
+        "router card, the history-aware diagnoser, the hint writer and the tutor; context only, no "
+        "measurement, scheduling or serving authority; off, every context is its predecessor's."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
