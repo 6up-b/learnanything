@@ -64,3 +64,51 @@ Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --sco
 | Targeted pytest, 335 files (the stage gate's 325 plus every test file naming a module changed here), `-n 6` | **STILL RUNNING when this step returned** (18%, no failure so far); log at the scratchpad `targeted.log`. Must be rerun or read before landing |
 | `npm run typecheck`, `npm run frontend:build`, `cargo check` (Tauri: one passthrough command added) | **NOT RUN in this step** (owed: run them before landing) |
 | Durability, migration-head, references | not owed: no migration or connection code changed |
+
+## Re-review
+
+**Reviewed** `9a7977dad..5f606e1d3` (Codex job `20261024-204323-j0yW7t`): F1 and F3 confirmed fixed; F2, F4 and F5 reopened; two new Medium findings (F17, F18). **Fixed** on top of `5f606e1d3` in `944cae274..1ccb33cf6`. Each finding was reproduced first by a test that fails on `5f606e1d3`.
+
+No live call, download, GPU process or paid request was made: every provider, model and worker is a fake in the tests. The one Python run outside pytest (a numpy probe of the selection-probability estimator) ran under `env -i` with an empty HOME / CODEX_HOME / LEARNLOOP_CONFIG_DIR and no routes. No migration, connection code, frontend or Tauri code changed.
+
+### Findings
+
+| Id | Severity | Title | Verdict | Commit | Test, or reason |
+|---|---|---|---|---|---|
+| F1 | High | Held-out headings leak into teaching vectors | confirmed fixed by the reviewer | `e1e10f69b` | (first round) |
+| F2 | High | An unknown rewrite is planned at 2,000 ASCII bytes, under Voyage's UTF-8 admission (MCP inherits it) | fixed | `944cae274` | `test_source_space_resolver.py::test_an_unknown_rewrite_is_planned_at_its_largest_encoding_and_never_found_cached` (fails on `5f606e1d3`: 2,071 planned tokens against 8,071). A dry run plans the rewrite it cannot know as `queries.LARGEST_QUERY_TEXT` (MAX_QUERY_CHARS code points of four UTF-8 bytes, structural), for both Qwen's query embedding and the fallback's (`fallback_space.plan_query(..., unknown=1)`), and never looks it up in a cache: with every known text cached the rewrite is still one pending request. A valid 2,000-character CJK rewrite (6,008) admits under the plan. MCP `plan_passages` reads the same plan |
+| F3 | High | The backfill's per-run cap reset per source | confirmed fixed by the reviewer | `7a550e75a` | (first round) |
+| F4 | High | A queued index job whose worker start failed is never retried | fixed | `cc842ab0f` | `test_local_index.py::test_a_queued_index_job_whose_worker_never_started_is_started_by_the_sweep` (fails on `5f606e1d3`: one start, then nothing). `resume_contextual_index` first checks for a claimable `local_source_index` job with no worker running (`has_runnable_ingest_job`, the `resume_book_preparation` rule: dependencies done, batch not cancelling) and starts the worker, pass after pass until one runs; a running worker or a foreground host is left alone. Completed deferrals are still woken at `retry_at` (`::test_a_deferred_index_job_is_woken_at_its_retry_time`) |
+| F5 | High | The enabled retrieval path changes persisted exposure without a successor | **rejected again; owner decision requested** | | See "F5" below |
+| F17 | Medium | The shared query budget keeps a single-encoder candidate cap | fixed | `944cae274` | `test_source_space_resolver.py::test_a_cli_budget_has_room_for_every_query_encoder_and_the_rewrite` (fails on `5f606e1d3`: Voyage `over_budget`, "candidates exceeds max_candidates"). `deep_search_caps` sizes the structural candidate allowance as the rewrite plus the question and its rewrite for every paid query encoder (`1 + QUERY_TEXTS * len(spaces.PAID_QUERY_SPACES)` = 5); the caller's explicit calls, tokens and dollars are unchanged and still bound the search |
+| F18 | Medium | Query-set propensities do not describe the selection policy | fixed | `1ccb33cf6` | `test_local_fusion_core.py::test_the_selection_propensity_is_the_policys_joint_probability` (independent zero-mean: Qwen alone 0.5, not 0.25; correlation 0.99: both 0.477) and `test_source_space_resolver.py::test_the_logged_selection_probability_is_the_resolvers_joint_one` (through the resolver: every logged probability matches the analytic one for the set chosen, all three sets seen). `fusion.selection_propensity` applies the resolver's own assignment (the same `assign` closure that serves, forced cheapest stand-in included) to `SELECTION_DRAWS` draws under the posterior's full covariance, seeded by the receipt, with the served draw counted as one of them (a selection that happened never has probability 0). The query receipt logs `query_set_propensity` and the per-list selection probabilities; the fit divides by the logged joint value as recorded (`_set_propensity`), never a product of marginals. `thompson_weights` now returns only the draw |
+
+### F5
+
+The reopened argument is that §4.5's third bullet ("if a consumer turns retrieval output into persisted meaning, switching that consumer's space mints a successor") applies to MCP `find_passages`, whose shown passages are written as exposure and read by coldness. Rejected again, for these reasons:
+
+1. **The spec classifies this consumer.** §6's consumer table, owner-approved, lists "Passage cues, instructional sources and exercises, MCP `find_sources` … No", and §4.5's examples of a successor case are admissions and placements derived from retrieval (teacher placement anchors, AD reading opportunities, figure or library offers recorded as admissions). An exposure row is neither: it is the record of a passage the learner was shown.
+2. **No rule changes.** The 2026-10-17 playbook rule versions a change to *which items are served as measurements or primed* by the algorithm. The rule that maps a recorded exposure to coldness is unchanged, and replay reads the recorded exposures without re-running retrieval. What changes is which passage the learner saw, which any content change also changes (a new book, an edited source, a different rewrite from the model). None of those mint a successor, and versioning one input of "what was shown" would version every one.
+3. **The same holds for every learner-facing consumer, not only MCP.** The library ask, its comparison and the tutor's picked passages also record shown passages as exposure (`library_ask` `record_shown`, `instructional.interventions`). A consumer gate that kept the predecessor path for exposure-recording consumers would switch the new spaces off for almost every consumer the spec puts behind the seam. That is a scope decision for the spec, not a fix for this stage.
+4. **The owner's proportionate-protection bar** (2026-10-24: block only on realistic learner-visible harm or unapproved spend). The exposure is true, so coldness reads the truth. Nothing the learner sees is mislabelled, and nothing is spent.
+
+This finding has now been reopened twice on the same reading of the spec. Under the stuck-loop rule it goes to the owner instead of a third round. **Owner decision:** keep §6's "No" for exposure-recording consumers (land as is), or make the P1 switches for those consumers a successor (one tag for `embedding.local.enabled` / `embedding.fallback.enabled` with the predecessor kept below it), which would also need a successor number coordinated with AD2+AD3's mvp-0.30.
+
+### New constants (classified in `params/parameter_registry.py`)
+
+`local_fusion:SELECTION_DRAWS` (keep: the Monte Carlo budget of the joint selection probability, standard error under 0.008). Structural, in modules outside the registry inventory: `queries.LARGEST_QUERY_TEXT` (MAX_QUERY_CHARS at UTF-8's four-byte maximum), `library.QUERY_TEXTS` (the question and its rewrite), `spaces.PAID_QUERY_SPACES` (Qwen and the hosted fallback). No new weight, margin or threshold is a decision parameter.
+
+### Gate (re-review step; the full suite runs once in the landing gate)
+
+Every pytest, npm and cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, one test run at a time, pytest at `-n 6`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **32 kept, 0 broken** |
+| Reproductions on `5f606e1d3` (before the fixes) | the 5 new tests **failed** (F2: 2,071 planned tokens against 8,071; F17: Voyage `over_budget`; F18: no joint probability, `KeyError` / missing function; F4: one start, then none) |
+| Iteration runs: `test_local_fusion_core.py` + `test_source_space_resolver.py` | **24 passed**; `test_local_index.py -k "woken or never_started or cannot_be_queued"` **3 passed**; `test_registry_audit.py` + `test_architecture.py` **36 passed** |
+| Targeted pytest, `-n 6`, 336 files: the first round's 335 (the stage gate's 325 plus every test file naming a module changed in the first round, the run the first round left unfinished) plus `test_t6_followup_composition.py` (it exercises `DurableIngestJobs`). It covers every file changed here (`test_local_fusion_core`, `test_source_space_resolver`, `test_local_index`), every consumer of `library`, `fallback_space`, `queries`, `spaces`, `search`, `feedback`, `fusion`, `DurableIngestJobs` and `parameter_registry`, and the contract tests (config defaults, CLI help, serializer, desktop RPC contract, mobile allowlist, architecture, table_roles, coordinated migrations, tracked fixture databases) | **6,875 passed, 2 skipped, 2 xfailed** (38 min 48 s). The list is in the scratchpad's `gate_tests.txt`. A first attempt at the same run was stopped at 98%: one worker sat at full CPU for more than 50 minutes with one `F` printed (quiet mode, unnamed). The verbose rerun of the same 336 files passed everything, and `test_reading_request_sweep.py` (the stuck worker's newest test directory) passed alone (14). Read it as a load flake, not reproduced |
+| `npm run typecheck`, `npm run frontend:build` (owed from the first round: one Tauri passthrough command and the Reader's open signal) | **ok**, **built** |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | **finished, no errors** |
+| Durability, migration-head, DB references | not owed: no migration or DB/connection code changed |
