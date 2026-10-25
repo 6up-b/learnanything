@@ -4120,15 +4120,16 @@ class DurableIngestJobs:
         runner = self._runner
         if runner is None or self._stop.is_set():
             return False
-        config = load_config(Path(runner.vault_root) / "learnloop.toml", load_environment=False)
-        if not resolver_active(config):
-            return False
         moment = now or self.reading_now()
         last = getattr(self, "_fusion_refit_at", None)
-        if not refresh_due(runner.repo, last_refit=last, now=moment):
+        if last is not None and not refresh_due(runner.repo, last_refit=last, now=moment):
+            return False  # checked within the cadence: no config read, no work
+        # One check per cadence (the host's first pass, then nightly), refit or not.
+        self._fusion_refit_at = moment
+        config = load_config(Path(runner.vault_root) / "learnloop.toml", load_environment=False)
+        if not resolver_active(config) or not refresh_due(runner.repo, last_refit=None, now=moment):
             return False
         refit_posteriors(SimpleNamespace(config=config), runner.repo)
-        self._fusion_refit_at = moment
         return True
 
     def resume_book_preparation(self) -> bool:

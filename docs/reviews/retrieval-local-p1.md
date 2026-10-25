@@ -50,6 +50,8 @@ uv run learnloop embeddings fusion refit --vault <vault>
 
 ## Deviations from the spec, and why
 
+*Codex review (see [retrieval-local-p1-codex-review](retrieval-local-p1-codex-review.md)):* 4 (opens) and 5 (no timer) are fixed: the Reader's search-result click sends the open, and the ingest host's sweep wakes a deferred index batch. Exploration now runs at each consumer's delivery boundary, learned fusion serves Thompson draws at the posterior's `rrf_k`, and lists are bound to space identities. 7's P0 bank posterior and pooling simulation remain owed (owner question).
+
 1. **The local space has no query encoder in P1.** The student is P2 and the teacher session P1c; until one exists the local space indexes, reports coverage and `encoder_unavailable`, and never contributes. `spaces.LOCAL_QUERY_ENCODER` is the hook they plug into (tested with a fake encoder). With `default = "local:grouped"` and no encoder, Qwen stands in.
 2. **Module placement.** The index job lives in `source_retrieval/local_index.py` and the fusion core in `local_embeddings/fusion.py`, so the import graph stays acyclic (`frozen-cross-package-cycles`): `source_retrieval` drives `local_embeddings`, never the reverse; the tutor records citations through the store, not through `source_retrieval`.
 3. **E1's worker stays E1's record.** The production worker is a moved copy (E1's plan id pins E1's file); `test_the_moved_pins_equal_e1s` pins every shared value equal.

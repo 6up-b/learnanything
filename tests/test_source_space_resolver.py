@@ -460,12 +460,13 @@ def test_ordinary_use_completes_the_loop_opens_ask_citations_and_the_background_
     assert DurableIngestJobs.refresh_fusion_posteriors(host) is True
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
         assert set(fusion_posteriors(connection)) >= {"global"}
-    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # nothing new, and not a day yet
-    host.reading_now = lambda: start + timedelta(hours=25)
-    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # a day passed, but no new receipt
     clear_cache()
     search_library(loaded(paths), repository, query="cofactor expansion", deep=True, embedder=HashingEmbedder())
-    assert DurableIngestJobs.refresh_fusion_posteriors(host) is True
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # new receipts, but not a day yet
+    host.reading_now = lambda: start + timedelta(hours=25)
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is True  # the nightly check: receipts arrived
+    host.reading_now = lambda: start + timedelta(hours=50)
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # a day later, nothing new
 
 
 def test_the_open_rpc_records_nothing_with_the_switches_off(tmp_path):
