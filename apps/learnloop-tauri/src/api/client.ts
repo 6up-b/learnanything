@@ -26,6 +26,7 @@ import type {
   WorkbenchSubmitDto,
   WorkbenchSubmitInput,
   WorkbenchSummaryDto,
+  WorkbenchOpenProblemDto,
   WorkbenchHelpJobDto,
   WorkbenchHelpStateDto,
   WorkbenchAnotherPassageDto,
@@ -1725,6 +1726,9 @@ export const api = {
     call<{ version: number; sessions: WorkbenchSummaryDto[] }>("workbench_for_item", { input }),
   workbenchForSource: (input: { extractionId: string }) =>
     call<{ version: number; sessions: WorkbenchSummaryDto[]; openSessionDays: number }>("workbench_for_source", { input }),
+  // UX Phase 3: every source's open problems, for Today's threads.
+  workbenchOpenProblems: () =>
+    call<{ version: number; problems: WorkbenchOpenProblemDto[] }>("workbench_open_problems", { input: {} }),
   // Reader workbench RW2b + adaptive hints H3: "Check my work" and the help
   // ladder (jobs: the read that returns a ready check or hint shows it).
   workbenchCheck: (input: { sessionId: string }) => call<WorkbenchHelpJobDto>("workbench_check", { input }),

@@ -478,6 +478,10 @@ class WorkbenchSourceInput(ParamsModel):
     extraction_id: str
 
 
+class WorkbenchOpenProblemsInput(ParamsModel):
+    """No parameters: every source's open problems."""
+
+
 # -- RPCs ---------------------------------------------------------------------------------------------
 
 
@@ -1157,6 +1161,24 @@ def workbench_for_source(ctx: SidecarContext, params: WorkbenchSourceInput) -> d
                                   open_days=WB.open_session_days(vault))
     return _answer({"sessions": to_camel(_cleared(vault, repository, rows)),
                     "openSessionDays": WB.open_session_days(vault)})
+
+
+@method("workbench.open_problems", WorkbenchOpenProblemsInput)
+def workbench_open_problems(ctx: SidecarContext, params: WorkbenchOpenProblemsInput) -> dict[str, Any]:
+    """UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): Today's unfinished
+    problems ("Exercise 5.9 -- 3 steps written · resume"), newest first, each
+    with the source it opens in. A pure read; a problem whose source is gone,
+    or whose statement is held out now, is left out."""
+
+    vault, repository = _require(ctx)
+    rows = WB.open_problems(repository, now=datetime.now(UTC), open_days=WB.open_session_days(vault))
+    problems = []
+    for summary in _cleared(vault, repository, rows):
+        source_id = _source_id(repository, summary.get("extraction_id"))
+        if source_id is None:
+            continue
+        problems.append({**summary, "source_id": source_id})
+    return _answer({"problems": to_camel(problems)})
 
 
 def _cleared(vault, repository, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:

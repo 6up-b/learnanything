@@ -234,6 +234,11 @@ READER_RW2A_RPCS = (
 )
 
 
+# UX Phase 3 (Today) adds workbench.open_problems: every source's open
+# problems for Today's "Pick up a thread". A pure read. Desktop only.
+UX_PHASE3_RPCS = ("workbench.open_problems",)
+
+
 # Reader workbench RW6a ("Last time here") adds four RPCs -- the returning
 # card, its events (recap_shown, recap_dismissed, wrap_up_opened), Wrap up and
 # the wrap-up offer at the destination. All pure reads but the events.
@@ -669,7 +674,8 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
-    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS,
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
+    + UX_PHASE3_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
