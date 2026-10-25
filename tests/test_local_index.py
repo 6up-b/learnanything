@@ -126,31 +126,84 @@ def test_the_meter_meters_production_uncapped_and_refuses_a_second_live_worker(t
         capped.open(plan_id="p", label="c")  # below the 15-minute minimum slot
 
 
+def _fake_setup_runner(files, *, fail_install=False, partial_download=False):
+    """A fake ``subprocess.run`` for setup: ``uv venv`` makes the interpreter,
+    ``uv pip install`` installs the pins (or fails), the package probe
+    reports what is installed, the download writes the files (only the
+    first one when ``partial_download``), the epoch probe reports E1's epoch."""
+
+    calls: list[list[str]] = []
+    state = {"installed": False, "fail_install": fail_install, "partial": partial_download}
+
+    def fake_run(command, **_kwargs):
+        calls.append(list(command))
+        joined = " ".join(command)
+        stdout = json.dumps({"torch": "2.14.0+cu130", "transformers": "5.18.0", "cuda": "13.0"})
+        if command[:2] == ["uv", "venv"]:
+            python = Path(command[-1]) / "bin" / "python"
+            python.parent.mkdir(parents=True, exist_ok=True)
+            python.write_text("", encoding="utf-8")
+        elif command[:3] == ["uv", "pip", "install"]:
+            if state["fail_install"]:
+                return SimpleNamespace(returncode=1, stdout="")
+            state["installed"] = True
+        elif "metadata" in joined:
+            names = command[4:]
+            versions = dict(requirement.split("==", 1) for requirement in pins.LOCAL_REQUIREMENTS)
+            stdout = json.dumps({name: (versions[name] + ("+cu130" if name == "torch" else ""))
+                                 if state["installed"] else None for name in names})
+        elif "snapshot_download" in joined:
+            target = Path(command[-1])
+            target.mkdir(parents=True, exist_ok=True)
+            for index, (name, body) in enumerate(files.items()):
+                if state["partial"] and index > 0:
+                    break
+                (target / name).write_bytes(body)
+        return SimpleNamespace(returncode=0, stdout=stdout)
+
+    return calls, fake_run, state
+
+
+def test_an_interrupted_setup_resumes_the_install_and_the_download(tmp_path, monkeypatch):
+    """Codex review F16: a path that exists is not a finished step."""
+
+    files = {"config.json": b"{}", "configuration_pplx_contextual.py": b"# reviewed\n",
+             "modeling_pplx_contextual.py": b"# reviewed too\n"}
+    monkeypatch.setattr(pins, "MODEL_FILES", {name: (len(body), hashlib.sha256(body).hexdigest())
+                                              for name, body in files.items()})
+    root = tmp_path / "data"
+    calls, fake_run, state = _fake_setup_runner(files, fail_install=True, partial_download=True)
+    with pytest.raises(RuntimeError, match="failed"):
+        setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 100 * 1024 ** 3)
+    assert Path(setup.setup_plan(root)["env_python"]).exists()  # the interpreter was left behind
+    state["fail_install"] = False
+    with pytest.raises(RuntimeError, match="does not match the pins"):
+        setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 100 * 1024 ** 3)  # the download stops short
+    assert state["installed"]  # the rerun installed into the existing interpreter
+    assert [command[:3] for command in calls].count(["uv", "pip", "install"]) == 2
+    state["partial"] = False
+    calls.clear()
+    report = setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 100 * 1024 ** 3)
+    assert report["status"] == "ready" and "model downloaded" in report["steps"]
+    assert ["uv", "venv"] not in [command[:2] for command in calls]  # nothing redone that was done
+    assert ["uv", "pip", "install"] not in [command[:3] for command in calls]
+    # Done: a rerun downloads nothing and installs nothing.
+    calls.clear()
+    again = setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 1)
+    assert again["steps"] == ["already present"] and not any("snapshot_download" in " ".join(c) for c in calls)
+
+
 def test_setup_verifies_the_files_records_the_epoch_and_adopts_without_moving(tmp_path, monkeypatch):
     files = {"config.json": b"{}", "configuration_pplx_contextual.py": b"# reviewed\n",
              "modeling_pplx_contextual.py": b"# reviewed too\n"}
     monkeypatch.setattr(pins, "MODEL_FILES", {name: (len(body), hashlib.sha256(body).hexdigest())
                                               for name, body in files.items()})
     root = tmp_path / "data"
-    calls: list[list[str]] = []
-
-    def fake_run(command, **_kwargs):
-        calls.append(list(command))
-        if command[:2] == ["uv", "venv"]:
-            python = Path(command[-1]) / "bin" / "python"
-            python.parent.mkdir(parents=True, exist_ok=True)
-            python.write_text("", encoding="utf-8")
-        elif "snapshot_download" in " ".join(command):
-            target = Path(command[-1])
-            target.mkdir(parents=True, exist_ok=True)
-            for name, body in files.items():
-                (target / name).write_bytes(body)
-        stdout = json.dumps({"torch": "2.14.0+cu130", "transformers": "5.18.0", "cuda": "13.0"})
-        return SimpleNamespace(returncode=0, stdout=stdout)
+    calls, fake_run, _state = _fake_setup_runner(files)
 
     report = setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 100 * 1024 ** 3)
     assert report["status"] == "ready" and report["software_epoch"]["torch"] == "2.14.0+cu130"
-    assert [command[:2] for command in calls][:2] == [["uv", "venv"], ["uv", "pip"]]
+    assert [command[:2] for command in calls if command[0] == "uv"] == [["uv", "venv"], ["uv", "pip"]]
     manifest, reason = setup.load_manifest(root)
     assert reason is None and manifest["revision"] == pins.MODEL_REVISION
     # A wrong file is refused before anything is recorded.
@@ -283,3 +336,42 @@ def test_the_commands_dry_run_without_starting_anything(tmp_path, data_root, mon
     owed = runner.invoke(app, ["embeddings", "local", "index", "--vault", str(paths.root), "--dry-run", "--json"])
     assert owed.exit_code == 0, owed.output
     assert json.loads(owed.output)["status"] == "dry_run" and json.loads(owed.output)["owed_windows"] > 0
+
+
+def test_a_worker_on_another_software_epoch_stores_nothing(tmp_path, data_root):
+    """Codex review F13: the measured (torch, transformers, CUDA) must equal the
+    epoch in the space id; canaries within tolerance do not excuse a change."""
+
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    model = FakeLocalModel()
+    model.info = {**model.info, "transformers": "5.19.0"}
+    report = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(model), preflight=lambda: [],
+                                         locks=no_locks, force=True)
+    assert report["status"] == "epoch_changed" and report["measured_epoch"]["transformers"] == "5.19.0"
+    for space in report["spaces"].values():
+        assert not cache_path(paths.root, space).exists() or VectorCache(cache_path(paths.root, space)).report()["rows"] == 0
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        assert spaces(connection) == {}  # no space registered under the old identity
+
+
+class _OneBadVector(FakeLocalModel):
+    def encode_documents(self, documents, *, batch_size=1):
+        rows = super().encode_documents(documents, batch_size=batch_size)
+        return [row * float("nan") if any("Cofactor" in chunk for chunk in chunks) else row
+                for row, chunks in zip(rows, documents, strict=True)]
+
+
+def test_a_rejected_window_leaves_the_run_partial_and_the_window_owed(tmp_path, data_root):
+    """Codex review F15: completion counts invalid and over-limit windows."""
+
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    report = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(_OneBadVector()),
+                                         preflight=lambda: [], locks=no_locks, force=True)
+    assert report["windows_invalid"] >= 1 and report["status"] == "partial", report
+    again = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
+                                        preflight=lambda: [], locks=no_locks, force=True, dry_run=True)
+    assert again["owed_windows"] >= 1

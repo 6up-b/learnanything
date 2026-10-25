@@ -67,6 +67,27 @@ def local_reason(vault: LoadedVault, root: Path | None = None) -> tuple[dict[str
     return load_manifest(root)
 
 
+EPOCH_KEYS = ("torch", "transformers", "cuda")
+
+
+def _epoch_value(value: Any) -> str:
+    return str(value) if value not in (None, "") else "none"
+
+
+def epoch_of(manifest: Mapping[str, Any]) -> dict[str, str]:
+    """The software epoch setup recorded (part of the space id)."""
+
+    recorded = manifest.get("software_epoch") or {}
+    return {key: _epoch_value(recorded.get(key)) for key in EPOCH_KEYS}
+
+
+def measured_epoch(load: Mapping[str, Any] | None) -> dict[str, str]:
+    """The epoch the worker measured after loading (``torch.__version__``,
+    ``transformers.__version__``, ``torch.version.cuda``)."""
+
+    return {key: _epoch_value((load or {}).get(key)) for key in EPOCH_KEYS}
+
+
 def local_spaces(manifest: Mapping[str, Any]) -> dict[str, tuple[str, dict[str, Any]]]:
     """``{variant: (space_id, pins)}`` for the set-up environment's epoch."""
 
@@ -272,6 +293,16 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
         # Refused, failed, or stopped before the canaries: nothing is stored and
         # no drift is inferred (a run that never measured cannot have drifted).
         return {**report, "status": "worker_" + str(output.get("status")), "reason": output.get("reason")}
+    measured = measured_epoch(output.get("load"))
+    if measured != epoch_of(manifest):
+        # Codex review F13: the epoch is part of the space id, so vectors made
+        # under another (torch, transformers, CUDA) belong to ANOTHER space,
+        # whatever the canaries say. Nothing is stored; the owner reruns
+        # setup, which records the new epoch (a new space, indexed afresh).
+        return {**report, "status": "epoch_changed", "measured_epoch": measured,
+                "recorded_epoch": epoch_of(manifest),
+                "reason": "the worker's software epoch differs from the one setup recorded (a new space): rerun "
+                          "`learnloop embeddings local setup` to record it, then index again"}
     stamp = datetime.now(timezone.utc).isoformat()
     with repository.connection() as connection:
         for variant, (space, space_pins) in local.items():
@@ -288,7 +319,10 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
             for space, _p in local.values():
                 set_space_canaries(connection, space, output["canaries"], now=stamp)
     counts = store_output(vault, output, targets, job_id=job_id)
-    status = "complete" if output.get("status") == "complete" and not counts["windows_missing"] else "partial"
+    # Codex review F15: a window the worker rejected (over its limit, or an
+    # invalid vector) is not stored, so it stays owed; the run is partial.
+    rejected = counts["windows_missing"] + counts["windows_invalid"] + counts["windows_over_limit"]
+    status = "complete" if output.get("status") == "complete" and not rejected else "partial"
     return {**report, "status": status, **counts}
 
 
@@ -375,5 +409,5 @@ def coverage_report(vault: LoadedVault, repository: Repository, root: Path | Non
     return {"enabled": True, "software_epoch": manifest["software_epoch"], "spaces": rows}
 
 
-__all__ = ["INDEX_JOB", "LIST_NAMES", "VARIANTS", "build_job", "canary_check", "coverage_report", "local_reason",
-           "local_spaces", "owed", "preflight_problems", "profile_pools", "run_local_index", "run_profile", "store_output"]
+__all__ = ["EPOCH_KEYS", "INDEX_JOB", "LIST_NAMES", "VARIANTS", "build_job", "canary_check", "coverage_report",
+           "epoch_of", "local_reason", "local_spaces", "measured_epoch", "owed", "preflight_problems", "profile_pools", "run_local_index", "run_profile", "store_output"]

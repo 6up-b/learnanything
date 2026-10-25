@@ -16,9 +16,16 @@ One rule serves the local 9B space and the Voyage fallback alike:
   links). Withheld blocks are therefore never joined to teaching text, and a
   teaching block's vector never carries exam text in its context;
 * **singleton** windows hold one block each (the same-model context control);
-* a block whose estimate passes ``MAX_DOCUMENT_TOKENS`` alone is split by
-  character offsets on whitespace into equal parts; its vector is the
-  token-weighted mean of its parts (``split_mean``).
+* a block whose estimate passes the window bound alone is split by character
+  offsets into parts of at most ``WINDOW_TOKENS`` estimated tokens each
+  (markers included; cut on whitespace where the part has any, else hard
+  cut), so EVERY window of both variants holds the bound; its vector is the
+  token-weighted mean of its parts (``split_mean``; Codex review F15);
+* a section header the policy withholds (any class but ``teaching``) reads as
+  ``WITHHELD_HEADING`` in every descendant's section path, so a protected
+  heading never reaches a permitted block's window, and marking a heading
+  changes its descendants' texts, hence their keys (Codex review F1, E0's
+  ``permitted_titles`` rule).
 
 Every key is content-addressed (:func:`window_key`): a re-extraction, a new
 held-out or exam mark on any block of the window, or a split-rule change
@@ -45,8 +52,14 @@ WINDOW_RULE = "w4096-section-policy-v1"
 #: keep (identity of the window rule): ESTIMATED tokens per grouped window, markers included.
 WINDOW_TOKENS = 4096
 CHUNK_MARKER_TOKENS = 8
-#: keep (identity): a block alone above this estimate is split by offsets.
+#: keep (identity): the worker's own per-document bound (``pins.MAX_DOCUMENT_TOKENS``);
+#: every window stays under ``WINDOW_TOKENS``, far inside it.
 MAX_DOCUMENT_TOKENS = 8192
+#: keep (identity, structural): the most estimated text tokens one part of a
+#: split block holds, so the part with its marker is at most ``WINDOW_TOKENS``.
+PART_TOKENS = WINDOW_TOKENS - CHUNK_MARKER_TOKENS
+#: What a withheld section header reads as in any section path (never its text; E0's rule).
+WITHHELD_HEADING = "(withheld heading)"
 VARIANTS = ("grouped", "singleton")
 POLICY_CLASSES = ("teaching", "solution", "exam", "assessment_lane")
 
@@ -130,20 +143,36 @@ def policy_classes(vault: LoadedVault, repository: Repository,
 
 
 def _split(span_id: str, text: str) -> list[Member]:
-    """Equal character parts on whitespace, each under ``MAX_DOCUMENT_TOKENS``."""
+    """Consecutive character parts, each at most ``PART_TOKENS`` estimated
+    tokens: the longest prefix within the bound, cut back to its last
+    whitespace when it has one (the next part starts at that whitespace),
+    else cut hard, so an unbroken input (CJK, a long formula) still holds the
+    bound. Deterministic; the parts concatenate to the text."""
 
-    parts = max(1, math.ceil(token_estimate(text) / (MAX_DOCUMENT_TOKENS - CHUNK_MARKER_TOKENS)))
-    if parts == 1:
+    if token_estimate(text) <= PART_TOKENS:
         return [Member(span_id, text)]
-    size = math.ceil(len(text) / parts)
-    members, start = [], 0
-    for part in range(parts):
-        end = len(text) if part == parts - 1 else min(len(text), start + size)
-        while 0 < end < len(text) and not text[end].isspace():
-            end += 1
-        members.append(Member(span_id, text[start:end], (part, parts, start, end)))
+    bounds: list[tuple[int, int]] = []
+    start, length = 0, len(text)
+    while start < length:
+        low, high = start + 1, length  # one character is always within the bound
+        while low < high:
+            middle = (low + high + 1) // 2
+            if token_estimate(text[start:middle]) <= PART_TOKENS:
+                low = middle
+            else:
+                high = middle - 1
+        end = low
+        if end < length:
+            cut = end
+            while cut > start and not text[cut].isspace():
+                cut -= 1
+            if cut > start:
+                end = cut
+        bounds.append((start, end))
         start = end
-    return [member for member in members if member.text.strip()]
+    kept = [(start, end) for start, end in bounds if text[start:end].strip()]
+    return [Member(span_id, text[start:end], (part, len(kept), start, end))
+            for part, (start, end) in enumerate(kept)]
 
 
 def build_windows(extraction_id: str, blocks: Sequence[tuple[str, str, tuple[str, ...], str]],
@@ -187,15 +216,41 @@ def build_windows(extraction_id: str, blocks: Sequence[tuple[str, str, tuple[str
     return windows
 
 
+def _header_spans(blocks: Sequence[Any]) -> dict[str, str]:
+    """``{extractor block id: span id}`` of the extraction's section headers."""
+
+    return {str(block.extractor_block_id): block.span_id for block in blocks
+            if block.block_type == "SectionHeader" and block.extractor_block_id}
+
+
+def permitted_titles(extraction_id: str, titles: Mapping[str, str], headers: Mapping[str, str],
+                     classes: Mapping[tuple[str, str], str]) -> dict[str, str]:
+    """``titles`` with every header whose block is not ``teaching`` (or that
+    no current block anchors) replaced by ``WITHHELD_HEADING`` (Codex review F1)."""
+
+    permitted: dict[str, str] = {}
+    for element, text in titles.items():
+        span_id = headers.get(str(element))
+        allowed = span_id is not None and classes.get((extraction_id, span_id), "teaching") == "teaching"
+        permitted[element] = text if allowed else WITHHELD_HEADING
+    return permitted
+
+
 def extraction_windows(vault: LoadedVault, repository: Repository, extraction_id: str, variant: str,
                        *, classes: Mapping[tuple[str, str], str] | None = None) -> list[Window]:
-    """The windows of one extraction's embeddable blocks under the current policy."""
+    """The windows of one extraction's embeddable blocks under the current policy
+    (withheld headings redacted from every section path)."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         titles = section_header_titles(connection, extraction_id)
-        blocks = [block for block in extraction_blocks(connection, extraction_id) if embeddable(block)]
-    if classes is None:
-        classes = policy_classes(vault, repository, [(block.extraction_id, block.span_id) for block in blocks])
+        every = extraction_blocks(connection, extraction_id)
+    blocks = [block for block in every if embeddable(block)]
+    headers = _header_spans(every)
+    wanted = [(block.extraction_id, block.span_id) for block in blocks] + \
+        [(extraction_id, span_id) for span_id in headers.values()]
+    if classes is None or any(key not in classes for key in wanted):
+        classes = {**(classes or {}), **policy_classes(vault, repository, wanted)}
+    titles = permitted_titles(extraction_id, titles, headers, classes)
     rows = [(block.span_id, source_block_text(block, titles), tuple(section_path(block, titles)),
              classes.get((block.extraction_id, block.span_id), "teaching")) for block in blocks]
     return build_windows(extraction_id, rows, variant)
@@ -207,7 +262,8 @@ def windows_by_extraction(vault: LoadedVault, repository: Repository, extraction
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         keys = [(block.extraction_id, block.span_id) for extraction_id in extraction_ids
-                for block in extraction_blocks(connection, extraction_id) if embeddable(block)]
+                for block in extraction_blocks(connection, extraction_id)
+                if embeddable(block) or block.block_type == "SectionHeader"]
     classes = policy_classes(vault, repository, keys)
     return {(extraction_id, variant): extraction_windows(vault, repository, extraction_id, variant, classes=classes)
             for extraction_id in extraction_ids for variant in variants}
@@ -237,8 +293,10 @@ __all__ = [
     "CHUNK_MARKER_TOKENS",
     "MAX_DOCUMENT_TOKENS",
     "Member",
+    "PART_TOKENS",
     "POLICY_CLASSES",
     "VARIANTS",
+    "WITHHELD_HEADING",
     "WINDOW_RULE",
     "WINDOW_TOKENS",
     "Window",
@@ -246,6 +304,7 @@ __all__ = [
     "expected_keys",
     "extraction_windows",
     "mean_vector",
+    "permitted_titles",
     "policy_classes",
     "token_estimate",
     "window_key",

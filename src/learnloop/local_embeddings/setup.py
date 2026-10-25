@@ -34,6 +34,17 @@ _DOWNLOAD = (
     "from huggingface_hub import snapshot_download\n"
     "snapshot_download(repo_id=sys.argv[1], revision=sys.argv[2], local_dir=sys.argv[3])\n"
 )
+_INSTALLED = (
+    "import json, sys\n"
+    "from importlib import metadata\n"
+    "found = {}\n"
+    "for name in sys.argv[1:]:\n"
+    "    try:\n"
+    "        found[name] = metadata.version(name)\n"
+    "    except metadata.PackageNotFoundError:\n"
+    "        found[name] = None\n"
+    "print(json.dumps(found))\n"
+)
 _EPOCH = (
     "import json, torch, transformers\n"
     "print(json.dumps({'torch': torch.__version__, 'transformers': transformers.__version__,"
@@ -66,10 +77,56 @@ def setup_plan(root: Path | None = None) -> dict[str, Any]:
                         "manifest": pins.manifest_path(root).is_file()}}
 
 
+def _pinned_requirements() -> dict[str, str]:
+    return {requirement.split("==", 1)[0]: requirement.split("==", 1)[1] for requirement in pins.LOCAL_REQUIREMENTS}
+
+
+def requirement_problems(run: Runner, env_python: Path, env: dict[str, str]) -> list[str]:
+    """What the environment lacks against the pins, asked of its own
+    interpreter (a path that exists is not an installed environment: an
+    interrupted install leaves the interpreter behind; Codex review F16).
+    A local version label (``2.14.0+cu130``) satisfies ``==2.14.0`` (PEP 440)."""
+
+    pinned = _pinned_requirements()
+    if not Path(env_python).exists():
+        return ["the environment's interpreter is missing"]
+    try:
+        output = _run(run, [str(env_python), "-I", "-c", _INSTALLED, *pinned], env=env)
+        installed = json.loads(output.strip().splitlines()[-1])
+    except (RuntimeError, ValueError, IndexError):
+        return ["the environment's interpreter cannot report its packages"]
+    problems = []
+    for name, version in sorted(pinned.items()):
+        found = installed.get(name) if isinstance(installed, dict) else None
+        if found is None:
+            problems.append(f"{name}: not installed")
+        elif str(found).split("+", 1)[0] != version:
+            problems.append(f"{name}: {found} is not the pinned {version}")
+    return problems
+
+
+def _owed_bytes(model: Path) -> int:
+    """The pinned bytes a (partial) model directory still lacks (missing or wrong-sized files)."""
+
+    owed = 0
+    for name, (size, _digest) in pins.MODEL_FILES.items():
+        path = model / name
+        if not path.is_file() or path.stat().st_size != int(size):
+            owed += int(size)
+    return owed
+
+
 def run_setup(*, root: Path | None = None, run: Runner = subprocess.run, adopt_model_dir: Path | None = None,
               adopt_env_python: Path | None = None, verify_weights: bool = True,
               disk_free: Callable[[Path], int] | None = None) -> dict[str, Any]:
-    """Create (or adopt) the environment and the model, verify them, write the manifest."""
+    """Create (or adopt) the environment and the model, verify them, write the manifest.
+
+    Resumable (Codex review F16): completion is judged by what is verified,
+    never by a path existing. An environment whose packages do not match the
+    pins is installed into again (``uv pip install`` is idempotent); a model
+    directory with missing or wrong-sized files is downloaded again (the
+    pinned snapshot download resumes what it has). Adopted artefacts are
+    checked the same way but never changed: a mismatch is refused."""
 
     root = root or pins.data_root()
     root.mkdir(parents=True, exist_ok=True)
@@ -77,18 +134,29 @@ def run_setup(*, root: Path | None = None, run: Runner = subprocess.run, adopt_m
     env_python = Path(adopt_env_python) if adopt_env_python else Path(plan["env_python"])
     model = Path(adopt_model_dir) if adopt_model_dir else Path(plan["model_dir"])
     steps: list[str] = []
-    if adopt_model_dir is None and not model.is_dir():
-        free = (disk_free or (lambda path: shutil.disk_usage(path).free))(root)
-        if free < pins.DOWNLOAD_FREE_DISK_GIB * GIB:
-            raise RuntimeError(f"{free / GIB:.1f} GiB free under {root}; the download needs "
-                               f"{pins.DOWNLOAD_FREE_DISK_GIB:.0f} GiB")
-    if adopt_env_python is None and not env_python.exists():
-        _run(run, ["uv", "venv", "--python", pins.LOCAL_PYTHON, str(pins.env_dir(root))])
-        _run(run, ["uv", "pip", "install", "--python", str(env_python), *pins.LOCAL_REQUIREMENTS])
-        steps.append("environment created")
     clean = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(root / "home"),
              "HF_HUB_DISABLE_TELEMETRY": "1"}
-    if adopt_model_dir is None and not model.is_dir():
+    download_owed = adopt_model_dir is None and (
+        not model.is_dir() or bool(model_dir_problems(model, pins.MODEL_FILES, pins.REMOTE_CODE_FILES)))
+    if download_owed:
+        owed = _owed_bytes(model) if model.is_dir() else pins.MODEL_DISK_BYTES
+        # The guardrail scales with what is still owed (a resumed download needs less room).
+        needed = pins.DOWNLOAD_FREE_DISK_GIB * GIB * owed / max(pins.MODEL_DISK_BYTES, 1)
+        free = (disk_free or (lambda path: shutil.disk_usage(path).free))(root)
+        if free < needed:
+            raise RuntimeError(f"{free / GIB:.1f} GiB free under {root}; the download needs "
+                               f"{needed / GIB:.0f} GiB")
+    if adopt_env_python is None:
+        if not env_python.exists():
+            _run(run, ["uv", "venv", "--python", pins.LOCAL_PYTHON, str(pins.env_dir(root))])
+            steps.append("environment created")
+        if requirement_problems(run, env_python, clean):
+            _run(run, ["uv", "pip", "install", "--python", str(env_python), *pins.LOCAL_REQUIREMENTS])
+            steps.append("dependencies installed")
+    missing = requirement_problems(run, env_python, clean)
+    if missing:
+        raise RuntimeError("the environment does not match the pins: " + "; ".join(missing[:5]))
+    if download_owed:
         model.parent.mkdir(parents=True, exist_ok=True)
         _run(run, [str(env_python), "-I", "-c", _DOWNLOAD, pins.MODEL_REPO, pins.MODEL_REVISION, str(model)],
              env=clean)
@@ -130,4 +198,4 @@ def load_manifest(root: Path | None = None) -> tuple[dict[str, Any] | None, str 
     return manifest, None
 
 
-__all__ = ["load_manifest", "run_setup", "setup_plan"]
+__all__ = ["load_manifest", "requirement_problems", "run_setup", "setup_plan"]
