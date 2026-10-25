@@ -1,5 +1,44 @@
 # Migration-head fixture
 
+## Sanitized in storage S0 (2026-10-25)
+
+`docs/specs/spec_storage_sync_v1.md` §7.2. This fixture holds **no third-party
+text and none of the owner's words**. `scripts/sanitize_migration_head_fixture.py`
+ran on a backup-API copy of the tracked fixture (migration head 220) and:
+
+- replaced the YouTube transcript (`canonical-sources/raw/note_source_youtube_video_hvjkcmzfix8_…bin`,
+  94 caption cues) with project-authored captions about parabolas
+  (`scripts/sanitized_head_transcript.py`), keeping every cue's `start` and
+  `duration` and the `video_id`, so the JSON shape and every `t=` locator are
+  unchanged; regenerated the note from it in the same format; rewrote the
+  quotes in the accepted ingest proposal (`proposed_patches.source_refs_json`)
+  from the new captions at the same locators;
+- reworded the focus-directrix concept description that had been copied
+  from the video (`concepts/concepts.yaml` and its accepted proposal item);
+- replaced the owner's six answers (`practice_attempts.learner_answer_md`)
+  with synthetic answers of the same kind (same item, grade and mistake), and
+  the grader text that quoted them (one `error_events.repair_plan_json`
+  evidence, two `grading_evidence` rows);
+- ran in one transaction with `secure_delete`, then `VACUUM` (earlier table
+  rebuilds had left old rows in reused pages), checking that every row and
+  rowid, `sqlite_master` and the applied migrations are unchanged, that
+  `integrity_check` is ok and `foreign_key_check` empty, and that the journal
+  mode is still DELETE (header bytes 1/1);
+- swept every file, every text column and the database's raw bytes: no
+  eight-word window of the old transcript and no old answer remains
+  (`tests/fixtures/sanitized_head_sweep.json` holds only their hashes;
+  `tests/test_public_tip_guards.py` repeats the sweep).
+
+What stays is the *shape* of the six attempts (items, grades, order and times
+on 2026-05-30 and 05-31), which the upgrade and replay tests replay, and the
+note's ids, title and `content_hash` (an identity label from the original
+capture, no longer the hash of the stored captions). The owner approves this
+at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
+sanitized content: apply the migration to a backup-API copy of this fixture,
+as before.
+
+## History
+
 This is a copy of the small conic-sections vault upgraded through migration
 220, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
