@@ -208,4 +208,180 @@ The files: `test_ad1_codex_rereview_fixes.py`, `test_ad1_codex_review_fixes.py`,
 
 ## Landing onto main
 
-(To be written at landing.)
+Branch `merge/rw7b-onto-main` in `learnanything-merge2`, cut from `main` at `cc3e9cf1e` (mobile PR-1, two docs-only
+specs and the owner-capture 1025 fixes on top of this stage's base `fa2eb72f8`). Main did not move during the gate.
+**Successor `mvp-0.32` (predecessor `mvp-0.31`), kill switch `reading_paths.plan_uses_path`, no migration.** The LP
+claim fixes land after this and renumber to `mvp-0.33`. Main was neither fast-forwarded nor pushed.
+
+### Commits and conflicts
+
+- `ea25868cc`: the `--no-ff` merge of `reader/rw7b` (`da8e98afe`). **No code conflict.** `daily_plan/engine.py`,
+  the chain pins, the defaults snapshots and the CLI help merged cleanly: main's side (PR-1, the capture fixes) did not
+  touch the daily plan, `algorithm_versions.py`, `config/template.py` or `tests/cli_help_snapshot.json`, and none of
+  main's new test files (`test_owner_capture_1025.py`, `test_secondary_attach.py`) pins the chain tail.
+  The 14 conflicts were all generated reference notes: 6 configuration notes (`hints`, `ingest`, `scheduler`,
+  `tutor_qa`, `ui`, `workbench`) and 8 table notes (`help_assists`, `queue_state`, `scheduler_slate_candidates`,
+  `schema_migrations`, `session_checkpoints`, `submission_intents`, `synthesis_manifests`, `synthesis_runs`). They
+  were `source_commit` stamps, line citations both sides moved, and the two sides' test lists. They were taken from
+  main and then regenerated (below).
+- `ce59c7008`: the regenerated references.
+- This record (docs only).
+
+The diff against main adds six files: the two review records, `src/learnloop/reading_path_plan_upgrade.py` and three
+test files (`test_plan_follows_path.py`, `test_rw7b_codex_review_fixes.py`, `test_rw7b_fix_round2.py`). It adds no
+database or binary file, and the root `.gitignore` is unchanged.
+
+### Chain check
+
+- `SUCCESSOR_CHAIN` ends `... mvp-0.29 -> mvp-0.30 -> mvp-0.31 -> mvp-0.32`, and `LATEST_ALGORITHM_VERSION` is
+  `mvp-0.32` (`READING_PATH_PLAN_ALGORITHM_VERSION`).
+- `learnloop upgrade --to mvp-0.32` on placement vaults (the merge's tree, under `env -i`) succeeds from `mvp-0.9`,
+  `mvp-0.27`, `mvp-0.29`, `mvp-0.30` and `mvp-0.31`, each ending labelled `mvp-0.32`. From `mvp-0.8` it is refused;
+  `--to mvp-0.9` then `--to mvp-0.32` succeeds. A bare `upgrade` from `mvp-0.31` goes to `mvp-0.32`. All checks: ALL OK.
+- Defaults snapshots: after clearing `config/__pycache__/template*.pyc`, all **23** entries of
+  `DEFAULTS_SNAPSHOT_BY_ALGORITHM` match `defaults_fingerprint_for_version` (0 mismatches).
+- Every chain pin test passes in the full suite.
+
+### Regeneration
+
+- **References.** On the merge, `db_validate_reference.py` reported **15 errors**: the `ingest` and `ui` notes cited
+  `cli/app.py`, `sidecar/context.py` and `config/schema.py` lines that both sides had moved. `db_generate_reference.py`
+  was rerun, and 4 notes with a real change were kept:
+  - `Config - ingest` and `Config - ui`: the citations.
+  - `synthesis_manifests` and `synthesis_runs`: their test lists name `tests/test_plan_follows_path.py` (beside main's
+    `test_secondary_attach.py`).
+
+  The other 419 rewrites changed only `source_commit` and were discarded. After that the validator reports **0
+  errors**.
+- **CLI help snapshot, RPC pins, defaults snapshots:** no change. `test_cli_help_snapshot`, `test_desktop_rpc_contract`,
+  `test_sidecar_serializer_snapshot`, `test_sidecar_registry`, `test_config_refactor`, `test_architecture`,
+  `test_public_tip_guards`, `test_reading_paths` and the stage's three files gave **167 passed, 3 skipped** (the owner
+  lane) with no file changed.
+- **`validate_vault.py`**: passes (1,155 notes, 1,153/1,153 reachable).
+- `module_validate.py` and `desktop_validate.py` fail exactly as on main (the module notes have been stale since before
+  RW2d; `syntheticBook.ts` is unclassified). Neither is in this landing's list, and RW7b adds no desktop source.
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0) in 5G scopes. The pytest lanes
+ran in 10G / 2G swap scopes under `flock /tmp/learnloop-fullsuite.lock`. Everything else ran in 5G / 1G scopes.
+Every Python run used `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and all three directories
+existed beforehand. Logs are in `fixtures-local/landing-rw7b/logs/`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`pytest -n 8`, at `ce59c7008`, 54 min 41 s) | 21,448 passed, **1 failed**, 77 skipped (the owner lane and optional lanes), 38 xfailed |
+| the one failure, run alone 3 times | `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep`: **3/3 passed** (4.5 s each). It is a known load flake, and RW7b does not touch the reading build sweep |
+| durability (`-m durability`) | **124 passed**, 1 skipped |
+| owner lane (`-m owner_vaults`, `LEARNLOOP_OWNER_VAULTS` = backup-API copies of the three mvp030 backups in `fixtures-local/owner-lane-rw7b/`) | 80 passed, 6 failed. **RW7b's 3 owner-lane tests pass** (`test_g47_off_is_the_predecessor_on_working_fixture_copies[linear_algebra, probability, arxiv_v2]`). The 6 failures fail the same way on main's tree `cc3e9cf1e` with fresh copies: 4 need the early vaults (`arxiv`, `conic-sections`, `linear_algebra_legacy`) that the backup set does not hold, and 2 assume data the current vaults no longer have (`test_activity_backfill` finds no attempt without an observation; `test_placement_fixture_copies[arxiv_v2]`) |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **213 files, 1,832 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean apart from `fixtures-local/` |
+
+### Parity (backup-API copies; no real model call)
+
+**Setup.** Scripts are in `fixtures-local/landing-rw7b/scripts/` (the capture landing's, re-pathed, plus new ones for
+this landing).
+- `orig/` holds backup-API copies of `learnanything/fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}`.
+- `u31/` is `orig` brought to **mvp-0.31 with main's code**: every route neutralized to a `127.0.0.1:9` blackhole,
+  then `upgrade --to mvp-0.31` and `rebuild-derived-state` twice.
+- `code_main` and `code_merge` are `git archive` exports of `cc3e9cf1e` and of the merge.
+- `run.py` puts the chosen code first on `sys.path`. Its audit hook refuses any process start that mentions codex
+  and any non-loopback socket.
+- Every dump runs at the frozen clock 2026-10-19 09:00 UTC with deterministic ids.
+- `~/learnloop-vaults` was never opened.
+
+**(a) Main vs merge at mvp-0.31** (`a.sh`; a second main copy is the noise control).
+- Whole databases after the normal primary sidecar load: **identical** (schema and every row of 356 tables,
+  18,301 rows on linear_algebra and 8,208 on probability; `row_differs` and `sql_diffs` empty). Integrity ok,
+  `model_call_receipts` 0 on both sides.
+- `rebuild --shadow` and `doctor`: **0 differences** main vs merge on both vaults. The shadow's 30 schedule
+  differences from live on linear_algebra, and doctor's issue counts (57 / 1 error and 101 / 48 errors), are the same
+  on both sides and predate this stage.
+- Certification, curves, Today and the plan: **byte-identical** main vs merge and main vs main on both vaults
+  (linear_algebra cert 129,651 / today 528,665 / plan 84,714 bytes; probability 17,495 / 741,269 / 40,799).
+
+**(b) `upgrade --to mvp-0.32`** (the merge's code, `b_rw7b.sh`).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| on main's mvp-0.31 copy | rc 0, "mvp-0.31 -> mvp-0.32" | the same |
+| bare `upgrade` on another copy | rc 0, "mvp-0.31 -> mvp-0.32" | the same |
+| rows vs the copy just before | every row is kept; raw, only the `algorithm_version` stamp of `facet_capability_evidence` (36) and `facet_recall_state` (76) (DERIVED) and the refreshed `parameter_registry` rows differ; added `derived_state_rebuilds` and `parameter_registry_manifests` | the same (1 and 2 stamped rows) |
+| `rebuild --shadow` right after the upgrade | facet 0, mastery 21 (the `mastery_state` stamp), schedule 0; live unchanged | 0 / 18 (stamp) / 0 |
+| after `rebuild-derived-state` twice | shadow **0 / 0 / 0**; doctor 57 / 1 error, as at mvp-0.31 | 0 / 0 / 0; 101 / 48 |
+| after the rebuilds, ULIDs, timestamps and the version stamp masked | no row removed or changed outside the FTS shadow tables (repacked); the rebuild appended its usual measurement, grade-interpretation and activity rows | the same |
+| straight from the mvp-0.30 backup, `--to mvp-0.32` (chains through RW2d's step) | rc 0, "mvp-0.30 -> mvp-0.32"; rows kept the same way (compared with a copy migrated to head 220 first, so the two `schema_migrations` rows the backup lacked differ only in their timestamps); after the rebuilds shadow 0 / 0 / 0, doctor unchanged | the same |
+| the owner's two steps, `--to mvp-0.31` then `--to mvp-0.32`, rebuild | rc 0 each; shadow 0 / 0 / 0 | the same |
+
+These are the same row and shadow results RW2d's landing recorded for its tag.
+
+**(c) The kill switch at mvp-0.32** (`cd_rw7b.sh`; every variant opened by the merge, the plan built first without
+serving (session 1), then the full plan dump (session 2), certification and Today).
+- **The copies as they are.** Neither copy has a judged reading path (`reader_path_sections` and `reader_path_depths`
+  are empty), so the path is never in play. `k32` (`plan_uses_path = false`) and `g32` (the Guide's `enabled = false`)
+  against `base31` (main's mvp-0.31 copy opened by the merge): Today **byte-identical**, certification and curves
+  identical apart from the version label, and the plan (every served read and step, every plan row) identical apart
+  from the label and the router card's three hashes (`card_hash`, `snapshot_hash`, `content_hash`), which hash the
+  card that carries the label; the card itself is identical once the label is masked.
+- **With a judged path (the fix-round case), linear_algebra.** probability's predecessor plan has no reading, so this
+  ran on linear_algebra only. On copies of `base31` and of the upgraded vault, a reading path was judged through the
+  sidecar's own `reader.reading_path_set_depth` on the plan's extraction (`learn_to_use_it`), with RW7a's
+  `PathJudgeFake` injected as the judge client (no route resolved, no model called). The predecessor's section `u50`
+  ("Sums of Subspaces") was labelled enrichment and the other 59 sections core.
+  - With the successor on (`s32on`), the plan follows the path: the reading is `u51` ("1.36 definition: sum of
+    subspaces"), the receipt names `chosen_by: path`, `label: core` and the predecessor `u50`, the why reads "...,
+    core on your reading path", and the new lane admits 9.5 min instead of 6.125. Certification and Today are
+    unchanged.
+  - Switch off from the start (`s32k`): equal to `s31` as above (label and card hashes aside).
+  - **Built with the switch on, then switched off** (`s32off`) and **then the Guide off** (`s32goff`): the next
+    reconcile put the predecessor's reading back. The split's reading is `u50` again and the receipt gains
+    `transition` (`reason: reading_path_off`, the switch values, from `u51` to `u50`, the minutes 6.725 / 9.5 before
+    and 3.35 / 6.125 after). No reading block had been staged, so `displaced_block_ids` is empty. Every served read
+    and step (`get_daily_plan`, both `next_plan_item` serves, the second read) and Today and certification are
+    **identical to the predecessor's** apart from the label. The stored rows differ only in the receipt (in
+    `split_json`) and in the build's one router decision. That decision was taken while the path was on, so its
+    candidates list the path's reading (`reason_code: reading_path_core`) as an unchosen candidate. The chosen block
+    is the same repair block, and the decision is kept as history.
+
+**(d) Defaults at mvp-0.32.** On these copies **nothing changes** (`d32` vs `base31`: as `k32` above), because neither
+vault has a judged reading path. The plan follows a path only after the learner opens the Guide and sets a depth on an
+as-you-read source (linear_algebra has one such source; probability's plan has no reading block at all).
+
+probability gave the same (c) and (d) results without the seeded case: `k32`, `g32` and `d32` against `base31`,
+Today byte-identical, certification identical apart from the label, the plan identical apart from the label and the
+card hashes.
+
+**Receipts and calls.** Over all 81 databases under `fixtures-local/landing-rw7b/`, `model_call_receipts` holds 6
+rows, all `fake_path_judge` / `fake-path-model` (`completed`): one per seeded copy, written by `PathJudgeFake`. There is
+no real provider row, completed or otherwise. `run.py`'s audit log was never created: over every parity run it saw
+**no process start and no socket connection at all**. Spend: $0.
+
+### Owner notes: what changes for the learner
+
+- **Upgrade**: back up, close the app, the MCP server and the phone page, then `learnloop upgrade --to mvp-0.32` (or
+  plain `learnloop upgrade`) on each vault. From an older vault the same command chains (`mvp-0.9` onwards; from
+  `mvp-0.8` run `--to mvp-0.9` first). No migration, nothing rewritten.
+- **What you see**: once you have chosen a depth for a book in the Guide (the Reader's reading path), the daily plan's
+  reading block opens the next section the Guide marks core or prerequisite at that depth, and says why ("Next on
+  your reading path: ..."). Sections the Guide marks enrichment, already shown or assumed, and any you chose to skip,
+  are never planned; "read it anyway" puts one back. Where you have not chosen a depth, or the Guide's judgment is out
+  of date, the plan reads in the old order. A book whose core path you have finished offers no reading.
+- **Kill switch**: `[reading_paths] plan_uses_path = false` in `learnloop.toml` (turning the Guide off,
+  `[reading_paths] enabled = false`, also stops it). It applies to today's plan at the next refresh, as long as you
+  have not started that reading.
+
+### Open items
+
+- The stage's five open questions stay at their defaults (§7): the Guide's switch gates the plan too; stale paths keep
+  the predecessor's order; a finished core path offers no enrichment; the skipped-core report row is built as F4
+  describes; the receipt lives in `split_json`.
+- Recorded Low: suppose a plan closed by itself and the learner then pressed "Done" on the done screen. DL1's
+  `stop_today` does not record that press, so such a plan can still reopen on a switch-off (fix round 2, "Not
+  changed").
+- The owner lane's 6 failures (missing early vaults, data assumptions) predate RW7b and fail the same on main.
+- `module_validate.py` and `desktop_validate.py` remain stale on main (not part of this landing).
+- The LP claim fixes land next as `mvp-0.33` with `mvp-0.32` as their predecessor.
