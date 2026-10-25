@@ -60,6 +60,12 @@ TASK = "hint_chooser"
 LEDGER_TASK = "hint_choice"
 QUESTION_SET_VERSION = "hint-chooser-qs-v1"
 POLICY_VERSION = "hint-choice-policy-v1"
+#: Owner capture 2026-10-25, fix round 2 (item 3): the fallback's rules
+#: changed (B2: a "More" press reads the help style, and so does the
+#: workbench's suggested rung), so a fallback row names v2. The Decider's
+#: draws are unchanged and keep v1. Receipts only: no successor
+#: (adaptive-hints §10.1).
+FALLBACK_POLICY_VERSION = "hint-choice-policy-v2"
 KIND_QUESTION = "kind_level"
 HORIZON_QUESTION = "horizon"
 
@@ -212,7 +218,11 @@ def decider_state(state: HintState, option_set: OptionSet, *, request: str, shor
 def fallback_choice(option_set: OptionSet, state: HintState, item: Any, *, request: str,
                     shortcut: str | None, reason: str) -> Choice | None:
     """§4.5's fallback for the practice screen, or None when nothing can be
-    served (no authored hint left and no option)."""
+    served (no authored hint left and no option). A "More" press follows the
+    help style (owner capture 2026-10-25, B2): balanced keeps §4.5's order
+    (the item's authored hints, then the next step); let me struggle starts
+    lower; guide me serves the next step first. Replies and taken levels
+    are fixed by the learner and keep their rules."""
 
     ids = option_set.ids
     base = dict(chooser="fallback", propensity=1.0, options=ids, reason=reason, policy="fallback")
@@ -234,6 +244,22 @@ def fallback_choice(option_set: OptionSet, state: HintState, item: Any, *, reque
             first = option_set.options[0]
             return Choice(first.kind, first.level, 1 if first.kind == "waypoint" else None, **base)
         return None
+    style = str(state.help_style or "balanced")
+    if style == "let_me_struggle":
+        # Owner capture 2026-10-25 (B2): the stated preference is read here
+        # too, not only by the Decider. "Let me struggle" asks for the least
+        # specific help that could work (§4.5): each press one level above
+        # the highest shown in this attempt, from level 1, so "More" still
+        # goes up; level 3 is the balanced order below.
+        shown = max((int(hint.level or 0) for hint in state.shown_hints), default=0)
+        for level in range(shown + 1, 3):
+            for kind in FALLBACK_ORDER.get(level, ()):
+                if option_set.has(kind, level):
+                    return Choice(kind, level, None, **base)
+    elif style == "guide_me" and option_set.has("next_step", 3):
+        # B2: "Guide me" asks for more specific help sooner (§4.5): the next
+        # step written for this work before the item's general hints.
+        return Choice("next_step", 3, None, **base)
     remaining = state.authored_remaining(item)
     if remaining:
         return Choice("authored", 3, None, authored_index=remaining[0], **base)
@@ -365,7 +391,10 @@ def ask(
                      "seed": seed, "policy": policy, "drawn": result_choice.drawn() if result_choice else None,
                      "propensity": result_choice.propensity if result_choice else None,
                      "level_source": option_set.level_source, "latency_ms": latency,
-                     "state_hash": state.state_hash(), "policy_version": POLICY_VERSION}
+                     "state_hash": state.state_hash(), "policy_version": POLICY_VERSION,
+                     # Owner capture 2026-10-25 (B2): the style the judgment
+                     # was made under; a suggestion is never reused under another.
+                     "help_style": state.help_style}
         with repository.atomic():
             judgment_id = append_judgment(
                 repository.connection(), task=LEDGER_TASK, left_kind="help_assist", left_id=assist_id,
@@ -381,8 +410,19 @@ def ask(
     return fallback
 
 
+def policy_version(policy: str | None) -> str:
+    """A served row's ``policy_version`` for a choice made under ``policy``
+    (``sample``, ``argmax`` or ``fallback``): the fallback's own version for
+    a fallback choice (fix round 2, item 3), else the Decider policy's."""
+
+    if policy == "fallback":
+        return f"{FALLBACK_POLICY_VERSION}:fallback"
+    return f"{POLICY_VERSION}:{policy}"
+
+
 __all__ = [
     "Choice",
+    "FALLBACK_POLICY_VERSION",
     "HORIZON_QUESTION",
     "KIND_QUESTION",
     "LEDGER_TASK",
@@ -399,5 +439,6 @@ __all__ = [
     "kind_question",
     "learner_pick_choice",
     "new_seed",
+    "policy_version",
     "single_option_choice",
 ]

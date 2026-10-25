@@ -68,6 +68,12 @@ export interface WorkbenchProps {
   onAnswerBox?: (session: WorkbenchSessionDto) => void;
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
+  /** Owner capture 2026-10-25 (B1): the practice screen's Ask, from steps
+   *  (a button and `?`); the screen opens the tutor with the steps as work. */
+  onAsk?: () => void;
+  /** The live steps as the learner's work (B1): numbered, stuck steps
+   *  marked, reported as they change, so an Ask from anywhere sees them. */
+  onWorkChange?: (workMd: string) => void;
   /** RW2b: peek a passage of the book ("compare with the book"). */
   /** ``target``: where the passage is, when the workbench knows (RW2c review
    *  F1: a worked example may be in another book). */
@@ -83,6 +89,15 @@ const actionStyle: CSSProperties = {
   border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO,
   fontSize: 11, padding: "5px 10px", cursor: "pointer",
 };
+
+/** The live steps as the learner's work for the tutor (B1): one numbered
+ *  line per step, a stuck step marked as the learner's own "stuck" note. */
+export function stepsAsWork(steps: readonly { kind: string; body: string }[]): string {
+  return steps
+    .filter((step) => step.body.trim())
+    .map((step, index) => `${index + 1}. ${step.kind === "stuck" ? "(stuck) " : ""}${step.body.trim()}`)
+    .join("\n");
+}
 
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select") !== null);
@@ -120,6 +135,11 @@ export function Workbench(props: WorkbenchProps) {
   const bound = session.practiceItemId !== null;
   const open = session.status === "open";
   const live = liveSteps(steps);
+  const workMd = stepsAsWork(live);
+  const onWorkChange = props.onWorkChange;
+  useEffect(() => {
+    onWorkChange?.(workMd);
+  }, [onWorkChange, workMd]);
   // Leave or "answer box instead" is under way (round 4, F8): the steps and
   // their actions are read-only, and say so, until it goes or is held.
   const leaving = wb.leaving;
@@ -317,6 +337,11 @@ export function Workbench(props: WorkbenchProps) {
     } else if (helpOn && ctrl && event.shiftKey && key.toLowerCase() === "h") {
       handled();
       smallerStep();
+    } else if (props.onAsk && key === "?" && !ctrl && !event.altKey && !isTyping(event.target)) {
+      // B1: the practice screen's Ask key, here too (the screen's own key
+      // handler stands down while the workbench owns the keys).
+      handled();
+      props.onAsk();
     } else if (event.altKey && (key === "ArrowUp" || key === "ArrowDown")) {
       handled();
       const current = steps.find((step) => (event.target as HTMLElement).closest?.(`[data-step-key="${step.key}"]`));
@@ -650,6 +675,10 @@ export function Workbench(props: WorkbenchProps) {
           </button>
         ) : null}
         <button type="button" style={actionStyle} aria-disabled={leaving} onClick={stuck}>I'm stuck · ctrl+d</button>
+        {props.onAsk ? (
+          <button type="button" style={actionStyle} aria-disabled={leaving}
+            onClick={() => { if (!leaving) props.onAsk?.(); }}>ask · ?</button>
+        ) : null}
         <button
           type="button"
           style={{ ...actionStyle, borderColor: bound ? COLOR.borderFocus : COLOR.border, color: bound ? COLOR.text : COLOR.textDim }}

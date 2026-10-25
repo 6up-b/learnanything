@@ -195,6 +195,25 @@ def keyless_window_start(connection: sqlite3.Connection, *, practice_item_id: st
     return str(row[0]) if row is not None and row[0] is not None else None
 
 
+def authored_reveals_in_window(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str,
+                               since: str | None) -> int:
+    """How many distinct authored hints the practice screen revealed (H0's
+    client-counted rows, any key, still unattached) on the item in this
+    session after ``since`` (:func:`keyless_window_start`). Owner capture
+    2026-10-25, fix round 2: a stale draft's client count is bounded by it."""
+
+    clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
+               "counted_by = 'client'", "assist_kind = 'hint'", "hint_kind = 'authored'"]
+    values: list[Any] = [practice_item_id, session_id]
+    if since is not None:
+        clauses.append("requested_at > ?")
+        values.append(since)
+    row = connection.execute(
+        f"SELECT COUNT(DISTINCT authored_index) FROM help_assists WHERE {' AND '.join(clauses)}", values
+    ).fetchone()
+    return int(row[0] or 0)
+
+
 def server_fold(
     connection: sqlite3.Connection,
     *,
@@ -560,7 +579,8 @@ __all__ = [
     "workbench_assist_ids",
     "workbench_window",
     "workbench_window_ids",
-    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
+    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "authored_reveals_in_window",
+    "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",
     "PASSAGE_KINDS", "WorkbenchFold", "bind_workbench_rows", "compare_rows_for", "mark_bridge_shown", "settle_bridge",

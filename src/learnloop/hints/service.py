@@ -829,6 +829,11 @@ def _choose_workbench(vault: LoadedVault, repository: Repository, state: HintSta
     context = request.workbench
     taken = int(request.taken_level or 0)
     suggestion = workbench_module.suggestion_record(repository, context.suggestion_id)
+    if suggestion is not None and workbench_module.style_of(suggestion) not in (None, state.help_style):
+        # Owner capture 2026-10-25 (B2): the suggestion was judged under
+        # another help style (the learner changed it since): its draw is not
+        # this request's, so the rung is chosen again under the style now.
+        suggestion = None
     if suggestion is not None or not vault.config.hints.chooser_enabled or len(option_set.options) <= 1:
         return workbench_module.taken_choice(state, option_set, context, item, taken_level=taken,
                                              suggestion=suggestion)
@@ -908,7 +913,7 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "drawn_option_json": _json(choice.drawn()) if choice is not None else None,
         "propensity": choice.propensity if choice is not None else None,
         "seed": choice.seed if choice is not None else None,
-        "policy_version": f"{chooser_module.POLICY_VERSION}:{choice.policy}" if choice is not None
+        "policy_version": chooser_module.policy_version(choice.policy) if choice is not None
         else chooser_module.POLICY_VERSION,
         "question_set_version": chooser_module.QUESTION_SET_VERSION if choice is not None and choice.judgment_id
         else None,
@@ -923,7 +928,10 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
             # H2b: the two state values the report's expertise-reversal split
             # reads (§6.3), as the chooser saw them at request time.
             "state_at_request": {"placement_intent": state.placement_intent,
-                                 "p_success": round(state.p_success, 4) if state.p_success is not None else None},
+                                 "p_success": round(state.p_success, 4) if state.p_success is not None else None,
+                                 # Owner capture 2026-10-25 (B2): the style the
+                                 # choice was made under (the fallback reads it).
+                                 "help_style": state.help_style},
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
             # H3 (F14): the served hint's claims as checked (workbench only).

@@ -75,6 +75,10 @@ export interface AskTarget {
   /** Practice context: the learner's current draft, for "Explain this with
    *  my work" (canonical sources S4). */
   draftMd?: string;
+  /** Practice context, in "Work in steps" (owner capture 2026-10-25, B1):
+   *  the steps as the learner's work, sent with every question so the tutor
+   *  sees what the answer box would have shown it. */
+  workMd?: string;
 }
 
 const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> = {
@@ -490,6 +494,10 @@ export function AskOverlay({
           // the passage the learner chose, with their current draft.
           input.pinnedSpanKeys = pinned.spanKeys;
           if (target.draftMd?.trim()) input.learnerDraftMd = target.draftMd;
+        }
+        if (target.context === "practice" && target.workMd?.trim()) {
+          // B1: in steps the work is the steps, on every question.
+          input.learnerDraftMd = target.workMd;
         }
         const tutorAnswer = await api.askTutorQuestion(input);
         routedCaptureRef.current = target.captureId ?? null;

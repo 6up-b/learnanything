@@ -310,9 +310,9 @@ export function App() {
   // The open practice screen's ask state (opened-at and whether an answer was
   // started), so the command-palette ask carries it too: help before work
   // holds there as it does for the screen's own ask.
-  const practiceAskStateRef = useRef<(() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null>(null);
+  const practiceAskStateRef = useRef<(() => { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string }) | null>(null);
   const onPracticeAskState = useCallback(
-    (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null) => {
+    (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string }) | null) => {
       practiceAskStateRef.current = reader;
     },
     []
