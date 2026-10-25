@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.ids import new_ulid
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
@@ -28,7 +29,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
-from learnloop.learner.mastery import display_mastery
+from learnloop.learner.mastery import claim_fixes_live, display_mastery, reanchor_mastery_from_claim
 from learnloop.content.authoring.practice_generation import (
     PracticeExpansionError,
     ability_logit,
@@ -566,7 +567,9 @@ def _promote_existing_item(
 
     learner_claim_id: str | None = None
     if intent == "gap" and origin_lo is not None:
-        learner_claim_id = _write_gap_claim(repository, vault, origin_lo, attributed, clock=clock)
+        learner_claim_id = _write_gap_claim(
+            repository, vault, origin_lo, attributed, event_id=str(event["id"]), clock=clock
+        )
     _record_promotion_decision_features(
         repository,
         vault,
@@ -721,7 +724,9 @@ def _promote_gap(
     """Gap route: self-report claim + intervention need + inline diagnostic gen (§3 Step 2.5)."""
 
     assert origin_lo is not None  # enforced by the caller (practice/feedback only)
-    learner_claim_id = _write_gap_claim(repository, vault, origin_lo, attributed, clock=clock)
+    learner_claim_id = _write_gap_claim(
+        repository, vault, origin_lo, attributed, event_id=str(event["id"]), clock=clock
+    )
 
     # Need-filing dedup (§4b): link to a pending gap need on the same facets.
     existing_need = repository.pending_gap_need_for_facets(attributed) if attributed else None
@@ -776,23 +781,78 @@ def _write_gap_claim(
     origin_lo: LearningObject,
     attributed: list[str],
     *,
+    event_id: str,
     clock: Clock | None,
 ) -> str:
-    """G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet."""
+    """G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet.
+
+    Under the claim-fixes successor (LP-min (a), spec_learned_parameters_v1
+    §3.0b item 1) the claim also re-anchors the LO's mastery at once, as a
+    rung-variant request or a too-easy/too-hard report does: before it, the
+    claim seeded only a row materialized later, and sync materializes every
+    LO's row up front, so a gap declaration was inert on existing LOs. Off, or
+    below the tag: the claim is written and nothing else, as the predecessor.
+
+    Atomic and retry-safe under the successor (review F1): the claim's id
+    carries the question event's (``<ULID>_gap_<event id>``: the ULID keeps
+    the shared ``(created_at, id)`` order replay places it by, the suffix is
+    the idempotency key), and ONE ``BEGIN IMMEDIATE`` transaction finds or
+    inserts it and applies its mastery effect. A promotion that dies after
+    this commit and before its ``question_promotions`` row is retried from the
+    start; the retry finds the claim and returns it without merging the same
+    learner action again. No model work runs inside the transaction (the
+    analysis ran before it; diagnostic generation runs after).
+    """
 
     config = vault.config.tutor_promotion
-    return repository.insert_learner_claim(
-        {
-            "claim_type": "self_rating",
-            "scope_type": "learning_object",
-            "scope_id": origin_lo.id,
-            "evidence_family": attributed[0] if attributed else None,
-            "claimed_level": config.gap_claim_level,
-            "prior_pseudo_count": config.gap_claim_pseudo_count,
-            "source": "tutor_gap_declaration",
-        },
-        clock=clock,
-    )
+    claim: dict[str, Any] = {
+        "claim_type": "self_rating",
+        "scope_type": "learning_object",
+        "scope_id": origin_lo.id,
+        "evidence_family": attributed[0] if attributed else None,
+        "claimed_level": config.gap_claim_level,
+        "prior_pseudo_count": config.gap_claim_pseudo_count,
+        "source": "tutor_gap_declaration",
+    }
+    if not claim_fixes_live(vault):
+        return repository.insert_learner_claim(claim, clock=clock)
+    suffix = _gap_claim_key(event_id)
+    with repository.atomic():
+        applied = next(
+            (
+                str(row["id"])
+                for row in repository.learner_claims()
+                if row.get("source") == "tutor_gap_declaration" and str(row.get("id") or "").endswith(suffix)
+            ),
+            None,
+        )
+        if applied is not None:
+            # An interrupted promotion of this event already applied it.
+            return applied
+        # One instant for the claim's stamp and its re-anchor, so the live
+        # write and its replay (which re-anchors at the claim's created_at)
+        # agree.
+        now_iso = utc_now_iso(clock)
+        claim_id = repository.insert_learner_claim(
+            {**claim, "id": f"{new_ulid()}{suffix}", "created_at": now_iso}, clock=clock
+        )
+        reanchor_mastery_from_claim(
+            vault,
+            repository,
+            origin_lo.id,
+            claimed_level=config.gap_claim_level,
+            prior_pseudo_count=config.gap_claim_pseudo_count,
+            now_iso=now_iso,
+            # Records the claim's place among the LO's attempts (re-review F7).
+            claim_id=claim_id,
+        )
+    return claim_id
+
+
+def _gap_claim_key(event_id: str) -> str:
+    """The idempotency suffix of a gap claim's id: the question event it came from."""
+
+    return f"_gap_{event_id}"
 
 
 def _file_gap_need(

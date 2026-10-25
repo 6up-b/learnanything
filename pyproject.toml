@@ -448,6 +448,7 @@ type = "forbidden"
 # every source file (the namespace package learnloop.content included, and
 # any package added later) for an import of learnloop.experiments.
 source_modules = [
+    "learnloop.activation_journal",
     "learnloop.adaptive_difficulty",
     "learnloop.ad_successor_upgrade",
     "learnloop.ai",
@@ -458,6 +459,7 @@ source_modules = [
     "learnloop.bootstrap",
     "learnloop.capture",
     "learnloop.causal_activity_policy",
+    "learnloop.claim_fixes_upgrade",
     "learnloop.clock",
     "learnloop.confidence_events",
     "learnloop.config",

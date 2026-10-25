@@ -1072,6 +1072,13 @@ export interface IntentRestorationDto {
 }
 
 /** A served (or answered) "Check once". */
+/** LP-min (a), LPQ9: "You marked this as known; this check: missed." */
+export interface ClaimCheckDto {
+  claim: "marked_known";
+  check: "passed" | "missed";
+  line: string;
+}
+
 export interface IntentCheckDto {
   kind: "check_once";
   commitmentId: string;
@@ -1530,6 +1537,9 @@ export interface FeedbackBundle {
   attemptId: string;
   /** Daily-loop DL2: present only when this attempt answered a "Check once". */
   intentCheck?: IntentCheckDto;
+  /** LP-min (a), LPQ9: present only on the review that resolved a topic the
+   *  learner marked as known. One quiet line; never a score or a label. */
+  claimCheck?: ClaimCheckDto;
   /** Slice 1 §11: present when the attempt queued an asynchronous diagnosis. */
   diagnosisStatus?: DiagnosisStatusValue;
   practiceItemId: string;

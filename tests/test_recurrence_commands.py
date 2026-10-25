@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from learnloop.ai.spend import SpendCaps
 from learnloop.algorithm_versions import (
+    CLAIM_FIXES_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_VERSIONS,
     LATEST_ALGORITHM_VERSION,
     P0_SUCCESSOR_VERSIONS,
@@ -46,7 +47,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -141,6 +142,7 @@ def test_successor_vocabulary():
         ROUTER_MIXTURE_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION,
         ELIGIBILITY_DECISION_ALGORITHM_VERSION, INTENT_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
         WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION, READING_PATH_PLAN_ALGORITHM_VERSION,
+        CLAIM_FIXES_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -150,12 +152,15 @@ def test_successor_vocabulary():
     # The one eligibility decision (mvp-0.27), the learner's intent (mvp-0.29,
     # daily-loop DL2), adaptive difficulty (mvp-0.30) and the Reader
     # workbench's field signals (mvp-0.31, RW2d) and the plan following the
-    # reading path (mvp-0.32, RW7b) follow them all.
+    # reading path (mvp-0.32, RW7b) and LP-min (a)'s claim fixes (mvp-0.33)
+    # follow them all.
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29"
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.32"
+    assert READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
+    # LP-min (a)'s claim fixes (mvp-0.33) follow it as the latest.
+    assert LATEST_ALGORITHM_VERSION == CLAIM_FIXES_ALGORITHM_VERSION == "mvp-0.33"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

@@ -8,7 +8,7 @@ stamps with the protection epoch (the AD23 redesign, round 2: ``item_serve_input
 ``ad_coupling_versions`` (RECEIPT, append-only), ``ad_state`` and
 ``ad_attempt_trace`` (DERIVED, the AD replayer) and ``item_forecast_scores``
 (DERIVED, the forecast-score replayer). Every pre-existing row is unchanged.
-The head fixture (migration_head_220) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
+The head fixture (migration_head_221) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
 upgrade under WAL; the FK check is clean.
 """
 
@@ -25,7 +25,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221" / "state.sqlite"
 NEW_TABLES = {"ad_selections", "ad_commission_results", "ad_dose_offers", "ad_relatedness_runs",
               "ad_coupling_versions", "ad_state", "ad_attempt_trace", "item_forecast_scores"}
 #: What 214 adds (the earlier migrations' "nothing else changed" diffs on the way to head read it).
@@ -178,7 +178,7 @@ def test_the_tables_are_classified() -> None:
 def test_head_fixture_at_head_with_214_in_rollback_mode() -> None:
     # RW2d's 219 landed on this head after AD2+AD3 (its landing rebuilt the fixture with only 219 applied),
     # then local retrieval P1's 220 (the same, with only 220 applied).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 220
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 221
     assert {213, 214, 215, 216, 217, 218, 219, 220} <= applied_versions(HEAD)
     header = HEAD.read_bytes()[:20]
     assert (header[18], header[19]) == (1, 1)  # rollback journal, no WAL companion
@@ -201,8 +201,8 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
         if migration.version != 214:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     apply_migrations(database, migrations_dir=through)
-    # Since local retrieval P1's landing the head is 220: such a vault holds 215-220 without 214.
-    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 220
+    # Since LP-min (a)'s 221 the head is 221: such a vault holds 215-221 without 214.
+    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 221
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)

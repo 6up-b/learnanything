@@ -343,7 +343,7 @@ def _apply_difficulty_report(
         scope_type="learning_object",
         scope_id=item.learning_object_id,
     )
-    repository.insert_learner_claim(
+    claim_id = repository.insert_learner_claim(
         {
             "claim_type": "self_rating",
             "scope_type": "learning_object",
@@ -362,6 +362,9 @@ def _apply_difficulty_report(
         claimed_level=claim_level,
         prior_pseudo_count=config.claim_pseudo_count,
         now_iso=utc_now_iso(clock),
+        # Under the claim-fixes successor: the claim's place among the LO's
+        # attempts, recorded with its re-anchor (re-review F7).
+        claim_id=claim_id,
     )
 
 
