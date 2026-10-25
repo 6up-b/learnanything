@@ -66,8 +66,8 @@ def cite(paths: VaultPaths, lo_id: str, source_id: str, extraction_id: str, span
 
 
 def build_coverage_vault(root: Path, *, big: bool = False, held_out: bool = True,
-                         config: str = "") -> tuple[VaultPaths, Repository]:
-    paths, repository = build_retrieval_vault(root, embeddings=False)
+                         config: str = "", embeddings: bool = False) -> tuple[VaultPaths, Repository]:
+    paths, repository = build_retrieval_vault(root, embeddings=embeddings)
     seed_source(repository, source_id="src_lay", revision_id="rev_lay", extraction_id="ext_lay", title="Lay",
                 units=LAY, furniture=False)
     members = [
@@ -91,6 +91,13 @@ def build_coverage_vault(root: Path, *, big: bool = False, held_out: bool = True
         with (paths.root / "learnloop.toml").open("a", encoding="utf-8") as handle:
             handle.write("\n" + config + "\n")
     return paths, repository
+
+
+def hold_out(repository: Repository, *unit_ids: str) -> None:
+    """Mark more of ``ext_lay``'s units held out (``lay_held`` stays held out)."""
+
+    modes = {unit_id: "held_out_evaluation" for unit_id in ("lay_held", *unit_ids)}
+    save_unit_selection(repository, "ext_lay", list(LAY), exam_use_modes=modes)
 
 
 def prompt_context(prompt: str) -> dict[str, Any]:

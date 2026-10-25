@@ -185,3 +185,48 @@ def test_cover_source_refuses_a_withheld_reading(tmp_path):
     paths, repository = build_coverage_vault(tmp_path / "vault")
     out = SC.cover_source(load_vault(paths.root), repository, "ext_exam", client=CoverageJudgeFake())
     assert out["status"] == "withheld" and out["calls"] == 0
+
+
+# -- Codex review F8: jobs belong to their vault ----------------------------------------------------
+
+
+def test_coverage_jobs_belong_to_the_vault_that_started_them(tmp_path):
+    from learnloop_sidecar.handlers import correspondents as HC
+
+    paths_a, _repository_a = build_coverage_vault(tmp_path / "a")
+    paths_b, _repository_b = build_coverage_vault(tmp_path / "b")
+    judge = CoverageJudgeFake()
+    ctx = _ctx(paths_a, coverage_judge_client=judge)
+    started = call(ctx, "curriculum.cover", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
+    HC._jobs(ctx).running.add("lo_eigen")  # vault A's job is still judging lo_eigen
+    ctx.load(paths_b.root)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "curriculum.cover_job", {"job_id": started["job"]["jobId"]})
+    assert caught.value.code == "not_found"
+    view = call(ctx, "reader.correspondents", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN,
+                                               "search_fallback": False})
+    assert view["job"] is None
+    again = call(ctx, "curriculum.cover", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
+    job = call(ctx, "curriculum.cover_job", {"job_id": again["job"]["jobId"]})["job"]
+    assert job["results"][0]["status"] == "ready"  # not "held" by vault A's job
+
+
+def test_a_vault_switch_during_a_job_keeps_nothing_in_the_old_vault(tmp_path):
+    paths_a, repository_a = build_coverage_vault(tmp_path / "a")
+    paths_b, repository_b = build_coverage_vault(tmp_path / "b")
+    holder = {}
+
+    class Switching(CoverageJudgeFake):
+        def complete(self, request):
+            answer = super().complete(request)
+            holder["ctx"].load(paths_b.root)  # the learner opens vault B while A's judgment runs
+            return answer
+
+    judge = Switching()
+    ctx = _ctx(paths_a, coverage_judge_client=judge)
+    holder["ctx"] = ctx
+    call(ctx, "curriculum.cover", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
+    assert judge.calls == 1
+    for repository in (repository_a, repository_b):
+        with repository.connection() as connection:
+            assert connection.execute("SELECT COUNT(*) FROM section_coverage").fetchone()[0] == 0
