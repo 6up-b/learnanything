@@ -187,9 +187,10 @@ def _complete(root: Path, *, clock: Clock | None) -> _Activated | None:
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     repository = open_vault_repository(vault.root, sqlite_path)
     if _activation_committed(repository, target):
-        # The process died between the commit and the journal's removal.
+        # The process died between the commit and the journal's removal: the
+        # activation is complete, so there is nothing to finish.
         journal_path.unlink(missing_ok=True)
-        return _Activated((), ())
+        return None
     return _activate(root, predecessor=predecessor, target=target, publish=False, clock=clock)
 
 

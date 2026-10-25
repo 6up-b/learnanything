@@ -160,9 +160,9 @@ def test_defect1_on_a_gap_declaration_reanchors_a_materialized_lo(tmp_path):
     config = vault.config
     mean, variance, evidence = _mastery(repository)
     assert mean == pytest.approx(logit(config.tutor_promotion.gap_claim_level))
-    assert variance == pytest.approx(
-        max(1 / config.tutor_promotion.gap_claim_pseudo_count, config.mastery.claim_prior_min_variance)
-    )
+    # Review F4: the claim moves the mean only; it never makes the cold row
+    # more certain (the predecessor's seed would set max(1/pc, 2.0) < 3.0).
+    assert variance == cold[1] == config.mastery.cold_start_prior_logit_variance
     assert evidence == 0
 
 
