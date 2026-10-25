@@ -153,7 +153,13 @@ algorithm successor, no migration, no config key, no frontend change.** Main was
 ### Commits and conflicts
 
 - `4b68f0fa3`: the `--no-ff` merge of `mobile/pr1-secondary-attach`. **No conflicts.**
-- This record (docs only).
+- `03b25498d`: this record (docs only).
+- `d88187d66`: **main moved during the gate** to `1669817d1`, which adds two docs-only specs
+  (`spec_deliverable_curriculum_v1.md`, `ux_reader_compare_ask_v1.md`). Main was merged in, with no conflict, so
+  the tip descends from current main. Re-checked after it: `test_public_tip_guards`, `test_architecture`,
+  `test_secondary_attach` and `test_cli_help_snapshot` gave 59 passed, `validate_vault.py` passes, and
+  `db_validate_reference.py` gives 0 errors. The full gate below ran at `4b68f0fa3`; the two specs touch no code.
+- The note above about main's move (docs only).
 
 The diff against main adds three files (this record, the Codex review record and `tests/test_secondary_attach.py`):
 no database or binary (G8), and the root `.gitignore` is unchanged. No test in the stage reads an owner vault.
