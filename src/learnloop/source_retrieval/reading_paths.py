@@ -364,6 +364,21 @@ def honest_label(label: str, learning_object_ids: Sequence[str], statuses: Mappi
     return ("assumed", False) if holds else ("core", True)
 
 
+def effective_label(stored: str, override_row: Mapping[str, Any] | None, learning_object_ids: Sequence[str],
+                    statuses: Mapping[str, LoStatus]) -> tuple[str, bool, str | None, str]:
+    """``(label, changed, override, effective)`` for one judged section: the
+    honest label (:func:`honest_label`), the learner's newest choice (``None``
+    when there is none or it was cleared) and what that makes the section: a
+    "read it anyway" is ``core``, a "skip it" is ``skipped``, otherwise the
+    label. The one rule the Guide shows and RW7b's plan reads."""
+
+    label, changed = honest_label(stored, learning_object_ids, statuses)
+    choice = None if override_row is None or override_row["learner_override"] == "none" else str(
+        override_row["learner_override"])
+    effective = "core" if choice == "read_anyway" else "skipped" if choice == "skip" else label
+    return label, changed, choice, effective
+
+
 def _one_line(text: str | None) -> str:
     value = " ".join(str(text or "").split())
     return value if len(value) <= REASON_CHARS else value[: REASON_CHARS - 1].rstrip() + "…"
@@ -1110,14 +1125,11 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
         if row is None:
             continue
         stored = str(row["label"])
-        label, changed = honest_label(stored, section.learning_object_ids, inputs.statuses)
+        label, changed, choice_now, effective = effective_label(
+            stored, chosen.get(section.section_id), section.learning_object_ids, inputs.statuses)
         code_wrote = changed or held_back
         reason = (shown_reason(label, stored, None, section, inputs.lo_titles) if code_wrote
                   else str(row["reason"]))
-        override_row = chosen.get(section.section_id)
-        choice_now = None if override_row is None or override_row["learner_override"] == "none" else str(
-            override_row["learner_override"])
-        effective = "core" if choice_now == "read_anyway" else "skipped" if choice_now == "skip" else label
         exercise = exercise_view(vault, repository, inputs, row.get("exercise_span_id")) if effective == "core" else None
         sections.append({
             "section_id": section.section_id, "title": section.label, "start_span_id": section.span_ids[0],
@@ -1133,6 +1145,105 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
             "reasons_held_back": held_back,
             "next": next_activity(sections, depth, progress), "message": message,
             "reason": (judging or {}).get("reason") if status == "failed" else None}
+
+
+# ---------------------------------------------------------------------------
+# RW7b: the path the plan's reading block follows (spec §10.2; pure reads)
+# ---------------------------------------------------------------------------
+
+#: The effective labels the plan's reading block may open (§10.2): enrichment,
+#: already shown, assumed and a "skip it" are never planned.
+PLANNED_LABELS: tuple[str, ...] = ("core", "prerequisite")
+#: A path's state for the plan. ``path``: a judged path at the learner's
+#: depth (fresh or stale; the labels are re-checked now); ``no_depth``: the
+#: learner has not chosen one; ``not_judged``: nothing judged at that depth;
+#: ``withheld``: the reading is held out (or its exam predicate unreadable),
+#: so the path plans nothing; ``unreadable``: the path could not be read.
+PLAN_PATH_STATUSES: tuple[str, ...] = ("path", "no_depth", "not_judged", "withheld", "unreadable")
+
+
+@dataclass(frozen=True)
+class PlanPath:
+    """What RW7b's plan reads of one reading's path. Only a ``path`` or a
+    ``withheld`` path is followed; the others leave the reading to the
+    predecessor's order."""
+
+    extraction_id: str
+    status: str
+    depth: str | None = None
+    state_key: str | None = None
+    fresh: bool = False
+    #: section id -> effective label, for the sections the judgment names.
+    labels: Mapping[str, str] = field(default_factory=dict)
+    #: sections that may not be sent or shown now (exam, held out).
+    withheld: frozenset[str] = frozenset()
+
+    @property
+    def follows(self) -> bool:
+        return self.status in ("path", "withheld")
+
+    def label_for(self, section_id: str) -> str:
+        """A section the judgment does not name (one sendable since) is
+        ``core``: the label's fallback (§10.1), so the plan never skips a
+        section the path has not judged."""
+
+        return str(self.labels.get(section_id, "core"))
+
+    def plannable(self, section_id: str) -> bool:
+        if self.status == "withheld" or section_id in self.withheld:
+            return False
+        return self.label_for(section_id) in PLANNED_LABELS
+
+    def receipt(self) -> dict[str, Any]:
+        return {"extraction_id": self.extraction_id, "status": self.status, "depth": self.depth,
+                "state_key": self.state_key, "fresh": self.fresh}
+
+
+def plan_path(vault: Any, repository: Repository, extraction_id: str) -> PlanPath:
+    """The reading path RW7b's plan follows for one reading, read now and
+    never judged here (the plan calls no model). The labels are the Guide's
+    (:func:`effective_label`): the judge's rows for the current state, else
+    the newest judged state's (as the Guide shows while it re-judges), the
+    honest-label rule applied at today's LO statuses and the learner's
+    choices on top. A reading held out for an exam (or whose exam predicate
+    cannot be read) is ``withheld``: followed, it plans nothing (fail
+    closed)."""
+
+    source_id, _revision = reading_of(repository, extraction_id)
+    depth = depth_choice(vault, repository, source_id, extraction_id)["depth"]
+    if depth is None:
+        return PlanPath(extraction_id=extraction_id, status="no_depth")
+    with repository.connection() as connection:
+        if not store.tables_present(connection) or not store.latest_judged(connection, extraction_id, depth):
+            return PlanPath(extraction_id=extraction_id, status="not_judged", depth=depth)
+    try:
+        inputs = path_inputs(vault, repository, extraction_id)
+    except ReadingPathError as exc:
+        if exc.code != "withheld":
+            raise
+        return PlanPath(extraction_id=extraction_id, status="withheld", depth=depth)
+    key = inputs.state_key(depth)
+    with repository.connection() as connection:
+        rows = store.judged(connection, extraction_id, depth, key)
+        fresh = bool(rows)
+        if not rows:
+            rows = store.latest_judged(connection, extraction_id, depth)
+        chosen = store.overrides(connection, extraction_id, depth)
+    by_section = {str(row["section_id"]): row for row in rows}
+    labels: dict[str, str] = {}
+    for section in inputs.sections:
+        row = by_section.get(section.section_id)
+        override_row = chosen.get(section.section_id)
+        if row is None:
+            # Not in the judgment: core (the fallback), unless the learner chose.
+            stored = "core"
+        else:
+            stored = str(row["label"])
+        _label, _changed, _choice, effective = effective_label(
+            stored, override_row, section.learning_object_ids, inputs.statuses)
+        labels[section.section_id] = effective
+    return PlanPath(extraction_id=extraction_id, status="path", depth=depth, state_key=key, fresh=fresh,
+                    labels=labels, withheld=inputs.withheld)
 
 
 __all__ = [
@@ -1152,8 +1263,11 @@ __all__ = [
     "JudgeResult",
     "JudgeUnavailable",
     "LoStatus",
+    "PLANNED_LABELS",
+    "PLAN_PATH_STATUSES",
     "PathInputs",
     "PathSection",
+    "PlanPath",
     "ReadingPathError",
     "ReadingPathOutputV1",
     "SectionVerdict",
@@ -1161,6 +1275,7 @@ __all__ = [
     "build_prompt",
     "claim_key",
     "depth_choice",
+    "effective_label",
     "enabled",
     "exercise_view",
     "goal_for_source",
@@ -1173,6 +1288,7 @@ __all__ = [
     "override",
     "path_inputs",
     "path_view",
+    "plan_path",
     "pick_exercises",
     "reading_of",
     "reasons_held_back",

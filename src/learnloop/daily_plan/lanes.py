@@ -574,6 +574,10 @@ class LegacyLanesSource:
             if partial
             else f"new: continue reading {title}"
         )
+        if target.path_label is not None:
+            # RW7b: the reading path chose this section (only then; DL1's
+            # reason otherwise, byte for byte).
+            reason += f", {target.path_label} on your reading path"
         return BlockCandidate(
             candidate_id=_candidate_id("new", (), target),
             lane="new",

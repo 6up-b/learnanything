@@ -430,6 +430,26 @@ ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION = "mvp-0.30"
 # predecessor).
 WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
 
+# mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
+# spec_reader_workbench_v1 §10.2, G47; docs/reviews/reader-workbench-RW7b.md),
+# on top of mvp-0.31 (RW2d; the chain stays linear: mvp-0.32 means everything
+# mvp-0.31 means PLUS this). The tag lives in this ONE constant (the upgrade,
+# the CLI and the gates all read it), so a landing that finds another number
+# free renumbers it here. DL1's reading block opens the next unfinished core
+# or prerequisite section of the source's reading path (RW7a's judged labels
+# at the learner's depth, honest labels re-applied at plan time, a "read it
+# anyway" counting as core and a "skip it" left out) instead of the next
+# section in the predecessor's order; enrichment, already shown and assumed
+# sections are never planned. A source with no path (no depth chosen, never
+# judged) keeps the predecessor's order. That changes what is SERVED (the
+# plan's reading block; F3), never evidence or the projection, so it is
+# another successor tag on the mvp-0.8 namespace. Receipts: the plan's
+# ``split_json["reading_path"]`` records the section the predecessor's order
+# would have chosen. Kill switch: ``reading_paths.plan_uses_path`` (off, or
+# with the Guide's ``reading_paths.enabled`` off: every plan build exactly as
+# the predecessor).
+READING_PATH_PLAN_ALGORITHM_VERSION = "mvp-0.32"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -460,6 +480,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     INTENT_ALGORITHM_VERSION,
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
+    READING_PATH_PLAN_ALGORITHM_VERSION,
 )
 
 
@@ -594,6 +615,11 @@ ADAPTIVE_DIFFICULTY_VERSIONS: frozenset[str] = successors_from(ADAPTIVE_DIFFICUL
 # workbench RW2d). Every later successor keeps it; gates must use this set,
 # never equality.
 WORKBENCH_FIELD_SIGNALS_VERSIONS: frozenset[str] = successors_from(WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION)
+
+# Versions whose plan's reading block follows the reading path (behind
+# ``reading_paths.plan_uses_path``; reader workbench RW7b). Every later
+# successor keeps it; gates must use this set, never equality.
+READING_PATH_PLAN_VERSIONS: frozenset[str] = successors_from(READING_PATH_PLAN_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

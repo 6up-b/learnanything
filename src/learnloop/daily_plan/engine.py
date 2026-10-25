@@ -39,7 +39,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS
+from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
@@ -175,6 +175,90 @@ def reading_step_rule(vault: Any) -> str:
     if reading_from_furthest_active(vault):
         return READING_RULE_FURTHEST
     return READING_RULE_BOOK_ORDER if held_out_selection_active(vault) else READING_RULE_DL1
+
+
+def reading_path_plan_active(vault: Any) -> bool:
+    """Reader workbench RW7b (spec_reader_workbench_v1 §10.2): the plan's
+    reading block follows the learner's reading path, at RW7b's tag
+    (``READING_PATH_PLAN_VERSIONS``) wherever the plan acts, with its kill
+    switch ``reading_paths.plan_uses_path`` on and the Guide's paths on
+    (``reading_paths.enabled``: the plan never follows a path the learner
+    cannot see). A successor, unlike U4's order: it changes what is served
+    through labels a model judged (F3). Off, below the tag or with the
+    Guide's paths off, every plan build is the predecessor's exactly."""
+
+    section = getattr(vault.config, "reading_paths", None)
+    return (
+        plan_active(vault)
+        and vault.config.algorithms.algorithm_version in READING_PATH_PLAN_VERSIONS
+        and bool(getattr(section, "enabled", False))
+        and bool(getattr(section, "plan_uses_path", False))
+    )
+
+
+#: The version of RW7b's receipt (``split_json["reading_path"]``).
+READING_PATH_RECEIPT_VERSION = "reading_path_plan_v1"
+
+
+def _reading_on_path(
+    env: Any, *, extraction_ids: list[str] | None, from_furthest: bool, exam: Any
+) -> tuple[ReadingTarget | None, dict[str, Any]]:
+    """RW7b's reading step and its receipt. The step is the predecessor's
+    order (U4's or DL1's, the exam filter included) narrowed, on each
+    reading with a judged path at the learner's depth, to the path's
+    unfinished core and prerequisite sections (``reading_paths.plan_path``:
+    the Guide's labels, honest labels re-applied now, "read it anyway" as
+    core, "skip it" left out). A reading with no path keeps the order's own
+    choice; one whose path is withheld (exam) or has nothing left to plan
+    offers none. The receipt records the section the predecessor's order
+    would have chosen (``predecessor``), whether the path chose
+    (``chosen_by``), and each path consulted. No model is called; a path
+    that cannot be read leaves that reading to the predecessor's order."""
+
+    import logging
+
+    from learnloop.source_retrieval import reading_paths as RP
+
+    consulted: dict[str, Any] = {}
+
+    def section_filter(extraction_id: str) -> Any:
+        try:
+            path = RP.plan_path(env.vault, env.repository, extraction_id)
+        except Exception as exc:  # noqa: BLE001 - the plan never fails on a path; the order decides
+            logging.getLogger(__name__).warning(
+                "could not read the reading path for the plan (%s)", type(exc).__name__)
+            path = RP.PlanPath(extraction_id=extraction_id, status="unreadable")
+        consulted[extraction_id] = path
+        return path.plannable if path.follows else None
+
+    predecessor = next_reading_target(
+        env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+    )
+    reading = next_reading_target(
+        env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam,
+        section_filter=section_filter,
+    )
+    chosen_by = "order"
+    if reading is not None:
+        path = consulted.get(reading.extraction_id)
+        if path is not None and path.follows:
+            reading = replace(reading, path_label=path.label_for(reading.section_id))
+            chosen_by = "path"
+    same = (
+        (predecessor is None and reading is None)
+        or (predecessor is not None and reading is not None
+            and (predecessor.extraction_id, predecessor.section_id) == (reading.extraction_id, reading.section_id))
+    )
+    receipt = {
+        "version": READING_PATH_RECEIPT_VERSION,
+        # The section the predecessor's order would have chosen (§10.2).
+        "predecessor": predecessor.as_dict() if predecessor is not None else None,
+        "chosen_by": chosen_by if reading is not None else None,
+        "label": reading.path_label if reading is not None else None,
+        "same_as_predecessor": same,
+        "paths": [path.receipt() for path in consulted.values()],
+    }
+    return reading, receipt
 
 
 def _exam_material(vault: Any, repository: Any) -> Any:
@@ -1241,6 +1325,7 @@ def _prepare_plan(
     reading: ReadingTarget | None = None
     reading_full: float | None = None
     reading_rule: str | None = None
+    reading_path_receipt: dict[str, Any] | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
         from_furthest = reading_from_furthest_active(env.vault)
         reading_rule = reading_step_rule(env.vault)
@@ -1262,9 +1347,16 @@ def _prepare_plan(
                     for extraction_id in as_you_read_extraction_ids(env.repository)
                     if reading_allowed(env, built.intent, extraction_id)
                 ]
-            reading = next_reading_target(
-                env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
-            )
+            if reading_path_plan_active(env.vault):
+                # RW7b (a successor): the reading path narrows the order;
+                # the receipt records what the order alone would choose.
+                reading, reading_path_receipt = _reading_on_path(
+                    env, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+                )
+            else:
+                reading = next_reading_target(
+                    env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+                )
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -1319,6 +1411,10 @@ def _prepare_plan(
             for item in checks
         ]
         split_json["checks_unplanned"] = checks_unplanned
+    if reading_path_receipt is not None:
+        # RW7b's receipt (only where the successor acted, so a plan built
+        # with it off is the predecessor's byte for byte).
+        split_json["reading_path"] = reading_path_receipt
     now = env.now_iso()
     row = {
         "local_date": env.today(),
@@ -1701,7 +1797,10 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         # the reading's source out of reading.
         and (built.intent is None or reading_allowed(env, built.intent, str(reading_row.get("extraction_id") or "")))
     ):
-        reading = ReadingTarget(**{key: reading_row[key] for key in ("source_id", "extraction_id", "section_id", "section_title", "words_left")})
+        reading = ReadingTarget(
+            **{key: reading_row[key] for key in ("source_id", "extraction_id", "section_id", "section_title", "words_left")},
+            path_label=reading_row.get("path_label") or None,
+        )
         reading_full = float(split.get("reading_full_minutes") or 0.0)
     gap_row = split.get("reentry_gap") or {}
     gap = ReentryGap(
@@ -4310,6 +4409,7 @@ __all__ = [
     "plan_active",
     "plan_scheduler_session",
     "reading_from_furthest_active",
+    "reading_path_plan_active",
     "reading_step_rule",
     "reading_ended",
     "reconcile",

@@ -148,6 +148,7 @@ class PlannedBlock:
             section_title=str(self.reading.get("section_title") or ""),
             words_left=int(self.reading.get("words_left") or 0),
             partial=bool(self.reading.get("partial")),
+            path_label=self.reading.get("path_label") or None,
         )
 
     def est_minutes(self) -> float:

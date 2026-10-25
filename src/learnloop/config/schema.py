@@ -2622,13 +2622,26 @@ class ReadingPathsConfig(BaseModel):
     "assumed" only with an open assumption, enforced in code. ``enabled`` is
     the kill switch (off: today's Guide, no call, every RPC refused).
     ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
-    before the call; Codex is ``estimated_only``). Display only: nothing in
-    scoring, scheduling, projection or serving reads a path, so no algorithm
-    successor (RW7b, the plan following the path, is a later stage).
+    before the call; Codex is ``estimated_only``). The Guide itself is
+    display only: nothing in scoring, projection or evidence reads a path,
+    and below RW7b's tag nothing in scheduling or serving does either
+    (``plan_uses_path`` below is the plan's read, at its own tag).
+
+    ``plan_uses_path`` (RW7b, spec §10.2) is the kill switch of the
+    successor ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
+    with ``enabled`` on too, the plan's reading block opens the next
+    unfinished core or prerequisite section of the source's judged path (a
+    "read it anyway" counts as core; "skip it", enrichment, already shown
+    and assumed are never planned; a source with no path keeps the
+    predecessor's order), and the plan records the section the
+    predecessor's order would have chosen. Off, below the tag, or with
+    ``enabled`` off: every plan build exactly as the predecessor. The plan
+    never calls the judge.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
+    plan_uses_path: bool = True
 
 
 class LearnerTextGapsConfig(BaseModel):

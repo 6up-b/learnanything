@@ -104,9 +104,17 @@ class ReadingTarget:
     words_left: int
     #: the block covers only part of what is left
     partial: bool = False
+    #: RW7b: the reading path's label for the section ("core" or
+    #: "prerequisite") when the path chose it; None otherwise, and then
+    #: absent from :meth:`as_dict`, so a plan the path did not choose is
+    #: stored exactly as the predecessor's.
+    path_label: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        row = asdict(self)
+        if row["path_label"] is None:
+            del row["path_label"]
+        return row
 
 
 @dataclass(frozen=True)
