@@ -3,8 +3,8 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "c8a138009864483024f332d857b8d29c9c7265de"
+source_commit_timestamp: "2026-10-25T18:20:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
@@ -136,9 +136,9 @@ Indexes and uniqueness:
 - `tests/test_graph_correction.py`
 - `tests/test_measurement_state_labels.py`
 - `tests/test_probe_orchestration_remainder.py`
+- `tests/test_rebuild_equivalence.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
-- `tests/test_state_sync.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "c8a138009864483024f332d857b8d29c9c7265de"
+source_commit_timestamp: "2026-10-25T18:20:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/regrade_contract_upgrade.py`
+- `src/learnloop/replay_ledger_upgrade.py`
 - `src/learnloop/substrate/canonical_projection_rollout.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/p0_projection.py`

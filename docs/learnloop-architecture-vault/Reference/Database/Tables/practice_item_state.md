@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "c8a138009864483024f332d857b8d29c9c7265de"
+source_commit_timestamp: "2026-10-25T18:20:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -87,7 +87,9 @@ Indexes and uniqueness:
 - `Repository._upsert_practice_item_state_record()`
 - `Repository.deactivate_practice_item_serving()`
 - `Repository.find_record()`
+- `Repository.inactive_practice_item_ids()`
 - `Repository.initialize_practice_item_state()`
+- `Repository.keep_practice_items_inactive()`
 - `Repository.practice_item_state()`
 - `Repository.practice_item_states()`
 - `Repository.record_attempt_outcome()`

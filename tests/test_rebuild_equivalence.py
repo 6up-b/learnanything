@@ -16,8 +16,12 @@ Two pre-existing mismatches between live state and ``rebuild --shadow``
    deactivates retired items; replay deleted the row and the attempt path
    rewrote it active. Replay now keeps a lifecycle deactivation.
 
-The live path is unchanged (the bounds are set only on replay), so this is a
-replay bug fix, not a successor.
+The live path is unchanged (the bounds are set only on replay). The bounded
+replay still changes rebuilt state on existing histories, so it is the
+successor ``REPLAY_LEDGER_ALGORITHM_VERSION`` behind ``replay.ledger_bounded``
+(Codex review F4; ``tests/test_rebuild_equivalence_review.py``); these vaults
+start at the latest tag, where it is on. The lifecycle fix (2) acts at every
+version: the lifecycle is not in the attempt ledger, so no replay owns it.
 """
 
 from __future__ import annotations

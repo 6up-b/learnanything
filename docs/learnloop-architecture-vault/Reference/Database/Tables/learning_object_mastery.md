@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "c8a138009864483024f332d857b8d29c9c7265de"
+source_commit_timestamp: "2026-10-25T18:20:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -134,8 +134,10 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
+- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_reader_rw3b_protection.py`
+- `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_table_roles.py`
@@ -144,8 +146,6 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_attempts.py`
-- `tests/test_calibration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "c8a138009864483024f332d857b8d29c9c7265de"
+source_commit_timestamp: "2026-10-25T18:20:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
@@ -189,11 +189,11 @@ Database triggers:
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_router_card.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
-- `tests/test_voi_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
