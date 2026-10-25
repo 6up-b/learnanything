@@ -4073,7 +4073,13 @@ class DurableIngestJobs:
         import or a manual command. Checked on every pass of the host's sweep;
         a cheap query of the newest index job, and the vault's config read
         only when one is due. Idempotent: the batch id names the job it
-        resumes. Returns the queued batch id, or None."""
+        resumes. Returns the queued batch id, or None.
+
+        An index job that is queued and claimable while no worker runs (the
+        obligation was queued but starting the worker failed, or the process
+        ended first) gets the worker started, pass after pass until one runs
+        (Codex re-review F4; ``resume_book_preparation`` covers only a book's
+        preparation workflows). A foreground host drains on its own."""
 
         from learnloop.config.loader import load_config
         from learnloop.source_retrieval.local_index import DEFERRED_STATUSES, INDEX_JOB
@@ -4081,6 +4087,13 @@ class DurableIngestJobs:
         runner = self._runner
         if runner is None or self._stop.is_set():
             return None
+        if self._background:
+            with self._lock:
+                worker = self._worker_thread
+                worker_running = worker is not None and worker.is_alive()
+            if not worker_running and runner.repo.has_runnable_ingest_job(job_types=(INDEX_JOB,)):
+                self._ensure_worker()
+                return None
         newest = runner.repo.ingest_jobs_by_types((INDEX_JOB,), limit=1)
         if not newest:
             return None
