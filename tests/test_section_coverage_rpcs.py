@@ -12,7 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.curriculum import section_coverage as SC
+from learnloop.source_retrieval import section_coverage as SC
 from learnloop_sidecar.errors import SidecarError
 from tests.reading_path_fixtures import call, context
 from tests.section_coverage_fixtures import BOOK_EIGEN, CoverageJudgeFake, build_coverage_vault, table_counts

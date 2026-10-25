@@ -3,13 +3,13 @@ title: "source_object_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "5298b57ea745a210c54a1d3a8f79637558edd1a1"
+source_commit_timestamp: "2026-10-25T16:12:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_versions"
   - "table source_object_versions"
-schema_head: 220
+schema_head: 222
 table_name: "source_object_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_roles_concurrency.py`
 - `tests/test_roles_judges.py`
 - `tests/test_roles_switch_off.py`
+- `tests/test_section_coverage.py`
 - `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_source_objects.py`

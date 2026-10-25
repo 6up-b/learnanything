@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from learnloop.curriculum import section_coverage as SC
+from learnloop.source_retrieval import section_coverage as SC
 from learnloop.db.stores import section_coverage as store
 from learnloop.vault.loader import load_vault
 from tests.section_coverage_fixtures import (

@@ -367,6 +367,23 @@ def test_the_pinned_rw7a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.reading_paths import READING_PATH_RPCS
 
     assert set(READER_RW7A_RPCS) - set(READER_RW7A_EXTENDED_RPCS) == set(READING_PATH_RPCS)
+
+
+# Deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6.4-6.5): the
+# correspondents read API, the pressed coverage check, its job and the
+# learner's corrections. Desktop only.
+CURRICULUM_C0A_RPCS = (
+    "reader.correspondents",
+    "curriculum.cover",
+    "curriculum.cover_job",
+    "curriculum.coverage_correct",
+)
+
+
+def test_the_pinned_c0a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.correspondents import CORRESPONDENT_RPCS
+
+    assert set(CURRICULUM_C0A_RPCS) == set(CORRESPONDENT_RPCS)
 # Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
 # (build and "not right?" as jobs, the source's figures, predictions and
 # "what changed?"); it extends reader.prompt_contract (figures). Desktop only.
@@ -675,7 +692,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

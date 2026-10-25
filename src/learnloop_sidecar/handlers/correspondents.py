@@ -29,7 +29,7 @@ import logging
 import threading
 from typing import Any
 
-from learnloop.curriculum import section_coverage as SC
+from learnloop.source_retrieval import section_coverage as SC
 from learnloop.ids import new_ulid
 from learnloop.reader import reader_dialogue as RD
 from learnloop_sidecar.context import SidecarContext

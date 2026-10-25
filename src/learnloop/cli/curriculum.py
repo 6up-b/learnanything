@@ -42,7 +42,7 @@ def curriculum_cover(
     nothing (its candidates are read by keyword only)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id
-    from learnloop.curriculum.section_coverage import CoverageError, cover_source, enabled
+    from learnloop.source_retrieval.section_coverage import CoverageError, cover_source, enabled
     from learnloop.practice_index.paid import planning_repository
 
     try:
