@@ -1569,7 +1569,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # version (no successor); every snapshot moves only because the effective config gains
     # the key; all of them were recomputed from the composed defaults
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "392a0e0b6cc11b17b91ba218b4aa17c99fe35108cfd1b8a93320a7bea0b7edf2",
+    # Rebuild equivalence (replay reads the ledger as the live write saw it;
+    # docs/reviews/rebuild-equivalence-fix.md) adds [replay] ledger_bounded
+    # (true; a modelled default, left out of the decision-only template): the
+    # kill switch of its successor. It acts only at that tag and later; at
+    # every earlier version the key is present and inert. Every snapshot moves
+    # only because the effective config gains the key; all of them were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "8634c839c8164761ecf8526e4261ea7bc8defd2a52852c134b49d647cdb2b567",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1633,7 +1640,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.10": "73ca84b503dfac8f2e3504cd8688fbceb8d6428b02f7e338faa9c01ecb0c6570",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.10": "9dbd61fc580f5cebce2e8ce8159427587d48b6b9c41ebd46edb974dad4e0174c",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1705,7 +1713,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.11": "b847eea1ade2b2183fbbe0519c164fac51869823d379ac7888d5e06a0d429e71",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.11": "9cdc38437865da4dfba174ca9f4fb254e76014e03683bb756c15eaa4f4bbf78d",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1771,7 +1780,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.12": "f6bc6e60d5815d00c61bf387030869482e548a33a8d3d240d17c10c7f6b45d1a",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.12": "ba3b79c3bae6ffb0e5c0c1e285510901e2cd8d532b5b4f1e713fd66bf6d5c3d3",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1832,7 +1842,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.13": "aebc05094845b57fbe3b056ae2ea37297ece0f368c281146521bbd910e889e6d",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.13": "bf06a9de16a6e5d3726e8d2bea1c1af336e8538d3bb522f03208d3429f37e85d",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1892,7 +1903,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.14": "4ad01f3f92144667cc5c57f18b14b57b3950794c9687ec1382bc5e326d0cdf8b",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.14": "e470e1f51530e8a8aaa35d55f49d7c7bc370485187bca591ddaf5d28ce8e21bd",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1950,7 +1962,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.15": "01ee5f5f135dc9619202ac645eaef7ab8f4d721b5bebff797c29ad86670c9647",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.15": "10303d3995b571cb2f7cb73ac2aae85553b89c0625ef30c5a46ad2ba9d909a73",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2015,7 +2028,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.16": "b26a7b36a3672320912da112cd8accd54ba77552d86d292cb8be45934d882c3e",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.16": "c487dd06863c079e3351abfe47f9c135660d33fdd4b50ab5f74b08c5954b5e75",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2076,7 +2090,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.17": "b71a98ba9a3a4ce2758c1722b0add687f3d8719f4a3f91eea629fa4601d0c8bd",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.17": "d68f01618f0680f04c29e45e0a5dbaafece4f37803e98c79aee8a9cd0cfc36ff",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2130,7 +2145,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.18": "fd958948076d2694c7eebe0cb1687cd51aa935d837aee3361f9b11374b5d8cbc",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.18": "044276cbe2f0d37325c886f88ef4e6d2d3b6286fe15b620e1545675d015a8347",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2184,7 +2200,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.19": "bbdda4c3d456983f1f62052916b7ea3b0b9268448bd9bec4b92e54518bd32158",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.19": "8c0a97b2de2989e0bd44791ccc02a59dac299f50e3d7b0b04093bae95121ea24",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2234,7 +2251,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.20": "d796e6c82cae2d3fb39c70b016e40e3071c59f6bd4cdb6369c3fd1f1929ca323",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.20": "7fa9853467e12d876fc037edc6859ac58828ad0e05ed756dc9bb961fc16f6d3f",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2293,7 +2311,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.21": "20b22f7ecb5d835caa66f5a88be456dd30db94670e3e0cf790e343f13d478c58",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.21": "05edbf5f203e3bd1d42330e5aa7c37bdf536b0bc9129590b9a52ee8770021574",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2344,7 +2363,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.22": "1420baf75fc097af1b37f651a67abd3f494dee3b22a8ee94a2a5ebe55bf6c61b",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.22": "60a4f84ffeba3c284db364d938fccca62b3878993d964e8cd156fc0460ff5d59",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2390,7 +2410,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.23": "19ea95c01abe2ebc07433ebc0ef74b9ff7cfa49b2a92cb92501f4ead97c281d1",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.23": "3934e9edc104dc4c2a847bbf6ccad137ae6bd041e519470a13dbec935cfa0d8d",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2433,7 +2454,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.24": "6dc6ff19da54324a877a35d322daafdd2d241b8a3827dbc502d0b020995e0609",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.24": "7cf8006a51a8c91003bf3760916bdfb39b350f306fac59eba2a708c00d973237",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2474,7 +2496,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.25": "3db04c55375b254f7d7d79195568b8e17ed9e798492e4f357ae70e3319e7456b",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.25": "252ba2326fd08389856f109f0173fea226dc3a846054343b3cad64ec7613c5b8",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2514,7 +2537,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.26": "90b29e5781ca788390a7dce6f96f93c9c795de21f937c13b3f5901bd76c87c0d",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.26": "838f2dae06dd74fad5600bee64f112112505d358b5215df682f07d208fa9a9cd",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2554,7 +2578,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.27": "c06954644e9f450a8445d0e103723b48624458bd47f30bb10dc327f6c3de121c",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.27": "31585ff61cf9864816441d2f445ab88a26086c7ec913a441486ec6305bcad237",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2583,7 +2608,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.29": "7237cccc87eb6507ead0afdfb8319a3ec7d54dc3525c7cdf7f30e4badb29176f",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.29": "79ff5b7f075f1275f8816aaffff6859f3f05a9d613e0842ccc4762724c467548",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2606,7 +2632,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.30": "183ef62f328f78770dfb77c380a89fa329be5428f11a39cbb49008023a4161b6",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.30": "ccbf00156a5f90909318ce29989daa778c8c9670ce1c8c9b8797f2ad69cae23f",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2620,10 +2647,27 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # snapshot above, inert below the tag). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.30, or from
     # mvp-0.9 onwards through the chain. New vaults start here (the
-    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.34 landed.
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
-    "mvp-0.31": "4dc3ca38ba3e28eb470e06fbe8da2c0c634308286dc18c2304ae60f12d2de08a",
+    # Rebuild equivalence's [replay] ledger_bounded moves it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.31": "62ea97b701297ef699ac9ad78ebe188daa2e1c2b214ca4f786176c231ba48b8c",
+    # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
+    # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
+    # fixes take mvp-0.32 and mvp-0.33, and chained after them at its
+    # landing): mvp-0.31 plus replay reading the ledger as the live write saw
+    # it (the recent-attempt windows and the canonical facet cache bounded at
+    # the replayed attempt), so a rebuild reproduces live mastery, surprise,
+    # item quality and schedules. A live write is unchanged. Kill switch
+    # [replay] ledger_bounded (default true; off replays exactly as the
+    # predecessor). No default changes here: only the version string moves
+    # the fingerprint (the key is in every snapshot above, inert below the
+    # tag). Existing vaults reach it by `learnloop upgrade` (default target)
+    # from mvp-0.31, or from mvp-0.9 onwards through the chain. New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.34": "c5b2bf4bcdcde05b782232f82de1c70b4348692345e3b683f8c025225318941c",
 }
 
 

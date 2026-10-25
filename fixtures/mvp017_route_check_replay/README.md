@@ -29,19 +29,21 @@ Replay reads the blind records and the evidence rows. It never reads the check.
   - an unavailable checker;
   - a wrong final answer that the final-answer check outranked.
 - **Derived state:** rebuilt twice with the clock in `expected.json`, so it
-  was at the fixed point of that commit's replay. Since the rebuild-equivalence
-  fix (2026-10-25, `docs/reviews/rebuild-equivalence-fix.md`) replay no longer
-  reads the attempts recorded after the one it recomputes, so a rebuild with
-  today's code moves `attempt_surprise`, `learning_object_mastery` and
+  is at its fixed point. That is the replay of every version below the
+  rebuild-equivalence successor (`mvp-0.34`,
+  `docs/reviews/rebuild-equivalence-fix.md`), which read the attempts recorded
+  after the one it recomputed. The successor's bounded replay moves
+  `attempt_surprise`, `learning_object_mastery` and
   `practice_item_quality_state` once, on the LOs with more than one attempt,
-  and is then at its fixed point again.
+  and the rebuild after that changes nothing.
 
 `tests/test_mvp017_route_check_replay.py` copies the fixture with the backup
 API and checks four things:
 
 - every grade, hold and calibration identity matches `expected.json`;
-- a rebuild with today's code changes no grade and no ledger row, moves only
-  those three derived tables, and a rebuild after that changes nothing;
+- a rebuild with today's code changes no derived row and no ledger row (and,
+  with the successor's bounded replay, moves only those three tables and is
+  then at its fixed point, causal hypotheses included);
 - `raw_grade_events` only gains rows; compared without surrogate ids, it is
   unchanged;
 - an upgrade of the copy (to `mvp-0.20`, through the sources track's

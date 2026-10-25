@@ -78,6 +78,7 @@ from learnloop.learner.mastery import (
 from learnloop.algorithm_versions import (
     P0_PROJECTION_VERSIONS,
     REGRADE_CONTRACT_VERSIONS,
+    REPLAY_LEDGER_VERSIONS,
     SOURCE_REFERENCE_GATE_VERSIONS,
 )
 from learnloop.db.connection import connect
@@ -511,7 +512,9 @@ class ApplyAttemptInput:
     # Replay recomputes an attempt with the whole ledger already on disk, so
     # everything it reads of the ledger (the recent-attempt windows, the
     # canonical facet projection) is bounded to the attempts before this one:
-    # the ledger the live write saw (rebuild equivalence, 2026-10-25).
+    # the ledger the live write saw (rebuild equivalence, 2026-10-25). Set
+    # only from the successor ``REPLAY_LEDGER_ALGORITHM_VERSION`` on, with
+    # ``replay.ledger_bounded`` on (``replay_reads_bounded_ledger``).
     replay_ledger_position: tuple[str, str] | None = None
 
 
@@ -1359,6 +1362,18 @@ def complete_codex_graded_attempt(
 _REPLAY_IDENTITY_FROM_LEDGER: Any = object()
 
 
+def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
+    """Whether replay bounds its ledger reads at the replayed attempt
+    (rebuild equivalence, ``REPLAY_LEDGER_VERSIONS`` and the kill switch
+    ``replay.ledger_bounded``). Below the tag, or off, replay reads the whole
+    ledger as the predecessor did. Live writes never ask."""
+
+    replay_config = getattr(vault.config, "replay", None)
+    return vault.config.algorithms.algorithm_version in REPLAY_LEDGER_VERSIONS and bool(
+        getattr(replay_config, "ledger_bounded", True)
+    )
+
+
 def replay_existing_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -1503,7 +1518,7 @@ def replay_existing_attempt(
             unrecorded_correctness=reading.unrecorded_correctness if unrecorded and reading is not None else None,
             replay_ledger_position=(
                 (str(attempt["created_at"]), str(attempt["id"]))
-                if attempt.get("created_at") is not None
+                if attempt.get("created_at") is not None and replay_reads_bounded_ledger(vault)
                 else None
             ),
         ),

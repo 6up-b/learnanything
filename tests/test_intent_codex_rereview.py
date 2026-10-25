@@ -220,10 +220,10 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it, and the Reader workbench RW2d's field
     # signals (mvp-0.31) follow that as the latest (the landing composes); both keep it.
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-3]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.31"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
     assert SUCCESSOR_CHAIN[-2] == "mvp-0.30"
     assert SUCCESSOR_CHAIN[-4] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31"})
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.34"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -286,5 +286,5 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
     # The latest successor (RW2d's mvp-0.31, after adaptive difficulty's mvp-0.30) keeps intent live.
-    assert config.algorithms.algorithm_version == "mvp-0.31"
+    assert config.algorithms.algorithm_version == "mvp-0.34"
     assert intent_enabled(config)

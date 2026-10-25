@@ -503,6 +503,7 @@ source_modules = [
     "learnloop.reader",
     "learnloop.recurrence",
     "learnloop.regrade_contract_upgrade",
+    "learnloop.replay_ledger_upgrade",
     "learnloop.remote",
     "learnloop.reveal_coverage",
     "learnloop.router",

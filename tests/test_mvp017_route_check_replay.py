@@ -7,10 +7,11 @@ a hold a failed regrade check kept, an adjudicated hold, a not-proof-like
 reading, an unavailable checker and a wrong final answer. Its derived state
 was rebuilt to the fixed point there. Replay reads the blind records and the
 evidence rows, never the check, so a rebuild with today's code must reproduce
-every grade and every hold, and leave every ledger as it was (playbook item
-6). Its derived rows move once, by the rebuild-equivalence fix of 2026-10-25
-(``REPLAY_CORRECTED_TABLES``), and are then at the fixed point. Upgrading the
-copy rewrites nothing either. No model is called.
+every grade, every hold and every derived row, and leave every ledger as it
+was (playbook item 6). The rebuild-equivalence successor's bounded replay
+moves its derived rows once (``REPLAY_CORRECTED_TABLES``), and the rebuild
+after that changes nothing. Upgrading the copy rewrites nothing either. No
+model is called.
 """
 
 from __future__ import annotations
@@ -97,15 +98,6 @@ def test_the_fixture_holds_every_mvp017_outcome():
         assert connection.execute("PRAGMA journal_mode").fetchone()[0].lower() == "delete"
 
 
-#: Rebuild equivalence (2026-10-25): the fixture's derived rows were written by
-#: the replay of e238fa07a, which read the attempts recorded after the one it
-#: recomputed. Today's replay reads the ledger as the live write saw it, so the
-#: first rebuild moves exactly these tables, on the LOs with more than one
-#: attempt; the single-attempt LO's rows and every grade stay as written.
-REPLAY_CORRECTED_TABLES = ["attempt_surprise", "learning_object_mastery", "practice_item_quality_state"]
-SINGLE_ATTEMPT_LO = "lo_transpose"
-
-
 def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
     _root, vault, repository = _copy(tmp_path)
     assert vault.config.algorithms.algorithm_version == "mvp-0.17"
@@ -114,19 +106,61 @@ def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     after = _state(repository)
     changed = sorted(table for table in before if before[table] != after[table])
-    assert changed == REPLAY_CORRECTED_TABLES
+    assert changed == []
+    _assert_grades(repository)
+
+
+#: Rebuild equivalence (2026-10-25; its Codex review F3 and F4): the fixture's
+#: derived rows were written by a replay that read the attempts recorded after
+#: the one it recomputed. That replay stays the meaning of every version below
+#: the successor (the golden test above); the successor's bounded replay moves
+#: exactly these tables, on the LOs with more than one attempt.
+REPLAY_CORRECTED_TABLES = ["attempt_surprise", "learning_object_mastery", "practice_item_quality_state"]
+SINGLE_ATTEMPT_LO = "lo_transpose"
+
+
+def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing(tmp_path, monkeypatch):
+    """F3: the first rebuild completes what it starts. Its learner replay
+    appends a causal-hypothesis version (a recurrence input), and the rebuild
+    reconciles the recurrence projection itself, so the rebuild right after it
+    changes no derived row, no hypothesis and no ledger row."""
+
+    import learnloop.attempts.attempts as attempts_module
+
+    # The successor's replay on this mvp-0.17 history (the replay change
+    # alone: relabelling the copy would bring every serving successor between).
+    monkeypatch.setattr(attempts_module, "replay_reads_bounded_ledger", lambda _vault: True)
+    _root, vault, repository = _copy(tmp_path)
+    before = _audited(repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    first = _audited(repository)
+    changed = sorted(table for table in before if before[table] != first[table])
+    # The appended hypothesis version restamps the recurrence fingerprint in
+    # the same rebuild (the group map, empty here, is unchanged).
+    assert changed == sorted([*REPLAY_CORRECTED_TABLES, "causal_hypotheses", "hypothesis_recurrence_state"])
     single = [row for row in before["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
-    assert single and single == [row for row in after["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
+    assert single and single == [row for row in first["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
     _assert_grades(repository)
-    # Then the fixed point: the recurrence fingerprint takes one more pass (it
-    # is computed before learner replay appends this rebuild's hypothesis),
-    # and from there a rebuild changes no derived row and no ledger row.
+
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    settled = _state(repository)
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    assert _state(repository) == settled
-    assert {table: settled[table] for table in LEDGERS} == {table: before[table] for table in LEDGERS}
+    second = _audited(repository)
+    assert sorted(table for table in first if first[table] != second[table]) == []
+    assert {table: second[table] for table in LEDGERS} == {table: before[table] for table in LEDGERS}
     _assert_grades(repository)
+
+
+def _audited(repository) -> dict[str, list[tuple]]:
+    """The semantic state plus the causal-hypothesis versions (a ledger the
+    rebuild appends to, and a recurrence input), without surrogate ids."""
+
+    state = _state(repository)
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        columns = [row[1] for row in connection.execute("PRAGMA table_info(causal_hypotheses)")]
+        kept = [column for column in columns if column not in {"id", "created_at", "updated_at"}]
+        state["causal_hypotheses"] = sorted(
+            tuple(row) for row in connection.execute(f"SELECT {', '.join(kept)} FROM causal_hypotheses")
+        )
+    return state
 
 
 def test_upgrading_the_mvp017_copy_to_the_successor_rewrites_no_grade(tmp_path):

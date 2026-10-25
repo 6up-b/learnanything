@@ -614,6 +614,37 @@ _RUNNERS = {
 }
 
 
+#: Guardrail (keep): at most this many replayer passes per rebuild when the
+#: recurrence group map learner replay read changes under it (rebuild-
+#: equivalence Codex review F3). A changed map re-runs the passes; one more
+#: change after the last pass still restamps the projection on its inputs.
+#: Not a model parameter: it bounds rebuild cost, and a group map that moves
+#: three times in one rebuild is a builder defect, not a learner state.
+MAX_RECURRENCE_RECONCILIATION_PASSES = 3
+
+
+def _run_replayers(context: _ReplayContext) -> list[ReplayerResult]:
+    return [_RUNNERS[spec.name](spec, context) for spec in DERIVED_STATE_REPLAYERS]
+
+
+def _reconcile_recurrence_groups(context: _ReplayContext) -> bool:
+    """Refresh the recurrence projection on the inputs learner replay left.
+
+    A no-op (a few counter queries) when the input fingerprint is unchanged.
+    Returns whether the group map in force changed, i.e. whether learner
+    replay read a map that is no longer the vault's.
+    """
+
+    from learnloop.substrate.recurrence_groups import active_group_map, refresh_recurrence_groups
+
+    repository = context.repository
+    group_map = active_group_map(context.vault, repository)
+    report = refresh_recurrence_groups(context.vault, repository)
+    if not report.get("rebuilt"):
+        return False
+    return active_group_map(context.vault, repository) != group_map
+
+
 @atomic_repository_call
 def rebuild_all_derived_state(
     vault: LoadedVault,
@@ -644,9 +675,20 @@ def rebuild_all_derived_state(
         if not requested or str(attempt.get("learning_object_id")) in requested
     }
     context = _ReplayContext(vault, repository, learning_object_ids, clock)
-    results: list[ReplayerResult] = []
-    for spec in DERIVED_STATE_REPLAYERS:
-        results.append(_RUNNERS[spec.name](spec, context))
+    results = _run_replayers(context)
+    # Rebuild-equivalence Codex review F3: the recurrence groups are rebuilt
+    # before learner replay (its normalization reads them), but learner replay
+    # can append causal-hypothesis versions, which are recurrence inputs. The
+    # rebuild finishes that reconciliation itself, so the rebuild right after
+    # it changes nothing: the projection is refreshed when its inputs moved,
+    # and the passes run again only when the group map learner replay read
+    # changed with it.
+    for _ in range(1, MAX_RECURRENCE_RECONCILIATION_PASSES):
+        if not _reconcile_recurrence_groups(context):
+            break
+        results = _run_replayers(context)
+    else:
+        _reconcile_recurrence_groups(context)
 
     accounted = {
         attempt_id

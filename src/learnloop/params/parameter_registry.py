@@ -1110,6 +1110,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW2d's successor: workbench stuck steps and help before the first step as field "
         "signals that keep an LO out of fast-track and teach it first; zero-mass rows that never reach the "
         "record; off, the predecessor's derivation, Phase 6 serving and plans."),
+    # Rebuild equivalence (mvp-0.34, docs/reviews/rebuild-equivalence-fix.md):
+    # the kill switch of the successor whose replay reads the ledger bounded at
+    # the replayed attempt. A boolean (classified so every new key has a rule);
+    # it selects which ledger rows replay folds, never a weight. Off restores
+    # the predecessor's whole-ledger replay exactly; live writes never read it.
+    _ConfigRule(_exact(
+        "replay.ledger_bounded",
+    ), "structural", "operational",
+        "kill switch for the rebuild-equivalence successor: replay reads the recent-attempt windows and the "
+        "canonical facet cache bounded at the replayed attempt, as its live write saw them; off, replay reads "
+        "the whole ledger as the predecessor did. Never read by a live write."),
     # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
     # events in model contexts and on the router card. A boolean (classified
     # so every new key has a rule); the events are context, never a weight,
