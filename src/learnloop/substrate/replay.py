@@ -121,8 +121,37 @@ def replay_learning_object(
     ``grader_identity_overrides`` maps an attempt a regrade just re-graded to
     the calibration identity of its new grade; every other attempt replays
     under the identity its ledgers record.
+
+    The whole replay is ONE transaction (``Repository.atomic``; a savepoint
+    inside a caller's own, such as the umbrella rebuild's or a regrade's), from
+    its first read to its closing projection (rebuild-equivalence Codex review
+    F1). Each replayed attempt leaves the vault-wide canonical cache folded
+    only through its own ledger position, and the reset LO is empty until its
+    attempts are back, so nothing of that is ever visible to another
+    connection; an interruption rolls back to the state before the replay,
+    lifecycle flags included, so a retry starts from it.
     """
 
+    with repository.atomic():
+        return _replay_learning_object(
+            vault,
+            repository,
+            learning_object_id,
+            error_attribution_overrides=error_attribution_overrides,
+            grader_identity_overrides=grader_identity_overrides,
+            project_canonical_state=project_canonical_state,
+        )
+
+
+def _replay_learning_object(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    error_attribution_overrides: dict[str, list[GradeAttribution]] | None,
+    grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
+    project_canonical_state: bool,
+) -> ReplayResult:
     attempts = repository.list_attempts_by_learning_object(learning_object_id)
     existing_error_events = {
         attempt["id"]: repository.raw_error_events_for_attempt(attempt["id"])
@@ -182,7 +211,8 @@ def replay_learning_object(
     # Each replayed attempt left the canonical cache folded through its own
     # ledger position (the cache its live write left), so a replay always
     # ends with a whole-ledger projection: here, or (the R2 umbrella) once
-    # after every LO has replayed. Nothing between reads the cache.
+    # after every LO has replayed, inside the same transaction (no other
+    # connection sees a bounded fold).
     # KM2 §7.1: canonical shared belief is vault-level, so it is recomputed as a
     # whole-ledger projection (no-op under mvp-0.6). Idempotent and deterministic,
     # so replaying any subset of LOs reproduces byte-identical canonical state.
