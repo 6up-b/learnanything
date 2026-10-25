@@ -82,7 +82,7 @@ def check_schema(sqlite_path: Path, *, vault_root: Path | None = None) -> None:
         raise SchemaMismatch(
             "Schema mismatch: open the desktop app or run `learnloop doctor --fix-state" + hint + "` once to migrate"
         )
-    refuse_interrupted_activation(path)
+    refuse_interrupted_activation(Path(sqlite_path))
 
 
 def refuse_interrupted_activation(sqlite_path: Path) -> None:

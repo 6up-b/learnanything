@@ -97,7 +97,7 @@ def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     assert VERSION == "mvp-0.25"
     assert LATEST_ALGORITHM_VERSION == "mvp-0.33"
     assert PREDECESSOR == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", LATEST_ALGORITHM_VERSION})
 
 
 def test_active_only_at_the_successor_with_both_switches_on(tmp_path):

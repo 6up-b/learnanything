@@ -125,9 +125,10 @@ def test_the_successor_is_one_constant_after_rw2d():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.reading_path_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert LATEST_ALGORITHM_VERSION == TAG == SUCCESSOR_CHAIN[-1]
+    # LP-min (a)'s claim fixes (mvp-0.33) landed after it as the latest and keep it.
+    assert TAG == SUCCESSOR_CHAIN[-2] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.33"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
-    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG})
+    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
@@ -508,7 +509,8 @@ def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
     assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
+    # RW7b's own step (the default target is the latest's, LP-min (a)'s, since its landing).
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {TAG}" in invoked.output
 

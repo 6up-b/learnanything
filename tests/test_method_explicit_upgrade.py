@@ -85,7 +85,7 @@ def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     # Regrade contracts (mvp-0.26) followed it and keep it.
     assert SUCCESSOR_CHAIN[-8] == TARGET and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.33"
     assert SUCCESSOR_CHAIN[-9] == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", LATEST_ALGORITHM_VERSION})
     # The chain is linear: it means every predecessor's semantics PLUS its own.
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
