@@ -76,7 +76,7 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
     "tests/test_shadow_rebuild.py": (1, _TRACKED_FIXTURE),
     "tests/test_sidecar_contract.py": (5, _OWNER_LANE),
     "scripts/s0_landing.py": (
-        2,
+        1,
         "copies textbooks and reference PDFs (each checked by sha256), never a database; "
         "the vaults are copied with learnloop.db.copies.copy_tree_with_databases",
     ),

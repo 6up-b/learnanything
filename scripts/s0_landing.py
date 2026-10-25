@@ -18,19 +18,34 @@ server, CLI)::
     # 1. Backup-API copies of all eight vaults, verified file by file and
     #    database by database, with a manifest (the source is only read).
     uv run python $S0 copy-out --checkout $CHECKOUT
-    # 2. The textbooks' real bytes from the local git-LFS store (no network),
-    #    each checked against its pointer's oid, and the reference PDFs.
+    # 2. The textbooks' real bytes from the local git-LFS store (no network)
+    #    and the reference PDFs, each checked against what git's index holds
+    #    (an LFS pointer's oid, else the blob), with a books manifest.
     uv run python $S0 books-out --checkout $CHECKOUT
     # 3. Move the vault directories out of the checkout (a rename on the same
     #    filesystem): the three working vaults become the live vaults under
-    #    ~/learnloop-vaults/<name>; the five older ones go to
-    #    ~/learnloop-retired/<name>-<date>.
+    #    ~/learnloop-vaults/<name>, each marked as a working vault; the five
+    #    older ones go to ~/learnloop-retired/<name>-<date>.
     uv run python $S0 move-out --checkout $CHECKOUT --yes
     # 4. The gate: refuses (exit 1) unless 1-3 are complete and verified.
     uv run python $S0 check --checkout $CHECKOUT
     # 5. Only then the owner merges S0 into the checkout (git deletes the
     #    now-absent files cleanly), and verifies:
     uv run python $S0 verify-after --checkout $CHECKOUT
+
+Every step can be run again after it stopped part-way: what is already done
+and verified is kept. If ``check`` finds that a moved vault changed after its
+backup, make a fresh backup of the moved vaults and check against it::
+
+    uv run python $S0 copy-out --checkout $CHECKOUT --from-moved --backup-root ~/learnloop-backups/s0-2
+    uv run python $S0 check --checkout $CHECKOUT --backup-root ~/learnloop-backups/s0-2
+
+S0 lands only the plain layout: each vault's ``learnloop.toml`` names its
+database as a relative ``*.sqlite`` path inside the vault, and no symlink sits
+in the vault. Anything else (an absolute or ``..`` path, a symlinked database
+or directory, a database named otherwise) is refused before anything is
+copied or moved, and is relocated by S1's ``learnloop vault move`` or by hand
+first (§7.1 step 4).
 
 After step 5, re-point every pin at once: open each moved vault once in the
 desktop app (records ``last_vault``), update ``mobile.toml``, the chat unit's
@@ -51,6 +66,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,9 +80,11 @@ PAPERS = (
     "Fancsali-Ribeiro_IRAISE Workshop Slide Deck - Carnegie Learning & Stanford SCALE Initiative - 20260628.pdf",
 )
 MANIFEST = "S0-MANIFEST.json"
+BOOKS_MANIFEST = "S0-BOOKS-MANIFEST.json"
 LFS_POINTER = b"version https://git-lfs.github.com/spec/v1"
 DATABASE_SUFFIXES = (".sqlite",)
 COMPANIONS = ("-wal", "-shm", "-journal")
+WORKING_VAULT_REASON = "the owner's live working vault, moved out of the checkout by storage S0"
 
 
 class Refused(SystemExit):
@@ -111,7 +129,7 @@ def tree_manifest(root: Path) -> dict:
             continue
         relative = path.relative_to(root).as_posix()
         if relative.startswith(".learnloop/"):
-            continue  # machine-local scratch (locks, caches), gitignored and disposable
+            continue  # machine-local scratch (locks, caches, the working-vault mark), gitignored
         if _is_database(path):
             integrity, digest = database_digest(path)
             databases[relative] = {"integrity": integrity, "digest": digest}
@@ -135,8 +153,75 @@ def _compare(expected: dict, actual: dict, label: str) -> list[str]:
     return problems
 
 
-def _vault_names(args) -> tuple[str, ...]:
-    return tuple(args.vault_names.split(",")) if args.vault_names else VAULTS
+# --- the database the app opens (Codex review F1) --------------------------------------------------------
+
+
+def vault_database(root: Path, label: str | None = None) -> tuple[Path | None, list[str]]:
+    """The database ``root``'s own config names, and why S0 cannot move it as is.
+
+    The configured path is read as the app reads it, without loading any
+    environment settings (no ``.env`` or ``settings.env``; no overlay touches
+    ``storage.sqlite_path``). S0 supports only a relative ``*.sqlite`` path
+    inside the vault, with no symlink anywhere in the vault: a rename then
+    carries the database, the backup holds it, and the moved vault opens it.
+    """
+    from learnloop.config.loader import load_config
+
+    label = label or root.name
+    config = root / "learnloop.toml"
+    if config.is_symlink() or not config.is_file():
+        return None, [f"{label}: {config} is not a regular file"]
+    problems = []
+    for directory, subdirectories, names in os.walk(root, followlinks=False):
+        relative = Path(directory).relative_to(root)
+        if relative.parts[:1] == (".learnloop",):
+            subdirectories[:] = []
+            continue
+        for name in [*subdirectories, *names]:
+            if os.path.islink(os.path.join(directory, name)):
+                problems.append(f"{label}: {(relative / name).as_posix()} is a symlink; S0 moves only plain trees "
+                                "(relocate it in S1, or by hand first)")
+    try:
+        configured = load_config(config, load_environment=False).storage.sqlite_path
+    except Exception as exc:  # noqa: BLE001 - an unreadable config cannot say which database the app opens
+        return None, [*problems, f"{label}: its learnloop.toml could not be read ({type(exc).__name__})"]
+    path = Path(configured)
+    if path.is_absolute():
+        return None, [*problems, f"{label}: storage.sqlite_path is absolute ({configured}); after a move the app "
+                                 "would still open that file. S0 supports only a relative path inside the vault "
+                                 "(relocate it in S1, or by hand first)"]
+    if not path.parts or ".." in path.parts:
+        return None, [*problems, f"{label}: storage.sqlite_path {configured!r} leaves the vault; S0 supports only a "
+                                 "relative path inside it (relocate it in S1, or by hand first)"]
+    if not path.name.endswith(DATABASE_SUFFIXES):
+        problems.append(f"{label}: storage.sqlite_path {configured!r} is not a *.sqlite file, so the backup would "
+                        "not verify it as a database (rename it in S1, or by hand first)")
+    database = root / path
+    if not database.is_file():
+        problems.append(f"{label}: its configured database {database} is missing")
+    elif not Path(os.path.realpath(database)).is_relative_to(Path(os.path.realpath(root))):
+        problems.append(f"{label}: its configured database {database} lies outside the vault")
+    return database, problems
+
+
+def _require_plain_layout(root: Path, label: str) -> Path:
+    database, problems = vault_database(root, label)
+    if problems:
+        raise Refused("nothing was copied or moved:\n" + "\n".join(f"- {problem}" for problem in problems))
+    return database
+
+
+# --- git and the media inventory (Codex review F2) -------------------------------------------------------
+
+
+def _git(checkout: Path, *args: str) -> bytes:
+    """One read-only git command in ``checkout`` (fixed argv, no shell, no model call)."""
+    try:
+        return subprocess.run(["git", "-C", str(checkout), *args], capture_output=True, check=True,
+                              env={**os.environ, "LC_ALL": "C", "LANGUAGE": "C"}).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise Refused(f"git {' '.join(args[:2])} failed in {checkout} ({type(exc).__name__}); the landing reads "
+                      "git's index to know what S0 removes") from None
 
 
 def _lfs_objects(checkout: Path, override: Path | None) -> Path:
@@ -159,17 +244,74 @@ def _pointer_oid(data: bytes) -> str | None:
     return None
 
 
-def _book_expectations(checkout: Path) -> dict[str, str]:
-    """new_textbooks/<path> -> the sha256 its real bytes must have."""
-    books = {}
-    root = checkout / "new_textbooks"
-    if not root.is_dir():
-        return books
-    for path in sorted(root.rglob("*")):
-        if path.is_file():
-            data = path.read_bytes()
-            books[path.relative_to(root).as_posix()] = _pointer_oid(data) or hashlib.sha256(data).hexdigest()
-    return books
+def _destination(source: str) -> str:
+    """Where a checkout path goes under the books folder."""
+    if source.startswith("new_textbooks/"):
+        return source[len("new_textbooks/"):]
+    return "papers/" + Path(source).name
+
+
+def media_inventory(checkout: Path) -> dict[str, dict]:
+    """Destination path -> what it must hold, from git's index (never from what the working tree holds).
+
+    A tracked file's expected sha256 is its LFS pointer's oid, or else its
+    blob's; a working-tree file that git does not track under
+    ``new_textbooks/`` is listed with its current hash. A tracked file the
+    working tree lost, or materialized wrongly, keeps its tracked hash.
+    """
+    sources = ["new_textbooks", *(f"docs/brainstorming/{paper}" for paper in PAPERS)]
+    media = {}
+    for record in _git(checkout, "ls-files", "-s", "-z", "--", *sources).split(b"\0"):
+        if not record:
+            continue
+        header, path = record.decode("utf-8").split("\t", 1)
+        blob = header.split()[1]
+        data = _git(checkout, "cat-file", "blob", blob)
+        oid = _pointer_oid(data)
+        media[_destination(path)] = {"source": path, "sha256": oid or hashlib.sha256(data).hexdigest(),
+                                     "kind": "lfs" if oid else "git", "blob": blob}
+    for record in _git(checkout, "ls-files", "-z", "--others", "--", "new_textbooks").split(b"\0"):
+        if not record:
+            continue
+        path = record.decode("utf-8")
+        data = (checkout / path).read_bytes()
+        media.setdefault(_destination(path), {"source": path, "sha256": _pointer_oid(data) or
+                                              hashlib.sha256(data).hexdigest(), "kind": "untracked"})
+    return media
+
+
+def _media_drift(persisted: dict, current: dict) -> list[str]:
+    return [
+        f"{source['source']}: sha256 {source['sha256']} is not in the books manifest"
+        for key, source in sorted(current.items())
+        if persisted.get(key, {}).get("sha256") != source["sha256"]
+    ]
+
+
+def _read_json(path: Path, empty: dict) -> dict:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else empty
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _vault_names(args) -> tuple[str, ...]:
+    return tuple(args.vault_names.split(",")) if args.vault_names else VAULTS
+
+
+def _moved_location(args, name: str) -> Path | None:
+    """Where move-out put a vault: the live vault, or its one retired copy."""
+    if name in WORKING_VAULTS:
+        live = args.vaults_root.expanduser().resolve() / name
+        return live if live.is_dir() else None
+    retired = sorted(path for path in args.retired_root.expanduser().resolve().glob(f"{name}-*") if path.is_dir())
+    if len(retired) > 1:
+        raise Refused(f"{name}: several retired copies ({', '.join(map(str, retired))}); move the extra ones away")
+    return retired[0] if retired else None
 
 
 # --- commands -------------------------------------------------------------------------------------------
@@ -181,22 +323,38 @@ def copy_out(args) -> int:
     checkout = args.checkout.resolve()
     backup_root = args.backup_root.expanduser().resolve()
     manifest_path = backup_root / MANIFEST
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {"vaults": {}}
+    manifest = _read_json(manifest_path, {"vaults": {}})
     for name in _vault_names(args):
-        source = checkout / "fixtures" / name
+        in_checkout = checkout / "fixtures" / name
         destination = backup_root / name
-        if not source.is_dir():
-            if name in manifest["vaults"] and destination.is_dir():
-                print(f"{name}: already copied out")
-                continue
-            raise Refused(f"{name}: {source} is missing and no backup exists")
+        if args.from_moved:
+            if in_checkout.exists():
+                raise Refused(f"{name}: still at {in_checkout}; back it up from there (without --from-moved)")
+            source = _moved_location(args, name)
+        else:
+            source = in_checkout
+        if name in manifest["vaults"] and destination.is_dir():
+            problems = _compare(manifest["vaults"][name], tree_manifest(destination), f"{name} backup")
+            if problems:
+                raise Refused("an existing backup does not match its manifest; choose a new --backup-root:\n"
+                              + "\n".join(problems))
+            print(f"{name}: already copied out and verified")
+            continue
+        if source is None or not source.is_dir():
+            hint = "" if args.from_moved else (
+                "; if move-out already moved it, back up the moved vaults with --from-moved")
+            raise Refused(f"{name}: {source or 'its moved copy'} is missing and {backup_root} holds no backup of "
+                          f"it{hint}")
         if destination.exists():
             raise Refused(f"{name}: {destination} exists; choose a new --backup-root")
+        database = _require_plain_layout(source, name)
         before = tree_manifest(source)
         copy_tree_with_databases(source, destination)
         copied = tree_manifest(destination)
         after = tree_manifest(source)
         problems = _compare(before, copied, f"{name} copy") + _compare(before, after, f"{name} source during copy")
+        if database.relative_to(source).as_posix() not in copied["databases"]:
+            problems.append(f"{name}: the backup lacks the configured database {database.name}")
         if problems:
             raise Refused("copy did not verify (is a LearnLoop process still open?):\n" + "\n".join(problems))
         manifest["vaults"][name] = {
@@ -204,76 +362,120 @@ def copy_out(args) -> int:
             "copied_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
             **copied,
         }
-        backup_root.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
-        print(f"{name}: copied to {destination} and verified ({len(copied['files'])} files, "
+        if args.from_moved:
+            manifest.setdefault("moved", {})[name] = str(source)
+        _write_json(manifest_path, manifest)
+        print(f"{name}: copied from {source} to {destination} and verified ({len(copied['files'])} files, "
               f"{len(copied['databases'])} databases)")
     return 0
 
 
-def books_out(args) -> int:
+def _copy_media(source: Path, destination: Path) -> None:
     import shutil
 
+    shutil.copyfile(source, destination)
+
+
+def books_out(args) -> int:
     checkout = args.checkout.resolve()
     books_root = args.books_root.expanduser().resolve()
     lfs = _lfs_objects(checkout, args.lfs_objects)
-    for relative, oid in _book_expectations(checkout).items():
+    manifest_path = books_root / BOOKS_MANIFEST
+    current = media_inventory(checkout)
+    if manifest_path.exists():
+        persisted = _read_json(manifest_path, {})["media"]
+        drift = _media_drift(persisted, current)
+        if drift:
+            raise Refused("the checkout's media changed since the books manifest; choose a new --books-root:\n"
+                          + "\n".join(drift))
+    else:
+        # The whole inventory is written before anything is copied, so a
+        # check never verifies less than git's index held.
+        persisted = current
+        _write_json(manifest_path, {"checkout": str(checkout),
+                                    "written_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+                                    "media": persisted})
+    for relative, entry in sorted(persisted.items()):
+        oid = entry["sha256"]
         destination = books_root / relative
         if destination.is_file() and sha256_file(destination) == oid:
             print(f"{relative}: already in {books_root}")
             continue
-        working = checkout / "new_textbooks" / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        working = checkout / entry["source"]
         candidates = [working, lfs / oid[:2] / oid[2:4] / oid]
         source = next((path for path in candidates if path.is_file() and sha256_file(path) == oid), None)
-        if source is None:
-            raise Refused(f"{relative}: no local copy with sha256 {oid} (checked the checkout and {lfs}); "
+        if source is not None:
+            _copy_media(source, destination)
+        elif entry["kind"] == "git":
+            # A plain tracked file the working tree lost: git's blob holds its bytes.
+            destination.write_bytes(_git(checkout, "cat-file", "blob", entry["blob"]))
+            source = f"git blob {entry['blob']}"
+        else:
+            raise Refused(f"{entry['source']}: no local copy with sha256 {oid} (checked the checkout and {lfs}); "
                           "fetch it from the LFS store before landing")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
         if sha256_file(destination) != oid:
+            destination.unlink()
             raise Refused(f"{relative}: the copy in {books_root} does not match {oid}")
         print(f"{relative}: copied from {source}")
-    for paper in PAPERS:
-        source = checkout / "docs" / "brainstorming" / paper
-        destination = books_root / "papers" / paper
-        if destination.is_file() and (not source.is_file() or sha256_file(source) == sha256_file(destination)):
-            continue
-        if not source.is_file():
-            raise Refused(f"papers/{paper}: missing from the checkout and from {books_root / 'papers'}")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
-        print(f"papers/{paper}: copied")
     return 0
 
 
 def move_out(args) -> int:
+    from learnloop.vault.working_vault import mark_working_vault, working_vault_marker_reason
+
     checkout = args.checkout.resolve()
+    backup_root = args.backup_root.expanduser().resolve()
     vaults_root = args.vaults_root.expanduser().resolve()
     retired_root = args.retired_root.expanduser().resolve()
+    manifest_path = backup_root / MANIFEST
+    manifest = _read_json(manifest_path, {"vaults": {}})
     stamp = dt.date.today().isoformat()
-    plan = []
+    plan, resumed = [], []
     for name in _vault_names(args):
         source = checkout / "fixtures" / name
         if not source.is_dir():
+            moved = _moved_location(args, name)
+            if moved is not None and name in manifest["vaults"]:
+                resumed.append((name, moved))  # moved by an earlier run
             continue
+        if name not in manifest["vaults"] or not (backup_root / name).is_dir():
+            raise Refused(f"{name}: no verified backup in {backup_root}; run copy-out first (nothing was moved)")
+        _require_plain_layout(source, name)
         target = vaults_root / name if name in WORKING_VAULTS else retired_root / f"{name}-{stamp}"
         if target.exists():
             raise Refused(f"{name}: {target} exists; nothing was moved")
-        plan.append((source, target))
-    for source, target in plan:
+        plan.append((name, source, target))
+    for _name, source, target in plan:
         target.parent.mkdir(parents=True, exist_ok=True)
         if os.stat(source).st_dev != os.stat(target.parent).st_dev:
             raise Refused(f"{target.parent} is on another filesystem; move {source} by hand after copy-out")
-    for source, target in plan:
-        print(f"{'move' if args.yes else 'would move'} {source} -> {target}")
-        if args.yes:
-            os.rename(source, target)
-    if not args.yes and plan:
-        print("dry run: pass --yes to move")
+    if not args.yes:
+        for _name, source, target in plan:
+            print(f"would move {source} -> {target}")
+        if plan:
+            print("dry run: pass --yes to move")
+        return 0
+
+    def record(name: str, target: Path) -> None:
+        # Each move is recorded as it happens, so an interrupted run resumes.
+        manifest.setdefault("moved", {})[name] = str(target)
+        _write_json(manifest_path, manifest)
+        if name in WORKING_VAULTS and working_vault_marker_reason(target) is None:
+            mark_working_vault(target, reason=WORKING_VAULT_REASON)
+
+    for name, target in resumed:
+        record(name, target)
+    for name, source, target in plan:
+        print(f"move {source} -> {target}")
+        os.rename(source, target)
+        record(name, target)
     return 0
 
 
 def check(args) -> int:
+    from learnloop.vault.working_vault import working_vault_marker_reason
+
     checkout = args.checkout.resolve()
     backup_root = args.backup_root.expanduser().resolve()
     vaults_root = args.vaults_root.expanduser().resolve()
@@ -281,8 +483,8 @@ def check(args) -> int:
     books_root = args.books_root.expanduser().resolve()
     problems = []
 
-    manifest_path = backup_root / MANIFEST
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {"vaults": {}}
+    manifest = _read_json(backup_root / MANIFEST, {"vaults": {}})
+    moved = manifest.get("moved", {})
     for name in _vault_names(args):
         if (checkout / "fixtures" / name).exists():
             problems.append(f"{name}: still inside the checkout at fixtures/{name}; merging S0 would delete it "
@@ -298,18 +500,34 @@ def check(args) -> int:
             if not (live / "learnloop.toml").is_file():
                 problems.append(f"{name}: no live vault at {live} (run move-out)")
                 continue
+            problems += vault_database(live, name)[1]
             problems += _compare(entry, tree_manifest(live), f"{name} live vault (changed since the backup? "
-                                 "run copy-out again to a new --backup-root)")
+                                 "back up the moved vaults: copy-out --from-moved to a new --backup-root)")
+            if working_vault_marker_reason(live) is None:
+                problems.append(f"{name}: {live} is not marked as a working vault (run move-out)")
+        elif name in moved:
+            retired = Path(moved[name])
+            if not retired.is_dir():
+                problems.append(f"{name}: its retired copy {retired} is missing")
+                continue
+            problems += _compare(entry, tree_manifest(retired), f"{name} retired copy")
         elif not any(path.is_dir() for path in retired_root.glob(f"{name}-*")):
             problems.append(f"{name}: not in {retired_root} (run move-out)")
 
-    for relative, oid in _book_expectations(checkout).items():
-        copy = books_root / relative
-        if not copy.is_file() or sha256_file(copy) != oid:
-            problems.append(f"new_textbooks/{relative}: no copy with sha256 {oid} in {books_root} (run books-out)")
-    for paper in PAPERS:
-        if not (books_root / "papers" / paper).is_file():
-            problems.append(f"docs/brainstorming/{paper}: not in {books_root / 'papers'} (run books-out)")
+    books_manifest = books_root / BOOKS_MANIFEST
+    if not books_manifest.exists():
+        problems.append(f"no books manifest at {books_manifest} (run books-out)")
+    else:
+        persisted = _read_json(books_manifest, {})["media"]
+        try:
+            problems += _media_drift(persisted, media_inventory(checkout))
+        except Refused as refusal:
+            problems.append(str(refusal.code))
+        for relative, entry in sorted(persisted.items()):
+            copy = books_root / relative
+            if not copy.is_file() or sha256_file(copy) != entry["sha256"]:
+                problems.append(f"{entry['source']} -> {relative}: no copy with sha256 {entry['sha256']} in "
+                                f"{books_root} (run books-out)")
 
     if problems:
         print("REFUSED: S0 must not be merged into this checkout yet.")
@@ -320,13 +538,10 @@ def check(args) -> int:
 
 
 def verify_after(args) -> int:
-    import subprocess
-
     checkout = args.checkout.resolve()
     vaults_root = args.vaults_root.expanduser().resolve()
     problems = []
-    tracked = subprocess.run(["git", "-C", str(checkout), "ls-files", "--", "fixtures", "new_textbooks"],
-                             capture_output=True, text=True, check=True).stdout.splitlines()
+    tracked = _git(checkout, "ls-files", "-z", "--", "fixtures", "new_textbooks").decode("utf-8").split("\0")
     for name in _vault_names(args):
         if any(path.startswith(f"fixtures/{name}/") for path in tracked):
             problems.append(f"fixtures/{name} is still tracked: S0 is not merged")
@@ -334,10 +549,17 @@ def verify_after(args) -> int:
             problems.append(f"fixtures/{name} exists in the checkout again")
     if any(path.startswith("new_textbooks/") for path in tracked):
         problems.append("new_textbooks/ is still tracked")
-    for name in WORKING_VAULTS:
-        database = vaults_root / name / "state.sqlite"
-        if not database.is_file():
-            problems.append(f"{database} is missing")
+    for name in _vault_names(args):
+        if name not in WORKING_VAULTS:
+            continue
+        live = vaults_root / name
+        if not live.is_dir():
+            problems.append(f"{live} is missing")
+            continue
+        # The database the live vault's own config names, as the app opens it.
+        database, layout = vault_database(live, name)
+        problems += layout
+        if database is None or layout:
             continue
         integrity, _ = database_digest(database)
         if integrity != "ok":
@@ -361,6 +583,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--books-root", type=Path, default=home / "learnloop-books")
     parser.add_argument("--lfs-objects", type=Path, default=None, help="default: the checkout's .git/lfs/objects")
     parser.add_argument("--vault-names", default="", help="comma-separated subset (tests); default all eight")
+    parser.add_argument("--from-moved", action="store_true",
+                        help="copy-out: back up the vaults where move-out put them (after one changed)")
     parser.add_argument("--yes", action="store_true", help="move-out: actually move")
     args = parser.parse_args(argv)
     command = {"copy-out": copy_out, "books-out": books_out, "move-out": move_out, "check": check,
