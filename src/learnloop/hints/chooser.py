@@ -60,6 +60,12 @@ TASK = "hint_chooser"
 LEDGER_TASK = "hint_choice"
 QUESTION_SET_VERSION = "hint-chooser-qs-v1"
 POLICY_VERSION = "hint-choice-policy-v1"
+#: Owner capture 2026-10-25, fix round 2 (item 3): the fallback's rules
+#: changed (B2: a "More" press reads the help style, and so does the
+#: workbench's suggested rung), so a fallback row names v2. The Decider's
+#: draws are unchanged and keep v1. Receipts only: no successor
+#: (adaptive-hints §10.1).
+FALLBACK_POLICY_VERSION = "hint-choice-policy-v2"
 KIND_QUESTION = "kind_level"
 HORIZON_QUESTION = "horizon"
 
@@ -404,8 +410,19 @@ def ask(
     return fallback
 
 
+def policy_version(policy: str | None) -> str:
+    """A served row's ``policy_version`` for a choice made under ``policy``
+    (``sample``, ``argmax`` or ``fallback``): the fallback's own version for
+    a fallback choice (fix round 2, item 3), else the Decider policy's."""
+
+    if policy == "fallback":
+        return f"{FALLBACK_POLICY_VERSION}:fallback"
+    return f"{POLICY_VERSION}:{policy}"
+
+
 __all__ = [
     "Choice",
+    "FALLBACK_POLICY_VERSION",
     "HORIZON_QUESTION",
     "KIND_QUESTION",
     "LEDGER_TASK",
@@ -422,5 +439,6 @@ __all__ = [
     "kind_question",
     "learner_pick_choice",
     "new_seed",
+    "policy_version",
     "single_option_choice",
 ]

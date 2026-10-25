@@ -1135,7 +1135,7 @@ def recover_practice_submission(
     # Exact receipts are durable completion facts. Read them before checking
     # mutable session/item state: the session may have ended or a single-use
     # item may have disappeared after the original response was produced.
-    submission_id, _successor = answering_key(repository, submission_id, params.practice_item_id)
+    submission_id, _successor = answering_key(repository, submission_id, params.session_id, params.practice_item_id)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return versioned({"status": "recovered", "result": cached})
@@ -1200,13 +1200,16 @@ def submit_attempt_on(
 
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
-    submission_id, successor = answering_key(repository, submission_key(params), params.practice_item_id)
+    submission_id, successor = answering_key(repository, submission_key(params), params.session_id,
+                                             params.practice_item_id)
     if successor:
         params = params.model_copy(update={"submission_id": submission_id})
-        hint_window_fold = True
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
+    # Fix round 2, item 2: a stale draft's carried help is not this attempt's.
+    params, stale = _without_stale_help(repository, params, successor=successor)
+    hint_window_fold = hint_window_fold or stale
     declared_stuck = params.declared_stuck and stuck_prompt_active(vault)
     if params.declared_stuck and not declared_stuck and not params.answer_md.strip() and not (
         params.explanation_md or ""
@@ -1432,13 +1435,16 @@ def submit_dont_know_on(
 ) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
-    submission_id, successor = answering_key(repository, submission_key(params), params.practice_item_id)
+    submission_id, successor = answering_key(repository, submission_key(params), params.session_id,
+                                             params.practice_item_id)
     if successor:
         params = params.model_copy(update={"submission_id": submission_id})
-        hint_window_fold = True
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
+    # Fix round 2, item 2, as in ``submit_attempt_on``.
+    params, stale = _without_stale_help(repository, params, successor=successor)
+    hint_window_fold = hint_window_fold or stale
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
@@ -1612,7 +1618,8 @@ def submission_key(params: Any) -> str | None:
     )
 
 
-def answering_key(repository, submission_id: str | None, practice_item_id: str) -> tuple[str | None, bool]:
+def answering_key(repository, submission_id: str | None, session_id: str,
+                  practice_item_id: str) -> tuple[str | None, bool]:
     """The key a submission's attempt, intent and receipt are written under,
     and whether it is a successor of the client's (owner capture 2026-10-25, B4).
 
@@ -1626,15 +1633,75 @@ def answering_key(repository, submission_id: str | None, practice_item_id: str) 
     intent binds no answered offer. Its hints fold by the keyless window
     (since the item's last attempt in the session, H2b ruling R1), so a hint
     of the earlier attempt is never counted on this one. Any other key is
-    its own."""
+    its own. Only a key bound in this session has a successor (fix round 2,
+    item 1): another session's key stays as it is, and the bind refuses it
+    as another session's."""
 
     if submission_id is None:
         return None, False
     answered_by = repository.submission_offer_answered_elsewhere(
-        submission_id=submission_id, practice_item_id=practice_item_id)
+        submission_id=submission_id, session_id=session_id, practice_item_id=practice_item_id)
     if answered_by is None:
         return submission_id, False
     return f"{submission_id}~after~{answered_by}", True
+
+
+def _without_stale_help(repository, params: Any, *, successor: bool) -> tuple[Any, bool]:
+    """The submit's params with the help a stale draft carried taken out, and
+    whether the draft was stale (owner capture 2026-10-25, fix round 2,
+    item 2).
+
+    A submission written under a successor key (:func:`answering_key`), or
+    naming an offer another attempt already answered (``_bind_offer``'s fail
+    soft), comes from a draft that outlived an earlier attempt of the item:
+    a checkpoint the owner's bug left behind restores the answer box's key
+    and its ``hintsUsed``, and the hints it counts were shown before that
+    attempt, which counted them. The client's count, its authored count, its
+    book and its first-hint marker are therefore not this attempt's. Only
+    help inside the item's window since its last attempt in this session
+    counts, the server-side rule (H2b ruling R1): the server's rows by the
+    window fold (the caller switches it on), and the authored hints the
+    screen revealed in that window by their H0 rows (never more than the
+    client reports). With ``hints.telemetry_enabled`` off no reveal is
+    recorded, so a stale draft's authored hints count nothing."""
+
+    stale = successor or (
+        params.scheduler_candidate_id is not None
+        and repository.scheduler_offer_answered(
+            scheduler_candidate_id=params.scheduler_candidate_id, session_id=params.session_id,
+            practice_item_id=params.practice_item_id,
+        )
+    )
+    if not stale:
+        return params, False
+    client = int(params.authored_hints if params.authored_hints is not None else params.hints_used)
+    kept = min(client, _window_authored_reveals(repository, params.practice_item_id, params.session_id))
+    update: dict[str, Any] = {"hints_used": kept, "book_counted": None, "first_hint_progress": None}
+    if params.authored_hints is not None:
+        update["authored_hints"] = kept
+    if int(params.hints_used) != kept:
+        log_event("stale_draft_help_dropped", practice_item_id=params.practice_item_id,
+                  client_hints=int(params.hints_used), kept_hints=kept)
+    return params.model_copy(update=update), True
+
+
+def _window_authored_reveals(repository, practice_item_id: str, session_id: str) -> int:
+    """The authored hints the practice screen revealed on the item in this
+    session since its last attempt there (H0 rows; any key): a read."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.help_assists import authored_reveals_in_window, keyless_window_start
+
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            since = keyless_window_start(connection, practice_item_id=practice_item_id, session_id=session_id)
+            return authored_reveals_in_window(connection, practice_item_id=practice_item_id,
+                                              session_id=session_id, since=since)
+    except sqlite3.OperationalError:
+        # A vault without ``help_assists`` recorded no reveal.
+        return 0
 
 
 def _cached_submission(

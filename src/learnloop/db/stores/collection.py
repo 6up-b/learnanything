@@ -123,7 +123,8 @@ class CollectionStoreMixin:
                 (scheduler_candidate_id, session_id, practice_item_id),
             ).fetchone() is not None
 
-    def submission_offer_answered_elsewhere(self, *, submission_id: str, practice_item_id: str) -> str | None:
+    def submission_offer_answered_elsewhere(self, *, submission_id: str, session_id: str,
+                                            practice_item_id: str) -> str | None:
         """The attempt that answered this submission's bound offer, when that
         attempt is another submission's (else None): read-only.
 
@@ -131,7 +132,10 @@ class CollectionStoreMixin:
         key to the queue's offer; when the same item is then answered under
         another key (its steps, say), that attempt takes the offer, and the
         key, should it ever be submitted, answers no open offer. A submission
-        whose own attempt committed (a retry) is never reported."""
+        whose own attempt committed (a retry) is never reported. Only an
+        intent of this item IN THIS SESSION is reported (fix round 2, item
+        1): a key from another session is never given a successor, so the
+        bind refuses it as another session's, as it always did."""
 
         with self.connection() as connection:
             if connection.execute("SELECT 1 FROM practice_attempts WHERE submission_id=?",
@@ -141,9 +145,9 @@ class CollectionStoreMixin:
                 """SELECT c.chosen_attempt_id FROM submission_intents i
                    JOIN scheduler_slate_candidates c ON c.id=i.scheduler_candidate_id
                    JOIN practice_attempts a ON a.id=c.chosen_attempt_id
-                   WHERE i.submission_id=? AND i.practice_item_id=?
+                   WHERE i.submission_id=? AND i.session_id=? AND i.practice_item_id=?
                      AND (a.submission_id IS NULL OR a.submission_id != i.submission_id)""",
-                (submission_id, practice_item_id),
+                (submission_id, session_id, practice_item_id),
             ).fetchone()
         return str(row[0]) if row is not None else None
 

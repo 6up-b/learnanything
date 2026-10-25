@@ -913,7 +913,7 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "drawn_option_json": _json(choice.drawn()) if choice is not None else None,
         "propensity": choice.propensity if choice is not None else None,
         "seed": choice.seed if choice is not None else None,
-        "policy_version": f"{chooser_module.POLICY_VERSION}:{choice.policy}" if choice is not None
+        "policy_version": chooser_module.policy_version(choice.policy) if choice is not None
         else chooser_module.POLICY_VERSION,
         "question_set_version": chooser_module.QUESTION_SET_VERSION if choice is not None and choice.judgment_id
         else None,
