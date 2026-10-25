@@ -3,13 +3,13 @@ title: "diagnosis_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_adjudications"
   - "table diagnosis_adjudications"
-schema_head: 218
+schema_head: 219
 table_name: "diagnosis_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"

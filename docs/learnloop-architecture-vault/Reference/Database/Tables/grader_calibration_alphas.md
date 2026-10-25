@@ -3,13 +3,13 @@ title: "grader_calibration_alphas"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grader_calibration_alphas"
   - "table grader_calibration_alphas"
-schema_head: 218
+schema_head: 219
 table_name: "grader_calibration_alphas"
 table_role: "raw_ledger"
 functionality_status: "active"

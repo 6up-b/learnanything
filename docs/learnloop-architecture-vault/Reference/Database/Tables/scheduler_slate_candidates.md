@@ -3,13 +3,13 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
   - "table scheduler_slate_candidates"
-schema_head: 218
+schema_head: 219
 table_name: "scheduler_slate_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/010_scheduler_training_logs.sql`.
-- **Schema touched by:** `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `161_collection_contract.sql`.
+- **Schema touched by:** `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `161_collection_contract.sql`, `219_field_signal_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

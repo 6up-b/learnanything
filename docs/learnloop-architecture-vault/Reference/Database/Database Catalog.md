@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 218
-table_count: 347
+schema_head: 219
+table_count: 348
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_218/state.sqlite"
+  - "fixtures/migration_head_219/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-218"
+  - "learnloop/database/schema-head-219"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 347 user tables at migration head 218. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 348 user tables at migration head 219. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 347 user tables at migration head 218. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 151 |
 | [[Table Roles#Derived|`derived`]] | 22 |
-| [[Table Roles#Receipt|`receipt`]] | 74 |
+| [[Table Roles#Receipt|`receipt`]] | 75 |
 | [[Table Roles#Workflow|`workflow`]] | 90 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 347 user tables at migration head 218. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 334 |
+| `active` | 335 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -440,6 +440,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/false_remediation_adjudications|false_remediation_adjudications]] — `raw_ledger` · `active` · Records append-only human or machine false-remediation labels with retained evidence references and verifier versions; corrections append another adjudication. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `author_kind`, `verifier_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/family_memory_state|family_memory_state]] — `derived` · `active` · Maintains the decision-facing current projection for family memory so maintenance and optional operational work remains inspectable without becoming learner-state authority. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `family_id`, `projection_version`, `weights_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/family_proposals|family_proposals]] — `workflow` · `active` · Gives family proposal a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `family_id`, `state`, making the operational relationship explicit.
+- [[Reference/Database/Tables/field_signal_receipts|field_signal_receipts]] — `receipt` · `active` · Freezes the inputs and outcome of each field signal decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `learning_object_id`, `decision_kind`, `signal_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/help_assists|help_assists]] — `raw_ledger` · `active` · Gives help assist a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `practice_item_id`, `practice_session_id`, `workbench_session_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/hypothesis_events|hypothesis_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of hypothesis so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `presentation_id`, `session_id`, `visit_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/instructional_impressions|instructional_impressions]] — `raw_ledger` · `active` · Records which find_practice proposal candidates a surface actually rendered (canonical sources S0): retrieved, displayed and served stay three records. Read only by the exposure rule (an earlier impression of a prompt excludes it from the independent intents within the cold retrieval delay) and by S5's intervention records; deliberately not activity_exposure_events, whose rendered rows burn a surface. Append-only. It supplies replay-stable input rather than a disposable cache. Rows bind `proposal_id`, `practice_item_id`, `extraction_id`, making the operational relationship explicit.

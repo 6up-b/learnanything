@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 218
+schema_head: 219
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -152,6 +152,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/help_assists.py`
 - `src/learnloop/diagnosis/split/workbench_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`
@@ -177,6 +178,7 @@ None found by exact static reference scan.
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
 - `tests/test_compare_methods.py`
+- `tests/test_field_workbench_signals.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_help_assists_schema.py`
 - `tests/test_help_outcomes.py`
@@ -190,7 +192,6 @@ None found by exact static reference scan.
 - `tests/test_rw2c_fix_round3.py`
 - `tests/test_workbench_assistance.py`
 - `tests/test_workbench_hint_service.py`
-- `tests/test_workbench_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

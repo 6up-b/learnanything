@@ -3,13 +3,13 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
-source_commit_timestamp: "2026-10-24T14:22:21-04:00"
+source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
+source_commit_timestamp: "2026-10-24T22:53:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
   - "table workbench_sessions"
-schema_head: 218
+schema_head: 219
 table_name: "workbench_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/207_workbench.sql"
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/hints/report.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
@@ -48,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/207_workbench.sql`.
-- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`.
+- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,6 +85,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `closed_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `contract_subject_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -108,6 +110,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
@@ -126,8 +129,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_migration.py`
 - `tests/test_architecture.py`
 - `tests/test_compare_methods.py`
+- `tests/test_field_workbench_signals.py`
 - `tests/test_help_outcomes.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_ask_review.py`
@@ -137,6 +142,8 @@ None found by exact static reference scan.
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
+- `tests/test_rw2d_receipts_migration.py`
+- `tests/test_t1_batch_origin_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -210,7 +217,7 @@ CREATE TABLE workbench_sessions (
   client_idempotency_key TEXT UNIQUE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  closed_at TEXT,
+  closed_at TEXT, contract_subject_id TEXT,
   CHECK ((status = 'submitted') = (attempt_id IS NOT NULL)),
   CHECK ((import_status = 'bound') <= (practice_item_id IS NOT NULL))
 );
