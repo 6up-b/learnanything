@@ -208,6 +208,7 @@ MODULE_INVENTORY: dict[str, str] = {
     "fallback_space": "src/learnloop/source_retrieval/fallback_space.py",
     "local_index": "src/learnloop/source_retrieval/local_index.py",
     "voyage_contextual": "src/learnloop/ai/providers/voyage_contextual.py",
+    "retrieval_feedback": "src/learnloop/source_retrieval/feedback.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -300,11 +301,17 @@ _reg_const("source_windows:WINDOW_TOKENS", "version", kind="structural", owner="
 _reg_const("source_windows:CHUNK_MARKER_TOKENS", "version", kind="structural", owner="source_windows",
            rationale="keep: tokens counted per chunk marker inside a window (the window rule's identity).")
 _reg_const("source_windows:MAX_DOCUMENT_TOKENS", "version", kind="structural", owner="source_windows",
-           rationale="keep: a block alone above this estimate is split by offsets (the window rule's identity).")
+           rationale="keep: the worker's own per-document bound (identity); every window stays under WINDOW_TOKENS.")
+_reg_const("source_windows:PART_TOKENS", "version", kind="structural", owner="source_windows",
+           rationale="keep: structural, WINDOW_TOKENS minus one chunk marker: the most text one part of a split block holds, so every window holds the bound (Codex review F15).")
+_reg_const("local_fusion:MIN_PROPENSITY", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: the smallest propensity an inverse-propensity weight divides by (a numerical floor, not a weight).")
 _reg_const("fallback_space:MAX_RETRIES", "operational", kind="structural", owner="fallback_space",
            rationale="keep: retries a capped fallback backfill reserves room for (the Qwen backfill's); spend stays under max_cost_usd_per_run.")
 _reg_const("local_index:PROFILE_POOL_FACTOR", "operational", kind="structural", owner="local_index",
            rationale="keep: the P0 profile pool's estimated size per target (E1 measured 0.68 model tokens per estimated token); the worker fits the true size by its own count, so this only guarantees enough text.")
+_reg_const("retrieval_feedback:REFIT_EVERY_HOURS", "operational", kind="structural", owner="retrieval_feedback",
+           rationale="keep: spec §9.2's nightly refit cadence (plus one at the host's start, only when receipts arrived); when the posterior is refreshed, never what it says.")
 _reg_const("voyage_contextual:MAX_INPUTS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
            rationale="keep: Voyage's documented inputs per request (provider limit).")
 _reg_const("voyage_contextual:MAX_CHUNKS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",

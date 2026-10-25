@@ -166,3 +166,16 @@ def test_one_command_is_one_run_under_the_per_run_cap(tmp_path):
     assert [source["status"] for source in report["sources"]].count("complete") == 1
     assert sum(float(source["charged"]["estimated_usd"] or 0) for source in report["sources"]) == pytest.approx(
         report["charged"]["estimated_usd"])
+
+
+def test_the_hosted_space_is_registered_when_its_first_vectors_land(tmp_path):
+    from learnloop.db.stores.retrieval_spaces import spaces
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    append_config_toml(paths.root, VOYAGE_PROFILE)
+    vault = loaded(paths)
+    assert fallback_space.backfill_fallback_vectors(vault, repository, "ext_book", client=FakeVoyageClient())["status"] == "complete"
+    space, _pins = fallback_space.fallback_space(vault.config)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        known = spaces(connection)
+    assert known[space]["kind"] == "hosted" and known[space]["status"] == "fallback" and known[space]["name"] == "voyage"

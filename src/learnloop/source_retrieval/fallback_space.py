@@ -286,6 +286,13 @@ def backfill_fallback_vectors(vault: LoadedVault, repository: Repository, extrac
                                                   for row, window in zip(rows, batch, strict=True)):
                     raise ValueError("the fallback provider returned the wrong number of vectors")
                 with repository.connection() as connection:
+                    if not embedded:
+                        # The hosted space joins the vault's space registry (spec §4.4).
+                        from learnloop.db.stores.retrieval_spaces import has_tables, register_space
+
+                        if has_tables(connection):
+                            register_space(connection, space_id=space, name=NAME, kind="hosted", pins=_pins,
+                                           status="fallback")
                     for window, vectors in zip(batch, rows, strict=True):
                         for member, vector in zip(window.members, vectors, strict=True):
                             put_vector(connection, record_kind=SOURCE_BLOCK_KIND,
