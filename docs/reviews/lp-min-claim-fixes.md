@@ -137,11 +137,192 @@ replay itself.
 
 ## Shadow rebuild (playbook item 7)
 
-SHADOW_PLACEHOLDER
+Backup-API copies of the tracked `fixtures/mvp017_route_check_replay` under
+the worktree's `fixtures-local/lp-claim-fixes-shadow/` (predecessor, tag with
+the switch off, tag on), each with the same three claims added (a global
+init-wizard claim at an LO's first attempt, a too-easy report, a later
+too-easy report), then a whole-vault `rebuild_all_derived_state`; run under
+`env -i` (script kept in the stage's scratchpad, not committed):
+
+```
+LOs: 5 off == predecessor: True
+lo_transpose: mean 0.8262 -> 1.2364, variance 1.7258 -> 1.3324, evidence 1
+moved: 1
+```
+
+Only the claimed LO moves. Its variance is lower on because the attempt's
+EKF step is taken from a different prior mean (the seed is now the claims
+made by the attempt, not the 2099 claim), so the Kalman variance reduction
+differs; the later claim's own merge leaves the variance unchanged (fix 3).
+The owner copies were not opened (open question 5).
 
 ## Gate
 
-GATE_PLACEHOLDER
+Run in the worktree, every pytest inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`,
+`-n 6` at most, one run at a time.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken** (after the last change).
+- Targeted pytest over the 135 files below: **2,313 passed, 10 skipped,
+  1 failed** (`test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`:
+  replay's function-local `learner.mastery` imports were new edges). Fixed by
+  importing the module at top level (replay already depends on
+  `learner.mastery` through `attempts`); rerun of `test_architecture.py`,
+  `test_lp_claim_fixes.py` and every `test_*replay*.py` / `test_*rebuild*.py`:
+  **90 passed, 3 skipped** (the 3 are the owner lane).
+- Before that, the latest-successor pin files alone: 623 passed, 6 skipped,
+  5 failed (pins still naming mvp-0.31 as the CLI default or missing it from
+  a version set); fixed, and the 5 rerun: **5 passed**.
+- `--durable-sqlite tests/test_lp_claim_fixes.py`: **21 passed, 3 skipped**.
+  No migration and no DB/connection code changed, so no durability lane
+  beyond that.
+- `db_generate_reference.py` then `db_validate_reference.py`: **0 errors**
+  (351 table notes, 1,048 configuration leaves; the prose counts in
+  `Configuration.md` and `Database.md` moved 1047 -> 1048). The regeneration
+  touches 423 generated files (commit stamps and line citations); the landing
+  regenerates on the merged tree.
+- CLI help snapshot regenerated (`python -m tests.test_cli_help_snapshot --write`):
+  only `upgrade` moves.
+- No frontend or `src-tauri` change: no npm, vitest or cargo.
+
+Test files run (targeted):
+
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ai_config.py`
+- `tests/test_anti_double_count.py`
+- `tests/test_approach_map_replay.py`
+- `tests/test_architecture.py`
+- `tests/test_assumed_known.py`
+- `tests/test_attempt_completion.py`
+- `tests/test_capability_residual.py`
+- `tests/test_causal_activity_policy.py`
+- `tests/test_causal_attribution_p0.py`
+- `tests/test_causal_attribution_p1.py`
+- `tests/test_causal_p2_acceptance.py`
+- `tests/test_characterization_mastery_reliability.py`
+- `tests/test_characterization_probe_replay.py`
+- `tests/test_cli_help_snapshot.py`
+- `tests/test_cold_start_revision.py`
+- `tests/test_config_refactor.py`
+- `tests/test_constraint_engine.py`
+- `tests/test_coordinated_migrations.py`
+- `tests/test_coverage_denominator_boundary.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_desktop_rpc_contract.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_replay.py`
+- `tests/test_diagnostic_probe_single_use.py`
+- `tests/test_difficulty_band_guards.py`
+- `tests/test_discrimination_profiles.py`
+- `tests/test_doctor.py`
+- `tests/test_durable_promotion_arms.py`
+- `tests/test_evidence_config.py`
+- `tests/test_exam_protection_review.py`
+- `tests/test_exam_seeding.py`
+- `tests/test_facet_diagnostics_v03.py`
+- `tests/test_facet_registry_v2.py`
+- `tests/test_field_boundaries.py`
+- `tests/test_field_priors.py`
+- `tests/test_field_workbench_signals.py`
+- `tests/test_goal_series.py`
+- `tests/test_grading_cli.py`
+- `tests/test_graph_correction.py`
+- `tests/test_hypothesis_claim_dispatcher.py`
+- `tests/test_ingest_instrument_gates.py`
+- `tests/test_ingest_runner.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intervention_outcomes_replayer.py`
+- `tests/test_irt_difficulty.py`
+- `tests/test_item_parameters.py`
+- `tests/test_kinship_feature.py`
+- `tests/test_km2b_consumer_rekey.py`
+- `tests/test_km2_write_path.py`
+- `tests/test_library_exercises.py`
+- `tests/test_lp_claim_fixes.py`
+- `tests/test_mastery.py`
+- `tests/test_mastery_step_attribution.py`
+- `tests/test_measurement_state_labels.py`
+- `tests/test_method_explicit_upgrade.py`
+- `tests/test_misconception_registry.py`
+- `tests/test_misconception_resolution.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_mvp010_upgrade.py`
+- `tests/test_mvp011_upgrade.py`
+- `tests/test_mvp013_upgrade.py`
+- `tests/test_mvp014_upgrade.py`
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_mvp016_upgrade.py`
+- `tests/test_mvp017_route_check_replay.py`
+- `tests/test_mvp017_upgrade.py`
+- `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
+- `tests/test_mvp022_upgrade.py`
+- `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_open_world_gate.py`
+- `tests/test_p0_cutover_mvp08.py`
+- `tests/test_plan_determinism_landing.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_first_transport_offer_grants.py`
+- `tests/test_plan_first_transport_offer_grants_r5.py`
+- `tests/test_planted_misgrade.py`
+- `tests/test_practice_information.py`
+- `tests/test_primed_attempts.py`
+- `tests/test_probe_orchestration_remainder.py`
+- `tests/test_public_tip_guards.py`
+- `tests/test_question_promotion_jobs.py`
+- `tests/test_question_promotions.py`
+- `tests/test_reader_guidance.py`
+- `tests/test_reader_recap_review_r2.py`
+- `tests/test_reader_recap_review_r3.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reading_paths.py`
+- `tests/test_reading_step_switch.py`
+- `tests/test_rebuild_orchestrator.py`
+- `tests/test_recurrence_commands.py`
+- `tests/test_reference_gate_imports.py`
+- `tests/test_registry_audit.py`
+- `tests/test_regrade_contract_replay.py`
+- `tests/test_regrade_contract_successor.py`
+- `tests/test_regrade_contract_upgrade.py`
+- `tests/test_replay.py`
+- `tests/test_required_method_grading.py`
+- `tests/test_route_rules_in_grader.py`
+- `tests/test_rw2c_switch_off.py`
+- `tests/test_rw2d_receipts_migration.py`
+- `tests/test_sensitivity_certificates.py`
+- `tests/test_serve_eligibility_review.py`
+- `tests/test_shadow_rebuild.py`
+- `tests/test_show.py`
+- `tests/test_sidecar_registry.py`
+- `tests/test_sidecar_serializer_snapshot.py`
+- `tests/test_sidecar_tutor_qa.py`
+- `tests/test_source_append.py`
+- `tests/test_source_retrieval_tutor.py`
+- `tests/test_source_roles.py`
+- `tests/test_source_set_synthesis.py`
+- `tests/test_state_sync.py`
+- `tests/test_structured_transport_parity.py`
+- `tests/test_stuck_prompt_replay.py`
+- `tests/test_subject_registry.py`
+- `tests/test_surprise.py`
+- `tests/test_table_roles.py`
+- `tests/test_teach_back.py`
+- `tests/test_teacher_te0_review_fixes.py`
+- `tests/test_tool_registry.py`
+- `tests/test_tracked_fixture_databases.py`
+- `tests/test_tutor_promotion_service.py`
+- `tests/test_tutor_promotion_w2.py`
+- `tests/test_ux_phase1_round2_rereview.py`
+- `tests/test_ux_phase2_shell.py`
+- `tests/test_voi_stopping.py`
 
 ## No live calls
 

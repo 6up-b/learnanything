@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from learnloop.clock import Clock, FrozenClock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptResult, GradeAttribution, replay_existing_attempt
+from learnloop.learner import mastery as learner_mastery
 from learnloop.vault.models import LoadedVault
 
 
@@ -132,16 +133,14 @@ class _ClaimStream:
 
     @classmethod
     def open(cls, vault: LoadedVault, repository: Repository, learning_object_id: str) -> "_ClaimStream | None":
-        from learnloop.learner.mastery import REANCHORING_CLAIM_SOURCES, claim_fixes_live
-
-        if not claim_fixes_live(vault):
+        if not learner_mastery.claim_fixes_live(vault):
             return None
         learning_object = vault.learning_objects.get(learning_object_id)
         if learning_object is None:
             return None
         claims: list[tuple[Any, dict[str, Any]]] = []
         for claim in repository.learner_claims():
-            if str(claim.get("source")) not in REANCHORING_CLAIM_SOURCES:
+            if str(claim.get("source")) not in learner_mastery.REANCHORING_CLAIM_SOURCES:
                 continue
             if claim.get("scope_type") != "learning_object" or claim.get("scope_id") != learning_object_id:
                 continue
@@ -155,14 +154,12 @@ class _ClaimStream:
     def advance_to(self, until_iso: str) -> None:
         """Apply every claim made by ``until_iso``; seed the row on first use."""
 
-        from learnloop.learner.mastery import initial_mastery_state_for_learning_object
-
         until = parse_utc(until_iso)
         if not self._seeded:
             self._seeded = True
             if self._repository.mastery_state(self._learning_object_id) is None:
                 self._repository.upsert_mastery_state(
-                    initial_mastery_state_for_learning_object(
+                    learner_mastery.initial_mastery_state_for_learning_object(
                         self._vault,
                         self._repository,
                         self._learning_object_id,
@@ -183,10 +180,8 @@ class _ClaimStream:
             self._reanchor(claim)
 
     def _reanchor(self, claim: dict[str, Any]) -> None:
-        from learnloop.learner.mastery import reanchor_mastery_from_claim
-
         created_at = str(claim["created_at"])
-        reanchor_mastery_from_claim(
+        learner_mastery.reanchor_mastery_from_claim(
             self._vault,
             self._repository,
             self._learning_object_id,
