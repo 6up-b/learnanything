@@ -38,9 +38,10 @@ from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
+from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -141,7 +142,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H1's 211, approach_maps) follow 210 on the way to head.
     # ... and adaptive difficulty AD1's 213 (its receipts).
     assert {name for name in set(after) - set(before)
-            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS} == {
+            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS} == {
         "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",
@@ -364,6 +365,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 220
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 222
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

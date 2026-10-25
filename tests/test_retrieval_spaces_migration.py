@@ -25,8 +25,9 @@ from learnloop.db.stores.retrieval_spaces import (
 )
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.substrate.rebuild_orchestrator import derived_table_owners
+from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222" / "state.sqlite"
 NEW_TABLES = {"embedding_spaces", "retrieval_feedback", "retrieval_fusion_posteriors"}
 #: Every schema object 220 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 P1_ADDED_OBJECTS = frozenset({
@@ -59,14 +60,15 @@ def test_220_adds_three_tables_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [220]
+    assert [migration.version for migration in applied] == [220, 222]
     after = _schema(database)
     assert {name for name in before if before[name] != after.get(name)} == set()
-    assert set(after) - set(before) == P1_ADDED_OBJECTS
+    # Curriculum C0a's 222 (its one table, altering nothing) follows on the way to head.
+    assert set(after) - set(before) - C0A_ADDED_OBJECTS == P1_ADDED_OBJECTS
 
 
 def test_the_head_fixture_is_at_220_in_rollback_mode():
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 220
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 222
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert has_tables(connection)
@@ -119,7 +121,7 @@ def test_220_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 219)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [220]
+        assert [migration.version for migration in apply_migrations(database)] == [220, 222]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:
