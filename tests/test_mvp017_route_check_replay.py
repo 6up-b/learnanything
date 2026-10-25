@@ -7,9 +7,10 @@ a hold a failed regrade check kept, an adjudicated hold, a not-proof-like
 reading, an unavailable checker and a wrong final answer. Its derived state
 was rebuilt to the fixed point there. Replay reads the blind records and the
 evidence rows, never the check, so a rebuild with today's code must reproduce
-every grade, every hold and every derived row, and leave every ledger as it
-was (playbook item 6). Upgrading the copy rewrites nothing either. No model
-is called.
+every grade and every hold, and leave every ledger as it was (playbook item
+6). Its derived rows move once, by the rebuild-equivalence fix of 2026-10-25
+(``REPLAY_CORRECTED_TABLES``), and are then at the fixed point. Upgrading the
+copy rewrites nothing either. No model is called.
 """
 
 from __future__ import annotations
@@ -96,6 +97,15 @@ def test_the_fixture_holds_every_mvp017_outcome():
         assert connection.execute("PRAGMA journal_mode").fetchone()[0].lower() == "delete"
 
 
+#: Rebuild equivalence (2026-10-25): the fixture's derived rows were written by
+#: the replay of e238fa07a, which read the attempts recorded after the one it
+#: recomputed. Today's replay reads the ledger as the live write saw it, so the
+#: first rebuild moves exactly these tables, on the LOs with more than one
+#: attempt; the single-attempt LO's rows and every grade stay as written.
+REPLAY_CORRECTED_TABLES = ["attempt_surprise", "learning_object_mastery", "practice_item_quality_state"]
+SINGLE_ATTEMPT_LO = "lo_transpose"
+
+
 def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
     _root, vault, repository = _copy(tmp_path)
     assert vault.config.algorithms.algorithm_version == "mvp-0.17"
@@ -104,7 +114,18 @@ def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     after = _state(repository)
     changed = sorted(table for table in before if before[table] != after[table])
-    assert changed == []
+    assert changed == REPLAY_CORRECTED_TABLES
+    single = [row for row in before["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
+    assert single and single == [row for row in after["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
+    _assert_grades(repository)
+    # Then the fixed point: the recurrence fingerprint takes one more pass (it
+    # is computed before learner replay appends this rebuild's hypothesis),
+    # and from there a rebuild changes no derived row and no ledger row.
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    settled = _state(repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _state(repository) == settled
+    assert {table: settled[table] for table in LEDGERS} == {table: before[table] for table in LEDGERS}
     _assert_grades(repository)
 
 

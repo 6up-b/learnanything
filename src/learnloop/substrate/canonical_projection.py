@@ -662,12 +662,13 @@ def project_canonical_facet_state(
     order, strictly before it or including it. Replay recomputes an attempt
     with the whole ledger on disk; a bounded fold gives it the belief cache
     the live write read (``before``) and left (``through``), so a rebuild
-    equals live state (rebuild equivalence, 2026-10-25). A bounded fold writes
-    only the recall and capability cache: the unresolved-cause factors and the
-    capability residuals are reconciled by the whole-ledger projection every
-    replay ends with, never against a partial ledger (a partial one would
-    retire the factors of later observations, which a later sync never
-    reopens).
+    equals live state (rebuild equivalence, 2026-10-25). A bounded fold
+    reconciles the unresolved-cause factors as the live write did, inserting
+    the bounded ledger's and retiring only open factors of attempts inside the
+    bound: a factor of a later attempt is never retired against a ledger that
+    does not reach it yet. The capability residuals are left to the
+    whole-ledger projection every replay ends with (nothing an attempt
+    computes reads them).
 
     mvp-0.7 (``KM_ALGORITHM_VERSION``) is the byte-identical legacy compatibility
     projection: raw ``points_awarded/points`` score fractions, attempt-type mass
@@ -1138,6 +1139,13 @@ def project_canonical_facet_state(
         clock=clock,
     )
     if bound is not None:
+        _sync_unresolved_cause_factors(
+            repository,
+            unresolved,
+            clock=clock,
+            refresh_attempt_ids=refresh_factor_candidates_for,
+            retire_within_attempt_ids=frozenset(str(row["attempt_id"]) for row in snapshot.ledger_rows),
+        )
         return
     _sync_unresolved_cause_factors(
         repository,
@@ -1296,8 +1304,13 @@ def _sync_unresolved_cause_factors(
     *,
     clock: Clock | None,
     refresh_attempt_ids: Collection[str] | None = None,
+    retire_within_attempt_ids: Collection[str] | None = None,
 ) -> None:
     """Idempotently reconcile open unresolved-cause factors with the projection.
+
+    ``retire_within_attempt_ids`` (a bounded replay fold): only open factors
+    of these attempts may be retired; a factor of an attempt outside the fold
+    is not judged by it.
 
     Keyed by observation_id (stable per grading revision), so a re-run neither
     duplicates nor loses an open cause set. Factors whose failure no longer
@@ -1325,7 +1338,16 @@ def _sync_unresolved_cause_factors(
                 observation_id=observation_id,
                 clock=clock,
             )
-    for observation_id in existing_open - set(wanted):
+    retirable = existing_open - set(wanted)
+    if retire_within_attempt_ids is not None:
+        within = set(retire_within_attempt_ids)
+        attempts_by_observation = repository.open_unresolved_cause_factor_attempts()
+        retirable = {
+            observation_id
+            for observation_id in retirable
+            if attempts_by_observation.get(observation_id) in within
+        }
+    for observation_id in sorted(retirable):
         repository.retire_unresolved_cause_factor(observation_id, clock=clock)
     # Slice 1 §7.1: a blind attempt's factor opens at grade time with only the
     # synthesized facet arms, because its candidate causes arrive later with the

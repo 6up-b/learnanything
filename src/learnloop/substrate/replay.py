@@ -102,12 +102,6 @@ def _restore_debug_audit_events(
         connection.commit()
 
 
-def _project_whole_ledger(vault: LoadedVault, repository: Repository) -> None:
-    from learnloop.substrate.canonical_projection import project_canonical_facet_state
-
-    project_canonical_facet_state(vault, repository)
-
-
 def replay_learning_object(
     vault: LoadedVault,
     repository: Repository,
@@ -176,11 +170,6 @@ def replay_learning_object(
         )
         replayed.append(replayed_result)
     repository.keep_practice_items_inactive(inactive_item_ids)
-    if replayed:
-        # Each replayed attempt left the canonical cache folded through its own
-        # ledger position (the cache its live write left); what follows reads
-        # it as the whole ledger, as it did before replay was bounded.
-        _project_whole_ledger(vault, repository)
     # spec §7: registry links survive replay (persisted misconception_id on the
     # error events is re-threaded through GradeAttribution). Replay never
     # re-normalizes, but it re-derives resolution status deterministically from
@@ -190,6 +179,10 @@ def replay_learning_object(
     update_misconception_posteriors_and_resolve(
         vault, repository, learning_object_id=learning_object_id
     )
+    # Each replayed attempt left the canonical cache folded through its own
+    # ledger position (the cache its live write left), so a replay always
+    # ends with a whole-ledger projection: here, or (the R2 umbrella) once
+    # after every LO has replayed. Nothing between reads the cache.
     # KM2 §7.1: canonical shared belief is vault-level, so it is recomputed as a
     # whole-ledger projection (no-op under mvp-0.6). Idempotent and deterministic,
     # so replaying any subset of LOs reproduces byte-identical canonical state.

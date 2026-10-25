@@ -17351,6 +17351,18 @@ class Repository(
             ).fetchall()
         return {str(row["observation_id"]) for row in rows}
 
+    def open_unresolved_cause_factor_attempts(self) -> dict[str, str]:
+        """Each open observation-keyed factor's attempt id, by observation id."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT observation_id, attempt_id FROM unresolved_cause_factors
+                WHERE status = 'open' AND observation_id IS NOT NULL
+                """
+            ).fetchall()
+        return {str(row["observation_id"]): str(row["attempt_id"]) for row in rows}
+
     def unresolved_cause_observation_ids(self) -> set[str]:
         """Observation ids the projection sync must NOT (re-)insert a factor for.
 
