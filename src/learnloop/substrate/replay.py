@@ -102,6 +102,12 @@ def _restore_debug_audit_events(
         connection.commit()
 
 
+def _project_whole_ledger(vault: LoadedVault, repository: Repository) -> None:
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
+
+    project_canonical_facet_state(vault, repository)
+
+
 def replay_learning_object(
     vault: LoadedVault,
     repository: Repository,
@@ -132,6 +138,16 @@ def replay_learning_object(
         attempt["id"]: repository.attempt_debug_payload(attempt["id"])
         for attempt in attempts
     }
+    # Rebuild equivalence (2026-10-25): ``practice_item_state.active`` is the
+    # item's serving lifecycle, which the reset below deletes with the row.
+    # The attempt path re-derives only its own part of it (a diagnostic probe
+    # closes after its administration); a deactivation by the lifecycle's
+    # owners (state sync from the YAML status, retirement, review parking,
+    # superseded measurement, probe lifecycle) is not in the attempt ledger,
+    # so replay keeps it rather than reopening a retired item.
+    inactive_item_ids = repository.inactive_practice_item_ids(
+        {str(attempt["practice_item_id"]) for attempt in attempts}
+    )
     repository.reset_learning_object_derived_state(learning_object_id)
     replayed: list[AttemptResult] = []
     for attempt in attempts:
@@ -159,6 +175,12 @@ def replay_learning_object(
             existing_debug_payloads.get(attempt["id"]),
         )
         replayed.append(replayed_result)
+    repository.keep_practice_items_inactive(inactive_item_ids)
+    if replayed:
+        # Each replayed attempt left the canonical cache folded through its own
+        # ledger position (the cache its live write left); what follows reads
+        # it as the whole ledger, as it did before replay was bounded.
+        _project_whole_ledger(vault, repository)
     # spec §7: registry links survive replay (persisted misconception_id on the
     # error events is re-threaded through GradeAttribution). Replay never
     # re-normalizes, but it re-derives resolution status deterministically from

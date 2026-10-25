@@ -507,6 +507,12 @@ class ApplyAttemptInput:
     # carries (never recomputed from an item).
     grade_contract_unrecorded: bool = False
     unrecorded_correctness: float | None = None
+    # Replay only: the replayed attempt's ledger position ``(created_at, id)``.
+    # Replay recomputes an attempt with the whole ledger already on disk, so
+    # everything it reads of the ledger (the recent-attempt windows, the
+    # canonical facet projection) is bounded to the attempts before this one:
+    # the ledger the live write saw (rebuild equivalence, 2026-10-25).
+    replay_ledger_position: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -1495,6 +1501,11 @@ def replay_existing_attempt(
             grade_held_for_review=record_held_for_review(blind_record),
             grade_contract_unrecorded=unrecorded,
             unrecorded_correctness=reading.unrecorded_correctness if unrecorded and reading is not None else None,
+            replay_ledger_position=(
+                (str(attempt["created_at"]), str(attempt["id"]))
+                if attempt.get("created_at") is not None
+                else None
+            ),
         ),
         clock=clock,
     )
@@ -3148,6 +3159,13 @@ def _apply_attempt_in_transaction(
         if normalized_draft is not attempt.draft:
             attempt = replace(attempt, draft=normalized_draft)
 
+    # Rebuild equivalence (2026-10-25): replay recomputes this attempt with the
+    # whole ledger on disk, so the canonical belief cache is first brought to
+    # the attempts before it (the cache the live write read), and after the
+    # write to the attempts through it (the cache the live write left).
+    replay_position = attempt.replay_ledger_position if attempt.replace_existing else None
+    if replay_position is not None:
+        _project_canonical_belief(vault, repository, clock=clock, before=replay_position)
     application = compute_attempt_application(vault, repository, attempt, clock=clock)
     application = _validate_probe_presentation(repository, application, attempt, clock=clock)
     probe_grading_source = (
@@ -3248,7 +3266,7 @@ def _apply_attempt_in_transaction(
             clock=clock,
         )
     _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
-    _project_canonical_belief(vault, repository, clock=clock)
+    _project_canonical_belief(vault, repository, clock=clock, through=replay_position)
     from learnloop.diagnosis.causal_attribution import materialize_causal_episode
 
     if attempt.replace_existing:
@@ -3412,20 +3430,28 @@ def _save_completion_work(
 
 
 def _project_canonical_belief(
-    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None = None,
+    before: tuple[str, str] | None = None,
+    through: tuple[str, str] | None = None,
 ) -> None:
     """Recompute the canonical shared belief cache after an attempt (mvp-0.7).
 
     A no-op on legacy vaults (the projection early-returns), so mvp-0.6 replay is
     byte-identical. The recompute is a deterministic fold over the immutable
-    observation ledger, so live state and replayed state coincide by construction.
+    observation ledger. Live, the ledger ends at this attempt; replay bounds
+    the fold to the replayed attempt's ledger position (``before`` / ``through``)
+    so it folds the same rows, and the replay's closing whole-ledger
+    projection reconciles what a bounded fold leaves alone.
     """
 
     if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
         return
     from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
-    project_canonical_facet_state(vault, repository, clock=clock)
+    project_canonical_facet_state(vault, repository, clock=clock, before=before, through=through)
 
 
 def _validate_probe_presentation(
@@ -3492,6 +3518,7 @@ def compute_attempt_application(
         grade_held_for_review=attempt.grade_held_for_review,
         grade_contract_unrecorded=attempt.grade_contract_unrecorded,
         unrecorded_correctness=attempt.unrecorded_correctness,
+        ledger_position=attempt.replay_ledger_position,
     )
 
 
@@ -4046,8 +4073,15 @@ def load_attempt_prior_state(
     practice_item_id: str,
     facets: Iterable[str],
     now_iso: str,
+    ledger_before: tuple[str, str] | None = None,
 ) -> AttemptPriorState:
-    """Read the prior-state snapshot used by one attempt computation."""
+    """Read the prior-state snapshot used by one attempt computation.
+
+    ``ledger_before`` is set by replay only: the replayed attempt's own ledger
+    position ``(created_at, id)``. The recent-attempt windows then read only
+    the attempts recorded before it, as the live write did; without it replay
+    would read the attempts recorded after it too (rebuild equivalence).
+    """
 
     facet_ids = list(dict.fromkeys(facets))
     mastery = repository.mastery_state(learning_object_id) or initial_mastery_state_for_learning_object(
@@ -4080,8 +4114,11 @@ def load_attempt_prior_state(
     recent_lo_attempts = repository.list_recent_attempts_by_learning_object(
         learning_object_id,
         limit=max(vault.config.recall_coverage.familiarity_recent_attempt_window, 20),
+        before=ledger_before,
     )
-    recent_item_attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5)
+    recent_item_attempts = repository.list_recent_attempts_by_practice_item(
+        practice_item_id, limit=5, before=ledger_before
+    )
     held = held_attempt_ids(
         repository, [row.get("id") for row in (*recent_lo_attempts, *recent_item_attempts)]
     )
@@ -4152,6 +4189,7 @@ def _compute_resolved_grade_application(
     grade_contract_unrecorded: bool = False,
     unrecorded_correctness: float | None = None,
     reveal_window_bounded: bool = False,
+    ledger_position: tuple[str, str] | None = None,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock, window_bounded=reveal_window_bounded,
@@ -4256,6 +4294,7 @@ def _compute_resolved_grade_application(
             practice_item_id=item.id,
             facets=[*item.evidence_facets, *coverage.covered_facets],
             now_iso=now_iso,
+            ledger_before=ledger_position if replay else None,
         )
     prior_mastery = prior_state.mastery
     grade_attributions = _canonicalized_grade_attributions(vault, grade.error_attributions)

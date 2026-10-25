@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Collection, Iterable, Mapping, Sequence
 
 from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
@@ -652,8 +652,22 @@ def project_canonical_facet_state(
     *,
     clock: Clock | None = None,
     refresh_factor_candidates_for: Collection[str] | None = None,
+    before: tuple[str, str] | None = None,
+    through: tuple[str, str] | None = None,
 ) -> None:
     """Recompute and persist the canonical belief cache.
+
+    ``before`` / ``through`` (replay only; at most one) bound the fold to the
+    ledger up to a position ``(created_at, attempt id)`` in the ledger's own
+    order, strictly before it or including it. Replay recomputes an attempt
+    with the whole ledger on disk; a bounded fold gives it the belief cache
+    the live write read (``before``) and left (``through``), so a rebuild
+    equals live state (rebuild equivalence, 2026-10-25). A bounded fold writes
+    only the recall and capability cache: the unresolved-cause factors and the
+    capability residuals are reconciled by the whole-ledger projection every
+    replay ends with, never against a partial ledger (a partial one would
+    retire the factors of later observations, which a later sync never
+    reopens).
 
     mvp-0.7 (``KM_ALGORITHM_VERSION``) is the byte-identical legacy compatibility
     projection: raw ``points_awarded/points`` score fractions, attempt-type mass
@@ -681,10 +695,22 @@ def project_canonical_facet_state(
 
             p0_score_fraction = _json_mod.loads(schema_row["score_fraction_json"])
 
+    if before is not None and through is not None:
+        raise ValueError("project_canonical_facet_state takes before or through, not both")
+    bound = before if before is not None else through
     snapshot = load_canonical_projection_snapshot(
         repository,
         algorithm_version=algorithm_version,
     )
+    if bound is not None:
+        snapshot = replace(
+            snapshot,
+            ledger_rows=tuple(
+                row
+                for row in snapshot.ledger_rows
+                if _ledger_position_within(row, bound, inclusive=through is not None)
+            ),
+        )
     merge_map = snapshot.merge_map
     repeat_discount = configured_repeat_discount(vault)
     cert_cfg = vault.config.evidence.certification
@@ -1111,6 +1137,8 @@ def project_canonical_facet_state(
         algorithm_version=algorithm_version,
         clock=clock,
     )
+    if bound is not None:
+        return
     _sync_unresolved_cause_factors(
         repository,
         unresolved,
@@ -1122,6 +1150,19 @@ def project_canonical_facet_state(
     # so it runs on every path that recomputes canonical state — live attempts and
     # replay alike — and a rebuild reproduces activation deterministically.
     project_capability_residuals(vault, repository, clock=clock)
+
+
+def _ledger_position_within(
+    row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool
+) -> bool:
+    """Whether a ledger row lies before (or, inclusive, at) ``bound``.
+
+    The order is the ledger's own, ``(created_at, attempt id)``
+    (``load_canonical_observation_ledger``), the order replay records in.
+    """
+
+    position = (str(row.get("created_at") or ""), str(row.get("attempt_id") or ""))
+    return position <= bound if inclusive else position < bound
 
 
 def project_capability_residuals(
