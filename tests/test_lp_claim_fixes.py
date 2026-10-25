@@ -28,8 +28,8 @@ from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
     CLAIM_FIXES_VERSIONS,
     LATEST_ALGORITHM_VERSION,
+    READING_PATH_PLAN_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
@@ -123,8 +123,9 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     assert LATEST_ALGORITHM_VERSION == TAG == SUCCESSOR_CHAIN[-1]
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
-    assert TAG == "mvp-0.32"  # built as the next free tag after mvp-0.31; the landing renumbers
+    assert UPGRADE_PREDECESSOR == PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
+    # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
+    assert TAG == "mvp-0.33"
     assert CLAIM_FIXES_VERSIONS == frozenset({TAG})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 

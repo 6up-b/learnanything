@@ -17,8 +17,9 @@ this:
   larger pseudo-count; the claimed level never breaks a tie.
 
 The tag is ONE constant (``CLAIM_FIXES_ALGORITHM_VERSION``, built as
-``mvp-0.32`` beside reader workbench RW7b's successor; the landing renumbers
-it there and nothing else names a number).
+``mvp-0.32`` beside reader workbench RW7b's successor and renumbered to
+``mvp-0.33`` at landing, after RW7b's ``mvp-0.32``, so :data:`PREDECESSOR`
+is RW7b's; nothing else names a number).
 
 The upgrade:
 
@@ -83,8 +84,8 @@ from typing import NamedTuple
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
+    READING_PATH_PLAN_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.clock import Clock
 from learnloop.learner.mastery import (
@@ -93,17 +94,17 @@ from learnloop.learner.mastery import (
 )
 from learnloop.ops.vault_upgrade import UpgradeResult, rewrite_algorithm_version
 from learnloop.params import parameter_registry as registry_service
+from learnloop.reading_path_plan_upgrade import upgrade_to_reading_path_plan
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.substrate.rebuild_orchestrator import COLD_MASTERY_BASELINE_AT, rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
-from learnloop.workbench_field_signals_upgrade import upgrade_to_workbench_field_signals
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_workbench_field_signals
+PREDECESSOR = READING_PATH_PLAN_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_reading_path_plan
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]
