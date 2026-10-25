@@ -264,3 +264,111 @@ Each file passes when run on its own. The full suite runs at landing.
    or should it stay per item per session?
 3. B4: the attempts written under a successor key are unattributed. Is that
    acceptable, or should they be attributed to a fresh offer?
+
+## Fix round 2 (Codex verify `20261025-145037-Wyei9F`)
+
+The verify found three issues on `9b6300d13`. All three are fixed. Each has a
+fail-first test in `tests/test_owner_capture_1025.py` (WIP commit
+`d4faf6a28`; all five tests failed on `9b6300d13`).
+
+### 1. Medium: a successor key bypassed the cross-session check
+
+**What happened.** `submission_offer_answered_elsewhere`
+(`src/learnloop/db/stores/collection.py`) found a key's intent by item alone.
+Take a draft key from session A whose offer a steps attempt answered. Submitted
+for the same item in session B with no offer, it was given the successor key
+`<key>~after~<attempt>`. That key had no intent, so the bind accepted it as
+new in session B. Before B4 the bind refused such a key ("The submission
+belongs to a different item or session.").
+
+**Fix.** The lookup now also requires the intent's session
+(`i.session_id = ?`). `answering_key` passes the session, and so does
+`recover_practice_submission`. A key from another session gets no successor,
+and the bind refuses it as before.
+
+**Test:** `test_fix2_a_key_from_another_session_is_refused_not_succeeded`. It
+submits in session B and expects `validation_error`. It also checks that no
+attempt and no successor intent were written, and that recovery in session B
+reports `pending`.
+
+### 2. Medium: a stale checkpoint's authored hint counted again
+
+**What happened.** The fail-soft path replaced only `submission_id`. The
+client's `hintsUsed` (and `authoredHints`) stayed the base of the fold. A
+checkpoint the owner's bug already left behind restores `hintsUsed: 1` under
+the answer box's key. That hint was shown before the steps attempt, and the
+steps attempt already counted it. So the successor attempt, with no new help,
+recorded one hint again. Clearing future checkpoints does not repair this
+case.
+
+**Fix.** `_without_stale_help` (`src/learnloop_sidecar/handlers/practice.py`)
+runs in `submit_attempt_on` and `submit_dont_know_on` after the receipt
+check. It applies when the submission takes the successor path, or when it
+names an offer another attempt already answered (`_bind_offer`'s fail soft).
+In either case the draft outlived an earlier attempt of the item, so the
+help it carries does not count:
+- **What is dropped.** The client's hint count, authored count, book flag and
+  first-hint marker (`firstHintProgress`) are not used.
+- **What counts instead.** Only help inside the item's window since its last
+  attempt in this session counts. This is the server-side rule (H2b ruling R1).
+  The server's rows count through the window fold, which this path turns on.
+  The authored hints the screen revealed in that window count through their H0
+  rows (`help_assists.authored_reveals_in_window`: distinct `authored_index`,
+  any key, unattached). The total is never more than the client reports.
+- **Logging.** A count that changes is logged as `stale_draft_help_dropped`.
+
+`primed` is not dropped. On the practice screen it comes from how the item was
+opened (a primed retry), not from the checkpoint.
+
+**Tests:**
+- `test_fix2_an_already_stale_checkpoints_hint_is_not_counted_again`. The
+  stale checkpoint carries `hintsUsed: 1` and `authoredHints: 1`, with that
+  hint's reveal row written before the steps attempt. The attempt records 0
+  hints (1 on `9b6300d13`).
+- `test_fix2_a_hint_revealed_after_the_earlier_attempt_still_counts` (guard).
+  A second authored hint is revealed on the restored draft after the steps
+  attempt, so the client sends 2. The attempt records 1 (2 on `9b6300d13`).
+- `test_fix2_a_stale_offers_carried_hint_is_not_counted_again`. This is the
+  fail-soft path: a new key names the offer the first attempt answered and
+  carries that attempt's hint. It records 0 (1 on `9b6300d13`).
+
+**What the owner should know.**
+- With `hints.telemetry_enabled` off (it is on by default), no reveal row is
+  written. An authored hint revealed on a stale draft then counts nothing:
+  the server cannot tell it apart from the stale one.
+- The authored-reveal rows are still telemetry everywhere else. This repair
+  path is the only place a submit reads them, and it only ever lowers the
+  client's count.
+- The reveal rows written under the stale key are not attached to the
+  successor attempt. The H0 attach matches by key, and the successor attempt
+  has its own key. They stay unattached, outside every later window.
+
+### 3. Low: a changed fallback kept the old policy version
+
+**What happened.** B2's style-aware fallback changes decisions, but its rows
+still recorded `hint-choice-policy-v1:fallback`.
+
+**Fix.**
+- `chooser.FALLBACK_POLICY_VERSION = "hint-choice-policy-v2"`.
+- `chooser.policy_version(policy)` gives the row's version: a fallback
+  choice records `hint-choice-policy-v2:fallback`, and the Decider's draws
+  keep `hint-choice-policy-v1:<policy>`. `service.py` uses it for every
+  served row, the workbench's included.
+- `docs/specs/spec_adaptive_hints_v1.md` §4.5 ("Fallback") now gives the
+  style-aware rules for the practice screen and the workbench, with the
+  version. D3 records the amendment.
+- Codex confirmed this needs no algorithm successor (§10.1): counts and
+  `primed` keep their meaning.
+
+**Test:** `test_fix2_a_changed_fallback_names_its_new_policy_version`.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| Targeted pytest (`-n 6`, 5G scope; 75 files): the owner-capture file; every `test_hint_*`, `test_workbench_*`, `test_reader_rw2*` and `test_practice_*`; help-assists schema; collection dataset; sidecar contract; daily plan RPC and regressions; teach-back; router offer log; forecast receipts; facet outcome view; stuck prompt; architecture | 1085 passed, 8 skipped |
+| Durability lane (`--durable-sqlite`): the owner-capture file, collection dataset, sidecar contract, daily-plan regressions, router offer log | 224 passed, 7 skipped |
+| `lint-imports --no-cache` | 36 kept, 0 broken |
+
+This round changed no client code, so vitest and the frontend build were not
+rerun. No model, paid or live calls were made. The full suite runs at landing.
