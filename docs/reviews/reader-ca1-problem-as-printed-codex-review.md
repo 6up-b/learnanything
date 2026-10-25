@@ -236,7 +236,7 @@ MemoryMax=5G -p MemorySwapMax=1G`, one at a time. pytest ran with `-n 6` and vit
   tests/test_public_tip_guards.py tests/test_tracked_fixture_databases.py.
 - `npm install`: ok. `npm run typecheck`: exit 0. `npm run frontend:build`: built.
 - vitest set 1 (21 files): **187 passed**. Files: src/components/AsPrinted.test.tsx
-  src/screens/MaintenanceScreen.transcription.test.tsx src/screens/workbench/ (all 9)
+  src/screens/MaintenanceScreen.transcription.test.tsx src/screens/workbench/ (all 10)
   src/screens/PracticeScreen.asPrinted.test.tsx src/screens/PracticeScreen.workbench.test.tsx
   src/screens/RepairScreen.phase4.test.tsx src/screens/RepairOverFeedback.phase4.test.tsx
   src/components/AskOverlay.test.tsx src/components/AskOverlay.reader.test.tsx
