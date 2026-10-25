@@ -1354,7 +1354,7 @@ export function TranscriptionReportCard({
     }
     setSaving(true);
     try {
-      await api.editPracticeItem({ practiceItemId: itemId, prompt, reason: "transcription_mismatch" });
+      await api.editPracticeItem({ practiceItemId: itemId, prompt, reason: "the transcription didn't match the page" });
       setSaved(true);
       setEditing(false);
       onFixed?.();
@@ -1392,7 +1392,7 @@ export function TranscriptionReportCard({
         <BlocksAsPrinted extractionId={detail.extractionId} spanIds={detail.spanIds} altText={detail.prompt ?? notice.title} />
       ) : null}
       {saved ? (
-        <Faint role="status" style={{ fontSize: 11 }}>saved · the report resolves now the wording changed</Faint>
+        <div role="status" style={{ fontSize: 11, color: COLOR.textDim }}>saved · the report resolves now the wording changed</div>
       ) : editing ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <textarea aria-label="the card's wording" value={draft} rows={3} onChange={(event) => setDraft(event.target.value)}

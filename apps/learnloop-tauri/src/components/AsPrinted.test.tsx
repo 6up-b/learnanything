@@ -88,13 +88,66 @@ it("a card from a photo shows your photo with its date", async () => {
   expect(screen.queryByText(/doesn't match/)).toBeNull();
 });
 
-it("a problem known by its blocks is cropped through the multi-block form", async () => {
-  api.readerProblemCrops.mockResolvedValue({ extractionId: "ext", spanIds: ["s1", "s2"], status: "ok", skippedSpanIds: [],
-    crops: [{ page: 3, pageLabel: "4", bbox: [1, 2, 3, 4], spanIds: ["s1", "s2"], image: "data:image/png;base64,S" }] });
+const BLOCKS = { extractionId: "ext", spanIds: ["s1", "s2"], status: "ok" as const, skippedSpanIds: [],
+  crops: [{ page: 3, pageLabel: "4", bbox: [1, 2, 3, 4], spanIds: ["s1", "s2"], image: null as string | null }] };
+
+it("a problem known by its blocks is cropped through the multi-block form, after a cheap first read", async () => {
+  api.readerProblemCrops.mockImplementation(async ({ render }: { render?: boolean }) =>
+    render === false ? BLOCKS : { ...BLOCKS, crops: [{ ...BLOCKS.crops[0], image: "data:image/png;base64,S" }] });
   render(<BlocksAsPrinted extractionId="ext" spanIds={["s1", "s2"]} label={AS_PRINTED_COPY.solutionAsPrinted} altText="the solution" />);
-  fireEvent.click(screen.getByRole("button", { name: /the solution as printed/ }));
+  await waitFor(() => expect(api.readerProblemCrops).toHaveBeenCalledWith({ extractionId: "ext", spanIds: ["s1", "s2"], render: false }));
+  fireEvent.click(await screen.findByRole("button", { name: /the solution as printed/ }));
   await waitFor(() => expect(api.readerProblemCrops).toHaveBeenCalledWith({ extractionId: "ext", spanIds: ["s1", "s2"] }));
   expect((await screen.findByAltText("the solution")).getAttribute("src")).toBe("data:image/png;base64,S");
+});
+
+// Codex review F3: the switch off answers `disabled` and the host shows no
+// *as printed* (a candidate, the book's solution, a workbench problem); no
+// page or no box shows nothing either.
+for (const status of ["disabled", "no_geometry", "not_found"] as const) {
+  it(`a problem known by its blocks shows nothing when the server crops nothing (${status})`, async () => {
+    api.readerProblemCrops.mockResolvedValue({ ...BLOCKS, status, crops: [] });
+    const { container } = render(<BlocksAsPrinted extractionId="ext" spanIds={["s1"]} altText="x" />);
+    await waitFor(() => expect(api.readerProblemCrops).toHaveBeenCalledOnce());
+    expect(container.textContent).toBe("");
+    expect(api.readerProblemCrops).toHaveBeenCalledTimes(1);
+  });
+}
+
+it("a learner-drawn region rides with both reads (§12.4)", async () => {
+  api.readerProblemCrops.mockResolvedValue(BLOCKS);
+  const region = { spanId: "s1", page: 3, bbox: [1, 2, 3, 4] };
+  render(<BlocksAsPrinted extractionId="ext" spanIds={["s1"]} altText="x" region={region} />);
+  fireEvent.click(await screen.findByRole("button", { name: /as printed/ }));
+  await waitFor(() => expect(api.readerProblemCrops).toHaveBeenCalledWith({ extractionId: "ext", spanIds: ["s1"], region }));
+  expect(api.readerProblemCrops).toHaveBeenCalledWith({ extractionId: "ext", spanIds: ["s1"], render: false, region });
+});
+
+// Codex review F5: a page known without a box says the crop can't be made,
+// and nothing stands in for it.
+it("a page without a box: the crop says it can't be made, no picture", async () => {
+  const view: AsPrintedViewDto = { ...PAGE, status: "no_geometry", crops: [], notice: AS_PRINTED_COPY.noCrop };
+  api.practiceAsPrinted.mockResolvedValue(view);
+  render(<AsPrinted view={view} practiceItemId="pi" altText="Find λ." />);
+  fireEvent.click(screen.getByRole("button", { name: /as printed/ }));
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe(AS_PRINTED_COPY.noCrop));
+  expect(screen.queryByRole("img")).toBeNull();
+});
+
+// §8.3 (Codex review F6): *open in the Reader ↗* from the original page.
+it("after feedback the original page opens the page itself and offers the Reader", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ ...PAGE, originalPage: { ...PAGE.originalPage!, sourceId: "src" } });
+  api.getSpanView.mockResolvedValue({ spanView: { extractionId: "ext", spanId: "e1", viewerMode: "pdf_page", blockType: "Text",
+    sectionPath: [], text: "t", locator: "span:ext/e1", locatorScheme: "block_span_v1", pageRender: "data:image/png;base64,P",
+    pageRenderSize: [612, 792], bbox: [1, 2, 3, 4], pageSpans: [], previousSpans: [], nextSpans: [] } });
+  const onOpenInReader = vi.fn();
+  render(<PrintedAfterFeedback practiceItemId="pi" altText="Find λ." onOpenInReader={onOpenInReader} />);
+  fireEvent.click(await screen.findByTestId("original-page"));
+  await waitFor(() => expect(api.getSpanView).toHaveBeenCalledWith(expect.objectContaining({ extractionId: "ext", spanId: "e1",
+    context: "provenance", entityType: "practice_item", entityId: "pi" })));
+  fireEvent.click(await screen.findByTestId("open-in-reader"));
+  expect(onOpenInReader).toHaveBeenCalledWith({ extractionId: "ext", spanId: "e1", outlineSpanIds: ["e1"], sourceId: "src" });
+  expect(screen.queryByTestId("open-in-reader")).toBeNull();
 });
 
 it("after feedback: the full locator and a free, unlabelled original page", async () => {

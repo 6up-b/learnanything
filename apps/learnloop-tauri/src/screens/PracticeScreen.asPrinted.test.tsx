@@ -187,10 +187,34 @@ for (const mode of ["simple", "classic"] as const) {
   });
 }
 
-it("no original page during a diagnostic block or a cold follow-up (a hint would void them)", async () => {
-  await open("classic", { activeFollowupKind: "cold_retry" });
-  await screen.findByRole("button", { name: /as printed/ });
+// Codex review F1: a cold follow-up and a diagnostic presentation are on your
+// own with or without a "Check once": the server sends the figure alone (or
+// nothing) and the screen shows only that, never the crop or a locator.
+it("a cold follow-up: only the figure the server sends, no page, no locator", async () => {
+  api.practiceAsPrinted.mockImplementation(async ({ render }: { render?: boolean }) =>
+    render ? { ...FIGURE_VIEW, crops: [{ index: 0, image: CROP }] } : FIGURE_VIEW);
+  const { view } = await open("classic", { activeFollowupKind: "cold_retry" });
+  expect((await screen.findByAltText(PROMPT)).getAttribute("src")).toBe(CROP);
+  expect(screen.getByRole("button", { name: /the figure, as printed/ })).toBeTruthy();
+  const text = view.container.textContent ?? "";
+  for (const locator of ["p.297", "original page", "doesn't match", "as printed (Strang"]) expect(text).not.toContain(locator);
   expect(screen.queryByTestId("original-page")).toBeNull();
+});
+
+it("a diagnostic block: no original page and no crop of the page, only what the server allows", async () => {
+  api.getProbeContract.mockResolvedValue({
+    version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
+    observationNumber: 1, maximumObservations: 3,
+    restrictions: { hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true,
+                    answerRevealDisabled: true, feedbackDeferred: true }
+  });
+  api.practiceAsPrinted.mockResolvedValue({ version: 1, practiceItemId: ITEM_ID, enabled: true, kind: "none", cold: true,
+                                            reason: "cold_check" });
+  const { view } = await open("classic");
+  await screen.findByText("Diagnostic check");
+  expect(screen.queryByTestId("as-printed")).toBeNull();
+  expect(screen.queryByTestId("original-page")).toBeNull();
+  expect(view.container.textContent ?? "").not.toContain("p.297");
 });
 
 it("the switch off (or an older sidecar) leaves the card as it was", async () => {
