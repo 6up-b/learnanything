@@ -10,8 +10,6 @@ last_reviewed: 2026-08-17
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
-  - fixtures/linear_algebra/learnloop.toml
-  - fixtures/linear_algebra/subjects/vector-spaces/practice-items/pi_what_makes_function_axiom_strategy.yaml
   - src/learnloop/attempts/attempts.py
   - src/learnloop/attempts/grading.py
   - tests/test_cli_attempt.py
@@ -25,7 +23,9 @@ tags:
 
 # Manual Attempt and State Inspection
 
-This executable example copies the repository's linear-algebra fixture to temporary storage, upgrades the copy to mvp-0.9, self-grades one ordinary item, and traces every persisted layer. It never mutates `fixtures/linear_algebra`.
+This executable example copies the linear-algebra vault to temporary storage, upgrades the copy to mvp-0.9, self-grades one ordinary item, and traces every persisted layer. It never mutates the vault it copies.
+
+Since storage S0 the vault is no longer in the repository (it was `fixtures/linear_algebra`, the owner's working vault; `docs/specs/spec_storage_sync_v1.md` §6.11). The example runs only where a copy of it exists: an owner-lane copy under `$LEARNLOOP_OWNER_VAULTS` (`tests/owner_vaults.py`), never the live vault itself.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ This executable example copies the repository's linear-algebra fixture to tempor
 ```bash
 DEMO_ROOT="$(mktemp -d)"
 VAULT="$DEMO_ROOT/linear-algebra"
-cp -a fixtures/linear_algebra "$VAULT"
+cp -a "${LEARNLOOP_OWNER_VAULTS:?set it to a folder of owner-lane copies}/linear_algebra" "$VAULT"
 
 uv run learnloop init "$VAULT"
 uv run learnloop upgrade --to mvp-0.9 --vault "$VAULT"
