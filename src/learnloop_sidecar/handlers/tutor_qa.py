@@ -12,9 +12,13 @@ from learnloop.tutor import question_queue as QQ
 from learnloop.tutor.question_queue import QuestionQueueError
 from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
 from learnloop.tutor.tutor_qa import (
+    READER_ANSWER_MODES,
     QuestionLimitReached,
     TutorQAError,
+    ask_panel_enabled,
     ask_question,
+    earlier_threads,
+    help_style_answer_mode,
     build_tutor_opening,
     build_tutor_qa_note,
     practice_thread_events,
@@ -54,6 +58,15 @@ class AskTutorQuestionInput(ParamsModel):
     # the learner chose (span keys "<extraction>:<span>") and their current draft.
     pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
     learner_draft_md: str | None = Field(default=None, max_length=8000)
+    # Reader CA2 (ux_reader_compare_ask_v1 §7, K5/K7; ``ask.panel_enabled``):
+    # the attempt's key (the practice thread is the attempt's), the workbench
+    # session a Work-in-Steps question is asked from (validated against the
+    # item on the server), the step it is about, and a one-question answer
+    # mode (absent: the help style's). Policy and counts stay the server's.
+    submission_id: str | None = Field(default=None, max_length=200)
+    workbench_session_id: str | None = Field(default=None, max_length=200)
+    about_step: int | None = Field(default=None, ge=1)
+    answer_mode: str | None = None
 
 
 class RateTutorAnswerInput(ParamsModel):
@@ -72,6 +85,8 @@ class GetTutorTranscriptInput(ParamsModel):
     attempt_id: str | None = None
     note_id: str | None = None
     session_id: str | None = None
+    # Reader CA2 (K5): the attempt's key; its thread only.
+    submission_id: str | None = Field(default=None, max_length=200)
 
 
 class PromoteTutorQuestionInput(ParamsModel):
@@ -179,6 +194,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "The tutor is disabled during teach-back — the AI plays the student.",
                 retryable=False,
             )
+    answer_mode, workbench_session_id = _ask_panel_inputs(vault, repository, params)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
     if not runtime.ready or client is None:
         raise SidecarError(
@@ -255,6 +271,10 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             # Canonical sources S4: the answer's typed tool requests (None when
             # source_service.tutor_tools is off: S0's tutor byte for byte).
             tool_request_handler=_tool_request_handler(vault),
+            **({"answer_mode": answer_mode} if answer_mode is not None else {}),
+            **({"submission_id": params.submission_id, "workbench_session_id": workbench_session_id,
+                "about_step": params.about_step}
+               if params.context == "practice" and ask_panel_enabled(vault) else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -282,6 +302,8 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
         # ING M8 (§9.2): source-span citations; chips open Open-in-source.
         "citations": result.get("citations", []),
         "remaining": result["remaining"],
+        # Reader CA2 (§7.4): the mode the answer was written in (None: today's).
+        "answer_mode": result.get("answer_mode"),
         # Learner-text gaps: the question is read for a named gap off the
         # request path; the overlay polls get_learner_text_gap.
         "learner_gap": queue_tutor_question_gap(
@@ -293,6 +315,40 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
         ctx, repository, params.capture_id, "ask_tutor",
         {"question_event_id": result["event_id"], "note_id": note_id}, response,
     )
+
+
+def _ask_panel_inputs(vault: Any, repository: Any, params: AskTutorQuestionInput) -> tuple[str | None, str | None]:
+    """Reader CA2 (§7.4, K7): the answer mode and the validated workbench
+    session of a practice or feedback question, while ``ask.panel_enabled``.
+
+    The mode is the help style's (``hints.help_style``; a workbench session's
+    per-problem style wins, spec D31) unless the learner changed it for this
+    one question. The workbench session must be bound to the question's item;
+    a client cannot name another problem's. Off, or another context: (None,
+    None) and the question goes out exactly as before."""
+
+    if params.context not in ("practice", "feedback") or not ask_panel_enabled(vault):
+        if params.answer_mode is not None and params.context in ("practice", "feedback"):
+            raise SidecarError("validation_error", "Answer modes need the Ask panel (ask.panel_enabled).")
+        return None, None
+    if params.answer_mode is not None and params.answer_mode not in READER_ANSWER_MODES:
+        raise SidecarError("validation_error", f"Unknown answer mode {params.answer_mode!r}.")
+    style = vault.config.hints.help_style
+    workbench_session_id = None
+    if params.workbench_session_id is not None:
+        if params.context != "practice":
+            raise SidecarError("validation_error", "Only a practice question is asked from a workbench.")
+        from learnloop.reader import workbench as WB
+
+        try:
+            session = WB.session_row(repository, params.workbench_session_id)
+        except Exception as exc:  # noqa: BLE001 - an unknown session is the caller's error
+            raise SidecarError("validation_error", "That workbench session was not found.") from exc
+        if session is None or session.get("practice_item_id") != params.practice_item_id:
+            raise SidecarError("validation_error", "That workbench session is not this item's problem.")
+        workbench_session_id = params.workbench_session_id
+        style = session.get("help_style") or style
+    return params.answer_mode or help_style_answer_mode(style), workbench_session_id
 
 
 def _with_offers(vault: Any, repository: Any, response: dict[str, Any], event_id: str,
@@ -545,11 +601,14 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
         )
     except TutorQAError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    panel = ask_panel_enabled(vault)
     if params.context == "practice":
         # Owner capture 2026-10-25 (B3): the current attempt's thread; a
-        # reattempt starts a fresh one (earlier turns stay on record).
+        # reattempt starts a fresh one (earlier turns stay on record). Reader
+        # CA2 (K5): with the panel, keyed by the attempt's submission id.
         events = practice_thread_events(
             repository, practice_item_id=params.practice_item_id, session_id=params.session_id,
+            submission_id=params.submission_id if panel else None,
         )
     elif params.context == "feedback":
         events = repository.question_events(
@@ -575,4 +634,51 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
     for event in events:
         event["promotion"] = promotions.get(event["id"])
         event["promotion_request"] = promotion_requests.get(event["id"])
-    return versioned({"events": events, "remaining": max(0, limit - used)})
+    payload: dict[str, Any] = {"events": events, "remaining": max(0, limit - used)}
+    if panel and params.context in ("practice", "feedback"):
+        payload.update(_earlier(vault, repository, params))
+    return versioned(payload)
+
+
+def _earlier(vault: Any, repository: Any, params: GetTutorTranscriptInput) -> dict[str, Any]:
+    """Reader CA2 (§7.3, K6, Q2): *earlier on this question*. Before Submit
+    (the practice context) opening one counts as one hint (the client counts
+    it, as it counts an authored reveal; said first); after Submit (the
+    feedback context) it is free. During a check on your own it is absent,
+    and ``cold`` says so. The help style rides along for the panel (§7.4)."""
+
+    item_id = params.practice_item_id
+    if params.context == "feedback" and params.attempt_id:
+        attempt = repository.fetch_practice_attempt(params.attempt_id)
+        item_id = item_id or (attempt or {}).get("practice_item_id")
+    if not item_id:
+        return {"earlier": [], "earlier_counts_as_hint": False, "cold": False}
+    cold = params.context == "practice" and _served_cold(vault, repository, item_id)
+    earlier = [] if cold else earlier_threads(vault, repository, practice_item_id=item_id)
+    if params.context == "feedback" and params.attempt_id:
+        # The attempt just graded is the feedback screen itself, not "earlier".
+        earlier = [entry for entry in earlier if entry["attempt_id"] != params.attempt_id]
+    return {
+        "earlier": earlier,
+        "earlier_counts_as_hint": params.context == "practice",
+        "cold": cold,
+        "help_style": vault.config.hints.help_style,
+    }
+
+
+def _served_cold(vault: Any, repository: Any, practice_item_id: str) -> bool:
+    """Is the item served as a check on your own now (a due "Check once"
+    served cold, or a due cold follow-up)? Server-derived (U11: nothing from
+    before shows on a cold check)."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.intent.checks import cold_followup_duty, served_check
+
+    now = SystemClock().now()
+    try:
+        check = served_check(vault, repository, practice_item_id, now=now)
+    except Exception:  # noqa: BLE001 - fail closed: hide the earlier help
+        return True
+    if check is not None:
+        return bool(check.get("cold"))
+    return cold_followup_duty(repository, practice_item_id, now=now) is not None

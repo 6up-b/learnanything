@@ -450,6 +450,31 @@ WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
 # the predecessor).
 READING_PATH_PLAN_ALGORITHM_VERSION = "mvp-0.32"
 
+# mvp-0.34 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md §7,
+# K10 and §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md), on top of mvp-0.32
+# (RW7b; the chain stays linear: mvp-0.34 means everything mvp-0.32 means
+# PLUS this). Built on main at mvp-0.32 while the LP claim fixes held
+# mvp-0.33; the tag lives in this ONE constant (the upgrade, the CLI and the
+# gates all read it), so a landing that finds another number free renumbers
+# it here. One rule for help on a check on your own:
+#
+# * a question asked during a cold administration counts as help only when
+#   the tutor model's ``question_type`` is substantive
+#   (``tutor_qa.HINT_EQUIVALENT_TYPES``), on every cold path: the practice
+#   Ask already did, and the Reader's cold Ask (a workbench-bound one and the
+#   client-reported cold attempt's) now does too instead of counting every
+#   question (the predecessor's L6 rule);
+# * help taken on a cold follow-up (``cold_retry``,
+#   ``certification_cold_probe``) makes that attempt practice with help: submit
+#   admits it (the predecessor refused it) and it never answers the cold
+#   measurement, which the next serve withdraws as practised since scheduled.
+#
+# That changes how an attempt is classified (assisted or on your own) and
+# what submit admits, never the projection, so it is another successor tag on
+# the mvp-0.8 namespace. Kill switch: ``ask.cold_help_converts`` (off, or
+# below the tag: both rules exactly as the predecessor).
+ONE_ASK_ALGORITHM_VERSION = "mvp-0.34"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -481,6 +506,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
+    ONE_ASK_ALGORITHM_VERSION,
 )
 
 
@@ -620,6 +646,12 @@ WORKBENCH_FIELD_SIGNALS_VERSIONS: frozenset[str] = successors_from(WORKBENCH_FIE
 # ``reading_paths.plan_uses_path``; reader workbench RW7b). Every later
 # successor keeps it; gates must use this set, never equality.
 READING_PATH_PLAN_VERSIONS: frozenset[str] = successors_from(READING_PATH_PLAN_ALGORITHM_VERSION)
+
+# Versions whose cold paths count only substantive questions as help and
+# admit help taken on a cold follow-up as practice with help (behind
+# ``ask.cold_help_converts``; Reader CA2). Every later successor keeps it;
+# gates must use this set, never equality.
+ONE_ASK_VERSIONS: frozenset[str] = successors_from(ONE_ASK_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

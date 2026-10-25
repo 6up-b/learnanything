@@ -1577,7 +1577,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # because the effective config gains the key; all of them were recomputed
     # from the composed defaults (defaults_fingerprint_for_version), and
     # dropping the key reproduces every earlier value.
-    "mvp-0.9": "776e762b50f4d984f845ccab4673cdb4db9add271fd65ad569f533f5001a377e",
+    # Reader CA2 (one Ask; docs/reviews/reader-ca2-one-ask.md) adds [ask]
+    # panel_enabled and cold_help_converts (both true; modelled defaults, left
+    # out of the decision-only template): the panel's presentation switch and
+    # the kill switch of its successor. cold_help_converts acts only at that
+    # tag and later; at every earlier version both keys are present and the
+    # successor's key is inert. Every snapshot moves only because the
+    # effective config gains the keys; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version), and dropping the
+    # keys reproduces every earlier value.
+    "mvp-0.9": "ce1aec4e7f5f2b5ee0524fbf1d8decf618481df45f38a1dc4246637b9d01fac8",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1642,7 +1651,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.10": "d63d9577f5b9dc3e60a2b820049d25f19c50bed72dabe1221e21ff3cc523d449",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.10": "f2f958742d41e57d15867d033ab69b600f87cd707b462f9484767fd4ba515e05",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1715,7 +1725,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.11": "4ae391c2278999d355817e580e7cac7ff754ef70c5d11488b360f4027f251de9",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.11": "8d4a15402485e4f42dbcc77c9b330119e28a1ef746fcd4e5092986f82d1bb8dd",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1782,7 +1793,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.12": "189214a27595cfa5813ab8c4188b79357600a69b17bb68c0249af4e0b8599bc3",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.12": "bf489bdd28f6992bb471965e111556e27b5cb55b6f8553a6eefd57c8bd531455",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1844,7 +1856,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.13": "a8930c8f44ba75d7b7ba2162ecc744209b1747da50965e273e8e6ab95471590a",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.13": "bd9cfcc26d2a1d73bbe9d7d2cad06256204e2386d0ee6f6fbddcb76c8b9c8788",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1905,7 +1918,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.14": "6477e5b73cdd5f31346a365f8040b6c229da77694c2892030f302239aafc38f5",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.14": "4a1e2ae5058c6903ef2890615fe6b73ba9a2381bb12d8bc1bfc8873c767a0d3c",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1964,7 +1978,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.15": "37f57891a9edde48101b607a6216204fdfe6e26014a7a4bc42d82bc7dad7e3e5",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.15": "eabaf94a5ad88335ae692412985d6d406bee94707a2cf16d22596bb73c1486f5",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2030,7 +2045,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.16": "a3eb67f60dd0d7271bb68cbd1af2e061ec2aa0dfcb3eff13ea94ca07799f8e11",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.16": "4368149b1bf131d93a6f44a6c0789139176a0c8f04482b63cd00c7fa2a30690e",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2092,7 +2108,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.17": "61277f309839c1a392964faf8b9f1f5ce175a6f8bd5dec49d9e501bc590f13a9",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.17": "3dd3d0e24ac232a1b1d1921580f18eb60971ea61cc83339dee5c2775756b9dde",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2147,7 +2164,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.18": "bdab36bac4e7c6d587a107dc170295b501d91573ae722638d1343bad29b192b7",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.18": "99e56e953129d3a4f0218e041b0c7c6e08a8b45774d3937411b4cd4926c4d66b",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2202,7 +2220,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.19": "709e4447ea40a63e851ca95ea0e3919398b85695d21ebbce9c49ce707c3bf714",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.19": "a9c200ce8169b310581b756a7e1cd20c6114e97506363040a8b86bbc2d97bbe2",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2253,7 +2272,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.20": "09e6c6f409a43ffffbb4eeec3d4fce04a7f41523dd92711e79868b4e959af5fb",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.20": "a3bb4c0ee374299e4ee34ff3b5da8e6ed8bfa2b730ef39aa242bc95c230f74cd",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2313,7 +2333,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.21": "9ced4e689f367b56170cf1df1835fef37d249d5c448c0ee4fef7ca618c7edab3",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.21": "8279f4bd629b4702c7faefd1012e79f099082baacbe51ca7e2c8e715470403fc",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2365,7 +2386,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.22": "cf7ce5eb22452b92c95fb1245415ec77e4af36b3747603b500950772412857ff",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.22": "8888dc9d785aca6525c23bab9c277759c7c9073aba6976d9f478a28aa310d364",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2412,7 +2434,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.23": "53adaeb3a997710853e95ab0ab5e8cd0b15e7bb5774850cf526a616481b3ed8d",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.23": "08047aa6be5ad49c62696471dbcf8c0dd0f243110dfa84b71007f7b4b624c652",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2456,7 +2479,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.24": "e98d79ab428006beee298f33151138160eaa8e337e824c1147c0891474a57ebe",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.24": "e5b6505bc5ba63578347eb770e77e37bb4de2fbb831b2b198a98162ab0fcafa4",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2498,7 +2522,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.25": "5bd07891f2e2316ec22acf54e491d54be7496f8a7ecc6650a193527d8afb5b9b",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.25": "085dd84ff2aa46ebaa3fe49e8ed337bf548e7d521e426895c6abe1fae20b7815",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2539,7 +2564,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.26": "0288bde6787d2d8a11db11805b14238a9997d5e039b5fdd6fcc8ef7ebde676ec",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.26": "bf9b2e70f7e3fa3c752ffc23e53c949b694d6c7ee0d31ccaca978c2be1fc474c",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2580,7 +2606,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.27": "e5c1e0762e6b51510f2b9f0a6bedbf3391805d1c89774481074f6967e18cfdd4",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.27": "132d7fec7eb6e6cc2ed8eb4f83a48e5e06c4276fc44ca96540cc7740bb9674a8",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2610,7 +2637,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.29": "ed2a8a4d1253f1970eb33e0abec4aa759b351d95c73210f23bde6e122fdd7042",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.29": "35d247731a25bfcd032a65ef218d2940192c16ea8abfa1e2bf2ba1e322f53da9",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2634,7 +2662,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.30": "1dcebf731f830179242765f3afbdee671bc165da2414497c2815db805c9ebc12",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.30": "c21855b792ed39e96db0e9a711f40613572ec65e43bbd6ac7ddcc27fcfb9efe6",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2652,7 +2681,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
     # Teacher TE0's [teacher] confidence_events_enabled moves it too (see mvp-0.9; context only, no successor).
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
-    "mvp-0.31": "3eee194f2a5b8d031ccb1e3013e5c3ec67d53f180690a3401c950311c2ac781b",
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.31": "201fe79388ca952d7f1b925cb3d57f4a72fe65dea77c3c4f23aeb05f604aae04",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -2665,9 +2695,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the fingerprint (the key is in every snapshot above, inert below the
     # tag). Existing vaults reach it by `learnloop upgrade` (default target)
     # from mvp-0.31, or from mvp-0.9 onwards through the chain. New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
-    "mvp-0.32": "f69eea0d1a484b67bd7fbd654a6a61bb1012915794414810fbedfca58c3538df",
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until Reader CA2's successor merged.
+    # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.34).
+    "mvp-0.32": "1d77a1fb84fd3467c46e89a6fd43204925bf43d60c30bc9deaa07f61c4cd06c1",
+    # mvp-0.34 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
+    # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md): mvp-0.32
+    # plus one help rule on a check on your own: a cold question counts as
+    # help only when the tutor's question_type is substantive (the Reader's
+    # cold paths too), and help taken on a cold follow-up makes the attempt
+    # practice with help (submit admits it; it never answers the cold
+    # measurement). Kill switch [ask] cold_help_converts (default true; off
+    # decides exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint (the key is in every snapshot
+    # above, inert below the tag). Existing vaults reach it by `learnloop
+    # upgrade` (default target) from mvp-0.32, or from mvp-0.9 onwards
+    # through the chain. New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.34": "bf61dfa5a70da5ce02e7f287170a2706d330d57c06b9d90cdebd85b4f83fbcbe",
 }
 
 

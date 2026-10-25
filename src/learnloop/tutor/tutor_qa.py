@@ -63,6 +63,7 @@ from learnloop.tutor.ai_contracts import (
     READER_TUTOR_PROMPT_VERSION,
     READER_TUTOR_TOOLS_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
+    TUTOR_QA_ANSWER_MODE_SUFFIX,
     TUTOR_QA_TOOLS_PROMPT_VERSION,
     ReaderTutorAnswer,
     ReaderTutorAnswerWithTools,
@@ -127,6 +128,37 @@ LinkedReferenceFilter = Callable[..., BlockFilter]
 READER_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
 READER_ANSWER_MODE_DEFAULT = "answer_directly"
 
+#: Reader CA2 (ux_reader_compare_ask_v1 §7.4, §15 Q5): the help style IS Ask's
+#: answer mode, one vocabulary on every host (``ask.panel_enabled``).
+HELP_STYLE_ANSWER_MODES: dict[str, str] = {
+    "let_me_struggle": "ask_me_first",
+    "balanced": "help_me_reason",
+    "guide_me": "answer_directly",
+}
+#: The label an answer carries for the mode it was written in (§7.4).
+ANSWER_MODE_LABELS: dict[str, str] = {
+    "ask_me_first": "asking you first",
+    "help_me_reason": "helping you reason",
+    "answer_directly": "answering directly",
+}
+#: The contexts whose answer mode the help style sets (the library and capture
+#: contexts keep today's answer until a later phase moves them, §13).
+HELP_STYLE_MODE_CONTEXTS = ("practice", "feedback", "reader")
+
+
+def ask_panel_enabled(vault: LoadedVault) -> bool:
+    """Reader CA2's presentation switch (``ask.panel_enabled``): off, Ask is
+    exactly as before (the overlay, the Reader's per-source mode, no mode in
+    the practice prompt, the practice thread and budget of B3)."""
+
+    return bool(getattr(getattr(vault.config, "ask", None), "panel_enabled", False))
+
+
+def help_style_answer_mode(help_style: str | None) -> str:
+    """The answer mode a help style asks for (unknown: *balanced*'s)."""
+
+    return HELP_STYLE_ANSWER_MODES.get(str(help_style or ""), HELP_STYLE_ANSWER_MODES["balanced"])
+
 
 def request_tutor_answer(
     client: OperationClient,
@@ -161,7 +193,11 @@ def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
         return READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
     if isinstance(context, ReaderTutorQAContext):
         return READER_TUTOR_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_PROMPT_VERSION
-    return TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION
+    version = TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION
+    if context.context in ("practice", "feedback") and context.answer_mode:
+        # Reader CA2: answered in a help-style mode (the prompt says so too).
+        version = version + TUTOR_QA_ANSWER_MODE_SUFFIX
+    return version
 
 
 def _record_explorable_verdicts(repository: Repository, event_id: str, answer: Any, *, model: str | None,
@@ -271,6 +307,7 @@ class QuestionLimitReached(Exception):
 
 def practice_thread_events(
     repository: Repository, *, practice_item_id: str | None, session_id: str | None,
+    submission_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """The practice Ask thread of the attempt being composed: the answered
     practice questions on (item, session) asked since the item's last
@@ -294,7 +331,128 @@ def practice_thread_events(
         return events
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
-    return [event for event in events if since is None or str(event["created_at"]) > str(since)]
+    windowed = [event for event in events if since is None or str(event["created_at"]) > str(since)]
+    if submission_id is None:
+        return windowed
+    # Reader CA2 (K5): the thread is the attempt's, keyed by its submission id
+    # (the key the hint service counts by). A question asked under another
+    # key is another serving's, even in the same window (the item skipped and
+    # served again); a question recorded before CA2 carries no key and keeps
+    # the window's rule.
+    return [event for event in windowed if attempt_key_of(event).get("submission_id") in (None, submission_id)]
+
+
+def attempt_key_of(event: Mapping[str, Any]) -> dict[str, Any]:
+    """The attempt key a practice question was asked under (Reader CA2,
+    ``source_context.attempt_key``), or ``{}`` for one recorded before it."""
+
+    key = (event.get("source_context") or {}).get("attempt_key")
+    return dict(key) if isinstance(key, Mapping) else {}
+
+
+#: keep: a display bound on *earlier on this question* (the attempts listed,
+#: newest first), a guardrail on how much history one panel loads, not a
+#: model or decision parameter.
+EARLIER_THREADS_LIMIT = 20
+
+
+def earlier_threads(
+    vault: LoadedVault, repository: Repository, *, practice_item_id: str, limit: int = EARLIER_THREADS_LIMIT,
+) -> list[dict[str, Any]]:
+    """Reader CA2 (§7.3, K6): the item's earlier attempts' help, newest first,
+    read-only and never current. Each entry is one attempt with something to
+    show: its date and how it ended (``outcome``, the evidence vocabulary),
+    the questions asked during it (practice questions in its window, after
+    the previous attempt on the item and at or before it) and on its feedback
+    screen, and the hints it took. Nothing here enters any model context: it
+    is a read for the learner (C6). Whether opening it costs a hint is the
+    caller's (before Submit one hint-equivalent, after it free; absent on a
+    cold check)."""
+
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        return []
+    attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=limit + 1)
+    rubric = vault.rubric_for_item(item)
+    max_points = rubric.max_points if rubric is not None else None
+    asked = repository.question_events(practice_item_id=practice_item_id, answer_status="answered")
+    entries: list[dict[str, Any]] = []
+    for index, attempt in enumerate(attempts[:limit]):
+        previous = attempts[index + 1]["created_at"] if index + 1 < len(attempts) else None
+        at = str(attempt["created_at"])
+        exchanges = [
+            event for event in asked
+            if (event.get("context") == "practice" and str(event["created_at"]) <= at
+                and (previous is None or str(event["created_at"]) > str(previous)))
+            or (event.get("context") == "feedback" and event.get("attempt_id") == attempt["id"])
+        ]
+        hints = _attempt_hints(repository, item, str(attempt["id"]))
+        if not exchanges and not hints:
+            continue
+        entries.append({
+            "attempt_id": attempt["id"],
+            "at": at,
+            "outcome": _attempt_outcome(attempt, max_points),
+            "exchanges": [
+                {
+                    "event_id": event["id"],
+                    "context": event["context"],
+                    "question_md": event["question_md"],
+                    "answer_md": event["answer_md"],
+                    "question_type": event.get("question_type"),
+                    "hint_equivalent": bool(event.get("hint_equivalent")),
+                    "created_at": event["created_at"],
+                }
+                for event in exchanges
+            ],
+            "hints": hints,
+        })
+    return entries
+
+
+def _attempt_outcome(attempt: Mapping[str, Any], max_points: int | None) -> dict[str, Any]:
+    """How an attempt ended, in the evidence vocabulary: left unfinished, with
+    help, or on your own (no correctness cut: the score is shown as it is)."""
+
+    attempt_type = str(attempt.get("attempt_type") or "")
+    answer = str(attempt.get("learner_answer_md") or "").strip()
+    assisted = int(attempt.get("hints_used") or 0) > 0 or bool(attempt.get("primed")) \
+        or attempt_type == "hinted_attempt"
+    if attempt_type == "dont_know" or (bool(attempt.get("declared_stuck")) and not answer):
+        label = "left unfinished"
+    elif assisted:
+        label = "with help ◌"
+    else:
+        label = "on your own ●"
+    return {"label": label, "assisted": assisted, "rubric_score": attempt.get("rubric_score"),
+            "max_points": max_points}
+
+
+def _attempt_hints(repository: Repository, item: Any, attempt_id: str) -> list[dict[str, Any]]:
+    """The hints an attempt took (``help_assists`` rows shown and attached to
+    it), in order; an authored reveal's text is the item's own hint."""
+
+    try:
+        with repository.connection() as connection:
+            rows = connection.execute(
+                "SELECT hint_kind, level, body_md, authored_index, shown_at, requested_at FROM help_assists "
+                "WHERE attempt_id = ? AND shown = 1 AND assist_kind = 'hint' ORDER BY requested_at, id",
+                (attempt_id,),
+            ).fetchall()
+    except Exception:  # noqa: BLE001 - a vault before help_assists shows no hints
+        return []
+    hints: list[dict[str, Any]] = []
+    authored = list(getattr(item, "hints", None) or [])
+    for row in rows:
+        body = row["body_md"]
+        index = row["authored_index"]
+        if body is None and index is not None and 0 <= int(index) < len(authored):
+            body = authored[int(index)]
+        if not body:
+            continue
+        hints.append({"kind": row["hint_kind"], "level": row["level"], "body_md": body,
+                      "at": row["shown_at"] or row["requested_at"]})
+    return hints
 
 
 def question_usage(
@@ -317,6 +475,16 @@ def question_usage(
     # Only answered turns consume budget: a provider failure (answer_status
     # 'failed'/'pending') keeps the question on record without charging for it.
     if context == "practice":
+        if ask_panel_enabled(vault):
+            # Reader CA2 (K5): the budget is a money bound, per item per UTC
+            # day; a new serve of the item starts a fresh thread, never a
+            # fresh budget.
+            now = parse_utc(utc_now_iso(clock))
+            day_start = now.strftime("%Y-%m-%dT00:00:00Z")
+            used = repository.count_question_events(
+                context="practice", practice_item_id=practice_item_id, since=day_start, answer_status="answered"
+            )
+            return used, config.max_questions_practice
         # Owner capture 2026-10-25 (B3): the budget is the current attempt's,
         # as its thread is (:func:`practice_thread_events`).
         used = len(practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id))
@@ -468,6 +636,9 @@ def ask_question(
     reader_tutor: reader_modes.ReaderTutorRequest | None = None,
     reader_caller: Mapping[str, Any] | None = None,
     reader_binding: reader_modes.BoundAsk | None = None,
+    submission_id: str | None = None,
+    workbench_session_id: str | None = None,
+    about_step: int | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -509,7 +680,18 @@ def ask_question(
     stored on the item, its hint flag is ``BoundAsk.hint_equivalent`` and its
     reveals are debited, and the item's guard holds for the complete
     delivered context and the thread, with retrieval on or off; None keeps
-    the unbound Reader of before."""
+    the unbound Reader of before.
+
+    Reader CA2 (``ask.panel_enabled``; ux_reader_compare_ask_v1 §7):
+    ``answer_mode`` also applies to a practice or feedback question (the
+    help style's mode, resolved by the adapter, or a one-question change),
+    stored on the row and rendered in the prompt; None keeps today's
+    practice prompt. ``submission_id`` (practice: the attempt's key, K5),
+    ``workbench_session_id`` and ``about_step`` (a question asked from Work in
+    Steps about one step, K7) are stored on the question's
+    ``source_context.attempt_key``; the thread is the attempt's. Every
+    answer's ``source_context.receipt`` names the model, prompt version and
+    agent run its ``question_type`` came from (§7.5's receipt)."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -536,6 +718,8 @@ def ask_question(
     if context in {"practice", "feedback"}:
         if practice_item_id is None:
             raise TutorQAError(f"{context} questions require practice_item_id.")
+        if answer_mode is not None and answer_mode not in READER_ANSWER_MODES:
+            raise TutorQAError(f"Unknown answer mode {answer_mode!r}.")
         item = vault.practice_items.get(practice_item_id)
         if item is None:
             raise TutorQAError(f"Practice item {practice_item_id} was not found.")
@@ -593,6 +777,7 @@ def ask_question(
             attempt_id=attempt_id,
             note_id=note_id,
             session_id=session_id,
+            submission_id=submission_id,
         )
     )
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -628,8 +813,16 @@ def ask_question(
         # Adaptive difficulty AD1 (§5.11, fix round 4, V5): the answer mode
         # the learner chose, stored when the question is asked (the reading
         # opportunity's subkind); only a reader question has one.
-        "answer_mode": answer_mode if context == "reader" else None,
+        # Reader CA2: a practice or feedback question's mode (the help style's,
+        # or a one-question change) is stored the same way.
+        "answer_mode": answer_mode if context in HELP_STYLE_MODE_CONTEXTS else None,
     }
+    attempt_key = {
+        key: value for key, value in (
+            ("submission_id", submission_id), ("workbench_session_id", workbench_session_id),
+            ("about_step", about_step),
+        ) if value is not None
+    } if context == "practice" else {}
     source_context: dict[str, Any] | None = None
     provided_spans: list[dict[str, Any]] | None = None
     # RW1c: the Reader tutor's own retrieval (None: not a lookup).
@@ -704,7 +897,7 @@ def ask_question(
             selection_span_ids=selection_span_ids,
             selection_quote_md=selection_quote_md,
             provided_source_spans=provided_spans,
-            learner_draft_md=learner_draft_md,
+            learner_draft_md=_with_step_focus(learner_draft_md, about_step),
             reader_withheld=reader_held_out,
             delivery_receipt=delivery,
             linked_reference_filter=linked_reference_filter,
@@ -767,8 +960,12 @@ def ask_question(
             {**question_row, "source_context": source_context}, clock=clock,
         )
     else:
+        # Reader CA2 (K5): the attempt key lands with the question, so the
+        # thread and *earlier on this question* read it even when the answer
+        # never arrives.
+        source_context = {"attempt_key": attempt_key} if attempt_key else None
         event_id = repository.insert_question_event(
-            {**question_row, "source_context": None}, clock=clock,
+            {**question_row, "source_context": source_context}, clock=clock,
         )
         try:
             if source_span_provider is not None:
@@ -778,7 +975,7 @@ def ask_question(
                     item=item,
                 )
                 if retrieval_manifest is not None:
-                    source_context = {"source_retrieval": retrieval_manifest}
+                    source_context = {**(source_context or {}), "source_retrieval": retrieval_manifest}
             ai_context = build_context()
             if delivery:
                 source_context = {**(source_context or {}), "delivery": dict(delivery)}
@@ -830,6 +1027,13 @@ def ask_question(
         )
         raise
     finish_agent_run(repository, agent_run_id, client, clock=clock)
+    # Reader CA2 (§7.5, K10): the question type is the model's judgment; its
+    # receipt (model, prompt version, run) rides with the answer.
+    source_context = {**(source_context or {}), "receipt": {
+        "model": getattr(client, "model", None),
+        "prompt_version": _prompt_version(ai_context, tools=tools),
+        "agent_run_id": agent_run_id,
+    }}
 
     facets = sorted(
         {vault.canonical_facet_id(str(facet)) for facet in answer.facets}
@@ -1024,6 +1228,7 @@ def ask_question(
         "citations": citations,
         "learner_gap": learner_gap,
         "remaining": max(0, limit - used - 1),
+        "answer_mode": answer_mode if context in HELP_STYLE_MODE_CONTEXTS else None,
     }
     if tool_request_handler is not None:
         # Canonical sources S4: validated before anything is shown; a failure
@@ -1527,11 +1732,13 @@ def _thread(
     attempt_id: str | None,
     note_id: str | None,
     session_id: str | None,
+    submission_id: str | None = None,
 ) -> list[dict[str, Any]]:
     if context == "practice":
         # B3: only this attempt's turns (an earlier serving's are not this
-        # conversation).
-        events = practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id)
+        # conversation); Reader CA2 (K5, C6): only this submission's.
+        events = practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id,
+                                        submission_id=submission_id)
     elif context == "feedback":
         events = repository.question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"
@@ -1554,6 +1761,15 @@ def _thread(
         }
         for event in events
     ]
+
+
+def _with_step_focus(learner_draft_md: str | None, about_step: int | None) -> str | None:
+    """Reader CA2 (§7.6): a question asked under one step says so to the tutor
+    (the steps stay the learner's work, as B1 sends them)."""
+
+    if about_step is None or not (learner_draft_md and learner_draft_md.strip()):
+        return learner_draft_md
+    return f"{learner_draft_md}\n\n(The learner's question is about step {int(about_step)}.)"
 
 
 def _tutor_context_hash(context: TutorQAContext) -> str:
@@ -1721,6 +1937,9 @@ def _build_context(
         # S4's "Explain this with my work": the learner's current draft.
         learner_answer = learner_draft_md
     return TutorQAContext(
+        # Reader CA2 (§7.4): the help style's mode, practice and feedback only
+        # (None: today's prompt, byte for byte).
+        answer_mode=answer_mode if context in ("practice", "feedback") else None,
         context=context,
         question_md=question_md,
         candidate_facets=candidates,

@@ -182,9 +182,42 @@ def served_check(
         return _view(check, cold=False)
     if duty is None:
         duty = cold_followup_duty(repository, practice_item_id, now=now)
+    if duty == DUTY_COLD_FOLLOWUP and _help_converts(vault):
+        # Reader CA2 (mvp-0.34, §15 Q4): help is never withheld on a cold
+        # follow-up either; taking it makes the attempt practice with help,
+        # so the check is served with the ladder's take step like any other.
+        duty = None
     if duty is not None:
         return _measured_view(check, duty=duty)
     return _view(check, cold=True)
+
+
+def _help_converts(vault: Any) -> bool:
+    from learnloop.serve_eligibility import help_converts_active
+
+    return help_converts_active(vault)
+
+
+def cold_followup_view(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None:
+    """Reader CA2 (mvp-0.34, §15 Q4, ``ask.cold_help_converts``): the practice
+    view of a due cold follow-up served without a "Check once": the cold
+    banner, the help ladder's header (choose, then take) and no locators
+    until feedback, exactly as a check's cold view. None below the
+    successor, switched off, or when no cold follow-up selects the item (the
+    predecessor's "no hints on this one" then applies)."""
+
+    if not _help_converts(vault):
+        return None
+    if cold_followup_duty(repository, practice_item_id, now=now) is None:
+        return None
+    return {
+        "kind": "cold_followup",
+        "cold": True,
+        "banner": COLD_BANNER,
+        "help_header": HELP_LADDER_HEADER,
+        "locators_hidden": True,
+        "restoration": None,
+    }
 
 
 def answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None:
@@ -232,6 +265,7 @@ __all__ = [
     "PRACTICE_BANNER",
     "answered_check",
     "cold_followup_duty",
+    "cold_followup_view",
     "restoration_link",
     "served_check",
     "settle_answered_checks",

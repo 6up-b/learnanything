@@ -364,6 +364,12 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         from learnloop.intent.checks import served_check
 
         check = served_check(vault, repository, item.id, now=SystemClock().now())
+        if check is None:
+            # Reader CA2 (mvp-0.34): a due cold follow-up with no "Check once"
+            # is served the same way (the take step, never "no hints").
+            from learnloop.intent.checks import cold_followup_view
+
+            check = cold_followup_view(vault, repository, item.id, now=SystemClock().now())
         if check is not None:
             detail["intentCheck"] = to_camel(check)
     detail["elicitation"] = (

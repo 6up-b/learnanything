@@ -1312,6 +1312,14 @@ def _record_probe_outcome(
         return None
     if context.get("kind") != COLD_PROBE_CONTEXT_KIND:
         return None
+    # Reader CA2 (mvp-0.34, §15 Q4): an attempt that took help (or saw its
+    # answer) is practice with help, never the unassisted probe; the task
+    # stays open and the next serve withdraws it. Below the successor submit
+    # refused such an attempt on a cold task, so recorded attempts never
+    # reach here assisted.
+    if (int(attempt.get("hints_used") or 0) > 0 or str(attempt.get("attempt_type") or "") == "hinted_attempt"
+            or bool(attempt.get("primed"))):
+        return None
 
     consumed = repository.consume_followup_task(str(task["id"]), attempt_id, clock=clock)
     if consumed is None or consumed.get("status") != "consumed":

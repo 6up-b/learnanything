@@ -4,6 +4,7 @@ from learnloop.ai.plan_fallback import collecting as plan_fallback_offers
 from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_grant
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
+    ONE_ASK_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
@@ -93,7 +94,8 @@ def upgrade(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
                 "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
-                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION} or {READING_PATH_PLAN_ALGORITHM_VERSION}); "
+                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION} or "
+                f"{ONE_ASK_ALGORITHM_VERSION}); "
                 "default: the latest."
             ),
         ),
@@ -199,11 +201,17 @@ def upgrade(
     fast-track and teaches it first (never a change to your record), over an
     mvp-0.30 vault (or an mvp-0.9 to mvp-0.29 vault through the chain; kill
     switch: ``workbench.field_signals_enabled = false``). ``--to mvp-0.32``
-    (default, the latest successor; the plan follows the reading path) has
-    today's reading block open the next core or prerequisite section of the
-    path you chose in the Guide, never an enrichment section or one you
-    skipped, over an mvp-0.31 vault (or an mvp-0.9 to mvp-0.30 vault through
-    the chain; kill switch: ``reading_paths.plan_uses_path = false``)."""
+    (the plan follows the reading path) has today's reading block open the
+    next core or prerequisite section of the path you chose in the Guide,
+    never an enrichment section or one you skipped, over an mvp-0.31 vault
+    (or an mvp-0.9 to mvp-0.30 vault through the chain; kill switch:
+    ``reading_paths.plan_uses_path = false``). ``--to mvp-0.34`` (default,
+    the latest successor; Reader CA2's one Ask) counts a question on a check
+    on your own as help only when it is about the maths, on the Reader's cold
+    paths too, and makes help taken on a cold follow-up practice with help
+    instead of refusing the submit, over an mvp-0.32 vault (or an mvp-0.9 to
+    mvp-0.31 vault through the chain; kill switch:
+    ``ask.cold_help_converts = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -303,13 +311,17 @@ def upgrade(
         from learnloop.reading_path_plan_upgrade import upgrade_to_reading_path_plan
 
         result = upgrade_to_reading_path_plan(_root(vault))
+    elif to == ONE_ASK_ALGORITHM_VERSION:
+        from learnloop.one_ask_upgrade import upgrade_to_one_ask
+
+        result = upgrade_to_one_ask(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION} or "
-            f"{READING_PATH_PLAN_ALGORITHM_VERSION}."
+            f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, "
+            f"{READING_PATH_PLAN_ALGORITHM_VERSION} or {ONE_ASK_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

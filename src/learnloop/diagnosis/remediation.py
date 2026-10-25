@@ -1008,6 +1008,13 @@ def record_remediation_attempt(
     # (`exam_evidence` / `exam_attempt`, migrations 018/022).
     if "exam" in str(attempt.get("attempt_type") or ""):
         return
+    # Reader CA2 (mvp-0.34, §15 Q4): an attempt that took help is practice with
+    # help, never the unassisted cold measurement, so it leaves the task open
+    # (the next serve withdraws it as practised since scheduled). Before the
+    # successor submit refused such an attempt on a cold task, so no recorded
+    # attempt reaches here assisted: this changes nothing for them.
+    if assisted_attempt(attempt):
+        return
 
     # Ask for the repair lane by name (migration 139 added a second `kind` to the
     # same table). An unfiltered read returns whichever row sorts first, so a
@@ -1033,6 +1040,17 @@ def record_remediation_attempt(
             completed_at=completed_at,
             clock=clock,
         )
+
+
+def assisted_attempt(attempt: Mapping[str, Any]) -> bool:
+    """Did the attempt take help (hints, a hinted type) or see its answer
+    (primed)? Such an attempt never answers a cold measurement (Reader CA2)."""
+
+    return (
+        int(attempt.get("hints_used") or 0) > 0
+        or str(attempt.get("attempt_type") or "") == "hinted_attempt"
+        or bool(attempt.get("primed"))
+    )
 
 
 #: The terminal disposition of a repair cold retry withdrawn because its

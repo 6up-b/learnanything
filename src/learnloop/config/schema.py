@@ -3633,6 +3633,35 @@ class EligibilityConfig(BaseModel):
     enabled: bool = True
 
 
+class AskConfig(BaseModel):
+    """One Ask (Reader CA2; ``docs/specs/ux_reader_compare_ask_v1.md`` §7,
+    ``docs/reviews/reader-ca2-one-ask.md``).
+
+    ``panel_enabled`` is the presentation's kill switch (display and prompt
+    only, no successor). On: the practice and feedback Ask dock beside the
+    question instead of a modal, the workbench asks inline under the focused
+    step, every Ask shows the help style and answers in its mode (*let me
+    struggle* asks first, *balanced* helps you reason, *guide me* answers
+    directly, inside leak control), the practice thread is the attempt's
+    (its submission key), and *earlier on this question* lists earlier
+    attempts' help. Off: the overlay, the Reader's per-source answer mode and
+    the practice prompt exactly as before.
+
+    ``cold_help_converts`` is the kill switch of the successor
+    ``ONE_ASK_ALGORITHM_VERSION`` (§7.7, K10, Q3-Q4). At that tag or later,
+    with it on: a question asked during a cold administration counts as help
+    only when the tutor's ``question_type`` is substantive, on the Reader's
+    cold paths too; and help taken on a cold follow-up makes the attempt
+    practice with help (submit admits it, the cold measurement is not
+    answered by it). Off, or below the tag: both exactly as the predecessor
+    (the Reader's cold Ask counts every question; help voids a cold
+    follow-up's submit). Attempts already recorded keep their meaning.
+    """
+
+    panel_enabled: bool = True
+    cold_help_converts: bool = True
+
+
 #: Adaptive difficulty AD1's outside forecasters (spec_adaptive_difficulty_v1 §8.2, D4).
 AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider")
 
@@ -3842,6 +3871,7 @@ class LearnLoopConfig(BaseModel):
     ui: UiConfig = Field(default_factory=UiConfig)
     eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
     teacher: TeacherConfig = Field(default_factory=TeacherConfig)
+    ask: AskConfig = Field(default_factory=AskConfig)
 
     @model_validator(mode="before")
     @classmethod
