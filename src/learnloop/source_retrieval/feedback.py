@@ -141,6 +141,58 @@ def record_citations(repository: Repository, *, consumer: str, owner_id: str,
         return 0
 
 
+def record_receipt_citations(repository: Repository, *, receipt_ids: Sequence[str],
+                             citations: Sequence[Mapping[str, Any]]) -> int:
+    """``cited`` rows for validated citations of spans one of ``receipt_ids``
+    delivered (a library ask's tutor answer cites the ask's own retrieval);
+    returns rows written, 0 when none was delivered or on failure."""
+
+    receipts = [str(receipt) for receipt in dict.fromkeys(receipt_ids) if receipt]
+    if not receipts or not citations:
+        return 0
+    try:
+        with repository.connection() as connection:
+            if not has_tables(connection):
+                return 0
+            rows: list[dict[str, Any]] = []
+            for key in dict.fromkeys((str(item.get("extraction_id")), str(item.get("span_id"))) for item in citations):
+                for receipt in receipts:
+                    found = delivery_for_receipt(connection, receipt, key)
+                    if found is not None:
+                        rows.append({"receipt_id": receipt, "event": "cited", "consumer": found["consumer"],
+                                     "query_kind": found["query_kind"], "owner_id": found["owner_id"],
+                                     "extraction_id": key[0], "span_id": key[1], "position": found["position"],
+                                     "payload": {"signal": "validated_citation"}})
+                        break
+            return append_feedback(connection, rows) if rows else 0
+    except Exception:  # noqa: BLE001 - a signal never fails the answer
+        logger.warning("retrieval citations could not be logged", exc_info=True)
+        return 0
+
+
+#: keep (operational, spec §9.2 "a nightly job, or one at sidecar start"): the
+#: ingest host refits the fusion posterior at its start and then at most once
+#: in this many hours, and only when receipts arrived since the last fit.
+REFIT_EVERY_HOURS = 24.0
+
+
+def refresh_due(repository: Repository, *, last_refit: Any | None, now: Any) -> bool:
+    """Whether the background refit should run: receipts newer than the stored
+    posterior, and this host has not refitted within ``REFIT_EVERY_HOURS``."""
+
+    from datetime import timedelta
+
+    if last_refit is not None and now - last_refit < timedelta(hours=REFIT_EVERY_HOURS):
+        return False
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not has_tables(connection):
+            return False
+        newest = connection.execute("SELECT MAX(created_at) FROM retrieval_feedback").fetchone()[0]
+        fitted = connection.execute(
+            "SELECT fitted_at FROM retrieval_fusion_posteriors WHERE context_key = 'global'").fetchone()
+    return newest is not None and (fitted is None or str(newest) > str(fitted[0]))
+
+
 def record_open(repository: Repository, *, receipt_id: str, extraction_id: str, span_id: str) -> bool:
     """An ``opened`` row when the learner opens a span that ``receipt_id`` delivered."""
 
@@ -170,4 +222,4 @@ def feedback_summary(repository: Repository) -> dict[str, Any]:
             "posterior_contexts": int(posteriors)}
 
 
-__all__ = ["deliver", "feedback_summary", "log_search", "new_receipt_id", "record_citations", "record_open", "refit_posteriors"]
+__all__ = ["REFIT_EVERY_HOURS", "deliver", "feedback_summary", "log_search", "new_receipt_id", "record_citations", "record_open", "record_receipt_citations", "refit_posteriors", "refresh_due"]

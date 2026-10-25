@@ -416,3 +416,68 @@ def test_a_challenger_learns_its_way_up_from_resolver_receipts(tmp_path, monkeyp
     learned = fusion.learned_weights(posteriors["global"], posteriors["global"]["lists"])
     assert voyage_queried > 0  # the draw explored the challenger
     assert learned is not None and learned[voyage_key] > 0.0, posteriors["global"]
+
+
+def test_ordinary_use_completes_the_loop_opens_ask_citations_and_the_background_refit(tmp_path, monkeypatch):
+    """Codex review F11: the library search hands back its receipt for the
+    open signal; a library ask's tutor citations join the ask's own
+    deliveries; the ingest host refits at its start and then nightly, only
+    when receipts arrived."""
+
+    import threading
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.runner import IngestRunner
+    from learnloop.db.repositories import Repository
+    from learnloop.source_retrieval import library_ask
+    from learnloop.source_retrieval.library import search_library
+
+    paths, repository = _vault(tmp_path)
+    client = _fallback(paths, monkeypatch)
+    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    clear_cache()
+    response = search_library(loaded(paths), repository, query=QUERY, deep=True, embedder=HashingEmbedder())
+    receipt = response["retrieval_receipt_id"]
+    first = response["hits"][0]
+    assert feedback.record_open(repository, receipt_id=receipt, extraction_id=first["extraction_id"],
+                                span_id=first["span_id"])
+    # A library ask's pinned tutor answer: its citations join the ask's find_sources deliveries.
+    clear_cache()
+    found = find_sources(loaded(paths), repository, QUERY, policy="reading", embedder=HashingEmbedder())
+    row = {"manifest": {"main": {"search": found.manifest["search"]}, "expansions": []}}
+    cited = found.hits[0]
+    assert library_ask._record_ask_citations(loaded(paths), repository, row, [
+        {"extraction_id": cited["extraction_id"], "span_id": cited["span_id"]},
+        {"extraction_id": "ext_book", "span_id": "never-delivered"}]) == 1
+    events = [row["event"] for row in _feedback(repository)]
+    assert events.count("opened") == 1 and events.count("cited") == 1
+    # The background refit: due at the host's start, then not again until a day passed and receipts arrived.
+    runner = IngestRunner(Repository(repository.sqlite_path), vault_root=paths.root, worker_id="test")
+    start = datetime(2026, 10, 25, tzinfo=timezone.utc)
+    host = SimpleNamespace(_runner=runner, _stop=threading.Event(), reading_now=lambda: start)
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is True
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        assert set(fusion_posteriors(connection)) >= {"global"}
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # nothing new, and not a day yet
+    host.reading_now = lambda: start + timedelta(hours=25)
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is False  # a day passed, but no new receipt
+    clear_cache()
+    search_library(loaded(paths), repository, query="cofactor expansion", deep=True, embedder=HashingEmbedder())
+    assert DurableIngestJobs.refresh_fusion_posteriors(host) is True
+
+
+def test_the_open_rpc_records_nothing_with_the_switches_off(tmp_path):
+    import io
+
+    from learnloop_sidecar.server import serve
+
+    paths, repository = _vault(tmp_path)
+    messages = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(paths.root)}},
+                {"jsonrpc": "2.0", "id": 2, "method": "reader.retrieval_open",
+                 "params": {"receiptId": "rq_x", "extractionId": "ext_book", "spanId": "s2"}}]
+    stdout = io.StringIO()
+    serve(io.StringIO("".join(json.dumps(message) + "\n" for message in messages)), stdout)
+    responses = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    assert responses[1]["result"]["recorded"] is False and _feedback(repository) == []

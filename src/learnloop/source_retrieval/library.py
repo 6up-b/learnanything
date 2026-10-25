@@ -150,12 +150,19 @@ def search_library(
         "snippet": _snippet(hit.text, needle),
         "matched_by": sorted(hit.ranks),
     } for hit in shown]
-    return {
+    response = {
         "query": needle, "hits": hits, "searched_sources": len(scope.extractions),
         "basis": search.basis, "deep": deep,
         "meaning_search": meaning_search_state(vault, repository, scope, embedder=embedder),
         "retrieval": search.describe(),
     }
+    receipt = (search.space_selection or {}).get("receipt_id")
+    if receipt and (search.space_selection or {}).get("logged"):
+        # The result's receipt, sent back when the learner opens a hit
+        # (``reader.retrieval_open``; Codex review F11). Absent unless a new
+        # embedding space is on and the search was logged.
+        response["retrieval_receipt_id"] = receipt
+    return response
 
 
 def deep_search_caps(*, max_calls: int, max_tokens: int, max_cost_usd: float) -> SpendCaps:

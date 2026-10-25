@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   readerReconnectAnswer: vi.fn(), readerInquiryQuestion: vi.fn(), readerInquiryQuestionAction: vi.fn(),
   resolveQuestionEvent: vi.fn(), readerInvokePreset: vi.fn(), readerEscalateAuthoredQuestion: vi.fn(),
   readerSearchSources: vi.fn(), readerSetMode: vi.fn(), cancelIngestBatch: vi.fn(),
+  readerRetrievalOpen: vi.fn(() => Promise.resolve({ recorded: true })),
 }));
 const flags = vi.hoisted(() => ({ inquiry: true, sources: [] as unknown[] }));
 const guide = vi.hoisted(() => ({ plan: { sections: [] as unknown[] } }));
@@ -358,6 +359,29 @@ it("with the switch off, a search into another passage of a source left earlier 
   await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe(encodeReadingPlace(view.extractionId, "span_spectral_worked")));
   expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
   expect(api.readerLogActivity).not.toHaveBeenCalled();
+});
+
+// -- Local contextual retrieval P1 (Codex review F11): an opened result is a signal --
+
+it("opening a search hit sends the result's receipt only when the search carried one", async () => {
+  flags.inquiry = false;
+  stableGeometry();
+  render(<ReaderScreen initialSource={{ card: cardA, spanId: "span_symmetric_prose" }} onError={vi.fn()} />);
+  await screen.findAllByText(view.blocks[1].markdown);
+  fireEvent.click(screen.getByText("← Library"));
+  api.readerSearchSources.mockResolvedValueOnce({
+    query: "eigen", searchedSources: 2, retrievalReceiptId: "rq_1",
+    hits: [{ sourceId: "src_b", sourceTitle: "Book B", extractionId: "ext_b", spanId: "b1", snippet: "another way", section: null, page: null }],
+  });
+  fireEvent.change(await screen.findByPlaceholderText("search all sources…"), { target: { value: "eigen" } });
+  fireEvent.click(await screen.findByText("another way", {}, { timeout: 3000 }));
+  await waitFor(() => expect(api.readerRetrievalOpen).toHaveBeenCalledWith({ receiptId: "rq_1", extractionId: "ext_b", spanId: "b1" }));
+  await screen.findAllByText("Book B explains eigenvalues another way.");
+  api.readerRetrievalOpen.mockClear();
+  fireEvent.click(screen.getByText("← Library"));
+  await searchAndOpen("spectral", { sourceId: view.sourceId, sourceTitle: "Matrices", extractionId: view.extractionId, spanId: "span_spectral_worked", snippet: "the spectral hit" });
+  await screen.findAllByText(view.blocks[2].markdown);
+  expect(api.readerRetrievalOpen).not.toHaveBeenCalled();
 });
 
 // -- F6: every detour has a way back -------------------------------------------

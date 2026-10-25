@@ -1317,6 +1317,8 @@ sidecar_passthrough!(
     "reader.exercise_import_status"
 );
 sidecar_passthrough!(reader_search_sources, "reader.search_sources");
+// Local contextual retrieval P1: an opened library search result (a relevance signal).
+sidecar_passthrough!(reader_retrieval_open, "reader.retrieval_open");
 sidecar_passthrough!(reader_span_learning_objects, "reader.span_learning_objects");
 sidecar_passthrough!(reader_manual_anchor, "reader.manual_anchor");
 // reader.* (reader workbench RW1a: inquiry status, reconnect and its

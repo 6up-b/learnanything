@@ -553,6 +553,7 @@ fn main() {
             reader_import_exercise,
             reader_exercise_import_status,
             reader_search_sources,
+            reader_retrieval_open,
             reader_span_learning_objects,
             reader_manual_anchor,
             reader_set_inquiry_status,

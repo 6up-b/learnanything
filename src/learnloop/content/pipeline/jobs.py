@@ -4102,6 +4102,35 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch
 
+    def refresh_fusion_posteriors(self, *, now: datetime | None = None) -> bool:
+        """Refit ``retrieval_fusion_posteriors`` from the feedback receipts
+        (spec §9.2: "a nightly job, or one at sidecar start"; Codex review
+        F11): only while a new embedding space is on, only when receipts
+        arrived since the stored fit, and at most once per
+        ``feedback.REFIT_EVERY_HOURS`` on this host. Idempotent and
+        deterministic (the replayer's own body). Returns whether it refitted."""
+
+        from types import SimpleNamespace
+
+        from learnloop.config.loader import load_config
+        from learnloop.local_embeddings.fusion import refit_posteriors
+        from learnloop.source_retrieval.feedback import refresh_due
+        from learnloop.source_retrieval.spaces import resolver_active
+
+        runner = self._runner
+        if runner is None or self._stop.is_set():
+            return False
+        config = load_config(Path(runner.vault_root) / "learnloop.toml", load_environment=False)
+        if not resolver_active(config):
+            return False
+        moment = now or self.reading_now()
+        last = getattr(self, "_fusion_refit_at", None)
+        if not refresh_due(runner.repo, last_refit=last, now=moment):
+            return False
+        refit_posteriors(SimpleNamespace(config=config), runner.repo)
+        self._fusion_refit_at = moment
+        return True
+
     def resume_book_preparation(self) -> bool:
         """Start the ingest worker when a book's automatic preparation (an
         Add, a build planner, a planner's build) is queued, the worker could
@@ -4273,6 +4302,13 @@ class DurableIngestJobs:
             self.resume_contextual_index()
         except Exception:  # noqa: BLE001 - checked again on the next pass
             logging.getLogger(__name__).warning("could not check for a deferred local index; retrying",
+                                                exc_info=True)
+        try:
+            # Codex review F11: the fusion posterior's refit, at this host's
+            # first pass and then nightly, when new receipts arrived.
+            self.refresh_fusion_posteriors()
+        except Exception:  # noqa: BLE001 - tried again on the next pass
+            logging.getLogger(__name__).warning("could not refresh the retrieval fusion posterior; retrying",
                                                 exc_info=True)
         if not failed:
             return 0, delay

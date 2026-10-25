@@ -7242,6 +7242,9 @@ export interface ReaderSourceSearchDto {
   /** Whether Enter would also search by meaning: "ready" or "partial" (some
    *  sources not embedded yet) when it would; absent when retrieval is off. */
   meaningSearch?: ReaderMeaningSearchDto;
+  /** Local contextual retrieval P1: the search's feedback receipt, sent back
+   *  when a hit is opened (absent unless a new embedding space is on). */
+  retrievalReceiptId?: string | null;
 }
 
 export interface ReaderMeaningSearchDto {

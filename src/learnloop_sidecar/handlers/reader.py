@@ -2030,6 +2030,30 @@ def reader_search_sources(ctx: SidecarContext, params: ReaderSearchSourcesInput)
                                     deep=params.deep))
 
 
+class ReaderRetrievalOpenInput(ParamsModel):
+    receipt_id: str
+    extraction_id: str
+    span_id: str
+
+
+@method("reader.retrieval_open", ReaderRetrievalOpenInput)
+def reader_retrieval_open(ctx: SidecarContext, params: ReaderRetrievalOpenInput) -> dict[str, Any]:
+    """The learner opened a passage from a library search result (local
+    contextual retrieval P1, spec §9.2, Codex review F11): an ``opened``
+    signal on the span that result's receipt delivered. While no new
+    embedding space is on nothing is read or written."""
+
+    vault, repository = _require_reader(ctx)
+    from learnloop.source_retrieval.spaces import resolver_active
+
+    if not resolver_active(vault.config) or not vault.config.embedding.source_space.log_feedback:
+        return versioned({"recorded": False})
+    from learnloop.source_retrieval.feedback import record_open
+
+    return versioned({"recorded": record_open(repository, receipt_id=params.receipt_id,
+                                              extraction_id=params.extraction_id, span_id=params.span_id)})
+
+
 class ReaderSpanLearningObjectsInput(ParamsModel):
     extraction_id: str
     span_id: str
