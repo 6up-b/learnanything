@@ -47,7 +47,7 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
-        # Local contextual retrieval P1a (migration 219): the embedding space
+        # Local contextual retrieval P1a (migration 220): the embedding space
         # registry, the append-only retrieval feedback and the DERIVED fusion
         # posterior (replaced whole by its replayer and the refit).
         "src/learnloop/db/stores/retrieval_spaces.py",

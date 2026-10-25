@@ -22,7 +22,7 @@ from learnloop.db.migrate import (
 
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
 #: What 218 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 T1_ALTERED_TABLES = frozenset({"ingest_batches"})
 
@@ -67,7 +67,7 @@ def test_218_adds_the_batch_origin_column_and_nothing_else(tmp_path):
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     # Local retrieval P1's 220 is the head now (tests/test_retrieval_spaces_migration.py).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 219
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 220
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert "origin_method" in [row[1] for row in connection.execute("PRAGMA table_info(ingest_batches)")]

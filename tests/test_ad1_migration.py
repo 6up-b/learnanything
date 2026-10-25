@@ -33,7 +33,7 @@ from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 
 from tests.test_ad23_migration import AD23_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
 #: test_help_assists_schema.py, test_library_asks_migration.py).
@@ -172,7 +172,7 @@ def test_the_head_fixture_is_at_head_with_empty_ad1_tables(tmp_path):
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         # Reader RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 219
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 220
         assert all(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in NEW_TABLES)
     database = tmp_path / "head.sqlite"
     backup_database(HEAD, database)
