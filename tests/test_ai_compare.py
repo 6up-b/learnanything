@@ -461,6 +461,49 @@ def test_without_git_only_a_fresh_copy_is_compared(source, server, tmp_path, mon
     assert server.requests == []
 
 
+def test_a_live_vault_moved_out_of_git_is_still_refused_and_its_copy_is_compared(source, server, tmp_path):
+    """Storage S0 (Codex review F3): the working vaults leave the checkout, so git
+    no longer tracks their databases; S0's move-out marks each one instead. The
+    marked vault is refused in place, also after a rename; a copy is not."""
+
+    from learnloop.cli import ai_compare
+    from learnloop.vault.working_vault import mark_working_vault
+
+    # Outside any git checkout (tmp_path), an unmarked vault passes the check.
+    assert ai_compare.tracked_database_reason(load_vault(source)) is None
+    mark_working_vault(source, reason="the owner's live working vault (storage S0)")
+    database = VaultPaths(source, load_vault(source).config).sqlite_path
+    before = _digest(database)
+    assert "live working vault" in ai_compare.tracked_database_reason(load_vault(source))
+    result, payload = _invoke("--vault", str(source), "--profiles", "chatgpt", "--dry-run")
+    assert result.exit_code == 1 and payload["error"] == "working_vault"
+
+    moved = tmp_path / "moved-again"
+    os.rename(source, moved)  # the owner moves it once more: the rename keeps it marked
+    assert "live working vault" in ai_compare.tracked_database_reason(load_vault(moved))
+    result, payload = _invoke("--vault", str(moved), "--profiles", "chatgpt", "--dry-run")
+    assert result.exit_code == 1 and payload["error"] == "working_vault"
+    assert _digest(moved / database.name) == before
+
+    # Its backup-API copy (which carries the mark file along) is compared.
+    result, payload = _invoke("--copy-from", str(moved), "--vault", str(tmp_path / "copy"), "--profiles", "chatgpt",
+                              "--dry-run")
+    assert result.exit_code == 0 and payload["copied"], result.stdout
+    assert ai_compare.tracked_database_reason(load_vault(tmp_path / "copy")) is None
+    assert server.requests == []
+
+
+def test_an_unreadable_working_vault_mark_refuses(source, server):
+    from learnloop.cli import ai_compare
+    from learnloop.vault.working_vault import marker_path
+
+    marker_path(source).parent.mkdir(parents=True, exist_ok=True)
+    marker_path(source).write_text("{not json", encoding="utf-8")
+    assert "could not be read" in ai_compare.tracked_database_reason(load_vault(source))
+    result, payload = _invoke("--vault", str(source), "--profiles", "chatgpt", "--dry-run")
+    assert result.exit_code == 1 and payload["error"] == "working_vault"
+
+
 @pytest.mark.parametrize(("profiles", "code"), [("openrouter", "metered_profile"), ("nope", "unknown_profile"),
                                                 ("openrouter_embedding", "not_generation")])
 def test_metered_unknown_and_non_generation_profiles_are_refused(source, profiles, code):

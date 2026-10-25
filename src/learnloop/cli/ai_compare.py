@@ -126,6 +126,7 @@ from learnloop.tutor.teach_back import (
 )
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.working_vault import working_vault_marker_reason
 
 #: 2: failures as codes (no provider prose), spend per call and profile,
 #: judgment ids, the database-relocating copy. 3: each request is sent with
@@ -212,9 +213,12 @@ def tracked_database_reason(vault: LoadedVault, *, fresh_copy: bool = False) -> 
     """Why this vault must not be compared on, or None.
 
     A vault whose database git tracks is a working vault (the owner's
-    ``fixtures/linear_algebra``, ``probability`` and ``arxiv_v2`` are): the
-    comparison writes receipts and judgments and runs migrations, so it runs
-    on a backup-API copy instead (``--copy-from``).
+    ``fixtures/linear_algebra``, ``probability`` and ``arxiv_v2`` were, until
+    storage S0): the comparison writes receipts and judgments and runs
+    migrations, so it runs on a backup-API copy instead (``--copy-from``).
+    S0 moves those vaults out of git to ``~/learnloop-vaults/``; its landing
+    marks each one (:mod:`learnloop.vault.working_vault`), and a marked vault
+    is refused the same way, also after a rename, while a copy of it is not.
 
     The check fails closed: only git's own "untracked" (exit 1) or "not a git
     repository" lets the vault through. A check that cannot finish (a timeout,
@@ -224,11 +228,14 @@ def tracked_database_reason(vault: LoadedVault, *, fresh_copy: bool = False) -> 
     this run) is the one exception there.
     """
 
+    copy_hint = (f"Compare on a backup-API copy: learnloop ai compare --copy-from {vault.root} "
+                 "--vault fixtures-local/<name> ...")
+    marked = working_vault_marker_reason(vault.root)
+    if marked is not None:
+        return f"{vault.root} is a working vault: {marked}. {copy_hint}"
     database = VaultPaths(vault.root, vault.config).sqlite_path
     if not database.exists():
         return None
-    copy_hint = (f"Compare on a backup-API copy: learnloop ai compare --copy-from {vault.root} "
-                 "--vault fixtures-local/<name> ...")
     git = shutil.which("git")
     if git is None:
         if fresh_copy:
