@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
-source_commit_timestamp: "2026-10-25T12:06:56-04:00"
+source_commit: "0a3288aa453d7ae2afb8142a7acf2c641d163333"
+source_commit_timestamp: "2026-10-25T12:56:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/009_derived_state_rebuilds.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/ops/vault_upgrade.py"
-  - "src/learnloop/placement/report.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
@@ -92,6 +92,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/placement/report.py`

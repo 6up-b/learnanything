@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
-source_commit_timestamp: "2026-10-25T12:06:56-04:00"
+source_commit: "0a3288aa453d7ae2afb8142a7acf2c641d163333"
+source_commit_timestamp: "2026-10-25T12:56:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -28,9 +28,9 @@ source_paths:
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
-  - "src/learnloop/content/authoring/rung_variants.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/forecasters.py`
 - `src/learnloop/attempts/attempts.py`
+- `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
@@ -119,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/capability_grid.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/learner/mastery.py`
-- `src/learnloop/learner/recall_calibration.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_lp_claim_fixes.py`
+- `tests/test_lp_claim_fixes_review.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_reader_rw3b_protection.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_attempts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
