@@ -42,10 +42,10 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
 
     # Reader workbench RW2d's mvp-0.31 landed after it and keeps it, and
     # rebuild equivalence's mvp-0.34 follows as the latest.
-    assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[-3]
+    assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[20]
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.34"
     # DL2 landed first: mvp-0.29 is the predecessor and mvp-0.28 is never used (the compose round).
-    assert SUCCESSOR_CHAIN[-4] == "mvp-0.29" and "mvp-0.28" not in SUCCESSOR_CHAIN
+    assert SUCCESSOR_CHAIN[19] == "mvp-0.29" and "mvp-0.28" not in SUCCESSOR_CHAIN
     assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30", "mvp-0.31", "mvp-0.34"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.30"] == defaults_fingerprint_for_version("mvp-0.30")
 

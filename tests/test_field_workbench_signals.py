@@ -500,7 +500,7 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
     from learnloop.workbench_field_signals_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # The rebuild-equivalence successor (mvp-0.34) follows it as the latest.
-    assert TAG == SUCCESSOR_CHAIN[-2] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
+    assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
     # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
     assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"

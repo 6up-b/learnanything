@@ -64,7 +64,7 @@ CLOCK = FrozenClock(datetime(2026, 10, 14, 12, 0, tzinfo=UTC))
 
 def test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predecessor():
     assert ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
-    assert SUCCESSOR_CHAIN[-8:-6] == (ROUTER_STAGED_FRAME_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION)
+    assert SUCCESSOR_CHAIN[14:16] == (ROUTER_STAGED_FRAME_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION)
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.34"
     assert ROUTER_MIXTURE_VERSIONS == frozenset({"mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.34"})
     for versions in (
