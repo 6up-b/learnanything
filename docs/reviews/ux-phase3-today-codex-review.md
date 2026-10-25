@@ -54,3 +54,64 @@ All test commands ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
 The vitest files: `app/App.fixRound2/3/4/5.test.tsx`, `App.shell.test.tsx`, `App.today.test.tsx`, `App.wrapUpSkim.test.tsx`, `classicIsBase.test.ts`, `shellChrome.test.ts`, `keymap.test.ts`, `todayPlan.test.ts`, `components/InboxStrip.test.tsx`, `screens/attentionBudget.test.tsx`, `screens/TodayScreen.plan.test.tsx`, `screens/today/TodayPlace.test.tsx`, `screens/workbench/switchOff.test.tsx`, every `screens/ReaderScreen.*.test.tsx` (22 files), and the `screens/reader/*` files that mount the Reader or the workbench hook (31 files, including `readerWorkbenchResume`, `readerWorkbenchExercise`, `readerWorkbenchQueue`, `readerHooks.parity`, `figures/*`).
 
 Not run here, by the owner's rule (2026-10-17): the full pytest suite, the whole durability lane and the whole vitest run. They run once, in the landing gate on the merged tree.
+
+---
+
+# Re-review: fix round 2
+
+**Review:** Codex job `20261025-024425-llEFP5`. It confirmed F2, F4, F5 and F6 fixed, reopened F1 and F3, and raised F7 (Medium).
+**This round:** F1 and F7 were reproduced first in `App.today.test.tsx`: 2 F1 tests and 2 F7 tests failed on the round-1 code. Both were then fixed with one change. F3 is rejected for this stage; the reason is below. No schema, migration, successor, config key, model call, backend code or new parameter was added. The change adds two counters to App and no tuning constant.
+
+## Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A start pressed during a vault change can reach the new vault (reopened) | fixed | `b81f5d14d` | `App.today.test.tsx` "fix round 2, F1". (a) A Reader check pressed on A while B's selection is held, with its minutes answering after B has loaded: `start_session` and `plan_learner_pick` are never called, and no error is shown. (b) Begin pressed on A's Today while B is being selected starts nothing, and nothing is served. (c) The control case: once B has loaded, B's check starts its own session. (a) and (b) failed before the fix: each called `start_session({availableMinutes: 25})`. |
+| F2 | Medium | Enter activates Begin instead of the focused control | confirmed fixed (round 1) | `b927425c4` | (Codex confirmed) |
+| F3 | Medium | Resuming a problem from an earlier reading of its book (reopened) | rejected (out of stage scope; open question kept) | n/a | See *F3* below. |
+| F4 | Medium | A full-list pick with the plan off ignores the selected minutes | confirmed fixed (round 1) | `b927425c4` | (Codex confirmed) |
+| F5 | Medium | Expanding captures shows waiting counts | confirmed fixed (round 1) | `b927425c4` | (Codex confirmed) |
+| F6 | Medium | A failed full-list read leaves a blank view | confirmed fixed (round 1) | `b927425c4` | (Codex confirmed) |
+| F7 | Medium | Leaving Today on the same vault discards the session Begin started | fixed | `b81f5d14d` | `App.today.test.tsx` "fix round 2, F7". Begin, then Reader, while `start_session` is pending; then it answers. The Reader stays on screen, Begin's serve is not sent from the unmounted Today, and the Reader's check uses `s_new` with exactly one `start_session`. The plan-off case is tested the same way (40 minutes chosen). Both failed before the fix with 2 starts. `TodayPlace.test.tsx` "fix round 2" covers the unit side: Begin asks the shell's start for the plan's minutes, and a start the shell refuses (null) stops quietly, with no RPC, no hand-off and no error. |
+
+### What changed
+
+- **The shell owns session starts (F1, F7).** `App.startSessionHere(minutes)` is now the only session start in the simple shell. It serves Today's Begin, Begin with the plan off, the full list's picks (TodayPlace's new required `onStartSession` prop) and the implicit start.
+  - It sends nothing while a vault change is under way.
+  - It captures the vault generation when it is called. If the generation has moved by the time the answer arrives, it installs nothing and answers null.
+  - On the same vault it installs the session in App at once (`sessionRef`, `setSession`, notices resolved), before the caller's next step. It does not navigate: TodayPlace's `onBeginSession` still decides where the learner lands, and it only runs while Today is mounted.
+  - So when the learner leaves Today on the same vault, the session survives, the obsolete navigation and the first-step serve are suppressed, and a later Reader check starts no second session. TodayPlace treats a null answer like its unmount: it stops quietly.
+- **No start during a vault change (F1).** `changeVault` raises `vaultChangesRef` (a counter, so overlapping calls nest) and moves the generation before the selection is sent. In a `finally`, after the replacement vault has loaded or the change has failed, it moves the generation again and lowers the counter.
+  - While the counter is raised, `implicitSession()`, `withImplicitSession()` and `startSessionHere()` start nothing.
+  - Because the generation moves again at the end, anything asked during the change cannot act afterwards. That includes an action whose minutes read answers late.
+  - Classic's StartScreen and TodayScreen keep their own starts unchanged. The classicIsBase gate passes.
+
+### F3: rejected for this stage
+
+The reviewer asks that a problem worked on an earlier reading of its book (E1, with the book now on E2) either open its original extraction or be re-anchored onto E2 through a validated flow. Neither exists in the product today, and neither is UX Phase 3's to add:
+
+- **Today mirrors the Reader.** The UX spec §7.1 says Today's threads "come from the Reader doc". The Reader opens a book only on its current reading (`reader.render_view` resolves through `resolve_extraction_id`). Its own ✎ marks list only the open reading's problems. The workbench spec defines resume as "the same steps, the same anchor, the same book visibility" (`ux_reader_workbench_v1.md` resume rule), with no cross-reading case. So the Reader cannot resume an E1 problem from anywhere, Today included. Round 1 made Today consistent and honest about this: it offers no resume it cannot keep, and a stale request is refused with a sentence that says why.
+- **Implementing either option would be new reader/workbench behaviour, not a Today surface.** Rendering a superseded extraction is a Reader feature. Re-anchoring would rewrite a workbench session's persisted `extraction_id` and `span_ids_json` through `span_aliases`, which needs validation of each step's anchors. Both belong in the Reader workbench (RW) track, in a stage with its own spec text and tests.
+- The open question from round 1 stands: *Problems left on an earlier reading*, with the recommended follow-up being an RW stage for span-alias re-anchoring of open workbench sessions.
+
+## Gate (fix round 2)
+
+All test commands ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- …`, one at a time.
+
+| command | result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **35 kept, 0 broken** |
+| `uv run pytest -n 6 tests/test_ux_phase3_today.py` (the stage's backend read, unchanged this round, run for F3's evidence) | **5 passed** |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npx vitest run --maxWorkers=4` on the 17 files listed below | **17 files, 181 passed** |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| durability tests, DB reference scripts | not run: no migration, DB or connection code, and no schema change |
+| contract tests (desktop RPC, mobile allowlist, CLI help, config defaults) | not run: no RPC, config key or Python changed this round |
+
+Before the fix, `npx vitest run src/app/App.today.test.tsx -t "fix round 2"` showed 4 failures (F1 a and b, both F7 tests). The F1 control case also failed, but only because test (b) stopped before releasing its held selection.
+
+The vitest files are every test file that mounts App or TodayPlace, or that pins App's or Today's source (found with `git grep`), plus their neighbours from round 1: `app/App.fixRound2/3/4/5.test.tsx`, `App.shell.test.tsx`, `App.today.test.tsx`, `App.wrapUpSkim.test.tsx`, `classicIsBase.test.ts`, `keymap.test.ts`, `todayPlan.test.ts`, `shellChrome.test.ts`, `screens/reader/readerWorkbenchQueue.test.tsx`, `screens/reader/readerWorkbenchResume.test.tsx`, `screens/today/TodayPlace.test.tsx`, `screens/attentionBudget.test.tsx`, `screens/TodayScreen.plan.test.tsx` and `components/InboxStrip.test.tsx`.
+
+Not run here, by the owner's rule (2026-10-17): the full pytest suite, the whole durability lane and the whole vitest run. They run once, in the landing gate on the merged tree.
