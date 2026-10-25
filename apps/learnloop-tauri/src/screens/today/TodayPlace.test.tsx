@@ -8,11 +8,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, WorkbenchOpenProblemDto } from "../../api/dto";
-import { clear } from "../../api/queryCache";
+import { clear, invalidateAll } from "../../api/queryCache";
 import { setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
 
-const { fns } = vi.hoisted(() => ({ fns: {} as Record<string, ReturnType<typeof vi.fn>> }));
+const { fns, inbox } = vi.hoisted(() => ({ fns: {} as Record<string, ReturnType<typeof vi.fn>>, inbox: { real: false } }));
 
 vi.mock("../../api/client", () => ({
   api: new Proxy(
@@ -25,7 +25,15 @@ vi.mock("../../api/client", () => ({
     }
   )
 }));
-vi.mock("../../components/InboxStrip", () => ({ InboxStrip: () => <div data-testid="inbox-strip">inbox</div> }));
+// The inbox is a word here, except where a test asks for the real strip
+// (fix round 1, F5: what the learner sees when captures are expanded).
+vi.mock("../../components/InboxStrip", async () => {
+  const real = await vi.importActual<typeof import("../../components/InboxStrip")>("../../components/InboxStrip");
+  return {
+    InboxStrip: (props: Parameters<typeof real.InboxStrip>[0]) =>
+      inbox.real ? <real.InboxStrip {...props} /> : <div data-testid="inbox-strip">inbox</div>
+  };
+});
 vi.mock("../../components/GoalBanner", async () => {
   const real = await vi.importActual<typeof import("../../components/GoalBanner")>("../../components/GoalBanner");
   return { ...real, GoalBanner: () => <div data-testid="goal-banner">banner</div> };
@@ -297,6 +305,7 @@ function surface(): string {
 
 beforeEach(() => {
   for (const key of Object.keys(fns)) delete fns[key];
+  inbox.real = false;
   setRenderedShell("simple");
   vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 9, 27, 19, 30)); // Tuesday evening
@@ -608,7 +617,7 @@ describe("threads (3.3)", () => {
     fireEvent.click(within(first).getByRole("button", { name: "resume ▸" }));
     expect(props.onResumeProblem).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "wb1", sourceId: "src_prob" }));
     fireEvent.click(within(second).getByRole("button", { name: "open in book ▸" }));
-    expect(props.onOpenPassage).toHaveBeenCalledWith("src_prob", "sp9");
+    expect(props.onOpenPassage).toHaveBeenCalledWith("src_prob", "sp9", "ext_prob");
   });
 
   it("shows at most three, then more ▸; a question with no passage continues in Ask", async () => {
@@ -705,5 +714,198 @@ describe("keys", () => {
     await flush();
     expect(f.startSession).not.toHaveBeenCalled();
     expect(screen.queryByTestId("today-list")).toBeNull();
+  });
+});
+
+// ── Fix round 1 (Codex review 20261025-022429-GJcOzo) ──────────────────────
+
+describe("fix round 1, F2: Enter on a focused control is that control's", () => {
+  function enterOn(element: HTMLElement): boolean {
+    element.focus();
+    // false when a listener took the key (preventDefault): the control's own
+    // activation would then never run.
+    return fireEvent.keyDown(element, { key: "Enter", bubbles: true, cancelable: true });
+  }
+
+  it("why?, skip and a thread's resume ▸ keep Enter; Begin is not started", async () => {
+    const f = apis(dto(body()), { workbenchOpenProblems: vi.fn(async () => ({ version: 1, problems: [problem("wb1")] })) });
+    show();
+    await screen.findByTestId("today-sentence");
+    const resume = await screen.findByRole("button", { name: "resume ▸" });
+    for (const control of [screen.getByRole("button", { name: /why\?/ }), screen.getByRole("button", { name: "skip" }), resume]) {
+      expect(enterOn(control), control.textContent ?? "").toBe(true);
+    }
+    await flush();
+    expect(f.startSession).not.toHaveBeenCalled();
+    expect(f.nextPlanItem).not.toHaveBeenCalled();
+    expect(f.planReadingEnded).not.toHaveBeenCalled();
+  });
+
+  it("Something new keeps Enter when the day is done; Keep going is not asked", async () => {
+    const f = apis(dto(body({ status: "complete", stopReason: "budget" })));
+    show({ session: SESSION });
+    const something = await screen.findByRole("button", { name: "Something new" });
+    expect(enterOn(something)).toBe(true);
+    await flush();
+    expect(f.planKeepGoing).not.toHaveBeenCalled();
+  });
+
+  it("Enter on the page itself still begins", async () => {
+    const f = apis(dto(body()));
+    show();
+    await screen.findByTestId("today-sentence");
+    expect(fireEvent.keyDown(screen.getByTestId("today-place"), { key: "Enter", bubbles: true, cancelable: true })).toBe(false);
+    await waitFor(() => expect(f.startSession).toHaveBeenCalledTimes(1));
+  });
+
+  it("in the full list, Enter on a row's why? or on back to the plan opens nothing", async () => {
+    const f = apis(dto(body()), {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { isFollowup: true, followupKind: "cold_retry", dueStatus: "followup" })]))
+    });
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const row = (await screen.findAllByTestId("today-list-row"))[0];
+    expect(enterOn(within(row).getByRole("button", { name: "why?" }))).toBe(true);
+    expect(enterOn(screen.getByRole("button", { name: "back to the plan (p)" }))).toBe(true);
+    await flush();
+    expect(f.planLearnerPick).not.toHaveBeenCalled();
+    expect(props.onOpenPractice).not.toHaveBeenCalled();
+  });
+});
+
+describe("fix round 1, F4: the full list with the plan off starts the session with the minutes chosen here", () => {
+  it("40m chosen, then a question from the list: the session is 40 minutes, then the question opens", async () => {
+    const f = apis(dto(null, { reason: "plan_disabled" }));
+    const props = show();
+    expect((await screen.findByTestId("today-sentence")).textContent).toContain("15 minutes today");
+    fireEvent.click(screen.getByRole("radio", { name: "40m" }));
+    expect(screen.getByTestId("today-sentence").textContent).toContain("40 minutes today");
+    await press({ key: "l" });
+    const rows = await screen.findAllByTestId("today-list-row");
+    fireEvent.click(within(rows[0]).getByRole("button", { name: "Topic 1" }));
+    await waitFor(() => expect(props.onOpenPractice).toHaveBeenCalledWith("pi_1", "cand_1"));
+    expect(f.startSession).toHaveBeenCalledTimes(1);
+    expect(f.startSession).toHaveBeenCalledWith({ availableMinutes: 40 });
+    expect(props.onBeginSession).toHaveBeenCalledWith(STARTED);
+  });
+
+  it("with a session open it starts none and opens the question", async () => {
+    const f = apis(dto(null, { reason: "plan_disabled" }));
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    fireEvent.click(within((await screen.findAllByTestId("today-list-row"))[0]).getByRole("button", { name: "Topic 1" }));
+    await waitFor(() => expect(props.onOpenPractice).toHaveBeenCalledWith("pi_1", "cand_1"));
+    expect(f.startSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("fix round 1, F5: expanded captures show no waiting counts", () => {
+  const summary = {
+    count: 3,
+    newCount: 3,
+    captures: [{ captureId: "cap_1", kind: "text", status: "new", text: "the board after lecture", url: null, note: null, receivedAt: "2026-10-25T10:00:00Z", pendingRoute: null }],
+    deletePending: [
+      { captureId: "cap_2", kind: "image", status: "purged", text: null, url: null, note: null, receivedAt: "2026-10-20T10:00:00Z", pendingRoute: null, mediaDeletePending: true },
+      { captureId: "cap_3", kind: "image", status: "purged", text: null, url: null, note: null, receivedAt: "2026-10-21T10:00:00Z", pendingRoute: null, mediaDeletePending: true }
+    ],
+    deletePendingCount: 2,
+    pinnedVault: null,
+    vaultMismatch: false,
+    enabled: true
+  };
+
+  it("the real inbox under Today names no number of captures or pending deletions, and keeps every action", async () => {
+    inbox.real = true;
+    apis(dto(body()), { getInboxSummary: vi.fn(async () => summary) });
+    show();
+    fireEvent.click(await screen.findByTestId("today-captures"));
+    const strip = await screen.findByRole("region", { name: "Capture inbox" });
+    await waitFor(() => expect(strip.textContent).toContain("the board after lecture"));
+    const text = strip.textContent ?? "";
+    expect(text).toContain("New captures");
+    expect(text).toContain("Original media deletion is still pending for these purged captures.");
+    expect(text).not.toMatch(/Inbox ·|\b3\b|pending for 2|\b2 purged/);
+    expect(within(strip).getByRole("button", { name: "Make a card" })).toBeTruthy();
+    expect(within(strip).getAllByRole("button", { name: "Retry delete" })).toHaveLength(2);
+  });
+
+  it("classic's strip keeps its counts", async () => {
+    const real = await vi.importActual<typeof import("../../components/InboxStrip")>("../../components/InboxStrip");
+    apis(dto(body()), { getInboxSummary: vi.fn(async () => summary) });
+    render(<real.InboxStrip subjects={[]} onAsk={vi.fn()} />);
+    const strip = await screen.findByRole("region", { name: "Capture inbox" });
+    await waitFor(() => expect(strip.textContent).toContain("Inbox · 3"));
+    expect(strip.textContent).toContain("Original media deletion is pending for 2 purged captures.");
+  });
+});
+
+describe("fix round 1, F6: the full list says when it could not be read, with Try again", () => {
+  it("a first read that fails: the reason and Try again, which reads it again", async () => {
+    let fail = true;
+    const getTodayQueue = vi.fn(async () => {
+      if (fail) throw { code: "internal", message: "sidecar busy", retryable: true };
+      return queue([scheduled(1)]);
+    });
+    apis(dto(body()), { getTodayQueue });
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const alert = await screen.findByTestId("today-list-error");
+    expect(alert.textContent).toContain("Couldn't read today's list");
+    expect(screen.queryAllByTestId("today-list-row")).toHaveLength(0);
+    fail = false;
+    fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(await screen.findAllByTestId("today-list-row")).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByTestId("today-list-error")).toBeNull());
+  });
+
+  it("a refresh that fails: the rows stay, marked as possibly out of date, with Try again", async () => {
+    let fail = false;
+    const getTodayQueue = vi.fn(async () => {
+      if (fail) throw { code: "internal", message: "sidecar busy", retryable: true };
+      return queue([scheduled(1)]);
+    });
+    apis(dto(body()), { getTodayQueue });
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    await screen.findAllByTestId("today-list-row");
+    fail = true;
+    await act(async () => invalidateAll());
+    const alert = await screen.findByTestId("today-list-error");
+    expect(alert.textContent).toContain("Couldn't refresh today's list; what's below may be out of date");
+    expect(screen.getAllByTestId("today-list-row")).toHaveLength(1);
+    fail = false;
+    fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByTestId("today-list-error")).toBeNull());
+  });
+
+  it("while it is read the first time: a quiet frame, not a blank", async () => {
+    apis(dto(body()), { getTodayQueue: vi.fn(() => new Promise(() => undefined)) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    expect(await screen.findByTestId("today-list-loading")).toBeTruthy();
+  });
+});
+
+describe("fix round 1, F1: an action still running when Today unmounts (another vault opened) answers nothing", () => {
+  it("Begin's session, started before the vault changed, is never handed to the shell", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const startSession = vi.fn(() => new Promise((resolve) => (release = resolve)));
+    const f = apis(dto(body()), { startSession });
+    const props = show();
+    await screen.findByTestId("today-sentence");
+    await press({ key: "Enter" });
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    cleanup();
+    await act(async () => release(STARTED));
+    await flush();
+    expect(props.onBeginSession).not.toHaveBeenCalled();
+    expect(props.onError).not.toHaveBeenCalled();
+    // Nothing after the start: no serve with the old vault's session.
+    expect(f.nextPlanItem).not.toHaveBeenCalled();
   });
 });

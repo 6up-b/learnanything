@@ -822,7 +822,8 @@ export function App() {
     if (implicitStartRef.current) return implicitStartRef.current;
     const generation = vaultGenRef.current;
     const current = () => vaultGenRef.current === generation;
-    const started: Promise<SessionSnapshot | null> = (async () => {
+    let started: Promise<SessionSnapshot | null> | null = null;
+    started = (async () => {
       try {
         const minutes = await implicitSessionMinutes();
         if (!current()) return null;

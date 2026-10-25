@@ -31,12 +31,12 @@ beforeEach(() => {
   api.workbenchForSource.mockResolvedValue({ sessions: [] });
 });
 
-function hook(card: SourceLibraryCard, request: ReaderWorkbenchResume | null) {
+function hook(card: SourceLibraryCard, request: ReaderWorkbenchResume | null, reading: (card: SourceLibraryCard) => string = extractionOf) {
   const onResumeShown = vi.fn();
   const onError = vi.fn();
   const rendered = renderHook(
     ({ card: open, request: wanted }) => useReaderWorkbench({
-      enabled: true, extractionId: extractionOf(open), card: open, onError,
+      enabled: true, extractionId: reading(open), card: open, onError,
       props: { resumeProblem: wanted, onResumeShown },
     }),
     { initialProps: { card, request } },
@@ -46,7 +46,7 @@ function hook(card: SourceLibraryCard, request: ReaderWorkbenchResume | null) {
 
 it("resumes the problem once its own book is open, and the shell forgets that request", async () => {
   api.workbenchOpen.mockResolvedValue({ version: 1, session: session(), resumed: true });
-  const request = { sessionId: "wb_1", sourceId: "src_prob" };
+  const request = { sessionId: "wb_1", sourceId: "src_prob", extractionId: "ext_prob" };
   const { result, rerender, onResumeShown } = hook(other, request);
   await act(async () => undefined);
   expect(api.workbenchOpen).not.toHaveBeenCalled(); // another book is open: it waits
@@ -66,4 +66,29 @@ it("without a request, nothing is resumed", async () => {
   await act(async () => undefined);
   expect(api.workbenchOpen).not.toHaveBeenCalled();
   expect(result.current.active).toBeNull();
+});
+
+// Fix round 1 (F3): the problem was left on reading E1 and the book was read
+// again (E2). The Reader opens the book on E2; the problem's anchors are E1's
+// spans and the server's answer would be refused on E2. Nothing is asked of
+// the server, the request is forgotten, and the learner is told why.
+it("a problem left on an earlier reading is not resumed on the book's new reading, and says why", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ extractionId: "ext_prob_v1" }), resumed: true });
+  const request = { sessionId: "wb_1", sourceId: "src_prob", extractionId: "ext_prob_v1" };
+  const { result, onResumeShown, onError } = hook(book, request, () => "ext_prob_v2");
+  await act(async () => undefined);
+  expect(api.workbenchOpen).not.toHaveBeenCalled();
+  expect(onResumeShown).toHaveBeenCalledWith(request);
+  expect(onError).toHaveBeenCalledWith("This problem was started on an earlier reading of this book, so it can't be reopened on this one.");
+  expect(result.current.active).toBeNull();
+});
+
+it("on the problem's own reading, the resume names that reading", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ extractionId: "ext_prob_v1" }), resumed: true });
+  const request = { sessionId: "wb_1", sourceId: "src_prob", extractionId: "ext_prob_v1" };
+  const { result, onError } = hook(book, request, () => "ext_prob_v1");
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toEqual({ origin: "reader", entry: "resume", sessionId: "wb_1", extractionId: "ext_prob_v1" });
+  await waitFor(() => expect(result.current.active?.session.sessionId).toBe("wb_1"));
+  expect(onError).not.toHaveBeenCalled();
 });

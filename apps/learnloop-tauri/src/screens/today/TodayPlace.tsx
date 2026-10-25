@@ -19,7 +19,7 @@
 // Classic keeps StartScreen and TodayScreen as they were; only the simple
 // shell mounts this place (app/App.tsx).
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../../api/client";
 import { TAG } from "../../api/queryTags";
 import { useCachedQuery } from "../../api/useCachedQuery";
@@ -41,7 +41,7 @@ import { GoalWizard } from "../../components/GoalWizard";
 import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
 import type { AskTarget } from "../../components/AskOverlay";
-import { screenLeavesKey } from "../../app/keymap";
+import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
 import { todayQueueInput } from "../../app/autoAdvance";
 import { aboutMinutes, planStepAction, useDailyPlan, waitingLine } from "../../app/dailyPlan";
 import {
@@ -60,7 +60,7 @@ import {
   todayThreads,
   type TodayThread
 } from "../../app/todayPlan";
-import { errorMessage } from "../../errors";
+import { errorMessage, type ErrorReport } from "../../errors";
 
 export interface TodayPlaceProps {
   session: SessionSnapshot | null;
@@ -73,8 +73,9 @@ export interface TodayPlaceProps {
   onEndSession: (summary: SessionEndSummary) => void;
   /** The shell's Add (first run: nothing to plan yet). */
   onAdd: () => void;
-  /** Open a book at a passage (an open question's place). */
-  onOpenPassage: (sourceId: string, spanId: string | null) => void;
+  /** Open a book at a passage (an open question's place), on the reading the
+   *  passage was found on (fix round 1, F3). */
+  onOpenPassage: (sourceId: string, spanId: string | null, reading: string | null) => void;
   /** Resume an unfinished problem in its book. */
   onResumeProblem: (problem: WorkbenchOpenProblemDto) => void;
   onAsk: (target: AskTarget) => void;
@@ -82,8 +83,11 @@ export interface TodayPlaceProps {
   subjects?: { id: string; title: string }[];
   /** RW6a's wrap-up offer, when the shell armed it for this view. */
   wrapUp?: ReactNode;
-  onError: (message: string) => void;
+  onError: (message: string, report?: ErrorReport) => void;
 }
+
+/** An action's step after Today unmounted (fix round 1, F1): stop, quietly. */
+const LEFT = Symbol("today-left");
 
 const linkButton: CSSProperties = {
   border: 0,
@@ -136,6 +140,14 @@ function MinuteChips({ value, choices, disabled, onChange }: { value: number | n
       })}
     </div>
   );
+}
+
+/** Fix round 1 (F2): Enter aimed at a control (a button, a link, a field)
+ *  is that control's own: it activates what has the focus (why?, skip, a
+ *  thread's resume, Something new), never the page's Begin or the list's
+ *  open. The page's Enter is for the page itself. */
+function enterOnControl(event: KeyboardEvent): boolean {
+  return event.target instanceof Element && event.target.closest(INTERACTIVE_SELECTOR) !== null;
 }
 
 function stepChoice(choices: number[], current: number | null, delta: number): number | undefined {
@@ -222,7 +234,7 @@ function Threads({
   function threadAction(thread: TodayThread): { label: string; run: () => void } | null {
     if (thread.kind === "problem") return { label: "resume ▸", run: () => onResumeProblem(thread.problem) };
     const citation = thread.question.sourceCitation;
-    if (citation?.sourceId) return { label: "open in book ▸", run: () => onOpenPassage(citation.sourceId as string, citation.spanId) };
+    if (citation?.sourceId) return { label: "open in book ▸", run: () => onOpenPassage(citation.sourceId as string, citation.spanId, citation.extractionId ?? null) };
     const target = targetForDialogue(thread.question);
     return target ? { label: "continue ▸", run: () => onAsk(target) } : null;
   }
@@ -267,7 +279,9 @@ function CapturesLine({ subjects, onAsk }: { subjects: { id: string; title: stri
   const data = summary.data;
   const something = Boolean(data && ((data.newCount ?? 0) > 0 || (data.deletePending?.length ?? 0) > 0 || data.vaultMismatch));
   if (!something && !open) return null;
-  if (open) return <InboxStrip subjects={subjects} onAsk={onAsk} />;
+  // Fix round 1 (F5): the learner's inbox, with no count of what is waiting
+  // (§4.2 rule 10); classic's strip keeps its counts.
+  if (open) return <InboxStrip subjects={subjects} onAsk={onAsk} countFree />;
   return (
     <button type="button" data-testid="today-captures" style={{ ...dimLink, alignSelf: "flex-start", padding: 0 }} onClick={() => setOpen(true)}>
       New captures ▸
@@ -281,12 +295,18 @@ function PlainList({
   queue,
   plan,
   busy,
+  failed,
+  onRetry,
   onOpen,
   onBack
 }: {
   queue: QueueSnapshot | null;
   plan: DailyPlanDto["plan"] | null;
   busy: boolean;
+  /** Fix round 1 (F6): the list's read failed (with `queue`, its refresh). */
+  failed: boolean;
+  /** Try the read again (the query's own self-contained retry). */
+  onRetry: () => void;
   onOpen: (item: ScheduledItemDto) => void;
   onBack: () => void;
 }) {
@@ -313,6 +333,7 @@ function PlainList({
         event.preventDefault();
         setFocus((index) => Math.max(0, index - 1));
       } else if (event.key === "Enter") {
+        if (enterOnControl(event)) return;
         event.preventDefault();
         const item = items[focus];
         if (item && !busy) onOpen(item);
@@ -333,7 +354,21 @@ function PlainList({
           back to the plan (p)
         </button>
       </div>
-      {queue === null ? null : items.length === 0 ? (
+      {failed ? (
+        <div data-testid="today-list-error" role="alert" style={{ fontSize: 13, color: COLOR.text }}>
+          {queue === null ? "Couldn't read today's list" : "Couldn't refresh today's list; what's below may be out of date"} ·{" "}
+          <button type="button" style={linkButton} onClick={onRetry}>
+            Try again
+          </button>
+        </div>
+      ) : null}
+      {queue === null ? (
+        failed ? null : (
+          <div data-testid="today-list-loading" aria-busy="true" style={{ minHeight: 32, opacity: 0.35, fontSize: 13, color: COLOR.textDim }}>
+            …
+          </div>
+        )
+      ) : items.length === 0 ? (
         <div style={{ fontSize: 13, color: COLOR.textDim }}>Nothing else for today.</div>
       ) : (
         items.map((item, index) => {
@@ -426,6 +461,13 @@ export function TodayPlace({
     { tags: [TAG.queue] }
   );
   const queue = queueQuery.data ?? null;
+  // Fix round 1 (F6): a failed read of the full list says so and offers Try
+  // again (the query's self-contained retry), whether nothing was read yet
+  // or a refresh of what is shown failed.
+  const retryQueue = useCallback(() => {
+    const report = queueQuery.retryReport();
+    if (report) void report.retry().catch(() => undefined);
+  }, [queueQuery]);
 
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
@@ -467,20 +509,35 @@ export function TodayPlace({
     return () => window.clearTimeout(timer);
   }, [waitingUntil, refetchPlan]);
 
+  // Fix round 1 (F1): Today is keyed on its vault and unmounts when another
+  // opens; an action still running then answers nothing, so its next step
+  // (a request with the old vault's session, installing that session,
+  // opening a question) never reaches the new vault. `stay` marks each step.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const stay = useCallback(<T,>(value: T): T => {
+    if (!alive.current) throw LEFT;
+    return value;
+  }, []);
   const run = useCallback(
     async <T,>(work: () => Promise<T>): Promise<T | null> => {
       if (busy) return null;
       setBusy(true);
       try {
-        return await work();
+        return stay(await work());
       } catch (error) {
-        onError(errorMessage(error, "Couldn't do that just now."));
+        if (error !== LEFT && alive.current) onError(errorMessage(error, "Couldn't do that just now."));
         return null;
       } finally {
-        setBusy(false);
+        if (alive.current) setBusy(false);
       }
     },
-    [busy, onError]
+    [busy, onError, stay]
   );
 
   const done = plan ? plan.status !== "open" : false;
@@ -494,7 +551,7 @@ export function TodayPlace({
     if (!plan || done || waiting) return;
     if (!session) {
       const begun = await run(async () => {
-        const started = await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) });
+        const started = stay(await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) }));
         const first = await api.nextPlanItem({ sessionId: started.sessionId, serve: true });
         return { started, step: first.step ?? null };
       });
@@ -512,7 +569,7 @@ export function TodayPlace({
   async function beginWithoutPlan() {
     if (minutes === null) return;
     const opened = await run(async () => {
-      const started = session ?? (await api.startSession({ availableMinutes: minutes }));
+      const started = session ?? stay(await api.startSession({ availableMinutes: minutes }));
       const head = await api.getTodayQueue(todayQueueInput(started));
       return { started, item: head.sections.flatMap((section) => section.items)[0] ?? null };
     });
@@ -560,14 +617,23 @@ export function TodayPlace({
   // A question from the full list: while the plan serves it is a learner
   // pick (a one-item block), served with the offer it was picked from; with
   // no session yet it begins today's plan with that pick (as Today's list).
+  //
+  // Fix round 1 (F4): with the plan off and no session, the session starts
+  // with the minutes shown and chosen here (as Begin's), not the shell's
+  // remembered ones.
   async function openFromList(item: ScheduledItemDto) {
     if (!plan) {
+      if (!session && planOff && minutes !== null) {
+        const started = await run(() => api.startSession({ availableMinutes: minutes }));
+        if (!started) return;
+        onBeginSession(started);
+      }
       onOpenPractice(item.practiceItemId, item.schedulerCandidateId ?? null);
       return;
     }
     if (!session) {
       const begun = await run(async () => {
-        const started = await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) });
+        const started = stay(await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) }));
         const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null);
         return { started, step: result.step ?? null };
       });
@@ -606,6 +672,7 @@ export function TodayPlace({
       // The full list owns its keys while it is shown (and `p` leaves it).
       if (list) return;
       if (event.key === "Enter") {
+        if (enterOnControl(event)) return;
         event.preventDefault();
         if (done) void keepGoing();
         else void begin();
@@ -646,7 +713,17 @@ export function TodayPlace({
     // Loading: the frame, with nothing claimed yet (never "Loading today's queue").
     body = <div data-testid="today-loading" aria-busy="true" style={{ minHeight: 64, opacity: 0.35, fontSize: 14, color: COLOR.textDim }}>…</div>;
   } else if (list) {
-    body = <PlainList queue={queue} plan={plan} busy={busy} onOpen={(item) => void openFromList(item)} onBack={() => setList(false)} />;
+    body = (
+      <PlainList
+        queue={queue}
+        plan={plan}
+        busy={busy}
+        failed={queueQuery.error !== null}
+        onRetry={retryQueue}
+        onOpen={(item) => void openFromList(item)}
+        onBack={() => setList(false)}
+      />
+    );
   } else if (noBooks && (!plan || (rows.length === 0 && planWasEmpty(data)))) {
     body = (
       <div data-testid="today-first-run" style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14, color: COLOR.text }}>
