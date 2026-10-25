@@ -1879,7 +1879,7 @@ predictions, not serving.
   "can't tell yet" (8 first attempts on linear_algebra).
 - **No model call by AD**: 0 `model_call_receipts` on every copy; forecast receipts only the in-process ones
   (`mastery_ekf`, `lo_general+composite`, `ad_threshold@*`, all `ok`); the feature audit's `judgment_ledger` rows are
-  all verdict **`unavailable`** (60 / 35 to 50 per run); both commission jobs failed before the transport.
+  all verdict **`unavailable`** (60 per probe run on linear_algebra, 35 to 50 on probability); both commission jobs failed before the transport.
 
 **`model_call_receipts`**: **0 rows** in all 42 learner databases under `landing-ad23/`, and in the 7 of two
 interrupted runs moved to `fixtures-local/tmp/ad23-cd-old` and `ad23-e-old` (a missing migrate step in the first (c)
