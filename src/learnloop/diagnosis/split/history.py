@@ -707,6 +707,25 @@ class VaultHistoryStore:
 
         return self._blind.get(str(attempt_id))
 
+    def _held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool:
+        """Is the grade this store shows for ``attempt_id`` held for review?
+
+        The hold comes from the same source as the score (TE0 fix round 2):
+        an overlay payload with no grading identity (``_unidentified``: an
+        offline review's own blind grade, or a caller's payload) is a grade
+        the vault never recorded, so its hold is its own record's
+        (``grade_held_for_review`` of its grading support) and the vault
+        ledger's hold of the vault's grade says nothing about it. Every other
+        row shows the vault's own grading (the stored grade, or the live
+        overlay of the vault's latest blind records read with their
+        identity), whose hold is THE ledger predicate's."""
+
+        if attempt_id in self._blind and attempt_id in self._unidentified:
+            from learnloop.outcome_contract import grade_held_for_review
+
+            return grade_held_for_review(self._blind[attempt_id].get("grading_support"))
+        return attempt_id in ledger_held
+
     # -- loading ------------------------------------------------------------
 
     def _load(self) -> None:
@@ -828,14 +847,15 @@ class VaultHistoryStore:
                     fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
                     contract=contracts.get(attempt_id),
                 )
+            is_held = self._held(attempt_id, held)
             if confidence_on:
                 record = _with_confidence(
                     record, row.get("answer_confidence"),
                     confidence_events.hedge_from_record(self._blind[attempt_id]) if attempt_id in self._blind
                     else hedges.get(attempt_id),
-                    held=attempt_id in held,
+                    held=is_held,
                 )
-            if attempt_id in held:
+            if is_held:
                 record = replace(record, score=None)
             self._attempts.append(record)
             self._by_id[attempt_id] = record
