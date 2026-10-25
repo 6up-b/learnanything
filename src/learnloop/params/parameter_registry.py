@@ -1439,8 +1439,8 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # predecessor's claim seed, re-anchor, merge, ranking and replay exactly.
     _ConfigRule(_exact("mastery.claim_fixes_enabled"), "structural", "operational",
                 "kill switch for LP-min (a)'s successor: gap claims re-anchor, claims replay at their own time, "
-                "a warm claim merge never lowers the variance, ties by recency then pseudo-count; off, the "
-                "predecessor's claim handling."),
+                "a claim never lowers a variance, ties by recency then pseudo-count, the resolving review's claim "
+                "line; off, the predecessor's claim handling."),
     # --- structural: test fixtures ---
     _ConfigRule(_prefix("recall_coverage.severity_examples."), "structural", "fixture",
                 "expected-band severity fixtures (test data)."),

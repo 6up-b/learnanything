@@ -201,11 +201,11 @@ class MasteryConfig(BaseModel):
     # large its pseudo-count.
     cold_start_prior_logit_variance: float = 3.0
     claim_prior_min_variance: float = 2.0
-    # LP-min (a) (spec_learned_parameters_v1 §3.0b item 1): the ONE kill switch
-    # of the successor ``CLAIM_FIXES_ALGORITHM_VERSION`` for all four claim
-    # fixes: tutor gap declarations re-anchor, replay applies each claim at its
-    # own time, a warm claim merge never lowers the variance, and equally
-    # specific claims tie-break by recency, then pseudo-count, never by level.
+    # LP-min (a) (spec_learned_parameters_v1 §3.0b items 1 and 7): the ONE kill
+    # switch of the successor ``CLAIM_FIXES_ALGORITHM_VERSION``: gap claims
+    # re-anchor, claims replay in (created_at, id) order, a claim never lowers
+    # a variance (cold or warm), ties go by recency then pseudo-count, never
+    # level, and the resolving review says "You marked this as known".
     # Off, or below the tag: every claim path exactly as the predecessor.
     claim_fixes_enabled: bool = True
     # Display banding for mastery means: > strong renders green, > developing
