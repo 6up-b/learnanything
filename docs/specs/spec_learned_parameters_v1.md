@@ -261,6 +261,8 @@ It may not read magnitudes (dwell, scroll, highlight counts) unless the owner al
    - replay applies claims as of their own time;
    - a warm claim merge keeps a variance floor;
    - ties break by recency, then pseudo-count, never by level.
+
+   *Built 2026-10-25 (LP-min (a); `docs/reviews/lp-min-claim-fixes.md`):* one successor, `CLAIM_FIXES_ALGORITHM_VERSION` (built as `mvp-0.32`, renumbered at landing), with one kill switch for all four, `mastery.claim_fixes_enabled`. A gap declaration re-anchors through `reanchor_mastery_from_claim` at the claim's own stamp. Replay seeds each LO from the claims made by its first attempt and re-anchors each later claim from a re-anchoring source (rung-variant requests, too-easy/too-hard reports, gap declarations) at its own `created_at`, before any attempt stamped after it. A warm merge moves the mean by the same precision weights and keeps the state's own variance (`max(merged, current)`: structural, no new number). Ties: specificity, then recency, then pseudo-count, then the id. Off, or below the tag, every path is the predecessor's byte for byte. Not changed (outside the four): a cold claim seed still sets the variance to `max(1/pseudo-count, claim_prior_min_variance = 2.0)`, below the 3.0 cold start that AD §5.5 keeps.
 2. **Retire the D12 question masses** (prerequisite 0.15, mechanism 0.1). They become the learned `w_question` drift weight plus question text inside inferred claims. No hand table by question type (D4, D5).
 3. **"Got it" or "I understand" is never evidence** (D3).
 4. **Quick probes without ceremony** (F2 holds). Probes are served on vault items, so they carry full evidence, with the confidence tap, worded "How likely…" as today (D10). They are offered:
