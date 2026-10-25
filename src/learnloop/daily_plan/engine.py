@@ -189,7 +189,8 @@ def reading_path_plan_active(vault: Any) -> bool:
     Guide's paths off, every plan build is the predecessor's exactly, and a
     plan already built goes back to the predecessor's reading while that
     reading is unstarted (:func:`_reading_path_switched_off`; Codex review
-    F1)."""
+    F1), a plan that closed by itself only for want of the reading the path
+    left out reopening with it (fix round 2)."""
 
     section = getattr(vault.config, "reading_paths", None)
     return (
@@ -1596,7 +1597,10 @@ def simulate_blocks(
     policy = policy.projection()
     sim = PlanRecord(row=copy.deepcopy(record.row), blocks=copy.deepcopy(record.blocks))
     out: list[tuple[Decision, PlannedBlock]] = []
-    reading_used = any(block.is_reading for block in sim.blocks)
+    # RW7b (fix round 2): a path reading the switch withdrew unread is no
+    # reading of the day here either (as in ``_context``), so the projection
+    # shows the predecessor's reading that live selection now chooses.
+    reading_used = any(block.is_reading and not block.withdrawn_path_reading for block in sim.blocks)
     pending = list(forced)
     for _ in range(max_blocks):
         # The plan's planned and skipped items, plus adaptive difficulty AD2+AD3's
@@ -2837,7 +2841,13 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
             for block_id, kind, detail in writes:
                 _event(connection, block_id, kind, detail, now)
             if path_split is not None:
-                store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
+                if path_split["reading_path"]["transition"].get("reopened") is not None:
+                    # Fix round 2: the plan closed only for want of the reading
+                    # the path left out; it reopens with the predecessor's.
+                    store.update_plan(connection, record.id, split_json=path_split, status="open",
+                                      stop_reason=None, completed_at=None, updated_at=now)
+                else:
+                    store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
         return _reload(env, record.id)
     return record
 
@@ -2859,9 +2869,18 @@ def _reading_path_switched_off(
     one already ended, is history and is kept. Recorded once: switching back
     on does not re-read the path (the plan reads it only when it is built).
     Returns the new split, or None when nothing changes; a plan the switch
-    never touched (no receipt) is never rewritten."""
+    never touched (no receipt) is never rewritten.
 
-    if not record.is_open:
+    A closed plan is left closed, except one that closed by itself only for
+    want of the reading the path left out (fix round 2,
+    :func:`_closed_for_want_of_path_reading`): it is reopened with the
+    predecessor's reading, and the transition's ``reopened`` records the
+    status, stop reason and completion time it had. A plan the learner
+    ended, or one the chooser stopped with work still feasible, stays as it
+    is."""
+
+    reopen = not record.is_open
+    if reopen and not _closed_for_want_of_path_reading(record):
         return None
     split = record.split
     receipt = split.get("reading_path")
@@ -2927,7 +2946,33 @@ def _reading_path_switched_off(
             "displaced_block_ids": [block.id for block in pending],
         },
     }
+    if reopen:
+        updated["reading_path"]["transition"]["reopened"] = {
+            "status": record.status,
+            "stop_reason": record.row.get("stop_reason"),
+            "completed_at": record.row.get("completed_at"),
+        }
     return updated
+
+
+def _closed_for_want_of_path_reading(record: PlanRecord) -> bool:
+    """RW7b (fix round 2): whether a closed plan closed by itself only
+    because its reading path left no reading.
+
+    The plan completed (not the learner's "Done", ``stopped``) with no
+    reading in its split, its newest stop was the boundary finding nothing
+    feasible (not the chooser stopping with work left), and it never had a
+    reading block. The caller then checks the receipt (a predecessor reading
+    the path left out, no transition yet) and the switch."""
+
+    if record.status != "complete" or record.row.get("stop_reason") == "learner_stopped":
+        return False
+    if record.split.get("reading") is not None or any(block.is_reading for block in record.blocks):
+        return False
+    stops = record.stops()
+    if not stops:
+        return False
+    return not (stops[-1].chosen.get("feasible_ids") or [])
 
 
 def _open_cold_check_items(env: PlanEnv) -> frozenset[str]:

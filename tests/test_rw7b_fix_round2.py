@@ -48,9 +48,6 @@ def _skip_to_done(ctx, session_id) -> dict:
     raise AssertionError("the plan never finished")
 
 
-def _projected_titles(plan) -> list[str]:
-    return [row["readingTitle"] for row in plan["plan"]["projected"] if row.get("readingTitle")]
-
 
 # -- Medium: a plan auto-completed because the path excluded every reading -----------------------------
 
@@ -122,17 +119,24 @@ def test_an_auto_completed_plan_with_a_reading_ended_stays_complete(tmp_path, mo
 
 
 def test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection(tmp_path, monkeypatch):
+    from learnloop.daily_plan.view import project_blocks
+
     paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     staged = _stage_reading(ctx, session_id)
     assert staged["reading"]["sectionId"] == "sec_spectral"
     append_config_toml(paths.root, OFF)
-    # Reconcile withdraws the staged block; the projection names what live selection now chooses.
-    plan = call(context(paths.root), "get_daily_plan", {})
-    record = E.latest_today(E.PlanEnv(load_vault(paths.root), repository))
+    env = E.PlanEnv(load_vault(paths.root), repository)
+    # Reconcile withdraws the staged block (no boundary crossed yet) ...
+    record = E.reconcile(env, E.latest_today(env))
     assert next(block for block in record.blocks if block.id == staged["blockId"]).withdrawn_path_reading
-    assert _projected_titles(plan) == ["1 Eigenvalues"]
-    # Advance: live selection serves the section the projection named.
-    step = call(context(paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
-    assert step["kind"] == "reading" and step["reading"]["sectionId"] == "sec_eigen"
+    assert record.current_block() is None
+    # ... and the projection from that record names the predecessor's reading,
+    projection_context, _built = E._live_context(env, record)
+    projected = [row["reading_title"] for row in project_blocks(record, projection_context, env.policy)
+                 if row["reading_title"]]
+    assert projected == ["1 Eigenvalues"]
+    # which is what the next boundary (advance) chooses live.
+    _record, step = E.advance(env, serve=True)
+    assert step["kind"] == "reading" and step["reading"]["section_id"] == "sec_eigen"
