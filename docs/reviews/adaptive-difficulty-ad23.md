@@ -1718,3 +1718,228 @@ migration 218 (`ingest_batches.origin_method`) and `fixtures/migration_head_218`
   four compose files, `test_coordinated_migrations`, `test_tracked_fixture_databases` and every
   migration test that reads a head fixture or applies migrations (11 files): **507 passed**.
 - `lint-imports --no-cache`: **34 kept**, 0 broken.
+
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/ad23-onto-main`, cut from main `867b97cf1` (T1 at
+`bd0bb7267` plus one docs-only commit adding the teacher, learned-parameters and MCP frontend specs). The stage tip is
+`84b216398`, unchanged; the final round was verified CLEAN (Codex job `20261024-142301-glI6Tb`) under the owner's
+proportionate bar. Main was neither fast-forwarded nor pushed here. Successor **mvp-0.30** (predecessor mvp-0.29), one
+migration, **214**, under main's head 218 (the runner is set-based).
+
+### Commits and conflicts
+
+- `0d30eb399`: the `--no-ff` merge of `adaptive-difficulty/ad23`. **No conflicts**: main's only delta since the
+  stage's compose onto T1 is three new files under `docs/specs/`.
+- `7b090887b`: the owner decisions recorded in the AD spec (§15, D23-D27) and the 2026-10-20 confirmations in the
+  Reader spec (§16); §8's owner commands now name the relatedness route `ai.routing.ad_relatedness` (since C4).
+- This record.
+
+### The successor chain
+
+On the merged tree:
+- `SUCCESSOR_CHAIN` is linear, 21 tags, ending `mvp-0.26 -> mvp-0.27 -> mvp-0.29 -> mvp-0.30`; `mvp-0.28` is in no
+  set. `LATEST_ALGORITHM_VERSION` = mvp-0.30, so `learnloop upgrade` with no `--to` goes to mvp-0.30 (parity (b)).
+- `ad_successor_upgrade.upgrade_to_mvp030`: predecessor mvp-0.29; mvp-0.9 … mvp-0.27 chain through
+  `intent_upgrade.upgrade_to_mvp029`; AD's DERIVED state (`ad_state`, `ad_attempt_trace`, `item_forecast_scores`) is
+  prepared before the rename. The CLI's `--to mvp-0.30` branch and its "expected" list are in place.
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM`: with the template `.pyc` cleared, all **21** entries equal
+  `defaults_fingerprint_for_version` (**0 mismatches**).
+- The projection namespace stays mvp-0.8's (`P0_SUCCESSOR_VERSIONS` is the chain).
+- The 58 test files that pin the chain, a snapshot or an upgrade (every test naming `SUCCESSOR_CHAIN`,
+  `DEFAULTS_SNAPSHOT_BY_ALGORITHM`, `LATEST_ALGORITHM_VERSION`, `upgrade_to_mvp0*`, `P0_SUCCESSOR_VERSIONS` or a
+  namespace; `fixtures-local/chainfiles.txt`): **1,466 passed** before the full suite.
+
+### Regeneration
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **218** with
+  214's tables (`ad_selections`, `ad_commission_results`, `ad_dose_offers`, `ad_relatedness_runs`,
+  `ad_coupling_versions`, `ad_state`, `ad_attempt_trace`, `item_forecast_scores`), **347** table notes, **1,033**
+  configuration leaves. The regeneration changed only the `source_commit` labels of 418 notes, so nothing was
+  committed.
+- **Defaults snapshots**: unchanged (above).
+- **CLI help snapshot and RPC pins** (serializer snapshot, desktop RPC contract, mobile allowlist): their tests pass in
+  the full suite; no file needed rewriting.
+- **`validate_vault.py`**: passes (1,150 notes, 1,148/1,148 reachable).
+- **Failing before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **1,071** issues (1,005 at the T1
+  landing; the new ones are AD's modules without module notes).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (5.14.0), `TMPDIR` = merge2's
+`fixtures-local/tmp`, every later command `uv run --no-sync`. Every command ran in a `systemd-run --user --scope`
+(pytest lanes 10G/2G with `-n 8` under `flock /tmp/learnloop-fullsuite.lock`; everything else 5G/1G). Gate head
+`7b090887b` (code as `0d30eb399`; this record is docs only). Logs: `fixtures-local/ad23-landing-*.log`. **This is the
+first full run over AD2+AD3's code.**
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **34 kept**, 0 broken |
+| full suite (`pytest -n 8`, 52 min) | **22,019 passed**, 1 failed, 3 skipped, 38 xfailed |
+| the one failure, alone, 3 times | `test_plan_first_transport_offer_grants::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter`: **3/3 passed** (48 s each). A load flake: under `-n 8`, beside another stage's pytest and this landing's parity runs, a batch job had not reported (`KeyError` on `harness.seen[batch]`) when the assertion ran. It is T1's test and no AD code is on its path |
+| durability (`-m durability`) | **120 passed** |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (the whole vitest run) | **206 files, 1,737 tests passed**, no unhandled error |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean after every lane; no non-empty `-wal` beside a fixture |
+
+No real failure, so no landing fix.
+
+### Parity (backup-API copies; no model call)
+
+**Setup** (scripts in `fixtures-local/landing-ad23/scripts/`, outputs in `out/`):
+- **Copies.** The pre-upgrade backups `fixtures-local/vault-backups-20261024/{linear_algebra,probability}` of the
+  main checkout (schema 165, `mvp-0.8`, 0 `model_call_receipts`; probability with its `.learnloop/state.sqlite`) were
+  copied once each with `copy_tree_with_databases` into `landing-ad23/orig/`. Every other copy came from `orig/` or a
+  copy of it through the same helper. The owner's `fixtures/` vaults were not opened, nor `arxiv_v2`.
+- **Code.** Main's code is `git archive 867b97cf1`, the merge's `git archive 0d30eb399` (`src`, `migrations`,
+  `pyproject.toml`), each first on `sys.path`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG`; `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories.
+- **Routes.** `neutralize3.py` under each code sent every route (59 on main, 60 on the merge, `ad_relatedness`
+  included) to `127.0.0.1:9`: chat routes to an `openai_chat` profile, decider-only routes (`ad_forecast_decider`,
+  `tier1_decider`, `hint_chooser`) to a decider profile, both keyed by the unset variable `LL_LANDING_NO_KEY`, so any
+  outside request stops before the transport. `ai.active_provider` to that profile, fallback cleared;
+  `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`, `[embedding]` and `[learner_text_gaps]` off;
+  `build_on_serve` and outcome placement off. A copy neutralized under main's code got the merge's one extra route
+  (`ad_relatedness`) before the merge opened it (`neutralize_add.py`). `routes.py` resolved every `AITask` on both
+  codes (62 / 63): nothing outside the two loopback profiles except `embedding` (disabled, keyless).
+- **Clock.** Every plan, Today and probe run froze the clock at 2026-10-19 09:00 UTC.
+
+**(a) Below the successor**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate): main's code / the merge's | 165 → 218, 52 migrations / 53 (with 214) | the same |
+| schema, main vs merge | **36 objects only on the merge, all 214's**: 8 tables (`ad_selections`, `ad_commission_results`, `ad_dose_offers`, `ad_relatedness_runs`, `ad_coupling_versions`, `ad_state`, `ad_attempt_trace`, `item_forecast_scores`), 5 indexes (`idx_ad_dose_offers_created`, `_draw`, `idx_ad_relatedness_runs_subject`, `idx_ad_selections_block`, `_cell`), 13 autoindexes, 10 append-only triggers (`*_no_update` / `*_no_delete` on the five ledgers). **Two tables' SQL differs, both AD1 receipts altered by 214**: `item_serve_inputs` gains `protection_epoch TEXT`; `ad_reading_opportunities` is rebuilt with `protection_epoch TEXT NOT NULL DEFAULT ''` and its two UNIQUE keys widened by the epoch. Nothing only on main | the same (1,450 → 1,486; LA 1,451 → 1,487) |
+| rows of every common table (344), main's columns | **identical** (16,543 rows); the two new columns empty; the eight new tables empty; `schema_migrations`: the merge has 214 extra, common rows differ only in `applied_at` | **identical** (7,641) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation except the replayer list (11 on main, 13 on the merge: AD's `adaptive_difficulty` and `item_forecast_scores`); facet 0, mastery 2, schedule 8, as on main; live database unchanged on both | the same (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error: as at earlier landings) | **0 differences** (101, 48) |
+| at `mvp-0.8`: certification, recipe gaps, curves; the Today queue (no session, a session, greedy); the daily plan | **byte-identical** (cert 132,860 bytes; queue 41; the plan is off below mvp-0.14) | **byte-identical** (cert 17,494; queue 67) |
+| to `mvp-0.29` with each code (`--to mvp-0.9`, `--to mvp-0.27`, `--to mvp-0.29`, `rebuild-derived-state` twice) | all rc 0, label mvp-0.29, both codes | the same |
+| main's mvp-0.29 copy vs the merge's, rows | after replacing ULIDs and timestamps (each run mints its own), every common table identical except: `parameter_registry` **+9 rows** on the merge (AD's numeric keys registered: `calibrate_below`, `dose_daily_offers`, `dose_floor`, `history_fallback`, `near_tie_margin`, `overlap_band`, `overlap_share`, `practice_band`, `ready_threshold`), so the 20 `parameter_registry_manifests` hash differently; one `attempt_debug_payloads` row whose JSON keys are the run's own hypothesis ULIDs; 214's ledger row. **No pre-existing row differs or is missing** | the same (without the debug-payload row) |
+| `rebuild --shadow` / `doctor` at mvp-0.29, either code | **0 / 0 / 0**, live database unchanged; doctor as above | the same |
+| main's mvp-0.29 copy opened by each code (`c29`): schema and rows | only 214's 36 objects and the two receipt columns; every row identical | the same |
+| at mvp-0.29, main vs merge (main's upgrade, and the merge's own upgrade): certification and curves, Today | **byte-identical** (129,651 bytes; queue 43, 528,665 bytes) | **byte-identical** (17,495; queue 67, 741,269 bytes) |
+| the daily plan at mvp-0.29 (read, serve, serve again, read) | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`, which differ between any two runs (DL2's and T1's landings recorded the same three) | the same |
+
+**(b) The upgrade** (the merge's code)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| `upgrade --to mvp-0.30` on main's mvp-0.29 copy | rc 0, "mvp-0.29 -> mvp-0.30" | the same |
+| bare `upgrade` (the default target) on another copy | rc 0, "mvp-0.29 -> mvp-0.30" | the same |
+| rows vs the copy just before (normalised as above) | **no row removed or changed** in any table except: `ad_state` +9 and `ad_attempt_trace` +90 (AD's DERIVED state, prepared before the rename); `facet_capability_evidence` (36) and `facet_recall_state` (76), DERIVED, only the `algorithm_version` stamp; `parameter_registry` +9, `parameter_registry_manifests` +1, `derived_state_rebuilds` +1 | the same (`ad_state` +2, `ad_attempt_trace` +3; 1 and 2 stamped rows) |
+| `rebuild --shadow` right after the upgrade | facet 0, **mastery 21**, schedule 0: all 21 the `algorithm_version` stamp of `mastery_state` rows (mvp-0.29 → mvp-0.30), no value differs; live database unchanged | facet 0, mastery 18 (stamp only), schedule 0 |
+| after `rebuild-derived-state` twice | `rebuild --shadow` **0 / 0 / 0**; `doctor` as at mvp-0.29 | the same |
+| the owner's full chain from mvp-0.8 (`--to mvp-0.9`, `--to mvp-0.27`, `--to mvp-0.29`, `--to mvp-0.30`, `rebuild-derived-state` twice) | all rc 0, label mvp-0.30; shadow **0 / 0 / 0** | the same |
+
+**(c) The kill switch.** Copies of the mvp-0.30 vault, against the merge's code on main's mvp-0.29 copy (`base29`),
+same frozen clock:
+
+| Run | Today queue | certification, curves | daily plan (read, serve, serve, read) |
+|---|---|---|---|
+| `[adaptive_difficulty] selection = false` | **byte-identical** (both vaults) | identical except `label` (the version) | identical except the version stamps (`plan.algorithmVersion` in 4 responses, `router_decisions.algorithm_version`), the run-varying card hashes, and the router card's `card_version` `learner_state_card_v1+ad23`: the card carries AD's readiness fields while `promoted_predictor` is on, which `selection` does not switch. The router's choice and everything served are identical |
+| the six switches and `reading_dose_offers` false | **byte-identical** | the same | identical except the version stamps and the run-varying card hashes (`card_version` back to `learner_state_card_v1`) |
+
+The same holds past the plan's first block (the probe in (d)): with `selection = false`, "Done" then "More new material"
+serves exactly mvp-0.29's item, writes no `ad_selections` row and no AD block event; the only other difference is AD's
+in-process forecast receipts (`ad_threshold@subject`, `@subject_uniform`, `@lo`), which the subject view writes as
+predictions, not serving.
+
+**(d) Defaults at mvp-0.30** (selection on, owner decision 2026-10-19).
+- **Today's plan, first block:** both vaults open with a block AD does not draw for (a repair block on linear_algebra,
+  a maintain block on probability; AD serves only a new-material slot the chooser planned, `serving.slot_applies`).
+  The plan, Today and certification equal (c)'s: **no AD draw, substitution or deferral**, 0 `ad_selections`.
+- **A new-material slot** (`ad_probe.py`: "Done" with `plan_keep_going stop`, then "More new material" with
+  `plan_more_new`, confirmed, then the next item four times, each reopened):
+  - **linear_algebra:** one serve draw, mode **calibrate** (`p_band` 0.009, `p̄` 0.25 on
+    `lo_what_makes_a_vector_space` / `method_selection`), support of one, so it chose the planned item
+    `pi_what_makes_test_strategy_01` with propensity 1 (router propensity 1, pair 1). No substitution: the served
+    item is mvp-0.29's. One **commission** draw (calibrate, over the cell's feature points) enqueued a
+    `practice_expansion` job, which **failed before sending** ("Environment variable LL_LANDING_NO_KEY is required.").
+  - **probability:** the planned first item `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5` **failed check 0's `envelope`**
+    (its feature point is past the default trajectory's depth envelope): an `empty_support` row and `item_displaced`
+    with reason `ad_ineligible`. The plan's rules then served the next new item, `pi_nonuniform_collision_four_categories`,
+    by a calibrate draw (propensity 1), plus one commission draw whose job failed before sending, as above. So at
+    mvp-0.30 the learner's first "more new" item on probability differs from mvp-0.29's (the deferred item returns
+    when the draw's own checks clear it at a later boundary).
+  - What the learner sees: `adaptive_difficulty.why_item` answers **"A question to find your level here"** for both
+    served items; `adaptive_difficulty.readiness` gives "Top level for this goal: not yet shown · not yet likely (a
+    prediction)" on linear_algebra's LO, and "… (a prediction; 1 of 2 parts untested)" on probability's.
+- **`learnloop ad report`** (`--dry-run` first: 0 model calls, 0 writes): **`guard.denials` 0** on every copy, before
+  and after the probe. After the probe: `serve_draws` 1 (linear_algebra; `modes` calibrate 1) and 2 (probability;
+  calibrate 1, empty_support 1); `commissions` `draws` 1, `results` 0, `landed_after_expiry` 0, `off_point` 0,
+  `miss_rate_by_point` {} on both; `band_mode_share` 0.0; `protection` available, 15 withheld items on
+  linear_algebra, 0 on probability; dose arm 0 eligible draws. Every auto-flag quiet; every "is it helping?" line
+  "can't tell yet" (8 first attempts on linear_algebra).
+- **No model call by AD**: 0 `model_call_receipts` on every copy; forecast receipts only the in-process ones
+  (`mastery_ekf`, `lo_general+composite`, `ad_threshold@*`, all `ok`); the feature audit's `judgment_ledger` rows are
+  all verdict **`unavailable`** (60 / 35 to 50 per run); both commission jobs failed before the transport.
+
+**`model_call_receipts`**: **0 rows** in all 42 learner databases under `landing-ad23/`, and in the 7 of two
+interrupted runs moved to `fixtures-local/tmp/ad23-cd-old` and `ad23-e-old` (a missing migrate step in the first (c)
+script; a session restart during the first probe), none `completed`.
+
+### Owner notes
+
+- **Upgrade.** Back up the vault (a backup-API copy), close the app, the MCP server and the mobile host, then
+  `uv run learnloop upgrade --vault <vault> --to mvp-0.30` (your vaults are at mvp-0.29 after the orchestrator's
+  upgrade), then `uv run learnloop rebuild-derived-state --vault <vault>`. From mvp-0.8 the chain is `--to mvp-0.9`,
+  `--to mvp-0.27`, `--to mvp-0.29`, `--to mvp-0.30`, then `rebuild-derived-state`. Right after the upgrade a shadow
+  rebuild shows only `mastery_state`'s version stamp; after `rebuild-derived-state` it is clean.
+- **Owner decisions** (recorded in `spec_adaptive_difficulty_v1.md` §15 as D23-D27):
+  - **AD1, 2026-10-18:** the outside forecasters and the feature audit stay on.
+  - **AD2+AD3, 2026-10-19:** selection on; the failing simulation gates ship as monitors; `calibrate_below = 0.25`;
+    `learned_coupling` off until you spot-check relatedness; the current-content history fallback; the report's
+    windows; a 7-day commission expiry.
+  - **2026-10-21:** A8 ends at AD's commission target plus the egress guard (E1); one vault-wide protection epoch
+    (E2); a guard denial fails closed and is counted in `ad report`.
+  - **2026-10-23:** Option B (a reading with withheld blocks is absent for reading signals); your books may hold
+    held-out units; follow-up D queued (reading credit from visible parts); the "Worked Examples" heading role into the
+    shared role classifier.
+  - **2026-10-24:** the final round is the inversion, and verification blocks only on realistic harm (the
+    proportionate bar).
+- **Reader confirmations (2026-10-20, queued since RW1c):** Q1 (no switch), Q44 (a withdrawn check ends honestly), Q45
+  (practice ends the check), and RW6a's defaults, now also recorded in `spec_reader_workbench_v1.md` §16 (the review
+  records already carried them).
+- **What you see.** Under a new-material item AD drew for, one quiet line: "Picked to be challenging but doable for you
+  (about a 3 in 4 chance)" (band), "A different kind of question, to keep LearnLoop's picture of you accurate"
+  (overlap) or "A question to find your level here" (calibrate). On an LO's inspector page, the subject view's
+  readiness line, always labelled a prediction ("not yet shown · likely ready (a prediction)"; "untested" where a
+  part has no answer of its own). In the Reader, at most one extra worked example or question per section and three
+  a day (the dose arm, at probability 0.10). Repair, maintain and check slots are served as before. Expect calibrate
+  draws at first (your estimates are wide), and a commission (a generated item at a chosen feature point) when a cell
+  has nothing near the band; it goes through the ChatGPT plan and the generator's usual protections.
+- **Kill switches** (`[adaptive_difficulty]` in `learnloop.toml`, each read only at mvp-0.30): `selection` (AD's
+  draw; off serves mvp-0.29's items), `generation_contract` (commissioned generation), `promoted_predictor` (the
+  subject view, its readiness lines and the router card's AD fields), `learned_coupling` (off by default),
+  `reading_opportunities`, `reading_self_check`; `reading_dose_offers` for the dose arm; `forecast_receipts`,
+  `outside_forecasters`, `feature_audit`, `rating_tap` from AD1. `learnloop ad report` names the switch behind each
+  auto-flag.
+
+### Open items (post-landing)
+
+- **L1-L5** (`adaptive-difficulty-ad23-codex-review.md`, "AD follow-up"): the reading-event rule fails closed (L1,
+  with **C3**, the unmapped judgment kinds that fail open, folded in); a hint-equivalent help question in the item-4
+  test (L2); `protected_reading_counts` undercounts (L3); one constant for the reading contexts (L4); the oracle's
+  `ext:span` keys (L5).
+- **C1-C3**: `reader_cue_impressions`' value proxies and `passage_links` (C1); `reader_path_depths` reclassified if a
+  reader appears (C2); C3 as above. C4 is done (the compose onto T1).
+- **R-L1..R-L8** (the final round's skipped part of R): pinned openers per scope, the per-read stack walk, `stored()`
+  pinned to its table (the `dose.py` lambda), `own_write`'s openers, an audit of `except` clauses under the codec, the
+  egress `suspended()` (E1), process-level memoization in incumbent modules AD imports, `MaterialView.rows(where=…)`'s
+  free SQL.
+- **Follow-up D**: reading credit in protected books from their visible parts (exact cited span first, then AD's own
+  heading-based sections).
+- **The "Worked Examples" heading role** into the shared role classifier.
+- **The `learned_coupling` spot-check**: §8 steps 4-4c on a copy; until then the subject view stays at uniform
+  sharing and no relatedness proposal is sent.
+- **Observations from this landing, not blocking:** (1) `selection = false` alone leaves the router card's AD fields
+  (`card_version` `+ad23`), by design (they follow `promoted_predictor`); nothing served differs. (2) On probability
+  the first "more new" item was deferred by the `envelope` check, so its learner sees a different first new item
+  than at mvp-0.29; worth a look in the first real report (how often check 0 defers an owner-authored item).
