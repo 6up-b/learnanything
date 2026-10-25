@@ -282,7 +282,8 @@ def test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read(tmp
 
 _ATTEMPT_IN_ANOTHER_PROCESS = """
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
+from pathlib import Path
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -290,8 +291,8 @@ from learnloop.vault.loader import load_vault
 
 root, sqlite_path, item_id, when = sys.argv[1:5]
 complete_self_graded_attempt(
-    load_vault(root),
-    Repository(sqlite_path),
+    load_vault(Path(root)),
+    Repository(Path(sqlite_path)),
     AttemptDraft(
         practice_item_id=item_id,
         learner_answer_md="SVD factors a matrix into U, Sigma and V transpose.",
