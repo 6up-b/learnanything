@@ -165,7 +165,12 @@ it("covers every screen that wires a read's failure to Try again", () => {
     const text = readFileSync(join(src, file), "utf8");
     return /useReportQueryError\(|retryReport\(\)/.test(text) && file !== "api/useCachedQuery.ts";
   });
-  expect(wiring.sort()).toEqual(["screens/KnowledgeMapScreen.tsx", "screens/LibraryScreen.tsx"]);
+  // UX Phase 3 landing: Today's full list (TodayPlace, fix round 1 F6) uses
+  // the query's self-contained `retryReport()` for its own in-place Try again;
+  // it hands no retry to the shell. Its tests (TodayPlace.test.tsx, "fix
+  // round 1, F6") check that Try again reads the list again, after a failed
+  // first read and after a failed refresh.
+  expect(wiring.sort()).toEqual(["screens/KnowledgeMapScreen.tsx", "screens/LibraryScreen.tsx", "screens/today/TodayPlace.tsx"]);
   // Nothing hands the shell a retry built from a hook's refetch.
   const fromRefetch = files.filter((file) => /retry:\s*\(\)\s*=>\s*(?:void\s+)?\w*\.?refetch\(/.test(readFileSync(join(src, file), "utf8")));
   expect(fromRefetch).toEqual([]);
