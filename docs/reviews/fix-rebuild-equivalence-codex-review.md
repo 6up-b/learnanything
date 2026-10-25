@@ -184,3 +184,129 @@ one after them.
    - the chain-tail pins and the `SUCCESSOR_CHAIN[-N]` indices;
    - the snapshot comments.
    - The tag string itself stays.
+
+## Re-review (codex-job `20261025-182854-rm8t2h`)
+
+Codex reviewed `e3952d97f..fix/rebuild-equivalence`: F1, F3 and F4 confirmed fixed, F2 reopened, and
+two new findings (F5, F6). Each was reproduced first.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Direct replay publishes incomplete vault-wide evidence | confirmed fixed | `fe25c1d23` | Codex: CONFIRMED-FIXED |
+| F2 | Medium (recorded Low) | ID order is not commit order (reopened) | **rejected** (again; pinned) | — | No persisted commit order exists without a migration (below); proportionate-protection rule (owner, 2026-10-24). The strict xfail stays. |
+| F3 | Medium | Non-idempotent rebuild | confirmed fixed | `c8a138009` | Codex: CONFIRMED-FIXED |
+| F4 | Medium | No version boundary or kill switch | confirmed fixed | `c8a138009`, `9e32dff95` | Codex: CONFIRMED-FIXED (its recovery defect is F5) |
+| F5 | Medium | Startup receipts can hide an interrupted activation | **fixed** | `8158c60ae` | `tests/test_rebuild_equivalence_review.py::test_a_startup_receipt_after_a_died_activation_does_not_hide_it`, `::test_a_died_activation_with_no_rebuild_receipt_is_completed`, `::test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation` (all three failed first: "vault is already mvp-0.34") |
+| F6 | Medium | Successor-chain updates leave deterministic test failures | **fixed** | `8f4dc4b3e`, `a859b2f1e` | The 21 chain-pinning tests (17 failed first), plus 4 more failures of the same round found by this gate (below); all pass now |
+
+### F5 (Medium): fixed
+
+**Reproduction.** Each test builds a predecessor vault whose rebuild left the predecessor's replay. It
+then labels the vault `mvp-0.34`, as an activation would that published the config and died before its
+commit. Before the fix, the upgrade answered "vault is already mvp-0.34" and the mastery stayed the
+predecessor's in three cases:
+- a desktop restart's `refresh_canonical_projection_on_startup` had stamped an `mvp-0.34` startup
+  receipt (the finding's scenario);
+- the vault had no rebuild receipt at all;
+- a per-LO rebuild under the tag was the latest receipt.
+
+**Fix.** Recovery now reads the activation's own completion marker, the receipt of a whole-vault
+rebuild (scope `all`) under the tag. It never reads whichever receipt is latest.
+- `rebuild_all_derived_state` writes that receipt inside the activation's transaction, so the receipt
+  exists exactly when the rebuild committed. No later startup, per-LO or recovery receipt can stand in
+  for it.
+- The new query is `Repository.has_whole_vault_rebuild(algorithm_version=...)` (a read, no schema change).
+- A vault labelled the tag that never had a whole-vault rebuild under it gets one, and a fresh vault
+  counts. At the tag a rebuild reproduces live, so this is safe. The note now says what happened:
+  "completed the activation of mvp-0.34 (a whole-vault rebuild under it)".
+- A second run refuses ("vault is already mvp-0.34"), which the startup test asserts.
+- File: `src/learnloop/replay_ledger_upgrade.py`.
+
+### F6 (Medium): fixed
+
+**Reproduction.** I ran the 21 tests that index `SUCCESSOR_CHAIN`, and 17 failed. Appending `mvp-0.34`
+had shifted every negative index, and the previous round updated only some of them. One example is the
+regrade test asserting `SUCCESSOR_CHAIN[-6]` equals both `mvp-0.26` and `mvp-0.25`.
+
+**Fix.** The pins no longer count from the tail, which moves.
+- Every pin to an earlier link now uses its position from the chain's head. The head is fixed at
+  `mvp-0.9 = [0]`, and the chain only grows at its tail. So `mvp-0.20` is `[11]`, and the
+  `mvp-0.17..mvp-0.22` slice is `[8:14]`.
+- The tag's own predecessor pin is by adjacency: `SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]`.
+- When RW7b (`mvp-0.32`) and the LP claim fixes (`mvp-0.33`) land before this tag, none of these pins
+  moves. Only the `[-1] == LATEST == "mvp-0.34"` pins and the version sets need care at landing.
+- The method-explicit test's version set had lost `mvp-0.31`, and it is back.
+- 20 files changed.
+
+**Found by this round's gate (`a859b2f1e`).** The targeted run below failed 4 tests that the previous
+round's F4 changes had left behind. They are the same class as F6, so they are fixed under it:
+- `test_mvp018_upgrade.py::test_upgrade_command_defaults_to_the_latest` and
+  `test_regrade_contract_upgrade.py::test_upgrade_command_reaches_the_successor` still expected the
+  CLI's default upgrade to stop at `mvp-0.31`;
+- `test_required_method_grading.py::test_the_method_explicit_successor_is_the_latest_after_the_route_rules`
+  had lost `mvp-0.31` from its version set;
+- `test_architecture.py::test_runtime_packages_import_only_public_cross_boundary_names`:
+  `replay_ledger_upgrade` imported the private `_publish_algorithm_version`. `regrade_contract_upgrade`
+  now exports it as `publish_algorithm_version` (in `__all__`), and the replay-ledger upgrade imports
+  that public name.
+
+### F2 (Medium): rejected again, with the reason made concrete
+
+Codex is right that the strict xfail documents the mismatch rather than resolving it. The verdict
+stays rejected for this stage, for these reasons.
+
+1. **No persisted commit order exists to replay by.** Each attempt's id is a ULID allocated before
+   grading (`attempts.py`, e.g. line 892). Its `created_at` is stamped at record time with second
+   precision. Nothing else in the schema records the order in which writes committed.
+   - SQLite's implicit rowid is the only candidate, and it is not a durable order. `practice_attempts`
+     has no `INTEGER PRIMARY KEY`, so `VACUUM` may renumber it.
+   - Migrations 004, 018, 020, 022 and 153 rebuilt the table with `INSERT … SELECT`.
+   - So a correct fix needs a new column, a migration after 221, allocated inside the write
+     transaction. Its backfill rule would be `(created_at, id)` order for history. It also needs a new
+     order for the replay fold, the canonical observation ledger and every bounded read. That is a new
+     persisted meaning in modules this stage does not own, so it is its own stage, as open question 1
+     already proposes.
+2. **Proportionate protection (owner, 2026-10-24).** The rule is to block only on realistic
+   learner-visible harm or unapproved spend, and to record everything else as Low.
+   - The case needs two grades in flight at once (the desktop and the phone together), committing in
+     the same wall-clock second in reverse allocation order.
+   - Its effect is the order of two folds in a rebuild's mastery, which is deterministic from then on.
+   - No item, schedule or grade the learner sees changes outside a rebuild, and there is no spend.
+   - The predecessor's replay has the same fold order, so this stage does not make it worse.
+3. **It stays visible.** The strict xfail
+   `::test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live` turns red the moment
+   a commit sequence lands.
+
+The finding is recorded as Low for the landing, with open question 1 as its follow-up.
+
+### Validation and gate (re-review round)
+
+No live calls. Python outside pytest ran only under `env -i` with empty, existing
+HOME/CODEX_HOME/LEARNLOOP_CONFIG_DIR. Every pytest ran in a `systemd-run --user --scope -p
+MemoryMax=5G -p MemorySwapMax=1G` scope with at most `-n 6`. No fixture vault was touched.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- `db_validate_reference.py`: **errors: []**. `module_validate.py`: all links resolved (14712/14712
+  wikilinks, 11795/11795 source/test links, 508/508 catalog notes). There is no schema change, so the
+  generators were not rerun.
+- Targeted pytest, `uv run pytest -n 6` (5G scope), on 37 files: every test file changed on the branch
+  since `e3952d97f` (25), plus the contract and consumer files `test_cli_help_snapshot.py`,
+  `test_config_refactor.py` (defaults snapshots), `test_architecture.py`,
+  `test_regrade_contract_upgrade.py`, `test_replay.py`, `test_p0_projection_cutover.py`,
+  `test_mvp010_upgrade.py`, `test_mvp09_upgrade.py`, `test_measurement_corrections.py`,
+  `test_causal_p2_acceptance.py`, `test_p0_cutover_mvp08.py` and `test_diagnosis_input_provenance.py`.
+  - First run: **626 passed, 4 failed, 6 skipped, 1 xfailed**. The 4 are the gate findings under F6.
+  - After `a859b2f1e`, the 6 files involved were rerun (`test_architecture.py`, `test_mvp018_upgrade.py`,
+    `test_regrade_contract_upgrade.py`, `test_required_method_grading.py`,
+    `test_regrade_contract_successor.py`, `test_rebuild_equivalence_review.py`): **124 passed, 1
+    xfailed**. The xfail is F2's strict pin.
+- Durability lane, `uv run pytest -n 6 --durable-sqlite tests/test_rebuild_equivalence_review.py`:
+  **12 passed, 1 xfailed**. It ran because a repository read was added.
+- `lint-imports` was rerun after `a859b2f1e`: **36 kept, 0 broken**. The two reference validators were
+  also rerun: errors [], with all links resolved.
+- No frontend, Tauri, migration or schema change.
+- The full suite, the whole durability lane and vitest wait for the landing gate (owner rule
+  2026-10-17).
