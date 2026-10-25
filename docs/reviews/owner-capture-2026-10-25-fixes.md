@@ -372,3 +372,156 @@ still recorded `hint-choice-policy-v1:fallback`.
 
 This round changed no client code, so vitest and the frontend build were not
 rerun. No model, paid or live calls were made. The full suite runs at landing.
+
+## Landing onto main
+
+Branch `merge/capture-fixes-onto-main` in `learnanything-merge2`. It was cut from `main` at `0db8291c1` (mobile PR-1
+secondary attach and two docs-only specs). Main did not move during the gate. **No algorithm successor, no
+migration, no config key.** Main was neither fast-forwarded nor pushed.
+
+### Commits and conflicts
+
+- `70b1c6067`: the `--no-ff` merge of `fix/owner-capture-1025` (`2ffa46b02`). **No conflicts.** PR-1 changed
+  `src/learnloop_sidecar/context.py`, `remote/runtime.py`, `vault/loader.py` and `db/migrate.py`. This stage changed
+  the practice, workbench and tutor handlers, `hints/*`, `db/stores/collection.py` and the practice and workbench
+  screens. The two sets of files do not overlap.
+- `a1889c49f`: the regenerated reference notes (below).
+- This record (docs only).
+
+The diff against main adds five files: this record, `tests/test_owner_capture_1025.py` and three vitest files. It
+adds no database or binary file, and the root `.gitignore` is unchanged.
+
+### Regeneration
+
+- **References.** On the merge, `db_validate_reference.py` failed with **4 errors**: the `tutor_qa.max_questions_*`
+  citations still named `src/learnloop/tutor/tutor_qa.py` lines from before the stage (298/303/310/318, now
+  323/328/335/343). The stage had not regenerated them. `db_generate_reference.py` was rerun and 5 notes with a
+  real change were kept:
+  - `Config - tutor_qa`: the citations.
+  - The `help_assists`, `scheduler_slate_candidates`, `session_checkpoints` and `submission_intents` table notes:
+    their source/test lists now name `tests/test_owner_capture_1025.py`, and `session_checkpoints` also names
+    `handlers/workbench.py`.
+
+  The other 418 rewrites changed only `source_commit` and were discarded. After that, the validator reports
+  **0 errors**.
+- **CLI help snapshot, RPC pins, defaults snapshots:** no change.
+  `test_cli_help_snapshot`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`, `test_sidecar_registry`,
+  `test_config_refactor`, `test_architecture`, `test_public_tip_guards` and the stage's file gave 96 passed with no
+  file changed, and they pass again in the full suite.
+- **`validate_vault.py`**: passes (1,155 notes, 1,153/1,153 reachable).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0) in 5G scopes. The pytest lanes
+ran in 10G / 2G swap scopes under `flock /tmp/learnloop-fullsuite.lock`. Everything else ran in 5G / 1G scopes.
+Every Python run used `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and all three
+directories existed beforehand. Logs are in `fixtures-local/capture-landing/`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`pytest -n 8`, at `a1889c49f`, 1 h 05 min) | 21,402 passed, **1 failed**, 74 skipped (the owner lane), 38 xfailed |
+| the one failure, run alone 3 times | `test_plan_first_transport_offer_grants::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter`: **3/3 passed** (44 s each). It is a known load flake, and this stage does not touch the transport |
+| durability (`-m durability`) | **124 passed**, 1 skipped |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **213 files, 1,832 tests passed**. The timing flakes the stage saw under load (App.fixRound2, Workbench F8, PracticeScreen.adaptiveHints) did not recur |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean apart from `fixtures-local/` |
+
+The Codex lockdown files all pass in the full suite, because the empty `CODEX_HOME` existed this time.
+
+### Parity (backup-API copies; no real model call)
+
+**Setup.** Scripts are in `fixtures-local/landing-capture/scripts/` (PR-1's, re-pathed) and
+`fixtures-local/landing-capture/scripts_cap/` (new for this landing).
+- `orig/` holds backup-API copies of `learnanything/fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}`.
+- `u31/` is `orig` brought to **mvp-0.31 with main's code**: every route neutralized to a `127.0.0.1:9` blackhole,
+  then `upgrade --to mvp-0.31` and `rebuild-derived-state` twice.
+- `code_main` and `code_merge` are `git archive` exports of `0db8291c1` and of the merge.
+- `run.py` puts the chosen code first on `sys.path`. Its audit hook refuses any process start that mentions codex
+  and any non-loopback socket. Over every parity run it logged **no process start and no connection at all**.
+- `~/learnloop-vaults` was never opened.
+
+**(a) Main vs merge, no practice actions** (`scripts/a.sh`; a second main copy, `c31r2`, is the noise control).
+Both vaults went through the normal primary sidecar load at a frozen clock with deterministic ids.
+- Whole databases: **identical** (schema and every row of 356 tables, 8,208 rows on probability; `row_differs` and
+  `sql_diffs` empty on both vaults). Integrity is ok, and `model_call_receipts` is 0 on both sides.
+- `rebuild --shadow` and `doctor`: **0 differences** main vs merge on both vaults. The shadow's 30 schedule
+  differences from live on linear_algebra, and doctor's issue counts (57 / 1 error and 101 / 48 errors), are the same
+  on both sides. They predate this stage.
+- Certification, curves, Today and the plan at the frozen clock: **byte-identical** main vs merge and main vs main
+  on both vaults (linear_algebra cert 129,651 / today 528,665 / plan 84,714 bytes; probability 17,495 / 741,269 /
+  40,799).
+
+**(b) The owner's scenario through the real sidecar** (`scripts_cap/cap_run.py`; each run on a fresh copy of
+`u31/probability`).
+- **How it ran.** `cap_sidecar.py` runs `learnloop_sidecar.server.serve` over stdio JSON-RPC with
+  `LEARNLOOP_HINT_MODELS=off`. Only three roles are fakes: the grader (`StuckFake`), the practice tutor (a recording
+  fake that keeps every context it is given) and the hint writer (`WriterFake`, injected the way the tests inject
+  it). The chooser therefore takes the fallback, which is the owner's no-Decider case.
+- **The item** is the owner's `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5` (4 authored hints), served from the queue
+  with its offer.
+- **`fixed` = the merged client's behaviour.** Hint (server ladder) → Work in steps (2 steps) → Ask (the steps sent
+  as `learnerDraftMd`) → submit in steps → the item served again (new key, Hint, Ask) → submit in the answer box.
+- **`stale` = the owner's original chain** (the old client). The answer box's draft also carries one
+  client-revealed authored hint (`hintsUsed: 1` plus its H0 row). After the steps submit, the **old** key is
+  resubmitted with the restored `hintsUsed: 1` and no offer.
+
+| | main `0db8291c1` | merge |
+|---|---|---|
+| Ask in steps | answered. The tutor's prompt held both steps, because the server already took `learnerDraftMd` (B1 was client-only; its vitest pins the client) | answered, both steps in the prompt |
+| checkpoint after the steps submit | still the item, with the answer box's draft | **cleared** |
+| Ask thread when the item comes back | the earlier question, 2 of 3 left | **empty, 3 of 3 left** |
+| after a second Ask on the reattempt | both questions, 1 left | **only the new one, 2 left** |
+| Hint on the reattempt (new key) | authored hint 1 again (rows are read by key) | authored hint 1 again: a fresh ladder |
+| answer-box submit, `fixed` | graded, attributed to the new offer | graded (`gradingSource: ai`), attributed to the new offer |
+| answer-box submit, `stale` (old key) | **`validation_error: The scheduler offer does not belong to this item/session or was already consumed.`** No attempt | **graded** under `box-1~after~<steps attempt>`, unattributed, `hints_used` **0** (fix round 2, item 2) |
+| hint counts, `fixed` | steps attempt 2 (1 server hint + 1 Ask), reattempt 2 (1 hint + 1 Ask) | the same. Each attempt counts only its own help. The hint-equivalence window was already per attempt |
+| hint counts, `stale` | steps attempt 3 (server hint + carried client hint + Ask) | steps attempt 3; the successor attempt **0** |
+| hint rows' attempts | each server row attached to its own attempt | the same. The stale draft's client row stays unattached, as the review says |
+| answered offers | each offer keeps exactly one attempt | the same. The successor attempt never takes the consumed offer |
+| hint `policy_version` | `hint-choice-policy-v1:fallback` | `hint-choice-policy-v2:fallback` |
+
+**(c) The help style with the fallback chooser** (the item, one Hint press after `practice.set_help_style`; and in the
+workbench, one suggestion after `workbench.set_help_style`).
+
+| style | main, practice | merge, practice | main, workbench | merge, workbench |
+|---|---|---|---|---|
+| balanced | authored hint 1 (L3) | authored hint 1 (L3) | rung 1 `approach_question` | rung 1 `approach_question` |
+| let me struggle | authored hint 1 (L3) | **`approach_question` L1** | rung 1 | rung 1 |
+| guide me | authored hint 1 (L3) | **`next_step` L3** (written for the work) | rung 1 | **rung 3** (the item's authored hint) |
+
+The merge's rows record `help_style` and `hint-choice-policy-v2:fallback`. These are the first hints documented in
+§4.5 and in `styled_level`. Main serves the same first hint for every style, which is the owner's B2.
+
+**Receipts.**
+- Every copy in (a): 0 receipts.
+- The (b) and (c) copies: only the fakes' rows (`fake`, `fake_tutor`, `fake_writer`). No real provider row,
+  completed or otherwise.
+
+### Owner notes: what changes for the learner
+
+- **Ask works in Work in steps.** There is an "ask · ?" action and the `?` key, and the tutor sees your steps as
+  your work.
+- **The help style matters without a Decider.**
+  - *Let me struggle* starts with an approach question.
+  - *Guide me* starts with a next step written for your work.
+  - *Balanced* is unchanged.
+  - In the workbench, *guide me* suggests rung 3 first, and *let me struggle* never suggests worked help.
+  - Changing the style with the ladder open asks for a new suggestion.
+- **A reattempt starts fresh.** A new hint ladder, a new Ask thread, and 3 Ask questions per attempt. Earlier hints
+  and questions stay on record and count only on the attempt they belonged to.
+- **Submitting never fails on a stale offer.** A draft the old bug left behind is graded, unattributed. Help from
+  before the earlier attempt is not counted again.
+
+### Open items
+
+- Three owner questions are recorded at the orchestrator's defaults:
+  - the style-aware fallback orders as built (long term: a model-routed `hint_chooser`);
+  - the 3-question Ask budget is per attempt;
+  - a successor-key submit is graded unattributed.
+- The Ask UX overhaul (the owner's 11:00 note) is a separate design item.
+- From the stage's own notes:
+  - With `hints.telemetry_enabled` off, an authored hint revealed on a stale draft counts nothing.
+  - The stale key's reveal rows stay unattached.
