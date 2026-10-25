@@ -120,11 +120,16 @@ def test_the_fallback_serves_a_source_qwen_does_not_cover(tmp_path, monkeypatch)
         paid = connection.execute("SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = 'source_query_embedding' "
                                   "AND parent_call_id IS NULL").fetchone()[0]
     assert paid >= 2  # Qwen's query and Voyage's, each receipted
-    # The space is part of every delivery receipt.
+    # The space (its identity) is part of every delivery receipt; the
+    # consumer's boundary writes the deliveries (Codex review F9).
     rows = _feedback(repository)
-    assert [row["event"] for row in rows].count("query") == 1 and rows[0]["consumer"] == "library"
+    assert [row["event"] for row in rows] == ["query"] and rows[0]["consumer"] == "library"
+    feedback.deliver(loaded(paths), repository, result, [hit.key for hit in result.hits])
+    rows = _feedback(repository)
+    voyage = selection["spaces"]["voyage"]["list"]
+    assert voyage.startswith("voyage@hs_")
     delivered = [row for row in rows if row["event"] == "delivered" and row["extraction_id"] == "ext_new"]
-    assert delivered and all("voyage" in row["payload"]["space_ranks"] for row in delivered
+    assert delivered and all(voyage in row["payload"]["space_ranks"] for row in delivered
                              if row["payload"]["space_ranks"])
 
 
@@ -184,6 +189,7 @@ def test_signals_join_their_delivery_and_the_posterior_replays_byte_identically(
     result = _search(paths, repository, owner_id="tq_1", consumer="tutor")
     receipt = result.space_selection["receipt_id"]
     first = result.hits[0]
+    feedback.deliver(loaded(paths), repository, result, [hit.key for hit in result.hits[:3]])
     assert feedback.record_citations(repository, consumer="tutor", owner_id="tq_1",
                                      citations=[{"extraction_id": first.extraction_id, "span_id": first.span_id}]) == 1
     assert feedback.record_open(repository, receipt_id=receipt, extraction_id=first.extraction_id,
@@ -219,43 +225,91 @@ def test_the_tutor_citation_hook_does_nothing_with_the_switches_off_and_joins_it
                                          [{"extraction_id": "ext_book", "span_id": "any"}])
     assert touched == []
     _fallback(paths, monkeypatch)
-    first = _search(paths, repository, owner_id="tq_7", consumer="tutor").hits[0]
+    searched = _search(paths, repository, owner_id="tq_7", consumer="tutor")
+    first = searched.hits[0]
+    feedback.deliver(loaded(paths), repository, searched, [first.key])
     tutor_qa._record_retrieval_citations(loaded(paths), repository, context,
                                          [{"extraction_id": first.extraction_id, "span_id": first.span_id}])
     cited = [row for row in _feedback(repository) if row["event"] == "cited"]
     assert [(row["owner_id"], row["span_id"]) for row in cited] == [("tq_7", first.span_id)]
 
 
+def _identities(paths, repository):
+    selection = _search(paths, repository).space_selection
+    return {name: row["list"] for name, row in selection["spaces"].items()}
+
+
 def test_the_seed_serves_while_the_learned_rule_is_only_logged(tmp_path, monkeypatch):
     paths, repository = _vault(tmp_path)
     client = _fallback(paths, monkeypatch)
     fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
-    posterior = {"global": {"lists": list(fusion.SPACE_LISTS), "mean": [0.1, 0.0, 0.0, 5.0], "signals": 9,
-                            "covariance": np.eye(4).tolist(), "context_key": "global"}}
+    ids = _identities(paths, repository)
+    posterior = {"global": {"lists": [ids["qwen"], ids["voyage"]], "mean": [0.1, 5.0], "signals": 9,
+                            "covariance": (np.eye(2) * 0.01).tolist(), "context_key": "global", "rrf_k": 15.0}}
     monkeypatch.setattr("learnloop.db.stores.retrieval_spaces.fusion_posteriors", lambda _c: posterior)
     logged = _search(paths, repository)
     weights = logged.space_selection["weights"]
     assert weights["source"] == "seed" and weights["served"]["qwen"] == 1.0
     assert weights["learned"]["voyage"] > weights["learned"]["qwen"]
+    assert logged.space_selection["rrf_k"] == 60.0  # the seed serves at the configured rrf_k
     assert logged.space_selection["exploration"] == {}
     append_config_toml(paths.root, "[embedding.source_space]\nlearned_fusion = true\n")
     learned = _search(paths, repository)
-    assert learned.space_selection["weights"]["source"] == "learned"
-    assert learned.space_selection["contributing"] == ["qwen", "voyage"] and client.query_calls
+    selection = learned.space_selection
+    assert selection["weights"]["source"] == "learned"
+    assert "voyage" in selection["contributing"] and client.query_calls
+    # Codex review F14: the posterior's rrf_k serves with its coefficients.
+    assert selection["rrf_k"] == 15.0
+    # Codex review F7: a Thompson draw, its query propensities logged.
+    propensity = selection["weights"]["query_propensity"]
+    assert propensity[ids["voyage"]] > 0.99 and 0.5 < propensity[ids["qwen"]] < 1.0
 
 
-def test_exploration_is_its_own_switch_and_logs_its_propensities(tmp_path, monkeypatch):
+def test_a_successor_space_never_inherits_its_predecessors_weights(tmp_path, monkeypatch):
+    """Codex review F12: a posterior learned for one Voyage model is not the
+    posterior of another: the new space is a new list, at its own prior."""
+
+    paths, repository = _vault(tmp_path)
+    client = _fallback(paths, monkeypatch)
+    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    ids = _identities(paths, repository)
+    old_voyage = ids["voyage"].replace("voyage@hs_", "voyage@hs_old")
+    posterior = {"global": {"lists": [ids["qwen"], old_voyage], "mean": [0.0, 9.0], "signals": 9,
+                            "covariance": (np.eye(2) * 1e-6).tolist(), "context_key": "global", "rrf_k": 60.0}}
+    monkeypatch.setattr("learnloop.db.stores.retrieval_spaces.fusion_posteriors", lambda _c: posterior)
+    weights = _search(paths, repository).space_selection["weights"]
+    assert weights["learned"] is None  # the old space's coefficient is not this space's
+    rows = fusion.refit([
+        {"id": "q", "receipt_id": "r", "event": "query", "consumer": "library", "query_kind": "lookup",
+         "extraction_id": None, "span_id": None, "position": None, "created_at": "t",
+         "payload": {"lists_available": [ids["qwen"], ids["voyage"]], "queried": [ids["qwen"]]}},
+        {"id": "d", "receipt_id": "r", "event": "delivered", "consumer": "library", "query_kind": "lookup",
+         "extraction_id": "ext_book", "span_id": "s2", "position": 1, "created_at": "t",
+         "payload": {"space_ranks": {ids["qwen"]: 1}}},
+    ], default="qwen", rrf_k_seed=60.0)
+    assert rows and rows[0]["lists"] == [ids["qwen"], ids["voyage"]]
+
+
+def test_exploration_is_its_own_switch_and_logs_its_delivered_propensities(tmp_path, monkeypatch):
     paths, repository = _vault(tmp_path)
     _fallback(paths, monkeypatch, extra="\n\n[embedding.source_space]\nexploration = true")
-    unsure = {"global": {"lists": list(fusion.SPACE_LISTS), "mean": [1.0, 0.0, 0.0, 0.0], "signals": 3,
-                         "covariance": (np.eye(4) * 1e8).tolist(), "context_key": "global"}}
+    ids = _identities(paths, repository)
+    unsure = {"global": {"lists": [ids["qwen"]], "mean": [1.0], "signals": 3, "rrf_k": 60.0,
+                         "covariance": [[1e8]], "context_key": "global"}}
     monkeypatch.setattr("learnloop.db.stores.retrieval_spaces.fusion_posteriors", lambda _c: unsure)
     explored = _search(paths, repository)
-    info = explored.space_selection["exploration"]
-    assert info["explored"] and info["bands"] and info["seed"] == fusion.rng_seed(explored.space_selection["receipt_id"])
     assert explored.space_selection["weights"]["source"] == "seed"
+    keys = [hit.key for hit in explored.hits[:6]]
+    order = feedback.deliver(loaded(paths), repository, explored, keys)
+    assert sorted(order) == list(range(len(keys)))
+    info = explored.resolution.exploration
+    assert info["explored"] and info["bands"]
+    assert info["seed"] == fusion.rng_seed(explored.space_selection["receipt_id"] + ":delivered")
     delivered = [row for row in _feedback(repository) if row["event"] == "delivered"]
+    assert [(row["extraction_id"], row["span_id"]) for row in delivered] == [keys[index] for index in order]
+    assert [row["position"] for row in delivered] == list(range(1, len(keys) + 1))
     assert any(row["payload"]["propensity"] < 1.0 for row in delivered)
+    assert all(row["payload"]["explored"] for row in delivered)
 
 
 def test_the_fallback_query_spends_from_the_callers_budget_and_is_planned(tmp_path, monkeypatch):
@@ -287,3 +341,78 @@ def test_the_fallback_query_spends_from_the_callers_budget_and_is_planned(tmp_pa
     fallback = plan["fallback_query_embedding"]
     assert fallback["calls"] == 1 and fallback["estimated_usd"] > 0
     assert plan["calls"] >= 1 + plan["query_embedding"]["calls"]
+
+
+class _DownEmbedder(HashingEmbedder):
+    def embed(self, inputs, task_prefix):
+        from learnloop.ai.errors import AIProviderUnavailable
+
+        raise AIProviderUnavailable("the embedding provider is down")
+
+
+def test_a_failed_query_hands_its_sources_to_an_available_fallback(tmp_path, monkeypatch):
+    """Codex review F6: Qwen and Voyage both cover the book; Qwen holds the
+    weight, but its query fails. Voyage answers for it, and coverage counts
+    only what an answered query covers."""
+
+    paths, repository = _vault(tmp_path)
+    client = _fallback(paths, monkeypatch)
+    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    clear_cache()
+    result = search_spans(loaded(paths), repository, QUERY, library_scope(repository), deep=True, rewrite=False,
+                          embedder=_DownEmbedder(), pool="hybrid_rrf", consumer="library")
+    selection = result.space_selection
+    assert selection["spaces"]["qwen"]["status"] == "encoder_unavailable"
+    assert selection["contributing"] == ["qwen", "voyage"] and len(client.query_calls) == 1
+    assert "meaning" in result.lists and any(key[0] == "ext_book" for key in result.fused_keys)
+    assert selection["coverage"] in ("ready", "partial")
+    # With no fallback available, the same failure reports no meaning coverage.
+    paths2, repository2 = _vault(tmp_path / "two")
+    clear_cache()
+    alone = search_spans(loaded(paths2), repository2, QUERY, library_scope(repository2), deep=True, rewrite=False,
+                         embedder=HashingEmbedder(), pool="hybrid_rrf", consumer="library")
+    assert alone.space_selection == {}  # (resolver off: today's path)
+
+
+def test_a_challenger_learns_its_way_up_from_resolver_receipts(tmp_path, monkeypatch):
+    """Codex review F7, through the production path: Qwen covers everything and
+    is the default; Voyage starts at zero weight. With learned fusion on, the
+    Thompson draws query Voyage some of the time, its ranks are observed, the
+    learner opens what Voyage ranks first, and the refit raises Voyage's
+    weight. No rank or posterior is injected: every row is the resolver's."""
+
+    paths, repository = _vault(tmp_path)
+    client = _fallback(paths, monkeypatch, extra="\n\n[embedding.source_space]\nlearned_fusion = true")
+    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    from learnloop.source_retrieval.library import search_library
+
+    questions = ["eigenvalues of symmetric matrices", "determinant row swap sign", "orthogonal vectors basis",
+                 "characteristic polynomial roots", "cofactor expansion along a row", "projection onto a unit vector",
+                 "invertible matrix determinant", "eigenvectors span eigenspaces", "dot product zero",
+                 "linearly independent orthogonal"]
+    voyage_queried = 0
+    rng = np.random.default_rng(5)
+    for round_index in range(4):
+        for question in questions:
+            clear_cache()
+            vault = loaded(paths)
+            response = search_library(vault, repository, query=f"{question} {round_index}", deep=True,
+                                      embedder=HashingEmbedder())
+            selection = response["retrieval"]["space_selection"]
+            voyage_queried += int("voyage" in selection["contributing"])
+            voyage_key = selection["spaces"]["voyage"]["list"]
+            rows = [row for row in _feedback(repository) if row["receipt_id"] == selection["receipt_id"]
+                    and row["event"] == "delivered"]
+            # The learner examines result p with probability 1/p and opens it more
+            # often when Voyage (the better space here) ranked it near the top.
+            opened = [row for row in rows if rng.random() < (1.0 / row["position"]) * (
+                0.9 if row["payload"]["space_ranks"].get(voyage_key, 99) <= 2 else 0.15)]
+            for row in opened:
+                feedback.record_open(repository, receipt_id=selection["receipt_id"],
+                                     extraction_id=row["extraction_id"], span_id=row["span_id"])
+        fusion.refit_posteriors(loaded(paths), repository)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        posteriors = fusion_posteriors(connection)
+    learned = fusion.learned_weights(posteriors["global"], posteriors["global"]["lists"])
+    assert voyage_queried > 0  # the draw explored the challenger
+    assert learned is not None and learned[voyage_key] > 0.0, posteriors["global"]

@@ -1,22 +1,32 @@
 """Retrieval feedback: deliveries, signals and the fusion posterior's refit (spec §9.2).
 
-P1 ships the LOGGING (orchestrator scoping 2026-10-24): while a new space is
-switched on and ``embedding.source_space.log_feedback`` is true, every deep
-search writes one ``query`` receipt (spaces, reasons, served and would-be
-learned weights, the exploration draw) and one ``delivered`` row per
-delivered span (its rank in every contributing space's list and its
-position). Signals name the delivery they answer:
+While a new space is switched on and ``embedding.source_space.log_feedback``
+is true:
+
+* every deep search writes ONE ``query`` receipt (spaces, reasons, served and
+  would-be learned weights, the lists available and queried and each list's
+  probability of being queried, and the candidates' ranks in every list);
+* each consumer writes the ``delivered`` rows at ITS delivery boundary
+  (:func:`deliver`; Codex review F9): what the learner or the model was
+  actually given, in its final order, after answer-overlap filtering,
+  verification and truncation. A candidate the consumer dropped is never a
+  delivery, so it never becomes a negative observation. Exploration (its own
+  switch) reorders the final list there, so the logged propensity is the
+  delivered position's.
+
+Signals name the delivery they answer:
 
 * **cited**: the tutor's validated citations (``tutor_qa``) join the newest
-  delivery of the same span for the same question (``owner_id``);
-* **opened**: :func:`record_open` names the result's receipt (the desktop
-  wiring is a follow-up; the recorder and its tests land here);
+  delivery of the same span for the same question (``owner_id``); a library
+  ask's pinned tutor answer cites the ask's own retrieval;
+* **opened**: :func:`record_open` names the result's receipt (the Reader's
+  library search result click sends it);
 * **anchored**: the teacher's grounded anchors, when the teacher lands.
 
 A logging failure never fails the search or the answer it rides on.
 ``local_embeddings.fusion.refit_posteriors`` (re-exported here) is the
-replayer's body and the refit command's: it recomputes the whole DERIVED
-table from the receipts in order.
+replayer's body, the refit command's and the ingest host's background
+refresh (:func:`refresh_due`).
 """
 from __future__ import annotations
 
@@ -46,20 +56,17 @@ def new_receipt_id() -> str:
 
 def log_search(repository: Repository, *, receipt_id: str, consumer: str, query_kind: str, owner_id: str,
                resolution: Mapping[str, Any], hits: Sequence[Any], space_ranks: Mapping[str, Mapping[str, int]],
-               propensities: Mapping[str, float] | None = None, explored: bool = False) -> int:
-    """One ``query`` row and one ``delivered`` row per hit; returns rows written (0 on failure)."""
+               lists_available: Sequence[str] = (), queried: Sequence[str] = (),
+               query_propensity: Mapping[str, float] | None = None) -> int:
+    """The one ``query`` row of a search, its candidates' ranks included; returns rows written (0 on failure)."""
 
+    candidates = {hit.record_id: dict(space_ranks.get(hit.record_id) or {}) for hit in hits}
     rows: list[dict[str, Any]] = [{"receipt_id": receipt_id, "event": "query", "consumer": consumer,
                                    "query_kind": query_kind, "owner_id": owner_id,
-                                   "payload": {**dict(resolution), "explored": bool(explored)}}]
-    for position, hit in enumerate(hits, start=1):
-        record_id = hit.record_id
-        rows.append({"receipt_id": receipt_id, "event": "delivered", "consumer": consumer, "query_kind": query_kind,
-                     "owner_id": owner_id, "extraction_id": hit.extraction_id, "span_id": hit.span_id,
-                     "position": position,
-                     "payload": {"space_ranks": dict(space_ranks.get(record_id) or {}),
-                                 "pool_role": hit.pool_role,
-                                 "propensity": float((propensities or {}).get(record_id, 1.0))}})
+                                   "payload": {**dict(resolution), "lists_available": list(lists_available),
+                                               "queried": list(queried),
+                                               "query_propensity": dict(query_propensity or {}),
+                                               "candidates": candidates}}]
     try:
         with repository.connection() as connection:
             if not has_tables(connection):
@@ -68,6 +75,56 @@ def log_search(repository: Repository, *, receipt_id: str, consumer: str, query_
     except Exception:  # noqa: BLE001 - logging never fails the search
         logger.warning("retrieval feedback could not be logged", exc_info=True)
         return 0
+
+
+def deliver(vault: Any, repository: Repository, search: Any, keys: Sequence[tuple[str, str]]) -> list[int]:
+    """Record what a consumer finally delivers from ``search`` (Codex review F9).
+
+    ``keys`` are the delivered spans in the order the consumer would give
+    them. With ``embedding.source_space.exploration`` on, spans the posterior
+    cannot order are reordered inside their tie band (a seeded Thompson draw)
+    and each span's propensity is that of its DELIVERED position. Returns the
+    delivery order as indices into ``keys`` (the identity when nothing is
+    logged or explored). Never fails the consumer."""
+
+    from learnloop.local_embeddings import fusion
+    from learnloop.source_retrieval.recipes import block_record_id
+
+    order = list(range(len(keys)))
+    resolution = getattr(search, "resolution", None)
+    if resolution is None or not getattr(resolution, "receipt_id", "") or not keys:
+        return order
+    settings = vault.config.embedding.source_space
+    if not settings.log_feedback:
+        return order
+    try:
+        record_ids = [block_record_id(str(extraction_id), str(span_id)) for extraction_id, span_id in keys]
+        info: dict[str, Any] = {}
+        posterior = resolution.posterior
+        if settings.exploration and posterior:
+            lists = list(posterior.get("lists") or ())
+            rrf_k = float(posterior.get("rrf_k") or resolution.rrf_k)
+            features = {record_id: fusion.feature_row(resolution.space_ranks.get(record_id, {}), lists, rrf_k)
+                        for record_id in record_ids}
+            explored, info = fusion.explore(record_ids, features, posterior, lists,
+                                            seed=fusion.rng_seed(resolution.receipt_id + ":delivered"))
+            order = [record_ids.index(record_id) for record_id in explored]
+            resolution.exploration = info
+        propensities = info.get("propensities") or {}
+        rows = [{"receipt_id": resolution.receipt_id, "event": "delivered", "consumer": resolution.consumer,
+                 "query_kind": resolution.query_kind, "owner_id": resolution.owner_id,
+                 "extraction_id": str(keys[index][0]), "span_id": str(keys[index][1]), "position": position,
+                 "payload": {"space_ranks": dict(resolution.space_ranks.get(record_ids[index]) or {}),
+                             "propensity": float(propensities.get(record_ids[index], 1.0)),
+                             "explored": bool(info.get("explored")), "seed": info.get("seed")}}
+                for position, index in enumerate(order, start=1)]
+        with repository.connection() as connection:
+            if has_tables(connection):
+                append_feedback(connection, rows)
+    except Exception:  # noqa: BLE001 - logging never fails the consumer
+        logger.warning("retrieval deliveries could not be logged", exc_info=True)
+        return list(range(len(keys)))
+    return order
 
 
 def record_citations(repository: Repository, *, consumer: str, owner_id: str,
@@ -113,4 +170,4 @@ def feedback_summary(repository: Repository) -> dict[str, Any]:
             "posterior_contexts": int(posteriors)}
 
 
-__all__ = ["feedback_summary", "log_search", "new_receipt_id", "record_citations", "record_open", "refit_posteriors"]
+__all__ = ["deliver", "feedback_summary", "log_search", "new_receipt_id", "record_citations", "record_open", "refit_posteriors"]

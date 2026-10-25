@@ -82,3 +82,55 @@ def test_exploration_moves_nothing_without_a_posterior_and_only_inside_the_tie_b
     assert set(info["propensities"]) == set(order) and all(0 < p <= 1 for p in info["propensities"].values())
     again, _ = fusion.explore(order, features, unsure, list(fusion.SPACE_LISTS), seed=1)
     assert again == moved  # seeded by the receipt: reproducible
+
+
+def _position_biased(queries: int, *, beta, gamma, rng) -> list[dict]:
+    """Searches whose deliveries follow ``examined(pos) = 1/pos`` times
+    ``sigma(beta . x + gamma)``, with relevance that does NOT depend on position
+    (each span's list ranks are drawn independently of where it is shown)."""
+
+    rows = []
+    for index in range(queries):
+        receipt = f"rq_{index:05d}"
+        stamp = f"2026-10-24T{index // 3600 % 24:02d}:{index // 60 % 60:02d}:{index % 60:02d}"
+        rows.append({"id": f"{receipt}_q", "receipt_id": receipt, "event": "query", "consumer": "library",
+                     "query_kind": "lookup", "extraction_id": None, "span_id": None, "position": None,
+                     "payload": {}, "created_at": stamp})
+        for position in range(1, 7):
+            ranks = {"qwen": int(rng.integers(1, 7)), "voyage": int(rng.integers(1, 7))}
+            x = np.array([1.0 / (1.0 + ranks["qwen"]), 1.0 / (1.0 + ranks["voyage"])])
+            relevant = 1.0 / (1.0 + np.exp(-(x @ beta + gamma)))
+            key = ("e", f"{receipt}_{position}")
+            rows.append({"id": f"{receipt}_d{position}", "receipt_id": receipt, "event": "delivered",
+                         "consumer": "library", "query_kind": "lookup", "extraction_id": key[0], "span_id": key[1],
+                         "position": position, "payload": {"space_ranks": ranks}, "created_at": stamp})
+            if rng.random() < (1.0 / position) * relevant:
+                rows.append({"id": f"{receipt}_o{position}", "receipt_id": receipt, "event": "opened",
+                             "consumer": "library", "query_kind": "lookup", "extraction_id": key[0],
+                             "span_id": key[1], "position": position, "payload": {}, "created_at": stamp})
+    return rows
+
+
+def test_the_fit_recovers_relevance_under_a_known_position_bias():
+    """Codex review F8: with examination 1/pos, the declared likelihood
+    ``e * sigma(x . beta + gamma)`` recovers beta and gamma; the old
+    1/e-weighted logistic fit, which learns position bias as relevance, does not."""
+
+    beta, gamma = np.array([6.0, 2.0]), -1.0
+    rows = _position_biased(6000, beta=beta, gamma=gamma, rng=np.random.default_rng(2))
+    queries = list(fusion.parse_feedback(rows).values())
+    fit = fusion.fit_context(queries, ["qwen", "voyage"], 1.0, {}, ["opened"], np.zeros(2))
+    estimate = fit["mode"]
+    errors = np.sqrt(np.diag(fit["covariance"]))
+    assert abs(estimate[0] - beta[0]) < 3 * errors[0] and abs(estimate[1] - beta[1]) < 3 * errors[1], (estimate, errors)
+    assert abs(estimate[2] - gamma) < 3 * errors[2]
+    # The old weighting (both outcomes times 1/examined under sigma alone) is biased here.
+    x = np.array([[1.0 / (1.0 + d["space_ranks"]["qwen"]), 1.0 / (1.0 + d["space_ranks"]["voyage"]), 1.0]
+                  for q in queries for d in q["delivered"].values()])
+    y = np.array([1.0 if q["signals"].get(k) else 0.0 for q in queries for k in q["delivered"]])
+    w = np.array([float(d["position"]) for q in queries for d in q["delivered"].values()])
+    theta = np.zeros(3)
+    for _ in range(50):
+        p = 1.0 / (1.0 + np.exp(-(x @ theta)))
+        theta += np.linalg.solve(x.T @ (x * (w * p * (1 - p))[:, None]), x.T @ (w * (y - p)))
+    assert abs(theta[2] - gamma) > 3 * errors[2]

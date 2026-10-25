@@ -135,6 +135,11 @@ def search_library(
         owner_id="library", deadline=(time.monotonic() + config.retrieval_timeout_seconds) if deep else None,
         budget=budget, consumer="library",
     )
+    # Local contextual retrieval P1 (Codex review F9): the results shown are
+    # this consumer's delivery (nothing is logged while no new space is on).
+    from learnloop.source_retrieval.feedback import deliver
+
+    shown = [search.hits[index] for index in deliver(vault, repository, search, [hit.key for hit in search.hits])]
     hits = [{
         "source_id": hit.source_id,
         "source_title": hit.source_title,
@@ -144,7 +149,7 @@ def search_library(
         "page": hit.page,
         "snippet": _snippet(hit.text, needle),
         "matched_by": sorted(hit.ranks),
-    } for hit in search.hits]
+    } for hit in shown]
     return {
         "query": needle, "hits": hits, "searched_sources": len(scope.extractions),
         "basis": search.basis, "deep": deep,

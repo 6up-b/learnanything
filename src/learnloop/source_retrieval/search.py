@@ -146,6 +146,10 @@ class SpanSearch:
     #: feedback receipt. Empty (and absent from ``describe``) while no new
     #: space is switched on: today's result, byte for byte.
     space_selection: dict[str, Any] = field(default_factory=dict)
+    #: The in-memory resolution behind ``space_selection`` (never serialized):
+    #: the consumer's delivery boundary records its final order against it
+    #: (``source_retrieval.feedback.deliver``; Codex review F9).
+    resolution: Any = field(default=None, repr=False, compare=False)
 
     @property
     def basis(self) -> str:
@@ -520,13 +524,13 @@ def _resolved_meaning(vault: LoadedVault, repository: Repository, scope: Scope, 
     space ranks its own extractions, the rankings fuse by rank. With Qwen the
     only contributor the lists are exactly today's."""
 
-    from learnloop.local_embeddings import fusion
     from learnloop.source_retrieval import feedback
     from learnloop.source_retrieval.spaces import meaning_lists, resolve_source_spaces, space_ranks
 
+    receipt_id = feedback.new_receipt_id()
     resolution = resolve_source_spaces(vault, repository, scope, consumer=consumer, query_kind=kind,
-                                       deadline=deadline, qwen_index=index)
-    resolution.receipt_id = feedback.new_receipt_id()
+                                       deadline=deadline, qwen_index=index, receipt_id=receipt_id)
+    resolution.owner_id = owner_id
     if index.usable and index.status == "partial" and index.reason:
         result.notes.append(index.reason)
     elif not index.usable and index.reason and not resolution.assignment:
@@ -554,29 +558,27 @@ def _resolved_meaning(vault: LoadedVault, repository: Repository, scope: Scope, 
     built = meaning_lists(vault, repository, resolution, texts, qwen_index=index, qwen_vectors=qwen_vectors,
                           depth=depth, permit=permit, owner_id=owner_id, deadline=deadline, budget=budget)
     result.notes.extend(built["notes"])
-    ranks = space_ranks(built["per_space"])
+    ranks = space_ranks(built["per_space"], identities={name: state.list_key
+                                                         for name, state in resolution.spaces.items()})
     for name, key in (("meaning", "query"), ("rewrite_meaning", "rewrite")):
         ranked = built["fused"].get(key)
         if ranked is None:
             continue
-        if name == "meaning" and vault.config.embedding.source_space.exploration:
-            features = {record_id: fusion.feature_row(ranks.get(record_id, {}), list(fusion.SPACE_LISTS),
-                                                      resolution.rrf_k) for record_id in ranked}
-            ranked, resolution.exploration = fusion.explore(
-                ranked, features, resolution.posterior, list(fusion.SPACE_LISTS),
-                seed=fusion.rng_seed(resolution.receipt_id))
         result.list_depths[name] = depth(name)
         result.list_ends[name] = built["ends"].get(key, True)
         if ranked:
             lists[name] = [split_record_id(record_id) for record_id in ranked]
     resolution.space_ranks = ranks
     result.space_selection = resolution.describe()
+    result.resolution = resolution
     return resolution
 
 
 def _log_delivery(vault: LoadedVault, repository: Repository, result: SpanSearch, resolution: Any, *,
                   owner_id: str) -> None:
-    """The feedback receipts of one resolved search (never fails the search)."""
+    """The query receipt of one resolved search, with its candidates' ranks
+    (never fails the search). The DELIVERED rows are written at each
+    consumer's delivery boundary (``feedback.deliver``; Codex review F9)."""
 
     from learnloop.source_retrieval import feedback
 
@@ -585,9 +587,8 @@ def _log_delivery(vault: LoadedVault, repository: Repository, result: SpanSearch
     written = feedback.log_search(
         repository, receipt_id=resolution.receipt_id, consumer=resolution.consumer,
         query_kind=resolution.query_kind, owner_id=owner_id, resolution=result.space_selection,
-        hits=result.hits, space_ranks=resolution.space_ranks,
-        propensities=(resolution.exploration or {}).get("propensities"),
-        explored=bool((resolution.exploration or {}).get("explored")))
+        hits=result.hits, space_ranks=resolution.space_ranks, lists_available=resolution.lists_available,
+        queried=resolution.queried(), query_propensity=resolution.query_propensity)
     result.space_selection["logged"] = written
 
 

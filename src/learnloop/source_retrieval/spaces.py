@@ -101,13 +101,22 @@ class SpaceState:
     expected: int = 0
     assigned: list[str] = field(default_factory=list)
     query: dict[str, Any] = field(default_factory=dict)
+    #: The query encoder (a local space's teacher session or student), part of its list identity.
+    encoder_id: str | None = None
 
     @property
     def usable(self) -> bool:
         return self.status in USABLE
 
+    @property
+    def list_key(self) -> str:
+        """The list's immutable identity in the fusion model (Codex review F12)."""
+
+        return fusion.list_key(self.name, self.space_id, self.encoder_id)
+
     def describe(self) -> dict[str, Any]:
         return {"kind": self.kind, "status": self.status, "reason": self.reason, "space_id": self.space_id,
+                "list": self.list_key,
                 "covered_sources": len(self.covered), "sources": self.expected,
                 "assigned_sources": len(self.assigned), "query": dict(self.query)}
 
@@ -127,27 +136,43 @@ class Resolution:
     posterior: Mapping[str, Any] | None = None
     receipt_id: str = ""
     exploration: dict[str, Any] = field(default_factory=dict)
-    #: ``{record id: {space: rank}}`` of the contributing spaces' query lists.
+    #: ``{record id: {list identity: rank}}`` of the contributing spaces' query lists.
     space_ranks: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: ``{list identity: P(queried)}`` under the Thompson draw (empty under the seed).
+    query_propensity: dict[str, float] = field(default_factory=dict)
+    #: The extractions some contributing space actually answered for (set by
+    #: :func:`meaning_lists`; None before it ran): coverage counts these only.
+    answered: set[str] | None = None
+    owner_id: str = ""
+    #: The identities of the lists available at resolve time (the fusion model's support).
+    lists_available: list[str] = field(default_factory=list)
 
     def contributing(self) -> list[str]:
         return sorted({name for pairs in self.assignment.values() for name, _w in pairs})
 
+    def queried(self) -> list[str]:
+        """The identities of the lists whose query answered (set by :func:`meaning_lists`)."""
+
+        return sorted(state.list_key for state in self.spaces.values() if state.query.get("answered"))
+
     @property
     def coverage(self) -> str:
-        """``ready`` when every embeddable extraction in scope has a contributor."""
+        """``ready`` when every embeddable extraction in scope has a contributor
+        that answered (Codex review F6: an assigned space whose query failed
+        does not cover anything)."""
 
         expected = max((state.expected for state in self.spaces.values()), default=0)
-        if expected and len(self.assignment) >= expected:
+        covered = len(self.answered) if self.answered is not None else len(self.assignment)
+        if expected and covered >= expected:
             return "ready"
-        return "partial" if self.assignment else "incomplete"
+        return "partial" if covered else "incomplete"
 
     def describe(self) -> dict[str, Any]:
         return {"receipt_id": self.receipt_id, "consumer": self.consumer, "query_kind": self.query_kind,
                 "coverage": self.coverage, "contributing": self.contributing(),
                 "spaces": {name: state.describe() for name, state in sorted(self.spaces.items())},
                 "weights": {"served": dict(self.served), "seed": dict(self.seed), "learned": self.learned,
-                            "source": self.weights_source},
+                            "source": self.weights_source, "query_propensity": dict(self.query_propensity)},
                 "rrf_k": self.rrf_k, "exploration": dict(self.exploration)}
 
 
@@ -218,7 +243,7 @@ def _local_states(vault: LoadedVault, repository: Repository, windows: Mapping[t
         if covered and encoder is None:
             status, why = "encoder_unavailable", "no local query encoder yet (the student is P2, the teacher session P1c)"
         states[name] = SpaceState(name, "local", status, why, space, 0.0, vectors=covered, covered=set(covered),
-                                  expected=expected)
+                                  expected=expected, encoder_id=getattr(encoder, "encoder_id", None))
     return states
 
 
@@ -244,8 +269,11 @@ def _voyage_state(vault: LoadedVault, repository: Repository,
 
 def resolve_source_spaces(vault: LoadedVault, repository: Repository, scope: Scope, *, consumer: str,
                           query_kind: str, deadline: float | None, qwen_index: Any,
-                          posteriors: Mapping[str, Mapping[str, Any]] | None = None) -> Resolution:
-    """The available spaces and their weights for one query, with every reason."""
+                          posteriors: Mapping[str, Mapping[str, Any]] | None = None,
+                          receipt_id: str = "") -> Resolution:
+    """The available spaces and their weights for one query, with every reason.
+
+    ``receipt_id`` seeds the Thompson draw (a replay is reproducible)."""
 
     from learnloop.db.stores.retrieval_spaces import fusion_posteriors, spaces as known_spaces
     from learnloop.ops.embedding_backfill import PRICES_PER_MILLION
@@ -277,11 +305,22 @@ def resolve_source_spaces(vault: LoadedVault, repository: Repository, scope: Sco
     seed = fusion.seed_weights(config.embedding.source_space.default, lists)
     posterior = fusion.posterior_for(posteriors or {}, consumer, query_kind)
     available = [name for name in lists if states[name].usable]
-    learned = fusion.learned_weights(posterior, available)
-    if config.embedding.source_space.learned_fusion and learned is not None:
-        served, source = {name: learned.get(name, 0.0) for name in lists}, "learned"
-    else:
-        served, source = dict(seed), "seed"
+    keys = {name: states[name].list_key for name in available}
+    by_key = fusion.learned_weights(posterior, [keys[name] for name in available])
+    learned = None if by_key is None else {name: by_key[keys[name]] for name in available}
+    served, source, propensity = dict(seed), "seed", {}
+    rrf_k = float(config.source_retrieval.rrf_k)
+    if config.embedding.source_space.learned_fusion:
+        # §5.2 (Codex review F7, F14): a Thompson draw, seeded by the receipt,
+        # at the posterior's own rrf_k; each list's P(queried) is logged.
+        drawn, propensity = fusion.thompson_weights(posterior, [keys[name] for name in available],
+                                                    seed=fusion.rng_seed(receipt_id or "unseeded"))
+        if drawn is not None:
+            served = {name: (drawn.get(keys[name], 0.0) if name in keys else 0.0) for name in lists}
+            source = "learned"
+            rrf_k = float((posterior or {}).get("rrf_k") or rrf_k)
+        else:
+            propensity = {}
     top = max(served.values(), default=0.0)
     assignment: dict[str, list[tuple[str, float]]] = {}
     for extraction_id in extraction_ids:
@@ -295,8 +334,9 @@ def resolve_source_spaces(vault: LoadedVault, repository: Repository, scope: Sco
         assignment[extraction_id] = weighted
         for name, _w in weighted:
             states[name].assigned.append(extraction_id)
-    rrf_k = float(config.source_retrieval.rrf_k)
-    return Resolution(consumer, query_kind, states, seed, served, learned, source, rrf_k, assignment, posterior)
+    return Resolution(consumer, query_kind, states, seed, served, learned, source, rrf_k, assignment, posterior,
+                      receipt_id=receipt_id, query_propensity=dict(propensity),
+                      lists_available=[keys[name] for name in available])
 
 
 def _rank(vectors: Mapping[str, Mapping[str, np.ndarray]], extraction_ids: Sequence[str], query: np.ndarray, *,
@@ -334,6 +374,13 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
                   deadline: float | None, budget: Any | None = None) -> dict[str, Any]:
     """Each contributing space's ranking per query text, and the fused lists.
 
+    A space whose query does not answer (its encoder is unavailable, its
+    request failed, timed out or was over budget) covers nothing: the
+    extractions it alone was serving are reassigned to the cheapest other
+    available space that covers them, within the remaining time box and the
+    caller's budget, and that space is queried (Codex review F6).
+    ``resolution.answered`` records the extractions some answered query covers.
+
     Returns ``{"fused": {key: [record ids]}, "per_space": {space: {key: [record ids]}},
     "ends": {key: bool}, "qwen_query": status or None}``."""
 
@@ -343,46 +390,96 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
     qwen_query: dict[str, Any] | None = None
     notes: list[str] = []
     list_name = {"query": "meaning", "rewrite": "rewrite_meaning"}
-    for name in resolution.contributing():
+    tried: set[str] = set()
+    failed: set[str] = set()
+
+    def late() -> bool:
+        return deadline is not None and time.monotonic() >= deadline
+
+    def query(name: str) -> dict[str, np.ndarray]:
+        nonlocal qwen_query
         state = resolution.spaces[name]
-        if deadline is not None and time.monotonic() >= deadline and name != QWEN:
-            state.status, state.reason = "encoder_late", "the retrieval time box ran out"
-            continue
         if name == QWEN:
             vectors, qwen_query = qwen_vectors()
             state.query = {"status": (qwen_query or {}).get("status")}
-        elif name == VOYAGE:
+            return vectors
+        if name == VOYAGE:
             client, why = fallback_space.fallback_client(vault)
             vectors, status = (fallback_space.query_vectors(vault, repository, texts, client=client, owner_id=owner_id,
                                                             deadline=deadline, budget=budget)
                                if client is not None else ({}, {"status": "unavailable", "reason": why, "paid": False}))
             state.query = status
-        else:
-            encoder = LOCAL_QUERY_ENCODER(vault)
-            if encoder is None:
-                state.query = {"status": "encoder_unavailable"}
-                continue
-            keys = sorted(texts)
+            return vectors
+        encoder = LOCAL_QUERY_ENCODER(vault)
+        if encoder is None:
+            state.query = {"status": "encoder_unavailable"}
+            return {}
+        keys = sorted(texts)
+        try:
             encoded = encoder.encode([texts[key] for key in keys], deadline=deadline)
-            vectors = {key: np.asarray(vector, dtype=np.float64) for key, vector in zip(keys, encoded, strict=True)}
-            state.query = {"status": "encoded", "encoder_id": getattr(encoder, "encoder_id", None), "paid": False}
-        assigned = set(state.assigned)
+        except Exception as exc:  # noqa: BLE001 - an encoder failure is a reason, never a failed search
+            state.query = {"status": "encoder_failed", "error_type": type(exc).__name__, "paid": False}
+            return {}
+        state.query = {"status": "encoded", "encoder_id": getattr(encoder, "encoder_id", None), "paid": False}
+        return {key: np.asarray(vector, dtype=np.float64) for key, vector in zip(keys, encoded, strict=True)}
 
-        def allow(record_id: str, _assigned: set[str] = assigned) -> bool:
-            return split_record_id(record_id)[0] in _assigned and permit(record_id)
-
-        for key, vector in vectors.items():
-            name_for_depth = list_name.get(key, key)
-            try:
-                if name == QWEN:
-                    ranked = [record_id for record_id, _score in
-                              qwen_index.rank(vector, limit=depth(name_for_depth), allow=allow)]
-                else:
-                    ranked = _rank(state.vectors, sorted(assigned), vector, limit=depth(name_for_depth), allow=allow)
-            except ValueError:
-                notes.append(f"{name_for_depth} ({name}): the query vector does not match the space's width")
+    pending = resolution.contributing()
+    while pending:
+        for name in pending:
+            tried.add(name)
+            state = resolution.spaces[name]
+            if late() and name != QWEN:
+                state.status, state.reason = "encoder_late", "the retrieval time box ran out"
+                failed.add(name)
                 continue
-            per_space.setdefault(name, {})[key] = ranked
+            vectors = query(name)
+            if not vectors:
+                failed.add(name)
+                if state.status in USABLE:
+                    state.status = "encoder_unavailable"
+                    state.reason = f"its query did not answer ({state.query.get('status')})"
+                continue
+            assigned = set(state.assigned)
+
+            def allow(record_id: str, _assigned: set[str] = assigned) -> bool:
+                return split_record_id(record_id)[0] in _assigned and permit(record_id)
+
+            for key, vector in vectors.items():
+                name_for_depth = list_name.get(key, key)
+                try:
+                    if name == QWEN:
+                        ranked = [record_id for record_id, _score in
+                                  qwen_index.rank(vector, limit=depth(name_for_depth), allow=allow)]
+                    else:
+                        ranked = _rank(state.vectors, sorted(assigned), vector, limit=depth(name_for_depth),
+                                       allow=allow)
+                except ValueError:
+                    notes.append(f"{name_for_depth} ({name}): the query vector does not match the space's width")
+                    continue
+                per_space.setdefault(name, {})[key] = ranked
+            if name not in per_space:
+                failed.add(name)
+            else:
+                state.query["answered"] = True
+        # Reassign what only failed spaces were serving (cheapest covering
+        # stand-in not yet tried, at the weight of the space it replaces).
+        pending = []
+        if late():
+            break
+        for extraction_id, pairs in resolution.assignment.items():
+            if any(name not in failed for name, _w in pairs):
+                continue
+            candidates = [name for name, state in resolution.spaces.items()
+                          if state.usable and name not in tried and extraction_id in state.covered]
+            if not candidates:
+                continue
+            stand_in = min(candidates, key=lambda name: (resolution.spaces[name].price_per_million, name))
+            pairs.append((stand_in, max((weight for _n, weight in pairs), default=0.0) or 1.0))
+            resolution.spaces[stand_in].assigned.append(extraction_id)
+            if stand_in not in pending:
+                pending.append(stand_in)
+    resolution.answered = {extraction_id for extraction_id, pairs in resolution.assignment.items()
+                           if any(name in per_space for name, _w in pairs)}
     fused: dict[str, list[str]] = {}
     ends: dict[str, bool] = {}
     for key in texts:
@@ -401,13 +498,17 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
     return {"fused": fused, "per_space": per_space, "ends": ends, "qwen_query": qwen_query, "notes": notes}
 
 
-def space_ranks(per_space: Mapping[str, Mapping[str, Sequence[str]]], key: str = "query") -> dict[str, dict[str, int]]:
-    """``{record id: {space: rank}}`` in each space's ``key`` list (the fusion model's features)."""
+def space_ranks(per_space: Mapping[str, Mapping[str, Sequence[str]]], key: str = "query", *,
+                identities: Mapping[str, str] | None = None) -> dict[str, dict[str, int]]:
+    """``{record id: {list identity: rank}}`` in each space's ``key`` list (the
+    fusion model's features); ``identities`` maps a space name to its list
+    identity (Codex review F12), else the name is used."""
 
     ranks: dict[str, dict[str, int]] = {}
     for name, lists in per_space.items():
+        label = (identities or {}).get(name, name)
         for position, record_id in enumerate(lists.get(key) or [], start=1):
-            ranks.setdefault(record_id, {})[name] = position
+            ranks.setdefault(record_id, {})[label] = position
     return ranks
 
 

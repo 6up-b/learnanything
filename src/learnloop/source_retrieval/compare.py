@@ -249,6 +249,7 @@ def _compare_sources(
                                                owner_id=owner_id, deadline=deadline)
         result.manifest["query_embedding"] = embedding
     per_source: dict[str, list[SpanHit]] = {}
+    searches: dict[str, Any] = {}
     sources = _by_source(scope)
     # Facet targeting (§9.1): the facets' teaching links rank as one more list
     # per source, and verification is told what the passages should bear on.
@@ -272,6 +273,7 @@ def _compare_sources(
                               deadline=deadline, consumer="compare")
         hits = [hit for hit in search.hits if not (derived == "assisted_practice" and item is not None
                                                    and span_leaks_expected(hit.text, item.expected_answer))]
+        searches[source_id] = search
         if hits:
             per_source[source_id] = hits[:KEYS_PER_SOURCE]
     # Pinned spans join their sources' candidates (first).
@@ -357,6 +359,14 @@ def _compare_sources(
         compared.append(source_id)
     counterpart_keys = [[verified[sid].extraction_id, verified[sid].span_id] for sid in compared]
     result.manifest["counterpart_keys"] = counterpart_keys
+    # Local contextual retrieval P1 (Codex review F9): each source's search
+    # delivered the one passage the comparison reads (nothing while no new
+    # embedding space is on).
+    from learnloop.source_retrieval.feedback import deliver
+
+    for sid in compared:
+        if sid in searches:
+            deliver(vault, repository, searches[sid], [verified[sid].key])
     if len(compared) < 2:
         result.status = "too_few_sources"
         result.sources = [_source_entry(verified[sid], f"s{i}") for i, sid in enumerate(compared, start=1)]
