@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.db.repositories import Repository
+from learnloop.db.repositories import PracticeItemState, Repository
 from learnloop.goals.goal_projection import resolve_goal_scope
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object
 from learnloop.vault.hashes import practice_item_hash
@@ -56,6 +56,70 @@ def practice_item_activatable(
     )
 
 
+def reconcile_practice_item_state(
+    repository: Repository,
+    item_id: str,
+    item,
+    *,
+    state: PracticeItemState | None,
+    review_parked: set[str],
+    measurement_superseded: set[str],
+    content_hash: str | None = None,
+    clock: Clock | None = None,
+) -> tuple[str, bool]:
+    """Bring one item's ``active`` flag and content hash in line with its YAML.
+
+    Returns ``(outcome, active)``, where outcome is ``"created"``, ``"updated"``
+    or ``"unchanged"``.
+
+    Mobile PR-2: content sync writes ``active`` and ``content_hash`` and never
+    the scheduling fields. ``state`` is a snapshot, and an attempt can commit in
+    another process (the desktop sidecar, the phone host, the TUI) between that
+    read and this write; writing the snapshot's difficulty, stability,
+    retrievability, due date and last-attempt time back would erase it. A fresh
+    row is inserted only when none exists, and an existing row is updated only
+    while it still matches the snapshot the decision came from (the decision
+    reads it: an attempted diagnostic probe stays retired). If the row moved,
+    the item is decided once more from a fresh read and that decision is
+    written without the guard; it still touches only the two content columns.
+    """
+
+    if content_hash is None:
+        content_hash = practice_item_hash(item)
+    active = False
+    # Two decisions at most: one from the caller's snapshot, guarded, and one
+    # from a fresh read. This is the structure of the fix, not a tuned retry
+    # count: the second write cannot overwrite a scheduling field either way.
+    for guarded in (True, False):
+        active = practice_item_activatable(
+            item_id,
+            item,
+            review_parked=review_parked,
+            measurement_superseded=measurement_superseded,
+            state=state,
+        )
+        if state is None:
+            if repository.initialize_practice_item_state(
+                item_id, content_hash=content_hash, active=active, clock=clock
+            ):
+                return "created", active
+        else:
+            if state.active == active and state.content_hash == content_hash:
+                return "unchanged", active
+            if repository.update_practice_item_content_state(
+                item_id,
+                active=active,
+                content_hash=content_hash,
+                expected=state if guarded else None,
+                clock=clock,
+            ):
+                return "updated", active
+        state = repository.practice_item_state(item_id)
+    # The row appeared or vanished again under the fresh read (a concurrent
+    # rebuild): leave it to that writer; the next sync reconciles it.
+    return "unchanged", active
+
+
 def sync_vault_state(
     vault: LoadedVault,
     repository: Repository,
@@ -66,7 +130,10 @@ def sync_vault_state(
 
     The MVP policy for Practice Item content-hash changes is conservative:
     refresh the hash and reactivate the item, while preserving existing FSRS
-    memory state until replay/content-event machinery exists.
+    memory state until replay/content-event machinery exists. Preserving means
+    not writing it at all (mobile PR-2): every write below touches only
+    ``active`` and ``content_hash``, so an attempt that commits in another
+    process while this sync runs keeps its scheduling fields.
     """
 
     created_items = 0
@@ -86,58 +153,26 @@ def sync_vault_state(
     measurement_superseded = repository.superseded_measurement_item_ids()
 
     for item_id, item in vault.practice_items.items():
-        content_hash = practice_item_hash(item)
-        state = item_states.get(item_id)
-        if state is None:
-            repository.upsert_practice_item_state(
-                item_id,
-                active=practice_item_activatable(
-                    item_id,
-                    item,
-                    review_parked=review_parked,
-                    measurement_superseded=measurement_superseded,
-                ),
-                content_hash=content_hash,
-                clock=clock,
-            )
-            created_items += 1
-            continue
-
-        activatable = practice_item_activatable(
+        outcome, _active = reconcile_practice_item_state(
+            repository,
             item_id,
             item,
+            state=item_states.get(item_id),
             review_parked=review_parked,
             measurement_superseded=measurement_superseded,
-            state=state,
+            clock=clock,
         )
-        if state.active != activatable or state.content_hash != content_hash:
-            repository.upsert_practice_item_state(
-                item_id,
-                difficulty=state.difficulty,
-                stability=state.stability,
-                retrievability=state.retrievability,
-                due_at=state.due_at,
-                active=activatable,
-                content_hash=content_hash,
-                last_attempt_at=state.last_attempt_at,
-                clock=clock,
-            )
+        if outcome == "created":
+            created_items += 1
+        elif outcome == "updated":
             updated_items += 1
 
     for item_id, state in item_states.items():
         if item_id in live_item_ids or not state.active:
             continue
-        repository.upsert_practice_item_state(
-            item_id,
-            difficulty=state.difficulty,
-            stability=state.stability,
-            retrievability=state.retrievability,
-            due_at=state.due_at,
-            active=False,
-            content_hash=state.content_hash,
-            last_attempt_at=state.last_attempt_at,
-            clock=clock,
-        )
+        # The item left the vault: only the flag flips (mobile PR-2), so the
+        # row keeps whatever scheduling state is on it now, not the snapshot's.
+        repository.set_practice_item_active(item_id, active=False, clock=clock)
         deactivated_items += 1
 
     mastery_states = repository.mastery_states()
