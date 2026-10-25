@@ -636,6 +636,8 @@ fn main() {
             adaptive_difficulty_why_item,
             reader_block_health,
             reader_block_original_region,
+            practice_as_printed,
+            practice_report_transcription,
             reader_translate_selection,
             reader_capture,
             reader_create_annotation,

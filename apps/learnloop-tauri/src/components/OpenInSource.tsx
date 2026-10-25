@@ -15,6 +15,7 @@ export function OpenInSource({
   context,
   entityType,
   entityId,
+  outlineSpanIds,
   onClose
 }: {
   extractionId: string;
@@ -22,6 +23,9 @@ export function OpenInSource({
   context?: string;
   entityType?: string | null;
   entityId?: string | null;
+  /** Reader CA1 (the original page): every block of the problem on this page
+   *  is outlined, not only the one opened. */
+  outlineSpanIds?: string[];
   onClose: () => void;
 }) {
   const [currentSpanId, setCurrentSpanId] = useState(spanId);
@@ -32,7 +36,12 @@ export function OpenInSource({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (screenLeavesKey(e, { modal: true })) return;
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // The modal's Esc is its own (Reader CA1: the screen beneath, practice
+        // or feedback, must not also take it as "back").
+        e.stopPropagation();
+        onClose();
+      }
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
@@ -104,6 +113,10 @@ export function OpenInSource({
                         style={{ width: "100%", display: "block", border: `1px solid ${COLOR.border}` }}
                       />
                       <PdfRegion bbox={view.bbox} pageSize={view.pageRenderSize} />
+                      {(outlineSpanIds ?? [])
+                        .filter((id) => id !== view.spanId)
+                        .map((id) => view.pageSpans.find((span) => span.spanId === id))
+                        .map((span) => (span ? <PdfRegion key={span.spanId} bbox={span.bbox} pageSize={view.pageRenderSize} /> : null))}
                     </div>
                   ) : null}
                   <div style={pageBoxStyle}>

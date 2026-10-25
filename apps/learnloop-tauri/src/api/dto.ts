@@ -749,6 +749,9 @@ export interface SessionCheckpoint {
   /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft;
    *  present (true) only when one was, under this retry key. */
   hintSeen?: boolean;
+  /** Reader CA1 (Q12): the original page was opened before Submit on this
+   *  draft (it counts as the book); present only when it was. */
+  pageSeen?: boolean;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -7626,6 +7629,59 @@ export interface ReaderBlockRegionDto {
   regionRender: string | null;
   pageRenderSize?: number[] | null;
   reason: string;
+}
+
+// ── Reader CA1: the problem as printed (ux_reader_compare_ask_v1 §8) ─────────
+
+/** One crop of a problem's own blocks on one page (never a neighbour, C10). */
+export interface PrintedCropDto {
+  page: number;
+  /** The printed page label when the PDF has them, else the page's position. */
+  pageLabel: string;
+  bbox: number[];
+  spanIds: string[];
+  /** A PNG data URL; null when not rendered or not available. */
+  image: string | null;
+}
+
+/** The multi-block form of reader.block_original_region. */
+export interface PrintedCropsDto {
+  version?: number;
+  extractionId: string;
+  spanIds: string[];
+  /** ok · no_original (no readable page image) · no_geometry · not_found */
+  status: "ok" | "no_original" | "no_geometry" | "not_found";
+  crops: PrintedCropDto[];
+  skippedSpanIds: string[];
+}
+
+/** practice.as_printed: what an item may show of its print, decided on the server. */
+export interface AsPrintedViewDto {
+  version?: number;
+  practiceItemId?: string;
+  enabled: boolean;
+  /** page: the crop and the original page · figure: a check on your own, the
+   *  figure alone (Q10) · photo: the learner's photo · none */
+  kind: "page" | "figure" | "photo" | "none";
+  cold: boolean;
+  reason?: string;
+  label?: string;
+  status?: "ok" | "no_original" | "no_geometry" | "not_found";
+  /** kind page: PrintedCropDto; kind figure: only an index and the image. */
+  crops?: Array<PrintedCropDto | { index: number; image: string | null }>;
+  locator?: { sourceTitle: string | null; exerciseLabel: string | null; pageLabel: string };
+  originalPage?: { extractionId: string; spanId: string; outlineSpanIds: string[] } | null;
+  /** "the page image isn't available for this book · the transcription is above" */
+  notice?: string;
+  transcriptionReport?: boolean;
+  photo?: { captureId: string; capturedAt: string | null };
+}
+
+export interface TranscriptionReportDto {
+  version?: number;
+  noticeId: string | null;
+  status: string | null;
+  reports: number;
 }
 
 /** P3 slice 2: nine-preset palette, demand-paged synthesis, source objects (§5-§7). */

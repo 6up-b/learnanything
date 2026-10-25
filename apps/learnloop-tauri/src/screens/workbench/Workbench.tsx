@@ -36,6 +36,7 @@ import { WhereThisGoes } from "./WhereThisGoes";
 import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
 import { useWorkbenchHelp } from "./useWorkbenchHelp";
 import { PassageExtras, ShowMeExample, useRouteExamples } from "./RouteExample";
+import { AS_PRINTED_COPY, AsPrinted, BlocksAsPrinted, useAsPrinted } from "../../components/AsPrinted";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
 
@@ -117,6 +118,10 @@ export function Workbench(props: WorkbenchProps) {
 
   const title = problemTitle(session.stemMd);
   const fromBook = session.origin === "reader";
+  // Reader CA1 (ux_reader_compare_ask_v1 §8.1): the problem as printed under
+  // the stem (the practice screen draws its own above, so not here then); a
+  // bound problem asks the server, which applies the cold rule (D46).
+  const asPrinted = useAsPrinted(props.hideProblem ? null : session.practiceItemId);
   const bound = session.practiceItemId !== null;
   const open = session.status === "open";
   const live = liveSteps(steps);
@@ -348,6 +353,15 @@ export function Workbench(props: WorkbenchProps) {
         {" · "}{title}
         {fromBook && session.sourceVisible ? " · from the book, verbatim" : ""}
       </span>
+      {/* Reader CA1: the page itself, beside the problem in the book pane;
+          hidden while the book is hidden (UX §5.1), so it never costs more
+          than the book already does. */}
+      {fromBook && session.sourceVisible && open && !readOnly && session.spanIds.length > 0 && props.onPeekPassage ? (
+        <button type="button" data-testid="workbench-original-page" style={linkStyle}
+          onClick={() => peek(session.spanIds[0], session.extractionId ? { extractionId: session.extractionId } : undefined)}>
+          {AS_PRINTED_COPY.originalPage}
+        </button>
+      ) : null}
       {layout === "stacked" && fromBook && props.onShowInBook ? (
         <button type="button" onClick={props.onShowInBook} style={{ ...linkStyle, marginLeft: "auto" }}>show in the book ▾</button>
       ) : null}
@@ -428,6 +442,12 @@ export function Workbench(props: WorkbenchProps) {
           <MarkdownMath value={session.stemMd} />
         </div>
       )}
+      {session.practiceItemId ? (
+        <AsPrinted key={`${session.practiceItemId}:${asPrinted?.kind ?? "none"}`} view={asPrinted}
+          practiceItemId={session.practiceItemId} altText={session.stemMd} />
+      ) : fromBook && session.extractionId && session.spanIds.length > 0 ? (
+        <BlocksAsPrinted extractionId={session.extractionId} spanIds={session.spanIds} altText={session.stemMd} />
+      ) : null}
     </div>
   );
 

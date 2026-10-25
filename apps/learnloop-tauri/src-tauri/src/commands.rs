@@ -1420,6 +1420,10 @@ sidecar_passthrough!(adaptive_difficulty_readiness, "adaptive_difficulty.readine
 sidecar_passthrough!(adaptive_difficulty_why_item, "adaptive_difficulty.why_item");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
+// Reader CA1 (the problem as printed): the item's crop view and the transcription
+// report; desktop only (no phone RPC in v1, D20).
+sidecar_passthrough!(practice_as_printed, "practice.as_printed");
+sidecar_passthrough!(practice_report_transcription, "practice.report_transcription");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");
 sidecar_passthrough!(reader_capture, "reader.capture");
 sidecar_passthrough!(reader_create_annotation, "reader.create_annotation");

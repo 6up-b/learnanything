@@ -1903,6 +1903,7 @@ export function App() {
             restoredDisclosure={restored.selfGradeDisclosure}
             restoredFirstHintProgress={restored.firstHintProgress}
             restoredHintSeen={restored.hintSeen}
+            restoredPageSeen={restored.pageSeen}
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
             onContinueDiagnostic={openPractice}
