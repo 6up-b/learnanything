@@ -3,8 +3,8 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ced3f8ea5c1f7080fb666e90e6e88f8d633eb7a6"
-source_commit_timestamp: "2026-10-25T11:47:46-04:00"
+source_commit: "ea25868cc43d23b41707815bbb85e573e2abac1d"
+source_commit_timestamp: "2026-10-25T17:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_ownership.py`
 - `tests/test_migrations.py`
 - `tests/test_mobile_host_coexistence.py`
+- `tests/test_plan_follows_path.py`
 - `tests/test_secondary_attach.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_synthesis_runs_repo.py`
