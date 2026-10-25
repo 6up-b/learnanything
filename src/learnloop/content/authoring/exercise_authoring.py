@@ -42,6 +42,7 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.ingest.ir import selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
     LEGACY_UNMAPPED,
@@ -468,9 +469,9 @@ def author_exercises(
     # Reader CA1 (ux_reader_compare_ask_v1 §12.4): a region selection (a
     # learner-drawn box inside one block, ``ReaderSelection.region``) is kept
     # on that block's ref, so the problem as printed shows the learner's crop.
-    from learnloop.reader.as_printed import region_for
-
-    for span_id, (page, box) in region_for(raw_selection.get("region"), span_ids).items():
+    raw_region = raw_selection.get("region")
+    for span_id, (page, box) in selection_region(dict(raw_region) if isinstance(raw_region, Mapping) else None,
+                                                 span_ids).items():
         for ref in source_refs:
             if ref["locator"] == format_block_span(extraction_id, span_id):
                 ref["region"] = {"page": page, "bbox": list(box)}

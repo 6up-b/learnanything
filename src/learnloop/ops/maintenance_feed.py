@@ -358,6 +358,7 @@ def report_transcription_mismatch(
     repository: Repository,
     practice_item_id: str,
     *,
+    origin: Any,
     note: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
@@ -370,7 +371,10 @@ def report_transcription_mismatch(
     else: no evidence, no retirement, no change to the item. It resolves on
     its own once the wording differs from the one reported. Raises
     ``LookupError`` for an unknown item, ``ValueError`` for an item with no
-    print of its own (not imported from a page, or a variant).
+    print of its own (not imported from a page, or a variant). ``origin`` is
+    where its print is, as the caller read it (``reader.as_printed.
+    printed_origin``: ``extraction_id``, ``span_ids``, ``label``,
+    ``relation``), or None.
 
     Codex review F8: the read of the stored report, the append and the
     reopening are one ``BEGIN IMMEDIATE`` transaction, so two reports (or a
@@ -378,12 +382,10 @@ def report_transcription_mismatch(
     lose one another's text or count."""
 
     from learnloop.clock import utc_now_iso
-    from learnloop.reader.as_printed import printed_origin
 
     item = vault.practice_items.get(practice_item_id)
     if item is None:
         raise LookupError(practice_item_id)
-    origin = printed_origin(repository, item)
     if origin is None or origin.relation != "verbatim":
         raise ValueError("Only a problem imported verbatim from a page has a transcription to report.")
     text = (note or "").strip()
@@ -452,8 +454,6 @@ def _resolve_reworded_transcription_reports(
     update that holds only while the stored report is still the one read, so
     a report filed meanwhile (a new wording, a reopening) is never resolved."""
 
-    from learnloop.clock import utc_now_iso
-
     resolved: list[str] = []
     for live in repository.maintenance_notices(include_hidden=True):
         if live["notice_type"] != TRANSCRIPTION_MISMATCH or live["status"] not in {"active", "snoozed"}:
@@ -462,16 +462,9 @@ def _resolve_reworded_transcription_reports(
         item = vault.practice_items.get(live["dedup_key"])
         if item is not None and _prompt_sha256(item.prompt) == reported:
             continue
-        now = utc_now_iso(clock)
-        with repository.atomic():
-            with repository.connection() as connection:
-                changed = connection.execute(
-                    "UPDATE maintenance_notices SET status = 'resolved', resolved_at = ? "
-                    "WHERE id = ? AND status IN ('active','snoozed') "
-                    "AND json_extract(detail_json, '$.prompt_sha256') IS ?",
-                    (now, live["id"], reported),
-                ).rowcount
-        if changed:
+        if repository.resolve_maintenance_notice_if_detail(
+            live["id"], detail_key="prompt_sha256", expected=reported, clock=clock
+        ):
             resolved.append(live["id"])
     return resolved
 

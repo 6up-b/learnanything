@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any
 
-from learnloop.ingest.ir import DocumentBlock, is_figure_block
+from learnloop.ingest.ir import DocumentBlock, is_figure_block, page_region, selection_region
 
 #: The kinds of view (the client renders one control per kind).
 KIND_PAGE = "page"
@@ -206,34 +206,13 @@ class PrintedOrigin:
 
 
 def _region(value: Any) -> tuple[int, Box] | None:
-    if not isinstance(value, Mapping):
-        return None
-    page, bbox = value.get("page"), value.get("bbox")
-    if page is None or not isinstance(bbox, Sequence) or len(bbox) != 4:
-        return None
-    try:
-        x0, y0, x1, y1 = (float(v) for v in bbox)
-        page = int(page)
-    except (TypeError, ValueError):
-        return None
-    left, right = sorted((x0, x1))
-    top, bottom = sorted((y0, y1))
-    if right <= left or bottom <= top:
-        return None
-    return page, (left, top, right, bottom)
+    return page_region(dict(value)) if isinstance(value, Mapping) else None
 
 
 def region_for(value: Mapping[str, Any] | None, span_ids: Sequence[str]) -> dict[str, tuple[int, Box]]:
-    """A selection's ``region`` (span, page, box) as :func:`crop_boxes` takes
-    it; nothing when it names a block outside ``span_ids`` or is malformed."""
+    """A selection's ``region`` as :func:`crop_boxes` takes it (``ingest.ir.selection_region``)."""
 
-    if not isinstance(value, Mapping):
-        return {}
-    span = str(value.get("span_id") or value.get("spanId") or "")
-    region = _region(value)
-    if not span or span not in {str(s) for s in span_ids} or region is None:
-        return {}
-    return {span: region}
+    return selection_region(dict(value), span_ids) if isinstance(value, Mapping) else {}
 
 
 def _ref_field(ref: Any, name: str) -> Any:

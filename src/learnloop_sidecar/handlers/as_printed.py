@@ -112,8 +112,11 @@ def practice_report_transcription(ctx: SidecarContext, params: TranscriptionRepo
     vault, repository = ctx.require_vault()
     if not _enabled(vault):
         raise SidecarError("disabled", "The problem as printed is off (practice.as_printed.enabled).")
+    item = vault.practice_items.get(params.practice_item_id)
+    origin = printed_origin(repository, item) if item is not None else None
     try:
-        notice = report_transcription_mismatch(vault, repository, params.practice_item_id, note=params.note)
+        notice = report_transcription_mismatch(vault, repository, params.practice_item_id, origin=origin,
+                                               note=params.note)
     except LookupError as exc:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} was not found.") from exc
     except ValueError as exc:

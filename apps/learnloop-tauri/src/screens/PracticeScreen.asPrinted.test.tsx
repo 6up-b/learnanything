@@ -217,6 +217,25 @@ it("a diagnostic block: no original page and no crop of the page, only what the 
   expect(view.container.textContent ?? "").not.toContain("p.297");
 });
 
+// Codex review F4: a problem imported from a Reader selection (no canonical
+// exercise) keeps its print on the practice screen: the page, the original
+// page counted once, the crop.
+it("a selection import: the page's locator and the original page, counted as the book", async () => {
+  await open("classic", { canonicalExercise: null });
+  const line = await screen.findByTestId("printed-locator");
+  expect(line.textContent).toContain("From Strang · p.297");
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("original-page"));
+  });
+  await waitFor(() => expect(api.getSpanView).toHaveBeenCalledWith(expect.objectContaining({ entityType: "practice_item", entityId: ITEM_ID })));
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "Escape" });
+  });
+  expect(screen.getByTestId("page-counted")).toBeTruthy();
+  const sent = await submit();
+  expect(sent).toMatchObject({ hintsUsed: 1, bookCounted: true });
+});
+
 it("the switch off (or an older sidecar) leaves the card as it was", async () => {
   api.practiceAsPrinted.mockResolvedValue({ version: 1, enabled: false, kind: "none", cold: false, reason: "disabled" });
   const { view } = await open("classic");

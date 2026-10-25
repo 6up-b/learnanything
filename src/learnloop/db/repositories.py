@@ -20873,6 +20873,31 @@ class Repository(
             )
             connection.commit()
 
+    def resolve_maintenance_notice_if_detail(
+        self, notice_id: str, *, detail_key: str, expected: Any, clock: Clock | None = None
+    ) -> bool:
+        """Resolve a live notice only while its stored ``detail[detail_key]``
+        is still ``expected`` (one guarded statement: a write that changed the
+        detail since the caller read it keeps the notice). Reader CA1's
+        transcription reports resolve this way (Codex review F8). Returns
+        whether it was resolved."""
+
+        if not detail_key.isidentifier():
+            raise ValueError(f"not a detail key: {detail_key!r}")
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            changed = connection.execute(
+                f"""
+                UPDATE maintenance_notices
+                   SET status = 'resolved', resolved_at = ?
+                 WHERE id = ? AND status IN ('active', 'snoozed')
+                   AND json_extract(detail_json, '$.{detail_key}') IS ?
+                """,
+                (now, notice_id, expected),
+            ).rowcount
+            connection.commit()
+        return bool(changed)
+
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
         ``manifest_hash`` — an identical manifest returns the existing id and is

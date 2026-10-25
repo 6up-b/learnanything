@@ -306,6 +306,12 @@ def test_a_page_known_without_a_box_offers_the_original_page_and_no_substitute_c
 # -- F8: reports are never lost to a refresh or another report ------------------------------------
 
 
+def _origin(vault, repository):
+    from learnloop.reader.as_printed import printed_origin
+
+    return printed_origin(repository, vault.practice_items[ITEM])
+
+
 def _notice(repository):
     (notice,) = [n for n in repository.maintenance_notices(include_hidden=True)
                  if n["notice_type"] == "transcription_mismatch"]
@@ -317,7 +323,7 @@ def test_a_feed_refresh_reading_before_a_report_never_overwrites_it(book, warm, 
 
     paths, ctx, repository = book
     vault, _ = ctx.require_vault()
-    MF.report_transcription_mismatch(vault, repository, ITEM, note="first")
+    MF.report_transcription_mismatch(vault, repository, ITEM, origin=_origin(vault, repository), note="first")
     # The refresh reads the live notices; a report lands between that read
     # and the refresh's writes (the interleaving the review describes).
     real = repository.maintenance_notices
@@ -328,7 +334,7 @@ def test_a_feed_refresh_reading_before_a_report_never_overwrites_it(book, warm, 
         if not reported["done"]:
             reported["done"] = True
             other = type(repository)(repository.sqlite_path)                # a second connection, its own commit
-            MF.report_transcription_mismatch(load_vault(paths.root), other, ITEM, note="second")
+            MF.report_transcription_mismatch(load_vault(paths.root), other, ITEM, origin=_origin(vault, other), note="second")
         return rows
 
     monkeypatch.setattr(repository, "maintenance_notices", read_then_report)
@@ -344,7 +350,7 @@ def test_a_reworded_card_resolves_but_a_report_on_the_new_wording_meanwhile_is_k
 
     paths, ctx, repository = book
     vault, _ = ctx.require_vault()
-    MF.report_transcription_mismatch(vault, repository, ITEM, note="old wording")
+    MF.report_transcription_mismatch(vault, repository, ITEM, origin=_origin(vault, repository), note="old wording")
     path = next(paths.root.rglob(f"{ITEM}.yaml"))
     payload = read_yaml(path)
     payload["prompt"] = payload["prompt"] + " (reworded)"
@@ -357,7 +363,8 @@ def test_a_reworded_card_resolves_but_a_report_on_the_new_wording_meanwhile_is_k
         rows = real(*args, **kwargs)
         if not state["done"]:
             state["done"] = True
-            MF.report_transcription_mismatch(reworded, type(repository)(repository.sqlite_path), ITEM, note="new")
+            MF.report_transcription_mismatch(reworded, type(repository)(repository.sqlite_path), ITEM,
+                                             origin=_origin(reworded, repository), note="new")
         return rows
 
     monkeypatch.setattr(repository, "maintenance_notices", read_then_report)
@@ -381,7 +388,8 @@ def test_two_reports_on_two_connections_both_count(book, warm):
         try:
             own = type(repository)(repository.sqlite_path)
             barrier.wait()
-            MF.report_transcription_mismatch(load_vault(paths.root), own, ITEM, note=f"note {index}")
+            fresh = load_vault(paths.root)
+            MF.report_transcription_mismatch(fresh, own, ITEM, origin=_origin(fresh, own), note=f"note {index}")
         except BaseException as exc:  # noqa: BLE001 - surfaced below
             errors.append(exc)
 
@@ -403,7 +411,7 @@ def test_the_feed_upsert_of_other_notices_is_unchanged(book, warm):
 
     _paths, ctx, repository = book
     vault, _ = ctx.require_vault()
-    MF.report_transcription_mismatch(vault, repository, ITEM)
+    MF.report_transcription_mismatch(vault, repository, ITEM, origin=_origin(vault, repository))
     before = _notice(repository)
     MF.generate_maintenance_feed(vault, repository)
     after = _notice(repository)

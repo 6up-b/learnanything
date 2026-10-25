@@ -1597,6 +1597,19 @@ export function PracticeScreen({
                 </>
               ) : null}
             </div>
+          ) : asPrinted?.kind === "page" && asPrinted.locator && !intentCheck?.locatorsHidden ? (
+            // Reader CA1 (Codex review F4): a problem imported from a Reader
+            // selection has no canonical exercise, but its page is the book's:
+            // the same locator and original page, as the server allows them.
+            <div className="queue-meta" data-testid="printed-locator" style={{ fontSize: 11 }}>
+              <Faint>From {asPrinted.locator.sourceTitle ?? "your book"} · {printedPageLabel(asPrinted)}</Faint>
+              {originalPageOffered && !stepsMode ? (
+                <>
+                  {" · "}
+                  <OriginalPageLink view={asPrinted} costs={!bookCounts} onOpen={openOriginalPage} />
+                </>
+              ) : null}
+            </div>
           ) : null}
           {!probeActive && (!simple || controlsOpen) ? (
             <CardControls
