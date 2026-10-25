@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d7dfe17e8b1b56f0ac2ad5096b135933344bf8af"
-source_commit_timestamp: "2026-10-25T13:01:37-04:00"
+source_commit: "4422791ddadf4e39abf1975876e86c3fdf45b18f"
+source_commit_timestamp: "2026-10-25T14:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 220
+schema_head: 221
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -167,6 +167,7 @@ Indexes and uniqueness:
 - `Repository.qualifying_probe_observation_count_for_session()`
 - `Repository.real_attempt_trace_rows()`
 - `Repository.record_deferred_regrade()`
+- `Repository.record_learner_claim_application()`
 - `Repository.regrade_epoch_transitions()`
 - `Repository.replace_attempt_derived_outcome()`
 - `Repository.requested_practice_item_ids()`

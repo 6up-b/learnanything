@@ -55,10 +55,12 @@ predecessor and the target; it is removed once the transaction commits. So:
   had committed (the process died between the commit and the removal) is
   recognised by the activation's committed receipt and just removed.
 
-  No entry point serves the vault meanwhile (re-review F2): every opener that
-  may write (``learnloop.vault.repository``: each CLI command, the desktop
-  sidecar, the TUI, the services below them) completes the activation first
-  or raises ``InterruptedActivation``, and every other attach (a read-only
+  No entry point serves the vault meanwhile (re-review F2): the openers that
+  may write (``learnloop.vault.repository``) complete the activation first
+  in every CLI command and in the desktop sidecar (each installs
+  :func:`complete_interrupted_activation`), and raise
+  ``InterruptedActivation`` if it cannot complete or in a process that
+  installed nothing (the TUI, a script); every other attach (a read-only
   report, the MCP server, the phone host) refuses it
   (``learnloop.activation_journal``).
 

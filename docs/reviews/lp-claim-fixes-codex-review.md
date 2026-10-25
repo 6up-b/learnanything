@@ -316,3 +316,283 @@ Targeted pytest files (133):
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_voi_stopping.py`
 - `tests/test_workbench_assistance.py`
+
+## Re-review (Codex job `20261025-134749-TKbnIL`)
+
+The re-review confirmed F1 fixed, reopened F2 and found three new defects
+in the fix commits (F7-F9). Each was reproduced before it was fixed. The tests
+are in `tests/test_lp_claim_fixes_rereview.py` (committed failing first, in
+`5d33349b1`: 20 failed, 1 passed) and `tests/test_learner_claim_application_migration.py`.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Gap application is neither atomic nor retry-safe | confirmed fixed (no change) | `ade1d9e89` | the round-one tests still pass |
+| F2 | High | Incomplete activation is still served outside the desktop's happy path | fixed | `4422791dd` (+ the record commit's docstring) | `test_f2_every_opener_that_may_write_completes_the_activation_first[open_vault_repository, vault_repository, sidecar_start, cli_command]`, `test_f2_a_real_death_is_completed_by_the_next_cli_command` (forked `os._exit` after the rename), `test_f2_an_activation_that_cannot_complete_stops_the_opener[...4]`, `test_f2_an_opener_in_a_process_that_cannot_complete_refuses[...2]`, `test_f2_the_cli_and_the_sidecar_install_the_completion[...3]`, `test_f2_attaches_that_never_write_refuse_while_the_journal_stands`, `test_f2_an_mcp_server_already_attached_stops_serving_when_a_journal_appears`, `test_f2_the_phone_host_refuses_to_start_while_the_journal_stands`; the round-one `desktop_start` case now goes through `SidecarContext.load` |
+| F7 | Medium | Reserved attempt ids can reverse the live claim/attempt order | fixed | `4422791dd` | `test_f7_an_attempt_reserved_before_a_gap_and_graded_after_it_replays_after_it`, `test_f7_the_claim_records_how_many_of_its_los_attempts_it_was_applied_after`, `test_f7_every_reanchoring_writer_records_its_point[too_easy_report, rung_variant_request]`, `test_f7_off_the_claim_records_nothing`; migration tests in `test_learner_claim_application_migration.py` |
+| F8 | Medium | Preserved cold variance is lost during rebuild | fixed | `4422791dd` | `test_f8_two_claims_with_differing_pseudo_counts_keep_the_weak_claims_variance_in_a_rebuild`, `test_f8_the_first_replayed_attempt_starts_from_the_retained_variance`, `test_f8_activation_reseeds_with_the_retained_variance_as_a_rebuild_does` |
+| F9 | Medium | Timeout-resolved reviews omit claim feedback | fixed | `149efccd1` | `test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after_the_deadline` |
+
+No finding was rejected.
+
+### Reproduction
+
+- **F2.** With the interrupted state built directly (the successor's label,
+  the predecessor's database, the journal), `open_vault_repository`,
+  `vault_repository` and a CLI command (`backfill-originals`) all served the
+  predecessor's mastery under the successor's label. `RemoteRuntime.attach`,
+  a read-only `Repository.attach` and the phone host's `attach` all attached.
+  A failing completion in `SidecarContext.load` was logged, and the load went on.
+- **F7.** The production gap writer and the self-grade path were used. The
+  attempt's id was minted before the gap, and its grade was committed in the
+  gap's second. Live mastery was `(-1.0230, 2.1541)`; the rebuild gave
+  `(-0.9278, 1.8859)`.
+- **F8.** A `learner_report` claim at pseudo-count 0.25 (variance 4.0) was
+  followed by a `rung_variant_request` at 2.0. Live kept 4.0. The rebuild
+  seeded 3.0, both attempt-free and before the first replayed attempt. The
+  activation re-seeded 3.0 as well.
+- **F9.** A missed review of an "I know this" LO had its diagnose job queued
+  past `DIAGNOSIS_WAIT_DAYS`. Placement now reads the assumption as `failed`
+  with that review as the resolving attempt. `claim_check` still returned `None`.
+
+### What changed
+
+**F2: every opener completes the activation, or nothing is served**
+(`learnloop/activation_journal.py`, new leaf module;
+`vault/repository.py`, `db/repositories.py`, `claim_fixes_upgrade.py`,
+`cli/runtime.py`, `learnloop_sidecar/context.py`, `remote/runtime.py`,
+`learnloop_mobile/host.py`).
+
+- The journal's path is derived from the database's path alone, so the
+  database layer can check it.
+- `open_vault_repository` (every CLI command, the sidecar and the TUI) and
+  `vault_repository` (the services below them) complete the activation before
+  they attach, under the vault mutation lock. If the completion fails, they
+  raise `InterruptedActivation`, which names `learnloop upgrade --to <tag>`.
+  The journal stays for the next try.
+- The completion belongs to the upgrade module, which sits above the vault
+  layer. Calling it directly broke two import contracts (`tui` reached
+  `daily_plan_upgrade`, and the frozen cycles changed). So the entry points
+  that may complete it, the CLI (`cli/runtime.py`) and the desktop sidecar,
+  install it at import (`install_completer`). An opener in a process that
+  installed nothing (the TUI, a script) raises instead.
+- Every other attach refuses while the journal stands. `Repository.__init__`
+  and `Repository.attach` call `refuse_if_interrupted`, which covers a
+  read-only CLI report. The MCP runtime refuses on attach and on every
+  request (`RemoteRuntime.vault()`), and the phone host refuses at start. The
+  MCP runtime and the phone host raise their own `SchemaMismatch` (exit 78),
+  so a supervisor does not restart in a loop.
+- The completion's own opens run inside `completing_activation()` (a
+  `ContextVar`), so they are neither refused nor recursive.
+- The sidecar's catch-and-continue hook is gone. `SidecarContext.load` binds
+  the new vault only after its opener has returned.
+
+**F7: the claim's place is recorded where it was applied** (migration
+`221_learner_claim_application_point.sql`, `learner_claims.applied_after_attempts`;
+`learner/mastery.py::reanchor_mastery_from_claim`,
+`Repository.record_learner_claim_application`, `substrate/replay.py::_ClaimStream`).
+
+- Under the successor, the live re-anchor records how many of the LO's
+  attempts were already applied. It does this inside the claim's own
+  `BEGIN IMMEDIATE` transaction, for the claim the writer passes as
+  `claim_id`. Every re-anchoring writer passes it: the gap promotion, the
+  rung-variant request and the too-easy/too-hard report.
+- Replay applies the claim after that many attempts. Claims at the same point
+  keep their `(created_at, id)` order. A claim without the record (written
+  below the successor, by a non-re-anchoring source, or before 221) is placed
+  by the round-one `(created_at, id)` rule.
+- No order is inferred from an attempt id that was reserved before grading.
+- The claim-reading functions now take an explicit set of the claims made by
+  a point (`claims_made`) instead of a stamp and id.
+- No new number: the record is a count.
+
+**F8: the cold seed keeps the variance earlier re-anchors left**
+(`learner/mastery.py::initial_mastery_state_for_learning_object`).
+
+- Under the successor, the seed takes the covering claim's mean with the
+  largest variance that any re-anchoring claim's own seed had at its point,
+  in the order the claims were made. This is the `max(current, seed)` that
+  live keeps.
+- The attempt-free rebuild, the seed before the first replayed attempt and
+  the activation's re-seed all read this function. It is a structural `max`
+  over seeds already computed, so there is no new number.
+
+**F9: the claim line reads placement as it stands now**
+(`placement/claim_check.py`). Placement is evaluated at the wall clock (an
+optional `now_iso` exists for callers), and the review is matched by
+`resolving_attempt_id`.
+
+### The schema change (F7)
+
+- Migration 221 adds one nullable column with a `>= 0` check. It is numbered
+  after main's 220. RW7b may take the same number, and the landing renumbers.
+- `fixtures/migration_head_220` was renamed to `migration_head_221`. Its
+  database is a backup-API copy of the sanitized head with only 221 applied
+  under `UPGRADE_SCRATCH_COPY`:
+  - `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1;
+  - `integrity_check` ok, `foreign_key_check` empty, no companion files;
+  - the size is unchanged (6,696,960 bytes), and the README records the rebuild.
+- The head path is named in 37 test files, `scripts/sanitize_migration_head_fixture.py`
+  and both `db_*_reference.py` scripts, with `SCHEMA_HEAD = 221`.
+- The earlier migrations' "nothing else changed" diffs subtract
+  `CLAIM_POINT_ALTERED_TABLES = {learner_claims}`, and their head asserts read 221.
+- The AD column classes list `applied_after_attempts` as metadata.
+- `table_roles` is unchanged: no new table.
+- `learnloop.activation_journal` is in the experiments-stay-outside-production
+  contract.
+
+### Residuals
+
+- A long-lived sidecar that loaded the vault before another process's
+  upgrade died keeps serving its own loaded state until it reloads. That state
+  is the predecessor's label and the predecessor's database, so it is
+  consistent. The reload then completes the activation or fails.
+- Two attempts on one LO do not rebuild to their live mastery row in this test
+  harness (`create_placement_vault` + self-grades), even with no claims at all.
+  This is unrelated to the claim stream, and main has it too. So
+  `test_f7_the_claim_records...` compares the raced rebuild with the rebuild
+  of the same history where the second attempt's id was minted after the gap,
+  not with the live row.
+- The F5 residual about attempts among themselves still holds: they replay in
+  `(created_at, id)` order, not in commit order.
+
+### Gate (re-review)
+
+Run in this worktree after the fixes. The owner's rule applies: there is no
+full suite, durability lane or full vitest here; the landing gate on the
+merged tree runs those. Every test command ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`,
+with pytest at `-n 6` and one test run at a time. Scripts outside pytest
+(the head-fixture rebuild and the reference scripts) ran under `env -i`
+with empty HOME/CODEX_HOME/LEARNLOOP_CONFIG_DIR. No live or paid calls were made.
+
+| step | result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken (the first draft of F2, a direct call from `vault.repository` into the upgrade, broke 2; the installed completion replaced it) |
+| reproduction: `tests/test_lp_claim_fixes_rereview.py` at `5d33349b1` (before the fixes) | 20 failed, 1 passed (the passing one, `test_f2_every_opener..._first[sidecar_start]`, is the happy path round one already covered; its failure case `...cannot_complete_stops_the_opener[sidecar_start]` failed) |
+| reproduction of F7 under the round-one rule (the recorded point ignored) | `test_f7_*` replay cases: 2 failed |
+| targeted pytest `-n 6`, 111 files (listed below) | **10515 passed, 66 skipped, 2 xfailed, 0 failed** (48m42s) |
+| durability: `pytest -n 6 --durable-sqlite tests/test_learner_claim_application_migration.py tests/test_lp_claim_fixes_rereview.py tests/test_lp_claim_fixes_review.py tests/test_lp_claim_fixes.py` (WAL + `synchronous=FULL`) | 71 passed, 3 skipped (owner-vault lane, no copies) |
+| frontend (npm, vitest, build) | not run: nothing under `apps/` changed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py` + `db_validate_reference.py` (schema head 221) | 351 table notes, `errors: []`, 4,751 wikilinks checked |
+| `module_validate.py` | wikilinks 14712/14712, source/test links 11795/11795 |
+
+Migration 221 (one column); head fixture `migration_head_221`; one new
+top-level module (`learnloop.activation_journal`, in the E0 contract); no new
+table, model route, config key or number (the F7 record is a count, the F8
+seed a `max` over seeds already computed).
+
+Targeted pytest files (111):
+
+- `tests/test_ad1_codex_rereview_fixes.py`
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_outside_and_cli.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r5.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad23_intent_compose.py`
+- `tests/test_ad23_inversion.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_pool_membership.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad2_serving.py`
+- `tests/test_ad3_monitoring.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
+- `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_ad_epoch.py`
+- `tests/test_ad_guard.py`
+- `tests/test_architecture.py`
+- `tests/test_block_chooser_interface.py`
+- `tests/test_cli_help_snapshot.py`
+- `tests/test_config_refactor.py`
+- `tests/test_daily_loop_golden_path_lifecycle.py`
+- `tests/test_daily_loop_lo_lifecycle_serving.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reader_retire.py`
+- `tests/test_daily_loop_reentry_break.py`
+- `tests/test_daily_loop_reentry_cap.py`
+- `tests/test_daily_loop_reference_adoption.py`
+- `tests/test_daily_loop_start_minutes.py`
+- `tests/test_daily_loop_start_postpone.py`
+- `tests/test_daily_plan_admission.py`
+- `tests/test_daily_plan_build.py`
+- `tests/test_daily_plan_composition.py`
+- `tests/test_daily_plan_kill_switch.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_reading.py`
+- `tests/test_daily_plan_reentry.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_daily_plan_review_regressions.py`
+- `tests/test_daily_plan_rpc.py`
+- `tests/test_daily_plan_split.py`
+- `tests/test_desktop_rpc_contract.py`
+- `tests/test_dl2_rw4b_keyed_pick_check.py`
+- `tests/test_evsi_staged_binding.py`
+- `tests/test_exam_protection_landing.py`
+- `tests/test_integration_daily_loop_field.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_intent_exclusion.py`
+- `tests/test_intent_fix_round4.py`
+- `tests/test_intent_fix_round5.py`
+- `tests/test_intent_fix_round6.py`
+- `tests/test_intent_fix_round7.py`
+- `tests/test_intent_goal_deadline.py`
+- `tests/test_intent_plan.py`
+- `tests/test_learner_pick_proposal.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_tools.py`
+- `tests/test_method_explicit_landing.py`
+- `tests/test_method_explicit_upgrade.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_mvp011_upgrade.py`
+- `tests/test_mvp014_upgrade.py`
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_mvp016_upgrade.py`
+- `tests/test_mvp017_upgrade.py`
+- `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
+- `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_plan_determinism_landing.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_follows_path.py`
+- `tests/test_reader_report.py`
+- `tests/test_reader_rw4b_admission_idempotency.py`
+- `tests/test_reader_rw4b_fix6.py`
+- `tests/test_reader_rw7a_migration.py`
+- `tests/test_reading_paths.py`
+- `tests/test_reading_step_switch.py`
+- `tests/test_reference_gate_imports.py`
+- `tests/test_router_card.py`
+- `tests/test_router_g1_feasibility.py`
+- `tests/test_router_g4_restraint.py`
+- `tests/test_router_g7_fallback.py`
+- `tests/test_router_presentations.py`
+- `tests/test_router_r1_composition.py`
+- `tests/test_router_r2a_landing.py`
+- `tests/test_router_r2a_serving.py`
+- `tests/test_router_r2b_agreement.py`
+- `tests/test_router_r2bc_landing.py`
+- `tests/test_router_r2b_serving.py`
+- `tests/test_router_r2c_retrieval.py`
+- `tests/test_router_r2c_teach_back.py`
+- `tests/test_router_why_copy.py`
+- `tests/test_rw7b_codex_review_fixes.py`
+- `tests/test_rw7b_fix_round2.py`
+- `tests/test_serve_eligibility.py`
+- `tests/test_serve_eligibility_review.py`
+- `tests/test_sidecar_serializer_snapshot.py`
+- `tests/test_table_roles.py`
+- `tests/test_today_headline.py`
+- `tests/test_tracked_fixture_databases.py`
+- `tests/test_ux_phase4_feedback.py`
+- `tests/test_ux_phase4_landing.py`
+- `tests/test_voi_merge_composition.py`
+- `tests/test_voi_stopping.py`
+- `tests/test_voi_v2.py`

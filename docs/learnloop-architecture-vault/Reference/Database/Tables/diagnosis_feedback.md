@@ -3,13 +3,13 @@ title: "diagnosis_feedback"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d7dfe17e8b1b56f0ac2ad5096b135933344bf8af"
-source_commit_timestamp: "2026-10-25T13:01:37-04:00"
+source_commit: "4422791ddadf4e39abf1975876e86c3fdf45b18f"
+source_commit_timestamp: "2026-10-25T14:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_feedback"
   - "table diagnosis_feedback"
-schema_head: 220
+schema_head: 221
 table_name: "diagnosis_feedback"
 table_role: "raw_ledger"
 functionality_status: "active"
