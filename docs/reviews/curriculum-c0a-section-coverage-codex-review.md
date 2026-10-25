@@ -119,3 +119,62 @@ Targeted files:
   `test_ad_protected_tables`, `test_ad_protected_readings`, `test_public_tip_guards`,
   `test_plan_first_transport_paid_roles`, `test_plan_first_transport`, `test_plan_first_transport_offer_grants`,
   `test_registry_audit`, `test_tracked_fixture_databases`.
+
+## Re-review (codex-job 20261025-171749-1yTqbT): F1 reopened, F10 new
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Stale source-set protection: the CLI guard kept the vault it loaded; the sidecar guard ignored the provider's reload generation | fixed | fd4229700 | `test_rr_f1_a_role_changed_on_disk_during_a_cli_judgment_keeps_nothing`, `test_rr_f1_a_retry_after_a_role_changed_on_disk_is_never_sent`, `test_rr_f1_the_cli_batch_reads_source_sets_from_disk_before_each_lo`, `test_rr_f1_a_reload_published_during_the_protection_read_is_never_admitted[request\|record]` |
+| F10 | Medium | Role-first persistence changes the rebuilt prompt, so a crash between the proposals and the rows missed the ledger | fixed | fd4229700 | `test_rr_f10_a_crash_after_the_proposals_is_recovered_from_the_ledger` |
+
+**F1.** `CoverageGuard` now reads the vault as it is at every check, before each attempt, each physical request
+and each record:
+
+- **Without a provider (the CLI).** The guard loads the vault's files again through `vault_on_disk` (the loader's
+  `settled_load_vault`). A load whose files changed under it, or one that caught `source_sets.yaml` empty
+  mid-rewrite, refuses with `stale`, so it fails closed.
+- **The batch's per-LO refresh.** Both `cover_source` and `cover` now refresh with
+  `Library.refreshed(protection=protection_on_disk(...))`. A source the desktop makes an exam between LOs drops
+  out of every later LO's candidates.
+- **With a provider (the sidecar).** The guard reads `(vault, generation)` as one `snapshot()`, reads
+  protection from it, and admits only if `admit(generation)` still holds under the provider's publication lock.
+  A reload published while protection was being read causes another read, up to
+  `RELOAD_RETRIES = 3` times. After that the check refuses with `stale`.
+  - `RELOAD_RETRIES` is a guardrail labelled `keep`: it bounds the retry cost, as AD's `sending.RELOAD_RETRIES`
+    does.
+  - The guarantee is AD's: nothing is sent or recorded that is protected in the snapshot current at that
+    request's or record's admission.
+- **Record-time checks.** The record check runs inside the write transaction, as before. It is now
+  generation-bound too.
+
+**F10.** The RW4e role proposals now commit in the rows' transaction (`_write_rows(..., claims=...)`). They are
+written after the last guard check and inside one `BEGIN IMMEDIATE`; `propose_roles`' own `atomic()` becomes a
+savepoint of it.
+
+- A stop before the commit leaves no proposals and no rows. The restarted run rebuilds the same prompt, so the
+  ledger lookup hits and no call is made.
+- A stop after the commit leaves the state judged.
+- A guard refusal inside the transaction rolls back the proposals too. Before this fix, the proposals had
+  committed before the rows' check; the `record` case of the F1 test showed this.
+
+The reproduction was run before the fix, at commit ed25dcbd7: all 6 new tests failed for their finding's reason.
+
+- The CLI cases returned `ready` with rows kept, and a later LO's prompt still quoted `ext_lay`.
+- The `request` case of the generation test sent 1 request under the replaced snapshot; the `record` case kept
+  4 proposals.
+- F10 made a second call on restart.
+
+### Re-review gate (targeted, memory-capped)
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G` with
+`-n 6`, one at a time.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| Reproduction before the fix (`test_section_coverage_review.py -k rr_`) | 6 failed |
+| `test_section_coverage_review`, `test_section_coverage`, `test_section_coverage_rpcs`, `test_section_coverage_migration`, `test_source_roles`, `test_roles_concurrency`, `test_roles_judges`, `test_compare_sources_keep`, `test_architecture`, `test_mobile_allowlist`, `test_registry_audit` | **477 passed** |
+| `test_roles_switch_off`, `test_label_roles_cli`, `test_reading_paths`, `test_tracked_fixture_databases`, `test_public_tip_guards` | **95 passed** |
+| `--durable-sqlite` on `test_section_coverage_review`, `test_section_coverage`, `test_section_coverage_rpcs` (proposals now nest in the rows' transaction) | **45 passed** |
+| Schema, config keys, CLI help, frontend, `src-tauri` | unchanged (no reference regeneration, npm, vitest or cargo needed) |
