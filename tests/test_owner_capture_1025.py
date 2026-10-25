@@ -248,3 +248,119 @@ def test_b2_a_suggestion_judged_under_another_style_is_not_reused(tmp_path):
     assert len(chooser.calls) == 2 and chooser.calls[1]["state"]["help_style"] == "guide_me"
     [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "hint"]
     assert json.loads(row["contract_failures_json"])["state_at_request"]["help_style"] == "guide_me"
+
+
+# -- Fix round 2 (Codex verify 20261025-145037-Wyei9F) ------------------------------------------
+
+
+def test_fix2_a_key_from_another_session_is_refused_not_succeeded(tmp_path, grader):
+    """Item 1: the answer box's key belongs to session A and a steps attempt
+    there answered its offer. Submitted for the same item in session B with
+    no offer, it is refused as another session's key, as before B4: the
+    successor key is only ever derived inside the key's own session."""
+
+    from learnloop_sidecar.errors import SidecarError
+
+    paths, ctx, session_a = _sidecar(tmp_path)
+    offer = _offer(ctx, session_a)
+    _draft(ctx, session_a, "box-key", offer)
+    _steps_submit(ctx, session_a, offer)
+    _call(ctx, "end_session", {"sessionId": session_a})
+    session_b = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    assert session_b != session_a
+    before = _rows(paths, "SELECT id FROM practice_attempts")
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "submit_attempt", {"sessionId": session_b, "practiceItemId": ITEM, "answerMd": "P = 1/4",
+                                      "hintsUsed": 0, "attemptType": "independent_attempt",
+                                      "submissionId": "box-key"})
+    assert raised.value.code == "validation_error"
+    assert "different item or session" in str(raised.value)
+    assert _rows(paths, "SELECT id FROM practice_attempts") == before
+    assert _rows(paths, "SELECT submission_id FROM submission_intents WHERE submission_id LIKE 'box-key~%'") == []
+    # recover_practice_submission resolves no successor in session B either.
+    recovered = _call(ctx, "recover_practice_submission", {"sessionId": session_b, "practiceItemId": ITEM,
+                                                           "submissionId": "box-key"})
+    assert recovered["status"] == "pending"
+
+
+def _reveal(ctx, session, key, index):
+    result = _call(ctx, "practice.record_hint_reveal", {"sessionId": session, "practiceItemId": ITEM,
+                                                        "submissionId": key, "authoredIndex": index,
+                                                        "answerMd": "F(x)"})
+    assert result["recorded"], result
+
+
+def _hints_of(paths, attempt_id):
+    [row] = _rows(paths, "SELECT hints_used, attempt_type FROM practice_attempts WHERE id = ?", (attempt_id,))
+    return row["hints_used"]
+
+
+def test_fix2_an_already_stale_checkpoints_hint_is_not_counted_again(tmp_path, grader):
+    """Item 2: a checkpoint the owner's bug already left behind restores
+    ``hintsUsed: 1`` under the answer box's key; that hint was shown before
+    the steps attempt, which counted it. The successor attempt, with no new
+    help, records no hint: the client's count is not its base, only the
+    item's help since its last attempt is."""
+
+    paths, ctx, session = _sidecar(tmp_path)
+    offer = _offer(ctx, session)
+    _draft(ctx, session, "box-key", offer, hints=1)
+    _reveal(ctx, session, "box-key", 0)
+    _steps_submit(ctx, session, offer)
+    result = _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": "P = 1/4",
+                                           "hintsUsed": 1, "authoredHints": 1, "firstHintProgress": "no_draft",
+                                           "attemptType": "independent_attempt", "submissionId": "box-key"})
+    assert _hints_of(paths, result["attemptId"]) == 0
+
+
+def test_fix2_a_hint_revealed_after_the_earlier_attempt_still_counts(tmp_path, grader):
+    """Item 2's guard: an authored hint revealed on the restored draft after
+    the steps attempt is inside the item's window and counts once; the
+    stale one does not."""
+
+    import time
+
+    paths, ctx, session = _sidecar(tmp_path)
+    offer = _offer(ctx, session)
+    _draft(ctx, session, "box-key", offer, hints=1)
+    _reveal(ctx, session, "box-key", 0)
+    _steps_submit(ctx, session, offer)
+    time.sleep(1.1)  # practice_attempts.created_at has one-second resolution
+    _reveal(ctx, session, "box-key", 1)
+    result = _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": "P = 1/4",
+                                           "hintsUsed": 2, "authoredHints": 2,
+                                           "attemptType": "independent_attempt", "submissionId": "box-key"})
+    assert _hints_of(paths, result["attemptId"]) == 1
+
+
+def test_fix2_a_stale_offers_carried_hint_is_not_counted_again(tmp_path, grader):
+    """Item 2, the fail-soft path: a screen still holding an answered offer
+    (and the hint count it carried into the earlier attempt) under a new key;
+    the earlier attempt counted that hint, so this one records none."""
+
+    paths, ctx, session = _sidecar(tmp_path)
+    offer = _offer(ctx, session)
+    _draft(ctx, session, "first", offer, hints=1)
+    _reveal(ctx, session, "first", 0)
+    first = _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": "P = 1/2",
+                                          "hintsUsed": 1, "authoredHints": 1, "attemptType": "independent_attempt",
+                                          "submissionId": "first", "schedulerCandidateId": offer})
+    assert _hints_of(paths, first["attemptId"]) == 1
+    second = _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": "P = 1/4",
+                                           "hintsUsed": 1, "authoredHints": 1, "attemptType": "independent_attempt",
+                                           "submissionId": "second", "schedulerCandidateId": offer})
+    assert _hints_of(paths, second["attemptId"]) == 0
+
+
+def test_fix2_a_changed_fallback_names_its_new_policy_version(tmp_path):
+    """Item 3: the style-aware fallback changes decisions, so its receipts
+    name a new hint-choice policy version; the Decider's stays v1."""
+
+    from learnloop.hints import chooser
+
+    _paths, ctx, session = _sidecar(tmp_path, "[hints]\nchooser_enabled = false\n")
+    _press(ctx, session, "key")
+    [row] = _rows(_paths, "SELECT policy_version, chooser FROM help_assists WHERE counted_by = 'server'")
+    assert row["chooser"] == "fallback"
+    assert row["policy_version"] == "hint-choice-policy-v2:fallback"
+    assert chooser.policy_version("sample") == "hint-choice-policy-v1:sample"
