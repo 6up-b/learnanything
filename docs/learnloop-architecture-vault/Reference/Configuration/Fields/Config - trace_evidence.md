@@ -3,8 +3,8 @@ title: "Config - trace_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml trace_evidence"
@@ -41,8 +41,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `trace_evidence.elicitation_enabled` | `true` | boolean | modeled default or validator seed | Turns elicitation behavior on or off within opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1874`; `src/learnloop/ai/plan_fallback.py:123` |
-| `trace_evidence.max_elicitations_per_session` | `2` | integer | modeled default or validator seed | Caps elicitations per session allowed by opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1875`; `src/learnloop/ai/plan_fallback.py:123` |
+| `trace_evidence.elicitation_enabled` | `true` | boolean | modeled default or validator seed | Turns elicitation behavior on or off within opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1881`; `src/learnloop/ai/plan_fallback.py:123` |
+| `trace_evidence.max_elicitations_per_session` | `2` | integer | modeled default or validator seed | Caps elicitations per session allowed by opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1882`; `src/learnloop/ai/plan_fallback.py:123` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

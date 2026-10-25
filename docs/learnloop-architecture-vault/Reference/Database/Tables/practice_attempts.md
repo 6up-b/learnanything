@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 220
+schema_head: 221
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -167,6 +167,7 @@ Indexes and uniqueness:
 - `Repository.qualifying_probe_observation_count_for_session()`
 - `Repository.real_attempt_trace_rows()`
 - `Repository.record_deferred_regrade()`
+- `Repository.record_learner_claim_application()`
 - `Repository.regrade_epoch_transitions()`
 - `Repository.replace_attempt_derived_outcome()`
 - `Repository.requested_practice_item_ids()`
@@ -272,6 +273,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/attempts/regrade.py`
+- `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cli/ai_compare.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/contract_commissioning.py`
@@ -281,7 +283,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/daily_plan/engine.py`
-- `src/learnloop/daily_plan/reentry.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

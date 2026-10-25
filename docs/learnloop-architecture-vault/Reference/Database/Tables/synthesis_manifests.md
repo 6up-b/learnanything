@@ -3,13 +3,13 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea25868cc43d23b41707815bbb85e573e2abac1d"
-source_commit_timestamp: "2026-10-25T17:06:13-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
   - "table synthesis_manifests"
-schema_head: 220
+schema_head: 221
 table_name: "synthesis_manifests"
 table_role: "raw_ledger"
 functionality_status: "active"

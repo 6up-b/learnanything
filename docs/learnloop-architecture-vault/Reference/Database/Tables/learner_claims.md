@@ -3,13 +3,13 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
   - "table learner_claims"
-schema_head: 220
+schema_head: 221
 table_name: "learner_claims"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -54,7 +54,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `027_question_promotions.sql`, `109_rung_variant_claim_source.sql`, `112_learner_report_claim_source.sql`.
+- **Schema touched by:** `001_initial.sql`, `027_question_promotions.sql`, `109_rung_variant_claim_source.sql`, `112_learner_report_claim_source.sql`, `221_learner_claim_application_point.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -72,6 +72,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `prior_pseudo_count` | `REAL` | yes | — | — | Stored value |
 | `source` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `applied_after_attempts` | `INTEGER` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 - `Repository.find_record()`
 - `Repository.insert_learner_claim()`
 - `Repository.learner_claims()`
+- `Repository.record_learner_claim_application()`
 
 ### Direct SQL readers
 
@@ -125,7 +127,11 @@ Indexes and uniqueness:
 - `tests/test_assumed_known.py`
 - `tests/test_field_priors.py`
 - `tests/test_init.py`
+- `tests/test_learner_claim_application_migration.py`
+- `tests/test_lp_claim_fixes_rereview.py`
+- `tests/test_lp_claim_fixes_review.py`
 - `tests/test_question_promotions.py`
+- `tests/test_retrieval_spaces_migration.py`
 - `tests/test_tutor_promotion_service.py`
 - `tests/test_ad23_fix_r8.py`
 - `tests/test_agent_runs.py`
@@ -134,11 +140,7 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_graph_correction.py`
-- `tests/test_measurement_state_labels.py`
-- `tests/test_probe_orchestration_remainder.py`
-- `tests/test_show.py`
-- `tests/test_source_ingestion.py`
-- `tests/test_state_sync.py`
+- `tests/test_lp_claim_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -174,7 +176,8 @@ CREATE TABLE "learner_claims" (
     )
   ),
   created_at TEXT NOT NULL
-);
+, applied_after_attempts INTEGER
+  CHECK (applied_after_attempts IS NULL OR applied_after_attempts >= 0));
 ```
 
 ## Related notes

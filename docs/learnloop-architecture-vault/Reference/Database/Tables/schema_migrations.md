@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ced3f8ea5c1f7080fb666e90e6e88f8d633eb7a6"
-source_commit_timestamp: "2026-10-25T11:47:46-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 220
+schema_head: 221
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"

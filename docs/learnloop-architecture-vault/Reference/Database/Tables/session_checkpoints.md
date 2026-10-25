@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
-source_commit_timestamp: "2026-10-25T15:46:37-04:00"
+source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
+source_commit_timestamp: "2026-10-25T19:37:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 220
+schema_head: 221
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
