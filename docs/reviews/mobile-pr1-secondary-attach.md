@@ -142,3 +142,164 @@ No frontend, `src-tauri` or schema change, so there was no npm, vitest or cargo 
    promotions-only).
 3. **The mobile host's M1 schema check** (`learnloop_mobile/host.attach`) duplicates `schema_is_current`. It was
    left as built to keep PR-1 off M1's code, and can switch to the helper whenever that code is next touched.
+
+## Landing onto main
+
+Landed in `learnanything-merge2` on `merge/pr1-onto-main`, cut from main `fa2eb72f8` (the stage's own base, so the
+merge brings in nothing else). The stage tip is `d95d5dfd8`. Orchestrator rulings: Codex confirmed F1, F2, F4 and F5
+fixed; F3 was reopened by the re-review for one layout (below) and **ruled non-blocking (Low)**; ready to land. **No
+algorithm successor, no migration, no config key, no frontend change.** Main was neither fast-forwarded nor pushed.
+
+### Commits and conflicts
+
+- `4b68f0fa3`: the `--no-ff` merge of `mobile/pr1-secondary-attach`. **No conflicts.**
+- This record (docs only).
+
+The diff against main adds three files (this record, the Codex review record and `tests/test_secondary_attach.py`):
+no database or binary (G8), and the root `.gitignore` is unchanged. No test in the stage reads an owner vault.
+
+### Regeneration
+
+Nothing needed regenerating:
+- **References.** `db_validate_reference.py`: **0 errors**. `db_generate_reference.py` rewrote 423 notes, all of
+  them `source_commit` provenance only, so all were discarded. The stage's regenerated `context.py` citations hold on
+  the merged tree.
+- **CLI help snapshot, RPC pins, defaults snapshots:** their tests pass in the full suite with no file changed. No
+  config key changed, so the defaults fingerprints do not move.
+- **`validate_vault.py`**: passes (1,155 notes, 1,153/1,153 reachable).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0) in 5G scopes. The pytest lanes
+ran in 10G / 2G swap scopes under `flock /tmp/learnloop-fullsuite.lock`, and everything else ran in 5G / 1G scopes.
+Every Python run used `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. Logs are in
+`fixtures-local/pr1-landing/`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`pytest -n 8`, at `4b68f0fa3`, 2 h 57 min while the parity runs and two other worktrees' suites shared the machine) | 21,287 passed, **101 failed**, 74 skipped (the owner lane), 38 xfailed |
+| 100 of the failures: `test_codex_tool_lockdown` (64), `test_codex_isolation_mcp_check` (25), `test_codex_lockdown_round2` (6), `test_codex_lockdown_round3` (5) | **The landing's environment, not the code.** The run's empty `CODEX_HOME` named a directory that did not exist, so the lockdown refused (`CodexLockdownUnavailable: CODEX_HOME … is not a directory`). With the empty directory in place, the four files give **221 passed, 1 skipped** |
+| failure 101, alone, 3 times | `test_plan_first_transport_offer_grants::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter`: **3/3 passed** (42 s each). It is a known load flake, and PR-1 does not touch the transport |
+| durability (`-m durability`) | **124 passed**, 1 skipped. The one more than TE0's 123 is PR-1's two-process WAL test |
+| `--durable-sqlite tests/test_secondary_attach.py` | **27 passed** |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **210 files, 1,822 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean apart from `fixtures-local/`; no non-empty `-wal` beside a tracked fixture |
+
+### Parity (backup-API copies; no model call)
+
+**Setup.** Scripts are in `fixtures-local/landing-pr1/scripts/` (TE0's, re-pathed). The new ones are:
+- `setup_pr1.sh`, `a_pr1.sh`, `b_pr1.sh`, `b2_pr1.sh` and `c_pr1.sh`, which drive the runs;
+- `primary_load.py`, the normal primary load;
+- `scripts_b/` (`b_parent.py`, `b_child.py` and `b_common.py`), the two-process check;
+- `scripts_c/c_mcp.py`, the chat runtime.
+
+The details:
+- **Copies.** The owner's backups `fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}` (in the
+  main checkout; `mvp-0.30`, schema 218) were each copied once with `copy_tree_with_databases` into
+  `landing-pr1/orig/`, and every other copy came from those. `u31` is `orig` brought to `mvp-0.31` **with main's
+  code**: `upgrade --to mvp-0.31`, then `rebuild-derived-state` twice, rc 0 each. **Not opened:** anything in
+  `~/learnloop-vaults`.
+- **Code.** Main's is `git archive fa2eb72f8` and the merge's is `git archive 4b68f0fa3`, each first on `sys.path`.
+  The audit hook logs every process start and socket connection, and refuses Codex processes and non-loopback
+  connections. It logged **8 process starts**, all of them (b)'s own `b_child.py` second processes, and **no socket
+  connection**.
+- **Environment and routes.** `env -i` with empty `HOME` / `CODEX_HOME` / `LEARNLOOP_CONFIG_DIR`, which were still
+  empty afterwards. `neutralize3.py` set 60 route fields to `127.0.0.1:9` loopback profiles with unset keys. 63 tasks
+  resolved the same way on both codes, and the only one not on a loopback is the disabled, keyless `embedding`
+  profile. Rewrite, rerank, dense and embeddings are off, and so are `build_on_serve` and outcome placement.
+- **Clock and ids.** The clock is frozen at 2026-10-19 09:00 UTC, with TE0's deterministic ids.
+
+**(a) Main vs the merge, normal (primary) sidecar load** (copies of `u31`; each code ran `SidecarContext.load` on its
+own copy, with startup maintenance, and then drained).
+- **Schema and rows:** identical, raw, row for row, after the load. LA has 1,503 objects, 356 tables and 18,301 rows;
+  probability has 1,502 objects and 8,208 rows. FK 0, integrity ok, journal WAL, 0 `model_call_receipts`. A second
+  main run is identical too. The merge's context reports `secondary = False` after `load()`.
+- **`rebuild --shadow`:** 0 differences between the codes, and the live database is unchanged on both. **`doctor`:**
+  0 differences (LA 57 issues / 1 error, probability 101 / 48).
+- **Certification and curves** (LA 129,651 bytes, probability 17,495), **Today** (LA 43 items, 528,665 bytes;
+  probability 67, 741,269 bytes) and **the daily plan** (read, serve, serve again, read; LA 84,714 bytes, probability
+  40,799): **byte-identical** main vs merge, and main vs main.
+
+**(b) `load_secondary` beside a primary: two processes** (the merge's code, a copy of `u31` per vault, WAL). The
+parent holds the vault as primary (`SidecarContext.load`, drained). A spawned second process attaches with
+`load_secondary`.
+- **The attach writes nothing.** The whole-database digest (schema, plus every row of every table, per table) and
+  every vault file's bytes are **unchanged by the attach** on both vaults. The attach took 0.09 s (LA) and 0.10 s
+  (probability), and the context is `secondary`.
+- **Handler reads match the primary's.** The reads were `get_practice_item` for 5 items, `list_source_sets`,
+  `get_vault_tree` and the repository's `queue_revision()`. All are **equal** on both vaults, with one exception,
+  `get_queue_revision` (finding 1).
+  - The first `get_practice_item` read writes rows in `assessment_contract_versions` (and on LA `followup_tasks`).
+  - These are the handler's own first-read writes. **Either process writes them**: rerun with the primary reading
+    first (`b2_pr1.sh`), the primary's read writes the same tables and the secondary's then writes nothing. This is
+    not a secondary effect.
+- **A primary database write is seen without a reload.** After a queue-revision bump on the primary (LA 37 to 38,
+  probability 49 to 50), the secondary's `repository.queue_revision()` returns the new value at once.
+- **A primary content write is reloaded within the bound.**
+  - The test: the secondary polls `refresh_if_content_changed()` every 50 ms, and the primary runs
+    `edit_practice_item`, which writes the YAML and reloads, taking 1.11 s (LA) and 0.96 s (probability).
+  - The reloading request started **1.80 s** (LA) and **0.20 s** (probability) after the edit began. Both are within
+    `CONTENT_FINGERPRINT_TTL_SECONDS` (2.0 s) plus the 50 ms poll.
+  - After the reload, the secondary serves the edited prompt, equal to the primary's.
+- **The secondary's reload writes nothing.** A second edit was made, the database settled, and the secondary then
+  refreshed (`reloaded = True`). The database digest and the files are **unchanged by that reload**, and the reads
+  again equal the primary's, `get_queue_revision` aside.
+
+**(c) The chat runtime** (`learnloop mcp`; the runtime now imports the moved fingerprint code). Each code ran on its
+own copy of `u31`: `RemoteRuntime.attach`, then all six tools through the SDK client (`status`, `today`, `progress`,
+`library`, `learning_context` with and without a topic, and `find_sources`), with every model client refused.
+- **It settles on both codes:** the snapshot is settled and not marked `SNAPSHOT_UNSETTLED`.
+- **The content fingerprint and the `content_files` list** of the same `u31` vault are **identical** under both codes
+  (LA 137 files, probability 109).
+- **Every tool's answer is byte-identical** main vs merge; the only difference in the dump is the code path.
+- **The rows the tools write are the same:** LA 4 `source_exposure_events` and 7 `interaction_events`, probability 6
+  and 7. They differ only in each telemetry event's `duration_ms` (and so its `payload_hash`), which also differs
+  between two runs of main.
+- **No paid route was asked for.**
+
+**Calls.** All 21 learner databases under `landing-pr1/` have **0 `model_call_receipts` rows** of any status. **No
+model was called. Spend: $0.**
+
+### Findings
+
+1. **`get_queue_revision` fails on a secondary** with `RuntimeError: Ingest jobs are not bound to a vault yet.` The
+   handler lists the ingest batches (to reload once after an applying job) before it reads the revision, and a
+   secondary leaves ingest unbound by design. About 15 handler modules use `ctx.ingest_jobs`.
+   - This does not matter for PR-1, since no handler is served from a secondary yet.
+   - **For M2 / PR-8:** the mobile host's handler set must avoid these handlers, or PR-8's `bind_ingest` modes must
+     give a secondary a binding that answers reads (open item 2).
+2. **Pre-existing, main's code: after a primary load, `rebuild --shadow` on LA reports 30 schedule differences.**
+   They are `practice_item_state.active`: 0 live, 1 in the replay. They are identical on main and the merge, so they
+   do not come from PR-1. On a copy of `u31` that no primary had loaded, the shadow is 0 / 0 / 0. TE0's parity did
+   not load before its shadow, which is why it saw none. This is for the projection track.
+3. **Landing environment:** a gate's empty `CODEX_HOME` must be an existing directory, or the Codex lockdown tests
+   refuse. It was missing in this landing's first run.
+
+### For the owner
+
+- **No migration, no successor.** Your vaults stay at `mvp-0.31`. There is nothing to run.
+- **Nothing changes on screen or in what is served:** parity (a) and (c) are byte-identical. PR-1 is groundwork for
+  the phone host. A second process (the mobile host's workers, and later the desktop when the hub runs) can attach to
+  a vault the desktop holds without writing anything, and it picks up content edits within about 2 seconds.
+
+### Open items
+
+1. **F3 (re-review), ruled non-blocking Low, open.**
+   - The gap: when an ancestor link (for example `subjects -> .`) is combined with a nested link that is then
+     retargeted, the retarget is not fingerprinted, so a secondary can keep stale content after it.
+   - Why it is Low: the layout is contrived; the refresh is a staleness bound, not a protection boundary; and the
+     primary's own load is unaffected.
+2. **Recorded at their defaults** (§5):
+   - **`post_attempt_worker.notify` on a secondary** is resolved in M2 / PR-8: `notify` becomes a no-op when no vault
+     is bound, and the host skips the wait.
+   - **`bind_ingest` becomes a mode** (none / submit-only / promotions-only) in PR-8. That mode should also settle
+     finding 1.
+   - **The mobile host's duplicate schema check** switches to `schema_is_current` when that code is next touched.
+3. `desktop_validate.py` and `module_validate.py` fail as before; this stage touches neither.
+4. The parity copies' backup-API reads left an empty `state.sqlite-wal` and a refreshed `-shm` beside the backup
+   databases in the main checkout's `fixtures-local/vault-backups-20261025-mvp030/`, as at earlier landings. The
+   databases are unchanged.
