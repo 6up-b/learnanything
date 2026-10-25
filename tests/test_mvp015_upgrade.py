@@ -73,9 +73,9 @@ def test_probe_tie_successor_keeps_every_predecessor():
     # value-of-information stopping (mvp-0.21) and Tier 1's Decider judgments
     # (mvp-0.22) followed it and keep it.
     # Router R2a's staged frame (mvp-0.23) followed them.
-    assert SUCCESSOR_CHAIN[-17] == PROBE_TIE_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-18] == PROBE_TIE_ALGORITHM_VERSION
     assert PROBE_TIE_VERSIONS == frozenset(
-        {"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32"}
+        {"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.34"}
     )
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.
