@@ -26,6 +26,7 @@ under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`).
 | `8129b6d0c` | Sanitize `fixtures/migration_head_220` (§7.2) |
 | `edd94d152` | Guard tests, `samples/` + `NOTICE`, `LICENSE`, README, `BOOK_PAGES.md`, `References.md`, the landing gate and its tests, CLAUDE.md |
 | `cf12620af` | Head resolver in `test_embedding_store.py` reads tracked files; the landing check's `git ls-files` approved in the launch-site audit |
+| `fcfe9df91`..`06f164bd5` | Codex review fixes F1-F6 (`docs/reviews/storage-s0-clean-tip-codex-review.md`) |
 
 ## D17: the code licence
 
@@ -124,8 +125,9 @@ files are in the lane (counted by running it):
   `test_receipt_exactness` / `test_receipt_derivation` (the `linear_algebra` ones);
 - the fixture walkers (`test_migrations`, `test_receipt_exactness`,
   `test_receipt_derivation`, `test_tracked_fixture_databases`,
-  `test_yaml_fast_read`, `test_config_refactor`) walk only what git tracks, plus
-  the owner-lane copies when the lane is on;
+  `test_yaml_fast_read`, `test_config_refactor`) and the session database guard
+  in `tests/conftest.py` (since review F6) walk only what git tracks, plus the
+  owner-lane copies when the lane is on;
 - `test_ad2_model`'s surface-group pin now reads the tracked fixtures' items
   instead of `conic-sections` (stays in the default lane).
 
@@ -181,45 +183,74 @@ outside `samples/` (by suffix or `%PDF-` magic); no other binary (git's NUL
 rule) except images under `docs/` and icons/fonts under `apps/`; no
 `canonical-sources/` file outside the two historical fixtures; every sample
 has a `NOTICE` entry with a `Licence:` line and no entry is stale; no file over
-5 MB except the two historical databases; no `filter=lfs` rule and no LFS
+5 MB, with a bounded exception for the two historical databases (review F5:
+the head at most 8 MiB, the frozen replay fixture at most 6 MiB); no `filter=lfs` rule and no LFS
 pointer file; none of the paths S0 removed; `LICENSE` is Apache-2.0; every
 file on `BOOK_PAGES.md` exists; the head-fixture sweep.
 
 **Finding:** both historical databases exceed G8's 5 MB (6.7 MB and 6.0 MB),
 because a schema of 356 tables with their indexes is itself about that size;
-`VACUUM` cannot fix it. The guard exempts exactly those two until S3 turns
-them into SQL text dumps (an owner decision below).
+`VACUUM` cannot fix it. The guard allows exactly those two up to a bound
+(8 MiB for the head, which grows a little with each migration; 6 MiB for the
+frozen replay fixture) until S3 turns them into SQL text dumps (an owner
+decision below); never an unlimited exemption by name.
 
 ## The owner-run landing (§7.1 step 6): `scripts/s0_landing.py`
 
 With every LearnLoop process closed, from this branch:
 
+0. Every step first reads each vault's database path from its own
+   `learnloop.toml` (without loading environment settings) and refuses,
+   before copying or moving anything, a layout S0 cannot move as a plain
+   rename: an absolute or `..` `storage.sqlite_path`, a database not named
+   `*.sqlite`, a missing database, or any symlink in the vault (review F1;
+   those are relocated by S1's `vault move`, §7.1 step 4). All eight vaults'
+   tracked versions have the plain layout (checked on the owner-lane copies).
 1. `copy-out --checkout <main>`: backup-API copies of all eight vaults to
    `~/learnloop-backups/s0/<name>`, each verified file by file (sha256) and
    database by database (`integrity_check` and a digest of `iterdump`) against
    the source before and after the copy, with `S0-MANIFEST.json`; refuses on
-   any difference (a process still writing) and never overwrites a backup.
-2. `books-out`: each `new_textbooks/` file's real bytes from the checkout or
-   the local LFS store (`.git/lfs/objects`, no network), checked against its
-   pointer's oid, to `~/learnloop-books/`; the four papers to `papers/`.
-3. `move-out --yes`: renames (same filesystem only) the three working vaults
-   to `~/learnloop-vaults/<name>` (they stay the live vaults; their relative
-   `state.sqlite` moves with them) and the five older ones to
-   `~/learnloop-retired/<name>-<date>`; a dry run without `--yes`.
+   any difference (a process still writing) and never overwrites a backup
+   (a verified backup from an earlier, interrupted run is kept).
+2. `books-out`: the inventory comes from git's index, not the working tree
+   (review F2): every tracked `new_textbooks/` file and paper with the sha256
+   its LFS pointer's oid names, or else its blob's, plus any untracked file
+   under `new_textbooks/`; it is written to `S0-BOOKS-MANIFEST.json` before
+   anything is copied. Each file's bytes come from the checkout or the local
+   LFS store (`.git/lfs/objects`, no network) only when they hash to that
+   value (a plain tracked file the working tree lost comes from its blob), to
+   `~/learnloop-books/`, the papers to `papers/`.
+3. `move-out --yes`: refuses a vault with no verified backup in the backup
+   root; renames (same filesystem only) the three working vaults to
+   `~/learnloop-vaults/<name>` (they stay the live vaults; their relative
+   `state.sqlite` moves with them) and marks each as a working vault
+   (`.learnloop/working-vault.json`, review F3), the five older ones to
+   `~/learnloop-retired/<name>-<date>`; records each move in the manifest as
+   it happens, so a stopped run resumes; a dry run without `--yes`.
 4. `check`: **refuses (exit 1)** unless every vault is gone from the checkout,
-   every backup matches its manifest, each live vault matches its backup (no
-   change since), each retired copy exists, and every textbook and paper is in
-   the books folder with the right hash.
+   every backup matches its manifest, each live vault has the plain layout,
+   matches its backup (no change since) and is marked, each retired copy
+   matches its backup, and every entry of the books manifest (which must
+   cover git's index) is in the books folder with its hash. If a moved vault
+   changed after its backup, `copy-out --from-moved --backup-root <new>` backs
+   up the moved vaults where they now are, and `check --backup-root <new>`
+   passes against that (review F4).
 5. The owner merges S0 into the main checkout; `verify-after` confirms the
-   paths are untracked and absent and the live databases pass
-   `integrity_check`, then the owner re-points every pin (open each vault once
+   paths are untracked and absent and that the database each live vault's
+   own config names has the plain layout and passes `integrity_check`, then
+   the owner re-points every pin (open each vault once
    in the desktop app for `last_vault`, `mobile.toml`, the chat unit's
    `--vault`, project hooks).
 
-`tests/test_s0_landing.py` drives it on synthetic checkouts only: refuses
+`tests/test_s0_landing.py` drives it on synthetic git checkouts only: refuses
 before anything is copied, refuses while the vaults are still in the checkout,
-passes after the whole procedure (sources byte-identical before the move),
-refuses a live vault changed after its backup, a textbook whose copy does not
+passes after the whole procedure and after the simulated merge (sources
+byte-identical before the move), refuses a live vault changed after its
+backup and recovers with `--from-moved`, resumes an interrupted landing,
+refuses a changed retired copy, a move without a backup, the four unsupported
+database layouts (absolute, `..`, symlink, not `*.sqlite`), a live config that
+opens another database, a corrupt paper, a lost book copy, a wrongly
+materialized LFS file, a changed inventory, a textbook whose copy does not
 match its pointer, a missing LFS object, and an existing backup directory.
 
 Note for the main checkout (from its `git status` at the start of this
@@ -278,20 +309,23 @@ which is G6's fresh-clone condition). Never in the main checkout.
    non-commercial MIT PDFs.
 4. **Screenshot `p1-02`:** redacted as a probable Blitzstein and Hwang contents
    page; restore it if it was a generated test PDF.
-5. **5 MB rule vs the two historical databases** (6.7 MB, 6.0 MB): exempted
-   until S3's text dumps; confirm, or have S3 come sooner.
+5. **5 MB rule vs the two historical databases** (6.7 MB, 6.0 MB): allowed
+   up to a bound until S3's text dumps (the head at most 8 MiB, the frozen
+   replay fixture at most 6 MiB; `tests/test_public_tip_guards.py`
+   `HISTORICAL_DATABASE_MAX_BYTES`); confirm or tighten the bounds, or have S3
+   come sooner.
 6. Already decided, for the record: D17 Apache-2.0 (confirmed 2026-10-16), D6
    every fixture vault leaves, D2 H2 history rewrite (S4, owner-run; the old
    files and the unredacted screenshots stay in history until then).
 
 ## Open findings (not changed here)
 
-- **`learnloop ai compare`'s working-vault refusal** (`src/learnloop/cli/ai_compare.py`
-  `tracked_database_reason`) identifies a working vault by git tracking its
-  database. After S0 the live vaults under `~/learnloop-vaults/` are not
-  tracked, so the command would no longer refuse to compare on them in place.
-  Follow-up: refuse vaults under the data root as well (S1's doctor checks are
-  the natural home).
+- ~~`learnloop ai compare`'s working-vault refusal after the move~~: fixed in
+  review F3. `move-out` marks each live vault (`learnloop.vault.working_vault`:
+  its resolved path and its directory's device and inode), and
+  `tracked_database_reason` refuses a marked vault, also after a rename, while
+  a copy carrying the mark file is compared. S1's doctor checks may take over
+  the identification.
 - The desktop shell's doc comment in `apps/learnloop-tauri/src-tauri/src/sidecar.rs`
   still mentions the tracked `fixtures/linear_algebra`; behaviour is already
   right (fixtures-local, then `~/LearnLoop`). Left to avoid a Rust change.
