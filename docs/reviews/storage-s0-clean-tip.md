@@ -445,7 +445,7 @@ then matched the owner's line for line. Destinations: `--backup-root`,
 | `books-out`, first run (before R1's fix) | **stopped with `IsADirectoryError`** before writing the manifest or copying anything: finding R1 |
 | `books-out` (after the fix, on a rebuilt clone) | exit 0: 22 textbooks from the LFS store, `interesting_courses.txt` from its blob, the four papers from the working tree, and the nested repository's working files (`Axler-Solutions/...`, not its `.git/`) |
 | `move-out` (dry run) | exit 0: eight `would move` lines (three to the vaults root, five to `learnloop-retired/<name>-2026-10-25`) |
-| `move-out --yes` | exit 0: eight renames; `git status` then shows ` M .gitignore` and 622 ` D fixtures/...` lines |
+| `move-out --yes` | exit 0: eight renames; `git status` then shows ` M .gitignore` and 620 ` D fixtures/...` lines (every tracked vault file) |
 | `check` | **OK**, exit 0 |
 | `git merge --ff-only s0-tip` | **refused by git**: "Your local changes to the following files would be overwritten by merge: .gitignore". The deleted vault files do not block the merge. Nothing changed |
 | save the `.gitignore` edit as a patch, `git checkout -- .gitignore`, `git merge --ff-only s0-tip`, `git apply` the patch | fast-forward; `git status`: ` M .gitignore` (the owner's edit back, uncommitted) and the owner's untracked files only. The four papers left `docs/brainstorming/` (their copies are in `books/papers/`); `new_textbooks/Axler-Solutions/` stayed (untracked) |
