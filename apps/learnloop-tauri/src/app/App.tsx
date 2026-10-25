@@ -346,6 +346,11 @@ export function App() {
   const sessionRef = useRef<SessionSnapshot | null>(session);
   sessionRef.current = session;
   const implicitStartRef = useRef<Promise<SessionSnapshot | null> | null>(null);
+  // UX Phase 3 fix round 1 (F1): which vault the shell is on. A vault change
+  // bumps it before the selection is sent, so an implicit start begun on the
+  // old vault (and whatever its action does next) stops at its next step
+  // instead of starting, installing or acting on a session in the new one.
+  const vaultGenRef = useRef(0);
 
   const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
   // An error: classic's red toast, or the simple shell's red error. A screen
@@ -807,31 +812,50 @@ export function App() {
   // first" notice. One start at a time: a second action waits for the same
   // one. Starting a session changes nothing about what is served: it is the
   // session the learner's Begin would have opened.
+  //
+  // Fix round 1 (F1): the start belongs to the vault it was asked on. After
+  // each step it checks that vault is still the open one; across a vault
+  // change it starts nothing, installs nothing and says nothing (it answers
+  // null, so its action stops too).
   function implicitSession(): Promise<SessionSnapshot | null> {
     if (sessionRef.current) return Promise.resolve(sessionRef.current);
     if (implicitStartRef.current) return implicitStartRef.current;
-    const started = (async () => {
+    const generation = vaultGenRef.current;
+    const current = () => vaultGenRef.current === generation;
+    const started: Promise<SessionSnapshot | null> = (async () => {
       try {
         const minutes = await implicitSessionMinutes();
+        if (!current()) return null;
         if (minutes === null) {
           onError("Couldn't start practice just now.");
           return null;
         }
         const next = await api.startSession({ availableMinutes: minutes });
+        if (!current()) return null;
         sessionRef.current = next;
         setTodayNoGoalBannerDismissed(false);
         setSession(next);
         setNotices((list) => resolveNotices(list, "session"));
         return next;
       } catch (error) {
-        reportError(error, "Couldn't start practice just now.");
+        if (current()) reportError(error, "Couldn't start practice just now.");
         return null;
       } finally {
-        implicitStartRef.current = null;
+        if (implicitStartRef.current === started) implicitStartRef.current = null;
       }
     })();
     implicitStartRef.current = started;
     return started;
+  }
+
+  /** An action that needs a session, with none open: an implicit start, then
+   *  the action, only while the vault it was asked on is still open (F1). */
+  function withImplicitSession(action: (started: SessionSnapshot, stillOpen: () => boolean) => void) {
+    const generation = vaultGenRef.current;
+    const stillOpen = () => vaultGenRef.current === generation;
+    void implicitSession().then((started) => {
+      if (started && stillOpen()) action(started, stillOpen);
+    });
   }
 
   function showPractice(id: string) {
@@ -858,9 +882,7 @@ export function App() {
     setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
       if (shellRef.current === "simple") {
-        void implicitSession().then((started) => {
-          if (started) showPractice(id);
-        });
+        withImplicitSession(() => showPractice(id));
         return;
       }
       setTab("start");
@@ -883,14 +905,23 @@ export function App() {
   // hidden, answering the pick's own candidate and presentation. Feedback's
   // back returns to the problem, Next to the passage.
   // Resolves whether the pick was made and served.
-  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}): Promise<boolean> {
+  async function pickCheckMe(
+    request: ReaderCheckMeRequest,
+    sessionId: string,
+    // UX Phase 3 fix round 1 (F1): after an implicit start, whether the vault
+    // it started in is still the open one (checked after each request).
+    options: { fromStart?: boolean; stillOpen?: () => boolean } = {}
+  ): Promise<boolean> {
+    const stillOpen = options.stillOpen ?? (() => true);
     try {
       const result = await api.planLearnerPick(
         request.practiceItemId, sessionId, null, request.proposalId ?? null, request.importId ?? null
       );
+      if (!stillOpen()) return false;
       const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null, request.importId ?? null);
       if (algoConfig().workbench) {
         const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null);
+        if (!stillOpen()) return false;
         setReaderCheck(readerWorkbenchCheck(request, offer, served.prompt));
         if (options.fromStart) {
           setReaderSource({ card: request.card, spanId: request.spanId });
@@ -909,7 +940,7 @@ export function App() {
       setTodayStage("practice");
       return true;
     } catch (error) {
-      onError(errorMessage(error, "Could not open the check."));
+      if (stillOpen()) onError(errorMessage(error, "Could not open the check."));
       return false;
     }
   }
@@ -963,9 +994,7 @@ export function App() {
 
   function exerciseFromReader(request: ReaderExerciseRequest) {
     if (!session && shellRef.current === "simple") {
-      void implicitSession().then((started) => {
-        if (started) openReaderExercise(request);
-      });
+      withImplicitSession(() => openReaderExercise(request));
       return;
     }
     if (!session) {
@@ -979,9 +1008,7 @@ export function App() {
 
   function checkMeFromReader(request: ReaderCheckMeRequest) {
     if (!session && shellRef.current === "simple") {
-      void implicitSession().then((started) => {
-        if (started) void pickCheckMe(request, started.sessionId);
-      });
+      withImplicitSession((started, stillOpen) => void pickCheckMe(request, started.sessionId, { stillOpen }));
       return;
     }
     if (!session) {
@@ -1036,31 +1063,38 @@ export function App() {
 
   // UX Phase 3 (§7.1 threads): an open question opens in its book at its
   // passage; an unfinished problem opens there and resumes (Reader K6).
-  async function openPassageNow(sourceId: string, spanId: string | null) {
+  // Fix round 1 (F3): the passage keeps the reading it was found on, so the
+  // Reader places it on that reading or translates it (re-read safety),
+  // never takes a bare span id as the open reading's.
+  async function openPassageNow(sourceId: string, spanId: string | null, reading: string | null) {
+    const generation = vaultGenRef.current;
     const library = await api.getSourceLibrary();
+    if (vaultGenRef.current !== generation) return false;
     const card = library.sources.find((entry) => entry.sourceId === sourceId);
     if (!card) {
       onError("That book is no longer in the library.");
       return false;
     }
-    setReaderSource({ card, spanId });
+    setReaderSource({ card, spanId, reading });
     setReaderOpenSeq((seq) => seq + 1);
     setTab("reader");
     return true;
   }
-  async function openPassage(sourceId: string, spanId: string | null) {
+  async function openPassage(sourceId: string, spanId: string | null, reading: string | null) {
     try {
-      await openPassageNow(sourceId, spanId);
+      await openPassageNow(sourceId, spanId, reading);
     } catch (error) {
       reportError(error, "Couldn't open the book.", {
         source: "shell:open-passage",
-        retry: () => openPassageNow(sourceId, spanId).then(() => RETRY_RAN)
+        retry: () => openPassageNow(sourceId, spanId, reading).then(() => RETRY_RAN)
       });
     }
   }
   function resumeProblem(problem: WorkbenchOpenProblemDto) {
-    setReaderResume({ sessionId: problem.sessionId, sourceId: problem.sourceId });
-    void openPassage(problem.sourceId, problem.spanIds[0] ?? null);
+    // F3: the problem names its reading; the workbench resumes it only on
+    // that reading (another one open says why instead).
+    setReaderResume({ sessionId: problem.sessionId, sourceId: problem.sourceId, extractionId: problem.extractionId });
+    void openPassage(problem.sourceId, problem.spanIds[0] ?? null, problem.extractionId);
   }
 
   // Daily-loop DL2 (Reader §9.3 item 9): "Back to where you studied this"
@@ -1105,9 +1139,7 @@ export function App() {
   function openPrimedRetry(id: string) {
     setPracticeOffer(null);
     if (!session && shellRef.current === "simple") {
-      void implicitSession().then((started) => {
-        if (started) showPrimed(id);
-      });
+      withImplicitSession(() => showPrimed(id));
       return;
     }
     if (!session) {
@@ -1131,9 +1163,7 @@ export function App() {
   // PracticeScreen locks the preserved prefix and submits the composed answer.
   function openGuidedRedo(redo: GuidedRedoDto) {
     if (!session && shellRef.current === "simple") {
-      void implicitSession().then((started) => {
-        if (started) showGuidedRedo(redo);
-      });
+      withImplicitSession(() => showGuidedRedo(redo));
       return;
     }
     if (!session) {
@@ -1172,8 +1202,14 @@ export function App() {
 
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
+    // F1: after an implicit start, the vault this check was asked on; the
+    // start and the check both stop if another vault opened meanwhile.
+    const generation = vaultGenRef.current;
+    const implicit = !session && shellRef.current === "simple";
+    const stillOpen = () => !implicit || vaultGenRef.current === generation;
     let current = session;
-    if (!current && shellRef.current === "simple") current = await implicitSession();
+    if (implicit) current = await implicitSession();
+    if (!stillOpen()) return;
     if (!current) {
       if (shellRef.current === "classic") needSession("quickCheck");
       return;
@@ -1182,6 +1218,7 @@ export function App() {
       // One identity per start: a retried request returns the same check.
       const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
       const progress = await api.startQuickCheck({ sessionId: current.sessionId, learningObjectIds, requestId });
+      if (!stillOpen()) return;
       setInspectorId(null);
       openCalibration(progress.calibrationSessionId, { quickCheck: true });
     } catch (error) {
@@ -1495,6 +1532,12 @@ export function App() {
     async (path: string) => {
       let selected = false;
       let selectionAttempted = false;
+      // UX Phase 3 fix round 1 (F1): every implicit start still pending
+      // belongs to the vault being left. From here it stops at its next step
+      // (the selection is sent ahead of anything it would send), and a new
+      // action starts its own.
+      vaultGenRef.current += 1;
+      implicitStartRef.current = null;
       try {
         await selectWithDraftFlush(() => {
           selectionAttempted = true;
@@ -1739,7 +1782,7 @@ export function App() {
         onOpenPlanReading={(reading) => void openPlanReading(reading)}
         onEndSession={endSession}
         onAdd={() => setAddOpen(true)}
-        onOpenPassage={(sourceId, spanId) => void openPassage(sourceId, spanId)}
+        onOpenPassage={(sourceId, spanId, reading) => void openPassage(sourceId, spanId, reading)}
         onResumeProblem={resumeProblem}
         onAsk={setAskTarget}
         onTakeExam={openExam}

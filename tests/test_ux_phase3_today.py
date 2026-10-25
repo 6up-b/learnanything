@@ -32,8 +32,11 @@ def sources(monkeypatch):
 
     import learnloop_sidecar.handlers.workbench as handler
 
-    mapping = {EXTRACTION: "src_book", "ext_other": "src_paper"}
+    mapping = {EXTRACTION: "src_book", "ext_other": "src_paper", "ext_book_v1": "src_book"}
+    # Each source's current reading (what the Reader opens it on).
+    current = {"src_book": EXTRACTION, "src_paper": "ext_other"}
     monkeypatch.setattr(handler, "_source_id", lambda _repository, extraction_id: mapping.get(extraction_id))
+    monkeypatch.setattr(handler, "_current_reading", lambda _repository, source_id: current.get(source_id))
     return mapping
 
 
@@ -80,3 +83,39 @@ def test_switched_off_open_problems_refuses_like_every_workbench_rpc(tmp_path):
     with pytest.raises(SidecarError) as refused:
         _call(ctx, "workbench.open_problems", {})
     assert refused.value.code == "workbench_disabled"
+
+
+def test_a_problem_on_an_earlier_reading_of_its_book_is_not_a_thread(tmp_path, grader, sources):
+    """Fix round 1 (F3): the book was read again (its current reading is
+    EXTRACTION); a problem left on the earlier reading cannot be reopened by
+    the Reader, which opens the current one, so Today does not offer it."""
+
+    paths, _repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    earlier = _open(ctx, practiceItemId=OTHER_ITEM, extractionId="ext_book_v1", spanIds=["old7"])
+    _step(ctx, earlier["sessionId"], "a", bodyMd="on the first reading")
+    current = _open(ctx)
+    _step(ctx, current["sessionId"], "b", bodyMd="on the current reading")
+
+    problems = _call(ctx, "workbench.open_problems", {})["problems"]
+
+    assert [row["sessionId"] for row in problems] == [current["sessionId"]]
+    assert problems[0]["extractionId"] == EXTRACTION
+
+
+def test_the_current_reading_is_the_one_the_reader_opens_a_source_on(monkeypatch):
+    """``_current_reading`` resolves a source id as ``reader.render_view`` does."""
+
+    import learnloop.content.sources.source_outline as outline
+    import learnloop_sidecar.handlers.workbench as handler
+
+    seen = []
+    monkeypatch.setattr(outline, "resolve_extraction_id", lambda repository, ref: seen.append(ref) or "ext_latest")
+    assert handler._current_reading(object(), "src_book") == "ext_latest"
+    assert seen == ["src_book"]
+
+    def broken(repository, ref):
+        raise RuntimeError("no reading")
+
+    monkeypatch.setattr(outline, "resolve_extraction_id", broken)
+    assert handler._current_reading(object(), "src_book") is None

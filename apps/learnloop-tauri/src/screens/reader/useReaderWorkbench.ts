@@ -106,6 +106,9 @@ export interface ReaderWorkbenchProps {
 export interface ReaderWorkbenchResume {
   sessionId: string;
   sourceId: string;
+  /** The reading the problem was worked on (fix round 1, F3): it resumes only
+   *  on that reading; the book open on another one says so instead. */
+  extractionId: string | null;
 }
 
 export interface ActiveWorkbench {
@@ -439,6 +442,12 @@ export function useReaderWorkbench(input: {
   // UX Phase 3: Today's "resume ▸" (the shell asked for it): once the
   // problem's source is open, the one explicit resume, by the problem's id.
   // Consumed by identity, as a check and an exercise are.
+  //
+  // Fix round 1 (F3): only on the problem's own reading. The book open on
+  // another reading of it (read again since) cannot take the problem (its
+  // anchors are that reading's spans, and the server's answer would be
+  // refused here): the request is forgotten and the learner told why, never
+  // left waiting with the book open and nothing said.
   const resumeRequest = props?.resumeProblem ?? null;
   const resumedRef = useRef<{ request: ReaderWorkbenchResume; generation: number } | null>(null);
   useEffect(() => {
@@ -446,6 +455,10 @@ export function useReaderWorkbench(input: {
     if (resumedRef.current?.request === resumeRequest && resumedRef.current.generation === generation.current) return;
     resumedRef.current = { request: resumeRequest, generation: generation.current };
     propsRef.current?.onResumeShown?.(resumeRequest);
+    if (resumeRequest.extractionId && resumeRequest.extractionId !== extractionId) {
+      onError("This problem was started on an earlier reading of this book, so it can't be reopened on this one.");
+      return;
+    }
     void resume(resumeRequest.sessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, resumeRequest, extractionId, card?.sourceId]);
