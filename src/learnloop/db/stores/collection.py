@@ -111,6 +111,42 @@ class CollectionStoreMixin:
         with self.connection() as connection:
             return _offer_open(connection, scheduler_candidate_id, session_id, practice_item_id)
 
+    def scheduler_offer_answered(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool:
+        """Whether an offer is a real offer of this item in this session that
+        an attempt has already answered (stale, not foreign): read-only."""
+
+        with self.connection() as connection:
+            return connection.execute(
+                """SELECT 1 FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id=c.slate_id
+                   WHERE c.id=? AND s.session_id=? AND c.practice_item_id=? AND c.was_returned=1
+                     AND c.chosen_attempt_id IS NOT NULL""",
+                (scheduler_candidate_id, session_id, practice_item_id),
+            ).fetchone() is not None
+
+    def submission_offer_answered_elsewhere(self, *, submission_id: str, practice_item_id: str) -> str | None:
+        """The attempt that answered this submission's bound offer, when that
+        attempt is another submission's (else None): read-only.
+
+        Owner capture 2026-10-25 (B4): the answer box's draft binds its retry
+        key to the queue's offer; when the same item is then answered under
+        another key (its steps, say), that attempt takes the offer, and the
+        key, should it ever be submitted, answers no open offer. A submission
+        whose own attempt committed (a retry) is never reported."""
+
+        with self.connection() as connection:
+            if connection.execute("SELECT 1 FROM practice_attempts WHERE submission_id=?",
+                                  (submission_id,)).fetchone() is not None:
+                return None
+            row = connection.execute(
+                """SELECT c.chosen_attempt_id FROM submission_intents i
+                   JOIN scheduler_slate_candidates c ON c.id=i.scheduler_candidate_id
+                   JOIN practice_attempts a ON a.id=c.chosen_attempt_id
+                   WHERE i.submission_id=? AND i.practice_item_id=?
+                     AND (a.submission_id IS NULL OR a.submission_id != i.submission_id)""",
+                (submission_id, practice_item_id),
+            ).fetchone()
+        return str(row[0]) if row is not None else None
+
     def bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str = "desktop_practice", record_pick: bool = True) -> str | None:
         """Return the scheduler offer a submission answers, binding it on first use.
 

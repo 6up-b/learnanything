@@ -1084,11 +1084,25 @@ def _bind_offer(repository, params, submission_id, *, entry_surface: str | None 
     # Reader workbench RW2a: a workbench submit names its own surface; every
     # other caller binds exactly as before (the store's default surface).
     surface = {} if entry_surface is None else {"entry_surface": entry_surface}
+    candidate_id = params.scheduler_candidate_id
+    if candidate_id is not None and repository.scheduler_offer_answered(
+        scheduler_candidate_id=candidate_id, session_id=params.session_id, practice_item_id=params.practice_item_id,
+    ):
+        # Owner capture 2026-10-25 (B4), as the workbench's kept offer (review
+        # F13): an offer of this item in this session that another attempt
+        # already answered (a screen held it after the item was answered in
+        # steps, say) is dropped, never the learner's answer. The attempt is
+        # then unattributed (direct selection, never inferred), so no
+        # propensity is claimed for a serve it did not answer. An offer that
+        # is not this item's in this session is still refused.
+        log_event("scheduler_offer_stale", practice_item_id=params.practice_item_id,
+                  scheduler_candidate_id=candidate_id)
+        candidate_id = None
     try:
         return repository.bind_submission_offer(
             submission_id=submission_id, session_id=params.session_id,
             practice_item_id=params.practice_item_id,
-            scheduler_candidate_id=params.scheduler_candidate_id,
+            scheduler_candidate_id=candidate_id,
             **surface,
         )
     except ValueError as exc:
@@ -1121,6 +1135,7 @@ def recover_practice_submission(
     # Exact receipts are durable completion facts. Read them before checking
     # mutable session/item state: the session may have ended or a single-use
     # item may have disappeared after the original response was produced.
+    submission_id, _successor = answering_key(repository, submission_id, params.practice_item_id)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return versioned({"status": "recovered", "result": cached})
@@ -1185,7 +1200,10 @@ def submit_attempt_on(
 
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
-    submission_id = submission_key(params)
+    submission_id, successor = answering_key(repository, submission_key(params), params.practice_item_id)
+    if successor:
+        params = params.model_copy(update={"submission_id": submission_id})
+        hint_window_fold = True
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
@@ -1414,7 +1432,10 @@ def submit_dont_know_on(
 ) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
-    submission_id = submission_key(params)
+    submission_id, successor = answering_key(repository, submission_key(params), params.practice_item_id)
+    if successor:
+        params = params.model_copy(update={"submission_id": submission_id})
+        hint_window_fold = True
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
@@ -1589,6 +1610,31 @@ def submission_key(params: Any) -> str | None:
         getattr(params, "submission_id", None),
         getattr(params, "probe_presentation_id", None),
     )
+
+
+def answering_key(repository, submission_id: str | None, practice_item_id: str) -> tuple[str | None, bool]:
+    """The key a submission's attempt, intent and receipt are written under,
+    and whether it is a successor of the client's (owner capture 2026-10-25, B4).
+
+    A retry key whose bound offer another submission's attempt answered (the
+    answer box's draft, after the item was submitted in steps) answers no
+    open offer, and its intent, which is immutable, still names that offer:
+    an attempt written under it would be read as a second answer to one
+    serve. Such a submission is written under a successor key derived from
+    the client's key and the attempt that answered the offer, so it is
+    deterministic (a retry, a recovery, finds the same attempt) and its
+    intent binds no answered offer. Its hints fold by the keyless window
+    (since the item's last attempt in the session, H2b ruling R1), so a hint
+    of the earlier attempt is never counted on this one. Any other key is
+    its own."""
+
+    if submission_id is None:
+        return None, False
+    answered_by = repository.submission_offer_answered_elsewhere(
+        submission_id=submission_id, practice_item_id=practice_item_id)
+    if answered_by is None:
+        return submission_id, False
+    return f"{submission_id}~after~{answered_by}", True
 
 
 def _cached_submission(

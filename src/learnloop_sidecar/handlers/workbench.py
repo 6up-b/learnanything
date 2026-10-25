@@ -1095,6 +1095,7 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     vault, repository = ctx.require_vault()
     _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
          practice_session_id=practice_session_id)
+    _close_answer_box_draft(repository, practice_session_id, plan.practice_item_id)
     _bind_help_rows(repository, params.session_id, plan, attempt_id=str(attempt["attemptId"]),
                     practice_session_id=practice_session_id)
     _queue_stuck_texts(ctx, vault, repository, params.session_id)
@@ -1103,6 +1104,25 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         "session": _view(vault, repository, params.session_id),
         "practiceSession": session_snapshot(repository, practice_session_id),
     })
+
+
+def _close_answer_box_draft(repository, practice_session_id: str, practice_item_id: str) -> None:
+    """Owner capture 2026-10-25 (B3, B4): the steps answered the item, so the
+    practice screen's draft of it in this session (the answer box the
+    learner left for steps: its retry key, its hints, its offer binding) is
+    superseded, as an answer-box submit acknowledges its own. Left, it was
+    restored when the item opened again: the earlier hints shown as this
+    attempt's, and a submit under a key whose offer this attempt answered.
+    A draft of another item is left alone. A failure is logged, never raised
+    (the attempt is made)."""
+
+    from learnloop_sidecar.logging import log_event
+
+    try:
+        repository.clear_practice_checkpoint_for_item(practice_session_id, practice_item_id)
+    except Exception as exc:  # noqa: BLE001 - the attempt and its counts are made
+        log_event("workbench_answer_box_draft_not_cleared", practice_item_id=practice_item_id,
+                  error=type(exc).__name__)
 
 
 def _stamp_help_rows(repository, session_id: str, latency_seconds: int | None) -> None:
