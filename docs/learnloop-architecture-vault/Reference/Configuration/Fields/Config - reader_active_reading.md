@@ -3,8 +3,8 @@ title: "Config - reader_active_reading"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
+source_commit_timestamp: "2026-10-25T12:06:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_active_reading"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2408`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/source_retrieval/passage_cues.py:188` |
+| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2415`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/source_retrieval/passage_cues.py:188` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

@@ -3,8 +3,8 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
+source_commit_timestamp: "2026-10-25T12:06:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/learner_profile.py`
 - `src/learnloop/learner/mastery.py`
 - `src/learnloop/sim/diagnostic_validation.py`
+- `src/learnloop/substrate/replay.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 
@@ -134,11 +135,11 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_graph_correction.py`
+- `tests/test_lp_claim_fixes.py`
 - `tests/test_measurement_state_labels.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
-- `tests/test_state_sync.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

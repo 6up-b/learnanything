@@ -3,8 +3,8 @@ title: "Config - tutor_promotion"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
+source_commit_timestamp: "2026-10-25T12:06:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_promotion"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/tutor/question_signal.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "tests/test_lp_claim_fixes.py"
   - "tests/test_scheduler_requested_floor.py"
   - "tests/test_tutor_promotion_w2.py"
 tags:
@@ -45,12 +46,12 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `tutor_promotion.gap_claim_level` | `0.25` | number | modeled default or validator seed | Controls gap claim level in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:639`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/promotions.py:790` |
-| `tutor_promotion.gap_claim_pseudo_count` | `2.0` | number | modeled default or validator seed | Controls gap claim pseudo count in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:640`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/promotions.py:791` |
-| `tutor_promotion.gap_declaration_solid_likelihood_ratio` | `0.35` | number | modeled default or validator seed | Sets the gap declaration solid likelihood ratio used by promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:641`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/question_signal.py:175` |
-| `tutor_promotion.gap_declaration_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls gap declaration likelihood min samples in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:642`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/question_signal.py:193` |
-| `tutor_promotion.gap_need_ttl_days` | `21` | integer | modeled default or validator seed | Sets the gap need time-to-live duration in days for promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:643`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/content/authoring/practice_generation.py:742` |
-| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:644`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/daily_plan/engine.py:854` |
+| `tutor_promotion.gap_claim_level` | `0.25` | number | modeled default or validator seed | Controls gap claim level in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:646`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/promotions.py:797` |
+| `tutor_promotion.gap_claim_pseudo_count` | `2.0` | number | modeled default or validator seed | Controls gap claim pseudo count in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:647`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/promotions.py:798` |
+| `tutor_promotion.gap_declaration_solid_likelihood_ratio` | `0.35` | number | modeled default or validator seed | Sets the gap declaration solid likelihood ratio used by promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:648`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/question_signal.py:175` |
+| `tutor_promotion.gap_declaration_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls gap declaration likelihood min samples in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:649`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/question_signal.py:193` |
+| `tutor_promotion.gap_need_ttl_days` | `21` | integer | modeled default or validator seed | Sets the gap need time-to-live duration in days for promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:650`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/content/authoring/practice_generation.py:742` |
+| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:651`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/daily_plan/engine.py:854` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -59,6 +60,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/test_lp_claim_fixes.py`
 - `tests/test_scheduler_requested_floor.py`
 - `tests/test_tutor_promotion_w2.py`
 

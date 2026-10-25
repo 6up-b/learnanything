@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "6c965245dc93b0ce1f36750380fbee4ecafd92d0"
+source_commit_timestamp: "2026-10-25T12:06:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/069_parameter_registry.sql"
   - "src/learnloop/ad_successor_upgrade.py"
+  - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/registry.py"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/decider_upgrade.py"
-  - "src/learnloop/diagnosis/recurrence/upgrade.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_kinship_feature.py`
 - `tests/test_library_exercises.py`
+- `tests/test_lp_claim_fixes.py`
 - `tests/test_open_world_gate.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_reader_rw2b_review.py`
@@ -137,7 +138,6 @@ Indexes and uniqueness:
 - `tests/test_sensitivity_certificates.py`
 - `tests/test_source_roles.py`
 - `tests/test_table_roles.py`
-- `tests/test_teacher_te0_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
