@@ -619,3 +619,51 @@ describe("fix round 2, F7: a session Begin started survives leaving Today on the
     expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
   });
 });
+
+describe("landing, F7: Today's Begin and an implicit start share one pending start", () => {
+  // Begin's start_session is held; the learner goes to the Reader and presses
+  // "check me" while its minutes read is held too. Whichever answers first,
+  // exactly one start_session is sent, and the check is picked in that session
+  // (a second start would close the first, seconds-old one on the backend).
+  async function beginThenCheck() {
+    const apis = todayApis();
+    let releaseStart: (value: unknown) => void = () => undefined;
+    apis.startSession.mockImplementationOnce(() => new Promise((resolve) => (releaseStart = resolve)) as never);
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "Enter" });
+    await waitFor(() => expect(apis.startSession).toHaveBeenCalledTimes(1));
+    await press({ key: "3", altKey: true });
+    const check = await screen.findByRole("button", { name: "check me" });
+    let releaseMinutes: (value: unknown) => void = () => undefined;
+    const settled = stubs.api.getDailyPlan;
+    stubs.api.getDailyPlan = vi.fn(() => new Promise((resolve) => (releaseMinutes = resolve)));
+    fireEvent.click(check);
+    await flush();
+    stubs.api.getDailyPlan = settled;
+    return { ...apis, releaseStart: (v: unknown) => releaseStart(v), releaseMinutes: (v: unknown) => releaseMinutes(v) };
+  }
+
+  it("Begin's start answers first, then the check's minutes: one start_session, the check is picked in it", async () => {
+    const { startSession, planLearnerPick, releaseStart, releaseMinutes } = await beginThenCheck();
+    await act(async () => releaseStart(STARTED));
+    await flush();
+    await act(async () => releaseMinutes(plan()));
+    await flush();
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+
+  it("the check's minutes answer first, then Begin's start: one start_session, the check is picked in it", async () => {
+    const { startSession, planLearnerPick, releaseStart, releaseMinutes } = await beginThenCheck();
+    await act(async () => releaseMinutes(plan()));
+    await flush();
+    expect(startSession).toHaveBeenCalledTimes(1);
+    await act(async () => releaseStart(STARTED));
+    await flush();
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+});

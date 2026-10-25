@@ -346,6 +346,10 @@ export function App() {
   const sessionRef = useRef<SessionSnapshot | null>(session);
   sessionRef.current = session;
   const implicitStartRef = useRef<Promise<SessionSnapshot | null> | null>(null);
+  // Landing (F7): the one start_session in flight, whoever asked for it
+  // (Today's Begin, a list pick, an implicit start). A second caller joins it,
+  // because a second start would close the first, seconds-old session.
+  const pendingStartRef = useRef<Promise<SessionSnapshot | null> | null>(null);
   // UX Phase 3 fix round 1 (F1): which vault the shell is on. A vault change
   // bumps it before the selection is sent, so an implicit start begun on the
   // old vault (and whatever its action does next) stops at its next step
@@ -833,6 +837,9 @@ export function App() {
       try {
         const minutes = await implicitSessionMinutes();
         if (!current()) return null;
+        // Landing (F7): Begin may have installed a session while the minutes
+        // were being read; carry on in it instead of starting another.
+        if (sessionRef.current) return sessionRef.current;
         if (minutes === null) {
           onError("Couldn't start practice just now.");
           return null;
@@ -858,16 +865,33 @@ export function App() {
    *  the session is the shell's as soon as it answers, before the caller's
    *  next step, so it survives Today unmounting on ordinary navigation and no
    *  second start follows (F7). Where the learner lands is the caller's. */
-  async function startSessionHere(minutes: number): Promise<SessionSnapshot | null> {
-    if (vaultChangesRef.current > 0) return null;
+  function startSessionHere(minutes: number): Promise<SessionSnapshot | null> {
+    // Landing (F7): one pending start, shared. A caller that arrives while a
+    // start is in flight gets that start's session (its own minutes are moot:
+    // the learner has one session).
+    if (pendingStartRef.current) return pendingStartRef.current;
+    if (vaultChangesRef.current > 0) return Promise.resolve(null);
     const generation = vaultGenRef.current;
-    const next = await api.startSession({ availableMinutes: minutes });
-    if (vaultGenRef.current !== generation) return null;
-    sessionRef.current = next;
-    setTodayNoGoalBannerDismissed(false);
-    setSession(next);
-    setNotices((list) => resolveNotices(list, "session"));
-    return next;
+    let request: Promise<SessionSnapshot>;
+    try {
+      request = api.startSession({ availableMinutes: minutes });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    const pending: Promise<SessionSnapshot | null> = request
+      .then((next) => {
+        if (vaultGenRef.current !== generation) return null;
+        sessionRef.current = next;
+        setTodayNoGoalBannerDismissed(false);
+        setSession(next);
+        setNotices((list) => resolveNotices(list, "session"));
+        return next;
+      })
+      .finally(() => {
+        if (pendingStartRef.current === pending) pendingStartRef.current = null;
+      });
+    pendingStartRef.current = pending;
+    return pending;
   }
 
   /** An action that needs a session, with none open: an implicit start, then
@@ -1567,6 +1591,7 @@ export function App() {
       vaultChangesRef.current += 1;
       vaultGenRef.current += 1;
       implicitStartRef.current = null;
+      pendingStartRef.current = null;
       try {
         await selectWithDraftFlush(() => {
           selectionAttempted = true;
