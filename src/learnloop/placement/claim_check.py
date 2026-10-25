@@ -14,7 +14,11 @@ grader never sees the claim. It appears on the one attempt the placement
 state names as the assumption's resolving attempt, so it never repeats on a
 later or unrelated review; a miss whose diagnosis has not landed has no
 resolving attempt yet, so its line appears once the diagnosis decides it (on
-the next open of that review's feedback).
+the next open of that review's feedback). Placement is read as it stands NOW,
+not at the review's own time: a miss the diagnosis wait decides (its deadline
+passes with the diagnosis still queued) is resolved only after the review, so
+the review is matched by ``resolving_attempt_id`` against the current state
+(re-review F9).
 
 Ships with the claim-fixes successor and under its kill switch
 (``learnloop.learner.mastery.claim_fixes_live``); placement off, nothing.
@@ -36,15 +40,19 @@ _LEARNER_CLAIM_SOURCE = "self_report"
 _CHECK_WORDS = {"passed": "passed", "failed": "missed"}
 
 
-def claim_check(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any] | None:
-    """The claim line for the review ``attempt_id``, or None when it resolves no claim."""
+def claim_check(
+    vault: LoadedVault, repository: Repository, attempt_id: str, *, now_iso: str | None = None
+) -> dict[str, Any] | None:
+    """The claim line for the review ``attempt_id``, or None when it resolves no claim.
+
+    ``now_iso`` (default: the wall clock) is when placement is evaluated: the
+    review's own time would still see a timeout-decided miss as pending."""
 
     if not claim_fixes_live(vault) or not placement_active(vault):
         return None
-    attempt = repository.fetch_practice_attempt(attempt_id)
-    if attempt is None:
+    if repository.fetch_practice_attempt(attempt_id) is None:
         return None
-    state = load_placement_state(vault, repository, now_iso=str(attempt.get("created_at") or "") or None)
+    state = load_placement_state(vault, repository, now_iso=now_iso)
     for assumption in state.assumptions:
         if (
             assumption.source == _LEARNER_CLAIM_SOURCE
