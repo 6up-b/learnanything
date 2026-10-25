@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from learnloop.ai.spend import SpendCaps
 from learnloop.algorithm_versions import (
+    CLAIM_FIXES_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_VERSIONS,
     LATEST_ALGORITHM_VERSION,
     P0_SUCCESSOR_VERSIONS,
@@ -139,7 +140,7 @@ def test_successor_vocabulary():
         VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
         ROUTER_MIXTURE_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION,
         ELIGIBILITY_DECISION_ALGORITHM_VERSION, INTENT_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
-        WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
+        WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION, CLAIM_FIXES_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -152,7 +153,9 @@ def test_successor_vocabulary():
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29"
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
-    assert LATEST_ALGORITHM_VERSION == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
+    assert WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
+    # LP-min (a)'s claim fixes (mvp-0.32) follow it as the latest.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.32"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

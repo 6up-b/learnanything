@@ -286,10 +286,10 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     )
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[-4]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.31"
-    assert SUCCESSOR_CHAIN[-5] == REGRADE_CONTRACT_ALGORITHM_VERSION
-    assert ELIGIBILITY_DECISION_VERSIONS == frozenset({"mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31"})
+    assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[-5]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.32"
+    assert SUCCESSOR_CHAIN[-6] == REGRADE_CONTRACT_ALGORITHM_VERSION
+    assert ELIGIBILITY_DECISION_VERSIONS == frozenset({"mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32"})
     for versions in (REGRADE_CONTRACT_VERSIONS, METHOD_EXPLICIT_VERSIONS, ROUTER_MIXTURE_VERSIONS,
                      P0_PROJECTION_VERSIONS):
         assert "mvp-0.27" in versions
@@ -347,7 +347,7 @@ def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
     fresh = load_vault(tmp_path / "fresh")
     # A new vault starts at the latest successor (mvp-0.31 since RW2d, after AD2+AD3's mvp-0.30
     # and the intent successor mvp-0.29), which keeps this one.
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.31"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.32"
     assert fresh.config.eligibility.enabled
     assert se.decision_active(fresh)
 

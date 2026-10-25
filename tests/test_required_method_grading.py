@@ -95,9 +95,9 @@ def _support(repository, attempt_id):
 def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     # Regrade contracts (mvp-0.26) followed it and keep it.
     assert VERSION == "mvp-0.25"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.31"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.32"
     assert PREDECESSOR == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", LATEST_ALGORITHM_VERSION})
 
 
 def test_active_only_at_the_successor_with_both_switches_on(tmp_path):
