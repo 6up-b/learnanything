@@ -232,7 +232,7 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> mvp-0.31" in result.output
+    assert f"{PREDECESSOR} -> mvp-0.34" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output

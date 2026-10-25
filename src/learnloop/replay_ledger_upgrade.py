@@ -53,7 +53,7 @@ from learnloop.algorithm_versions import (
 from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
-from learnloop.regrade_contract_upgrade import _publish_algorithm_version
+from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths

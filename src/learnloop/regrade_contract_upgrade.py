@@ -266,4 +266,8 @@ def _publish_algorithm_version(
 #: A descriptive name for the same upgrade.
 upgrade_to_regrade_contracts = upgrade_to_mvp026
 
-__all__ = ["upgrade_to_mvp026", "upgrade_to_regrade_contracts"]
+#: The durable config publication, shared with later activations that use the
+#: same commit-follows-publication order (``replay_ledger_upgrade``).
+publish_algorithm_version = _publish_algorithm_version
+
+__all__ = ["publish_algorithm_version", "upgrade_to_mvp026", "upgrade_to_regrade_contracts"]
