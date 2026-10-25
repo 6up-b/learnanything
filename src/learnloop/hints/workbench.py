@@ -635,10 +635,37 @@ def suggest(
         reason = str(choice.reason or "unavailable")
     elif len(option_set.options) <= 1:
         reason = "one_option"
-    level = max(1, min(5, int(fallback_level)))
+    level = styled_level(int(fallback_level), state.help_style)
     kind, _index = fixed_kind(level, option_set, state, item)
     return Suggestion(level=level, kind=kind, chooser="fallback", propensity=1.0, reason=reason,
                       why=FALLBACK_WHY, rungs=rungs)
+
+
+def styled_level(progression: int, help_style: str | None) -> int:
+    """The suggested rung with no judgment (owner capture 2026-10-25, B2):
+    the Reader's progression (rung 1, then one above the last on the step,
+    D8) read through the help style, so the stated preference moves the
+    suggestion without a Decider too. Balanced is D8 exactly; "let me
+    struggle" never suggests worked help (rungs 4-5 stay takeable); "guide
+    me" starts at rung 3 (more specific help sooner) and goes up from there.
+    Every rung stays available whatever is suggested (W11)."""
+
+    level = max(1, min(5, int(progression)))
+    if help_style == "let_me_struggle":
+        return min(level, 3)
+    if help_style == "guide_me":
+        return max(level, 3)
+    return level
+
+
+def style_of(suggestion: Mapping[str, Any] | None) -> str | None:
+    """The help style a suggestion was judged under (None on rows written
+    before it was recorded)."""
+
+    if suggestion is None:
+        return None
+    value = suggestion.get("help_style")
+    return str(value) if value else None
 
 
 def decider_extra(context: WorkbenchHintContext) -> dict[str, Any]:
@@ -1150,6 +1177,8 @@ __all__ = [
     "step_labels",
     "step_of",
     "suggest",
+    "style_of",
+    "styled_level",
     "suggestion_record",
     "taken_choice",
     "taken_options",

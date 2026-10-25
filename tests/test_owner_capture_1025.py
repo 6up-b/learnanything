@@ -182,3 +182,69 @@ def test_b3_a_reattempt_starts_a_fresh_ask_thread(tmp_path, grader):
     assert hint_equivalents_for_submission(repository, ITEM, session) == 1
     # The earlier turn stays on record.
     assert {row["id"] for row in _rows(paths, "SELECT id FROM question_events")} == {"q_first", "q_second"}
+
+
+# -- B2: the help style moves the next hint without a Decider ------------------------------------
+
+
+def _press(ctx, session, key):
+    return _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": ITEM, "submissionId": key,
+                                                "answerMd": WORK})["result"]
+
+
+@pytest.mark.parametrize("style, first", [
+    ("balanced", ("authored", 3)),
+    ("let_me_struggle", ("approach_question", 1)),
+    ("guide_me", ("next_step", 3)),
+])
+def test_b2_the_help_style_changes_the_first_hint_the_fallback_serves(tmp_path, style, first):
+    """The owner's vault routes no Decider, so every press took the
+    fallback, whose order (the item's own hints first) never read the style."""
+
+    paths, ctx, session = _sidecar(tmp_path, "[hints]\nchooser_enabled = false\n")
+    assert _call(ctx, "practice.set_help_style", {"helpStyle": style})["helpStyle"] == style
+    hint = _press(ctx, session, f"key-{style}")
+    assert hint["status"] == "ready"
+    assert (hint["kind"], hint["level"]) == first
+    [row] = _rows(paths, "SELECT contract_failures_json FROM help_assists")
+    import json
+
+    assert json.loads(row["contract_failures_json"])["state_at_request"]["help_style"] == style
+
+
+def test_b2_let_me_struggle_still_goes_up(tmp_path):
+    _paths, ctx, session = _sidecar(tmp_path, "[hints]\nchooser_enabled = false\n")
+    _call(ctx, "practice.set_help_style", {"helpStyle": "let_me_struggle"})
+    served = [(hint["kind"], hint["level"]) for hint in (_press(ctx, session, "k") for _ in range(3))]
+    assert served == [("approach_question", 1), ("localize", 2), ("authored", 3)]
+
+
+def test_b2_the_workbench_fallback_suggestion_reads_the_style():
+    from learnloop.hints.workbench import styled_level
+
+    assert [styled_level(level, "balanced") for level in (1, 2, 3, 4, 5)] == [1, 2, 3, 4, 5]
+    assert [styled_level(level, "let_me_struggle") for level in (1, 2, 3, 4, 5)] == [1, 2, 3, 3, 3]
+    assert [styled_level(level, "guide_me") for level in (1, 2, 3, 4, 5)] == [3, 3, 3, 4, 5]
+
+
+def test_b2_a_suggestion_judged_under_another_style_is_not_reused(tmp_path):
+    """The ladder's suggestion is a Decider draw under the style of that
+    moment; taking its rung after the style changed draws again."""
+
+    import json
+
+    from tests.hint_fakes import ChooserFake, prefer
+    from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
+
+    chooser = ChooserFake(prefer("error_specific@L3", 0.8))
+    paths, wctx, _session = sidecar(tmp_path, chooser=chooser)
+    wb, _chains = open_problem(wctx)
+    suggestion = run_job(wctx, call(wctx, "workbench.suggest_help", {"sessionId": wb}))["suggestion"]
+    assert len(chooser.calls) == 1 and chooser.calls[0]["state"]["help_style"] == "balanced"
+    call(wctx, "workbench.set_help_style", {"sessionId": wb, "helpStyle": "guide_me"})
+    run_job(wctx, call(wctx, "workbench.request_help", {"sessionId": wb, "takenLevel": suggestion["level"],
+                                                        "offeredLevel": suggestion["level"],
+                                                        "suggestionId": suggestion["suggestionId"]}))
+    assert len(chooser.calls) == 2 and chooser.calls[1]["state"]["help_style"] == "guide_me"
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "hint"]
+    assert json.loads(row["contract_failures_json"])["state_at_request"]["help_style"] == "guide_me"
