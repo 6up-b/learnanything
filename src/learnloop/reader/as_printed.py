@@ -25,7 +25,11 @@ The rules held here, on the server:
   ``learner_item_authored`` event marks it, its ``block_span_v1`` source
   refs name the blocks, Codex review F4). A learner-drawn sub-box stored on
   a source ref (``region``) is the crop shown for that block, clipped to the
-  block's own box.
+  block's own box. A selection the import split into several exercises
+  marks on each ref whether that block is this item's own (``owned``), and
+  only those are cropped; where that is not known (a selection-level edit,
+  or a split written before the mark) no crop is free, and the original
+  page (one hint before Submit) is still offered (Codex re-review F9).
 * **The cold rule** (D46, spec G61). During a check on your own (a due
   "Check once", a cold follow-up, an active diagnostic presentation; the
   caller reads which, F1) the view

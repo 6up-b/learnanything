@@ -27,7 +27,7 @@ import type {
   EdgeDirectionResolution
 } from "../api/dto";
 import { OpenInSource } from "../components/OpenInSource";
-import { BlocksAsPrinted } from "../components/AsPrinted";
+import { AsPrinted, useAsPrinted } from "../components/AsPrinted";
 import { COLOR, Dim, Divider, Faint, FONT_MONO, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { errorMessage } from "../errors";
 
@@ -1345,6 +1345,7 @@ export function TranscriptionReportCard({
   const [saved, setSaved] = useState(false);
   const reports = detail.reports ?? 1;
   const notes = detail.notes ?? [];
+  const printed = useAsPrinted(itemId);
   const save = async () => {
     if (!itemId || saving) return;
     const prompt = draft.trim();
@@ -1388,8 +1389,13 @@ export function TranscriptionReportCard({
           <Faint>the wording reported:</Faint> <Dim>{detail.prompt}</Dim>
         </div>
       ) : null}
-      {detail.extractionId && detail.spanIds?.length ? (
-        <BlocksAsPrinted extractionId={detail.extractionId} spanIds={detail.spanIds} altText={detail.prompt ?? notice.title} />
+      {itemId && printed ? (
+        // Codex re-review F10: the item's own view (practice.as_printed), so a
+        // check on your own due now hides the print here as in practice
+        // (the figure alone, or nothing), and a split selection's item
+        // crops only its own blocks. No second report link: this is the report.
+        <AsPrinted key={`${itemId}:${printed.kind}`} view={printed} practiceItemId={itemId}
+          altText={detail.prompt ?? notice.title} report={false} />
       ) : null}
       {saved ? (
         <div role="status" style={{ fontSize: 11, color: COLOR.textDim }}>saved · the report resolves now the wording changed</div>

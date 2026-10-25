@@ -10,7 +10,7 @@ import type { MaintenanceNoticeDto } from "../api/dto";
 import { MaintenanceScreen } from "./MaintenanceScreen";
 
 const { api, refetch } = vi.hoisted(() => ({
-  api: { editPracticeItem: vi.fn(), readerProblemCrops: vi.fn(), maintenanceNoticeAction: vi.fn() },
+  api: { editPracticeItem: vi.fn(), readerProblemCrops: vi.fn(), practiceAsPrinted: vi.fn(), maintenanceNoticeAction: vi.fn() },
   refetch: vi.fn(),
 }));
 vi.mock("../api/client", () => ({ api }));
@@ -29,6 +29,14 @@ const NOTICE: MaintenanceNoticeDto = {
   status: "active", snoozeCount: 0, snoozedUntil: null, firstSeenAt: "x", lastSeenAt: "x",
 };
 
+// The item's own view (practice.as_printed), as the practice screen reads it.
+const PAGE_VIEW = {
+  version: 1, practiceItemId: "pi_ex", enabled: true, kind: "page", cold: false, label: "as printed (Strang p.1)",
+  status: "ok", crops: [{ page: 0, pageLabel: "1", bbox: [1, 2, 3, 4], spanIds: ["e1"], image: null }],
+  locator: { sourceTitle: "Strang", exerciseLabel: "Exercise 6.1.12", pageLabel: "1" },
+  originalPage: { extractionId: "ext", spanId: "e1", outlineSpanIds: ["e1"], sourceId: "src" }, transcriptionReport: true,
+};
+
 vi.mock("../api/useCachedQuery", () => ({
   useCachedQuery: (key: unknown[]) => ({
     data: key[0] === "maintenance_feed" ? { version: 1, notices: [NOTICE] } : undefined,
@@ -41,6 +49,7 @@ beforeEach(() => {
   for (const mock of [...Object.values(api), refetch]) mock.mockReset();
   api.readerProblemCrops.mockResolvedValue({ extractionId: "ext", spanIds: ["e1"], status: "ok", skippedSpanIds: [],
     crops: [{ page: 0, pageLabel: "1", bbox: [1, 2, 3, 4], spanIds: ["e1"], image: null }] });
+  api.practiceAsPrinted.mockResolvedValue(PAGE_VIEW);
   api.editPracticeItem.mockResolvedValue({ practiceItemId: "pi_ex", changed: ["prompt"] });
 });
 afterEach(cleanup);
@@ -77,4 +86,27 @@ it("an unchanged wording saves nothing", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Fix the wording" }));
   fireEvent.click(screen.getByRole("button", { name: "save the wording" }));
   expect(api.editPracticeItem).not.toHaveBeenCalled();
+});
+
+// Codex re-review F10: the card reads the item's own view, so a check on your
+// own due now hides the print here too; the block form (which knows no item,
+// and so no check) is never called; there is no second report link.
+it("the reported item's print comes from its own view, and hides during a check on your own", async () => {
+  render(<MaintenanceScreen subjects={[]} onError={vi.fn()} />);
+  const card = screen.getByTestId("transcription-report");
+  await waitFor(() => expect(api.practiceAsPrinted).toHaveBeenCalledWith({ practiceItemId: "pi_ex" }));
+  fireEvent.click(await within(card).findByRole("button", { name: /as printed \(Strang p\.1\)/ }));
+  await waitFor(() => expect(api.practiceAsPrinted).toHaveBeenCalledWith({ practiceItemId: "pi_ex", render: true }));
+  expect(within(card).queryByRole("button", { name: /the transcription doesn't match the page/ })).toBeNull();
+  expect(api.readerProblemCrops).not.toHaveBeenCalled();
+});
+
+it("a reported item under a check on your own shows no print on the card", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ version: 1, practiceItemId: "pi_ex", enabled: true, kind: "none", cold: true,
+    reason: "cold_check" });
+  render(<MaintenanceScreen subjects={[]} onError={vi.fn()} />);
+  const card = screen.getByTestId("transcription-report");
+  await waitFor(() => expect(api.practiceAsPrinted).toHaveBeenCalled());
+  expect(within(card).queryByRole("button", { name: /as printed/ })).toBeNull();
+  expect(api.readerProblemCrops).not.toHaveBeenCalled();
 });

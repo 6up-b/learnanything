@@ -471,10 +471,10 @@ export function Workbench(props: WorkbenchProps) {
           outlineSpanIds={originalPage.outlineSpanIds} context="provenance"
           entityType={session.practiceItemId ? "practice_item" : null} entityId={session.practiceItemId}
           onClose={() => setOriginalPage(null)}
-          onOpenInReader={props.onPeekPassage ? () => {
-            const target = originalPage;
+          onOpenInReader={props.onPeekPassage ? (shown) => {
+            // Re-review F11: the passage on screen now, after Next/Previous.
             setOriginalPage(null);
-            peek(target.spanId, { extractionId: target.extractionId });
+            peek(shown.spanId, { extractionId: shown.extractionId });
           } : undefined} />
       ) : null}
     </div>

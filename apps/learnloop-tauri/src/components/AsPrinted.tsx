@@ -277,11 +277,14 @@ export function AsPrinted({
   view,
   practiceItemId,
   altText,
+  report = true,
 }: {
   view: AsPrintedViewDto | null;
   practiceItemId: string;
   /** The transcribed stem: the image's alt text. */
   altText: string;
+  /** Offer "the transcription doesn't match the page" (not where the report is shown). */
+  report?: boolean;
 }) {
   // The figure a check needs is part of the stimulus: open from the start.
   const [open, setOpen] = useState(() => view?.kind === "figure" || rememberedOpen());
@@ -338,7 +341,7 @@ export function AsPrinted({
             notice={rendered ? rendered.notice ?? null : null} />
         )
       ) : null}
-      {open && kind === "page" && view.transcriptionReport ? <TranscriptionReport practiceItemId={practiceItemId} /> : null}
+      {open && report && kind === "page" && view.transcriptionReport ? <TranscriptionReport practiceItemId={practiceItemId} /> : null}
     </div>
   );
 }
@@ -456,7 +459,11 @@ export function PrintedAfterFeedback({
       {page ? (
         <OpenInSource extractionId={page.extractionId} spanId={page.spanId} outlineSpanIds={page.outlineSpanIds}
           context="provenance" entityType="practice_item" entityId={practiceItemId} onClose={() => setPage(null)}
-          onOpenInReader={onOpenInReader && page.sourceId ? () => { setPage(null); onOpenInReader(page); } : undefined} />
+          onOpenInReader={onOpenInReader && page.sourceId ? (shown) => {
+            // Re-review F11: the passage on screen now, after Next/Previous.
+            setPage(null);
+            onOpenInReader({ ...page, ...shown });
+          } : undefined} />
       ) : null}
     </div>
   );

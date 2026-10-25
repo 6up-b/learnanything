@@ -79,6 +79,25 @@ it("a bound problem's original page opens the page itself, not a jump in the tex
   expect(screen.queryByTestId("open-in-reader")).toBeNull();
 });
 
+// Codex re-review F11: the passage on screen after next/prev, not the first one.
+it("after prev in the original page, the Reader opens the passage shown now", async () => {
+  api.practiceAsPrinted.mockResolvedValue(VIEW);
+  const base = { viewerMode: "pdf_page", blockType: "Text", sectionPath: ["5"], locatorScheme: "block_span_v1",
+    pageRender: "data:image/png;base64,PAGE", pageRenderSize: [612, 792], bbox: [72, 100, 540, 130], page: 11, pageSpans: [] };
+  api.getSpanView.mockImplementation(({ spanId }: { spanId: string }) => Promise.resolve({ spanView: spanId === "b2"
+    ? { ...base, extractionId: "ext1", spanId: "b2", text: "Exercise 5.14", locator: "span:ext1/b2",
+        previousSpans: [{ spanId: "b1", text: "b1", truncated: false }], nextSpans: [] }
+    : { ...base, extractionId: "ext1", spanId: "b1", text: "the worked example", locator: "span:ext1/b1",
+        previousSpans: [], nextSpans: [{ spanId: "b2", text: "b2", truncated: false }] } }));
+  const onPeekPassage = vi.fn();
+  render(<Workbench {...props({ onPeekPassage })} />);
+  fireEvent.click(await screen.findByTestId("workbench-original-page"));
+  fireEvent.click(await screen.findByRole("button", { name: "← prev" }));
+  await screen.findByText("the worked example");
+  fireEvent.click(screen.getByTestId("open-in-reader"));
+  expect(onPeekPassage).toHaveBeenCalledWith("b1", { extractionId: "ext1" });
+});
+
 it("no original page where the server found no page image, and none while the book is hidden", async () => {
   api.practiceAsPrinted.mockResolvedValue({ ...VIEW, status: "no_original", originalPage: null, notice: "x" });
   render(<Workbench {...props()} />);

@@ -168,3 +168,24 @@ it("nothing at all when the server shows nothing (a check due, the switch off, a
   const older = render(<PrintedAfterFeedback practiceItemId="pi2" altText="x" />);
   expect(older.container.textContent).toBe("");
 });
+
+// Codex re-review F11: *open in the Reader ↗* opens the passage on screen,
+// after the viewer's next/prev moved it, not the one the page opened at.
+it("after next in the original page, the Reader opens the passage shown now", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ ...PAGE, originalPage: { ...PAGE.originalPage!, sourceId: "src" } });
+  const spanView = (spanId: string, previous: string[], next: string[]) => ({ spanView: {
+    extractionId: "ext", spanId, viewerMode: "pdf_page", blockType: "Text", sectionPath: [], text: `text ${spanId}`,
+    locator: `span:ext/${spanId}`, locatorScheme: "block_span_v1", pageRender: "data:image/png;base64,P",
+    pageRenderSize: [612, 792], bbox: [1, 2, 3, 4], pageSpans: [],
+    previousSpans: previous.map((id) => ({ spanId: id, text: id, truncated: false })),
+    nextSpans: next.map((id) => ({ spanId: id, text: id, truncated: false })) } });
+  api.getSpanView.mockImplementation(({ spanId }: { spanId: string }) =>
+    Promise.resolve(spanId === "e1" ? spanView("e1", [], ["e9"]) : spanView("e9", ["e1"], [])));
+  const onOpenInReader = vi.fn();
+  render(<PrintedAfterFeedback practiceItemId="pi" altText="Find λ." onOpenInReader={onOpenInReader} />);
+  fireEvent.click(await screen.findByTestId("original-page"));
+  fireEvent.click(await screen.findByRole("button", { name: "next →" }));
+  await screen.findByText("text e9");
+  fireEvent.click(screen.getByTestId("open-in-reader"));
+  expect(onOpenInReader).toHaveBeenCalledWith({ extractionId: "ext", spanId: "e9", outlineSpanIds: ["e1"], sourceId: "src" });
+});

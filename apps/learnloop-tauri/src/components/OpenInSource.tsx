@@ -28,8 +28,9 @@ export function OpenInSource({
    *  is outlined, not only the one opened. */
   outlineSpanIds?: string[];
   /** Reader CA1 (§8.3): *open in the Reader ↗* from the page view, where the
-   *  host can take the learner there (absent: not offered). */
-  onOpenInReader?: () => void;
+   *  host can take the learner there (absent: not offered). It is given the
+   *  passage shown now, which prev/next may have moved (Codex re-review F11). */
+  onOpenInReader?: (shown: { extractionId: string; spanId: string }) => void;
   onClose: () => void;
 }) {
   const [currentSpanId, setCurrentSpanId] = useState(spanId);
@@ -90,7 +91,11 @@ export function OpenInSource({
           </span>
           {view ? <Pill color={view.viewerMode.startsWith("pdf_") ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
           {onOpenInReader ? (
-            <button type="button" data-testid="open-in-reader" onClick={onOpenInReader}
+            <button type="button" data-testid="open-in-reader"
+              onClick={() => onOpenInReader({
+                extractionId: view && view.spanId === currentSpanId ? view.extractionId : extractionId,
+                spanId: currentSpanId,
+              })}
               style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer",
                        color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, textDecoration: "underline" }}>
               open in the Reader ↗
