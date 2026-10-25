@@ -273,3 +273,142 @@ def test_f9_a_subscription_run_reports_tokens_and_estimated_dollars(tmp_path):
     assert usage["cost_basis"] == "estimated_only" and usage["estimated_tokens"] > 0
     assert usage["estimated_usd"] == pytest.approx(usage["estimated_tokens"] * 2.0 / 1_000_000)
     assert usage["marginal_usd"] == 0.0
+
+
+# -- Re-review F1: source-set protection read afresh (the CLI) and generation-bound (the sidecar) ------
+
+
+def _make_exam(paths, source_id="src_lay"):
+    """Change ``source_id``'s role to exam in the vault's files (as the sidecar's sources RPC does)."""
+
+    from learnloop.vault.writer import upsert_source_set
+
+    members = [{"source_id": source, "revision_id": revision,
+                "default_role": "exam" if source in (source_id, "src_exam") else "primary_textbook"}
+               for source, revision in (("src_book", "rev_book"), ("src_exam", "rev_exam"), ("src_lay", "rev_lay"))]
+    upsert_source_set(paths.root, {"id": "sset_la", "subject_id": "linear-algebra",
+                                   "title": "Linear algebra sources", "members": members})
+
+
+def test_rr_f1_a_role_changed_on_disk_during_a_cli_judgment_keeps_nothing(vault_paths):
+    paths, repository = vault_paths
+    vault = load_vault(paths.root)  # the CLI's vault, loaded before the change
+    judge = HookedJudge(lambda fake: _make_exam(paths))
+    result = SC.judge(vault, repository, "lo_eigen", client=judge)
+    assert any(LAY_CHAR_TEXT in prompt for prompt in judge.prompts)  # sendable when it was sent
+    assert judge.calls == 1 and result.status == "stale" and result.reason == "protection_changed"
+    assert _rows(repository) == [] and _proposals(repository) == []
+
+
+def test_rr_f1_a_retry_after_a_role_changed_on_disk_is_never_sent(vault_paths):
+    paths, repository = vault_paths
+    vault = load_vault(paths.root)
+
+    def exam_then_fail(fake):
+        if fake.calls == 1:
+            _make_exam(paths)
+            raise AIProviderUnavailable("down")
+
+    judge = HookedJudge(exam_then_fail)
+    result = SC.judge(vault, repository, "lo_eigen", client=judge)
+    assert judge.calls == 1 and result.status == "stale" and _rows(repository) == []
+
+
+def test_rr_f1_the_cli_batch_reads_source_sets_from_disk_before_each_lo(tmp_path):
+    def run(paths, repository, change):
+        _add_lo(paths, "lo_char", "Characteristic equation",
+                "The eigenvalues of A are the roots of the characteristic equation.")
+        vault = load_vault(paths.root)
+        asked = {"n": 0}
+
+        def between() -> bool:
+            asked["n"] += 1
+            if change and asked["n"] == 2:  # after the first LO's judgment, before the next
+                _make_exam(paths)
+            return False
+
+        judge = CoverageJudgeFake()
+        out = SC.cover_source(vault, repository, "ext_book", client=judge, cancelled=between)
+        return judge, out
+
+    control, _ = run(*build_coverage_vault(tmp_path / "control"), change=False)
+    assert len(control.prompts) >= 2 and any(LAY_CHAR_TEXT in prompt for prompt in control.prompts[1:])
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    judge, out = run(paths, repository, change=True)
+    assert out["status"] == "done" and len(judge.prompts) >= 2
+    assert all("det(A - tI) = 0" not in prompt for prompt in judge.prompts[1:])
+    judged = [entry["learning_object_id"] for entry in out["learning_objects"] if entry.get("status") == "ready"]
+    with repository.connection() as connection:
+        late = connection.execute(
+            "SELECT COUNT(*) FROM section_coverage WHERE extraction_id = 'ext_lay' AND learning_object_id IN "
+            f"({','.join('?' * len(judged[1:]))})", judged[1:]).fetchone()[0] if judged[1:] else 0
+    assert late == 0
+
+
+class ReloadingProvider:
+    """The sidecar's loaded-vault provider (snapshot, generation, admit), which
+    publishes ``reload`` (a same-vault reload) right after the next snapshot is
+    read, i.e. while the guard is reading protection from the snapshot."""
+
+    def __init__(self, vault):
+        self.vault, self.gen, self.reload = vault, 0, None
+
+    def snapshot(self):
+        out = (self.vault, self.gen)
+        if self.reload is not None:
+            self.vault, self.gen, self.reload = self.reload, self.gen + 1, None
+        return out
+
+    def __call__(self):
+        return self.snapshot()[0]
+
+    def generation(self):
+        return self.gen
+
+    def admit(self, generation):
+        return generation == self.gen
+
+
+@pytest.mark.parametrize("when", ["request", "record"])
+def test_rr_f1_a_reload_published_during_the_protection_read_is_never_admitted(vault_paths, when):
+    paths, repository = vault_paths
+    vault = load_vault(paths.root)
+    _make_exam(paths)
+    reloaded = load_vault(paths.root)  # the same vault with src_lay as exam
+    provider = ReloadingProvider(vault)
+
+    def arm(fake):
+        if when == "record":
+            provider.reload = reloaded  # published during the record's protection read
+
+    if when == "request":
+        provider.reload = reloaded  # published during the first attempt's protection read
+    judge = HookedJudge(arm)
+    result = SC.judge(vault, repository, "lo_eigen", client=judge, live_vault=provider)
+    assert result.status == "stale" and _rows(repository) == [] and _proposals(repository) == []
+    if when == "request":
+        assert judge.calls == 0  # nothing was sent under the replaced snapshot
+
+
+# -- Re-review F10: the role proposals and the rows commit together ----------------------------------------
+
+
+def test_rr_f10_a_crash_after_the_proposals_is_recovered_from_the_ledger(vault_paths, monkeypatch):
+    from learnloop.db.stores import section_coverage as store
+
+    paths, repository = vault_paths
+    real = store.insert
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the process died here")
+
+    monkeypatch.setattr(store, "insert", crash)
+    judge = CoverageJudgeFake(roles=("worked_example",))
+    with pytest.raises(RuntimeError):
+        SC.judge(load_vault(paths.root), repository, "lo_eigen", client=judge)
+    assert judge.calls == 1 and _rows(repository) == []
+    monkeypatch.setattr(store, "insert", real)
+    # A restart: a new vault and library, which read every proposal that was committed.
+    result = SC.judge(load_vault(paths.root), repository, "lo_eigen", client=judge)
+    assert judge.calls == 1 and result.status in ("ready", "fresh")
+    assert _rows(repository) and {entry["judge"] for entry in _proposals(repository)} == {"section_coverage_judge"}
