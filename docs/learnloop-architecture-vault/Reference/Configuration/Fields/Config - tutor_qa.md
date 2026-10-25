@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
+source_commit_timestamp: "2026-10-25T15:46:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -34,8 +34,8 @@ source_paths:
   - "tests/test_e0_delivery.py"
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_library_ask_review.py"
+  - "tests/test_owner_capture_1025.py"
   - "tests/test_project_capture.py"
-  - "tests/test_question_signal.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -56,10 +56,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `tutor_qa.max_questions_practice` | `3` | integer | modeled default or validator seed | Caps questions practice allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:559`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:298` |
-| `tutor_qa.max_questions_feedback` | `5` | integer | modeled default or validator seed | Caps questions feedback allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:560`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:303` |
-| `tutor_qa.max_questions_library` | `8` | integer | modeled default or validator seed | Caps questions library allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:561`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:310` |
-| `tutor_qa.max_questions_reader` | `8` | integer | modeled default or validator seed | Caps questions reader allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:563`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:318` |
+| `tutor_qa.max_questions_practice` | `3` | integer | modeled default or validator seed | Caps questions practice allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:559`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:323` |
+| `tutor_qa.max_questions_feedback` | `5` | integer | modeled default or validator seed | Caps questions feedback allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:560`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:328` |
+| `tutor_qa.max_questions_library` | `8` | integer | modeled default or validator seed | Caps questions library allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:561`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:335` |
+| `tutor_qa.max_questions_reader` | `8` | integer | modeled default or validator seed | Caps questions reader allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:563`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/tutor/tutor_qa.py:343` |
 | `tutor_qa.reader_enabled` | `true` | boolean | modeled default or validator seed | Turns reader behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:569`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/reader/reader_dialogue.py:157` |
 | `tutor_qa.adopt_reference_questions` | `true` | boolean | modeled default or validator seed | Turns adopt reference questions behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:575`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/reader/reader_authoring.py:309` |
 | `tutor_qa.apply_uncertainty_effect` | `true` | boolean | modeled default or validator seed | Turns uncertainty effect behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:576`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/learner/facet_diagnostics.py:679` |
@@ -89,8 +89,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_e0_delivery.py`
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_library_ask_review.py`
+- `tests/test_owner_capture_1025.py`
 - `tests/test_project_capture.py`
-- `tests/test_question_signal.py`
 
 ## Extension and modification guidance
 

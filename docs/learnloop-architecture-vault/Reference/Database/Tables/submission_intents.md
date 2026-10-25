@@ -3,8 +3,8 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
+source_commit_timestamp: "2026-10-25T15:46:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_owner_capture_1025.py`
 - `tests/test_probability_prep.py`
 - `tests/test_router_offer_log.py`
 

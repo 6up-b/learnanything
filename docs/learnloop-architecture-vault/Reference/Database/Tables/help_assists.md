@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
+source_commit_timestamp: "2026-10-25T15:46:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -189,9 +189,9 @@ None found by exact static reference scan.
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_asks_migration.py`
+- `tests/test_owner_capture_1025.py`
 - `tests/test_rw2c_fix_round3.py`
 - `tests/test_workbench_assistance.py`
-- `tests/test_workbench_hint_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
