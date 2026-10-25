@@ -48,7 +48,12 @@ predecessor's order:
   the admitted new minutes are recomputed (the lanes re-split from the build's loads when they moved, with a new epoch),
   and the receipt gains `transition` (when, the switch values, from/to, the minutes before and after, the displaced
   block ids). A reading the learner began, or one already ended, is history and is kept. Recorded once: switching back
-  on does not re-read the path. A plan with no receipt (built off) is never touched.
+  on does not re-read the path. A plan with no receipt (built off) is never touched. A plan that closed by itself
+  only for want of the reading the path left out (`complete`, its newest stop the boundary finding nothing feasible,
+  no reading in its split and no reading block) is reopened with the predecessor's reading, and the transition's
+  `reopened` records the status, stop reason and completion time it had (fix round 2); a plan the learner ended
+  ("Done for today", `stopped`) or the chooser stopped with work feasible stays closed. A withdrawn block is no
+  reading of the projection either (`simulate_blocks`).
 * **The why** (UX §4.11): the chosen target carries `path_label`; the staged frame's reason code is `reading_path_core`
   or `reading_path_prerequisite` ("Next on your reading path: §, central at the depth you chose." / "..., which the
   sections after it build on."; both pass the copy deny-list), and the logged lane reason gains ", core on your reading
@@ -106,7 +111,8 @@ upgrade docstring, the concept page row and the spec's as-built note; the chain-
   the learner's newest override row it came from (Codex review F3), so a later judgment or override cannot change what
   the receipt says was read (the tables are append-only). A `stale` path records `judgment: null` and the newest
   judged key it did not read (`latest_judged_state_key`).
-* `transition` (F1, above) is added when the switch took the path's reading back.
+* `transition` (F1, above) is added when the switch took the path's reading back; `transition.reopened` (fix round 2)
+  when that also reopened a plan that had closed for want of it.
 
 * `predecessor` is the section the predecessor's order would have chosen (the same call without the path), or null.
 * `chosen_by`: `path` (the reading came through a followed path), `order` (from a reading with no path), null (no
