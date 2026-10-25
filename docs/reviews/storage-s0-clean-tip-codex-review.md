@@ -129,3 +129,67 @@ Test files run: `test_ai_compare`, `test_s0_landing`, `test_public_tip_guards`,
 `test_cli_help_snapshot`, `test_table_roles`, `test_ai_tool_isolation`,
 `test_e0_isolation`, `test_coordinated_migrations`; plus `test_sqlite_wal_lifecycle`
 in the durability run.
+
+## Re-review (Codex job `20261025-025939-w2DcU8`, `c6266c306..2c10704dd`)
+
+Verdict REOPENED: F1 reopened (a symlinked vault root), two new Mediums (F7,
+F8). F2-F6 were not reopened. Each was reproduced first by a test that failed
+on `2c10704dd` (6 of the 8 new tests failed; the other two pin behaviour that
+already held: committed edits are backed up, and `check` refuses a manifest
+missing a paper while git still tracks it) and then fixed; none was rejected.
+No model call, no paid call, no owner vault, no main-checkout file.
+
+| Id | Severity | Title | Verdict | Commit | Test (reproduced first) |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | A vault root that is itself a symlink passes the preflight; `move-out` renames the link | fixed | `af08eb9e6` | `tests/test_s0_landing.py::test_copy_out_and_move_out_refuse_a_vault_root_that_is_a_symlink` (copy-out returned 0 on a relative `fixtures/linear_algebra -> actual-vault`), `::test_check_refuses_a_live_vault_that_is_a_symlink` |
+| F7 | Medium | Media backup silently substitutes tracked bytes for local edits | fixed | `af08eb9e6` | `::test_books_out_refuses_uncommitted_edits_to_a_tracked_text_file`, `::test_check_refuses_uncommitted_edits_made_after_books_out`; `::test_committed_edits_to_a_tracked_text_file_are_backed_up` (passes before and after) |
+| F8 | Medium | Reference papers become optional when absent from the index | fixed | `af08eb9e6` | `::test_books_out_refuses_when_a_paper_is_in_neither_the_index_nor_head` (an empty manifest was written), `::test_a_paper_staged_for_removal_is_recovered_from_head`; `::test_check_refuses_a_books_manifest_without_every_paper` (passes before and after) |
+
+### What changed
+
+- **F1** (`vault_database`): a vault root that is itself a symlink is refused
+  before anything else is read. `os.walk` follows a symlink given as its root,
+  and `os.rename` moves the link, not the vault. `copy-out`, `move-out`,
+  `check` and `verify-after` share this preflight, so a symlinked live vault
+  also fails `check`.
+- **F7** (`_local_edits`, used by `books-out` and `check`): `books-out`
+  refuses, before it writes the manifest or copies anything, when a plain
+  (non-LFS) tracked file's working bytes differ from git's blob. The working
+  file is then the only copy of the edits, so the owner must commit or
+  discard them first. `check` reports the same thing if the edits were made
+  after `books-out`. A missing working file is still restored from its blob.
+  LFS files are left out, because a pointer or a wrongly materialized file in
+  the working tree is expected there, and only the oid's bytes are trusted.
+- **F8** (`media_inventory`, `_missing_papers`): the index decides first. A
+  file already staged for removal (or `git rm --cached`) is recovered from
+  HEAD (`git ls-tree -r HEAD`), and its bytes come from the working file, the
+  LFS store or the blob, each only when it hashes to the expected value.
+  `books-out` will not write a first manifest unless every `PAPERS` entry is
+  in that inventory. `check` requires every paper in the persisted manifest,
+  which also covers a manifest written by the earlier script. A paper found in
+  neither the index nor HEAD is refused, with the hint to `git add` it or to
+  land from a checkout that still tracks it. Its working bytes alone are never
+  trusted.
+- The new git reads (`ls-tree`, `rev-parse --verify HEAD`) go through the
+  same `_git` helper, so the approved launch site in
+  `tests/test_codex_lockdown_round3.py` is unchanged; only its comment now
+  names the extra read-only commands.
+- The stage record (`docs/reviews/storage-s0-clean-tip.md`) and the script's
+  docstring describe the new refusals.
+
+### Gate (re-review step)
+
+Every pytest run inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, `-n 6`.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 35 kept, 0 broken |
+| `pytest tests/test_s0_landing.py` (serial, on `2c10704dd` plus the new tests) | 6 failed, 22 passed (the reproductions) |
+| `pytest -n 6` on the 7 files below, after the fix | 112 passed |
+
+Test files run: `test_s0_landing` (28 tests), `test_codex_lockdown_round3`,
+`test_sqlite_file_copies`, `test_ai_compare`, `test_public_tip_guards`,
+`test_architecture`, `test_tracked_fixture_databases`. No migration, schema,
+config, CLI, DB/connection, frontend or Rust change, so no durability,
+snapshot, vitest, cargo or DB-reference run was needed.
