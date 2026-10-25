@@ -133,6 +133,22 @@ def applied_versions(sqlite_path: Path) -> set[int]:
         return {int(row["version"]) for row in connection.execute("SELECT version FROM schema_migrations")}
 
 
+def schema_is_current(sqlite_path: Path, migrations_dir: Path | None = None) -> bool:
+    """Whether an existing database has exactly this code's migrations applied.
+
+    A secondary attach (one that never migrates) requires it. The check opens
+    the database read-only, so a missing file is never created and nothing is
+    written; an unreadable database counts as not current.
+    """
+
+    path = Path(sqlite_path)
+    expected = {migration.version for migration in discover_migrations(migrations_dir)}
+    try:
+        return path.is_file() and bool(expected) and applied_versions(path) == expected
+    except sqlite3.Error:
+        return False
+
+
 def apply_migrations(
     sqlite_path: Path,
     migrations_dir: Path | None = None,

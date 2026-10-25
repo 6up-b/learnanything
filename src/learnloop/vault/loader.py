@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -90,6 +92,65 @@ def vault_loads_forbidden(reason: str | None) -> Iterator[None]:
         yield
     finally:
         _LOADS_FORBIDDEN.reset(token)
+
+
+#: Seconds a secondary process reuses a content fingerprint before it stats the
+#: vault's files again: the freshness bound for a change another process made
+#: (mobile spec §3.1, G12). A guardrail on stat cost, not a model parameter.
+CONTENT_FINGERPRINT_TTL_SECONDS = 2.0
+#: The kinds of file :func:`load_vault` reads (YAML, the TOML config, Markdown
+#: subjects and notes). Dot-directories (``.learnloop`` machine-local state) and
+#: the raw source store are not vault content.
+_CONTENT_SUFFIXES = (".yaml", ".yml", ".toml", ".md")
+_CONTENT_SKIP_DIRS = frozenset({"canonical-sources", "node_modules", "__pycache__"})
+
+
+def content_files(root: Path) -> dict[str, tuple[int, int]]:
+    """``{relative path: (size, mtime_ns)}`` for every file :func:`load_vault` can read.
+
+    A superset of what the loader opens, chosen by suffix rather than by
+    repeating the loader's walk, so a reader added to the loader is covered
+    without an edit here (``tests/test_secondary_attach.py`` pins that every
+    file a load opens is in this set). A file outside the loader's walk that
+    changes costs a secondary one extra reload, never a stale vault.
+    """
+
+    files: dict[str, tuple[int, int]] = {}
+    for directory, subdirectories, names in os.walk(root):
+        subdirectories[:] = [
+            name for name in subdirectories if not name.startswith(".") and name not in _CONTENT_SKIP_DIRS
+        ]
+        for name in names:
+            if not name.endswith(_CONTENT_SUFFIXES):
+                continue
+            path = os.path.join(directory, name)
+            try:
+                stat = os.stat(path)
+            except OSError:  # removed between the listing and the stat
+                continue
+            files[os.path.relpath(path, root)] = (stat.st_size, stat.st_mtime_ns)
+    return files
+
+
+def content_digest(files: dict[str, tuple[int, int]]) -> str:
+    """One digest over path, size and mtime of ``files`` (:func:`content_files`)."""
+
+    text = "\n".join(f"{path}\t{size}\t{mtime}" for path, (size, mtime) in sorted(files.items()))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def vault_content_fingerprint(root: Path) -> str:
+    """The vault's content fingerprint: path, size and mtime of the files the loader reads.
+
+    A secondary process (``SidecarContext.load_secondary``, the chat runtime)
+    compares it with the one taken before its last load and reloads on a
+    difference. The mobile spec's count-and-newest-mtime form is contained in
+    it; path and size also catch a rename, or a copy that keeps an older mtime.
+    The database is never fingerprinted: WAL makes its mtime meaningless, and
+    every connection reads it fresh.
+    """
+
+    return content_digest(content_files(Path(root)))
 
 
 def load_vault(
