@@ -43,3 +43,19 @@ def test_no_fixture_companion_file_is_tracked_by_git():
     ).stdout.splitlines()
     companions = [path for path in tracked if path.endswith(COMPANION_SUFFIXES)]
     assert companions == [], f"companion files must never be committed: {companions}"
+
+
+def test_the_session_guard_reads_only_the_databases_git_tracks(monkeypatch):
+    """Codex review of S0, F6: an untracked vault left under ``fixtures/`` (or the
+    worktree's ignored ``migration_head_219/`` leftover) is not the tip's, so the
+    session guard never opens it; only git's list (and the owner lane's root) count."""
+
+    import tests.conftest as conftest
+    import tests.owner_vaults as owner_vaults
+
+    tracked = {str(path.relative_to(FIXTURES)) for path in tracked_fixture_files("*.sqlite")}
+    monkeypatch.delenv(owner_vaults.OWNER_VAULTS_ENV, raising=False)
+    assert set(conftest._fixture_database_state()) == tracked
+    # Were git to track none of them, the guard would read none.
+    monkeypatch.setattr(owner_vaults, "_tracked_fixture_paths", lambda: [])
+    assert conftest._fixture_database_state() == {}

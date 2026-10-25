@@ -147,20 +147,23 @@ def _fixture_database_state() -> dict[str, tuple[str, tuple[str, ...]]]:
     from learnloop.db.copies import COMPANION_SUFFIXES
     from learnloop.db.storage import header_journal_mode
 
-    from tests.owner_vaults import owner_vaults_root
+    from tests.owner_vaults import owner_vaults_root, tracked_fixture_files
 
-    # The owner lane's copies are guarded like tracked fixtures: a test must
-    # copy them before opening one writable.
-    roots = [("", _FIXTURES)]
+    # The repository side is what git tracks under fixtures/ (Codex review of
+    # S0, F6): an untracked vault left there is not the tip's, and another
+    # process may be using it. The owner lane's copies are guarded like
+    # tracked fixtures, through the lane's own root only: a test must copy
+    # them before opening one writable.
+    roots = [("", _FIXTURES, tracked_fixture_files("*.sqlite"))]
     owner_root = owner_vaults_root()
     if owner_root is not None and owner_root.is_dir():
-        roots.append(("owner:", owner_root))
+        roots.append(("owner:", owner_root, sorted(owner_root.rglob("*.sqlite"))))
     # A read-only open of a WAL database creates an empty -wal and a -shm, so
     # companion presence alone is not a change; only the header mode and
     # un-checkpointed WAL frames are.
     state = {}
-    for prefix, root in roots:
-        for database in sorted(root.rglob("*.sqlite")):
+    for prefix, root, databases in roots:
+        for database in databases:
             pending = tuple(
                 database.name + suffix
                 for suffix in COMPANION_SUFFIXES
