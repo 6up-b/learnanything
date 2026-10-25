@@ -351,6 +351,11 @@ export function App() {
   // old vault (and whatever its action does next) stops at its next step
   // instead of starting, installing or acting on a session in the new one.
   const vaultGenRef = useRef(0);
+  // Fix round 2 (F1, re-review): how many vault changes are under way, from
+  // their first step until the replacement vault has loaded. The old vault's
+  // screen stays on show while the selection is sent, and anything it sends
+  // after that reaches the new vault, so no session starts in that window.
+  const vaultChangesRef = useRef(0);
 
   const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
   // An error: classic's red toast, or the simple shell's red error. A screen
@@ -820,6 +825,7 @@ export function App() {
   function implicitSession(): Promise<SessionSnapshot | null> {
     if (sessionRef.current) return Promise.resolve(sessionRef.current);
     if (implicitStartRef.current) return implicitStartRef.current;
+    if (vaultChangesRef.current > 0) return Promise.resolve(null);
     const generation = vaultGenRef.current;
     const current = () => vaultGenRef.current === generation;
     let started: Promise<SessionSnapshot | null> | null = null;
@@ -831,12 +837,8 @@ export function App() {
           onError("Couldn't start practice just now.");
           return null;
         }
-        const next = await api.startSession({ availableMinutes: minutes });
+        const next = await startSessionHere(minutes);
         if (!current()) return null;
-        sessionRef.current = next;
-        setTodayNoGoalBannerDismissed(false);
-        setSession(next);
-        setNotices((list) => resolveNotices(list, "session"));
         return next;
       } catch (error) {
         if (current()) reportError(error, "Couldn't start practice just now.");
@@ -849,9 +851,29 @@ export function App() {
     return started;
   }
 
+  /** Start a session on the open vault: Today's Begin (and its list picks)
+   *  and the implicit start. Fix round 2: the shell owns the start, bound to
+   *  the vault. While a vault change is under way it sends nothing (F1);
+   *  across a change it installs nothing and answers null. On the same vault
+   *  the session is the shell's as soon as it answers, before the caller's
+   *  next step, so it survives Today unmounting on ordinary navigation and no
+   *  second start follows (F7). Where the learner lands is the caller's. */
+  async function startSessionHere(minutes: number): Promise<SessionSnapshot | null> {
+    if (vaultChangesRef.current > 0) return null;
+    const generation = vaultGenRef.current;
+    const next = await api.startSession({ availableMinutes: minutes });
+    if (vaultGenRef.current !== generation) return null;
+    sessionRef.current = next;
+    setTodayNoGoalBannerDismissed(false);
+    setSession(next);
+    setNotices((list) => resolveNotices(list, "session"));
+    return next;
+  }
+
   /** An action that needs a session, with none open: an implicit start, then
    *  the action, only while the vault it was asked on is still open (F1). */
   function withImplicitSession(action: (started: SessionSnapshot, stillOpen: () => boolean) => void) {
+    if (vaultChangesRef.current > 0) return;
     const generation = vaultGenRef.current;
     const stillOpen = () => vaultGenRef.current === generation;
     void implicitSession().then((started) => {
@@ -1537,6 +1559,12 @@ export function App() {
       // belongs to the vault being left. From here it stops at its next step
       // (the selection is sent ahead of anything it would send), and a new
       // action starts its own.
+      //
+      // Fix round 2 (F1, re-review): and no start begins until the
+      // replacement vault has loaded (the old screen is still on show while
+      // the selection is sent). The generation moves again once it has, so
+      // nothing asked during the change acts afterwards either.
+      vaultChangesRef.current += 1;
       vaultGenRef.current += 1;
       implicitStartRef.current = null;
       try {
@@ -1582,6 +1610,9 @@ export function App() {
         }
         onError(message);
         throw error;
+      } finally {
+        vaultGenRef.current += 1;
+        vaultChangesRef.current -= 1;
       }
     },
     [onError, landOnLibraryIfEmpty, refreshAiConnection]
@@ -1779,6 +1810,7 @@ export function App() {
         session={session}
         streak={snapshot.streak}
         onBeginSession={beginSession}
+        onStartSession={startSessionHere}
         onOpenPractice={openPractice}
         onOpenPlanReading={(reading) => void openPlanReading(reading)}
         onEndSession={endSession}

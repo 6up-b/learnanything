@@ -68,6 +68,11 @@ export interface TodayPlaceProps {
   streak: StreakSummary | null;
   /** Begin started a session (and maybe served its first step). */
   onBeginSession: (session: SessionSnapshot, firstStep?: PlanStepDto | null) => void;
+  /** Start a session for these minutes (fix round 2, F1/F7): the shell owns
+   *  the start. It is the shell's session as soon as it answers, kept when
+   *  Today is left on the same vault; null when it was not started, or a vault
+   *  change made it obsolete. */
+  onStartSession: (minutes: number) => Promise<SessionSnapshot | null>;
   onOpenPractice: (practiceItemId: string, schedulerCandidateId?: string | null, proposalOrigin?: null, planPresentationId?: string | null) => void;
   onOpenPlanReading: (reading: PlanReadingDto) => void;
   onEndSession: (summary: SessionEndSummary) => void;
@@ -86,7 +91,8 @@ export interface TodayPlaceProps {
   onError: (message: string, report?: ErrorReport) => void;
 }
 
-/** An action's step after Today unmounted (fix round 1, F1): stop, quietly. */
+/** An action's step after Today unmounted (fix round 1, F1), or a start the
+ *  shell did not make (fix round 2): stop, quietly. */
 const LEFT = Symbol("today-left");
 
 const linkButton: CSSProperties = {
@@ -410,6 +416,7 @@ export function TodayPlace({
   session,
   streak: snapshotStreak,
   onBeginSession,
+  onStartSession,
   onOpenPractice,
   onOpenPlanReading,
   onEndSession,
@@ -524,6 +531,15 @@ export function TodayPlace({
     if (!alive.current) throw LEFT;
     return value;
   }, []);
+  // The shell's start (fix round 2): no session (a vault change) stops quietly.
+  const startSession = useCallback(
+    async (minutes: number): Promise<SessionSnapshot> => {
+      const started = await onStartSession(minutes);
+      if (!started) throw LEFT;
+      return stay(started);
+    },
+    [onStartSession, stay]
+  );
   const run = useCallback(
     async <T,>(work: () => Promise<T>): Promise<T | null> => {
       if (busy) return null;
@@ -551,7 +567,7 @@ export function TodayPlace({
     if (!plan || done || waiting) return;
     if (!session) {
       const begun = await run(async () => {
-        const started = stay(await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) }));
+        const started = await startSession(Math.round(plan.minutesBudget));
         const first = await api.nextPlanItem({ sessionId: started.sessionId, serve: true });
         return { started, step: first.step ?? null };
       });
@@ -569,7 +585,7 @@ export function TodayPlace({
   async function beginWithoutPlan() {
     if (minutes === null) return;
     const opened = await run(async () => {
-      const started = session ?? stay(await api.startSession({ availableMinutes: minutes }));
+      const started = session ?? (await startSession(minutes));
       const head = await api.getTodayQueue(todayQueueInput(started));
       return { started, item: head.sections.flatMap((section) => section.items)[0] ?? null };
     });
@@ -624,7 +640,7 @@ export function TodayPlace({
   async function openFromList(item: ScheduledItemDto) {
     if (!plan) {
       if (!session && planOff && minutes !== null) {
-        const started = await run(() => api.startSession({ availableMinutes: minutes }));
+        const started = await run(() => startSession(minutes));
         if (!started) return;
         onBeginSession(started);
       }
@@ -633,7 +649,7 @@ export function TodayPlace({
     }
     if (!session) {
       const begun = await run(async () => {
-        const started = stay(await api.startSession({ availableMinutes: Math.round(plan.minutesBudget) }));
+        const started = await startSession(Math.round(plan.minutesBudget));
         const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null);
         return { started, step: result.step ?? null };
       });

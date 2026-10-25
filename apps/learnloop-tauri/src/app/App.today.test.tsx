@@ -500,3 +500,122 @@ describe("fix round 1, F4: the full list with the plan off starts the session To
     expect(startSession).toHaveBeenCalledWith({ availableMinutes: 40 });
   });
 });
+
+// ── Fix round 2 (Codex re-review 20261025-024425-llEFP5) ───────────────────
+
+/** Open another library from ⋯ with its selection held, so A's screen is
+ *  still the one shown while B is being selected; answers B's release. */
+async function beginVaultSwitch(path: string, sessionB: Record<string, unknown> | null) {
+  let release: (value: unknown) => void = () => undefined;
+  stubs.api.selectVault = vi.fn(() => new Promise((resolve) => (release = resolve)));
+  stubs.dialogPath = path;
+  stubs.root = path;
+  stubs.session = sessionB;
+  fireEvent.click(screen.getByRole("button", { name: "⋯" }));
+  fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: /^Open another library/ }));
+  await waitFor(() => expect(stubs.api.selectVault).toHaveBeenCalledWith(path));
+  return async () => {
+    await act(async () => release({ version: 1 }));
+    await flush();
+  };
+}
+
+describe("fix round 2, F1: nothing starts while another vault is being opened", () => {
+  const SESSION_B = { ...STARTED, sessionId: "s_b" };
+
+  it("a Reader check pressed on A while B is being selected, its minutes answering after B opened: nothing is started in B", async () => {
+    const { startSession, planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "3", altKey: true });
+    const check = await screen.findByRole("button", { name: "check me" });
+    const finishSwitch = await beginVaultSwitch("/vaultB", SESSION_B);
+    // A's Reader is still on screen; its check asks for minutes (held).
+    let releaseMinutes: (value: unknown) => void = () => undefined;
+    const settled = stubs.api.getDailyPlan;
+    stubs.api.getDailyPlan = vi.fn(() => new Promise((resolve) => (releaseMinutes = resolve)));
+    fireEvent.click(check);
+    await flush();
+    stubs.api.getDailyPlan = settled;
+    await finishSwitch();
+    await act(async () => releaseMinutes(plan()));
+    await flush();
+    expect(startSession).not.toHaveBeenCalled();
+    expect(planLearnerPick).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
+    expect(screen.queryByText(/Couldn't start practice/)).toBeNull();
+  });
+
+  it("Begin pressed on A's Today while B is being selected starts nothing (the start would reach B)", async () => {
+    const { startSession, nextPlanItem } = todayApis();
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    const finishSwitch = await beginVaultSwitch("/vaultB", SESSION_B);
+    await press({ key: "Enter" });
+    await flush();
+    expect(startSession).not.toHaveBeenCalled();
+    await finishSwitch();
+    expect(startSession).not.toHaveBeenCalled();
+    expect(nextPlanItem).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
+  });
+
+  it("once B has loaded, B's own actions start as usual", async () => {
+    const { startSession, planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    const finishSwitch = await beginVaultSwitch("/vaultB", null);
+    await finishSwitch();
+    await screen.findByTestId("today-sentence");
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+});
+
+describe("fix round 2, F7: a session Begin started survives leaving Today on the same vault", () => {
+  it("Begin, then Reader while the start is pending: the session is the shell's, Reader stays, and its check starts no second one", async () => {
+    const { startSession, nextPlanItem, planLearnerPick } = todayApis();
+    let releaseStart: (value: unknown) => void = () => undefined;
+    startSession.mockImplementationOnce(() => new Promise((resolve) => (releaseStart = resolve)) as never);
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "Enter" });
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    await press({ key: "3", altKey: true });
+    await screen.findByTestId("reader-stub");
+    await act(async () => releaseStart(STARTED));
+    await flush();
+    // Nothing pulls the learner back to Today, and Begin's serve is not sent
+    // from a Today that is no longer shown.
+    expect(screen.getByTestId("reader-stub")).toBeTruthy();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
+    expect(nextPlanItem).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+
+  it("the same with the plan off: the 40-minute session started from Today is kept", async () => {
+    const { startSession, planLearnerPick } = todayApis(plan(null));
+    let releaseStart: (value: unknown) => void = () => undefined;
+    startSession.mockImplementationOnce(() => new Promise((resolve) => (releaseStart = resolve)) as never);
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    fireEvent.click(screen.getByRole("radio", { name: "40m" }));
+    await press({ key: "Enter" });
+    await waitFor(() => expect(startSession).toHaveBeenCalledWith({ availableMinutes: 40 }));
+    await press({ key: "3", altKey: true });
+    await screen.findByTestId("reader-stub");
+    await act(async () => releaseStart({ ...STARTED, availableMinutes: 40 }));
+    await flush();
+    expect(screen.getByTestId("reader-stub")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+});

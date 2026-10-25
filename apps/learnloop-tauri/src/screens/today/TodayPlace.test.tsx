@@ -7,7 +7,7 @@
 // the captures line; the first-run, done, loading and error states.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, WorkbenchOpenProblemDto } from "../../api/dto";
+import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, WorkbenchOpenProblemDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
 import { setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
@@ -272,6 +272,9 @@ function show(overrides: Partial<TodayPlaceProps> = {}) {
     session: null,
     streak: { current: 4, activeToday: false, longest: 9 },
     onBeginSession: vi.fn(),
+    // The shell's start (fix round 2), here the bare RPC: the App's binding
+    // to the vault is App.today.test.tsx's.
+    onStartSession: vi.fn(async (minutes: number) => (await fns.startSession({ availableMinutes: minutes })) as SessionSnapshot),
     onOpenPractice: vi.fn(),
     onOpenPlanReading: vi.fn(),
     onEndSession: vi.fn(),
@@ -907,5 +910,21 @@ describe("fix round 1, F1: an action still running when Today unmounts (another 
     expect(props.onError).not.toHaveBeenCalled();
     // Nothing after the start: no serve with the old vault's session.
     expect(f.nextPlanItem).not.toHaveBeenCalled();
+  });
+});
+
+describe("fix round 2: the shell owns Begin's start", () => {
+  it("Begin asks the shell for the plan's minutes, and a start the shell did not make stops quietly", async () => {
+    const f = apis(dto(body()));
+    const onStartSession = vi.fn(async () => null);
+    const props = show({ onStartSession });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "Enter" });
+    await flush();
+    expect(onStartSession).toHaveBeenCalledWith(25);
+    expect(f.startSession).not.toHaveBeenCalled();
+    expect(f.nextPlanItem).not.toHaveBeenCalled();
+    expect(props.onBeginSession).not.toHaveBeenCalled();
+    expect(props.onError).not.toHaveBeenCalled();
   });
 });
