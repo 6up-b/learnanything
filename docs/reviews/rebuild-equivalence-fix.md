@@ -11,8 +11,15 @@ The stage fixes two mismatches between live state and `rebuild --shadow`. Both w
 2. **`practice_item_state.active` after a primary load.** It differed on 30 rows of the
    `linear_algebra` copy. This is finding 2 of `mobile-pr1-secondary-attach.md`.
 
-**Verdict: replay was wrong in both cases, and live was right.** The fix changes replay only. It is a
-bug fix with no successor and no migration. The evidence is in §3.
+**Verdict: replay was wrong in both cases, and live was right.** The fix changes replay only, with no
+migration. The evidence is in §3.
+
+> **Superseded by the Codex review (2026-10-25,
+> [`fix-rebuild-equivalence-codex-review.md`](fix-rebuild-equivalence-codex-review.md)).** §3's "bug fix,
+> no successor" does not hold: the bounded replay changes the same-version golden projection, so it is
+> now the successor `mvp-0.34` behind `replay.ledger_bounded` (F4). A direct per-LO replay is one
+> transaction (F1), and a rebuild finishes its own recurrence reconciliation (F3). The lifecycle fix
+> (1b) still acts at every version.
 
 ## 1. Root causes
 
