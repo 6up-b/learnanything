@@ -73,7 +73,7 @@ def test_the_plan_successor_keeps_every_predecessor():
     # and Tier 1's Decider judgments (mvp-0.22, the latest successor,
     # tests/test_mvp022_upgrade.py) followed it and keep the plan.
     # Router R2a's staged frame (mvp-0.23) is now the latest; it keeps the plan.
-    assert SUCCESSOR_CHAIN[-16] == DAILY_PLAN_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-17] == DAILY_PLAN_ALGORITHM_VERSION
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.31"
     assert DAILY_PLAN_VERSIONS == frozenset(
         {"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21",

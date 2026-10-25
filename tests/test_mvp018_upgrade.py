@@ -79,7 +79,7 @@ def test_the_sources_successors_follow_the_route_check_and_keep_every_predecesso
     # The route rules in the grader (mvp-0.20), value-of-information stopping
     # (mvp-0.21) and Tier 1's Decider judgments (mvp-0.22) followed them.
     # Router R2a's staged frame (mvp-0.23) followed them all.
-    assert SUCCESSOR_CHAIN[-13:-7] == (
+    assert SUCCESSOR_CHAIN[-14:-8] == (
         PROOF_ROUTE_CHECK_ALGORITHM_VERSION, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
         SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION,
         DECIDER_TIER1_ALGORITHM_VERSION,

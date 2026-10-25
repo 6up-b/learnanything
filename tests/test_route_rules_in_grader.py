@@ -137,7 +137,7 @@ def _projection(repository):
 
 
 def test_the_route_rules_follow_the_route_check_and_value_of_information_stopping_follows_them():
-    assert SUCCESSOR_CHAIN[-10] == VERSION == "mvp-0.20"
+    assert SUCCESSOR_CHAIN[-11] == VERSION == "mvp-0.20"
     # Value-of-information stopping (mvp-0.21), Tier 1's Decider judgments
     # (mvp-0.22) and router R2a's staged frame (mvp-0.23, the latest)
     # followed the rules and keep them.

@@ -267,11 +267,15 @@ def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(
     assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # The CLI's default is the latest successor (adaptive difficulty's mvp-0.30) since the compose
-    # round; DL2's own step is --to mvp-0.29.
+    # The CLI's default is the latest successor (RW2d's mvp-0.31, after adaptive difficulty's
+    # mvp-0.30) since the landings; DL2's own step is --to mvp-0.29.
     invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.29"])
     assert invoked.exit_code == 0, invoked.output
-    # The default is the latest successor (RW2d's), through this step.
+    assert f"{PREDECESSOR} -> mvp-0.29" in invoked.output
+    # The default goes on to the latest successor, through this step.
+    default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
+    assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output
 
 

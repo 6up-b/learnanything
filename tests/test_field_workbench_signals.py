@@ -19,7 +19,7 @@ import sqlite3
 import pytest
 
 from learnloop.algorithm_versions import (
-    INTENT_ALGORITHM_VERSION,
+    ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
@@ -499,7 +499,9 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
     from learnloop.workbench_field_signals_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     assert LATEST_ALGORITHM_VERSION == TAG == SUCCESSOR_CHAIN[-1]
-    assert UPGRADE_PREDECESSOR == PREDECESSOR == INTENT_ALGORITHM_VERSION
+    # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
+    assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
+    assert TAG == "mvp-0.31"
     assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
@@ -725,9 +727,10 @@ def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
     again = upgrade_to_workbench_field_signals(direct.root)
     assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
-    chained = create_placement_vault(tmp_path / "chained", version="mvp-0.27")
-    assert upgrade_to_workbench_field_signals(chained.root).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
+    for start in ("mvp-0.27", "mvp-0.29"):  # through AD2+AD3's step (and DL2's, from mvp-0.27)
+        chained = create_placement_vault(tmp_path / f"chained-{start}", version=start)
+        assert upgrade_to_workbench_field_signals(chained.root).upgraded, start
+        assert load_vault(chained.root).config.algorithms.algorithm_version == TAG
 
     old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
     refused = upgrade_to_workbench_field_signals(old.root)
