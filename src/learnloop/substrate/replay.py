@@ -102,6 +102,108 @@ def _restore_debug_audit_events(
         connection.commit()
 
 
+class _ClaimStream:
+    """Claims replayed at their own ``created_at`` (LP-min (a); AD §5.5).
+
+    The predecessor seeded a replayed LO from the claims in force at rebuild
+    time, so a claim written after an attempt seeded that attempt's prior, and
+    a re-anchoring claim made after the first attempt was lost (or became the
+    seed). Here:
+
+    * the seed is materialized just before the first attempt from the claims
+      made by then (``claims_as_of``), exactly the state the attempt path would
+      otherwise construct from them;
+    * each later claim from a re-anchoring source
+      (``mastery.REANCHORING_CLAIM_SOURCES``) re-anchors at its own instant
+      through the live function, before any attempt stamped after it. A claim
+      stamped at the same instant as an attempt goes first: a rung-variant
+      request writes its claim, then its self-report attempt.
+
+    Claims are mutable rows (a re-claim replaces the earlier one), so a
+    replaced claim's earlier version is not replayed.
+    """
+
+    def __init__(self, vault: LoadedVault, repository: Repository, learning_object_id: str, claims: list[tuple[Any, dict[str, Any]]]):
+        self._vault = vault
+        self._repository = repository
+        self._learning_object_id = learning_object_id
+        self._pending = claims
+        self._seeded = False
+
+    @classmethod
+    def open(cls, vault: LoadedVault, repository: Repository, learning_object_id: str) -> "_ClaimStream | None":
+        from learnloop.learner.mastery import REANCHORING_CLAIM_SOURCES, claim_fixes_live
+
+        if not claim_fixes_live(vault):
+            return None
+        learning_object = vault.learning_objects.get(learning_object_id)
+        if learning_object is None:
+            return None
+        claims: list[tuple[Any, dict[str, Any]]] = []
+        for claim in repository.learner_claims():
+            if str(claim.get("source")) not in REANCHORING_CLAIM_SOURCES:
+                continue
+            if claim.get("scope_type") != "learning_object" or claim.get("scope_id") != learning_object_id:
+                continue
+            created = _parse_or_none(claim.get("created_at"))
+            if created is None:
+                continue  # unordered: it can only act through the seed
+            claims.append((created, claim))
+        claims.sort(key=lambda pair: (pair[0], str(pair[1].get("id") or "")))
+        return cls(vault, repository, learning_object_id, claims)
+
+    def advance_to(self, until_iso: str) -> None:
+        """Apply every claim made by ``until_iso``; seed the row on first use."""
+
+        from learnloop.learner.mastery import initial_mastery_state_for_learning_object
+
+        until = parse_utc(until_iso)
+        if not self._seeded:
+            self._seeded = True
+            if self._repository.mastery_state(self._learning_object_id) is None:
+                self._repository.upsert_mastery_state(
+                    initial_mastery_state_for_learning_object(
+                        self._vault,
+                        self._repository,
+                        self._learning_object_id,
+                        until_iso,
+                        claims_as_of=until_iso,
+                    )
+                )
+            # Claims made by the first attempt are in its seed already.
+            self._pending = [pair for pair in self._pending if pair[0] > until]
+            return
+        while self._pending and self._pending[0][0] <= until:
+            _created, claim = self._pending.pop(0)
+            self._reanchor(claim)
+
+    def finish(self) -> None:
+        while self._pending:
+            _created, claim = self._pending.pop(0)
+            self._reanchor(claim)
+
+    def _reanchor(self, claim: dict[str, Any]) -> None:
+        from learnloop.learner.mastery import reanchor_mastery_from_claim
+
+        created_at = str(claim["created_at"])
+        reanchor_mastery_from_claim(
+            self._vault,
+            self._repository,
+            self._learning_object_id,
+            claimed_level=float(claim["claimed_level"]),
+            prior_pseudo_count=float(claim["prior_pseudo_count"]),
+            now_iso=created_at,
+            claims_as_of=created_at,
+        )
+
+
+def _parse_or_none(value: Any):
+    try:
+        return parse_utc(str(value)) if value else None
+    except ValueError:
+        return None
+
+
 def replay_learning_object(
     vault: LoadedVault,
     repository: Repository,
@@ -133,10 +235,16 @@ def replay_learning_object(
         for attempt in attempts
     }
     repository.reset_learning_object_derived_state(learning_object_id)
+    # LP-min (a), the claim-fixes successor: claims enter the attempt stream at
+    # their own time. Off, or below the tag: None, and the first attempt seeds
+    # from the claims in force now, exactly as the predecessor.
+    claim_stream = _ClaimStream.open(vault, repository, learning_object_id)
     replayed: list[AttemptResult] = []
     for attempt in attempts:
         observed_at = parse_utc(attempt.get("created_at"))
         clock = FrozenClock(observed_at) if observed_at is not None else None
+        if claim_stream is not None and observed_at is not None:
+            claim_stream.advance_to(str(attempt["created_at"]))
         override_attributions = (error_attribution_overrides or {}).get(attempt["id"])
         event_snapshot = existing_error_events.get(attempt["id"], [])
         replayed_result = replay_existing_attempt(
@@ -159,6 +267,10 @@ def replay_learning_object(
             existing_debug_payloads.get(attempt["id"]),
         )
         replayed.append(replayed_result)
+    if claim_stream is not None:
+        # A re-anchoring claim made after the last attempt merges too, as it
+        # did live at its own time.
+        claim_stream.finish()
     # spec §7: registry links survive replay (persisted misconception_id on the
     # error events is re-threaded through GradeAttribution). Replay never
     # re-normalizes, but it re-derives resolution status deterministically from

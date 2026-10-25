@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from learnloop.ai.plan_fallback import collecting as plan_fallback_offers
 from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_grant
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    CLAIM_FIXES_ALGORITHM_VERSION,
+    LATEST_ALGORITHM_VERSION,
+    WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
+)
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F401,F403
 
@@ -88,8 +92,8 @@ def upgrade(
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30 or "
-                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}); default: the latest."
+                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
+                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION} or {CLAIM_FIXES_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -189,12 +193,17 @@ def upgrade(
     switches under ``[adaptive_difficulty]``: ``selection``,
     ``generation_contract``, ``promoted_predictor``, ``learned_coupling``,
     ``reading_opportunities``, ``reading_self_check``). ``--to mvp-0.31``
-    (default, the latest successor; the Reader workbench's field signals)
-    keeps an LO you got stuck on, or asked for help on before your first
-    step, in the workbench out of fast-track and teaches it first (never a
-    change to your record), over an mvp-0.30 vault (or an mvp-0.9 to mvp-0.29
-    vault through the chain; kill switch:
-    ``workbench.field_signals_enabled = false``)."""
+    (the Reader workbench's field signals) keeps an LO you got stuck on, or
+    asked for help on before your first step, in the workbench out of
+    fast-track and teaches it first (never a change to your record), over an
+    mvp-0.30 vault (or an mvp-0.9 to mvp-0.29 vault through the chain; kill
+    switch: ``workbench.field_signals_enabled = false``). ``--to mvp-0.32``
+    (default, the latest successor; the claim fixes) lets a gap you declare
+    to the tutor move that topic's level, applies what you said about your
+    level at the time you said it, never lets a claim make a level you have
+    practised look more certain, and believes your most recent claim, over
+    an mvp-0.31 vault (or an mvp-0.9 to mvp-0.30 vault through the chain;
+    kill switch: ``mastery.claim_fixes_enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -290,12 +299,17 @@ def upgrade(
         from learnloop.workbench_field_signals_upgrade import upgrade_to_workbench_field_signals
 
         result = upgrade_to_workbench_field_signals(_root(vault))
+    elif to == CLAIM_FIXES_ALGORITHM_VERSION:
+        from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
+
+        result = upgrade_to_claim_fixes(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30 or {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}."
+            f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION} "
+            f"or {CLAIM_FIXES_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

@@ -430,6 +430,29 @@ ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION = "mvp-0.30"
 # predecessor).
 WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
 
+# mvp-0.32 (learned parameters LP-min (a), the four claim-defect fixes;
+# spec_learned_parameters_v1 §3.0b item 1, AD §5.5;
+# docs/reviews/lp-min-claim-fixes.md), on top of mvp-0.31 (the chain stays
+# linear: mvp-0.32 means everything mvp-0.31 means PLUS this). Built on main
+# at mvp-0.31 while reader workbench RW7b also builds a successor there, so
+# the landing that finds another number free renumbers it HERE (the upgrade,
+# the CLI and the gates all read this one constant). It changes how learner
+# claims seed and re-anchor the per-LO mastery EKF, so live mastery and the
+# replayed projection both move (a mastery delta, never evidence, FSRS or
+# certification): (1) a tutor gap declaration re-anchors its LO through
+# ``reanchor_mastery_from_claim``, as rung-variant requests and too-easy/too-hard
+# reports already did; (2) replay applies each claim at its own ``created_at``
+# in the attempt stream (the seed reads only claims made by the first
+# attempt; a later re-anchoring claim merges at its own time), never the
+# claims in force now; (3) a claim merged into a state with evidence moves
+# the mean only: the variance never drops below the state's own (AD §5.5,
+# "a claim never shrinks a variance"); (4) among equally specific covering
+# claims the most recent wins, then the larger pseudo-count, never the higher
+# level. One kill switch for all four: ``mastery.claim_fixes_enabled`` (off,
+# or below the tag: every claim seed, re-anchor, merge, ranking and replay
+# exactly as the predecessor).
+CLAIM_FIXES_ALGORITHM_VERSION = "mvp-0.32"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -460,6 +483,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     INTENT_ALGORITHM_VERSION,
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
+    CLAIM_FIXES_ALGORITHM_VERSION,
 )
 
 
@@ -594,6 +618,13 @@ ADAPTIVE_DIFFICULTY_VERSIONS: frozenset[str] = successors_from(ADAPTIVE_DIFFICUL
 # workbench RW2d). Every later successor keeps it; gates must use this set,
 # never equality.
 WORKBENCH_FIELD_SIGNALS_VERSIONS: frozenset[str] = successors_from(WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION)
+
+# Versions whose learner claims seed and re-anchor mastery at their own time,
+# with gap declarations re-anchoring, a mean-only warm merge and recency
+# before pseudo-count in ties (behind ``mastery.claim_fixes_enabled``; LP-min
+# (a)). Every later successor keeps them; gates must use this set, never
+# equality.
+CLAIM_FIXES_VERSIONS: frozenset[str] = successors_from(CLAIM_FIXES_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

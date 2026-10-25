@@ -5584,9 +5584,11 @@ class Repository(
         """Delete claims by (source, scope_type[, scope_id]) — the replace seam
         for init-wizard (global) and rung-variant (per-LO) re-claims.
 
-        ``covering_learner_claim`` breaks specificity ties by highest
-        claimed_level, so re-seeding a LOWER level must remove the old row
-        rather than append beside it.
+        Below the claim-fixes successor ``covering_learner_claim`` breaks
+        specificity ties by pseudo-count, then highest claimed_level, so
+        re-seeding a LOWER level must remove the old row rather than append
+        beside it. (From the successor on the newest claim wins the tie; the
+        replace seam stays, so one source keeps one row per scope.)
         """
 
         query = "DELETE FROM learner_claims WHERE source = ? AND scope_type = ?"

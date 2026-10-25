@@ -1431,6 +1431,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "structural", "numerical", "numerical clamp/epsilon; mathematical identity."),
     _ConfigRule(_exact("mastery.display_strong_threshold", "mastery.display_developing_threshold"),
                 "structural", "display", "display formatting threshold (§6 excluded)."),
+    # LP-min (a) (spec_learned_parameters_v1 §3.0b item 1): the one kill switch
+    # of the claim-fixes successor. A boolean with no weight behind it: the
+    # fixes are structural (a claim applied at its own time, a mean-only warm
+    # merge whose variance floor is the state's own variance, a recency-first
+    # tie order), so there is no number to learn. Off restores the
+    # predecessor's claim seed, re-anchor, merge, ranking and replay exactly.
+    _ConfigRule(_exact("mastery.claim_fixes_enabled"), "structural", "operational",
+                "kill switch for LP-min (a)'s successor: gap claims re-anchor, claims replay at their own time, "
+                "a warm claim merge never lowers the variance, ties by recency then pseudo-count; off, the "
+                "predecessor's claim handling."),
     # --- structural: test fixtures ---
     _ConfigRule(_prefix("recall_coverage.severity_examples."), "structural", "fixture",
                 "expected-band severity fixtures (test data)."),

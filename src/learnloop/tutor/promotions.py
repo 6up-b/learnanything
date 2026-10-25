@@ -28,7 +28,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
-from learnloop.learner.mastery import display_mastery
+from learnloop.learner.mastery import claim_fixes_live, display_mastery, reanchor_mastery_from_claim
 from learnloop.content.authoring.practice_generation import (
     PracticeExpansionError,
     ability_logit,
@@ -778,21 +778,41 @@ def _write_gap_claim(
     *,
     clock: Clock | None,
 ) -> str:
-    """G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet."""
+    """G2 self-report: a low ``tutor_gap_declaration`` claim scoped to the LO / facet.
+
+    Under the claim-fixes successor (LP-min (a), spec_learned_parameters_v1
+    §3.0b item 1) the claim also re-anchors the LO's mastery at once, as a
+    rung-variant request or a too-easy/too-hard report does: before it, the
+    claim seeded only a row materialized later, and sync materializes every
+    LO's row up front, so a gap declaration was inert on existing LOs. Off, or
+    below the tag: the claim is written and nothing else, as the predecessor.
+    """
 
     config = vault.config.tutor_promotion
-    return repository.insert_learner_claim(
-        {
-            "claim_type": "self_rating",
-            "scope_type": "learning_object",
-            "scope_id": origin_lo.id,
-            "evidence_family": attributed[0] if attributed else None,
-            "claimed_level": config.gap_claim_level,
-            "prior_pseudo_count": config.gap_claim_pseudo_count,
-            "source": "tutor_gap_declaration",
-        },
-        clock=clock,
+    claim: dict[str, Any] = {
+        "claim_type": "self_rating",
+        "scope_type": "learning_object",
+        "scope_id": origin_lo.id,
+        "evidence_family": attributed[0] if attributed else None,
+        "claimed_level": config.gap_claim_level,
+        "prior_pseudo_count": config.gap_claim_pseudo_count,
+        "source": "tutor_gap_declaration",
+    }
+    if not claim_fixes_live(vault):
+        return repository.insert_learner_claim(claim, clock=clock)
+    # One instant for the claim's stamp and its re-anchor, so the live write
+    # and its replay (which re-anchors at the claim's created_at) agree.
+    now_iso = utc_now_iso(clock)
+    claim_id = repository.insert_learner_claim({**claim, "created_at": now_iso}, clock=clock)
+    reanchor_mastery_from_claim(
+        vault,
+        repository,
+        origin_lo.id,
+        claimed_level=config.gap_claim_level,
+        prior_pseudo_count=config.gap_claim_pseudo_count,
+        now_iso=now_iso,
     )
+    return claim_id
 
 
 def _file_gap_need(

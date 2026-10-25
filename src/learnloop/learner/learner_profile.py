@@ -7,9 +7,11 @@ starting level; the runtime seam is a ``scope_type="global"`` row in
 practice-generation ability/difficulty calibration with no further wiring.
 
 Replace semantics: ``seed_global_learner_claim`` deletes prior init-wizard
-global rows before inserting. ``covering_learner_claim`` breaks specificity
-ties by highest ``claimed_level`` first, so an edited-DOWN level would never
-win against a stale higher row if we appended instead of replacing.
+global rows before inserting. Below the claim-fixes successor
+``covering_learner_claim`` breaks specificity ties by pseudo-count, then
+highest ``claimed_level``, so an edited-DOWN level would never win against a
+stale higher row if we appended instead of replacing (from the successor on
+the newest claim wins; the replace keeps one init-wizard row either way).
 """
 
 from __future__ import annotations
