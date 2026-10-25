@@ -375,3 +375,61 @@ def test_a_rejected_window_leaves_the_run_partial_and_the_window_owed(tmp_path, 
     again = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
                                         preflight=lambda: [], locks=no_locks, force=True, dry_run=True)
     assert again["owed_windows"] >= 1
+
+
+def test_a_deferred_index_job_is_woken_at_its_retry_time(tmp_path, data_root):
+    """Codex review F4: a job that waits for the batch (or the GPU) completes
+    with a ``retry_at``; the host's sweep queues the next batch once it has
+    passed, so the new book is indexed without another import or a command."""
+
+    import threading
+
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec
+    from learnloop.db.repositories import Repository
+
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    completed = local_index._completed_at(repository, "ext_book") or datetime.now(timezone.utc)
+    deferred = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
+                                           preflight=lambda: [], locks=no_locks, now=completed + timedelta(minutes=1))
+    assert deferred["status"] == "waiting_for_batch"
+    due = datetime.fromisoformat(deferred["retry_at"])
+    assert due == completed + timedelta(minutes=15)
+    runner = IngestRunner(Repository(repository.sqlite_path), vault_root=paths.root, worker_id="test")
+    first = runner.enqueue_batch(local_index.INDEX_JOB, [JobSpec(local_index.INDEX_JOB, {"extraction_id": "ext_book"})])
+    [job] = repository.ingest_jobs_for_batch(first)
+    assert repository.transition_unleased_ingest_job(job["id"], status="completed", result=deferred)
+    started: list[int] = []
+    host = SimpleNamespace(_runner=runner, _stop=threading.Event(), reading_now=lambda: due - timedelta(seconds=1),
+                           _ensure_worker=lambda: started.append(1))
+    assert DurableIngestJobs.resume_contextual_index(host) is None and started == []  # not due yet
+    host.reading_now = lambda: due + timedelta(seconds=1)
+    batch = DurableIngestJobs.resume_contextual_index(host)
+    assert batch is not None and started == [1]
+    [queued] = repository.ingest_jobs_for_batch(batch)
+    assert queued["status"] == "queued" and queued["job_type"] == local_index.INDEX_JOB
+    assert DurableIngestJobs.resume_contextual_index(host) is None  # the newest job is live: nothing twice
+    # A finished index (or one switched off) wakes nothing.
+    assert repository.transition_unleased_ingest_job(queued["id"], status="completed", result={"status": "complete"})
+    assert DurableIngestJobs.resume_contextual_index(host) is None
+
+
+def test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryably(tmp_path):
+    """Codex review F4: never swallowed (the source_vectors survival rule)."""
+
+    from learnloop.config.loader import load_config
+    from learnloop.content.pipeline.jobs import queue_contextual_indexes
+    from learnloop.content.pipeline.runner import IngestRunnerError
+
+    paths, repository = _local_vault(tmp_path)
+
+    def broken(_kind, _jobs):
+        raise OSError("disk full")
+
+    ctx = SimpleNamespace(repo=repository, enqueue_batch=broken)
+    config = load_config(paths.root / "learnloop.toml", load_environment=False)
+    with pytest.raises(IngestRunnerError) as caught:
+        queue_contextual_indexes(ctx, config, "ext_book")
+    assert caught.value.code == "contextual_index_not_queued" and caught.value.retryable

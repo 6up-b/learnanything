@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -53,6 +53,8 @@ from learnloop.source_retrieval.windows import (
 from learnloop.vault.models import LoadedVault
 
 INDEX_JOB = "local_source_index"
+#: Statuses that leave windows owed and name a ``retry_at``: the sweep queues the next batch then.
+DEFERRED_STATUSES = frozenset({"waiting_for_batch", "waiting_for_gpu", "partial"})
 VARIANTS = ("grouped", "singleton")
 LIST_NAMES = {"grouped": "local:grouped", "singleton": "local:singleton"}
 
@@ -269,8 +271,13 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
     moment = now or datetime.now(timezone.utc)
     stamps = [stamp for item in items if (stamp := _completed_at(repository, item["extraction_id"])) is not None]
     minutes = float(vault.config.embedding.local.index_batch_minutes)
+    # Codex review F4: every deferral names when to try again, and the ingest
+    # host's sweep (``DurableIngestJobs.resume_contextual_index``) queues the
+    # next batch then; a GPU that is busy is checked again at the batch pace.
+    recheck = (moment + timedelta(minutes=minutes)).isoformat()
+    report["retry_at"] = recheck
     if not force and stamps and (moment - min(stamps)).total_seconds() < minutes * 60:
-        return {**report, "status": "waiting_for_batch",
+        return {**report, "status": "waiting_for_batch", "retry_at": (min(stamps) + timedelta(minutes=minutes)).isoformat(),
                 "reason": f"the batch waits until its oldest owed extraction is {minutes:g} minutes old "
                           "(embedding.local.index_batch_minutes; `--now` forces it)"}
     problems = (preflight or preflight_problems)()
@@ -409,5 +416,5 @@ def coverage_report(vault: LoadedVault, repository: Repository, root: Path | Non
     return {"enabled": True, "software_epoch": manifest["software_epoch"], "spaces": rows}
 
 
-__all__ = ["EPOCH_KEYS", "INDEX_JOB", "LIST_NAMES", "VARIANTS", "build_job", "canary_check", "coverage_report",
+__all__ = ["DEFERRED_STATUSES", "EPOCH_KEYS", "INDEX_JOB", "LIST_NAMES", "VARIANTS", "build_job", "canary_check", "coverage_report",
            "epoch_of", "local_reason", "local_spaces", "measured_epoch", "owed", "preflight_problems", "profile_pools", "run_local_index", "run_profile", "store_output"]

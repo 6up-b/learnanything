@@ -2337,10 +2337,13 @@ def queue_contextual_indexes(ctx: JobContext, config: Any, extraction_id: str, *
     ``index_on_extract``; the fallback's ``enabled`` with ``maintain_index``
     and ``embedding.enabled``): with both off, the defaults, nothing is queued.
     One live local index job indexes everything owed, so a second is not
-    queued; a fallback backfill is queued once per current extraction. The
-    obligation is each space's own coverage, so a failure to queue never
-    fails the import (``learnloop embeddings local index`` and
-    ``learnloop embeddings fallback backfill`` catch up)."""
+    queued; a fallback backfill is queued once per current extraction.
+
+    Codex review F4: an obligation that cannot be queued is not dropped (the
+    ``source_vectors`` survival rule): the extraction job fails retryably
+    (``contextual_index_not_queued``) and its retry, which reuses the
+    completed extraction, queues it. A local job that defers (the batch wait,
+    a busy GPU) is woken by the host's sweep at its ``retry_at``."""
 
     from learnloop.source_retrieval.fallback_space import FALLBACK_JOB, fallback_reason
     from learnloop.source_retrieval.local_index import INDEX_JOB
@@ -2369,15 +2372,21 @@ def queue_contextual_indexes(ctx: JobContext, config: Any, extraction_id: str, *
             queued.append(ctx.enqueue_batch(FALLBACK_JOB, [JobSpec(FALLBACK_JOB, payload)]))
     except JobCancelled:
         raise
-    except Exception as exc:  # noqa: BLE001 - coverage keeps the obligation; the import never fails for it
-        logging.getLogger(__name__).warning("contextual index jobs could not be queued (%s)", type(exc).__name__)
+    except Exception as exc:  # noqa: BLE001 - classified: the obligation must not be lost silently
+        raise IngestRunnerError(
+            "The source was extracted, but indexing it in the local or fallback meaning space could not be "
+            "queued. Retry: the extraction is reused, not repeated.",
+            code="contextual_index_not_queued",
+            details={"extraction_id": extraction_id, "error_type": type(exc).__name__},
+            retryable=True,
+        ) from exc
     return queued
 
 
 #: ``run_local_index`` statuses that end the job without a failure: the work
 #: is done, off, or waiting for the GPU or the batch (coverage keeps the debt).
 _LOCAL_INDEX_DONE = frozenset({"complete", "partial", "disabled", "waiting_for_gpu", "waiting_for_batch",
-                               "epoch_drift"})
+                               "epoch_drift", "epoch_changed"})
 
 
 def handle_local_source_index(ctx: JobContext) -> dict[str, Any]:
@@ -2400,7 +2409,8 @@ def handle_local_source_index(ctx: JobContext) -> dict[str, Any]:
                 "disabled": f"Not indexed locally: {report.get('reason')}",
                 "waiting_for_gpu": f"Waiting for the GPU: {report.get('reason')}",
                 "waiting_for_batch": f"Waiting for the batch: {report.get('reason')}",
-                "epoch_drift": f"Local index paused: {report.get('reason')}"}
+                "epoch_drift": f"Local index paused: {report.get('reason')}",
+                "epoch_changed": f"Local index paused: {report.get('reason')}"}
     ctx.report("applied", message=messages[status])
     return {key: value for key, value in report.items() if key != "worker"}
 
@@ -4053,6 +4063,45 @@ class DurableIngestJobs:
         if self._background and self._runner is not None:
             self._ensure_worker()
 
+    def resume_contextual_index(self, *, now: datetime | None = None) -> str | None:
+        """Wake a deferred local index obligation (Codex review F4).
+
+        A ``local_source_index`` job that could not index everything (the
+        batch wait, a busy GPU, a partial run) completes with its reason and a
+        ``retry_at``: coverage keeps the debt, and this queues the next batch
+        once that time has passed, so a new book is indexed without another
+        import or a manual command. Checked on every pass of the host's sweep;
+        a cheap query of the newest index job, and the vault's config read
+        only when one is due. Idempotent: the batch id names the job it
+        resumes. Returns the queued batch id, or None."""
+
+        from learnloop.config.loader import load_config
+        from learnloop.source_retrieval.local_index import DEFERRED_STATUSES, INDEX_JOB
+
+        runner = self._runner
+        if runner is None or self._stop.is_set():
+            return None
+        newest = runner.repo.ingest_jobs_by_types((INDEX_JOB,), limit=1)
+        if not newest:
+            return None
+        job = newest[0]
+        result = job.get("result") or {}
+        if job.get("status") != "completed" or result.get("status") not in DEFERRED_STATUSES:
+            return None
+        try:
+            due = parse_utc(str(result.get("retry_at"))) if result.get("retry_at") else None
+        except Exception:  # noqa: BLE001 - an unreadable time is due now
+            due = None
+        if due is not None and due > (now or self.reading_now()):
+            return None
+        config = load_config(Path(runner.vault_root) / "learnloop.toml", load_environment=False)
+        if not (config.embedding.local.enabled and config.source_retrieval.dense):
+            return None
+        batch = runner.enqueue_batch(INDEX_JOB, [JobSpec(INDEX_JOB, {"resumes": job["id"]})],
+                                     batch_id=f"{INDEX_JOB}_after_{job['id']}")
+        self._ensure_worker()
+        return batch
+
     def resume_book_preparation(self) -> bool:
         """Start the ingest worker when a book's automatic preparation (an
         Add, a build planner, a planner's build) is queued, the worker could
@@ -4217,6 +4266,13 @@ class DurableIngestJobs:
         except Exception:  # noqa: BLE001 - checked again on the next pass
             failed = True
             logging.getLogger(__name__).warning("could not check for a book's queued preparation; retrying",
+                                                exc_info=True)
+        try:
+            # Local contextual retrieval P1 (Codex review F4): a deferred
+            # local index batch is queued when its retry time comes.
+            self.resume_contextual_index()
+        except Exception:  # noqa: BLE001 - checked again on the next pass
+            logging.getLogger(__name__).warning("could not check for a deferred local index; retrying",
                                                 exc_info=True)
         if not failed:
             return 0, delay
