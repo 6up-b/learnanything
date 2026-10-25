@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,7 @@ from learnloop.ai.routing import (
 )
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
-from learnloop.db.migrate import applied_versions, discover_migrations
+from learnloop.db.migrate import applied_versions, discover_migrations, schema_is_current
 from learnloop.db.repositories import Repository
 from learnloop.hints.map_builder import BackgroundBuilds
 from learnloop.substrate.canonical_projection_rollout import (
@@ -24,7 +25,13 @@ from learnloop.ops.startup import run_startup_maintenance
 from learnloop.reader.reader_authoring import adopt_reference_questions
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
-from learnloop.vault.loader import load_practice_item_file, load_vault
+from learnloop.vault.loader import (
+    CONTENT_FINGERPRINT_TTL_SECONDS,
+    load_practice_item_file,
+    load_vault,
+    settled_load_vault,
+    vault_content_fingerprint,
+)
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
@@ -102,6 +109,17 @@ class SidecarContext:
     # instructions only, never across loading, protection, a model call or
     # an SQLite commit.
     _vault_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
+    # Mobile PR-1 (spec_mobile_tailnet_v1 §3.1): True once the vault was
+    # attached by :meth:`load_secondary`. Every later reload of this context
+    # stays secondary; only an explicit :meth:`load` makes it primary.
+    secondary: bool = field(default=False, repr=False)
+    # The content fingerprint the secondary's last load was verified against
+    # (the same before and after it), and when the vault was last known to
+    # match it (``time.monotonic()``): the start of the G12 freshness window.
+    # It advances only on a comparison that matched or a reload that
+    # succeeded, so a failed refresh is retried by the next request.
+    content_fingerprint: str | None = field(default=None, repr=False)
+    _fingerprint_checked_at: float = field(default=float("-inf"), repr=False, compare=False)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name != "vault":
@@ -118,6 +136,9 @@ class SidecarContext:
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
+        # An explicit load is the primary path, whatever this context was before.
+        self.secondary = False
+        self.content_fingerprint = None
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
@@ -205,6 +226,108 @@ class SidecarContext:
                 self.ingest_jobs.resume_book_preparation()
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not resume a book's queued preparation", exc_info=True)
+
+    def load_secondary(self, vault_path: str | Path, *, bind_ingest: bool = False) -> None:
+        """Attach to a vault another process is primary for, writing nothing while attaching.
+
+        Mobile PR-1 (spec_mobile_tailnet_v1 §3.1, §3.3): the mobile host's
+        workers, and with storage PR-8 the desktop while the hub service runs,
+        attach this way. The vault's files are loaded for reading and the
+        database is attached only if its schema is exactly this code's
+        (``schema_mismatch`` otherwise: the primary migrates). None of
+        :meth:`load`'s primary duties run (storage spec §6.2): no migration,
+        facet-identity recovery, content sync, reference-question adoption,
+        ingest binding or lease recovery, post-attempt worker, projection
+        refresh, cold-probe scheduling, background preparation of new
+        revisions, or startup maintenance and its recoveries. Queued work
+        stays durable for the primary.
+
+        It is not a read-only mode: handlers called on this context write as
+        they do on a primary. Every :meth:`reload` of it (handlers reload
+        after their writes) attaches the same way again.
+
+        ``bind_ingest`` is the spec's seam for a restricted ingest binding
+        (mobile M3's question-promotion runner, storage PR-8's submit-only
+        mode). Neither exists yet, so True is refused rather than binding
+        the full runner.
+        """
+
+        if bind_ingest:
+            raise SidecarError(
+                "secondary_ingest_unavailable",
+                "A secondary attach cannot bind ingest yet (mobile M3 / storage PR-8).",
+            )
+        target = Path(vault_path).resolve()
+        if self.vault_root is not None and not self.secondary:
+            # A primary's ingest runner, worker and background builds are bound
+            # to its vault; demoting one is the primary role's job (storage PR-8).
+            raise SidecarError(
+                "vault_loaded_as_primary",
+                "This context holds its vault as the primary; it cannot attach as a secondary.",
+            )
+        # A settled snapshot only (review F1): the primary rewrites YAML in
+        # place, and a source-sets file read mid-rewrite parses as no source
+        # sets, so exam protection would vanish from the published vault.
+        # ``load_vault`` is looked up at call time (tests patch this module's).
+        loaded = settled_load_vault(target, load=lambda root: load_vault(root))
+        if not loaded.settled:
+            raise SidecarError(
+                "vault_unsettled",
+                "The vault's files were changing while they were read; try again in a moment.",
+                details={"vault_root": str(target)},
+            )
+        vault = loaded.vault
+        sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+        if not schema_is_current(sqlite_path):
+            raise SidecarError(
+                "schema_mismatch",
+                "This vault's database is not at this code's migrations: open the desktop app, or run "
+                f"`learnloop doctor --fix-state --vault {target}` once, to migrate it.",
+                details={"vault_root": str(target)},
+            )
+        if self.vault_root is not None and target != self.vault_root:
+            # A switch, as in load(): the previous vault's map builds stop and
+            # its OpenRouter grants end before the new vault is published.
+            self.map_builds.close()
+            from learnloop.ai import plan_fallback
+
+            plan_fallback.revoke_all()
+        self.vault_root = target
+        self.repository = Repository.attach(sqlite_path, read_only=False)
+        self.vault = vault
+        self.secondary = True
+        self.content_fingerprint = loaded.fingerprint
+        # The window starts when the snapshot was verified against the files,
+        # after the load, never when it began (review F4).
+        self._fingerprint_checked_at = loaded.verified_at
+        # In-memory only: lets a serve's background builds run in this process.
+        self.map_builds.bind(sqlite_path)
+
+    def refresh_if_content_changed(self, *, now: float | None = None) -> bool:
+        """Reload a secondary context when another process changed the vault's files.
+
+        Run before each request (mobile spec §3.1, G12). The fingerprint is
+        compared at most every ``CONTENT_FINGERPRINT_TTL_SECONDS`` after the
+        vault was last known current, so a change is seen by the first request
+        at most that long after it. A mismatch reloads with
+        :meth:`load_secondary`. True when it reloaded.
+
+        A reload that fails (an unparseable config, a schema this code would
+        have to migrate, files still changing) raises, and the window does not
+        advance (review F2): every later request compares and tries again, so
+        none is served from the old vault while the change stands.
+        """
+
+        if not self.secondary or self.vault_root is None:
+            raise SidecarError("vault_not_secondary", "Only a secondary attach compares content fingerprints.")
+        moment = time.monotonic() if now is None else float(now)
+        if moment - self._fingerprint_checked_at < CONTENT_FINGERPRINT_TTL_SECONDS:
+            return False
+        if vault_content_fingerprint(self.vault_root) == self.content_fingerprint:
+            self._fingerprint_checked_at = moment
+            return False
+        self.load_secondary(self.vault_root)  # sets the window from its own verification
+        return True
 
     def reconcile_hint_work(self) -> None:
         """Adaptive hints H2b, at a vault's open (review F4, F5): queue the
@@ -343,6 +466,11 @@ class SidecarContext:
     def reload(self, *, maintenance: bool = True) -> None:
         if self.vault_root is None:
             raise SidecarError("vault_not_loaded", "No vault has been initialized.")
+        if self.secondary:
+            # A secondary never takes on primary duties by reloading
+            # (mobile PR-1; storage spec §6.2: first attach, reload and switch).
+            self.load_secondary(self.vault_root)
+            return
         self.load(self.vault_root, maintenance=maintenance)
 
     def refresh_vault_files(
