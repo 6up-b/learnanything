@@ -308,23 +308,25 @@ Test files run (for the landing gate): `test_activity_backfill`, `test_ad23_succ
 (git creates no untracked directories, so the owner vaults are absent there,
 which is G6's fresh-clone condition). Never in the main checkout.
 
-## Owner decisions S0 still needs
+## Owner decisions (decided 2026-10-25)
 
-1. **Approve the sanitized `migration_head_220`** (D6): it keeps the shape of
-   six attempts (items, grades, times), none of your words. If not approved,
-   S0 untracks it and moves its ~39 test files and the two DB-reference
-   scripts to the owner lane until S3.
-2. **Run the landing yourself** (`scripts/s0_landing.py`, five steps above)
-   and merge S0 into the main checkout. An agent must not.
-3. **Samples (D16):** the recommended default is in; confirm or drop the two
-   non-commercial MIT PDFs.
-4. **Screenshot `p1-02`:** redacted as a probable Blitzstein and Hwang contents
-   page; restore it if it was a generated test PDF.
-5. **5 MB rule vs the two historical databases** (6.7 MB, 6.0 MB): allowed
-   up to a bound until S3's text dumps (the head at most 8 MiB, the frozen
-   replay fixture at most 6 MiB; `tests/test_public_tip_guards.py`
-   `HISTORICAL_DATABASE_MAX_BYTES`); confirm or tighten the bounds, or have S3
-   come sooner.
+Recorded in the spec's decision log too (`docs/specs/spec_storage_sync_v1.md`
+§10, rows D6, D16, D19).
+
+1. **The sanitized `migration_head_220` stays on the tip** (D6 approved). It
+   keeps the shape of six attempts (items, grades, times) and none of the
+   owner's words; its ~39 test files stay in the default lane.
+2. **The landing is run by the orchestrator** (not the owner by hand, and
+   never by the merge agent) in the main checkout with `scripts/s0_landing.py`,
+   by the command sequence in "Merge onto main and landing rehearsal" below.
+3. **Samples (D16): the recommended default stands**, the two MIT 18.06
+   CC BY-NC-SA 4.0 PDFs included (attributed and labelled non-commercial in
+   `samples/NOTICE`).
+4. **Screenshot `p1-02` stays redacted.**
+5. **The two historical databases are exempt from G8's 5 MB rule until S3**
+   (6.7 MB and 6.0 MB), within the bounds the guard sets (the head at most
+   8 MiB, the frozen replay fixture at most 6 MiB;
+   `tests/test_public_tip_guards.py` `HISTORICAL_DATABASE_MAX_BYTES`).
 6. Already decided, for the record: D17 Apache-2.0 (confirmed 2026-10-16), D6
    every fixture vault leaves, D2 H2 history rewrite (S4, owner-run; the old
    files and the unredacted screenshots stay in history until then).
@@ -344,3 +346,9 @@ which is G6's fresh-clone condition). Never in the main checkout.
   history; left as written.
 - `tests/fixtures/glm_ocr/` and the desktop's `pdfSelection` fixture carry CC
   BY 4.0 arXiv text added after the §3.5 audit; attributed in `samples/NOTICE`.
+- **Codex's remaining F7 and F8 (Low, open; ruled by the orchestrator
+  2026-10-25):** the landing script's provenance edge cases for the reference
+  papers stay open as Low. They do not block the landing: in the main
+  checkout all four papers are tracked and unmodified (its `git status` at
+  the start of this session), and the
+  rehearsal below backed them up from the working tree with their blob hashes.
