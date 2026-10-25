@@ -395,3 +395,178 @@ Files in the targeted run:
 - `tests/test_workbench_trace.py`
 - `tests/text_gap_fakes.py`
 - `tests/voi_restore_scenarios.py`
+
+## Fix round 2
+
+A scoped Codex verify (job `20261025-090805-Sci1G7`, on `6f41b0ebb`) confirmed F1-F5 fixed and found two new
+Mediums. Both were reproduced first, by tests that failed on `6f41b0ebb`, and then fixed in `b732478c0`. The tests
+are in `tests/test_teacher_te0_fix_round2.py`.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| R2-1 | Medium | Held offline grades appear as "wrong" in history | fixed | `b732478c0` | `test_a_held_review_grade_reads_held_for_review_in_a_later_targets_history`. It failed with "marked 5/5 sure; wrong" and score 0.0 on a real review run (the runner's own history store) |
+| R2-2 | Medium | Confidence metadata can still exceed the card budget | fixed | `b732478c0` | `test_the_card_never_exceeds_a_budget_the_predecessor_fits_eight_topics_at_1000`. It failed with 1,021 tokens against 1,000, where the predecessor's card is 953. Also `test_the_card_fits_whenever_the_predecessor_fits_across_budgets_and_topic_sizes` (it failed first at 829 against 775) and `test_the_metadata_goes_only_after_every_event_and_the_limit_before_the_notice` |
+
+No finding was rejected.
+
+### R2-1: the hold comes from the source of the score
+
+`VaultHistoryStore._load` took an overlay attempt's score from the overlay's blind record but its hold from the
+vault ledger (`held_for_review_attempts`). In an offline review the overlay is the review's own blind grades, so a
+review grade that held an attempt the vault had scored kept its provisional score and read "wrong".
+
+The store now decides the hold per row, in `VaultHistoryStore._held`, from the same source as the score:
+
+* **An overlay payload with no grading identity** (`_unidentified`): the offline review's blind grades
+  (`runner.real_store`), or a payload a caller added with `with_blind_grades`. This is a grade the vault never
+  recorded, so its hold is its own record's (`outcome_contract.grade_held_for_review` of its grading support). A
+  held one shows no score and the event "held for review (no score yet)".
+* **Every other row** shows the vault's own grading: the stored grade, or the live overlay
+  (`live.live_history_store`, the vault's latest blind records read with their identity). Its hold is still THE
+  ledger predicate's, so a hold the record does not carry (an unrecorded contract, `GRADE_CONTRACT_UNRECORDED`) and
+  an adjudication that releases a hold both read as before. `test_the_live_history_keeps_the_ledgers_hold` guards
+  this; it passed before and after the fix.
+
+One consequence, which follows from the same rule: in an offline review, a vault-held attempt that the review's
+grader scored without a hold now shows the review's score, as the review's grade. Before, it showed the review's
+grade with the score nulled by the vault's hold.
+
+### R2-2: the confidence metadata counts in the budget
+
+After F3, `router.card.build_card` trimmed every 7-day event but kept the stated limit and the omission notice
+(their typed fields, their text lines and `truncation["dropped_confidence_events"]` in the typed card). It then
+trimmed recent work and returned without checking the rest. With eight topic summaries and a budget of 1,000, the
+predecessor's card was 953 tokens, and TE0's was 1,021 after dropping all 12 events and all recent work.
+
+The order is now:
+
+1. the events, oldest first (F3, unchanged);
+2. the stated limit (`confidence_limit` and its line);
+3. the omission notice (`confidence_omitted`, its line, and the typed card's `dropped_confidence_events`);
+4. recent work, as before (successes, then excerpts, then attempts).
+
+Each metadata step runs only while the card is still over budget, so a card that fits keeps both. The builder
+records each drop in `LearnerStateCard.truncation` (`dropped_confidence_limit`, `dropped_confidence_notice`, and the
+event count), which is stored with the payload. The typed card the models read does not carry these keys: it does
+not spend tokens on a line it had no room for.
+
+The metadata goes before recent work for the same reason as the events in F3: a recent-work line is a graded
+attempt, and the metadata only qualifies the events. With all of the metadata gone, the card's only confidence
+content is the event on each recent-work line, which goes with its line. Since the version labels are the same
+length, the card then fits whenever the predecessor's card would. The sweep test checks this across 15 topic sizes
+and 36 budgets.
+
+The fix adds no learned weight, margin or threshold.
+
+### Gate
+
+Every test command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, one at a time.
+
+* `uv run --no-sync lint-imports --no-cache`: **36 kept, 0 broken**.
+* The reproductions on `6f41b0ebb` (the two source files checked out from it, the new tests in place):
+  `pytest -n 6 tests/test_teacher_te0_fix_round2.py` gave **4 failed, 1 passed**. The one that passed is the
+  live-history guard.
+* After the fix: the same file gave **5 passed**.
+* The targeted run: `uv run --no-sync pytest -n 6 -p no:cacheprovider -q <the 95 files below>` gave **2,063 passed, 1 skipped, 2 xfailed** in 7 min 12 s. The files are every test file that exercises `diagnosis.split` (history and live), the offline review runner, the router card and its gatherer, `confidence_events` or the held-grade predicate, including the three TE0 test files and the architecture and coordinated-migrations contracts. The two `durability`-marked F2 regressions ran inside it.
+* **Not run, by the owner's rule:** the full suite, the whole durability lane and vitest. There is no migration, no
+  config key, no frontend change and no `src-tauri` change.
+* **Paid calls:** none. **Live calls:** none. The only Python run outside pytest was a card-size experiment over
+  `build_card`, run under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+Files in the round 2 targeted run:
+
+- `tests/test_active_errors_overlay.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_subject_view.py`
+- `tests/test_ai_compare.py`
+- `tests/test_approach_map_replay.py`
+- `tests/test_architecture.py`
+- `tests/test_blind_grading_contract.py`
+- `tests/test_card_lineage.py`
+- `tests/test_chatgpt_plan_landing.py`
+- `tests/test_chatgpt_plan_workspace.py`
+- `tests/test_codex_isolation_mcp_check.py`
+- `tests/test_codex_lockdown_round2.py`
+- `tests/test_codex_lockdown_round3.py`
+- `tests/test_codex_tool_lockdown.py`
+- `tests/test_compare_sources_keep.py`
+- `tests/test_coordinated_migrations.py`
+- `tests/test_daily_plan_composition.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_diagnose_review.py`
+- `tests/test_diagnose_review_spend.py`
+- `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_card.py`
+- `tests/test_diagnosis_context.py`
+- `tests/test_diagnosis_contract.py`
+- `tests/test_diagnosis_embeddings.py`
+- `tests/test_diagnosis_history_modes.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_diagnosis_isolation.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_replay.py`
+- `tests/test_diagnosis_reports.py`
+- `tests/test_embedding_backfill.py`
+- `tests/test_embedding_recipe_hash_pins.py`
+- `tests/test_forecast_receipts_landing.py`
+- `tests/test_forecast_receipts.py`
+- `tests/test_grading_support.py`
+- `tests/test_held_grade_composition.py`
+- `tests/test_held_grade_evidence.py`
+- `tests/test_hint_telemetry.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_rereview.py`
+- `tests/test_learner_text_gaps_review.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_tools.py`
+- `tests/test_method_explicit_landing.py`
+- `tests/test_mvp017_route_check_replay.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_output_budget.py`
+- `tests/test_pfc_unassessed_readers.py`
+- `tests/test_pfc_unverified_unassessed.py`
+- `tests/test_placement_diagnosis_decides.py`
+- `tests/test_placement_split_grades.py`
+- `tests/test_post_attempt_worker.py`
+- `tests/test_probability_cli.py`
+- `tests/test_probability_prep.py`
+- `tests/test_reader_cues.py`
+- `tests/test_reader_guidance.py`
+- `tests/test_reader_recap_review_r3.py`
+- `tests/test_reader_rw2b_fix11.py`
+- `tests/test_reader_rw2b_fix14.py`
+- `tests/test_reader_rw2b_fix15.py`
+- `tests/test_reader_rw3a_landing.py`
+- `tests/test_recurrence_groups.py`
+- `tests/test_recurrence_key.py`
+- `tests/test_recurrence_live.py`
+- `tests/test_recurrence_merge_composition.py`
+- `tests/test_regrade_contract_replay.py`
+- `tests/test_regrade_contract_successor.py`
+- `tests/test_regrade_contract_upgrade.py`
+- `tests/test_required_method_grading.py`
+- `tests/test_required_method_round3_review.py`
+- `tests/test_reread_safety_landing.py`
+- `tests/test_router_card.py`
+- `tests/test_router_r2a_landing.py`
+- `tests/test_router_r2bc_landing.py`
+- `tests/test_router_r2b_requests.py`
+- `tests/test_router_r2b_serving.py`
+- `tests/test_router_r2c_retrieval.py`
+- `tests/test_router_r2c_teach_back.py`
+- `tests/test_route_rules_in_grader.py`
+- `tests/test_rw2c_fix_round2.py`
+- `tests/test_sources_merge_composition.py`
+- `tests/test_stuck_prompt.py`
+- `tests/test_stuck_prompt_replay.py`
+- `tests/test_t6_followup_review.py`
+- `tests/test_teacher_te0_confidence_events.py`
+- `tests/test_teacher_te0_fix_round2.py`
+- `tests/test_teacher_te0_review_fixes.py`
+- `tests/test_tier1_decider.py`
+- `tests/test_ux_phase4_feedback.py`
+- `tests/test_ux_phase4_landing.py`
+- `tests/test_workbench_trace.py`

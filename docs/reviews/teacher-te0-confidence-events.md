@@ -128,7 +128,8 @@ The commands, pass counts and the list of test files run are recorded at the end
    context. It adds one key to every defaults snapshot, which superseded §3's "no config key".
 4. **The card's 7-day section is unbounded within the window.** *Resolved by the Codex review (F3):* each topic
    keeps its newest `CONTEXT_EVENT_LIMIT` events, and the section is the first thing the token budget trims. Both
-   omissions are stated.
+   omissions are stated. Fix round 2: once every event is trimmed, the stated limit and then the omission notice
+   drop too when they do not fit, so the card fits whenever the predecessor's card would.
 5. **The scope of "taps so far".** It counts every tap before the context's cutoff, vault-wide, including taps on
    protected attempts (as numbers only). The alternatives are to restrict it to unprotected attempts, or to the
    context's topics.
