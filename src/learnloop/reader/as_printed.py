@@ -203,6 +203,16 @@ class PrintedOrigin:
     relation: str = "verbatim"
     #: A learner-drawn sub-box per span (page, box), §12.4.
     regions: Mapping[str, tuple[int, Box]] = field(default_factory=dict)
+    #: The blocks that locate the original page, when they are more than
+    #: ``span_ids`` (the crop's own blocks): a selection split into several
+    #: exercises names every block it was imported from here, and only this
+    #: item's own in ``span_ids`` (empty when that can't be read: no free
+    #: crop, the charged page only; Codex re-review F9). None: ``span_ids``.
+    page_span_ids: tuple[str, ...] | None = None
+
+    @property
+    def located_by(self) -> tuple[str, ...]:
+        return self.span_ids if self.page_span_ids is None else self.page_span_ids
 
 
 def _region(value: Any) -> tuple[int, Box] | None:
@@ -243,6 +253,8 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         rows = [row for row in imports_for_item(connection, item.id) if row.get("caller") == "reader"]
     extraction_id: str | None = None
     spans: list[str] = []
+    #: Re-review F9: ``owned`` per block of a split selection (absent: unsplit).
+    ownership: dict[str, bool] = {}
     regions: dict[str, tuple[int, Box]] = {}
     source_id: str | None = None
     for ref in getattr(provenance, "source_refs", None) or []:
@@ -257,6 +269,9 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         if ref_extraction != extraction_id or span in spans:
             continue
         spans.append(span)
+        owned = _ref_field(ref, "owned")
+        if isinstance(owned, bool):
+            ownership[span] = owned
         ref_id = _ref_field(ref, "ref_id")
         source_id = source_id or _ref_field(ref, "source_id") or (str(ref_id) if ref_id and ref_id != ref_extraction else None)
         region = _region(_ref_field(ref, "region"))
@@ -270,7 +285,43 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         return None
     if source_id is None and rows:
         source_id = rows[-1].get("source_id")
-    return PrintedOrigin(extraction_id=extraction_id, span_ids=tuple(spans), source_id=source_id, regions=regions)
+    if ownership:
+        own = tuple(span for span in spans if ownership.get(span, False))
+    elif _split_import(repository, item.id, rows):
+        own = ()                                       # split before ownership was kept: no free crop
+    else:
+        return PrintedOrigin(extraction_id=extraction_id, span_ids=tuple(spans), source_id=source_id,
+                             regions=regions)
+    return PrintedOrigin(extraction_id=extraction_id, span_ids=own, source_id=source_id,
+                         regions={span: box for span, box in regions.items() if span in own},
+                         page_span_ids=tuple(spans))
+
+
+def _split_import(repository: Any, item_id: str, rows: Sequence[Mapping[str, Any]]) -> bool:
+    """Whether the selection this item was imported from also became other
+    items (Codex re-review F9): the Reader's import writes one row per item,
+    in one write, with the selection's blocks; another item's row from that
+    same write means the selection was split, and which blocks are whose is
+    not recorded."""
+
+    if not rows:
+        return False
+    import json
+
+    last = rows[-1]
+    with repository.connection() as connection:
+        siblings = connection.execute(
+            "SELECT span_ids_json FROM source_exercise_imports WHERE caller = 'reader' AND extraction_id = ? "
+            "AND created_at = ? AND practice_item_id IS NOT NULL AND practice_item_id != ?",
+            (str(last["extraction_id"]), last["created_at"], item_id)).fetchall()
+    own = list(last.get("span_ids") or [])
+    for (raw,) in siblings:
+        try:
+            if json.loads(raw or "[]") == own:
+                return True
+        except (TypeError, ValueError):
+            return True                                # unreadable: treated as split (fails closed)
+    return False
 
 
 def printed_origin(repository: Any, item: Any) -> PrintedOrigin | None:
@@ -356,12 +407,39 @@ def _page_only(repository: Any, origin: PrintedOrigin) -> tuple[int, str, list[s
     no crop can be made but the page is known (a pypdf extraction keeps a
     page and no box); None without a page."""
 
-    blocks = repository.document_blocks(origin.extraction_id, list(origin.span_ids))
+    blocks = repository.document_blocks(origin.extraction_id, list(origin.located_by))
     paged = [block for block in blocks if block.page is not None]
     if not paged:
         return None
     page = int(paged[0].page)
     return page, paged[0].span_id, [block.span_id for block in paged if int(block.page) == page]
+
+
+def _page_without_crop(repository: Any, origin: PrintedOrigin, *, source_title: str | None,
+                       cold: bool) -> dict[str, Any]:
+    """F5 and re-review F9: no crop can be made (no box, or the problem's own
+    blocks are not known), but a known page of a readable original is still
+    the book's page: offered (with its cost, where it opens), and the crop
+    says honestly that it can't be made. Cold: nothing."""
+
+    if cold:
+        return _none("cold_check", cold=True)
+    paged = _page_only(repository, origin)
+    pdf_path = _pdf_path(repository, origin.extraction_id) if paged is not None else None
+    if paged is None or pdf_path is None:
+        return _none("no_geometry", cold=False)
+    page, first_span, on_page = paged
+    label_text = page_label(pdf_path, page)
+    return {
+        "enabled": True, "kind": KIND_PAGE, "cold": False,
+        "label": f"as printed ({source_title or 'your book'} p.{label_text})",
+        "status": "no_geometry", "crops": [],
+        "locator": {"source_title": source_title, "exercise_label": origin.label, "page_label": label_text},
+        "transcription_report": True,
+        "original_page": {"extraction_id": origin.extraction_id, "span_id": first_span,
+                          "outline_span_ids": on_page, "source_id": origin.source_id},
+        "notice": NO_CROP,
+    }
 
 
 def item_as_printed(
@@ -387,6 +465,8 @@ def item_as_printed(
     if origin is not None:
         if origin.relation != "verbatim":
             return _none("variant", cold=cold)
+        if not origin.span_ids:
+            return _page_without_crop(repository, origin, source_title=source_title, cold=cold)
         if cold:
             figures = printed_crops(repository, extraction_id=origin.extraction_id, span_ids=origin.span_ids,
                                     render=render, figure_only=True, regions=origin.regions)
@@ -398,25 +478,9 @@ def item_as_printed(
                                 render=render, regions=origin.regions)
         title = source_title or "your book"
         if not printed["crops"]:
-            # F5: no box to crop, but a known page of a readable original is
-            # still the book's page: offered (with its cost, where it opens),
-            # and the crop says honestly that it can't be made.
-            paged = _page_only(repository, origin) if printed["status"] == "no_geometry" else None
-            pdf_path = _pdf_path(repository, origin.extraction_id) if paged is not None else None
-            if paged is None or pdf_path is None:
+            if printed["status"] != "no_geometry":
                 return _none(printed["status"], cold=False)
-            page, first_span, on_page = paged
-            label_text = page_label(pdf_path, page)
-            return {
-                "enabled": True, "kind": KIND_PAGE, "cold": False,
-                "label": f"as printed ({title} p.{label_text})",
-                "status": "no_geometry", "crops": [],
-                "locator": {"source_title": source_title, "exercise_label": origin.label, "page_label": label_text},
-                "transcription_report": True,
-                "original_page": {"extraction_id": origin.extraction_id, "span_id": first_span,
-                                  "outline_span_ids": on_page, "source_id": origin.source_id},
-                "notice": NO_CROP,
-            }
+            return _page_without_crop(repository, origin, source_title=source_title, cold=False)
         first = printed["crops"][0]
         label = f"as printed ({title} p.{first['page_label']})"
         on_first_page = [span for crop in printed["crops"] if crop["page"] == first["page"]

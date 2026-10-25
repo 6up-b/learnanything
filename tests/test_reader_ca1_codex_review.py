@@ -416,3 +416,87 @@ def test_the_feed_upsert_of_other_notices_is_unchanged(book, warm):
     MF.generate_maintenance_feed(vault, repository)
     after = _notice(repository)
     assert after["detail"] == before["detail"] and after["status"] == "active"
+
+
+# -- Re-review F9: a split selection's items own only their own blocks ----------------------------
+
+
+def _split_selection(paths, repository, *, edited_text: str | None = None) -> tuple[str, str]:
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": "e1", "quote": "block e1"}, {"spanId": "e2", "quote": "block e2"},
+                     {"spanId": "f1", "quote": "block f1"}]}
+    if edited_text is not None:
+        raw["editedText"] = edited_text
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="block e1", title="Exercise 1"),
+                                                 _item(statement_md="block e2", title="Exercise 2")]))
+    result = EX.import_exercises(paths.root, repository, client, extraction_id=EXTRACTION, raw_selection=raw,
+                                 source_id="src_ca1")
+    first, second = (summary["practice_item_id"] for summary in result["items"])
+    return first, second
+
+
+def test_two_exercises_split_from_one_selection_each_crop_only_their_own_block(book, warm):
+    paths, ctx, repository = book
+    first, second = _split_selection(paths, repository)
+    ctx.reload(maintenance=False)
+    one = _call(ctx, "practice.as_printed", {"practiceItemId": first, "render": True})
+    two = _call(ctx, "practice.as_printed", {"practiceItemId": second, "render": True})
+    assert [crop["spanIds"] for crop in one["crops"]] == [["e1"]]
+    assert [crop["spanIds"] for crop in two["crops"]] == [["e2"]]
+    assert one["originalPage"]["outlineSpanIds"] == ["e1"] and two["originalPage"]["outlineSpanIds"] == ["e2"]
+    image = _image(two["crops"][0]["image"])
+    assert _share(image, RED) > 0.9 and _share(image, GREEN) == 0             # the other blocks are not its own
+    # Every block stays a source ref (provenance is the selection's); only ownership differs.
+    vault, _ = ctx.require_vault()
+    refs = vault.practice_items[second].provenance.source_refs
+    assert [ref.locator for ref in refs] == [f"span:{EXTRACTION}/{span}" for span in ("e1", "e2", "f1")]
+    assert [ref.model_extra.get("owned") for ref in refs] == [False, True, False]
+
+
+def test_a_split_whose_ownership_cannot_be_read_offers_only_the_charged_page(book, warm):
+    paths, ctx, repository = book
+    # A selection-level edit replaces the whole text: no part maps to a block.
+    first, _second = _split_selection(paths, repository, edited_text="block e1\n\nblock e2")
+    ctx.reload(maintenance=False)
+    view = _call(ctx, "practice.as_printed", {"practiceItemId": first, "render": True})
+    assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+    assert view["originalPage"]["spanId"] == "e1"
+    cold_view = None
+    _followup(repository, "cold_retry")
+    _followup_item = first
+    with repository.connection() as connection:
+        connection.execute("UPDATE followup_tasks SET selected_item_id=?", (_followup_item,))
+        connection.commit()
+    cold_view = _call(ctx, "practice.as_printed", {"practiceItemId": first, "render": True})
+    assert cold_view["kind"] == "none" and cold_view["reason"] == "cold_check"
+
+
+def test_a_split_written_before_ownership_was_kept_withholds_the_free_crop(book, warm):
+    """Items split from one selection before the marker existed: their import
+    rows (one per item, one write) say the selection was split, so neither
+    item's crop is free; the original page still is offered."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+
+    paths, ctx, repository = book
+    append_config_toml(paths.root, "[source_service]\nenabled = true\n")
+    first, second = _split_selection(paths, repository)
+    for item_id in (first, second):
+        path = next(paths.root.rglob(f"{item_id}.yaml"))
+        payload = read_yaml(path)
+        for ref in payload["provenance"]["source_refs"]:
+            ref.pop("owned", None)
+        write_yaml(path, payload)
+    SEI.record_reader_import(paths.root, repository, {"items": [{"practice_item_id": first},
+                                                                {"practice_item_id": second}]},
+                             extraction_id=EXTRACTION, span_ids=["e1", "e2", "f1"], source_id="src_ca1",
+                             revision_id="rev_ca1")
+    ctx.reload(maintenance=False)
+    for item_id in (first, second):
+        view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
+        assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+        assert view["originalPage"]["spanId"] == "e1"

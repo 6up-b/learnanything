@@ -24,7 +24,7 @@ rung (``select_rung`` owns that).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 import json
@@ -147,10 +147,10 @@ def _clamp01(value: Any) -> float | None:
     return max(0.0, min(1.0, float(value)))
 
 
-def _anchor_statement(selection_text: str, statement: str) -> str | None:
-    """Re-anchor the model's echoed statement as a verbatim slice of the
-    learner's selection (whitespace-tolerant, same idea as annotation quote
-    relocation). Returns the source-owned slice, or None for a paraphrase."""
+def _anchor_range(selection_text: str, statement: str) -> tuple[int, int] | None:
+    """Where the model's echoed statement sits in the learner's selection, as
+    a verbatim slice (whitespace-tolerant, same idea as annotation quote
+    relocation); None for a paraphrase."""
 
     tokens = _normalize(statement).split()
     if not tokens:
@@ -159,7 +159,41 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
     match = re.search(pattern, selection_text)
     if match is None:
         return None
-    return selection_text[match.start() : match.end()]
+    return match.start(), match.end()
+
+
+def _anchor_statement(selection_text: str, statement: str) -> str | None:
+    """Re-anchor the model's echoed statement as a verbatim slice of the
+    learner's selection. Returns the source-owned slice, or None for a paraphrase."""
+
+    found = _anchor_range(selection_text, statement)
+    return None if found is None else selection_text[found[0] : found[1]]
+
+
+def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None, found: tuple[int, int] | None) -> set[str]:
+    """Reader CA1 (Codex re-review F9): the blocks one item of a split
+    selection is printed from, the parts its statement's slice overlaps.
+    Empty when that can't be read (a selection-level edit replaced the text)."""
+
+    if part_ranges is None or found is None:
+        return set()
+    start, end = found
+    return {span for span, part_start, part_end in part_ranges if part_start < end and start < part_end}
+
+
+def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *, split: bool,
+               owned: set[str]) -> list[dict[str, Any]]:
+    """One item's copy of the selection's refs. Every block stays a ref (the
+    selection is the item's provenance); when the selection was split into
+    several exercises, each ref says whether that block is this item's own
+    (``owned``), so its print never crops another item's exercise (Codex
+    re-review F9)."""
+
+    refs = [json.loads(json.dumps(ref)) for ref in source_refs]
+    if split:
+        for ref, span_id in zip(refs, span_ids):
+            ref["owned"] = span_id in owned
+    return refs
 
 
 def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
@@ -384,10 +418,12 @@ def author_exercises(
         if span and quote:
             edited_quotes.setdefault(span, []).append(quote)
     parts: list[str] = []
+    part_spans: list[str] = []
     consumed: dict[str, int] = {}
     transliterated = False
     for segment in segments:
         span = str(segment.get("span_id") or "")
+        part_spans.append(span)
         queue = edited_quotes.get(span) or []
         index = consumed.get(span, 0)
         if index < len(queue):
@@ -406,6 +442,13 @@ def author_exercises(
                 transliterated = transliterated or changed
             parts.append(part)
     exercise_text = "\n\n".join(parts)
+    # Each part's place in the joined text, so an item split from the
+    # selection knows which blocks are its own (Codex re-review F9).
+    part_ranges: list[tuple[str, int, int]] | None = []
+    offset = 0
+    for span, part in zip(part_spans, parts):
+        part_ranges.append((span, offset, offset + len(part)))
+        offset += len(part) + 2
 
     # The capture editor combines a multi-block selection into ONE passage; a
     # selection-level edit overrides the whole surface (per-node edits above
@@ -417,6 +460,7 @@ def author_exercises(
         # Learner-authority override — used verbatim, Unicode and all.
         exercise_text = edited_text
         transliterated = False
+        part_ranges = None
 
     span_ids: list[str] = []
     for segment in segments:
@@ -486,10 +530,12 @@ def author_exercises(
                           warnings=warnings, anchor_status=str(translation.get("status") or "exact"))
     skipped = batch.skipped
 
+    split = len(result.items) > 1
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
-        statement = _anchor_statement(exercise_text, entry.statement_md)
+        found = _anchor_range(exercise_text, entry.statement_md)
+        statement = None if found is None else exercise_text[found[0] : found[1]]
         if statement is None:
             if len(result.items) == 1:
                 statement = exercise_text
@@ -629,7 +675,8 @@ def author_exercises(
                 else None
             ),
             "hints": hints,
-            "provenance": {"origin": "canonical_extract", "source_refs": source_refs},
+            "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
+                source_refs, span_ids, split=split, owned=_owned_spans(part_ranges, found) if split else set())},
             "created_at": now,
             "updated_at": now,
         }
