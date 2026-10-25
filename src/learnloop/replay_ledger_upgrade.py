@@ -31,7 +31,9 @@ The upgrade:
   rolls everything back and the config still names the predecessor; a
   process that dies after the publication and before the commit leaves the
   tag over the predecessor's database, which running the upgrade again (or
-  any rebuild) completes.
+  a whole-vault rebuild) completes. Completion is read from that whole-vault
+  rebuild's receipt under the tag, never from the latest receipt (a startup
+  or per-LO receipt can follow an unfinished activation).
 
 Nothing is rewritten: attempts, grades and every ledger keep their rows. Kill
 switch: ``replay.ledger_bounded = false`` replays exactly as the predecessor
@@ -90,7 +92,7 @@ def _upgrade(root: Path, *, clock: Clock | None) -> UpgradeResult:
             return UpgradeResult(upgraded=False, from_version=original, to_version=target,
                                  problems=[f"vault is already {target}"])
         return UpgradeResult(upgraded=True, from_version=target, to_version=target,
-                             notes=[f"completed the interrupted activation of {target}"])
+                             notes=[f"completed the activation of {target} (a whole-vault rebuild under it)"])
     if original != predecessor and original not in _CHAINED_PREDECESSORS:
         return UpgradeResult(
             upgraded=False, from_version=original, to_version=target,
@@ -124,8 +126,17 @@ def _activate(root: Path, *, predecessor: str, target: str, publish: bool, clock
     ``publish``: the vault is at ``predecessor``; the config's publication is
     the transaction's last step. Otherwise the vault is already labelled
     ``target``: this completes an activation that did not commit, and does
-    nothing (returning False) unless the latest rebuild receipt is still the
-    predecessor's."""
+    nothing (returning False) once a whole-vault rebuild under ``target`` has
+    committed.
+
+    That receipt is the activation's own completion marker (re-review F5):
+    ``rebuild_all_derived_state`` writes it in this transaction, so it exists
+    exactly when the rebuild committed. The LATEST receipt is no marker: a
+    desktop restart stamps a canonical-projection startup receipt under the
+    tag without replaying mastery or schedules, a per-LO rebuild replays only
+    its own LOs, and a vault may have no receipt at all. A vault labelled the
+    tag that never had a whole-vault rebuild under it (a fresh one included)
+    gets one, which at the tag reproduces the live state."""
 
     vault = load_vault(root)
     expected = predecessor if publish else target
@@ -138,8 +149,7 @@ def _activate(root: Path, *, predecessor: str, target: str, publish: bool, clock
     try:
         with repository.atomic():
             if not publish:
-                latest = repository.latest_derived_state_rebuild()
-                if latest is None or latest.get("algorithm_version") != predecessor:
+                if repository.has_whole_vault_rebuild(algorithm_version=target):
                     return False
             # The predecessor's manifest, frozen from its own config (only the
             # version line differs) exactly as a clean upgrade freezes it.

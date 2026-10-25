@@ -7116,6 +7116,20 @@ class Repository(
             ).fetchone()
         return _decode_derived_state_rebuild(row) if row is not None else None
 
+    def has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool:
+        """Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
+
+        An activation that rebuilds the whole vault commits this receipt in
+        its own transaction, so it marks the activation complete whatever
+        startup, per-LO or recovery receipts are written after it."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'all' AND algorithm_version = ? LIMIT 1",
+                (algorithm_version,),
+            ).fetchone()
+        return row is not None
+
     def latest_canonical_projection_rebuild(self) -> dict[str, Any] | None:
         """Latest rebuild that explicitly names its projection semantics.
 

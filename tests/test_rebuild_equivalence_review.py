@@ -356,5 +356,71 @@ def test_a_failed_activation_leaves_the_predecessor_and_a_dead_one_resumes(tmp_p
     # the tag over the predecessor's database. The upgrade completes it.
     set_algorithm_version(paths, TAG)
     resumed = upgrade_module.upgrade_to_replay_ledger(paths.root)
-    assert resumed.upgraded and resumed.notes == [f"completed the interrupted activation of {TAG}"]
+    assert resumed.upgraded and resumed.notes == [f"completed the activation of {TAG} (a whole-vault rebuild under it)"]
     assert _mastery(repository) == live
+
+
+# ── Re-review F5: recovery reads the activation's own completion marker ──────
+
+def _died_after_publication(tmp_path, name):
+    """A vault whose predecessor rebuild left the predecessor's replay, then an
+    activation that published the tag and died before its commit."""
+
+    from tests.helpers import set_algorithm_version
+    from tests.test_rebuild_equivalence import _mastery
+
+    paths, vault, repository = _two_attempt_history(tmp_path, name, version=PREDECESSOR)
+    live = _mastery(repository)
+    assert _rebuilt(vault, repository) != live
+    set_algorithm_version(paths, TAG)
+    return paths, repository, live
+
+
+def test_a_startup_receipt_after_a_died_activation_does_not_hide_it(tmp_path):
+    """The desktop restarts before the retry: its canonical-projection startup
+    refresh stamps a receipt under the tag without replaying mastery. The
+    upgrade still completes the activation."""
+
+    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
+    from learnloop.substrate.canonical_projection_rollout import refresh_canonical_projection_on_startup
+    from tests.test_rebuild_equivalence import _mastery
+
+    paths, repository, live = _died_after_publication(tmp_path, "startup")
+    assert refresh_canonical_projection_on_startup(load_vault(paths.root), repository) is not None
+    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TAG
+    assert _mastery(repository) != live
+
+    resumed = upgrade_to_replay_ledger(paths.root)
+    assert resumed.upgraded and resumed.notes == [f"completed the activation of {TAG} (a whole-vault rebuild under it)"]
+    assert _mastery(repository) == live
+    again = upgrade_to_replay_ledger(paths.root)
+    assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
+
+
+def test_a_died_activation_with_no_rebuild_receipt_is_completed(tmp_path):
+    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
+    from tests.test_rebuild_equivalence import _mastery
+
+    paths, repository, live = _died_after_publication(tmp_path, "none")
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM derived_state_rebuilds")
+    assert repository.latest_derived_state_rebuild() is None
+
+    resumed = upgrade_to_replay_ledger(paths.root)
+    assert resumed.upgraded and _mastery(repository) == live
+
+
+def test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation(tmp_path):
+    """Only a whole-vault rebuild under the tag is the activation's marker: a
+    per-LO rebuild (an item edit's, a regrade's) replays only its own LOs."""
+
+    from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from tests.test_rebuild_equivalence import _mastery
+
+    paths, repository, live = _died_after_publication(tmp_path, "partial")
+    rebuild_all_derived_state(load_vault(paths.root), repository, learning_object_ids=["lo_diag"])
+    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TAG
+
+    resumed = upgrade_to_replay_ledger(paths.root)
+    assert resumed.upgraded and _mastery(repository) == live
