@@ -170,3 +170,79 @@ vitest: src/app/App.fixRound2.test.tsx src/app/App.fixRound3.test.tsx src/app/Ap
    re-derived on the server (the stage record's open question 5, unchanged).
 3. Selection imports written before this fix carry no `region`. Their crop is their whole
    blocks; new region imports keep the sub-box.
+
+## Re-review (codex-job 20261025-172851-2CmngR, VERDICT: REOPENED)
+
+The re-review confirmed F1 and F2 fixed and found three defects introduced by the fix commits.
+Each was reproduced first: the Python test failed on the fix commit `ce75b42b8`, and the
+vitest cases failed against the pre-fix frontend sources (4 failed) before the fix was
+restored (25 passed).
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | — | cold administrations without a commitment | confirmed fixed | `ce75b42b8` | (re-review) |
+| F2 | — | exact-area crop joins | confirmed fixed | `ce75b42b8` | (re-review) |
+| F9 | High | selection imports treat neighbouring exercises as owned material | fixed | `4103832cf` | `tests/test_reader_ca1_codex_review.py::test_two_exercises_split_from_one_selection_each_crop_only_their_own_block`, `::test_a_split_whose_ownership_cannot_be_read_offers_only_the_charged_page`, `::test_a_split_written_before_ownership_was_kept_withholds_the_free_crop` |
+| F10 | High | Maintenance introduces an unrestricted cold-check crop path | fixed | `ee3cae019` | `src/screens/MaintenanceScreen.transcription.test.tsx`: "the reported item's print comes from its own view, and hides during a check on your own", "a reported item under a check on your own shows no print on the card" |
+| F11 | Medium | Open in Reader uses the initial location after viewer navigation | fixed | `ee3cae019` | `src/components/AsPrinted.test.tsx`: "after next in the original page, the Reader opens the passage shown now"; `src/screens/workbench/asPrinted.test.tsx`: "after prev in the original page, the Reader opens the passage shown now" |
+
+**F9.** `author_exercises` records where each part of the selection sits in the joined
+exercise text. When the model splits one selection into several exercises, each item gets its
+own copy of the selection's source refs. Every block stays a ref, because the provenance is
+still the selection's, and each ref now carries `owned`: whether that block's part overlaps
+the item's anchored statement. `printed_origin` crops only the owned blocks. Ownership is
+unknown in two cases: a selection-level `editedText` replaced the text, so no part maps to a
+block, or the split was written before `owned` existed. A split from before `owned` is
+recognised by another item's `source_exercise_imports` row from the same Reader write (same
+extraction, `created_at` and span list). In both cases `span_ids` is empty and no crop is
+free. The original page (one hint before Submit) is still offered, located by every block of
+the selection (`PrintedOrigin.page_span_ids`), with the existing `NO_CROP` notice. A check on
+your own shows nothing. A single-item import is unchanged: the whole selection is its print,
+as the F4 test pins.
+
+**F10.** The Maintenance transcription card now reads the reported item's own view
+(`useAsPrinted` → `practice.as_printed`) and renders it with `AsPrinted`. The server's cold
+rule and figure-only rule therefore apply, and so does F9's ownership. The block form
+(`reader.block_original_region`), which knows no item, is no longer called from there. A new
+`report={false}` prop drops the second "doesn't match the page" link on that card.
+
+**F11.** `OpenInSource`'s `onOpenInReader` callback is now given the passage on screen
+(`currentSpanId`, and the extraction of the view showing it). `PrintedAfterFeedback` merges
+it into its target, so `printedPageInReader` anchors at the displayed span. The workbench
+peeks at the displayed span. The two other hosts that render `OpenInSource` don't pass the
+callback.
+
+No migration, no new config key or parameter, no new top-level module, nothing under
+`src-tauri`.
+
+### Re-review gate
+
+Every pytest, vitest and npm command ran in `systemd-run --user --scope --quiet -p
+MemoryMax=5G -p MemorySwapMax=1G`, one at a time. pytest ran with `-n 6` and vitest with
+`--maxWorkers=4`. No live calls: every model-backed path in these tests uses fakes.
+
+- `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted pytest (16 files): **930 passed**. Files: tests/test_reader_ca1_as_printed.py
+  tests/test_reader_ca1_codex_review.py tests/test_exercise_authoring.py
+  tests/test_import_split_parity.py tests/test_library_exercises.py
+  tests/test_required_method_authority.py tests/test_required_method_items.py
+  tests/test_source_exercise_rpcs.py tests/test_source_exercise_import.py
+  tests/test_facet_locks_landing.py tests/test_codex_output_schema.py
+  tests/test_structured_transport_parity.py tests/test_maintenance_feed.py
+  tests/test_desktop_rpc_contract.py tests/test_mobile_allowlist.py tests/test_architecture.py.
+- Contract pytest (4 files): **100 passed, 5 skipped**. Files:
+  tests/test_sidecar_serializer_snapshot.py tests/test_sidecar_contract.py
+  tests/test_public_tip_guards.py tests/test_tracked_fixture_databases.py.
+- `npm install`: ok. `npm run typecheck`: exit 0. `npm run frontend:build`: built.
+- vitest set 1 (21 files): **187 passed**. Files: src/components/AsPrinted.test.tsx
+  src/screens/MaintenanceScreen.transcription.test.tsx src/screens/workbench/ (all 9)
+  src/screens/PracticeScreen.asPrinted.test.tsx src/screens/PracticeScreen.workbench.test.tsx
+  src/screens/RepairScreen.phase4.test.tsx src/screens/RepairOverFeedback.phase4.test.tsx
+  src/components/AskOverlay.test.tsx src/components/AskOverlay.reader.test.tsx
+  src/components/AskOverlay.capture.test.tsx src/components/AskOverlay.suggestion.test.tsx
+  src/screens/reader/readerWorkbenchExercise.test.tsx.
+- vitest set 2 (7 files, `src/screens/FeedbackScreen*` and `src/screens/feedback/`):
+  **112 passed**.
+- `git diff --check`: clean. No `src-tauri` change, so no cargo check. No migration, DB or
+  connection change, so no durability tests and no DB reference regeneration.
