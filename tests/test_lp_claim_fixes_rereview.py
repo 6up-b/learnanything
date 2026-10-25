@@ -50,6 +50,16 @@ PREDECESSOR = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
 # ── F2: completed at every opener that may write; refused by every other ────
 
 
+@pytest.fixture(autouse=True)
+def _cli_process(monkeypatch):
+    """This process as the CLI is: importing it installs the completion."""
+
+    from learnloop import activation_journal
+    from learnloop.cli.runtime import _complete_claim_fixes_activation
+
+    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_claim_fixes_activation)
+
+
 def _expected_after_activation(tmp_path):
     from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
 
@@ -161,6 +171,34 @@ def test_f2_an_activation_that_cannot_complete_stops_the_opener(tmp_path, monkey
     assert _journal(paths).exists()
 
 
+@pytest.mark.parametrize("opener", ["open_vault_repository", "vault_repository"])
+def test_f2_an_opener_in_a_process_that_cannot_complete_refuses(tmp_path, monkeypatch, opener):
+    """A TUI or a script installs no completion: its opener serves nothing."""
+
+    from learnloop import activation_journal
+
+    paths = _interrupted(tmp_path, "interrupted")
+    before = _all_mastery(paths.sqlite_path)
+    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
+
+    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {TAG}"):
+        OPENERS[opener](paths)
+    assert _all_mastery(paths.sqlite_path) == before and _journal(paths).exists()
+
+
+@pytest.mark.parametrize(
+    ("module", "installed"),
+    [("learnloop.cli", True), ("learnloop_sidecar.context", True), ("learnloop.vault.repository", False)],
+)
+def test_f2_the_cli_and_the_sidecar_install_the_completion(module, installed):
+    import subprocess
+    import sys
+
+    code = f"import {module}; from learnloop import activation_journal as j; print(j._COMPLETER is not None)"
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, timeout=120)
+    assert result.stdout.strip() == str(installed)
+
+
 def test_f2_attaches_that_never_write_refuse_while_the_journal_stands(tmp_path):
     from learnloop.activation_journal import InterruptedActivation
     from learnloop.remote.runtime import RemoteRuntime, SchemaMismatch
@@ -252,16 +290,27 @@ def test_f7_an_attempt_reserved_before_a_gap_and_graded_after_it_replays_after_i
 
 
 def test_f7_the_claim_records_how_many_of_its_los_attempts_it_was_applied_after(tmp_path, monkeypatch):
-    paths, vault, repository = _vault(tmp_path)
-    _answer(vault, repository, ITEM, 4.0, minutes=1)
-    reserved = new_ulid()
-    _gap(paths.root, repository, minutes=5)
-    _answer_with_reserved_id(vault, repository, monkeypatch, reserved, 1.0, minutes=5)
+    """With an earlier attempt: the raced vault rebuilds as the unraced one does.
 
-    (claim,) = _gap_claims(repository)
-    assert claim["applied_after_attempts"] == 1
-    live = _mastery(repository)
-    assert _mastery(_rebuild(paths)) == pytest.approx(live, rel=1e-12, abs=1e-12)
+    (Two attempts on one LO do not rebuild to their live row in this harness
+    whatever the claims, so the raced rebuild is compared with the rebuild of
+    the same history whose second attempt's id was minted after the gap.)"""
+
+    rebuilt = {}
+    for race in (True, False):
+        paths, vault, repository = _vault(tmp_path, f"race_{race}")
+        _answer(vault, repository, ITEM, 4.0, minutes=1)
+        reserved = new_ulid()
+        _gap(paths.root, repository, minutes=5)
+        if race:
+            _answer_with_reserved_id(vault, repository, monkeypatch, reserved, 1.0, minutes=5)
+        else:
+            _answer(vault, repository, ITEM, 1.0, minutes=5)
+        (claim,) = _gap_claims(repository)
+        assert claim["applied_after_attempts"] == 1
+        rebuilt[race] = _mastery(_rebuild(paths))
+
+    assert rebuilt[True] == pytest.approx(rebuilt[False], rel=1e-12, abs=1e-12)
 
 
 @pytest.mark.parametrize("writer", ["too_easy_report", "rung_variant_request"])

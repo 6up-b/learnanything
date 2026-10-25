@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Callable, Mapping, TextIO
 import typer
 from pydantic import BaseModel
+from learnloop import activation_journal
 from learnloop.attempt_types import default_attempt_type
 from learnloop.clock import utc_now_iso
 from learnloop.ai.routing import (
@@ -118,6 +119,20 @@ def _root(vault: Path | None) -> Path:
     root = vault.resolve() if vault else find_vault_root(Path.cwd())
     bind_command_vault(root)
     return root
+
+def _complete_claim_fixes_activation(vault_root: Path) -> None:
+    """Complete an activation a dead upgrade left journalled (LP-min (a), re-review F2).
+
+    Installed for every CLI command (``learnloop.activation_journal``), so
+    each command's opener completes it before the command reads the vault."""
+
+    from learnloop.claim_fixes_upgrade import complete_interrupted_activation
+
+    complete_interrupted_activation(vault_root)
+
+
+activation_journal.install_completer(_complete_claim_fixes_activation)
+
 
 def _repository(vault_root: Path) -> Repository:
     loaded = load_vault(vault_root)

@@ -19,7 +19,7 @@ from starlette.formparsers import MultiPartException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from learnloop import capture
+from learnloop import activation_journal, capture
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop_mobile.allowlist import ALLOWLIST, validate_envelope
@@ -69,6 +69,10 @@ def attach(config: MobileConfig, *, read_only: bool = False) -> Repository:
             "Schema mismatch: open the desktop app or run learnloop doctor --fix-state --vault "
             f"{config.vault} once to migrate"
         )
+    if activation_journal.pending(path):
+        # LP-min (a), re-review F2: an activation that did not commit; the
+        # desktop or `learnloop upgrade` completes it, this host never does.
+        raise SchemaMismatch(activation_journal.message(path))
     return Repository.attach(path, read_only=read_only)
 
 

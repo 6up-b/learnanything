@@ -33,6 +33,7 @@ from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
+from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00Z"
 SECTION_7_5 = {
@@ -76,9 +77,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | RW2D_ALTERED_TABLES} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES)} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | RW2D_ALTERED_TABLES}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES)}  # nothing else changed
     return database
 
 
@@ -121,6 +122,6 @@ def test_library_asks_is_workflow():
 
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 220
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 221

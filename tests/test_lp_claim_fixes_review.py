@@ -196,7 +196,7 @@ def _crash_upgrade(paths):
 @pytest.mark.parametrize("completion", ["upgrade_again", "desktop_start"])
 def test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal(tmp_path, completion):
     from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
-    from learnloop_sidecar.context import _recover_claim_fixes_activation
+    from learnloop_sidecar.context import SidecarContext
 
     clean = _predecessor_vault_with_claims(tmp_path, "clean")
     assert upgrade_to_claim_fixes(clean.root).upgraded
@@ -216,7 +216,8 @@ def test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal
         result = upgrade_to_claim_fixes(crashed.root)
         assert result.upgraded and result.notes[0] == f"completed the interrupted activation of {TAG}"
     else:
-        assert _recover_claim_fixes_activation(crashed.root, load_vault(crashed.root))
+        # The desktop start's opener completes it (re-review F2: every opener).
+        SidecarContext().load(crashed.root)
 
     assert _all_mastery(crashed.sqlite_path) == pytest.approx(expected)
     assert not _journal(crashed).exists()

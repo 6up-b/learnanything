@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop import hint_window
+from learnloop.activation_journal import refuse_if_interrupted
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
@@ -901,6 +902,10 @@ class Repository(
         return repository
 
     def _initialize(self, sqlite_path: Path, *, read_only: bool) -> None:
+        # LP-min (a), re-review F2: no attach serves a vault whose activation
+        # did not commit (the successor's label over the predecessor's state).
+        # ``learnloop.vault.repository`` completes it before it attaches.
+        refuse_if_interrupted(Path(sqlite_path))
         self.sqlite_path = Path(sqlite_path)
         self._read_only = bool(read_only)
         self._pin = threading.local()
@@ -5567,6 +5572,24 @@ class Repository(
             )
             connection.commit()
         return claim_id
+
+    def record_learner_claim_application(self, claim_id: str, learning_object_id: str) -> int:
+        """Record how many of the LO's attempts were applied when the claim was; that count.
+
+        LP-min (a), re-review F7 (``learner_claims.applied_after_attempts``):
+        called inside the claim's re-anchor transaction, so the count and the
+        mastery write read one snapshot. Replay applies the claim after that
+        many of the LO's attempts."""
+
+        with self.connection() as connection:
+            (count,) = connection.execute(
+                "SELECT COUNT(*) FROM practice_attempts WHERE learning_object_id = ?", (learning_object_id,)
+            ).fetchone()
+            connection.execute(
+                "UPDATE learner_claims SET applied_after_attempts = ? WHERE id = ?", (int(count), claim_id)
+            )
+            connection.commit()
+        return int(count)
 
     def learner_claims(self) -> list[dict[str, Any]]:
         with self.connection() as connection:

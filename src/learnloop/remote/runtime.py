@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop import activation_journal
 from learnloop.config.loader import load_config
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -84,6 +85,17 @@ def check_schema(sqlite_path: Path, *, vault_root: Path | None = None) -> None:
         raise SchemaMismatch(
             "Schema mismatch: open the desktop app or run `learnloop doctor --fix-state" + hint + "` once to migrate"
         )
+    refuse_interrupted_activation(path)
+
+
+def refuse_interrupted_activation(sqlite_path: Path) -> None:
+    """Refuse a vault whose activation did not commit (LP-min (a), re-review F2).
+
+    A secondary process never completes it (the desktop or ``learnloop
+    upgrade`` does), so it serves nothing meanwhile."""
+
+    if activation_journal.pending(sqlite_path):
+        raise SchemaMismatch(activation_journal.message(sqlite_path))
 
 
 def content_files(root: Path) -> dict[str, tuple[int, int]]:
@@ -146,8 +158,12 @@ class RemoteRuntime:
         return runtime
 
     def vault(self) -> LoadedVault:
-        """The loaded vault, reloaded when its files changed (at most every 2 s)."""
+        """The loaded vault, reloaded when its files changed (at most every 2 s).
 
+        Every request asks for it, so a journal left by an activation that did
+        not commit stops this process serving at once (re-review F2)."""
+
+        refuse_interrupted_activation(self.sqlite_path)
         with self._lock:
             now = time.monotonic()
             if self._vault is None or now - self._checked_at >= FINGERPRINT_TTL_SECONDS:
@@ -223,6 +239,7 @@ __all__ = [
     "SETTLE_ATTEMPTS",
     "SchemaMismatch",
     "check_schema",
+    "refuse_interrupted_activation",
     "content_files",
     "vault_content_fingerprint",
     "vault_sqlite_path",

@@ -32,8 +32,9 @@ from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 
 from tests.test_ad23_migration import AD23_ADDED_OBJECTS
+from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
 #: test_help_assists_schema.py, test_library_asks_migration.py).
@@ -86,12 +87,12 @@ def _upgrade(tmp_path: Path) -> Path:
     # Adaptive difficulty AD2+AD3's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their own
     # tables; 214 alters AD1's two receipts) follow on the way to head, then T1's 218
     # (ingest_batches.origin_method), RW2d's 219 (its receipt table, workbench_sessions.contract_subject_id) and local retrieval P1's 220 (its three tables).
-    assert [migration.version for migration in applied] == [213, 214, 215, 216, 217, 218, 219, 220]
+    assert [migration.version for migration in applied] == [213, 214, 215, 216, 217, 218, 219, 220, 221]
     after = _schema(database)
     assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
-    changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - RW2D_ALTERED_TABLES
+    changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES)
     assert changed == AD1_ALTERED_TABLES, (
         "213 alters practice_attempts (two columns) and question_events (answered_at, answer_mode) and nothing else")
     assert "item_forecasts" not in after
@@ -172,7 +173,7 @@ def test_the_head_fixture_is_at_head_with_empty_ad1_tables(tmp_path):
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         # Reader RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 220
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 221
         assert all(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in NEW_TABLES)
     database = tmp_path / "head.sqlite"
     backup_database(HEAD, database)

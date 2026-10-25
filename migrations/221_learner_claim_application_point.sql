@@ -1,0 +1,25 @@
+-- Learned parameters LP-min (a), the claim fixes, Codex re-review F7
+-- (docs/reviews/lp-claim-fixes-codex-review.md): where a re-anchoring claim
+-- was applied among its learning object's attempts.
+--
+-- Numbered 221, the next free number after main's 220; reader workbench RW7b
+-- may take the same number on its branch, and the landing renumbers.
+--
+-- A claim that re-anchors mastery (a tutor gap declaration, a rung-variant
+-- request, a too-easy/too-hard report) is applied inside one BEGIN IMMEDIATE
+-- transaction; attempts apply their grades in theirs. Replay must apply the
+-- two in the order they were applied live. Stamps have one-second
+-- resolution, and an attempt's id is minted when its grading starts, before
+-- the model call, so (created_at, id) cannot tell "the attempt applied, then
+-- the claim" from "the claim applied while the attempt was being graded".
+-- This column records it at the serialized application boundary: the number
+-- of the learning object's attempts already applied when the claim's own
+-- transaction applied it. Replay applies the claim after that many attempts.
+--
+-- Written once, by the claim-fixes successor's re-anchor
+-- (learner.mastery.reanchor_mastery_from_claim) for the claim its live
+-- writer just inserted; replay never writes it. NULL: written below the
+-- successor, by a source that does not re-anchor, or before this column;
+-- replay then places the claim by (created_at, id), as before.
+ALTER TABLE learner_claims ADD COLUMN applied_after_attempts INTEGER
+  CHECK (applied_after_attempts IS NULL OR applied_after_attempts >= 0);

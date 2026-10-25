@@ -843,9 +843,8 @@ def _write_gap_claim(
             claimed_level=config.gap_claim_level,
             prior_pseudo_count=config.gap_claim_pseudo_count,
             now_iso=now_iso,
-            # The claim's own point in the stream, as replay re-anchors it.
-            claims_as_of=now_iso,
-            claims_as_of_id=claim_id,
+            # Records the claim's place among the LO's attempts (re-review F7).
+            claim_id=claim_id,
         )
     return claim_id
 

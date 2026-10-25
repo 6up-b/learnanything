@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop import activation_journal
 from learnloop.ai.routing import (
     is_embedding_profile, is_generation_profile, ready_client_for_task, route_names, runtime_for_provider,
 )
@@ -129,19 +130,17 @@ class SidecarContext:
         # Adaptive difficulty AD1 (Codex review F10): a reload of the same
         # vault compares its items with these, to prepare new revisions.
         previous = self.vault if self.vault_root is not None and target == self.vault_root else None
-        self.vault_root = target
-        self.vault = load_vault(self.vault_root)
-        self.repository = open_vault_repository(
-            self.vault.root,
-            VaultPaths(self.vault.root, self.vault.config).sqlite_path,
-        )
-        self.map_builds.bind(self.repository.sqlite_path)
-        # LP-min (a) (claim-fixes review F2): an upgrade that died after
+        vault = load_vault(target)
+        # LP-min (a) (claim-fixes re-review F2): an upgrade that died after
         # publishing the successor's config and before its commit left a
-        # journal; complete the activation before anything serves or
-        # re-projects the vault under the successor's label.
-        if _recover_claim_fixes_activation(self.vault_root, self.vault):
-            self.vault = load_vault(self.vault_root)
+        # journal; the opener completes that activation before anything
+        # serves or re-projects the vault, or raises InterruptedActivation,
+        # and then nothing of this vault is bound or served.
+        repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+        self.vault_root = target
+        self.vault = vault
+        self.repository = repository
+        self.map_builds.bind(self.repository.sqlite_path)
         # Finish a facet merge or undo that a previous process left mid-flight
         # before anything reads or re-projects the vault (facet identity F12).
         if _recover_facet_identity_actions(self.vault_root, self.repository):
@@ -554,21 +553,19 @@ class SidecarContext:
         )
 
 
-def _recover_claim_fixes_activation(vault_root: Path, vault: LoadedVault) -> bool:
-    """Complete a journalled claim-fixes activation; True when one ran.
+def _complete_claim_fixes_activation(vault_root: Path) -> None:
+    """Complete an activation a dead upgrade left journalled (LP-min (a), re-review F2).
 
-    A failure never blocks opening the vault: the journal stays, so the next
-    start or ``learnloop upgrade`` completes it, and doctor reports the stale
-    rebuild meanwhile.
-    """
+    Installed for the desktop sidecar (``learnloop.activation_journal``): the
+    opener in :meth:`SidecarContext.load` completes it before anything serves
+    or re-projects the vault, or raises and nothing of the vault is bound."""
 
     from learnloop.claim_fixes_upgrade import complete_interrupted_activation
 
-    try:
-        return complete_interrupted_activation(vault_root, vault=vault) is not None
-    except Exception:  # pragma: no cover - defensive: startup must not fail on recovery
-        _LOGGER.warning("claim-fixes activation recovery failed; run `learnloop upgrade` again", exc_info=True)
-        return False
+    complete_interrupted_activation(vault_root)
+
+
+activation_journal.install_completer(_complete_claim_fixes_activation)
 
 
 def _recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool:

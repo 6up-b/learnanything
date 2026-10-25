@@ -320,7 +320,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         ""),
     "learner_claims": (
         "id claim_type scope_type scope_id evidence_family claimed_level prior_pseudo_count source "
-        "created_at",
+        "created_at applied_after_attempts",
         ""),
     "learner_gap_check_advances": (
         "id gap_id learning_object_id intent assumption_id original_due advanced_due algorithm_version created_at",

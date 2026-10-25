@@ -55,6 +55,13 @@ predecessor and the target; it is removed once the transaction commits. So:
   had committed (the process died between the commit and the removal) is
   recognised by the activation's committed receipt and just removed.
 
+  No entry point serves the vault meanwhile (re-review F2): every opener that
+  may write (``learnloop.vault.repository``: each CLI command, the desktop
+  sidecar, the TUI, the services below them) completes the activation first
+  or raises ``InterruptedActivation``, and every other attach (a read-only
+  report, the MCP server, the phone host) refuses it
+  (``learnloop.activation_journal``).
+
 Nothing is rewritten: claims and attempts are raw ledgers and keep their
 rows. Kill switch: ``mastery.claim_fixes_enabled = false`` seeds, re-anchors,
 merges, ranks and replays exactly as the predecessor without a downgrade (a
@@ -71,6 +78,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
+from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
@@ -171,27 +179,30 @@ def complete_interrupted_activation(
 
 
 def _complete(root: Path, *, clock: Clock | None) -> _Activated | None:
-    vault = load_vault(root)
-    journal_path = _journal_path(vault)
-    journal = _read_journal(journal_path)
-    if journal is None:
-        return None
-    predecessor, target = journal
-    version = vault.config.algorithms.algorithm_version
-    if version != target or target != CLAIM_FIXES_ALGORITHM_VERSION:
-        # The config never named the successor (the publication had not
-        # landed, so the transaction rolled back with it), or names another
-        # version since: nothing of this activation is in force.
-        journal_path.unlink(missing_ok=True)
-        return None
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = open_vault_repository(vault.root, sqlite_path)
-    if _activation_committed(repository, target):
-        # The process died between the commit and the journal's removal: the
-        # activation is complete, so there is nothing to finish.
-        journal_path.unlink(missing_ok=True)
-        return None
-    return _activate(root, predecessor=predecessor, target=target, publish=False, clock=clock)
+    # This context is the activation's own writer: its opens complete nothing
+    # and are not refused while the journal stands.
+    with activation_journal.completing_activation():
+        vault = load_vault(root)
+        journal_path = _journal_path(vault)
+        journal = _read_journal(journal_path)
+        if journal is None:
+            return None
+        predecessor, target = journal
+        version = vault.config.algorithms.algorithm_version
+        if version != target or target != CLAIM_FIXES_ALGORITHM_VERSION:
+            # The config never named the successor (the publication had not
+            # landed, so the transaction rolled back with it), or names another
+            # version since: nothing of this activation is in force.
+            journal_path.unlink(missing_ok=True)
+            return None
+        sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+        repository = open_vault_repository(vault.root, sqlite_path)
+        if _activation_committed(repository, target):
+            # The process died between the commit and the journal's removal: the
+            # activation is complete, so there is nothing to finish.
+            journal_path.unlink(missing_ok=True)
+            return None
+        return _activate(root, predecessor=predecessor, target=target, publish=False, clock=clock)
 
 
 class _Activated(NamedTuple):
@@ -222,6 +233,13 @@ def _activate(
     Without ``publish`` the config already names ``target`` (a journalled,
     uncommitted activation) and this completes the database side."""
 
+    with activation_journal.completing_activation():
+        return _activate_as_writer(root, predecessor=predecessor, target=target, publish=publish, clock=clock)
+
+
+def _activate_as_writer(
+    root: Path, *, predecessor: str, target: str, publish: bool, clock: Clock | None
+) -> _Activated:
     vault = load_vault(root)
     expected = predecessor if publish else target
     if vault.config.algorithms.algorithm_version != expected:  # pragma: no cover - read under the lock
@@ -290,13 +308,10 @@ def _activate(
     return _Activated(tuple(replayable), tuple(reseeded))
 
 
-#: The activation journal's name beside the vault database.
-_JOURNAL_SUFFIX = ".claim-fixes-activation"
-
-
 def _journal_path(vault) -> Path:
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    return sqlite_path.with_name(sqlite_path.name + _JOURNAL_SUFFIX)
+    """The activation journal beside the vault database (``learnloop.activation_journal``)."""
+
+    return activation_journal.journal_path(VaultPaths(vault.root, vault.config).sqlite_path)
 
 
 def _read_journal(path: Path) -> tuple[str, str] | None:

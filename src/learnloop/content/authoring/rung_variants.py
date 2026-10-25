@@ -443,6 +443,9 @@ def request_rung_variant(
         claimed_level=claim_level,
         prior_pseudo_count=config.claim_pseudo_count,
         now_iso=utc_now_iso(clock),
+        # Under the claim-fixes successor: the claim's place among the LO's
+        # attempts, recorded with its re-anchor (re-review F7).
+        claim_id=claim_id,
     )
 
     # The belief write: a deterministic self-graded self_report attempt on the
