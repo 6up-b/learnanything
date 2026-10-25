@@ -20,9 +20,13 @@ function label(capture: CaptureDto): string {
 }
 
 /** References only: no queue mutation or practice navigation on receipt or save. */
-export function InboxStrip({ subjects, onAsk }: {
+export function InboxStrip({ subjects, onAsk, countFree = false }: {
   subjects: { id: string; title: string }[];
   onAsk: (target: AskTarget) => void;
+  /** UX Phase 3 fix round 1 (F5): the learner's rendering (Today's "New
+   *  captures"): every capture and action as before, but no count of what is
+   *  waiting (spec §4.2 rule 10). Classic's strip keeps its counts. */
+  countFree?: boolean;
 }) {
   const [summary, setSummary] = useState<InboxSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +126,7 @@ export function InboxStrip({ subjects, onAsk }: {
       {summary?.vaultMismatch ? (
         <p role="status">Phone captures are pinned to {summary.pinnedVault}, not this vault. Open that vault to see them.</p>
       ) : null}
-      <strong>Inbox · {summary?.newCount ?? "…"}</strong>
+      <strong>{countFree ? "New captures" : <>Inbox · {summary?.newCount ?? "…"}</>}</strong>
       <button onClick={() => { setShowAll((value) => !value); setPages(1); setHasOlder(false); }}>{showAll ? "Show new" : "Include handled"}</button>
       <span style={{ color: COLOR.textFaint }}> · saved references, no practice started</span>
       {subjects.length ? (
@@ -137,8 +141,14 @@ export function InboxStrip({ subjects, onAsk }: {
       ) : null}
       {pendingDeletes.length ? (
         <div role="alert">
-          Original media deletion is pending for {summary?.deletePendingCount ?? pendingDeletes.length} purged
-          {(summary?.deletePendingCount ?? pendingDeletes.length) === 1 ? " capture" : " captures"}.
+          {countFree ? (
+            "Original media deletion is still pending for these purged captures."
+          ) : (
+            <>
+              Original media deletion is pending for {summary?.deletePendingCount ?? pendingDeletes.length} purged
+              {(summary?.deletePendingCount ?? pendingDeletes.length) === 1 ? " capture" : " captures"}.
+            </>
+          )}
           {pendingDeletes.map((capture) => (
             <span key={capture.captureId}> {label(capture)} · received {capture.receivedAt.slice(0, 10)} <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Retry delete</button></span>
           ))}

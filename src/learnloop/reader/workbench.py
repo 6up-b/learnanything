@@ -1366,6 +1366,16 @@ def sessions_for_source(repository: Any, extraction_id: str, *, now: datetime | 
     return _listed(repository, column="extraction_id", value=extraction_id, now=now, open_days=open_days)
 
 
+def open_problems(repository: Any, *, now: datetime | None = None, open_days: int = 30) -> list[dict[str, Any]]:
+    """UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): the open problems on
+    every source, newest first, for Today's "Pick up a thread". A pure read."""
+
+    with repository.connection() as connection:
+        sessions = store.open_sessions(connection)
+        steps = store.steps_for_sessions(connection, [session["id"] for session in sessions])
+    return [_summary(session, steps.get(session["id"], []), now=now, open_days=open_days) for session in sessions]
+
+
 __all__ = [
     "BOOK_OPEN_ENTRIES",
     "ComposedAnswer",
@@ -1386,6 +1396,7 @@ __all__ = [
     "SubmissionPlan",
     "WorkbenchError",
     "abandon",
+    "open_problems",
     "SOURCE_EXERCISE_KIND",
     "admit_exercise_pick",
     "exercise_region",

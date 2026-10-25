@@ -58,6 +58,8 @@ vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") })
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
+// UX Phase 3: the simple shell's Today (Start and Today merged).
+vi.mock("../screens/today/TodayPlace", () => ({ TodayPlace: stub("today-place-stub") }));
 vi.mock("../screens/PracticeScreen", () => ({ PracticeScreen: stub("practice-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
 vi.mock("../screens/IngestScreen", () => ({ IngestScreen: stub("ingest-stub") }));
@@ -113,7 +115,8 @@ afterEach(() => {
 
 async function launch() {
   render(<App />);
-  await screen.findByTestId("start-stub");
+  // Classic opens on Start; the simple shell on Today (UX Phase 3).
+  await screen.findByTestId(/^(start|today-place)-stub$/);
 }
 
 async function press(init: KeyboardEventInit) {

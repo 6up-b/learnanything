@@ -583,6 +583,7 @@ fn main() {
             workbench_session_for_attempt,
             workbench_for_item,
             workbench_for_source,
+            workbench_open_problems,
             workbench_check,
             workbench_suggest_help,
             workbench_request_help,

@@ -8414,6 +8414,11 @@ export interface WorkbenchSummaryDto {
   unfinished: boolean;
 }
 
+/** UX Phase 3: an open problem with the source it opens in (Today's threads). */
+export interface WorkbenchOpenProblemDto extends WorkbenchSummaryDto {
+  sourceId: string;
+}
+
 export interface WorkbenchOpenInput {
   origin: WorkbenchOrigin;
   entry: WorkbenchEntry;

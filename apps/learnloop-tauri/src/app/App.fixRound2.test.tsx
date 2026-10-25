@@ -18,7 +18,8 @@ import { clear } from "../api/queryCache";
 const stubs = vi.hoisted(() => ({
   config: {} as Record<string, unknown>,
   session: null as Record<string, unknown> | null,
-  api: {} as Record<string, (...args: unknown[]) => unknown>
+  api: {} as Record<string, (...args: unknown[]) => unknown>,
+  realToday: false
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
@@ -63,6 +64,25 @@ vi.mock("../screens/StartScreen", () => ({
     </div>
   )
 }));
+// UX Phase 3: the simple shell's Today (Start and Today merged), with the
+// same error buttons as the Start stub; the real one where a test needs it.
+vi.mock("../screens/today/TodayPlace", async () => {
+  const real = await vi.importActual<typeof import("../screens/today/TodayPlace")>("../screens/today/TodayPlace");
+  return {
+    TodayPlace: (props: Parameters<typeof real.TodayPlace>[0]) =>
+      stubs.realToday ? (
+        <real.TodayPlace {...props} />
+      ) : (
+        <div data-testid="start-stub">
+          {["First", "Second", "Third", "Fourth"].map((word) => (
+            <button key={word} type="button" onClick={() => props.onError(`${word} error.`)}>
+              fail {word.toLowerCase()}
+            </button>
+          ))}
+        </div>
+      )
+  };
+});
 vi.mock("../screens/PracticeScreen", () => ({ PracticeScreen: stub("practice-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
 vi.mock("../screens/IngestScreen", () => ({ IngestScreen: stub("ingest-stub") }));
@@ -80,6 +100,7 @@ beforeEach(() => {
   stubs.config = {};
   stubs.session = null;
   stubs.api = {};
+  stubs.realToday = false;
   store = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => store.get(key) ?? null,
@@ -331,6 +352,8 @@ function queueItem(index: number) {
 
 function todayApis(plan: unknown) {
   const planLearnerPick = vi.fn(async () => ({ step: null }));
+  // UX Phase 3: the real Today (TodayPlace) and its real listeners.
+  stubs.realToday = true;
   stubs.session = { sessionId: "s1", availableMinutes: 25, energy: null, startedAt: "2026-10-21T10:00:00Z", checkpoint: null };
   stubs.api = {
     getDailyPlan: vi.fn(async () => plan),
@@ -346,6 +369,10 @@ function todayApis(plan: unknown) {
     getQueueRevision: vi.fn(async () => ({ version: 1, revision: 1 })),
     listIngestBatches: vi.fn(async () => ({ version: 1, batches: [] })),
     getTodayHeadline: vi.fn(async () => ({ version: 1, enabled: false })),
+    getStartSummary: vi.fn(async () => ({ version: 1, rememberedMinutes: 25, minutesSource: "last_session", minutesPresets: [10, 15, 25, 40, 60], minuteChoices: [10, 15, 25, 40, 60], streak: { current: 1, activeToday: true, longest: 1 } })),
+    listQuestionQueue: vi.fn(async () => ({ version: 1, questions: [], openCount: 0 })),
+    workbenchOpenProblems: vi.fn(async () => ({ version: 1, problems: [] })),
+    getInboxSummary: vi.fn(async () => ({ count: 0, newCount: 0, captures: [], deletePending: [], deletePendingCount: 0, pinnedVault: null, vaultMismatch: false, enabled: true })),
     planLearnerPick
   };
   return { planLearnerPick };
@@ -400,16 +427,22 @@ describe("the shell's place keys never reach Today's numbered pick (item 4)", ()
   it("plan off: Alt+2 opens the Library and does not open item 2", async () => {
     const { planLearnerPick } = todayApis({ version: 1, enabled: false, plan: null });
     await openToday();
+    // UX Phase 3: Today's list is the plain list (`l`), with no numbered keys.
+    await screen.findByTestId("today-place");
+    await press({ key: "l" });
     expect(await screen.findByText("Item 2")).toBeTruthy();
     await press({ key: "2", altKey: true });
     await flush();
     expect(screen.getByTestId("library-stub")).toBeTruthy();
     expect(screen.queryByTestId("practice-stub")).toBeNull();
     expect(planLearnerPick).not.toHaveBeenCalled();
-    // A plain "2" on Today still picks the second item.
+    // On Today's list, j then Enter still opens the second item.
     await press({ key: "1", altKey: true });
+    await screen.findByTestId("today-place");
+    await press({ key: "l" });
     await screen.findByText("Item 2");
-    await press({ key: "2" });
+    await press({ key: "j" });
+    await press({ key: "Enter" });
     await flush();
     expect(screen.getByTestId("practice-stub")).toBeTruthy();
   });
@@ -417,7 +450,7 @@ describe("the shell's place keys never reach Today's numbered pick (item 4)", ()
   it("plan on, full list shown: Alt+2 opens the Library and calls no planLearnerPick", async () => {
     const { planLearnerPick } = todayApis(enabledPlan());
     await openToday();
-    await screen.findByTestId("daily-plan");
+    await screen.findByTestId("today-place");
     await press({ key: "l" });
     expect(await screen.findByText("Item 2")).toBeTruthy();
     await press({ key: "2", altKey: true });

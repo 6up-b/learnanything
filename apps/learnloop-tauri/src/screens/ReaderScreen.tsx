@@ -206,6 +206,10 @@ function newKey(): string {
 export interface ReaderOpenSource {
   card: SourceLibraryCard;
   spanId: string | null;
+  /** The reading `spanId` was found on (UX Phase 3 fix round 1, F3: Today's
+   *  threads): a span of another reading is translated, never opened as one
+   *  of the reading the book opens on. Absent: the span is the open one's. */
+  reading?: string | null;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -1017,7 +1021,11 @@ export function ReaderScreen({
   useEffect(() => {
     if (resumedRef.current || !initialSource || render) return;
     resumedRef.current = true;
-    void openSource(initialSource.card, initialSource.spanId ?? undefined);
+    void openSource(
+      initialSource.card,
+      initialSource.spanId ?? undefined,
+      initialSource.spanId && initialSource.reading ? { jumpReading: initialSource.reading } : {},
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

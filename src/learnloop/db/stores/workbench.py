@@ -110,6 +110,17 @@ def sessions_where(
     return [dict(row) for row in rows]
 
 
+def open_sessions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """UX Phase 3 (Today's threads): every open problem worked on a source,
+    newest first. Set-aside (abandoned) and submitted problems are not threads."""
+
+    rows = connection.execute(
+        f"SELECT * FROM {SESSIONS} WHERE status = 'open' AND extraction_id IS NOT NULL"
+        " ORDER BY updated_at DESC, id DESC"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def steps_for_session(connection: sqlite3.Connection, session_id: str) -> list[dict[str, Any]]:
     rows = connection.execute(
         f"SELECT * FROM {STEPS} WHERE session_id = ? ORDER BY created_at, id", (session_id,)

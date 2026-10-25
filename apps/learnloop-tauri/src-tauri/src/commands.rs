@@ -1354,6 +1354,8 @@ sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");
 sidecar_passthrough!(workbench_for_source, "workbench.for_source");
+// UX Phase 3: Today's unfinished problems ("Pick up a thread"): desktop only.
+sidecar_passthrough!(workbench_open_problems, "workbench.open_problems");
 // Reader workbench RW2b + adaptive hints H3 (checks and the help ladder): desktop only.
 sidecar_passthrough!(workbench_check, "workbench.check");
 sidecar_passthrough!(workbench_suggest_help, "workbench.suggest_help");

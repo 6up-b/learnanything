@@ -102,6 +102,18 @@ def _source_id(repository, extraction_id: str | None) -> str | None:
         return None
 
 
+def _current_reading(repository, source_id: str) -> str | None:
+    """The reading the Reader opens a source on (its latest completed
+    extraction, as ``reader.render_view`` resolves a source id)."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+
+    try:
+        return resolve_extraction_id(repository, source_id)
+    except Exception:  # noqa: BLE001 - a source with no reading opens on none
+        return None
+
+
 def _ensure_contract(vault, repository, session_id: str) -> None:
     """Snapshot the assessment contract a bound session shows, once (the
     practice screen's serve does the same), so the submit grades the problem
@@ -476,6 +488,10 @@ class WorkbenchItemInput(ParamsModel):
 
 class WorkbenchSourceInput(ParamsModel):
     extraction_id: str
+
+
+class WorkbenchOpenProblemsInput(ParamsModel):
+    """No parameters: every source's open problems."""
 
 
 # -- RPCs ---------------------------------------------------------------------------------------------
@@ -1157,6 +1173,35 @@ def workbench_for_source(ctx: SidecarContext, params: WorkbenchSourceInput) -> d
                                   open_days=WB.open_session_days(vault))
     return _answer({"sessions": to_camel(_cleared(vault, repository, rows)),
                     "openSessionDays": WB.open_session_days(vault)})
+
+
+@method("workbench.open_problems", WorkbenchOpenProblemsInput)
+def workbench_open_problems(ctx: SidecarContext, params: WorkbenchOpenProblemsInput) -> dict[str, Any]:
+    """UX Phase 3 (spec ux_learnloop_v1 §7.1, §10 3.3): Today's unfinished
+    problems ("Exercise 5.9 -- 3 steps written · resume"), newest first, each
+    with the source it opens in. A pure read; a problem whose source is gone,
+    or whose statement is held out now, is left out.
+
+    Fix round 1 (F3): so is a problem worked on an earlier reading of its
+    book (the book was read again since). The Reader opens a book on its
+    current reading, where that problem's anchors are another reading's
+    spans and the workbench cannot reopen it; the Reader's own marks list the
+    open reading's problems only, and Today offers no resume it cannot keep."""
+
+    vault, repository = _require(ctx)
+    rows = WB.open_problems(repository, now=datetime.now(UTC), open_days=WB.open_session_days(vault))
+    problems = []
+    readings: dict[str, str | None] = {}
+    for summary in _cleared(vault, repository, rows):
+        source_id = _source_id(repository, summary.get("extraction_id"))
+        if source_id is None:
+            continue
+        if source_id not in readings:
+            readings[source_id] = _current_reading(repository, source_id)
+        if readings[source_id] != summary.get("extraction_id"):
+            continue
+        problems.append({**summary, "source_id": source_id})
+    return _answer({"problems": to_camel(problems)})
 
 
 def _cleared(vault, repository, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
