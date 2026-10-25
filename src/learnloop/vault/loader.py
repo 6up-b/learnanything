@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
+from stat import S_ISDIR
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -111,6 +112,11 @@ _CONTENT_SUFFIXES = (".yaml", ".yml", ".toml", ".md")
 _ROOT_SKIP_DIRS = frozenset({"canonical-sources", "node_modules", "__pycache__"})
 
 
+#: The key suffix of a symbolic link's own entry in :func:`content_files`. NUL
+#: never occurs in a path, so a link's entry cannot collide with a file's.
+LINK_ENTRY_SUFFIX = "\0link"
+
+
 def content_files(root: Path) -> dict[str, tuple[int, int]]:
     """``{relative path: (size, mtime_ns)}`` for every file :func:`load_vault` can read.
 
@@ -121,10 +127,19 @@ def content_files(root: Path) -> dict[str, tuple[int, int]]:
     linked content too). A file outside the loader's walk that changes costs
     a secondary one extra reload, never a stale vault.
 
-    Directory symlinks are followed, as the loader's ``Path`` operations
-    follow them; a directory already walked (a link cycle, or two links to
-    one directory) is walked once. File stats follow links, so an edit to a
-    linked file's target changes its entry.
+    Paths are the loader's. Directory symlinks are followed, as the loader's
+    ``Path`` operations follow them, and every name a file is reachable by is
+    kept: a directory with two names (``a-sources -> sources``) is listed
+    under both, so a check that looks a file up by the name the loader uses
+    (the empty source-sets check) always finds it (re-review F5). Only a link
+    back to a directory on its own path (a cycle) is not descended.
+
+    Link topology is part of the set (re-review F3): each symlink to a
+    directory or a content file has an entry of its own, ``<path>`` +
+    :data:`LINK_ENTRY_SUFFIX`, holding its target's ``(st_dev, st_ino)``, so
+    retargeting a link changes the fingerprint even when the new target's
+    files have the old ones' names, sizes and mtimes. File stats follow links,
+    so an edit to a linked file's target changes its entry.
     """
 
     root_text = os.fspath(root)
@@ -133,36 +148,39 @@ def content_files(root: Path) -> dict[str, tuple[int, int]]:
         root_stat = os.stat(root_text)
     except OSError:
         return files
-    walked = {(root_stat.st_dev, root_stat.st_ino)}
-    for directory, subdirectories, names in os.walk(root_text, followlinks=True):
-        kept: list[str] = []
-        for name in sorted(subdirectories):  # sorted: one walk order, so one set of names
-            if directory == root_text and (name.startswith(".") or name in _ROOT_SKIP_DIRS):
-                continue
+    # Each directory to walk, with the identities of it and its ancestors on this path.
+    pending = [(root_text, frozenset({(root_stat.st_dev, root_stat.st_ino)}))]
+    while pending:
+        directory, ancestors = pending.pop()
+        try:
+            with os.scandir(directory) as listing:
+                entries = sorted(listing, key=lambda entry: entry.name)
+        except OSError:  # removed, or unreadable, since it was listed
+            continue
+        for entry in entries:
             try:
-                stat = os.stat(os.path.join(directory, name))
-            except OSError:  # removed, or a dangling link
+                linked = entry.is_symlink()
+                stat = os.stat(entry.path)  # follows links
+            except OSError:  # removed between the listing and the stat, or a dangling link
                 continue
+            relative = os.path.relpath(entry.path, root_text)
             identity = (stat.st_dev, stat.st_ino)
-            if identity in walked:
-                continue
-            walked.add(identity)
-            kept.append(name)
-        subdirectories[:] = kept
-        for name in names:
-            if not name.endswith(_CONTENT_SUFFIXES):
-                continue
-            path = os.path.join(directory, name)
-            try:
-                stat = os.stat(path)
-            except OSError:  # removed between the listing and the stat
-                continue
-            files[os.path.relpath(path, root_text)] = (stat.st_size, stat.st_mtime_ns)
+            if S_ISDIR(stat.st_mode):
+                if directory == root_text and (entry.name.startswith(".") or entry.name in _ROOT_SKIP_DIRS):
+                    continue
+                if linked:
+                    files[relative + LINK_ENTRY_SUFFIX] = identity
+                if identity not in ancestors:
+                    pending.append((entry.path, ancestors | {identity}))
+            elif entry.name.endswith(_CONTENT_SUFFIXES):
+                files[relative] = (stat.st_size, stat.st_mtime_ns)
+                if linked:
+                    files[relative + LINK_ENTRY_SUFFIX] = identity
     return files
 
 
 def content_digest(files: dict[str, tuple[int, int]]) -> str:
-    """One digest over path, size and mtime of ``files`` (:func:`content_files`)."""
+    """One digest over path, size and mtime of ``files`` (:func:`content_files`), and its link entries."""
 
     text = "\n".join(f"{path}\t{size}\t{mtime}" for path, (size, mtime) in sorted(files.items()))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -174,7 +192,8 @@ def vault_content_fingerprint(root: Path) -> str:
     A secondary process (``SidecarContext.load_secondary``, the chat runtime)
     compares it with the one taken before its last load and reloads on a
     difference. The mobile spec's count-and-newest-mtime form is contained in
-    it; path and size also catch a rename, or a copy that keeps an older mtime.
+    it; path and size also catch a rename, or a copy that keeps an older mtime,
+    and each symlink's target identity catches a retargeted link.
     The database is never fingerprinted: WAL makes its mtime meaningless, and
     every connection reads it fresh.
     """
@@ -253,11 +272,21 @@ def _source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, t
     """The source-sets file is empty: a writer truncated it to rewrite it."""
 
     try:
-        relative = os.path.relpath(VaultPaths(root, vault.config).source_sets_path, root)
+        path = VaultPaths(root, vault.config).source_sets_path
+        relative = os.path.relpath(path, root)
     except (OSError, ValueError):
         return True
     found = files.get(relative)
-    return found is not None and found[0] == 0
+    if found is None:
+        # Not in the snapshot under the loader's name (re-review F5: never assume
+        # "not empty" from a missing entry): look at the file itself.
+        try:
+            return os.stat(path).st_size == 0
+        except FileNotFoundError:
+            return False  # no source-sets file: nothing to protect, and the load saw none
+        except OSError:
+            return True
+    return found[0] == 0
 
 
 def load_vault(

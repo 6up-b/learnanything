@@ -556,8 +556,144 @@ def test_fingerprint_walks_a_link_cycle_once(tmp_path):
     subject = paths.subject_dir(_ITEM[0])
     (subject / "loop").symlink_to(paths.root, target_is_directory=True)
     files = content_files(paths.root)
-    assert not any(path.startswith(os.path.join("subjects", _ITEM[0], "loop")) for path in files)
+    loop = os.path.join("subjects", _ITEM[0], "loop")
+    assert not any(path.startswith(loop + os.sep) for path in files)  # the cycle is not descended
     assert os.path.join("subjects", _ITEM[0], "practice-items", f"{_ITEM[1]}.yaml") in files
+
+
+def _alias_sources(paths: VaultPaths) -> None:
+    """A root-level directory link that sorts before ``sources`` and names the same directory."""
+
+    (paths.root / "a-sources").symlink_to(paths.root / "sources", target_is_directory=True)
+
+
+def test_a_directory_alias_keeps_every_path_the_loader_sees(tmp_path):
+    """Re-review F5: a second name for a directory does not drop the first one's files
+    from the fingerprint, so a path the loader reads is always fingerprinted under the
+    name the loader uses."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    _alias_sources(paths)
+    files = content_files(paths.root)
+    relative = os.path.relpath(paths.source_sets_path, paths.root)
+    assert relative in files
+    assert os.path.join("a-sources", os.path.basename(relative)) in files
+
+
+def test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_sidecar(tmp_path):
+    """Re-review F5: with ``a-sources -> sources``, a source-sets file left truncated by
+    the primary is still caught: the attach is refused, never published without protection."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    _alias_sources(paths)
+    paths.source_sets_path.write_text("", encoding="utf-8")
+
+    ctx = SidecarContext()
+    with pytest.raises(SidecarError) as refused:
+        ctx.load_secondary(paths.root)
+    assert refused.value.code == "vault_unsettled"
+    assert ctx.vault is None and ctx.repository is None
+
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_001_000_000_000)
+    ctx.load_secondary(paths.root)
+    assert _exam_members(ctx.vault) == ["src_exam"]
+
+
+def test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_chat_runtime(tmp_path):
+    """Re-review F5, the chat runtime: the same alias and truncation publish a snapshot
+    marked unsettled (protection fails closed), as they did before the alias-deduplicating
+    walk, and the next settled read is unmarked."""
+
+    from learnloop.learner_protection import SNAPSHOT_UNSETTLED
+    from learnloop.remote.runtime import RemoteRuntime
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    _alias_sources(paths)
+    paths.source_sets_path.write_text("", encoding="utf-8")
+
+    runtime = RemoteRuntime.attach(paths.root, load_environment=False)
+    assert any(issue.code == SNAPSHOT_UNSETTLED for issue in runtime.vault().issues)
+
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_001_000_000_000)
+    vault = runtime.vault()  # an unsettled load is looked at again on the next request
+    assert not any(issue.code == SNAPSHOT_UNSETTLED for issue in vault.issues)
+    assert _exam_members(vault) == ["src_exam"]
+
+
+def test_the_empty_source_sets_check_does_not_trust_a_missing_entry(tmp_path):
+    """Re-review F5: the empty check never reads "not empty" from the source-sets file's
+    absence in the snapshot; it looks at the file itself."""
+
+    from learnloop.vault.loader import _source_sets_caught_empty
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    assert _source_sets_caught_empty(paths.root, vault, {}) is False
+    paths.source_sets_path.write_text("", encoding="utf-8")
+    assert _source_sets_caught_empty(paths.root, vault, {}) is True
+    paths.source_sets_path.unlink()
+    assert _source_sets_caught_empty(paths.root, vault, {}) is False
+
+
+def test_retargeting_a_directory_link_between_two_fingerprinted_directories_reloads(tmp_path):
+    """Re-review F3: ``practice-items`` links to ``data-a``; ``data-a`` and ``data-b`` both sit
+    under the vault with the same file names, sizes and mtimes. Retargeting the link to
+    ``data-b`` changes what the loader reads, so it changes the fingerprint (link topology
+    is fingerprinted), and the secondary reloads instead of staying stale."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    items = paths.subject_dir(_ITEM[0]) / "practice-items"
+    stamp = 1_000_000_000_000_000_000
+    for name, prompt in (("data-a", "Prompt version A."), ("data-b", "Prompt version B.")):
+        target = paths.root / name
+        target.mkdir()
+        for source in sorted(items.iterdir()):
+            data = read_yaml_data(source)
+            if source.stem == _ITEM[1]:
+                data["prompt"] = prompt  # the same length in both: only the bytes differ
+            write_yaml(target / source.name, data)
+            os.utime(target / source.name, ns=(stamp, stamp))
+    for source in sorted(items.iterdir()):
+        source.unlink()
+    items.rmdir()
+    items.symlink_to(paths.root / "data-a", target_is_directory=True)
+    assert all(os.stat(copy).st_size == os.stat(paths.root / "data-a" / copy.name).st_size
+               for copy in (paths.root / "data-b").iterdir())
+
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    assert ctx.vault.practice_items[_ITEM[1]].prompt == "Prompt version A."
+    before = vault_content_fingerprint(paths.root)
+
+    items.unlink()
+    items.symlink_to(paths.root / "data-b", target_is_directory=True)
+    assert vault_content_fingerprint(paths.root) != before
+    assert ctx.refresh_if_content_changed(now=time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS) is True
+    assert ctx.vault.practice_items[_ITEM[1]].prompt == "Prompt version B."
+
+
+def test_retargeting_a_file_link_to_a_same_sized_file_changes_the_fingerprint(tmp_path):
+    """Re-review F3, file links: a link moved to another file with the same size and mtime
+    is a different file for the loader, so the fingerprint changes."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    item = paths.practice_item_path(*_ITEM)
+    stamp = 1_000_000_000_000_000_000
+    for name, prompt in (("item-a.yaml", "Prompt version A."), ("item-b.yaml", "Prompt version B.")):
+        data = read_yaml_data(item)
+        data["prompt"] = prompt
+        write_yaml(paths.root / name, data)
+        os.utime(paths.root / name, ns=(stamp, stamp))
+    item.unlink()
+    item.symlink_to(paths.root / "item-a.yaml")
+    before = vault_content_fingerprint(paths.root)
+    item.unlink()
+    item.symlink_to(paths.root / "item-b.yaml")
+    assert vault_content_fingerprint(paths.root) != before
 
 
 # -- durability lane: a real second process on a WAL vault -------------------------------
