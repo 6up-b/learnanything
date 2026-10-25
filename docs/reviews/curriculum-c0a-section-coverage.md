@@ -81,4 +81,16 @@ spend caps and the `keep` prompt bound. No weight, margin or threshold.
 
 ## Gate (this step; targeted, memory-capped)
 
-See the stage result for the exact commands and counts.
+Every pytest inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, `-n 6`, one at a time.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken (a first placement under `learnloop.curriculum` broke the frozen-cycles contract; the module moved to `learnloop.source_retrieval`) |
+| Contracts: `test_cli_help_snapshot`, `test_config_refactor` (22 defaults snapshots), `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_ad_protected_tables`, `test_ad_protected_readings`, `test_public_tip_guards`, `test_migrations`, `test_judge_routes`, `test_plan_first_transport_paid_roles`, `test_plan_first_transport` | 649 passed |
+| Every test file changed (42: the three new files, the head-path rename in 36, the migration-chain diffs) plus the modules' consumers (`test_label_roles_cli`, `test_reading_paths`, `test_roles_concurrency`, `test_roles_judges`, `test_roles_switch_off`, `test_source_roles`, `test_registry_audit`, `test_ad23_t1_routes`, `test_decider_landing`, `test_field_config`, `test_provider_resolution_parity`, `test_voyage_fallback`, `test_codex_tool_lockdown`, `test_plan_first_transport_offer_grants`, `test_plan_first_transport_today_quiet`, `test_ad_guard`): 58 files | 1,279 passed, 1 skipped, 1 failed: `test_plan_first_transport_offer_grants::test_p1...` (a `KeyError` on a drained batch under -n 6 load; untouched code, passed on the rerun below) |
+| After the module move: `test_section_coverage`, `test_section_coverage_rpcs`, `test_section_coverage_migration`, `test_architecture`, `test_mobile_allowlist`, `test_cli_help_snapshot`, `test_config_refactor`, `test_plan_first_transport_offer_grants`, `test_ad_protected_tables`, `test_desktop_rpc_contract` | 385 passed |
+| `-m durability` on `test_section_coverage_migration`, `test_retrieval_spaces_migration`, `test_rw2d_receipts_migration`, `test_reader_rw7a_migration`, `test_migrations`, `test_tracked_fixture_databases` | 4 passed |
+| `--durable-sqlite` on the three new files | 31 passed |
+| `db_generate_reference.py`, `db_validate_reference.py` | 0 errors; head 222; 352 table notes; 1,052 configuration leaves in 71 sections (counts in `Configuration.md` and `Database.md` updated) |
+| Frontend, `src-tauri` | unchanged (no npm, vitest or cargo needed) |
