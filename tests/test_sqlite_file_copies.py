@@ -26,25 +26,30 @@ _TRACKED_FIXTURE = (
     "rollback mode with no companions (test_tracked_fixture_databases_are_rollback_mode)"
 )
 _MIGRATION_SQL = "copies migration .sql files, not databases"
+_OWNER_LANE = (
+    "copies an owner_vaults-lane vault (tests/owner_vaults.py): a backup-API copy that no test opens "
+    "writable in place, so it holds no WAL frames (tests/conftest.py checks it like a tracked fixture)"
+)
 
 AUDITED_COPIERS: dict[str, tuple[int, str]] = {
     "src/learnloop/db/copies.py": (
         1,
         "copy_tree_without_databases: copytree with every database and companion file ignored",
     ),
-    "tests/test_activity_backfill.py": (1, _TRACKED_FIXTURE),
-    "tests/test_collection_dataset.py": (1, _TRACKED_FIXTURE),
-    "tests/test_doctor.py": (1, _TRACKED_FIXTURE),
+    "tests/test_activity_backfill.py": (1, _OWNER_LANE),
+    "tests/test_collection_dataset.py": (1, _OWNER_LANE),
+    "tests/test_doctor.py": (1, _OWNER_LANE),
     "tests/test_exam_seeding.py": (1, _MIGRATION_SQL),
-    "tests/test_goal_decay_projection.py": (1, _TRACKED_FIXTURE),
-    "tests/test_goal_scope_material.py": (1, _TRACKED_FIXTURE),
-    "tests/test_graph_editor_reads.py": (1, _TRACKED_FIXTURE),
+    "tests/test_goal_decay_projection.py": (1, _OWNER_LANE),
+    "tests/test_goal_scope_material.py": (1, _OWNER_LANE),
+    "tests/test_graph_editor_reads.py": (1, _OWNER_LANE),
     "tests/test_judge_routes.py": (2, _MIGRATION_SQL),
-    "tests/test_learner_read_model_pinning.py": (1, _TRACKED_FIXTURE),
-    "tests/test_migrate_fresh.py": (1, _TRACKED_FIXTURE),
+    "tests/test_learner_read_model_pinning.py": (1, _OWNER_LANE),
+    "tests/test_migrate_fresh.py": (1, _OWNER_LANE),
     "tests/test_migrations.py": (
         15,
-        "copies migration .sql files and tracked fixture databases",
+        "copies migration .sql files and tracked fixture databases (and, in the owner_vaults lane, "
+        "backup-API copies no test opens writable in place)",
     ),
     "tests/test_model_call_receipt_owners.py": (1, _MIGRATION_SQL),
     "tests/test_probe_migration.py": (1, _MIGRATION_SQL),
@@ -66,10 +71,15 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
         1,
         "copies a Python helper script (rw2c_state_parity.py) into an archived code tree, not a database",
     ),
-    "tests/test_receipt_derivation.py": (2, _TRACKED_FIXTURE),
-    "tests/test_receipt_exactness.py": (1, _TRACKED_FIXTURE),
+    "tests/test_receipt_derivation.py": (2, _TRACKED_FIXTURE + "; or " + _OWNER_LANE),
+    "tests/test_receipt_exactness.py": (1, _TRACKED_FIXTURE + "; or " + _OWNER_LANE),
     "tests/test_shadow_rebuild.py": (1, _TRACKED_FIXTURE),
-    "tests/test_sidecar_contract.py": (5, _TRACKED_FIXTURE),
+    "tests/test_sidecar_contract.py": (5, _OWNER_LANE),
+    "scripts/s0_landing.py": (
+        2,
+        "copies textbooks and reference PDFs (each checked by sha256), never a database; "
+        "the vaults are copied with learnloop.db.copies.copy_tree_with_databases",
+    ),
     "tests/test_sqlite_wal.py": (
         1,
         "plants a -wal from another database to prove fresh creation discards orphans",
@@ -79,7 +89,7 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
         "byte-copies a live WAL database on purpose to show the commit it loses",
     ),
     "tests/test_teach_back.py": (1, _MIGRATION_SQL),
-    "tests/test_today_surfaces.py": (3, _TRACKED_FIXTURE),
+    "tests/test_today_surfaces.py": (3, _OWNER_LANE),
 }
 
 

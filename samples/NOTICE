@@ -1,0 +1,65 @@
+LearnLoop samples: third-party sources redistributed under their own licences
+============================================================================
+
+The files in this directory are not LearnLoop's own work and are NOT covered by
+the repository's Apache-2.0 licence. Each is redistributed unmodified under
+the licence named in its entry, which was checked against the licensor's own
+statement (docs/specs/spec_storage_sync_v1.md §3.5, decision D16). They are
+here so that a new contributor can try LearnLoop on real material: add one to
+a vault with Add (or `learnloop add-source`).
+
+Two entries are licensed for NON-COMMERCIAL use only (CC BY-NC-SA 4.0). Whoever
+redistributes this repository commercially must remove them; the code does not
+need them, and the test suite never reads this directory.
+
+Every file under samples/ must have an entry here naming its licence
+(tests/test_public_tip_guards.py checks it).
+
+
+File: samples/understanding-linear-algebra-symmetric-matrices-and-variance.html
+Title: "Symmetric matrices and variance", a section of Understanding Linear Algebra
+Author: David Austin
+Source: https://understandinglinearalgebra.org/sec-symmetric-matrices.html
+Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Changes: none. The HTML page as LearnLoop captured it (2026-05-25), with the
+  book's own page chrome; SHA-256 aa905bcd4a3ae2aa3f178737339a3ef052ba1ed5c07ec8b63d5a94f290808fdd.
+
+File: samples/wikipedia-elevator-paradox.html
+Title: "Elevator paradox"
+Author: Wikipedia contributors
+Source: https://en.wikipedia.org/w/index.php?title=Elevator_paradox&oldid=1313119339
+  (the authors are listed in the page history at that address)
+Licence: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)
+Changes: none. The HTML page as LearnLoop captured it; its Wikipedia logos are
+  linked, not included. SHA-256 1ca2958db00a39db6a491c9c099435a9b09603b07d896cd0470c2f7e19daa8b2.
+
+File: samples/mit-18.06-spring-2010-quiz1.pdf
+Title: 18.06 Linear Algebra, Spring 2010, Quiz 1 (March 1, 2010)
+Author: Gilbert Strang, MIT OpenCourseWare
+Source: https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/
+Licence: CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/),
+  per the MIT OpenCourseWare terms of use (https://ocw.mit.edu/terms). NON-COMMERCIAL.
+Changes: none. SHA-256 b5f28732378182d884e9cf7dcc711ea7c8bdba288c7933975697a1db10a2fff2.
+
+File: samples/mit-18.06-spring-2010-quiz1-solutions.pdf
+Title: 18.06 Linear Algebra, Spring 2010, Quiz 1 solutions
+Author: Gilbert Strang, MIT OpenCourseWare
+Source: https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/
+Licence: CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/),
+  per the MIT OpenCourseWare terms of use (https://ocw.mit.edu/terms). NON-COMMERCIAL.
+Changes: none. SHA-256 d263d3417d722e3f0f93b67aeff95bb7ae7d896554114e3af0d86363f2258d59.
+
+
+Other attributed third-party text elsewhere in the repository
+-------------------------------------------------------------
+
+tests/fixtures/glm_ocr/arxiv_2302_11517_trimmed.json and
+apps/learnloop-tauri/src/components/pdfSelection/fixtures/arxiv_2302_11517_glm_blocks.json
+hold OCR text of pages 1-5 of Wei Tang, Kangning Cui, Raymond H. Chan,
+"Optimized Hard Exudate Detection with Supervised Contrastive Learning",
+arXiv:2302.11517v2 (https://arxiv.org/abs/2302.11517), CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/); trimmed as described in
+tests/fixtures/glm_ocr/README.md.
+
+Screenshots under docs/ that show a page of a book are listed, with their
+licences, in docs/screenshots/BOOK_PAGES.md.

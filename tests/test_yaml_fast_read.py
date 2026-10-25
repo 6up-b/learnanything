@@ -23,13 +23,29 @@ from learnloop.vault.yaml_io import (
     read_yaml,
     read_yaml_data,
 )
-from tests.owner_vaults import tracked_fixture_files
+from tests.owner_vaults import OWNER_VAULT_NAMES, owner_vaults_root, tracked_fixture_files
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-# The files git tracks under fixtures/ (the owner's vaults left the tip in S0).
-FIXTURE_YAML = tracked_fixture_files("*.yaml")
+# The files git tracks under fixtures/ (the owner's vaults left the tip in S0),
+# plus the owner_vaults lane's copies when that lane is on.
+_OWNER_ROOT = owner_vaults_root()
+_OWNER_FILES = (
+    [path for name in OWNER_VAULT_NAMES for path in (_OWNER_ROOT / name).rglob("*") if path.is_file()]
+    if _OWNER_ROOT is not None and _OWNER_ROOT.is_dir() else []
+)
+
+
+def _label(path: Path) -> str:
+    if _OWNER_ROOT is not None and path.is_relative_to(_OWNER_ROOT):
+        return "owner:" + str(path.relative_to(_OWNER_ROOT))
+    return str(path.relative_to(FIXTURES))
+
+
+FIXTURE_YAML = tracked_fixture_files("*.yaml") + sorted(path for path in _OWNER_FILES if path.suffix == ".yaml")
 FIXTURE_MARKDOWN = sorted(
-    path for path in tracked_fixture_files("*.md") if path.read_text(encoding="utf-8").startswith("---\n")
+    path
+    for path in tracked_fixture_files("*.md") + [path for path in _OWNER_FILES if path.suffix == ".md"]
+    if path.read_text(encoding="utf-8").startswith("---\n")
 )
 PURE_PYTHON_LOADER = yaml_io._build_fast_loader(yaml.SafeLoader)
 
@@ -66,16 +82,18 @@ def _read_or_error(read, path: Path) -> Any:
 
 
 def test_fixture_corpus_is_not_empty() -> None:
-    assert len(FIXTURE_YAML) > 100
+    # 33 tracked YAML files since S0 (the migration head and mvp017's vaults);
+    # over 100 more with the owner_vaults lane on.
+    assert len(FIXTURE_YAML) > 20
     assert FIXTURE_MARKDOWN
 
 
-@pytest.mark.parametrize("path", FIXTURE_YAML, ids=lambda path: str(path.relative_to(FIXTURES)))
+@pytest.mark.parametrize("path", FIXTURE_YAML, ids=_label)
 def test_fast_read_matches_round_trip_read_for_fixture_yaml(path: Path) -> None:
     assert _read_or_error(read_yaml_data, path) == _read_or_error(read_yaml, path)
 
 
-@pytest.mark.parametrize("path", FIXTURE_YAML, ids=lambda path: str(path.relative_to(FIXTURES)))
+@pytest.mark.parametrize("path", FIXTURE_YAML, ids=_label)
 def test_libyaml_and_pure_python_safe_loaders_agree_on_fixture_yaml(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     c_loaded = yaml_io._fast_load(text)
@@ -86,7 +104,7 @@ def test_libyaml_and_pure_python_safe_loaders_agree_on_fixture_yaml(path: Path) 
     assert _canonical(c_loaded) == _canonical(pure_loaded)
 
 
-@pytest.mark.parametrize("path", FIXTURE_MARKDOWN, ids=lambda path: str(path.relative_to(FIXTURES)))
+@pytest.mark.parametrize("path", FIXTURE_MARKDOWN, ids=_label)
 def test_fast_frontmatter_read_matches_round_trip_read(path: Path) -> None:
     assert _read_or_error(read_markdown_frontmatter_data, path) == _read_or_error(
         read_markdown_with_frontmatter, path

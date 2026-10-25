@@ -16,8 +16,11 @@ combines FSRS scheduling, learner-aware misconception detection and remediation,
 
 ## A look at it
 
-From fixture linear-algebra vault, reading *Linear Algebra
-Done Right* by Sheldon Axler.
+From the author's own linear-algebra vault, reading *Linear Algebra
+Done Right* by Sheldon Axler. Screenshots that show a page of a book carry its
+licence: Axler's fourth edition is © 2024 Sheldon Axler, open access under
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+(<https://linear.axler.net>); see [`docs/screenshots/BOOK_PAGES.md`](docs/screenshots/BOOK_PAGES.md).
 
 ### 1. Ingest anything you actually trust
 
@@ -221,10 +224,10 @@ The Tauri shell starts the Python `learnloop_sidecar` automatically. On launch
 it opens the first of: `LEARNLOOP_VAULT` if set; the vault you last selected in
 the app (remembered in `~/.config/learnloop/last_vault`, honoring
 `LEARNLOOP_CONFIG_DIR` / `XDG_CONFIG_HOME`); the first vault under the
-gitignored `fixtures-local/`; and only then the tracked linear-algebra fixture.
-Keep your own vault in `fixtures-local/` — opening a vault writes to it, so a
-bare `npm run dev` against the tracked fixture leaves `fixtures/` dirty in
-`git status`. Click the green vault path in the app header to select another
+gitignored `fixtures-local/`; and only then a new library at `~/LearnLoop`,
+created on first launch. Keep your own vaults outside the repository (or in
+`fixtures-local/`); never open a tracked fixture under `fixtures/` in the app,
+since opening a vault writes to it. Click the green vault path in the app header to select another
 vault, or use the new-vault wizard on the Start screen to create and bootstrap
 one; either choice becomes the next launch's default.
 
@@ -475,6 +478,43 @@ Four things are worth knowing before you read any of this output:
 
 `docs/specs/documentation.md` sections 8–14 and 21–23 explain the model behind all of it.
 
+## What lives where
+
+The repository is public and holds code, documentation and test fixtures only.
+Nobody's learning history and no third-party file without a redistribution
+licence is tracked (`docs/specs/spec_storage_sync_v1.md`, storage S0):
+
+| What | Where |
+|---|---|
+| Code, migrations, tests, docs | This repository |
+| Your vaults (`state.sqlite`, YAML, Markdown, the originals store) | Outside any checkout: `~/LearnLoop` by default; the author keeps theirs under `~/learnloop-vaults/<name>/` |
+| Your books and papers | Wherever you keep them (the author: `~/learnloop-books/`). Once added, LearnLoop reads its own content-addressed copy in the vault, so the original file can move |
+| Machine-local settings and keys | `~/.config/learnloop/` (or `LEARNLOOP_CONFIG_DIR`); never in a vault or the repository |
+| Test vaults | Built by tests from text (`tests/helpers.py`); `fixtures/` keeps text fixtures, the sanitized migration-head fixture and the synthetic `mvp017_route_check_replay` |
+| Tests on the author's real vaults | The opt-in `owner_vaults` lane, skipped by default; it runs on backup-API copies named by `LEARNLOOP_OWNER_VAULTS` (`tests/owner_vaults.py`) |
+| Sample sources | `samples/`, each listed in `samples/NOTICE` with its licence |
+
+The repository does not use git-LFS. Reference papers are cited by DOI or link
+in the documents that discuss them, not stored. Guard tests
+(`tests/test_public_tip_guards.py`) fail on a tracked database outside the two
+historical fixtures, a PDF, EPUB, DjVu, audio or video file outside `samples/`,
+another binary file outside `docs/` images and `apps/` assets, a file over 5 MB
+(the two historical databases excepted until S3 turns them into text), a sample
+without a `NOTICE` entry, or a git-LFS rule.
+
+## Licence
+
+LearnLoop's own code and documentation are licensed under the
+[Apache License 2.0](LICENSE). Dependencies keep their own licences. One
+optional dependency restricts use: the `pdf` extra installs Marker
+(`marker-pdf`), whose code is Apache-2.0 but whose model weights are free only
+for research, personal use and small startups (see Marker's own licence before
+using it commercially). The files under `samples/` keep their own licences,
+listed in `samples/NOTICE`; two of them are non-commercial, so a commercial
+redistribution of this repository must drop them.
+
+Contributions are accepted under the same Apache-2.0 licence.
+
 ## Architecture
 
 ```text
@@ -498,7 +538,8 @@ Python learnloop_sidecar
 | `src/learnloop_sidecar/` | JSON-RPC bridge used by the desktop app |
 | `migrations/` | Ordered SQLite schema migrations |
 | `tests/` | Unit, integration, replay, calibration, and CLI tests |
-| `fixtures/linear_algebra/` | Development vault with real example content |
+| `fixtures/` | Text fixtures and the two historical test databases (see below) |
+| `samples/` | A few openly licensed sources for trying LearnLoop, with a `NOTICE` |
 
 The Rust shell finds the sidecar in this order: `LEARNLOOP_PYTHON`, the active
 environment (`VIRTUAL_ENV`/`CONDA_PREFIX`, so an activated conda/venv is used),

@@ -377,7 +377,6 @@ def test_an_explicit_ask_is_never_deferred(ctx):
 
 
 @owner_vaults
-@pytest.mark.skipif(not FIXTURE_VAULT.exists(), reason="linear_algebra fixture absent")
 def test_fixture_vault_goal_over_unauthored_concepts_resolves(tmp_path):
     """The reported case: a goal over four freshly synthesized concepts.
 
