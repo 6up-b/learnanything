@@ -90,3 +90,221 @@ Targeted files (325): `test_ad1_codex_rereview_fixes.py`, `test_ad1_codex_review
 ## Calls and cost
 
 None. No paid request, no model load, no download, no GPU process; every Python run outside pytest used `env -i` with an empty HOME and LEARNLOOP_CONFIG_DIR and no routes.
+
+## Landing onto main
+
+Landed in `learnanything-merge2` on `merge/lr-p1-onto-main`, from main `6e1d40717` (AD2+AD3 at `mvp-0.30` with
+migration 214, RW2d at `mvp-0.31` with migration 219 and `fixtures/migration_head_219`) and `retrieval/local-p1` at
+`13c80e0c4`. The branch's base carried the E0/E1 experiment branches (harness code, specs, the E0/E1 reports); they
+land with it. **No algorithm successor** (spec §6): the chain, `LATEST_ALGORITHM_VERSION` (`mvp-0.31`) and the
+template text are main's. Orchestrator rulings: Codex final verify `20261024-224526-GAsewL` confirmed F1-F4 and F17
+fixed; F5, F18 and F19 are non-blocking (open items below).
+
+### Commits and conflicts
+
+- `6b4cfb65e`: the merge (`--no-ff`). **425 files conflicted**:
+  - 412 generated references: main's side taken, then regenerated.
+  - `config/template.py` (20 hunks): both stages' comment lines on every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry
+    (P1's line added to `mvp-0.30` and `mvp-0.31` too); all 22 hashes recomputed after.
+  - `substrate/rebuild_orchestrator.py`: AD2+AD3's `adaptive_difficulty` and `item_forecast_scores` replayers and
+    P1's `retrieval_fusion_posteriors`, each with its runner.
+  - `tests/test_rebuild_orchestrator.py`: the stale-row oracle plants a row in AD's three DERIVED tables and in
+    `retrieval_fusion_posteriors`.
+  - Seven migration tests (`test_ad1_migration`, `test_approach_maps_schema`, `test_help_assists_schema`,
+    `test_library_asks_migration`, `test_reader_rw3b_migration`, `test_reader_rw7a_migration`,
+    `test_t1_batch_origin_migration`): main's side, then the "nothing else changed" diffs subtract both
+    `RW2D_ADDED_OBJECTS` and `P1_ADDED_OBJECTS`, and the applied lists end `219, 220`.
+  - `fixtures/migration_head_219/{README.md,state.sqlite}` and `tests/cli_help_snapshot.json`: main's side, then
+    rebuilt and regenerated (below).
+- `83814302d`: the renumber and the head fixture (below).
+- `247722912`: the 22 defaults snapshots.
+- `55111b0ae`: references and the CLI help snapshot.
+- `5a2c5db04`: a landing fix. The branch's import-linter contract `experiments-stay-outside-production` lists every
+  production module, and `test_e0_isolation::test_the_import_linter_contract_names_every_production_package` failed in
+  the gate on the composed tree: main's `learnloop.ad_successor_upgrade` (AD2+AD3) and
+  `learnloop.workbench_field_signals_upgrade` (RW2d) were missing. Both added; the test (failing first, in the full
+  suite) passes, `lint-imports` 35 kept.
+
+Files both sides changed that merged cleanly include `db/table_roles.py`, `params/parameter_registry.py`,
+`config/schema.py`, `tests/test_architecture.py` (both stores in the audited-writer list) and the launch-site and
+HTTP-client audit lists; each composed with no overlap.
+
+The E0/E1 material was checked: `docs/reviews/experiments-e0-*.md`, `experiments-e1-*.md` and
+`docs/reviews/artifacts/experiments-e{0,1}/` hold aggregates, pins, prices, plans and metrics only (no book text, no
+question text; the only long quotations are the labelling rubric in the E0 Codex review). Nothing under
+`fixtures-local/` and no model weights or vectors are tracked; no added file exceeds 200 KB.
+
+### Renumber and head fixture
+
+- `migrations/219_retrieval_spaces.sql` is now `220_retrieval_spaces.sql` (its header says why). Nothing inside
+  names a version; the store, table-role and replayer comments, `test_architecture`'s note and
+  `test_retrieval_spaces_migration` (now from 219 to 220) follow. `test_rw2d_receipts_migration` subtracts P1's
+  objects on its way to head.
+- `fixtures/migration_head_220` is a backup-API copy of main's `migration_head_219` (which holds 214 and RW2d's
+  219) with only 220 applied under `UPGRADE_SCRATCH_COPY`, copied into place with the backup API:
+  `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+  `foreign_key_check` empty, no companion files. Against main's 219 it adds exactly 220's ten objects (three
+  tables, three autoindexes, two indexes, two triggers), all identical to the branch's head; no other object changed
+  and only `schema_migrations` gained a row.
+- `migration_head_219` was renamed to it (as T1 and RW2d did); the README was composed (header, the 220 paragraph,
+  this rebuild).
+- The head path is named in 36 test files and in the two `db_*_reference.py` scripts (three times in
+  `db_generate_reference.py`), with `SCHEMA_HEAD = 220` in both; the head-version asserts read 220.
+- `table_roles`: `embedding_spaces` WORKFLOW, `retrieval_feedback` RECEIPT, `retrieval_fusion_posteriors` DERIVED
+  with exactly one replayer (`test_table_roles`, `test_retrieval_spaces_migration` pass).
+
+### Regeneration
+
+- **References.** `db_generate_reference.py` then `db_validate_reference.py`: **0 errors**, schema head **220**,
+  **351** table notes, **1,046** configuration leaves (main 348 and 1,034), 4,743 wikilinks checked. The hand-written
+  counts in `Database.md` and `Configuration.md` were updated.
+- **Defaults snapshots.** All **22** recomputed with `defaults_fingerprint_for_version` (template `.pyc` cleared); a
+  rerun gives 0 mismatches. Checked against main's code at every version: **no value changed and no key removed**;
+  each version gains exactly 12 keys, all under `embedding.local`, `embedding.fallback` and `embedding.source_space`.
+  The successor chain, the latest tag and the template text are identical to main's.
+- **CLI help snapshot.** Regenerated: main's entries plus `embeddings local {setup,index,profile,status}`,
+  `embeddings fallback backfill`, `embeddings fusion refit` and `experiments e0/e1`; only `<root>` and `embeddings`
+  changed text.
+- **RPC pins** (serializer snapshot, desktop RPC contract, mobile allowlist): pass in the full suite; no file changed.
+- **`validate_vault.py`**: passes (1,154 notes, 1,152/1,152 reachable).
+- **Failing before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **1,189** issues (1,079 at RW2d's
+  landing; the new ones are this stage's and E0/E1's modules without module notes).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0) in 5G scopes, `TMPDIR` = merge2's
+`fixtures-local/tmp`. Every later Python command ran from the venv under `env -i` with empty `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`. pytest lanes in 10G/2G scopes at `-n 8` under `flock /tmp/learnloop-fullsuite.lock`;
+everything else in 5G/1G. Gate head `55111b0ae` (the landing fix `5a2c5db04` changes only `pyproject.toml`'s
+contract). Logs: `fixtures-local/lr-p1-landing-*.log`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **35 kept**, 0 broken (before and after the fix) |
+| full suite (`pytest -n 8`, 63 min 16 s) | **22,447 passed**, 2 failed, 3 skipped, 38 xfailed |
+| failure 1 | `test_e0_isolation::test_the_import_linter_contract_names_every_production_package`: real, a composition gap; fixed in `5a2c5db04` (above); the file passes (4) |
+| failure 2, alone, 3 times | `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep`: **3/3 passed** (4.5 s each). The known load flake (the parity runs shared the machine) |
+| durability (`-m durability`) | **122 passed** (RW2d's 121 plus this stage's) |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **206 files, 1,738 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean after every lane; no non-empty `-wal` beside a fixture |
+
+### Parity (backup-API copies; no model call)
+
+**Setup.** Scripts in `fixtures-local/landing-lr-p1/scripts/`, outputs in `out/`.
+- **Copies.** The owner's backups `fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}`
+  (`mvp-0.30`, schema 218 with 214, 0 `model_call_receipts`) were each copied once as whole trees with
+  `copy_tree_with_databases` into `landing-lr-p1/orig/`; every other copy came from those through the same helper.
+- **Not opened:** the main checkout's `fixtures/linear_algebra`, `fixtures/probability` and `fixtures/arxiv_v2`.
+- **Code.** Main's is `git archive main` (`6e1d40717`), the merge's `git archive 55111b0ae` (whole trees, so each
+  code runs its own `migrations/`), each first on `sys.path`. An audit hook logs every process start and every
+  socket connection and refuses any Codex process and any non-loopback connection. **None was attempted: the log is
+  empty** (no process start, no connection at all).
+- **Environment and routes.** `env -i` with empty `HOME` / `CODEX_HOME` / `LEARNLOOP_CONFIG_DIR`. Every route at
+  `127.0.0.1:9` through unset-key loopback profiles (63 tasks; only the disabled, keyless `embedding` profile is not
+  a loopback); rewrite, rerank, dense and embeddings off; `embedding.local` / `embedding.fallback` at their defaults
+  (off); `build_on_serve` and outcome placement off. Clock frozen at 2026-10-19 09:00 UTC.
+
+**(a) At `mvp-0.31`, main vs the merge.**
+- `upgrade --to mvp-0.31` plus `rebuild-derived-state` twice with main's code (`u31`) and with the merge's (`m31`):
+  rc 0 on both vaults ("mvp-0.30 -> mvp-0.31").
+- **Schema** (`u31` vs `m31`, and `u31` opened by each code, `c31_main` / `c31_merge`): the merge has exactly 220's
+  ten objects more; no SQL differs, no column added, nothing only on main. FK 0, integrity ok on all.
+- **Rows** (353 common tables; LA 18,300 rows, probability 8,207): `c31_main` vs `c31_merge` identical, row for row
+  (`schema_migrations` has 220 extra). `u31` vs `m31` identical once the ids and timestamps each run mints are
+  masked (raw, only those differ in ten tables, among them `parameter_registry` with the same 352 keys). The three
+  new tables are empty.
+- **`rebuild --shadow`** (main on `u31`; the merge on `m31` and on `c31_merge`): 0 / 0 / 0 (facet, mastery,
+  schedule), live database unchanged. The only difference in the report is the replayer list (13 vs 14): the new
+  `retrieval_fusion_posteriors` replayer runs, owns only its table and writes 0 rows (no receipts on these vaults).
+  Its byte-identical replay on seeded receipts is a branch test (`test_local_fusion_core`, `test_rebuild_orchestrator`).
+- **`doctor`**: 0 differences after normalisation (LA 57 issues / 1 error, probability 101 / 48, the same on both).
+- **Served reads.** Certification and curves and the Today queue (no session, a session, greedy) are
+  **byte-identical** on `c31_merge` and on `m31` against main's `c31_main` (LA cert 129,651 bytes, Today 43 items,
+  528,665 bytes; probability 17,495 and 67, 741,269 bytes). The daily plan (read, serve, serve again, read) is
+  identical except `card_hash`, `snapshot_hash` and the card hash inside `detail_json`, which differ between any two
+  runs (as recorded at DL2's, T1's, AD2+AD3's and RW2d's landings).
+
+**(b) Search at the defaults** (copies `s_main` / `s_merge` of `c31_main` / `c31_merge`). Ten fixed queries (five
+linear algebra, five probability) on both vaults, each through `search_library` (quick and deep), `search_spans` over
+the library scope, `find_sources` (`reading` policy, `explain` intent) and the tutor's `tutor_pool` (two LOs, library
+context), wall timings stripped.
+- **Identical main vs merge** on both vaults. The only difference in the raw dump is the merge's new in-memory
+  dataclass field `SpanSearch.resolution` (`None`; `repr=False`, never serialized), present in the field dump of
+  `search_spans` and `tutor_pool` and nowhere in any serialized result. `space_selection` is empty on every merge
+  result (20 per vault) and absent from `describe()`.
+- **No row written**: every table's row count and content digest are unchanged by the searches on both codes;
+  `embedding_spaces`, `retrieval_feedback` and `retrieval_fusion_posteriors` stay at 0 rows.
+- The same run on a copy with `[embedding.local] enabled = true` and no setup gives the same bytes and writes no row
+  (dense retrieval is off on these copies, so there is no meaning list for the seam to resolve).
+
+**(c) The owner-run commands.** The CLI help lists them (above). On a copy of `c31_merge` (linear algebra) with an
+empty `--data-root`, under the strict hook (every process start and every non-loopback connection refused and
+logged; none was attempted):
+
+| Command | Result |
+|---|---|
+| `embeddings local setup --dry-run` | rc 0, the plan (paths, pins, disk 783 GiB free of 45 needed); nothing created |
+| `embeddings local setup` (no flag) | rc 1, `invalid`: "pass --i-understand-this-downloads-33-gb (or --adopt-model-dir); run --dry-run first" |
+| `embeddings local status` | rc 0, `enabled: false` |
+| `embeddings local index --dry-run` / `--now` | rc 1, `disabled` ("embedding.local.enabled is false") |
+| `embeddings local profile --extraction-id …` | rc 1, `not_set_up` ("run `learnloop embeddings local setup`") |
+| `embeddings fallback backfill --dry-run` / without | `disabled` per source, estimate 0 tokens / $0, nothing charged |
+| `embeddings fusion refit` | rc 0, 0 contexts, 0 rows |
+
+The database is unchanged by all of them, and the data root and `HOME` stay empty.
+
+**Calls.** `model_call_receipts` has 0 rows in all 23 parity databases (no COMPLETED row, no row at all); no process
+was started and no connection opened. No GPU, download or paid request. Spend: $0.
+
+### Owner notes
+
+- **Nothing changes until you run setup.** With `embedding.local.enabled` and `embedding.fallback.enabled` off (the
+  defaults) retrieval, serving and plans are main's, byte for byte, and no new row is written. There is no
+  successor and no `upgrade` to run; the migration (220, three empty tables) applies on the next open.
+- **Commands** (from the stage record; none was run here):
+  1. `uv run learnloop embeddings local setup --dry-run`, then either
+     `uv run learnloop embeddings local setup --adopt-model-dir <E1 model dir> --adopt-env-python <E1 env>/bin/python`
+     (records E1's verified artefacts without moving them) or `--i-understand-this-downloads-33-gb`.
+  2. P0, the true 8,192-token profile, on a backup-API copy:
+     `uv run learnloop embeddings local profile --vault fixtures-local/<copy> --extraction-id <id> --json`
+     (one metered worker; nothing indexed).
+  3. Set `embedding.local.enabled = true` in a vault, then `embeddings local index --vault <vault> --dry-run`,
+     `--now`, and `embeddings local status --vault <vault>`. The local space indexes and reports coverage but serves
+     no query until P1c/P2 (Qwen stands in).
+  4. The Voyage fallback: **first opt out of Voyage's data use for training (spec Q7)** in the Voyage dashboard
+     (Admin access and a payment method needed; it cannot be undone in the dashboard), and only for vaults outside
+     the checkout (Q6). Then add `[ai.providers.voyage_context] type = "voyage_contextual_embedding"` and
+     `[embedding.fallback] enabled = true`, and run `embeddings fallback backfill --vault <vault> --dry-run` first
+     ($1 per run cap, admitted at the full $0.12/M).
+  5. `uv run learnloop embeddings fusion refit --vault <vault>` (no model call).
+- **Memory and GPU safety.** The worker runs in its own `systemd-run --user --scope -p MemoryMax=12G
+  -p MemorySwapMax=0`, takes the GPU lock and the full-suite lock non-blocking (it waits rather than competing with a
+  test run), and refuses to start under its memory and GPU floors. Run indexing and the profile when the machine is
+  otherwise quiet (no full suite, no other GPU job).
+
+### Open items
+
+1. **F5 (High per Codex; ruled non-blocking by the orchestrator).** Exposures recorded from passages the new spaces
+   show (MCP `find_passages`, library ask, tutor picks) can change coldness. An exposure is a true record of what was
+   shown, the exposure-to-coldness rule is unchanged, showing a different passage is like adding content, spec §6
+   says no successor, and at the defaults behaviour is main's byte for byte. **Owner decision requested:** keep §6's
+   "No" (as landed), or make the P1 switches a successor for exposure-recording consumers (the P3 consumer audit
+   should list them either way).
+2. **F18 and F19 (Medium per Codex; ruled Low).** IPS propensities after an encoder-failure reassignment, and legacy
+   randomized receipts read as p = 1. They affect only the learned fusion fit, which does not serve
+   (`learned_fusion = false`), and no legacy receipts exist outside the branch. **MUST be fixed before
+   `embedding.source_space.learned_fusion` is turned on.**
+3. **Owner questions (pending):** confirm the P1 scoping (log citations, opens and the would-be learned weights,
+   serve the seed; exploration off and near-tie only); the P0 bank posterior and pooling simulation proposed to fold
+   into P2 (F10); the local space serves no query until P1c/P2.
+4. **Desktop open-receipt wiring follow-up.** `record_open` and the Reader's search-hit click (`reader.retrieval_open`)
+   landed; other result surfaces (library list, compare) do not send the receipt yet.
+5. **The 8,192-token profile command** (P0) is owed: owner-run, on a backup-API copy, after setup.
+6. `desktop_validate.py` and `module_validate.py` fail as before (above; 110 more module-note issues).
+7. The parity copies' backup-API reads left empty `state.sqlite-wal` and `-shm` files beside both backup databases in
+   the main checkout's `fixtures-local/vault-backups-20261025-mvp030/` (as at RW2d's landing). Harmless; left in
+   place.
