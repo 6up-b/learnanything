@@ -340,3 +340,103 @@ it("keeps main.frame-body unfocusable (no tabIndex) in both shells", () => {
   expect(mains.length).toBeGreaterThanOrEqual(2);
   for (const tag of mains) expect(tag, tag).not.toMatch(/tabIndex/);
 });
+
+// ── UX Phase 3: Today (docs/reviews/ux-phase3.md) ─────────────────────────
+//
+// The same shape for UX Phase 3's own changes under screens/ and components/:
+// every changed file is listed with how classic stays base's (each new
+// behaviour is simple-only, gated where named; a shared one says why it is
+// safe). BASE and UX2_LANDED above are UX2's and do not move. UX3's own files
+// are found by its commits (subjects starting "UX Phase 3") after the stage's
+// base, so a later landing on main changes nothing here and needs no move.
+const UX3_BASE = "e9d4de1aa";
+
+export const UX3_CHANGES: Record<string, Behaviour[]> = {
+  "components/GoalBanner.tsx": [
+    {
+      behaviour: "the banner's own standing rule is exported for the goal card",
+      kind: "shared",
+      evidence: [/export function statusOf\(attainment: number \| null\)/],
+      reason: "an export only: the banner draws the same in both shells, and only the simple Today's goal card imports it"
+    }
+  ],
+  "components/GoalCard.tsx": [
+    {
+      behaviour: "the goal card (new)",
+      kind: "simple-only",
+      in: "screens/today/TodayPlace.tsx",
+      evidence: [/<GoalCard goal=\{primaryGoal\}/],
+      reason: "mounted only by TodayPlace, which only the simple shell mounts"
+    }
+  ],
+  "screens/today/TodayPlace.tsx": [
+    {
+      behaviour: "Today as one place: Start and Today merged (new)",
+      kind: "simple-only",
+      in: APP,
+      evidence: [/if \(simple && tab === "start"\) return todayPlace\(\);/, /if \(simple\) return todayPlace\(\);/],
+      reason: "classic falls through to StartScreen and TodayScreen, unchanged"
+    }
+  ],
+  "screens/reader/useReaderWorkbench.ts": [
+    {
+      behaviour: "Today's resume ▸ asks the workbench to resume a problem",
+      kind: "simple-only",
+      in: APP,
+      evidence: [/\.\.\.\(simple\s*\?\s*\{ resumeProblem: readerResume,/],
+      reason: "only the simple shell passes resumeProblem; without it the effect returns at once"
+    }
+  ]
+};
+
+/** App's classic paths that UX3 kept: the session-first notices (implicit
+ *  sessions are the simple shell's) and Start and Today themselves. */
+const UX3_APP_CLASSIC = [
+  'needSession("practice");',
+  'needSession("exercise");',
+  'needSession("checkMe");',
+  'needSession("redo");',
+  'needSession("primed");',
+  'if (shellRef.current === "classic") needSession("quickCheck");',
+  "<StartScreen",
+  "<TodayScreen"
+];
+
+describe("UX Phase 3 keeps classic base's", () => {
+  it("names a gate for every simple-only behaviour, and a reason for every shared one", () => {
+    for (const [file, behaviours] of Object.entries(UX3_CHANGES)) {
+      expect(behaviours.length, file).toBeGreaterThan(0);
+      for (const entry of behaviours) {
+        const text = read(entry.in ?? file);
+        for (const pattern of entry.evidence) expect(pattern.test(text), `${file}: ${entry.behaviour}: ${pattern}`).toBe(true);
+        if (entry.kind === "shared") expect(entry.reason, `${file}: ${entry.behaviour}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("gates every implicit session on the simple shell and keeps classic's notices and screens", () => {
+    const app = read(APP);
+    for (const snippet of UX3_APP_CLASSIC) expect(app.includes(snippet), snippet).toBe(true);
+    // Every call that starts an implicit session sits in a simple-shell branch.
+    const calls = app.split("\n").map((line, index) => ({ line, index })).filter(({ line }) => /implicitSession\(\)/.test(line) && !/function implicitSession/.test(line));
+    expect(calls.length).toBeGreaterThanOrEqual(6);
+    const lines = app.split("\n");
+    for (const { index } of calls) {
+      const context = lines.slice(Math.max(0, index - 3), index + 1).join("\n");
+      expect(/shellRef\.current === "simple"/.test(context), `implicitSession() at line ${index + 1} is gated`).toBe(true);
+    }
+  });
+
+  it("lists exactly the files UX3's commits changed under screens/ and components/", () => {
+    if (git(`cat-file -e ${UX3_BASE}^{commit}`) === null) return;
+    const commits = (git(`log --format=%H -E --grep="^UX Phase 3" ${UX3_BASE}..HEAD`) ?? "").split("\n").filter(Boolean);
+    const changed = new Set<string>();
+    for (const commit of commits) {
+      for (const line of (git(`show --relative --name-only --format= ${commit} -- src/screens src/components`) ?? "").split("\n")) {
+        if (line && !/\.test\.tsx?$/.test(line) && !line.includes("__snapshots__")) changed.add(line.slice(LOCAL_PREFIX.length));
+      }
+    }
+    if (commits.length === 0) return; // a checkout without UX3's history has nothing to compare against
+    expect([...changed].sort()).toEqual(Object.keys(UX3_CHANGES).sort());
+  });
+});

@@ -406,12 +406,19 @@ export function TodayPlace({
   const minutes = plan ? plan.rememberedMinutes : offMinutes;
   const choices = plan ? plan.minuteChoices : summary.data?.minuteChoices ?? summary.data?.minutesPresets ?? [];
 
-  // The list is read only when it is shown, or while the plan is off (it is
-  // then Today's content); keyed as Today's own queue read.
+  // The list is read only when it is shown, or while the plan is off (it
+  // names Begin's first question). With a session, or under the plan, it is
+  // Today's own queue read (classic Today's input); with the plan off and no
+  // session, the minutes Begin will start (classic Start's preview).
   const queueInput = useMemo(
-    () => (session ? todayQueueInput(session) : offMinutes !== null ? { sessionId: null, availableMinutes: offMinutes, energy: null } : null),
+    () =>
+      session || !planOff
+        ? todayQueueInput(session)
+        : offMinutes !== null
+          ? { sessionId: null, availableMinutes: offMinutes, energy: null }
+          : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session?.sessionId, session?.availableMinutes, offMinutes]
+    [session?.sessionId, session?.availableMinutes, planOff, offMinutes]
   );
   const queueQuery = useCachedQuery(
     queueInput && (list || planOff) ? ["get_today_queue", queueInput] : null,
