@@ -72,7 +72,7 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_decider_successor_follows_voi_stopping_and_keeps_every_predecessor():
     assert DECIDER_TIER1_ALGORITHM_VERSION == "mvp-0.22"
-    assert SUCCESSOR_CHAIN[-11:-8] == (
+    assert SUCCESSOR_CHAIN[-12:-9] == (
         ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION,
     )
     # Router R2a's staged frame (mvp-0.23) followed it as the latest successor.

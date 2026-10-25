@@ -146,7 +146,8 @@ def test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_ke
 
     paths, _repository, _spans, _clock = path_vault
     keys = [f"reading_paths.{name}" for name in ReadingPathsConfig.model_fields]
-    assert keys == ["reading_paths.enabled", "reading_paths.max_daily_cost_usd"]
+    # RW7b adds the plan's switch (a successor's, inert below its tag; tests/test_plan_follows_path.py).
+    assert keys == ["reading_paths.enabled", "reading_paths.max_daily_cost_usd", "reading_paths.plan_uses_path"]
     for path in [*keys, "ai.routing.reading_path_judge"]:
         rule = classify_config_path(path)
         assert rule is not None and (rule.kind, rule.param_class) == ("structural", "operational"), path

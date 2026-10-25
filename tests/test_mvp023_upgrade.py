@@ -72,7 +72,7 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_router_successor_follows_the_decider_and_keeps_every_predecessor():
     assert ROUTER_STAGED_FRAME_ALGORITHM_VERSION == "mvp-0.23"
-    assert SUCCESSOR_CHAIN[-9:-7] == (DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    assert SUCCESSOR_CHAIN[-10:-8] == (DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     # Router R2b + R2c's model mixture (mvp-0.24) followed it as the latest successor.
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.32"
     assert ROUTER_STAGED_FRAME_VERSIONS == frozenset({"mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32"})
