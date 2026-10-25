@@ -298,11 +298,30 @@ def media_inventory(checkout: Path) -> dict[str, dict]:
     for record in _git(checkout, "ls-files", "-z", "--others", "--", "new_textbooks").split(b"\0"):
         if not record:
             continue
-        path = record.decode("utf-8")
-        data = (checkout / path).read_bytes()
-        media.setdefault(_destination(path), {"source": path, "sha256": _pointer_oid(data) or
-                                              hashlib.sha256(data).hexdigest(), "kind": "untracked"})
+        for path in _untracked_files(checkout, record.decode("utf-8")):
+            data = (checkout / path).read_bytes()
+            media.setdefault(_destination(path), {"source": path, "sha256": _pointer_oid(data) or
+                                                  hashlib.sha256(data).hexdigest(), "kind": "untracked"})
     return media
+
+
+def _untracked_files(checkout: Path, path: str) -> list[str]:
+    """One ``git ls-files --others`` entry as files.
+
+    git names a nested repository (the owner's checkout has a cloned one under
+    ``new_textbooks/``) as a single directory entry ending in ``/``. Its
+    working files are listed one by one; its ``.git/`` is not, because the
+    merge never deletes untracked files and its index changes whenever git
+    runs there (S0 landing rehearsal).
+    """
+    if not path.endswith("/"):
+        return [path]
+    files = []
+    for directory, subdirectories, names in os.walk(checkout / path):
+        subdirectories[:] = sorted(name for name in subdirectories if name != ".git")
+        for name in sorted(name for name in names if name != ".git"):  # a worktree's .git is a file
+            files.append((Path(directory) / name).relative_to(checkout).as_posix())
+    return files
 
 
 def _missing_papers(media: dict) -> list[str]:

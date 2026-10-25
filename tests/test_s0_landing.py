@@ -453,3 +453,29 @@ def test_check_refuses_a_books_manifest_without_every_paper(layout, capsys):
     capsys.readouterr()
     assert script.main(["check", *args]) == 1
     assert "paper.pdf" in capsys.readouterr().out
+
+
+def test_an_untracked_nested_repository_under_new_textbooks_is_backed_up_file_by_file(layout, capsys):
+    """The owner's checkout holds a cloned repository under new_textbooks/ (S0 landing rehearsal).
+
+    ``git ls-files --others`` names a nested repository as one directory
+    entry ending in ``/``; books-out read it as a file and stopped with
+    IsADirectoryError. Its working files are backed up like any untracked
+    file; its ``.git/`` stays where it is (the merge never deletes untracked
+    files, and its index changes whenever git runs there).
+    """
+    script, checkout, homes, args = layout
+    nested = checkout / "new_textbooks" / "Solutions"
+    (nested / "chapters").mkdir(parents=True)
+    _git(nested, "init", "-q")
+    (nested / "README.md").write_text("the owner's solutions\n", encoding="utf-8")
+    (nested / "chapters" / "one.tex").write_text("\\section{One}\n", encoding="utf-8")
+
+    _land(script, args)
+    assert (homes["books"] / "Solutions" / "README.md").read_text(encoding="utf-8") == "the owner's solutions\n"
+    assert (homes["books"] / "Solutions" / "chapters" / "one.tex").read_text(encoding="utf-8") == "\\section{One}\n"
+    assert not (homes["books"] / "Solutions" / ".git").exists()
+    capsys.readouterr()
+    assert script.main(["check", *args]) == 0
+    _merge(checkout)
+    assert script.main(["check", *args]) == 0
