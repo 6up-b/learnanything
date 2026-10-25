@@ -3,8 +3,8 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "ced3f8ea5c1f7080fb666e90e6e88f8d633eb7a6"
+source_commit_timestamp: "2026-10-25T11:47:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_facet_identity_composition.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_mobile_host_coexistence.py`
+- `tests/test_secondary_attach.py`
 - `tests/test_source_append.py`
 - `tests/test_synthesis_criterion_dependencies.py`
 - `tests/test_synthesis_runs_repo.py`

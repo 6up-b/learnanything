@@ -191,7 +191,7 @@ desktop app (Tauri) ── its own sidecar process (stdio JSON-RPC), the primary
 - Likewise `get_queue_revision` is not a status read, because it can call `ctx.reload()` (`queue.py:53-71`).
 
 **Content freshness.**
-- Before each RPC or job, the worker compares `vault_content_fingerprint(root)` with the fingerprint its context loaded. `vault_content_fingerprint` is new and lives next to `load_vault`, so the file set it covers cannot drift from the set the loader reads. It combines the file count and the newest `mtime_ns` over that set, and is cached for at most 2 s.
+- Before each RPC or job, the worker compares `vault_content_fingerprint(root)` with the fingerprint its context loaded. `vault_content_fingerprint` is new and lives next to `load_vault`, so the file set it covers cannot drift from the set the loader reads. It combines the file count and the newest `mtime_ns` over that set, and is cached for at most 2 s. *As built (PR-1, §9.2): a digest of path, size and `mtime_ns` per file, which contains that form and also catches a rename or an older mtime; taken before each load.*
 - On a mismatch, the worker reloads its own context with `load_secondary`.
 - A request already running finishes against the version it started with, as the desktop does today.
 - The database is never fingerprinted by mtime: WAL makes that meaningless, and database state is read fresh on every connection (`repositories.py:801`).
@@ -762,6 +762,16 @@ The full record is `docs/reviews/mobile-m1.md` on `mobile/m1`.
 - **Dependencies.** The `mobile` extra pins Starlette, uvicorn and `python-multipart`. Pillow is a direct dependency, used to decode, orient and strip metadata.
 - **Tailnet policy.** `doctor` prints a revision-2 phone-only grant example. Under D12, applying it is optional. Revision 3's acceptance A2 (Serve mapping only, no off-tailnet reachability) is the check that matters.
 - **Integration.** The branch is based on `1a0f7a0` and claims migration 167. It takes the next free number when it merges, after the Slice A Phase 2/3 integration.
+
+### 9.2 As built (PR-1, secondary attach, 2026-10-25)
+
+The full record is `docs/reviews/mobile-pr1-secondary-attach.md`.
+- **`SidecarContext.load_secondary(vault_path, *, bind_ingest=False)`** loads the vault's files and attaches the database with `Repository.attach` only when its applied migrations are exactly this code's (`schema_is_current`, read-only; a missing database is refused, never created). Otherwise it raises `schema_mismatch`.
+- **No primary duty runs** (storage spec §6.2): besides the five in §3.1, it also skips the work `load()` gained since this spec was written: facet-identity recovery, reference-question adoption, binding the post-attempt worker, background preparation of new revisions, and every startup recovery (hint work, post-attempt jobs, import key checks, reading builds, book preparation). Queued work stays durable for the primary.
+- **Reloads stay secondary.** `reload()` on a secondary context runs `load_secondary` again, because many handlers reload after their writes and a primary reload migrates and syncs. Only an explicit `load()` makes a context primary. `load_secondary` on a context that already holds a vault as primary is refused: demotion belongs to PR-8's primary role.
+- **`bind_ingest=True` is refused** until a restricted binding exists (M3's promotion runner, PR-8's submit-only mode).
+- **Content freshness.** `vault_content_fingerprint` and its file set (`content_files`) moved next to `load_vault` from the chat runtime (C1a), which now imports them, so both secondaries share one fingerprint. `refresh_if_content_changed()` compares at most every `CONTENT_FINGERPRINT_TTL_SECONDS` (2 s) and reloads through `load_secondary`. A test pins that every file a load opens is in the fingerprinted set.
+- **Not built here:** the RPC and job workers, the adapter, and PR-2..PR-8.
 
 ## 10. Evaluation
 
