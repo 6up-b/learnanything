@@ -26,6 +26,15 @@ causal hypothesis is shown in its latest version written before the cutoff.
 The status of mutable rows (factors, misconceptions, candidates) is read as
 of now (their status history is not versioned; the receipt discloses
 ``lagged_attempts``), and their ``last_updated`` never shows a later time.
+
+Teacher TE0 (spec_teacher_v1 §15.2): an attempt also carries the learner's
+confidence tap (``answer_confidence``, the learner's own mark) and, as one
+event in words, the tap and the grader's hedge read with the outcome
+(``confidence_event``: the blind record's own read for an overlaid attempt,
+else the current grading evidence's), from ``learnloop.confidence_events``.
+Both are measurement fields, never diagnosis prose; an attempt with neither
+renders exactly as before, and so does every attempt with the kill switch
+``teacher.confidence_events_enabled`` off.
 """
 
 from __future__ import annotations
@@ -35,6 +44,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
+from learnloop import confidence_events
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
@@ -128,6 +138,10 @@ class HistoryAttempt:
     attribution_criteria: tuple[tuple[str, ...], ...] = ()
     #: Per failed criterion, aligned with ``failed_criteria``: its facets.
     failed_criterion_facet_sets: tuple[tuple[str, ...], ...] = ()
+    #: TE0: the learner's tap (1-5) and the attempt's confidence event in
+    #: words ("marked 5/5 sure; wrong"); None without a tap or a hedge read.
+    answer_confidence: int | None = None
+    confidence_event: str | None = None
 
     def key(self) -> tuple[str, str]:
         return (self.completed_at, self.attempt_id)
@@ -628,6 +642,17 @@ def history_attempt_from_blind_record(
     )
 
 
+def _with_confidence(record: HistoryAttempt, tap: Any, hedge: str | None, *, held: bool) -> HistoryAttempt:
+    """TE0: the attempt with its tap and confidence event (unchanged with neither)."""
+
+    reading = confidence_events.Reading(tap=confidence_events.valid_tap(tap), hedge=hedge)
+    if not reading.present:
+        return record
+    result = confidence_events.result_class(record.score, record.max_points, held=held)
+    return replace(record, answer_confidence=reading.tap,
+                   confidence_event=confidence_events.event_text(reading, result))
+
+
 class VaultHistoryStore:
     """History read from a vault database, with an optional blind-grade overlay.
 
@@ -682,6 +707,25 @@ class VaultHistoryStore:
 
         return self._blind.get(str(attempt_id))
 
+    def _held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool:
+        """Is the grade this store shows for ``attempt_id`` held for review?
+
+        The hold comes from the same source as the score (TE0 fix round 2):
+        an overlay payload with no grading identity (``_unidentified``: an
+        offline review's own blind grade, or a caller's payload) is a grade
+        the vault never recorded, so its hold is its own record's
+        (``grade_held_for_review`` of its grading support) and the vault
+        ledger's hold of the vault's grade says nothing about it. Every other
+        row shows the vault's own grading (the stored grade, or the live
+        overlay of the vault's latest blind records read with their
+        identity), whose hold is THE ledger predicate's."""
+
+        if attempt_id in self._blind and attempt_id in self._unidentified:
+            from learnloop.outcome_contract import grade_held_for_review
+
+            return grade_held_for_review(self._blind[attempt_id].get("grading_support"))
+        return attempt_id in ledger_held
+
     # -- loading ------------------------------------------------------------
 
     def _load(self) -> None:
@@ -700,11 +744,18 @@ class VaultHistoryStore:
         with self.repository.connection() as connection, read_snapshot(connection):
             marks = self._captured_marks if self._captured_marks is not None else grading_marks(connection)
             self._grading_marks = {**marks, **{attempt: UNIDENTIFIED_GRADING for attempt in self._unidentified}}
+            tap_column = ("answer_confidence" if "answer_confidence" in
+                          {info[1] for info in connection.execute("PRAGMA table_info(practice_attempts)")}
+                          else "NULL AS answer_confidence")
             attempts = [dict(row) for row in connection.execute(
                 "SELECT id, practice_item_id, learning_object_id, attempt_type, "
                 "learner_answer_md, rubric_score, correctness, hints_used, primed, "
-                "created_at FROM practice_attempts ORDER BY created_at, id"
+                f"created_at, {tap_column} FROM practice_attempts ORDER BY created_at, id"
             )]
+            # TE0: the grader's hedge read of each attempt's current grading
+            # (none read with the kill switch off: the history is its predecessor's).
+            confidence_on = confidence_events.enabled(self.vault)
+            hedges = confidence_events.read_hedges(connection) if confidence_on else {}
             evidence: dict[str, dict[str, float]] = {}
             #: Attempts with a PF-c unverified criterion row (review F4): those
             #: rows are neither failures nor passes in the history.
@@ -796,7 +847,15 @@ class VaultHistoryStore:
                     fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
                     contract=contracts.get(attempt_id),
                 )
-            if attempt_id in held:
+            is_held = self._held(attempt_id, held)
+            if confidence_on:
+                record = _with_confidence(
+                    record, row.get("answer_confidence"),
+                    confidence_events.hedge_from_record(self._blind[attempt_id]) if attempt_id in self._blind
+                    else hedges.get(attempt_id),
+                    held=is_held,
+                )
+            if is_held:
                 record = replace(record, score=None)
             self._attempts.append(record)
             self._by_id[attempt_id] = record

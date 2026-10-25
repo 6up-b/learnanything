@@ -16,9 +16,27 @@ and applies the leakage rules before anything reaches here:
 
 **Budget** (``router.card_token_budget``, D8): when the rendered card is over
 budget, older successes leave the recent-work section first, then older answer
-excerpts and stems, then older attempts; typed fields never drop.
+excerpts and stems, then older attempts; typed fields never drop (TE0's
+7-day confidence events go before all of these, oldest first, then the
+section's stated limit and its omission notice, TE0 fix round 2).
 **Hash**: the SHA-256 of the canonical JSON of the typed card and its text, on
 the decision row (``card_hash``) and with the stored payload.
+
+**Confidence** (teacher TE0, spec_teacher_v1 §15.2; ``learner_state_card_v2``):
+each recent attempt line carries its confidence event in words (the tap and
+the grader's hedge read with the outcome, "marked 5/5 sure; wrong"), the
+7-day window lists the candidate topics' events, and the card states the
+limit when the taps so far do not span the scale ("your taps so far are all
+4-5"). Never raw scalars and never threshold counts: the reading models
+decide what counts as confident. The caller renders the events
+(``learnloop.confidence_events``); with no confidence data a v2 card's text
+and typed fields are a v1 card's, byte for byte, and only the version
+label differs. With the kill switch ``teacher.confidence_events_enabled``
+off (``CardInputs.confidence_enabled``) the card is a v1 card, label too.
+The 7-day section is bounded by the caller (per topic) and is the first
+thing the token budget trims, oldest events first (each shown attempt's
+line keeps its own event); what was left out is stated
+(``confidence_omitted``, review F3).
 
 A leaf module (the router package): no imports beyond the standard library.
 """
@@ -31,7 +49,9 @@ import json
 import math
 from typing import Any
 
-CARD_VERSION = "learner_state_card_v1"
+CARD_VERSION = "learner_state_card_v2"
+#: The predecessor (before TE0): the same card without confidence events.
+PREDECESSOR_CARD_VERSION = "learner_state_card_v1"
 #: router.card_token_budget's default (D8).
 DEFAULT_TOKEN_BUDGET = 16_000
 EXCERPT_LIMIT = 400
@@ -43,7 +63,7 @@ STATEMENT_LIMIT = 300
 #: adds a typed section there without changing this card's version scheme.
 TYPED_SECTIONS: tuple[str, ...] = (
     "decision", "session", "intent", "candidates", "learning_objects", "interaction_7d",
-    "open_hypotheses", "unknowns", "self_reports", "evidence_sections",
+    "confidence_7d", "open_hypotheses", "unknowns", "self_reports", "evidence_sections",
 )
 
 
@@ -79,9 +99,20 @@ class CardInputs:
     #: newest first; each: attempt_id, at, learning_object_id, topic, kind,
     #: result (correct | partial | incorrect | held_for_review | not_graded),
     #: hints_used, key_status, stem (the pinned revision's question, or None),
-    #: stem_note (why a shown attempt has no question), answer (or None)
+    #: stem_note (why a shown attempt has no question), answer (or None) and,
+    #: when the attempt has a tap or a hedge read, confidence (its event in words)
     recent_work: Sequence[Mapping[str, Any]] = ()
     evidence_sections: Mapping[str, Any] = field(default_factory=dict)
+    #: TE0: per candidate topic id, its confidence events in the 7-day window,
+    #: newest first: each {"attempt_id", "at", "event"}. Empty: no section.
+    confidence_7d: Mapping[str, Sequence[Mapping[str, Any]]] = field(default_factory=dict)
+    #: TE0: the stated limit when the taps so far do not span the scale.
+    confidence_limit: str | None = None
+    #: TE0: events the caller left out of ``confidence_7d`` by its per-topic bound.
+    confidence_omitted: int = 0
+    #: TE0's kill switch (``teacher.confidence_events_enabled``): off, the
+    #: card is the predecessor's (``PREDECESSOR_CARD_VERSION``).
+    confidence_enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -112,6 +143,8 @@ def _work_line(entry: Mapping[str, Any]) -> str:
     parts.append("held for review (no score yet)" if result == "held_for_review" else result.replace("_", " "))
     hints = int(entry.get("hints_used") or 0)
     parts.append("no hints" if hints == 0 else f"{hints} hint{'s' if hints != 1 else ''}")
+    if entry.get("confidence"):
+        parts.append(str(entry["confidence"]))
     if entry.get("key_status") == "unverified":
         parts.append("answer key not verified")
     if entry.get("withheld"):
@@ -183,6 +216,22 @@ def render_text(card: Mapping[str, Any]) -> str:
     signals = card.get("interaction_7d") or {}
     lines.append("# Last 7 days")
     lines.append(", ".join(f"{key} {value}" for key, value in sorted(signals.items())) or "nothing recorded")
+    confidence = card.get("confidence_7d") or {}
+    omitted = int(card.get("confidence_omitted") or 0)
+    if confidence or card.get("confidence_limit") or omitted:
+        # TE0 (spec_teacher_v1 §15.2): each tap or hedge read with its
+        # outcome, never a count; absent with no confidence data.
+        lines.append("# Confidence, last 7 days (taps and the grader's hedge reads, newest first)")
+        titles = {lo_id: (row or {}).get("title") for lo_id, row in (card.get("learning_objects") or {}).items()}
+        for lo_id, events in sorted(confidence.items(), key=lambda pair: str(titles.get(pair[0]) or pair[0])):
+            shown = "; ".join(f"{str(event.get('at') or '')[:10]} {event.get('event')}" for event in events)
+            lines.append(f"- {titles.get(lo_id) or lo_id}: {shown}")
+        if not confidence and not omitted:
+            lines.append("none on these topics")
+        if omitted:
+            lines.append(f"({omitted} older confidence event{'s' if omitted != 1 else ''} left out)")
+        if card.get("confidence_limit"):
+            lines.append(f"({card['confidence_limit']})")
     lines.append("# Open problems")
     hypotheses = card.get("open_hypotheses") or ()
     if not hypotheses:
@@ -238,12 +287,22 @@ AD_CARD_VERSION = CARD_VERSION + "+ad23"
 
 
 def _card_version(inputs: CardInputs) -> str:
-    return AD_CARD_VERSION if any(
-        "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else CARD_VERSION
+    base = CARD_VERSION if inputs.confidence_enabled else PREDECESSOR_CARD_VERSION
+    return base + "+ad23" if any(
+        "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else base
 
 
-def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+#: The builder's record that the budget dropped the confidence section's
+#: metadata (TE0 fix round 2). They are in ``LearnerStateCard.truncation``
+#: (the stored payload) only: the typed card the models read never spends
+#: tokens saying a line is missing that it had no room for.
+_METADATA_TRUNCATION_KEYS = frozenset({"dropped_confidence_limit", "dropped_confidence_notice"})
+
+
+def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any],
+              confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+              confidence_dropped: int = 0, *, limit: bool = True, notice: bool = True) -> dict[str, Any]:
+    card = {
         "card_version": _card_version(inputs),
         "decision": dict(inputs.decision),
         "session": dict(inputs.session),
@@ -256,8 +315,35 @@ def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mappin
         "self_reports": [dict(entry) for entry in inputs.self_reports],
         "recent_work": work,
         "evidence_sections": dict(inputs.evidence_sections),
-        "truncation": dict(truncation),
+        # With the omission notice dropped, its record of the dropped events goes too.
+        "truncation": {key: value for key, value in truncation.items()
+                       if key not in _METADATA_TRUNCATION_KEYS
+                       and (notice or key != "dropped_confidence_events")},
     }
+    # TE0: present only with confidence data, so a card without any is the
+    # predecessor's card in every typed field (only the version differs).
+    events = inputs.confidence_7d if confidence is None else confidence
+    events = {lo: rows for lo, rows in events.items() if rows}
+    if events:
+        card["confidence_7d"] = {lo: [dict(event) for event in rows] for lo, rows in sorted(events.items())}
+    if inputs.confidence_limit and limit:
+        card["confidence_limit"] = inputs.confidence_limit
+    omitted = int(inputs.confidence_omitted or 0) + int(confidence_dropped)
+    if omitted and notice:
+        card["confidence_omitted"] = omitted
+    return card
+
+
+def _drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool:
+    """Remove the oldest 7-day confidence event of any topic (each list is
+    newest first); False when none is left."""
+
+    tails = [(str(rows[-1].get("at") or ""), str(rows[-1].get("attempt_id") or ""), lo)
+             for lo, rows in confidence.items() if rows]
+    if not tails:
+        return False
+    confidence[min(tails)[2]].pop()
+    return True
 
 
 def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) -> LearnerStateCard:
@@ -272,10 +358,32 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
         for entry in inputs.recent_work
     ]
     dropped = {"dropped_successes": 0, "dropped_excerpts": 0, "dropped_attempts": 0}
+    confidence = {lo: [dict(event) for event in rows] for lo, rows in inputs.confidence_7d.items()}
+    confidence_dropped = 0
+    shown = {"limit": True, "notice": True}
 
     def size() -> int:
-        card = _assemble(inputs, work, dropped)
+        card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown)
         return estimate_tokens(card) + estimate_tokens(render_text(card))
+
+    # TE0 (review F3): the 7-day confidence events first, oldest first; each
+    # shown attempt's line keeps its own event, and the omission is stated.
+    while size() > token_budget and _drop_oldest_event(confidence):
+        confidence_dropped += 1
+        dropped["dropped_confidence_events"] = confidence_dropped
+    # TE0 fix round 2: then the section's metadata, which counts in the budget
+    # like everything else: the stated limit on the taps, then the omission
+    # notice (its typed count, its line and the typed card's record of the
+    # drop). With all of it gone the card's confidence content is only the
+    # events on the recent-work lines, which the recent-work trimming below
+    # removes with their lines, so the card fits whenever the predecessor's
+    # card would (the version labels are the same length).
+    if size() > token_budget and inputs.confidence_limit:
+        shown["limit"] = False
+        dropped["dropped_confidence_limit"] = 1
+    if size() > token_budget and (inputs.confidence_omitted or confidence_dropped):
+        shown["notice"] = False
+        dropped["dropped_confidence_notice"] = 1
 
     # Older successes first (the oldest entries are at the end, newest first).
     while size() > token_budget:
@@ -295,7 +403,7 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
     while size() > token_budget and work:
         work.pop()
         dropped["dropped_attempts"] += 1
-    card = _assemble(inputs, work, dropped)
+    card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown)
     text = render_text(card)
     digest = hashlib.sha256(canonical_json({"json": card, "text": text}).encode("utf-8")).hexdigest()
     return LearnerStateCard(
@@ -309,7 +417,9 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
 
 
 __all__ = [
+    "AD_CARD_VERSION",
     "CARD_VERSION",
+    "PREDECESSOR_CARD_VERSION",
     "CardInputs",
     "DEFAULT_TOKEN_BUDGET",
     "LearnerStateCard",

@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
-source_commit_timestamp: "2026-10-25T00:32:33-04:00"
+source_commit: "e821b00def1604485708ab22d056f785fd075560"
+source_commit_timestamp: "2026-10-25T02:47:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/confidence_events.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`

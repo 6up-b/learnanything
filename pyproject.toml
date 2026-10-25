@@ -287,6 +287,17 @@ forbidden_modules = ["learnloop.hints", "learnloop.db.stores.approach_maps"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "graders-never-read-confidence-events"
+name = "The grader never reads the learner's confidence tap or hedge-read events (teacher TE0, blind-split S1)"
+type = "forbidden"
+# Teacher TE0 (spec_teacher_v1 §15.2): the confidence events go to the
+# history-aware diagnoser, the hint writer, the tutor and the router card,
+# never to a grader. Every grading prompt builder lives in learnloop.attempts.
+source_modules = ["learnloop.attempts"]
+forbidden_modules = ["learnloop.confidence_events"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "projects-stay-standalone"
 name = "Project understanding M1 stays off vault state, scheduling and adapters"
 type = "forbidden"

@@ -108,6 +108,11 @@ class CurrentAttempt:
     #: (``workbench_trace.trace_for_attempt``); None for every other attempt,
     #: whose context renders and hashes exactly as before.
     workbench_trace: Mapping[str, Any] | None = None
+    #: Teacher TE0 (spec_teacher_v1 §15.2): this attempt's confidence event
+    #: (``learnloop.confidence_events``: version, note, event and the stated
+    #: limit on the taps so far); None without a tap or a hedge read, and the
+    #: context then renders and hashes exactly as before.
+    confidence: Mapping[str, Any] | None = None
 
     def ref(self) -> AttemptRef:
         return AttemptRef(self.attempt_id, self.completed_at)
@@ -142,6 +147,9 @@ class CurrentAttempt:
             # RW2b: this attempt's steps and assists (help, never evidence),
             # under the prompt suffix +workbench-v1.
             rendered["workbench_trace"] = dict(self.workbench_trace)
+        if self.confidence:
+            # TE0: the tap and the grader's hedge read, as an event.
+            rendered["confidence"] = dict(self.confidence)
         return rendered
 
     def _render(self, grade: Mapping[str, Any]) -> dict[str, Any]:
@@ -208,6 +216,7 @@ def current_attempt_from(
     blind_grade: Mapping[str, Any],
     contract: Mapping[str, Any] | None = None,
     workbench_trace: Mapping[str, Any] | None = None,
+    confidence: Mapping[str, Any] | None = None,
 ) -> CurrentAttempt:
     """The attempt being diagnosed. ``contract`` (method-explicit-3 review
     F3) is the assessment contract its answer was graded under: a
@@ -244,6 +253,7 @@ def current_attempt_from(
         blind_grade=dict(blind_grade),
         item_facets=tuple(vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets),
         workbench_trace=dict(workbench_trace) if workbench_trace else None,
+        confidence=dict(confidence) if confidence else None,
     )
 
 
@@ -443,6 +453,10 @@ def _render_attempt(
         "primed": attempt.primed,
         "grader_mode": attempt.grader_mode,
     }
+    if attempt.confidence_event:
+        # TE0 (spec_teacher_v1 §15.2): the tap and the grader's hedge read as
+        # an event with the outcome; absent otherwise (renders as before).
+        row["confidence"] = attempt.confidence_event
     if with_answer:
         row["item_prompt"] = attempt.item_prompt
         row["learner_answer_md"] = attempt.learner_answer_md

@@ -3581,6 +3581,24 @@ class UiConfig(BaseModel):
     shell: Literal["simple", "classic"] = "simple"
 
 
+class TeacherConfig(BaseModel):
+    """Teacher (spec_teacher_v1). TE0 (§15.2): the learner's confidence tap
+    and the grader's hedge read, rendered as events with the outcome
+    (``learnloop.confidence_events``), in the router card
+    (``learner_state_card_v2``), the history-aware diagnoser (live and
+    offline), the hint writer and the tutor; never the grader.
+
+    ``confidence_events_enabled`` is TE0's kill switch (default on, owner rule
+    2026-10-12: live changes behind kill switches). Off, every one of those
+    contexts is its predecessor's: no event, no stated limit, and the card is
+    a ``learner_state_card_v1`` card. Context only: no scoring, scheduling,
+    projection or serving reads it, at any algorithm version (no successor).
+    TE1 adds the lesson switches here (§18).
+    """
+
+    confidence_events_enabled: bool = True
+
+
 class EligibilityConfig(BaseModel):
     """One serve/administration eligibility decision (``mvp-0.27``;
     ``learnloop.serve_eligibility``, ``docs/reviews/serve-eligibility-decision.md``).
@@ -3808,6 +3826,7 @@ class LearnLoopConfig(BaseModel):
     required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
     eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
+    teacher: TeacherConfig = Field(default_factory=TeacherConfig)
 
     @model_validator(mode="before")
     @classmethod

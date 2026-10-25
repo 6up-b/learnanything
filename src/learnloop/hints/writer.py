@@ -15,7 +15,10 @@ the chosen kind, level and horizon, the route preference and, for a
 ``discriminating`` question, the rivals as typed records; it returns the
 placement (§4.4) with the hint, its target node and route, a strategy slug and
 the fields its kind's contract needs (for ``discriminating``: candidate
-questions with each rival's predicted answer, ranked by the service). Every
+questions with each rival's predicted answer, ranked by the service). Teacher
+TE0 (spec_teacher_v1 §15.2): with any, the learner's confidence events on
+the item's topic (``learnloop.confidence_events``: each tap or hedge read
+with its outcome, protected attempts left out), absent otherwise. Every
 call goes through ``PaidCalls`` (receipts under owner kind ``hint_writer``,
 the answer checkpointed before it is used).
 """
@@ -199,7 +202,8 @@ def _expected(expected: Any) -> str:
 
 def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_text: str | None = None,
                  selection: str | None = None, feedback: Mapping[str, Any] | None = None,
-                 request_id: str | None = None, workbench: Mapping[str, Any] | None = None) -> str:
+                 request_id: str | None = None, workbench: Mapping[str, Any] | None = None,
+                 confidence: Mapping[str, Any] | None = None) -> str:
     current = state.map
     rubric = vault.rubric_for_item(item)
     chosen: dict[str, Any] = {
@@ -267,6 +271,10 @@ def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_t
         # step and checkpoint (absent on the practice screen, whose prompt is
         # unchanged).
         context["workbench"] = dict(workbench)
+    if confidence:
+        # Teacher TE0: the learner's confidence events on this topic (absent
+        # with none, so the prompt is unchanged).
+        context["learner_confidence"] = dict(confidence)
     return render_structured_prompt("Hint", PROMPT_VERSION, {"instructions": _INSTRUCTIONS, "context": context})
 
 

@@ -53,6 +53,7 @@ from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
 
+from learnloop import confidence_events
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
@@ -72,6 +73,7 @@ from learnloop.tutor.ai_contracts import (
     TutorAnswer,
     TutorAnswerWithTools,
     TutorQAContext,
+    tutor_context_payload,
     tutor_qa_prompt,
 )
 from learnloop.tutor import reader_modes
@@ -683,6 +685,7 @@ def ask_question(
             linked_reference_filter=linked_reference_filter,
             reader_lookup=(lookup_spans, lookup_manifest, reader_tutor) if lookup else None,
             reader_binding=binding,
+            now_iso=utc_now_iso(clock),
         )
 
     if context == "reader":
@@ -1532,7 +1535,7 @@ def _thread(
 
 
 def _tutor_context_hash(context: TutorQAContext) -> str:
-    payload = json.dumps(asdict(context), sort_keys=True, separators=(",", ":"), default=str)
+    payload = json.dumps(tutor_context_payload(context), sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -1560,6 +1563,7 @@ def _build_context(
     linked_reference_filter: LinkedReferenceFilter | None = None,
     reader_lookup: tuple[Any, Mapping[str, Any], Any] | None = None,
     reader_binding: reader_modes.BoundAsk | None = None,
+    now_iso: str | None = None,
 ) -> TutorQAContext:
     """The tutor's context. ``delivery_receipt`` (when given) receives the
     source delivery's receipt when it records something: a trim or drop at
@@ -1571,7 +1575,14 @@ def _build_context(
     ``reader_binding`` (RW1c fix round 5, R1 and R2) guards the Reader
     context with the bound item's guard, retrieval on or off: the selection,
     its neighbours and the blocks they cite, and every earlier answer in the
-    thread (``reader_modes.guard_thread``)."""
+    thread (``reader_modes.guard_thread``).
+
+    Teacher TE0 (spec_teacher_v1 §15.2): a practice, feedback or library
+    context carries the learner's confidence events on its topics
+    (``learner_confidence``, ``learnloop.confidence_events``: each tap or
+    hedge read with its outcome, protected attempts left out, fail closed),
+    absent with none. The Reader context never does: its manifest carries no
+    learner ability reading (design A.2)."""
 
     settings = vault.config.tutor_qa
     if context == "reader" and provided_source_spans is not None:
@@ -1704,6 +1715,9 @@ def _build_context(
         learning_object_summaries=lo_summaries,
         diagnostic_decision=_diagnostic_decision_for(vault, repository, item, context),
         source_spans=source_spans,
+        learner_confidence=confidence_events.safe_learner_events(
+            vault, repository, learning_object_ids=lo_ids, before_iso=now_iso or utc_now_iso(),
+            titles={lo.id: lo.title for lo in vault.learning_objects.values()}),
     )
 
 
