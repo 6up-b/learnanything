@@ -91,10 +91,18 @@ def test_f1_a_retry_after_protection_changed_is_never_sent(vault_paths):
     assert judge.calls == 1 and result.status == "stale" and _rows(repository) == []
 
 
-def test_f1_a_batch_reads_protection_again_before_each_lo(vault_paths):
+def test_f1_a_batch_reads_protection_again_before_each_lo(vault_paths, tmp_path):
+    # Control: unprotected, lay_char is one of lo_char's candidates.
+    control_paths, control_repository = build_coverage_vault(tmp_path / "control")
+    _add_lo(control_paths, "lo_char", "Characteristic equation",
+            "The eigenvalues of A are the roots of the characteristic equation.")
+    control = CoverageJudgeFake()
+    SC.cover(load_vault(control_paths.root), control_repository, ["lo_eigen", "lo_char"], client=control)
+    assert LAY_CHAR_TEXT in control.prompts[1]
+
     paths, repository = vault_paths
     _add_lo(paths, "lo_char", "Characteristic equation",
-            "The eigenvalues of A are the roots of the characteristic equation det(A - tI) = 0.")
+            "The eigenvalues of A are the roots of the characteristic equation.")
     vault = load_vault(paths.root)
     asked = {"n": 0}
 

@@ -27,20 +27,33 @@ O(sections), never O(sections²). How two treatments relate stays on demand in
    a notation line. Every section it names must be a candidate (refs are
    validated); each passage it reads may also get RW4e role proposals
    through RW4e's own writer (judge ``section_coverage_judge``), at no extra
-   call, while ``roles.on_demand_enabled`` is on.
+   call, while ``roles.on_demand_enabled`` is on. The ledger records them
+   with the verdicts, and they are applied before the rows are written (the
+   rows mark the state done), so a run that stopped in between applies them
+   from the ledger next time, with no call.
+
+**Protection while it runs** (:class:`CoverageGuard`): the predicate is read
+again before each attempt, each physical request and each record, from the
+vault loaded then; a section it reads that is protected now, or another open
+vault, refuses the rest (``stale``, nothing kept). A batch reads protection
+again before each LO. Candidate discovery's metered query embeddings count in
+the same envelopes as the judge (the daily one; the owner-run batch's).
 
 The judgment is cached by its ``state_key`` (the prompt version, the LO's
 statement and every candidate with its block hashes): a fresh judgment makes
 no call. A read drops a row whose section or LO changed since it was judged
-(``section_hash``, ``lo_hash``) without re-searching.
+(``section_hash``, ``lo_hash``) without re-searching, and reads the newest
+judgment that matches the LO and its sections as they are now (a state judged
+before and current again is read again).
 
 **Reading it** (:func:`correspondents`, §6.4): from a section, the other
 books' sections whose standing coverage names one of its LOs with a treatment
 other than ``not_about``, per LO and per book, ordered by treatment
 (``introduces``, ``develops`` first) and then by the candidate's rank, each
-with the relation the learner kept, if any, and a ``jump`` locator. No model
-call and no write. A section with no judged correspondent may return the
-live search hits per book instead, labelled *found by search, not checked*.
+with the relation the learner kept between the two, if any, and a ``jump``
+locator. No model call and no write. A section with no judged correspondent
+may return the keyword search hits per book instead (no query embedding, no
+delivery log), labelled *found by search, not checked*.
 
 **The learner's corrections** (§6.5): *not about this*, *also about…* (and
 ``none``, clearing one) are ``learner`` rows with a ``learner_card`` ledger
@@ -60,15 +73,17 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import model_validator
 
-from learnloop.ai.execution import call_labels, content_key
+from learnloop.ai.execution import active_request_gate, call_labels, content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEnvelope, active_envelopes, spend_envelopes
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources import exam_material as EM
@@ -206,33 +221,96 @@ class Reading:
     all_spans: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class Protection:
+    """What no model may read, as the vault says now: the one exam predicate
+    (held-out units included), the teaching exclusions and the readings held
+    back until protection is marked on them (rule 4)."""
+
+    material: Any
+    excluded_extractions: frozenset[str]
+    excluded_spans: frozenset[tuple[str, str]]
+    held_back: frozenset[str]
+
+    @property
+    def key(self) -> str:
+        """A digest of everything withheld: equal keys withhold exactly the same."""
+
+        return content_key({"exam": sorted(self.material.extractions),
+                            "exam_spans": sorted(list(key) for key in self.material.spans),
+                            "excluded": sorted(self.excluded_extractions),
+                            "excluded_spans": sorted(list(key) for key in self.excluded_spans),
+                            "held_back": sorted(self.held_back)})
+
+    def reading_out(self, extraction_id: str) -> bool:
+        return (extraction_id in self.excluded_extractions or extraction_id in self.held_back
+                or self.material.covers(extraction_id))
+
+    def span_out(self, extraction_id: str, span_id: str) -> bool:
+        return (extraction_id, span_id) in self.excluded_spans or self.material.covers(extraction_id, span_id)
+
+
+def read_protection(vault: Any, repository: Repository) -> Protection:
+    """The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed)."""
+
+    try:
+        material = EM.exam_material(vault, repository)
+        exclusions = teaching_exclusions(vault, repository)
+        held_back = {extraction_id for marks in EM.source_marks(vault, repository).values()
+                     for extraction_id in marks.unmarked}
+    except Exception as exc:  # noqa: BLE001 - an unreadable predicate shows and sends nothing
+        raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material.") from exc
+    return Protection(material=material, excluded_extractions=frozenset(exclusions.extractions),
+                      excluded_spans=frozenset(exclusions.spans), held_back=frozenset(held_back))
+
+
 class Library:
     """Every current, reader-enabled reading with teaching authority, read
     lazily, with exam and held-out material taken out before anything is
-    returned. The exam predicate is read once; an unreadable predicate
+    returned. The exam predicate is read once per library (:meth:`refreshed`
+    reads it again: a batch does so before each LO); an unreadable predicate
     raises ``CoverageError("withheld")`` (fail closed)."""
 
-    def __init__(self, vault: Any, repository: Repository) -> None:
+    def __init__(self, vault: Any, repository: Repository, *, protection: Protection | None = None) -> None:
         self.vault = vault
         self.repository = repository
         base = library_scope(repository)
-        try:
-            self.material = EM.exam_material(vault, repository)
-            exclusions = teaching_exclusions(vault, repository)
-            held_back = {extraction_id for extraction_id in base.extractions
-                         if EM.reading_held_back(vault, repository, extraction_id)}
-        except Exception as exc:  # noqa: BLE001 - an unreadable predicate shows and sends nothing
-            raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material.") from exc
-        self.excluded_spans = frozenset(exclusions.spans)
+        self.protection = protection if protection is not None else read_protection(vault, repository)
+        self.material = self.protection.material
+        self.excluded_spans = self.protection.excluded_spans
         self.extractions: dict[str, SourceExtraction] = {
             extraction_id: extraction for extraction_id, extraction in base.extractions.items()
-            if extraction_id not in exclusions.extractions and extraction_id not in held_back
-            and not self.material.covers(extraction_id)}
+            if not self.protection.reading_out(extraction_id)}
         #: Readings left out whole (exam, held out, without teaching authority).
         self.left_out = frozenset(set(base.extractions) - set(self.extractions))
         self._readings: dict[str, Reading | None] = {}
         self._provenance: dict[str, list[tuple[str, str]]] | None = None
         self._section_los: dict[tuple[str, str], tuple[str, ...]] = {}
+
+    def refreshed(self, vault: Any | None = None) -> Library:
+        """This library if protection (and the vault object) are unchanged, else
+        a new one read under today's protection (nothing cached is reused)."""
+
+        vault = vault if vault is not None else self.vault
+        protection = read_protection(vault, self.repository)
+        if vault is self.vault and protection.key == self.protection.key:
+            return self
+        return Library(vault, self.repository, protection=protection)
+
+    def sendable_under(self, protection: Protection, keys: Iterable[tuple[str, str]]) -> bool:
+        """Whether every one of these sections may still be read under ``protection``:
+        its reading is not withheld whole and none of its spans is withheld."""
+
+        for extraction_id, section_id in keys:
+            if protection.reading_out(extraction_id):
+                return False
+            reading = self.reading(extraction_id)
+            if reading is None:
+                return False
+            if any(protection.span_out(extraction_id, span) for span, owner in reading.all_spans.items()
+                   if owner == section_id):
+                return False
+        return True
 
     # -- readings -------------------------------------------------------------------------
 
@@ -380,24 +458,35 @@ def lo_query(learning_object: Any) -> str:
 
 def _query_vectors(vault: Any, repository: Repository, query: str, *, deep: bool, embedder: Any | None,
                    owner_id: str) -> dict[str, Any] | None:
+    """The LO's Qwen query vector, embedded once for every source's search.
+    None: not attempted (no deep search, Qwen off); ``{}``: attempted and not
+    had (a failure, a cap): the search stays deep for the other spaces."""
+
     if not deep or not (vault.config.embedding.enabled or embedder is not None):
         return None
     from learnloop.source_retrieval.queries import embed_query_texts
 
     vectors, _report = embed_query_texts(vault, repository, {"query": query}, embedder=embedder, owner_id=owner_id)
-    return vectors or None
+    return dict(vectors or {})
 
 
 def search_sections(vault: Any, repository: Repository, library: Library, query: str, *,
                     sources: Iterable[str] | None = None, deep: bool = True, embedder: Any | None = None,
-                    owner_id: str = "", consumer: str = SEARCH_CONSUMER) -> dict[str, list[tuple[str, str, list[str]]]]:
+                    owner_id: str = "", consumer: str = SEARCH_CONSUMER,
+                    read_only: bool = False) -> dict[str, list[tuple[str, str, list[str]]]]:
     """One ``search_spans`` per source (a shared query vector), hits grouped
     to sendable sections, at most :data:`SECTIONS_PER_SOURCE` each:
-    ``source_id -> [(extraction_id, section_id, hit spans)]`` in rank order."""
+    ``source_id -> [(extraction_id, section_id, hit spans)]`` in rank order.
+
+    ``deep`` is kept whatever the Qwen query's fate: a failed or capped Qwen
+    query leaves the space resolver's other spaces to answer (Codex review
+    F3). ``read_only`` (the read API's fallback): keyword retrieval only, no
+    query embedding, no model call and no delivery log (Codex review F7)."""
 
     from learnloop.source_retrieval.feedback import deliver
     from learnloop.source_retrieval.search import search_spans
 
+    deep = deep and not read_only
     vectors = _query_vectors(vault, repository, query, deep=deep, embedder=embedder, owner_id=owner_id)
     wanted = None if sources is None else set(sources)
     found: dict[str, list[tuple[str, str, list[str]]]] = {}
@@ -405,7 +494,7 @@ def search_sections(vault: Any, repository: Repository, library: Library, query:
         if wanted is not None and source_id not in wanted:
             continue
         scope = library.search_scope(extraction_ids)
-        search = search_spans(vault, repository, query, scope, limit=HITS_PER_SOURCE, deep=bool(vectors),
+        search = search_spans(vault, repository, query, scope, limit=HITS_PER_SOURCE, deep=deep,
                               rewrite=False, query_vectors=vectors, owner_id=owner_id, consumer=consumer)
         picked: dict[tuple[str, str], list[str]] = {}
         for hit in search.hits:
@@ -419,8 +508,10 @@ def search_sections(vault: Any, repository: Repository, library: Library, query:
         if picked:
             found[source_id] = [(e, s, spans) for (e, s), spans in picked.items()]
             # Local contextual retrieval P1: the passages this consumer delivers
-            # (nothing is logged while no new embedding space is on).
-            deliver(vault, repository, search, [(e, span) for (e, _s), spans in picked.items() for span in spans])
+            # (nothing is logged while no new embedding space is on; never from a read).
+            if not read_only:
+                deliver(vault, repository, search,
+                        [(e, span) for (e, _s), spans in picked.items() for span in spans])
     return found
 
 
@@ -541,7 +632,9 @@ COVERAGE_TASK = ListwiseTask(
     # structural, never read as a weight.
     scores={**{treatment: 1.0 for treatment in ABOUT}, "not_about": 0.0},
     price_setting="source_retrieval.llm_price_per_million", route_label="coverage ",
-    drop_pick_verdicts=frozenset({"not_about"}), ledger_fields=("roles", "assumes", "notation"),
+    # ``passages`` too (Codex review F5): the ledger alone recovers a judgment's
+    # RW4e proposals when a run stopped before applying them.
+    drop_pick_verdicts=frozenset({"not_about"}), ledger_fields=("roles", "assumes", "notation", "passages"),
 )
 
 _INSTRUCTIONS = (
@@ -642,6 +735,7 @@ def _clean_roles(values: Any) -> list[str]:
 @dataclass
 class JudgeResult:
     #: ready (judged now) | fresh (cached, no call) | no_candidates | unavailable | capped | failed | held
+    #: | stale (protection or the open vault changed while it ran: nothing sent after, nothing kept)
     status: str
     learning_object_id: str
     state_key: str | None = None
@@ -655,12 +749,32 @@ class JudgeResult:
         return {"status": self.status, "learning_object_id": self.learning_object_id, "state_key": self.state_key,
                 "reason": self.reason, "message": self.message, "calls": self.calls, "candidates": self.candidates}
 
+    @property
+    def usage_tokens(self) -> int:
+        """The tokens its requests reported (or were estimated at), summed."""
+
+        return int(((self.usage or {}).get("usage") or {}).get("usage_tokens") or 0)
+
+
+#: Results that end a batch: the rest would be refused (or judged under changed protection) too.
+STOPPING = ("unavailable", "capped", "failed", "stale")
+STALE_MESSAGE = ("Your library changed while LearnLoop was checking (its protection, or the open vault): "
+                 "nothing from this check was kept. Try again ↵")
+
 
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
     return SharedDailyEnvelope(vault, repository, day=midnight(clock),
                                cap=float(vault.config.curriculum.max_daily_cost_usd), clock=clock, name=ENVELOPE,
                                owner_kinds=(ROUTE_TASK,),
                                price_per_million=vault.config.source_retrieval.llm_price_per_million)
+
+
+def _daily_if_inactive(vault: Any, repository: Repository, clock: Clock | None) -> SharedDailyEnvelope | None:
+    """The daily envelope, unless a caller (the owner-run batch) has it active already."""
+
+    if any(getattr(envelope, "name", None) == ENVELOPE for envelope in active_envelopes()):
+        return None
+    return daily_envelope(vault, repository, clock=clock)
 
 
 def capped_message(vault: Any) -> str:
@@ -685,15 +799,105 @@ def admission_problem(vault: Any, repository: Repository, *, client: Any | None 
     return None
 
 
+# ---------------------------------------------------------------------------
+# Protection while a judgment runs (Codex review F1, F8)
+# ---------------------------------------------------------------------------
+
+class ProtectionChanged(BaseException):
+    """A coverage request or record refused: a section it reads is protected
+    now, the predicate cannot be read, or another vault is open.
+
+    A ``BaseException`` (as ``figure_admission.FiguresChanged``), so that no
+    retry loop, transport or spend layer between the guard and :func:`judge`
+    retries it or relabels it as a provider failure; ``admission_refused``
+    makes a receipt sink that swallows its own failures re-raise it."""
+
+    admission_refused = True
+
+
+class CoverageGuard:
+    """One judgment's protection check, before every physical request it
+    makes (the context's request gate, so a retry or a provider's own
+    follow-up is checked again) and before each record it writes.
+
+    The predicate is read afresh each time, from the vault loaded now
+    (``live_vault``: the sidecar's loaded-vault provider, so a same-vault
+    reload's source sets count; None: the vault the job holds, whose
+    database marks are still read afresh). A vault other than the job's
+    refuses everything (a switch). The first refusal refuses every later
+    request and record of the judgment."""
+
+    def __init__(self, library: Library, keys: Iterable[tuple[str, str]], *,
+                 live_vault: Callable[[], Any] | None = None) -> None:
+        self._library = library
+        self._root = Path(library.vault.root).resolve()
+        self._keys = list(dict.fromkeys(keys))
+        self._live = live_vault
+        self._outer = active_request_gate()
+        self._lock = threading.Lock()
+        #: Why the judgment's requests and records are refused (None: they are not).
+        self.changed: str | None = None
+
+    def _vault(self) -> Any | None:
+        if self._live is None:
+            return self._library.vault
+        try:
+            return self._live()
+        except Exception:  # noqa: BLE001 - an unreadable vault admits nothing
+            return None
+
+    def check(self, purpose: str = "request") -> None:
+        """Raise :class:`ProtectionChanged` when the judgment may send or record nothing more."""
+
+        with self._lock:
+            if self.changed is None:
+                vault = self._vault()
+                if vault is None or Path(vault.root).resolve() != self._root:
+                    self.changed = "another vault is open"
+                else:
+                    try:
+                        protection = read_protection(vault, self._library.repository)
+                    except CoverageError:
+                        self.changed = "the library's exam material could not be checked"
+                    else:
+                        if not self._library.sendable_under(protection, self._keys):
+                            self.changed = "a section it reads is protected now"
+            if self.changed is not None:
+                raise ProtectionChanged(f"{purpose} refused: {self.changed}")
+
+    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+        # The outer gate first, then this check: a refusal settles the outer
+        # admission, so nothing it reserved is kept for a request never sent.
+        admission = None if self._outer is None else self._outer.admit(client, purpose=purpose, prompt=prompt,
+                                                                       budget=budget)
+        try:
+            self.check(purpose)
+        except ProtectionChanged:
+            if self._outer is not None:
+                self._outer.settle(admission, {})
+            raise
+        return admission
+
+    def settle(self, admission: Any, usage: dict[str, Any]) -> None:
+        if self._outer is not None:
+            self._outer.settle(admission, usage)
+
+
+# ---------------------------------------------------------------------------
+# One judgment
+# ---------------------------------------------------------------------------
+
 def _write_rows(repository: Repository, library: Library, learning_object: Any, candidates: Sequence[Candidate],
                 prompt: Prompt, key: str, rows: Mapping[tuple[str, str], Mapping[str, Any]], model: str,
-                clock: Clock | None) -> None:
+                clock: Clock | None, guard: CoverageGuard | None = None) -> None:
     now = utc_now_iso(clock)
     by_key = {candidate.key: candidate for candidate in candidates}
     with repository.atomic():
         connection = repository.connection()
         if store.judged(connection, learning_object.id, key):
             return  # another writer stored this state meanwhile
+        if guard is not None:
+            guard.check("recording coverage")  # the last check, inside the write transaction
         for ref, candidate_key in prompt.refs.items():
             ledger = rows.get(candidate_key)
             section = library.section(*candidate_key)
@@ -720,13 +924,48 @@ def _write_rows(repository: Repository, library: Library, learning_object: Any, 
             })
 
 
+def _proposal_claims(prompt: Prompt, rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The RW4e role claims the ledger records for this prompt's passages
+    (each section's ``passages``), so a judgment answered from the ledger (a
+    run that stopped before applying them) yields the same claims as the
+    paid answer did (Codex review F5)."""
+
+    claims = []
+    for ref, section_key in prompt.refs.items():
+        row = rows.get(section_key)
+        if row is None:
+            continue
+        try:
+            details = json.loads(row.get("rationale") or "{}")
+        except (TypeError, ValueError):
+            continue
+        for entry in details.get("passages") or ():
+            passage_ref = str((entry or {}).get("ref") or "") if isinstance(entry, Mapping) else ""
+            passage = prompt.passages.get(passage_ref)
+            if passage is None or not passage_ref.startswith(f"{ref}."):
+                continue
+            for role in RS.clean_roles(entry.get("roles")):
+                claims.append({"extraction_id": passage[0], "span_id": passage[1], **role,
+                               "ledger_id": str(row["id"])})
+    return claims
+
+
 def judge(vault: Any, repository: Repository, learning_object_id: str, *, library: Library | None = None,
           client: Any | None = None, embedder: Any | None = None, clock: Clock | None = None,
           budget: SpendBudget | None = None, candidates: Sequence[Candidate] | None = None,
-          before_call: Callable[[int], str | None] | None = None) -> JudgeResult:
+          before_call: Callable[[int], str | None] | None = None,
+          live_vault: Callable[[], Any] | None = None) -> JudgeResult:
     """Judge one LO's coverage across the library: no call when its current
-    state is stored; otherwise one listwise call, then the rows (and RW4e
-    proposals) in one transaction each. Never raises for a model failure.
+    state is stored; otherwise one listwise call, then its RW4e proposals and
+    its rows (the rows last: they mark the state done, so a run that stopped
+    before them applies the proposals from the ledger next time, with no
+    call). Never raises for a model failure.
+
+    Candidate discovery and the judgment run inside the daily envelope (a
+    metered query embedding counts there too; Codex review F2). Every
+    request and record is checked against protection as it is then
+    (:class:`CoverageGuard`, ``live_vault``): a change refuses the rest, and
+    the result is ``stale``, with nothing kept.
 
     ``before_call(estimated_tokens)`` (the owner-run batch's cap) may refuse
     the call with a reason."""
@@ -735,6 +974,17 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
     if learning_object is None or learning_object.status != "active":
         raise CoverageError("validation_error", f"No active learning object {learning_object_id!r}.")
     library = library or Library(vault, repository)
+    with spend_envelopes(_daily_if_inactive(vault, repository, clock)):
+        return _judge(vault, repository, learning_object, library=library, client=client, embedder=embedder,
+                      clock=clock, budget=budget, candidates=candidates, before_call=before_call,
+                      live_vault=live_vault)
+
+
+def _judge(vault: Any, repository: Repository, learning_object: Any, *, library: Library, client: Any | None,
+           embedder: Any | None, clock: Clock | None, budget: SpendBudget | None,
+           candidates: Sequence[Candidate] | None, before_call: Callable[[int], str | None] | None,
+           live_vault: Callable[[], Any] | None) -> JudgeResult:
+    learning_object_id = learning_object.id
     owner_id = f"{learning_object_id}:{new_ulid()}"
     found = list(candidates) if candidates is not None else candidates_for(
         vault, repository, library, learning_object_id, embedder=embedder, owner_id=owner_id)
@@ -761,7 +1011,6 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
         if refusal is not None:
             result.status, result.reason, result.message = "capped", "capped", refusal
             return result
-    captured: dict[str, Any] = {}
 
     def capture(value: Any) -> Any:
         refs = {judgment.ref for judgment in value.judgments}
@@ -769,19 +1018,29 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
             from learnloop.ai.errors import AIInvalidOutput
 
             raise AIInvalidOutput("The coverage judge did not judge every section")
-        for judgment in value.judgments:
-            captured.setdefault(judgment.ref, judgment)
         return value
 
-    envelope = daily_envelope(vault, repository, clock=clock)
+    def stale(guard: CoverageGuard) -> JudgeResult:
+        result.status, result.message = "stale", STALE_MESSAGE
+        result.reason = "vault_switched" if guard.changed == "another vault is open" else "protection_changed"
+        return result
+
+    # Checked before each attempt (PaidCalls' admission: a retry too) and
+    # before each physical request (the request gate), then before each record.
+    guard = CoverageGuard(library, prompt.refs.values(), live_vault=live_vault)
     price = vault.config.source_retrieval.llm_price_per_million
-    with spend_envelopes(envelope), call_labels(judge="llm", question_set_version=PROMPT_VERSION):
-        outcome = judge_listwise(
-            vault, repository, COVERAGE_TASK, prompt=prompt.text, refs=prompt.refs, left_id=learning_object_id,
-            right_id=lambda key_: f"{key_[0]}/{key_[1]}", id_parts=lambda key_: [f"{key_[0]}/{key_[1]}"],
-            pick_at_most=0, caps=listwise_caps(len(prompt.refs), max_total_tokens=400_000, max_estimated_usd=None),
-            price=price, owner_id=owner_id, client=client, route=route, validate=capture, clock=clock,
-            budget=budget, context={"learning_object_id": learning_object_id, "state_key": key})
+    try:
+        with gate_model_requests(guard), call_labels(judge="llm", question_set_version=PROMPT_VERSION):
+            outcome = judge_listwise(
+                vault, repository, COVERAGE_TASK, prompt=prompt.text, refs=prompt.refs, left_id=learning_object_id,
+                right_id=lambda key_: f"{key_[0]}/{key_[1]}", id_parts=lambda key_: [f"{key_[0]}/{key_[1]}"],
+                pick_at_most=0, caps=listwise_caps(len(prompt.refs), max_total_tokens=400_000,
+                                                   max_estimated_usd=None),
+                price=price, owner_id=owner_id, client=client, route=route, validate=capture, clock=clock,
+                budget=budget, admit=lambda _estimate: guard.check("attempt"),
+                context={"learning_object_id": learning_object_id, "state_key": key})
+    except ProtectionChanged:
+        return stale(guard)
     result.usage = dict(outcome.usage or {})
     result.calls = int(((outcome.usage or {}).get("usage") or {}).get("calls") or 0)
     if not outcome.judged:
@@ -797,25 +1056,20 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
         return result
     model = str(outcome.model or route.model or "unknown")
     try:
-        _write_rows(repository, library, learning_object, found, prompt, key, outcome.rows, model, clock)
-    except sqlite3.IntegrityError:
-        result.status = "fresh"
-        return result
-    if captured and RS.on_demand_enabled(vault):
-        ledger_by_key = {candidate_key: str(row["id"]) for candidate_key, row in outcome.rows.items()}
-        claims = []
-        for ref, judgment in captured.items():
-            section_key = prompt.refs.get(ref)
-            for entry in judgment.passages:
-                passage = prompt.passages.get(entry.ref)
-                if passage is None or not entry.ref.startswith(f"{ref}."):
-                    continue
-                for role in RS.clean_roles(entry.roles):
-                    claims.append({"extraction_id": passage[0], "span_id": passage[1], **role,
-                                   "ledger_id": ledger_by_key.get(section_key) or ""})
+        guard.check("recording role proposals")
+        # The proposals first (idempotent per passage, role and judge), then the
+        # rows: a stop between them is resumed from the ledger with no call.
+        claims = _proposal_claims(prompt, outcome.rows) if RS.on_demand_enabled(vault) else []
         if claims:
             RS.propose_roles(vault, repository, claims, judge=RS.JUDGE_COVERAGE, prompt_version=PROMPT_VERSION,
                              model=model, clock=clock)
+        _write_rows(repository, library, learning_object, found, prompt, key, outcome.rows, model, clock,
+                    guard=guard)
+    except ProtectionChanged:
+        return stale(guard)
+    except sqlite3.IntegrityError:
+        result.status = "fresh"
+        return result
     result.status = "ready" if outcome.status == "judged" else "fresh"
     return result
 
@@ -823,8 +1077,9 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
 def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str], *, client: Any | None = None,
           embedder: Any | None = None, clock: Clock | None = None,
           cancelled: Callable[[], bool] = lambda: False) -> list[JudgeResult]:
-    """Judge each LO in turn (one library read); stops at the first refusal
-    that would refuse the rest too (models off, unrouted, capped)."""
+    """Judge each LO in turn; protection is read again before each (a library
+    that is unchanged is reused). Stops at the first refusal that would
+    refuse the rest too (models off, unrouted, capped, stale)."""
 
     library = Library(vault, repository)
     results: list[JudgeResult] = []
@@ -833,9 +1088,10 @@ def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str]
             break
         if not _active(vault, lo_id):
             continue
+        library = library.refreshed()
         result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder, clock=clock)
         results.append(result)
-        if result.status in ("unavailable", "capped"):
+        if result.status in ("unavailable", "capped", "stale"):
             break
     return results
 
@@ -872,6 +1128,57 @@ def source_learning_objects(vault: Any, repository: Repository, library: Library
     return [*first, *rest]
 
 
+def query_embedding_plan(vault: Any, repository: Repository, query: str, *,
+                         embedder: Any | None = None) -> dict[str, Any] | None:
+    """What a real run's Qwen query embedding for this LO would cost (a dry
+    run's estimate; no call, no write). None: no query would be embedded.
+    The resolver's other spaces, when on, embed under the same caps at run
+    time and are not estimated here."""
+
+    if not (vault.config.embedding.enabled or embedder is not None):
+        return None
+    from learnloop.practice_index.query_vectors import (
+        cached_query_vectors,
+        estimated_tokens,
+        normalize_query,
+        query_embedding_price,
+    )
+    from learnloop.source_retrieval.queries import MAX_QUERY_CHARS, QUERY_RECORD_KIND, query_id
+
+    text = normalize_query(query)[:MAX_QUERY_CHARS]
+    if not text.strip():
+        return None
+    model_id = vault.config.embedding.model
+    pending = query_id(query) not in cached_query_vectors(repository, model_id, {query_id(query): text},
+                                                          record_kind=QUERY_RECORD_KIND)
+    tokens = estimated_tokens(text) if pending else 0
+    price, source = query_embedding_price(model_id, vault.config.source_retrieval.query_embedding_price_per_million)
+    return {"model_id": model_id, "pending": int(pending), "estimated_tokens": tokens,
+            "estimated_usd": (tokens * price / 1_000_000) if price is not None else (0.0 if not pending else None),
+            "price_source": source, "billing": "metered"}
+
+
+def _run_usage(results: Sequence[JudgeResult], budget: SpendBudget, command: SpendEnvelope, route: Any, *,
+               subscription: bool, price: float | None) -> dict[str, Any]:
+    """The run's usage (Codex review F9, as ``role_labeller._usage``): the
+    judge's tokens and dollars estimated from each call's reported usage
+    (``estimated_only`` on a subscription; unknown with no price), and apart,
+    the metered dollars the run's envelope was charged (a metered judge's
+    calls and every metered query embedding)."""
+
+    tokens = sum(result.usage_tokens for result in results)
+    if subscription:
+        estimated = tokens * price / 1_000_000 if price is not None else None
+    else:
+        estimated = float(budget.used.estimated_usd or 0.0)
+    metered = float(command.report()["metered_usd"])
+    return {"requests": int(budget.used.calls), "retries": int(budget.used.retries), "billing": route.billing,
+            "cost_basis": "estimated_only" if subscription else "metered_estimate",
+            "estimated_tokens": tokens, "estimated_usd": estimated,
+            "marginal_usd": 0.0 if subscription else float(budget.used.estimated_usd or 0.0),
+            "metered_usd": metered}
+
+
 def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_run: bool = False,
                  client: Any | None = None, embedder: Any | None = None, clock: Clock | None = None,
                  cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
@@ -879,10 +1186,17 @@ def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_
     (§6.2, owner-run; never on a hot path). Each LO whose candidates include
     a section of this book is judged once across the whole library (its
     other books' sections too), unless its current state is stored.
-    ``curriculum.cover_max_cost_usd`` caps a metered run, checked before each
-    call with that call's estimate (the plan is ``estimated_only``).
+
+    Money: one envelope ``curriculum.cover_max_cost_usd`` for the run and the
+    daily ``curriculum.max_daily_cost_usd`` hold every metered request of it,
+    candidate discovery's query embeddings included, each by its own billing
+    (a subscription judge is ``estimated_only``, never refused for money;
+    Codex review F2); the judge's call is also checked before it is sent with
+    its estimate. Protection is read again before each LO.
+
     ``dry_run``: zero calls and zero writes; candidates are read by keyword
-    only (no query embedding), so a real run's state keys may differ."""
+    only (no query embedding), so a real run's state keys may differ; each
+    LO's query embedding is estimated (``query_embedding``)."""
 
     library = Library(vault, repository)
     route = plan_route(vault, ROUTE_TASK, client)
@@ -892,7 +1206,7 @@ def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_
     out: dict[str, Any] = {
         "status": "dry_run" if dry_run else "done", "extraction_id": extraction_id, "dry_run": dry_run,
         "route": route.as_dict(), "calls": 0,
-        "caps": {COVER_CAP_SETTING: cap, "checked": "before each call",
+        "caps": {COVER_CAP_SETTING: cap, "checked": "before each request (the judge's and every query embedding)",
                  "subscription_exempt_from_dollar_cap": subscription},
         "learning_objects": [],
     }
@@ -917,74 +1231,97 @@ def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_
             return out
     learning_object_ids = source_learning_objects(vault, repository, library, extraction_id)
     # One run's caps: every LO's call once and one retry each (a runaway
-    # bound; money is the cap below and the daily envelope).
+    # bound; money is the run's envelope and the daily one).
     count = max(1, len(learning_object_ids))
     budget = SpendBudget(SpendCaps(max_candidates=10_000 * count, max_pairs=10_000 * count, max_retries=count,
                                    max_calls=2 * count, max_total_tokens=400_000 * count,
                                    max_estimated_usd=None if subscription else cap),
                          subscription=subscription)
+    command = SpendEnvelope(COVER_CAP_SETTING, cap)
+    daily = daily_envelope(vault, repository, clock=clock)
     spent = {"usd": 0.0}
+    results: list[JudgeResult] = []
 
     def before_call(tokens: int) -> str | None:
         if subscription:
             return None
         estimate = planner.estimate(tokens).estimated_usd
-        used = float(budget.used.estimated_usd or 0.0)
-        if estimate is None or used + float(estimate) > cap:
-            return f"{COVER_CAP_SETTING} (${cap:.2f}): spent ${used:.4f}, this call ~${float(estimate or 0):.4f}"
+        left = command.remaining()
+        if estimate is None or float(estimate) > left:
+            return (f"{COVER_CAP_SETTING} (${cap:.2f}): spent ${cap - left:.4f}, "
+                    f"this call ~${float(estimate or 0):.4f}")
         return None
 
     stopped: str | None = None
-    for lo_id in learning_object_ids:
-        entry: dict[str, Any] = {"learning_object_id": lo_id}
-        out["learning_objects"].append(entry)
-        if stopped is not None:
-            entry["status"] = stopped
-            continue
-        if cancelled():
-            entry["status"] = stopped = "cancelled"
-            out["status"] = "cancelled"
-            continue
-        learning_object = vault.learning_objects[lo_id]
-        found = candidates_for(vault, repository, library, lo_id, deep=not dry_run, embedder=embedder,
-                               owner_id=f"cover:{extraction_id}:{lo_id}")
-        entry["candidates"] = len(found)
-        entry["here"] = sum(1 for candidate in found if candidate.extraction_id == extraction_id)
-        if not entry["here"]:
-            entry["status"] = "not_in_this_source"
-            continue
-        key = state_key(learning_object, library, found)
-        with repository.connection() as connection:
-            fresh = store.table_present(connection) and bool(store.judged(connection, lo_id, key))
-        if fresh:
-            entry["status"] = "fresh"
-            continue
-        if dry_run:
-            prompt = build_prompt(vault, library, learning_object, found)
-            tokens = estimated_call_tokens(prompt.text, SectionCoverageOutputV1, output_tokens)
-            usd = planner.estimate(tokens).estimated_usd
-            if subscription:
-                usd = tokens * price / 1_000_000 if price is not None else None
-            over = not subscription and (usd is None or spent["usd"] + float(usd) > cap)
-            if not over and usd is not None and not subscription:
-                spent["usd"] += float(usd)
-            entry.update(status="would_cap" if over else "planned", estimated_tokens=tokens, estimated_usd=usd)
-            if over:
-                stopped = "would_cap"
-            continue
-        result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder, clock=clock,
-                       budget=budget, candidates=found, before_call=before_call)
-        out["calls"] += result.calls
-        entry.update(result.as_dict())
-        if result.status in ("unavailable", "capped", "failed"):
-            out["status"] = result.status
-            out["reason"] = result.message
-            stopped = result.status
+    with spend_envelopes(command, daily):
+        for lo_id in learning_object_ids:
+            entry: dict[str, Any] = {"learning_object_id": lo_id}
+            out["learning_objects"].append(entry)
+            if stopped is not None:
+                entry["status"] = stopped
+                continue
+            if cancelled():
+                entry["status"] = stopped = "cancelled"
+                out["status"] = "cancelled"
+                continue
+            if not dry_run:
+                try:
+                    library = library.refreshed()
+                except CoverageError as exc:
+                    entry.update(status="stale", reason="protection_unreadable", message=str(exc))
+                    out.update(status="stale", reason=str(exc))
+                    stopped = "stale"
+                    continue
+            learning_object = vault.learning_objects[lo_id]
+            found = candidates_for(vault, repository, library, lo_id, deep=not dry_run, embedder=embedder,
+                                   owner_id=f"cover:{extraction_id}:{lo_id}")
+            entry["candidates"] = len(found)
+            entry["here"] = sum(1 for candidate in found if candidate.extraction_id == extraction_id)
+            if not entry["here"]:
+                entry["status"] = "not_in_this_source"
+                continue
+            key = state_key(learning_object, library, found)
+            with repository.connection() as connection:
+                fresh = store.table_present(connection) and bool(store.judged(connection, lo_id, key))
+            if fresh:
+                entry["status"] = "fresh"
+                continue
+            if dry_run:
+                prompt = build_prompt(vault, library, learning_object, found)
+                tokens = estimated_call_tokens(prompt.text, SectionCoverageOutputV1, output_tokens)
+                usd = planner.estimate(tokens).estimated_usd
+                if subscription:
+                    usd = tokens * price / 1_000_000 if price is not None else None
+                embedding = query_embedding_plan(vault, repository, lo_query(learning_object), embedder=embedder)
+                # Every billing's metered part counts against the caps: the
+                # judge's when metered, the query embedding's always.
+                metered = [] if subscription else [usd]
+                if embedding is not None and embedding["pending"]:
+                    metered.append(embedding["estimated_usd"])
+                over = any(value is None for value in metered) or (
+                    spent["usd"] + sum(float(value) for value in metered if value is not None) > cap)
+                if not over:
+                    spent["usd"] += sum(float(value) for value in metered if value is not None)
+                entry.update(status="would_cap" if over else "planned", estimated_tokens=tokens, estimated_usd=usd)
+                if embedding is not None:
+                    entry["query_embedding"] = embedding
+                if over:
+                    stopped = "would_cap"
+                continue
+            result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder,
+                           clock=clock, budget=budget, candidates=found, before_call=before_call)
+            results.append(result)
+            out["calls"] += result.calls
+            entry.update(result.as_dict())
+            if result.status in STOPPING:
+                out["status"] = result.status
+                out["reason"] = result.message
+                stopped = result.status
     if dry_run and skip is not None:
         out["route_status"] = skip
-    out["usage"] = {"requests": int(budget.used.calls), "retries": int(budget.used.retries),
-                    "billing": route.billing, "cost_basis": "estimated_only" if subscription else "metered_estimate",
-                    "marginal_usd": 0.0 if subscription else float(budget.used.estimated_usd or 0.0)}
+    out["usage"] = _run_usage(results, budget, command, route, subscription=subscription, price=price)
+    if dry_run:
+        out["usage"]["planned_metered_usd"] = spent["usd"]
     return out
 
 
@@ -1013,10 +1350,17 @@ class Standing:
 
 def standing(vault: Any, repository: Repository, library: Library,
              learning_object_ids: Iterable[str]) -> dict[str, dict[tuple[str, str], Standing]]:
-    """Per LO, its standing row per section: the newest judgment's rows that
-    still describe the section and the LO as they are now (a changed section
-    or statement drops them), with the newest learner correction per section
-    standing over them. Withheld sections are absent (the library has none)."""
+    """Per LO, its standing row per section: the rows of its current
+    judgment that still describe the section and the LO as they are now (a
+    changed section or statement drops them), with the newest learner
+    correction per section standing over them. Withheld sections are absent
+    (the library has none).
+
+    The current judgment is the newest one that matches the LO's statement
+    and every section it judged as they are now (Codex review F4: a state
+    judged before and current again, A then B then A, reads A's rows, which
+    ``judge`` found fresh); with none matching wholly, the newest one that
+    matches the statement, row by row."""
 
     wanted = sorted({str(lo) for lo in learning_object_ids if _active(vault, str(lo))})
     if not wanted:
@@ -1024,15 +1368,28 @@ def standing(vault: Any, repository: Repository, library: Library,
     with repository.connection() as connection:
         if not store.table_present(connection):
             return {}
-        latest = store.latest_judged(connection, wanted)
+        states = store.judged_states(connection, wanted)
         fixes = store.corrections(connection, learning_object_ids=wanted)
+
+    def section_of(row: Mapping[str, Any]) -> Section | None:
+        return library.section(str(row["extraction_id"]), str(row["section_id"]))
+
+    def unchanged(row: Mapping[str, Any]) -> bool:
+        # A section no longer readable (withheld now, gone) does not contradict
+        # the judgment; it is simply never listed.
+        section = section_of(row)
+        return section is None or section.section_hash == row["section_hash"]
+
     out: dict[str, dict[tuple[str, str], Standing]] = {}
     for lo_id in wanted:
         current = lo_hash(vault.learning_objects[lo_id])
+        same_statement = [rows for rows in states.get(lo_id, ()) if all(row["lo_hash"] == current for row in rows)]
+        whole = next((rows for rows in same_statement if all(unchanged(row) for row in rows)), None)
+        chosen = whole if whole is not None else (same_statement[0] if same_statement else [])
         entries: dict[tuple[str, str], Standing] = {}
-        for row in latest.get(lo_id, ()):
-            section = library.section(str(row["extraction_id"]), str(row["section_id"]))
-            if row["lo_hash"] != current or section is None or section.section_hash != row["section_hash"]:
+        for row in chosen:
+            section = section_of(row)
+            if section is None or section.section_hash != row["section_hash"]:
                 continue
             entries[section.key] = Standing(
                 extraction_id=section.extraction_id, section_id=section.section_id, learning_object_id=lo_id,
@@ -1158,23 +1515,37 @@ def _section_view(section: Section, *, read: bool) -> dict[str, Any]:
 def _kept_between(vault: Any, repository: Repository, library: Library, origin: Section,
                   learning_object_ids: Sequence[str]) -> dict[tuple[str, str], list[dict[str, Any]]]:
     """Per other section, what the learner kept comparing it with the origin
-    (RW4d; held-out keeps left out): the fine relation labels and when."""
+    (RW4d; held-out keeps left out): when, and the fine labels of the kept
+    relations whose two ends are the origin and that section (Codex review
+    F6: a comparison of three sections never lends one pair's relation to
+    another; a section kept with the origin but related to neither shows the
+    keep with no relation)."""
 
     out: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for entry in _kept_keys(vault, repository, learning_object_ids):
         sections: set[tuple[str, str]] = set()
+        by_object: dict[str, tuple[str, str]] = {}
         for source in entry.get("sources") or ():
             extraction_id, _sep, span_id = str(source.get("key") or "").partition(":")
             reading = library.reading(extraction_id) if extraction_id else None
             section_id = reading.all_spans.get(span_id) if reading is not None else None
             if section_id is not None:
                 sections.add((extraction_id, section_id))
+                if source.get("source_object_id"):
+                    by_object[str(source["source_object_id"])] = (extraction_id, section_id)
         if origin.key not in sections:
             continue
-        fines = sorted({str(rel.get("fine")) for rel in entry.get("relations") or () if rel.get("fine")})
+        between: dict[tuple[str, str], set[str]] = {}
+        for rel in entry.get("relations") or ():
+            ends = {by_object.get(str(rel.get("left_source_object_id") or "")),
+                    by_object.get(str(rel.get("right_source_object_id") or ""))}
+            if origin.key not in ends or None in ends or not rel.get("fine"):
+                continue
+            for key in ends - {origin.key}:
+                between.setdefault(key, set()).add(str(rel["fine"]))
         for key in sections - {origin.key}:
             out.setdefault(key, []).append({"ask_id": entry.get("ask_id"), "kept_at": entry.get("kept_at"),
-                                            "relations": fines})
+                                            "relations": sorted(between.get(key, ()))})
     return out
 
 
@@ -1261,7 +1632,8 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
               embedder: Any | None) -> dict[str, Any]:
     """The live search hits per other book for a section with no judged
     correspondent: its title, its LOs' titles and its lead passage as the
-    query; no model call (the query embedding aside), no write."""
+    query, by keyword only: no model call, no query embedding, no write
+    (Codex review F7)."""
 
     reading = library.reading(origin.extraction_id)
     lead = reading.texts.get(origin.span_ids[0], "") if reading is not None and origin.span_ids else ""
@@ -1270,7 +1642,7 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
     others = [source_id for source_id in library.by_source() if source_id != origin.source_id]
     found = search_sections(vault, repository, library, query, sources=others, embedder=embedder,
                             owner_id=f"correspondents:{origin.extraction_id}:{origin.section_id}",
-                            consumer=FALLBACK_CONSUMER) if others and query else {}
+                            consumer=FALLBACK_CONSUMER, read_only=True) if others and query else {}
     # A section the learner said is not about one of this section's LOs is not listed again.
     dismissed = {key for lo in learning_object_ids for key, entry in (rows.get(lo) or {}).items()
                  if entry.by == "learner" and entry.treatment == "not_about"}
@@ -1294,6 +1666,8 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
 __all__ = [
     "ABOUT",
     "COVERAGE_TASK",
+    "STALE_MESSAGE",
+    "STOPPING",
     "LEDGER_TASK",
     "MODELS_ENV",
     "ORIGINS",
@@ -1306,8 +1680,11 @@ __all__ = [
     "UNCHECKED_LABEL",
     "Candidate",
     "CoverageError",
+    "CoverageGuard",
     "JudgeResult",
     "Library",
+    "Protection",
+    "ProtectionChanged",
     "Section",
     "SectionCoverageOutputV1",
     "Standing",
@@ -1323,6 +1700,8 @@ __all__ = [
     "lo_hash",
     "lo_query",
     "models_off",
+    "query_embedding_plan",
+    "read_protection",
     "search_sections",
     "section_learning_objects",
     "source_learning_objects",

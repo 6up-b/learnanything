@@ -3,8 +3,8 @@ title: "Config - ui"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5298b57ea745a210c54a1d3a8f79637558edd1a1"
-source_commit_timestamp: "2026-10-25T16:12:33-04:00"
+source_commit: "a5c36443023a87678721d241d47d6fe4b45fc108"
+source_commit_timestamp: "2026-10-25T17:00:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ui"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3617`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop_sidecar/context.py:783` |
-| `ui.shell` | `"simple"` | string | modeled default or validator seed | Controls shell in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3618`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop_sidecar/context.py:783` |
+| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3618`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop_sidecar/context.py:783` |
+| `ui.shell` | `"simple"` | string | modeled default or validator seed | Controls shell in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix ("classic" keeps the ten-tab shell exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3619`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop_sidecar/context.py:783` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

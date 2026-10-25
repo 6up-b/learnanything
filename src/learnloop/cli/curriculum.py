@@ -37,9 +37,10 @@ def curriculum_cover(
     candidate section across the library: introduces, develops, applies,
     mentions or not about it. Exam and held-out material is never a
     candidate. A judgment already stored for the current state is not paid
-    for again. curriculum.cover_max_cost_usd caps a metered run, checked
-    before each call. Run --dry-run first: it calls nothing and writes
-    nothing (its candidates are read by keyword only)."""
+    for again. curriculum.cover_max_cost_usd caps the run's metered requests
+    (a metered judge's calls and the query embeddings), checked before each.
+    Run --dry-run first: it calls nothing and writes nothing (its candidates
+    are read by keyword only; each query embedding is estimated)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id
     from learnloop.source_retrieval.section_coverage import CoverageError, cover_source, enabled

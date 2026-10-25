@@ -52,16 +52,23 @@ def judged(connection: sqlite3.Connection, learning_object_id: str, state_key: s
         "AND learner_override IS NULL ORDER BY candidate_rank, id", (learning_object_id, state_key)))
 
 
-def latest_judged(connection: sqlite3.Connection, learning_object_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]:
-    """Per LO, the judge's rows of its newest judgment (one state key)."""
+def judged_states(connection: sqlite3.Connection,
+                  learning_object_ids: Iterable[str]) -> dict[str, list[list[dict[str, Any]]]]:
+    """Per LO, every judgment's judge rows (one list per state key), newest
+    judgment first; each list in candidate order. The reader picks the
+    current one (``section_coverage.standing``)."""
 
-    out: dict[str, list[dict[str, Any]]] = {}
+    out: dict[str, list[list[dict[str, Any]]]] = {}
     for lo_id in sorted({str(value) for value in learning_object_ids}):
-        newest = connection.execute(
-            "SELECT state_key FROM section_coverage WHERE learning_object_id = ? AND learner_override IS NULL "
-            "ORDER BY created_at DESC, rowid DESC LIMIT 1", (lo_id,)).fetchone()
-        if newest is not None:
-            out[lo_id] = judged(connection, lo_id, str(newest[0]))
+        rows = _dicts(connection.execute(
+            "SELECT * FROM section_coverage WHERE learning_object_id = ? AND learner_override IS NULL "
+            "ORDER BY created_at DESC, rowid DESC", (lo_id,)))
+        states: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            states.setdefault(str(row["state_key"]), []).append(row)
+        if states:
+            out[lo_id] = [sorted(group, key=lambda row: (row["candidate_rank"] or 0, row["id"]))
+                          for group in states.values()]
     return out
 
 
@@ -112,7 +119,7 @@ __all__ = [
     "counts",
     "insert",
     "judged",
-    "latest_judged",
+    "judged_states",
     "learning_objects_named",
     "table_present",
 ]

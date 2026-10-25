@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from pathlib import Path
 from typing import Any
 
 from learnloop.source_retrieval import section_coverage as SC
@@ -102,7 +103,8 @@ def reader_correspondents(ctx: SidecarContext, params: CorrespondentsInput) -> d
 
 
 class _Jobs:
-    """Coverage jobs by id, and the LOs being judged now (one judgment per LO in this sidecar)."""
+    """One vault's coverage jobs by id, and the LOs being judged now (one
+    judgment per LO and vault in this sidecar)."""
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
@@ -113,12 +115,23 @@ class _Jobs:
         self.offers: dict[str, dict[str, Any]] = {}
 
 
+_REGISTRY_LOCK = threading.Lock()
+
+
 def _jobs(ctx: SidecarContext) -> _Jobs:
-    found = getattr(ctx, "coverage_jobs", None)
-    if found is None:
-        found = _Jobs()
-        ctx.coverage_jobs = found  # type: ignore[attr-defined]
-    return found
+    """The open vault's jobs (Codex review F8): one registry per database, so
+    after a vault switch neither a job's id, its section key nor its running
+    LOs are seen from the other vault (a job of the vault left behind is
+    fenced by its guard: it sends and records nothing more)."""
+
+    repository = getattr(ctx, "repository", None)
+    database = str(Path(repository.sqlite_path).resolve()) if repository is not None else ""
+    with _REGISTRY_LOCK:
+        registries = getattr(ctx, "coverage_jobs", None)
+        if not isinstance(registries, dict):
+            registries = {}
+            ctx.coverage_jobs = registries  # type: ignore[attr-defined]
+        return registries.setdefault(database, _Jobs())
 
 
 def _public(job: dict[str, Any]) -> dict[str, Any]:
@@ -136,6 +149,10 @@ def _job_for(ctx: SidecarContext, extraction_id: str, section_id: str) -> dict[s
 
 def _run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning_object_ids: list[str]) -> None:
     jobs = _jobs(ctx)
+    #: The vault loaded now, at each check (a reload's source sets count; a
+    #: switch refuses the rest of the job: Codex review F1, F8).
+    live_vault = ctx.loaded_vault
+    root = Path(vault.root).resolve()
     client = getattr(ctx, "coverage_judge_client", None)
     embedder = getattr(ctx, "coverage_embedder", None)
     sqlite_path = repository.sqlite_path
@@ -161,6 +178,12 @@ def _run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning
                 with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id=f"{COVER_ORIGIN}:{job_id}"):
                     library = SC.Library(vault, worker)
                     for lo_id in learning_object_ids:
+                        current = live_vault()
+                        if current is None or Path(current.root).resolve() != root:
+                            failure = {"reason": "vault_switched", "message": SC.STALE_MESSAGE}
+                            break
+                        # Protection read again before each LO (nothing cached is reused across a change).
+                        library = library.refreshed(current)
                         with jobs.lock:
                             busy = lo_id in jobs.running
                             if not busy:
@@ -169,12 +192,13 @@ def _run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning
                             results.append({"learning_object_id": lo_id, "status": "held"})
                             continue
                         try:
-                            result = SC.judge(vault, worker, lo_id, library=library, client=client, embedder=embedder)
+                            result = SC.judge(current, worker, lo_id, library=library, client=client,
+                                              embedder=embedder, live_vault=live_vault)
                         finally:
                             with jobs.lock:
                                 jobs.running.discard(lo_id)
                         results.append(result.as_dict())
-                        if result.status in ("unavailable", "capped", "failed"):
+                        if result.status in SC.STOPPING:
                             failure = {"reason": result.reason, "message": result.message}
                             break
             except BaseException as exc:  # noqa: BLE001 - a failed job answers its read, never the loop

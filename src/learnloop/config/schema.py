@@ -2653,10 +2653,11 @@ class CurriculumConfig(BaseModel):
     same LOs (no model call), or, with none judged yet, the live search hits
     labelled "found by search, not checked". Exam and held-out material is
     never a candidate and never listed. ``enabled`` is the kill switch (off:
-    every RPC refuses, no call). ``max_daily_cost_usd`` caps a metered judge
-    route a UTC day and ``cover_max_cost_usd`` one owner-run
-    ``learnloop curriculum cover`` (both checked before each call; the ChatGPT
-    plan is ``estimated_only``); ``max_prompt_tokens`` bounds one judgment's
+    every RPC refuses, no call). ``max_daily_cost_usd`` caps coverage's
+    metered requests a UTC day (a metered judge route and the query
+    embeddings its candidate searches make) and ``cover_max_cost_usd`` one
+    owner-run ``learnloop curriculum cover`` (both checked before each
+    request; the ChatGPT plan is ``estimated_only``); ``max_prompt_tokens`` bounds one judgment's
     prompt (the passages share it equally). Display and retrieval context
     only: nothing in scoring, scheduling, projection or serving reads
     coverage, so no algorithm successor.
