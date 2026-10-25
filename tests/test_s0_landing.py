@@ -351,3 +351,105 @@ def test_copy_out_refuses_to_overwrite_an_existing_backup(layout, capsys):
     (homes["backups"] / "linear_algebra").mkdir(parents=True)
     assert script.main(["copy-out", *args]) == 1
     assert "exists" in capsys.readouterr().err
+
+
+# --- Codex re-review: F1 a symlinked vault root, F7 local edits to tracked media, F8 papers left the index -----
+
+
+def test_copy_out_and_move_out_refuse_a_vault_root_that_is_a_symlink(layout, tmp_path, capsys):
+    script, checkout, homes, args = layout
+    vault = checkout / "fixtures" / "linear_algebra"
+    actual = checkout / "fixtures" / "actual-vault"
+    vault.rename(actual)
+    vault.symlink_to("actual-vault")  # relative: a rename of the link breaks it
+
+    assert script.main(["copy-out", *args]) == 1
+    assert "linear_algebra" in capsys.readouterr().err
+    assert not (homes["backups"] / "linear_algebra").exists()
+    # Even with a backup in place, move-out leaves the link and its target alone.
+    copy_tree_with_databases(actual, tmp_path / "backup-of-actual")
+    manifest = homes["backups"] / "S0-MANIFEST.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    tree = script.tree_manifest(tmp_path / "backup-of-actual")
+    manifest.write_text(json.dumps({"vaults": {"linear_algebra": tree}}), encoding="utf-8")
+    (tmp_path / "backup-of-actual").rename(homes["backups"] / "linear_algebra")
+    assert script.main(["move-out", *args, "--yes"]) == 1
+    assert "symlink" in capsys.readouterr().err
+    assert vault.is_symlink() and (vault / "learnloop.toml").is_file()
+    assert not (homes["vaults"] / "linear_algebra").exists()
+    assert (checkout / "fixtures" / "law").is_dir()
+
+
+def test_check_refuses_a_live_vault_that_is_a_symlink(layout, tmp_path, capsys):
+    script, _, homes, args = layout
+    _land(script, args)
+    live = homes["vaults"] / "linear_algebra"
+    live.rename(tmp_path / "real-live")
+    live.symlink_to(tmp_path / "real-live")
+    capsys.readouterr()
+    assert script.main(["check", *args]) == 1
+    assert "symlink" in capsys.readouterr().out
+
+
+def test_books_out_refuses_uncommitted_edits_to_a_tracked_text_file(layout, capsys):
+    script, checkout, homes, args = layout
+    courses = checkout / "new_textbooks" / "courses.txt"
+    courses.write_text(COURSES + "an uncommitted addition\n", encoding="utf-8")
+    assert script.main(["books-out", *args]) == 1
+    err = capsys.readouterr().err
+    assert "courses.txt" in err and "uncommitted" in err
+    assert not (homes["books"] / "S0-BOOKS-MANIFEST.json").exists()
+    assert courses.read_text(encoding="utf-8").endswith("an uncommitted addition\n")
+
+
+def test_check_refuses_uncommitted_edits_made_after_books_out(layout, capsys):
+    script, checkout, _, args = layout
+    _land(script, args)
+    (checkout / "new_textbooks" / "courses.txt").write_text(COURSES + "added later\n", encoding="utf-8")
+    capsys.readouterr()
+    assert script.main(["check", *args]) == 1
+    assert "courses.txt" in capsys.readouterr().out
+
+
+def test_committed_edits_to_a_tracked_text_file_are_backed_up(layout):
+    script, checkout, homes, args = layout
+    courses = checkout / "new_textbooks" / "courses.txt"
+    courses.write_text(COURSES + "committed\n", encoding="utf-8")
+    _git(checkout, "add", "new_textbooks/courses.txt")
+    assert script.main(["books-out", *args]) == 0
+    assert (homes["books"] / "courses.txt").read_text(encoding="utf-8") == COURSES + "committed\n"
+
+
+def test_books_out_refuses_when_a_paper_is_in_neither_the_index_nor_head(layout, capsys):
+    script, checkout, homes, args = layout
+    # Every medium untracked before the first books-out, and no commit to recover them from.
+    _git(checkout, "rm", "-r", "-q", "--cached", "--", "new_textbooks", "docs/brainstorming/paper.pdf")
+    for path in (checkout / "new_textbooks").iterdir():
+        path.unlink()
+    (checkout / "new_textbooks").rmdir()
+    assert script.main(["books-out", *args]) == 1
+    assert "paper.pdf" in capsys.readouterr().err
+    assert not (homes["books"] / "S0-BOOKS-MANIFEST.json").exists()
+
+
+def test_a_paper_staged_for_removal_is_recovered_from_head(layout):
+    script, checkout, homes, args = layout
+    _git(checkout, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "media")
+    _git(checkout, "rm", "-q", "--cached", "--", "docs/brainstorming/paper.pdf")
+    assert script.main(["books-out", *args]) == 0
+    inventory = json.loads((homes["books"] / "S0-BOOKS-MANIFEST.json").read_text(encoding="utf-8"))["media"]
+    assert inventory["papers/paper.pdf"]["sha256"] == hashlib.sha256(PAPER).hexdigest()
+    assert (homes["books"] / "papers" / "paper.pdf").read_bytes() == PAPER
+
+
+def test_check_refuses_a_books_manifest_without_every_paper(layout, capsys):
+    script, _, homes, args = layout
+    _land(script, args)
+    path = homes["books"] / "S0-BOOKS-MANIFEST.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    del payload["media"]["papers/paper.pdf"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    (homes["books"] / "papers" / "paper.pdf").unlink()
+    capsys.readouterr()
+    assert script.main(["check", *args]) == 1
+    assert "paper.pdf" in capsys.readouterr().out

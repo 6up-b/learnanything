@@ -203,7 +203,8 @@ With every LearnLoop process closed, from this branch:
    `learnloop.toml` (without loading environment settings) and refuses,
    before copying or moving anything, a layout S0 cannot move as a plain
    rename: an absolute or `..` `storage.sqlite_path`, a database not named
-   `*.sqlite`, a missing database, or any symlink in the vault (review F1;
+   `*.sqlite`, a missing database, a vault that is itself a symlink, or any
+   symlink in the vault (review F1, re-review F1;
    those are relocated by S1's `vault move`, §7.1 step 4). All eight vaults'
    tracked versions have the plain layout (checked on the owner-lane copies).
 1. `copy-out --checkout <main>`: backup-API copies of all eight vaults to
@@ -215,8 +216,12 @@ With every LearnLoop process closed, from this branch:
 2. `books-out`: the inventory comes from git's index, not the working tree
    (review F2): every tracked `new_textbooks/` file and paper with the sha256
    its LFS pointer's oid names, or else its blob's, plus any untracked file
-   under `new_textbooks/`; it is written to `S0-BOOKS-MANIFEST.json` before
-   anything is copied. Each file's bytes come from the checkout or the local
+   under `new_textbooks/`; a file already staged for removal is taken from
+   HEAD, and every reference paper must be in the inventory (re-review F8).
+   It refuses while a plain tracked file has uncommitted edits, whose only
+   copy is the working file (re-review F7: commit or discard them first). The
+   inventory is written to `S0-BOOKS-MANIFEST.json` before anything is
+   copied. Each file's bytes come from the checkout or the local
    LFS store (`.git/lfs/objects`, no network) only when they hash to that
    value (a plain tracked file the working tree lost comes from its blob), to
    `~/learnloop-books/`, the papers to `papers/`.
@@ -231,7 +236,8 @@ With every LearnLoop process closed, from this branch:
    every backup matches its manifest, each live vault has the plain layout,
    matches its backup (no change since) and is marked, each retired copy
    matches its backup, and every entry of the books manifest (which must
-   cover git's index) is in the books folder with its hash. If a moved vault
+   cover git's index and every reference paper, with no uncommitted edit to
+   a plain tracked file) is in the books folder with its hash. If a moved vault
    changed after its backup, `copy-out --from-moved --backup-root <new>` backs
    up the moved vaults where they now are, and `check --backup-root <new>`
    passes against that (review F4).
@@ -251,7 +257,12 @@ refuses a changed retired copy, a move without a backup, the four unsupported
 database layouts (absolute, `..`, symlink, not `*.sqlite`), a live config that
 opens another database, a corrupt paper, a lost book copy, a wrongly
 materialized LFS file, a changed inventory, a textbook whose copy does not
-match its pointer, a missing LFS object, and an existing backup directory.
+match its pointer, a missing LFS object, an existing backup directory, a
+symlinked vault root (in the checkout and as the live vault), uncommitted
+edits to a tracked text file (before and after `books-out`; committed edits
+are backed up), and a reference paper in neither the index nor HEAD (one
+staged for removal is recovered from HEAD), and a books manifest missing a
+paper.
 
 Note for the main checkout (from its `git status` at the start of this
 session): its `.gitignore` and the vaults' `learnloop.toml`/`state.sqlite`

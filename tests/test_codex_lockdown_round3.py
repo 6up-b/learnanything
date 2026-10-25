@@ -471,8 +471,9 @@ APPROVED_LAUNCH_SITES = {
     ("scripts/benchmark_chatgpt_plan_latency.py", "_install_fake_codex_sdk.FakeCodex.__enter__", "subprocess.Popen"),
     ("scripts/benchmark_chatgpt_plan_latency.py", "_install_fake_codex_sdk.FakeCodex.__init__", "subprocess.Popen"),
     ("scripts/benchmark_chatgpt_plan_latency.py", "main", "subprocess.run"),
-    # Storage S0's owner-run landing: read-only `git ls-files` / `git cat-file blob` in the
-    # owner's checkout (fixed argv, no shell), no model call.
+    # Storage S0's owner-run landing: read-only `git ls-files` / `git ls-tree HEAD` /
+    # `git rev-parse --verify HEAD` / `git cat-file blob` in the owner's checkout
+    # (fixed argv, no shell), no model call.
     ("scripts/s0_landing.py", "_git", "subprocess.run"),
     ("src/learnloop/ai/chatgpt_plan/store.py", "_fsync_directory", "getattr(os)"),
     ("src/learnloop/ai/providers/codex.py", "SdkCodexClient.__init__", "subprocess.Popen"),  # annotation

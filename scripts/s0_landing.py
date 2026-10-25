@@ -20,7 +20,9 @@ server, CLI)::
     uv run python $S0 copy-out --checkout $CHECKOUT
     # 2. The textbooks' real bytes from the local git-LFS store (no network)
     #    and the reference PDFs, each checked against what git's index holds
-    #    (an LFS pointer's oid, else the blob), with a books manifest.
+    #    (an LFS pointer's oid, else the blob; a file staged for removal from
+    #    HEAD), with a books manifest. It refuses while a plain tracked file
+    #    has uncommitted edits, or while a reference paper is in neither.
     uv run python $S0 books-out --checkout $CHECKOUT
     # 3. Move the vault directories out of the checkout (a rename on the same
     #    filesystem): the three working vaults become the live vaults under
@@ -41,8 +43,8 @@ backup, make a fresh backup of the moved vaults and check against it::
     uv run python $S0 check --checkout $CHECKOUT --backup-root ~/learnloop-backups/s0-2
 
 S0 lands only the plain layout: each vault's ``learnloop.toml`` names its
-database as a relative ``*.sqlite`` path inside the vault, and no symlink sits
-in the vault. Anything else (an absolute or ``..`` path, a symlinked database
+database as a relative ``*.sqlite`` path inside the vault, the vault is not
+itself a symlink, and no symlink sits in the vault. Anything else (an absolute or ``..`` path, a symlinked database
 or directory, a database named otherwise) is refused before anything is
 copied or moved, and is relocated by S1's ``learnloop vault move`` or by hand
 first (§7.1 step 4).
@@ -168,6 +170,11 @@ def vault_database(root: Path, label: str | None = None) -> tuple[Path | None, l
     from learnloop.config.loader import load_config
 
     label = label or root.name
+    if root.is_symlink():
+        # os.walk follows a symlink given as its root, and a rename moves the
+        # link, not the vault (a relative link then points nowhere).
+        return None, [f"{label}: {root} is itself a symlink; S0 moves only plain trees (move the vault it points "
+                      "to into place, or relocate it in S1, first)"]
     config = root / "learnloop.toml"
     if config.is_symlink() or not config.is_file():
         return None, [f"{label}: {config} is not a regular file"]
@@ -251,25 +258,43 @@ def _destination(source: str) -> str:
     return "papers/" + Path(source).name
 
 
+def _has_head(checkout: Path) -> bool:
+    """Whether the checkout has a commit (a fresh repository has none, so nothing to recover from)."""
+    try:
+        _git(checkout, "rev-parse", "--verify", "-q", "HEAD")
+    except Refused:
+        return False
+    return True
+
+
 def media_inventory(checkout: Path) -> dict[str, dict]:
-    """Destination path -> what it must hold, from git's index (never from what the working tree holds).
+    """Destination path -> what it must hold, from git (never from what the working tree holds).
 
     A tracked file's expected sha256 is its LFS pointer's oid, or else its
-    blob's; a working-tree file that git does not track under
-    ``new_textbooks/`` is listed with its current hash. A tracked file the
-    working tree lost, or materialized wrongly, keeps its tracked hash.
+    blob's. The index decides; a file already staged for removal is recovered
+    from HEAD (Codex re-review F8). A working-tree file that git does not
+    track under ``new_textbooks/`` is listed with its current hash. A tracked
+    file the working tree lost, or materialized wrongly, keeps its tracked hash.
     """
     sources = ["new_textbooks", *(f"docs/brainstorming/{paper}" for paper in PAPERS)]
     media = {}
-    for record in _git(checkout, "ls-files", "-s", "-z", "--", *sources).split(b"\0"):
-        if not record:
-            continue
-        header, path = record.decode("utf-8").split("\t", 1)
-        blob = header.split()[1]
+
+    def add(path: str, blob: str) -> None:
         data = _git(checkout, "cat-file", "blob", blob)
         oid = _pointer_oid(data)
-        media[_destination(path)] = {"source": path, "sha256": oid or hashlib.sha256(data).hexdigest(),
-                                     "kind": "lfs" if oid else "git", "blob": blob}
+        media.setdefault(_destination(path), {"source": path, "sha256": oid or hashlib.sha256(data).hexdigest(),
+                                              "kind": "lfs" if oid else "git", "blob": blob})
+
+    for record in _git(checkout, "ls-files", "-s", "-z", "--", *sources).split(b"\0"):
+        if record:
+            header, path = record.decode("utf-8").split("\t", 1)
+            add(path, header.split()[1])
+    if _has_head(checkout):
+        for record in _git(checkout, "ls-tree", "-r", "-z", "HEAD", "--", *sources).split(b"\0"):
+            if record:
+                header, path = record.decode("utf-8").split("\t", 1)
+                if header.split()[1] == "blob":
+                    add(path, header.split()[2])
     for record in _git(checkout, "ls-files", "-z", "--others", "--", "new_textbooks").split(b"\0"):
         if not record:
             continue
@@ -278,6 +303,28 @@ def media_inventory(checkout: Path) -> dict[str, dict]:
         media.setdefault(_destination(path), {"source": path, "sha256": _pointer_oid(data) or
                                               hashlib.sha256(data).hexdigest(), "kind": "untracked"})
     return media
+
+
+def _missing_papers(media: dict) -> list[str]:
+    """Every reference paper must be in the inventory; none is optional (Codex re-review F8)."""
+    return [f"docs/brainstorming/{paper}: in neither git's index nor HEAD, so its bytes cannot be verified; "
+            "restore it to the index (git add) or land from a checkout that still tracks it"
+            for paper in PAPERS if _destination(f"docs/brainstorming/{paper}") not in media]
+
+
+def _local_edits(checkout: Path, media: dict) -> list[str]:
+    """A plain tracked file whose working bytes differ from git's: only the working copy holds the edits (F7).
+
+    LFS files are left out: their working file is a pointer or the
+    materialized object, and only the object's oid is trusted.
+    """
+    problems = []
+    for relative, entry in sorted(media.items()):
+        working = checkout / entry["source"]
+        if entry["kind"] == "git" and working.is_file() and sha256_file(working) != entry["sha256"]:
+            problems.append(f"{entry['source']}: has uncommitted changes that git's copy lacks; commit them "
+                            f"(git add, git commit) or discard them, then run books-out")
+    return problems
 
 
 def _media_drift(persisted: dict, current: dict) -> list[str]:
@@ -382,6 +429,9 @@ def books_out(args) -> int:
     lfs = _lfs_objects(checkout, args.lfs_objects)
     manifest_path = books_root / BOOKS_MANIFEST
     current = media_inventory(checkout)
+    unsafe = _local_edits(checkout, current)
+    if unsafe:
+        raise Refused("nothing was copied:\n" + "\n".join(f"- {problem}" for problem in unsafe))
     if manifest_path.exists():
         persisted = _read_json(manifest_path, {})["media"]
         drift = _media_drift(persisted, current)
@@ -389,6 +439,9 @@ def books_out(args) -> int:
             raise Refused("the checkout's media changed since the books manifest; choose a new --books-root:\n"
                           + "\n".join(drift))
     else:
+        missing = _missing_papers(current)
+        if missing:
+            raise Refused("no books manifest was written:\n" + "\n".join(f"- {problem}" for problem in missing))
         # The whole inventory is written before anything is copied, so a
         # check never verifies less than git's index held.
         persisted = current
@@ -519,8 +572,10 @@ def check(args) -> int:
         problems.append(f"no books manifest at {books_manifest} (run books-out)")
     else:
         persisted = _read_json(books_manifest, {})["media"]
+        problems += _missing_papers(persisted)
         try:
-            problems += _media_drift(persisted, media_inventory(checkout))
+            current = media_inventory(checkout)
+            problems += _media_drift(persisted, current) + _local_edits(checkout, current)
         except Refused as refusal:
             problems.append(str(refusal.code))
         for relative, entry in sorted(persisted.items()):
