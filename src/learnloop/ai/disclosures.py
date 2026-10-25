@@ -162,7 +162,8 @@ _WHEN = {
         "teaches with your status on each (shown on your own, assumed known, learning, new), the depth you "
         "chose and your active goal's title, so LearnLoop's model can say which sections are core, "
         "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
-        "exam. Display only: it changes no plan and never grades you."
+        "exam. It never grades you; with reading_paths.plan_uses_path on, today's plan reads the labels "
+        "(no further call) so your reading block opens the next core or prerequisite section."
     ),
     "figures": (
         "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "

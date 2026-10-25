@@ -235,13 +235,17 @@ def test_a_stored_already_shown_that_no_longer_holds_is_core_for_the_plan(tmp_pa
 
 def test_a_source_without_a_depth_or_a_judged_path_keeps_the_predecessors_order(tmp_path, monkeypatch):
     paths, repository, _ = _vault(tmp_path, monkeypatch, depth=None)
+    statuses = []
+    real = RP.plan_path
+    monkeypatch.setattr(RP, "plan_path", lambda *a, **k: statuses.append(real(*a, **k).status) or real(*a, **k))
     reading, receipt = _step(paths, repository)
-    assert (reading.section_id, reading.path_label) == ("sec_eigen", None)
-    assert (receipt["chosen_by"], receipt["same_as_predecessor"]) == ("order", True)
-    assert [p["status"] for p in receipt["paths"]] == ["no_depth"]
+    # No path in play: the predecessor's step and no receipt (the plan is stored as the predecessor's).
+    assert (reading.section_id, reading.path_label, receipt, statuses) == ("sec_eigen", None, None, ["no_depth"])
     RP.set_depth(repository, "src_text", "fluency")  # a depth, never judged at it
     reading, receipt = _step(paths, repository)
-    assert reading.section_id == "sec_eigen" and [p["status"] for p in receipt["paths"]] == ["not_judged"]
+    assert (reading.section_id, receipt, statuses[-1]) == ("sec_eigen", None, "not_judged")
+    call(context(paths.root), "get_daily_plan", {})
+    assert "reading_path" not in _split(repository) and _split(repository)["reading"]["section_id"] == "sec_eigen"
 
 
 def test_a_path_that_cannot_be_read_leaves_the_reading_to_the_order(tmp_path, monkeypatch):
@@ -452,10 +456,9 @@ def _fixture_parity(tmp_path, monkeypatch, source: Path) -> None:
     baseline = _plan_state(_fixture_copy(tmp_path, source, "base", version=PREDECESSOR))
     assert _plan_state(_fixture_copy(tmp_path, source, "off", version=TAG, toml=OFF)) == baseline
     assert _plan_state(_fixture_copy(tmp_path, source, "guide_off", version=TAG, toml=GUIDE_OFF)) == baseline
-    # On: the same plan wherever no path was consulted (no reading considered).
-    on = _plan_state(_fixture_copy(tmp_path, source, "on", version=TAG))
-    if "reading_path" not in json.dumps(on):
-        assert on == baseline
+    # On, with no reading path judged on the copy: the predecessor's plan too
+    # (the successor changes only a reading block a path chose).
+    assert _plan_state(_fixture_copy(tmp_path, source, "on", version=TAG)) == baseline
 
 
 def test_g47_off_is_the_predecessor_on_the_head_fixture_copy(tmp_path, monkeypatch):

@@ -499,11 +499,12 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.workbench_field_signals_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert LATEST_ALGORITHM_VERSION == TAG == SUCCESSOR_CHAIN[-1]
+    # Reader workbench RW7b's mvp-0.32 follows it as the latest (and keeps it).
+    assert TAG == SUCCESSOR_CHAIN[-2] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.32"
     # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
     assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"
-    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG})
+    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
@@ -738,7 +739,8 @@ def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
     assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
+    # RW2d's own step (the default target is RW7b's, the latest, since its landing).
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {TAG}" in invoked.output
 

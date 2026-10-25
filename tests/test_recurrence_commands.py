@@ -148,11 +148,13 @@ def test_successor_vocabulary():
     assert REGRADE_CONTRACT_ALGORITHM_VERSION == "mvp-0.26"
     # The one eligibility decision (mvp-0.27), the learner's intent (mvp-0.29,
     # daily-loop DL2), adaptive difficulty (mvp-0.30) and the Reader
-    # workbench's field signals (mvp-0.31, RW2d) follow them all.
+    # workbench's field signals (mvp-0.31, RW2d) and the plan following the
+    # reading path (mvp-0.32, RW7b) follow them all.
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29"
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
-    assert LATEST_ALGORITHM_VERSION == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
+    assert WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.32"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

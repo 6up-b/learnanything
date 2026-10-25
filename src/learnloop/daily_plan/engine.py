@@ -202,7 +202,7 @@ READING_PATH_RECEIPT_VERSION = "reading_path_plan_v1"
 
 def _reading_on_path(
     env: Any, *, extraction_ids: list[str] | None, from_furthest: bool, exam: Any
-) -> tuple[ReadingTarget | None, dict[str, Any]]:
+) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
     """RW7b's reading step and its receipt. The step is the predecessor's
     order (U4's or DL1's, the exam filter included) narrowed, on each
     reading with a judged path at the learner's depth, to the path's
@@ -212,8 +212,11 @@ def _reading_on_path(
     choice; one whose path is withheld (exam) or has nothing left to plan
     offers none. The receipt records the section the predecessor's order
     would have chosen (``predecessor``), whether the path chose
-    (``chosen_by``), and each path consulted. No model is called; a path
-    that cannot be read leaves that reading to the predecessor's order."""
+    (``chosen_by``), and each path consulted. It is None when no path was in
+    play (every reading visited had no depth or nothing judged): the step is
+    then the predecessor's and the plan is stored byte for byte as the
+    predecessor's. No model is called; a path that cannot be read leaves
+    that reading to the predecessor's order (and is recorded)."""
 
     import logging
 
@@ -249,6 +252,8 @@ def _reading_on_path(
         or (predecessor is not None and reading is not None
             and (predecessor.extraction_id, predecessor.section_id) == (reading.extraction_id, reading.section_id))
     )
+    if not any(path.status not in ("no_depth", "not_judged") for path in consulted.values()):
+        return reading, None
     receipt = {
         "version": READING_PATH_RECEIPT_VERSION,
         # The section the predecessor's order would have chosen (§10.2).

@@ -65,8 +65,8 @@ CLOCK = FrozenClock(datetime(2026, 10, 14, 12, 0, tzinfo=UTC))
 def test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predecessor():
     assert ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
     assert SUCCESSOR_CHAIN[-8:-6] == (ROUTER_STAGED_FRAME_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION)
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.31"
-    assert ROUTER_MIXTURE_VERSIONS == frozenset({"mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.32"
+    assert ROUTER_MIXTURE_VERSIONS == frozenset({"mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32"})
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
         PLACEMENT_VERSIONS, DAILY_PLAN_VERSIONS, VOI_STOPPING_VERSIONS, DECIDER_TIER1_VERSIONS,
@@ -214,7 +214,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     assert result.exit_code == 0, result.output
     # The default is the latest successor (regrade contracts, mvp-0.26).
     assert f"mvp-0.23 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.31"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.32"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.21")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.24"])
     assert result.exit_code == 0, result.output
@@ -231,7 +231,7 @@ def test_new_vaults_start_at_the_mixture_successor(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.31"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.32"
     router = fresh.config.router
     assert router.enabled and router.mode == "mixture" and router.restraint
     assert (router.k, router.epsilon_min, router.timeout_seconds, router.prefetch_timeout_seconds) == (6, 0.02, 8.0, 45.0)

@@ -143,9 +143,9 @@ def _state(repository):
 def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     assert VERSION == "mvp-0.26"
     # The one eligibility decision (mvp-0.27) followed it and keeps it.
-    assert SUCCESSOR_CHAIN[-5] == VERSION and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.31"
-    assert SUCCESSOR_CHAIN[-6] == PREDECESSOR == "mvp-0.25"
-    assert REGRADE_CONTRACT_VERSIONS == frozenset({VERSION, "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31"})
+    assert SUCCESSOR_CHAIN[-6] == VERSION and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.32"
+    assert SUCCESSOR_CHAIN[-7] == PREDECESSOR == "mvp-0.25"
+    assert REGRADE_CONTRACT_VERSIONS == frozenset({VERSION, "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32"})
     for versions in (CANONICAL_STATE_VERSIONS, P0_PROJECTION_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS, PLACEMENT_VERSIONS,
                      ROUTE_RULES_VERSIONS, ROUTER_MIXTURE_VERSIONS, METHOD_EXPLICIT_VERSIONS):
         assert VERSION in versions

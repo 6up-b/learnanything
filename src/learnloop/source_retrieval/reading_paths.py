@@ -5,9 +5,12 @@ At the depth the learner picks for a source, each section of the reading is
 **core**, **prerequisite**, **enrichment**, **already shown** or **assumed**,
 with a one-line why and the learner's *read it anyway* / *skip it*; each core
 section names one exercise worth trying; one line at the top suggests the
-next activity. Nothing here is evidence: no plan, scheduling, projection,
-grading, serving or replay path reads a path (G47's display-only part), and
-*skip it* marks nothing as known.
+next activity. Nothing here is evidence: no projection, grading or replay
+path reads a path, and *skip it* marks nothing as known. Below RW7b's tag no
+plan, scheduling or serving path reads one either (G47's display-only
+part); at it, :func:`plan_path` is the plan's one read (RW7b, spec §10.2:
+the reading block opens the next core or prerequisite section, behind
+``reading_paths.plan_uses_path``), with the same labels the Guide shows.
 
 **The depth is the learner's**, asked once per source and remembered
 (``reader_path_depths``). DL2's intent control on the source (Master, Learn,
