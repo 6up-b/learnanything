@@ -28,6 +28,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
 from tests.test_identifiability_doctor import _build_registry_vault
+from tests.owner_vaults import owner_vault, owner_vaults
 
 
 def _view(**kwargs) -> ProposalView:
@@ -284,6 +285,7 @@ def test_rank_does_not_disturb_the_seven_checks(tmp_path):
     ]
 
 
+@owner_vaults
 def test_rank_on_the_real_linear_algebra_fixture(tmp_path):
     """§5.8.2's measured result keeps both deficit causes explicit.
 
@@ -293,7 +295,7 @@ def test_rank_on_the_real_linear_algebra_fixture(tmp_path):
     plus one truthful three-facet collapse candidate; rank analysis merges none.
     """
 
-    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+    fixture = owner_vault("linear_algebra")
     vault = load_vault(fixture)                        # read-only; never mutated
     view = build_registry_view(vault, None)
     rank = measurement_rank(view)

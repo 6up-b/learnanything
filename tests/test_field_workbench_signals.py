@@ -38,6 +38,7 @@ from learnloop.placement.signals import _attempt_rows, blocking_signals_by_lo
 from learnloop.placement.state import load_answers
 from learnloop.vault.loader import load_vault
 
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.test_assumed_known import EVIDENCE_TABLES, LOW_Q, _answer, _at, _decisions, _queue, _snapshot
 from tests.test_quick_check import _answer_target, _progress, _start
@@ -744,8 +745,8 @@ def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
 
 # ── G41 on fixture copies ────────────────────────────────────────────────────
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 
@@ -794,7 +795,7 @@ def _strip_plan_ids(value):
 def test_g41_off_is_the_predecessor_on_fixture_copies(tmp_path, monkeypatch, fixture):
     import learnloop.clock as clock_module
 
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     base, _ = _fixture_copy(tmp_path, fixture, "base", version=PREDECESSOR)

@@ -39,12 +39,13 @@ from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt
 from tests.helpers import append_config_toml, create_daily_plan_vault, set_algorithm_version
 from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 
@@ -470,13 +471,13 @@ def _plan_trace(root: Path) -> list[tuple]:
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_copies(tmp_path, monkeypatch, fixture):
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     traces = []
     for name, version, toml in (("pre", "mvp-0.22", None), ("off", A, "[router]\nenabled = false\n")):
         root = tmp_path / name
-        copy_tree_with_databases(FIXTURES / fixture, root)
+        copy_tree_with_databases(owner_vault(fixture), root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)
         if toml:
             append_config_toml(root, toml)

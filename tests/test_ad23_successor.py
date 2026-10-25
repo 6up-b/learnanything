@@ -27,12 +27,13 @@ from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.vault.loader import load_vault
 
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.ad23_fakes import COUPLED, ad23_vault, commit, selections
 from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
 
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 ALL_OFF = "\n".join(f"{name} = false" for name in SC.SWITCHES) + "\n"
 
 
@@ -196,7 +197,7 @@ def _copy(tmp_path: Path, fixture: str, name: str, *, version: str, toml: str) -
     from learnloop_sidecar.context import SidecarContext
 
     root = tmp_path / name
-    copy_tree_with_databases(FIXTURES / fixture, root)
+    copy_tree_with_databases(owner_vault(fixture), root)
     set_algorithm_version(type("Paths", (), {"root": root})(), version)
     append_config_toml(root, toml)
     ctx = SidecarContext()
@@ -214,7 +215,7 @@ def test_every_switch_false_serves_the_predecessor_on_fixture_copies(tmp_path, m
     ``mvp-0.29``'s exactly (DL2's intent, with an active commitment on both copies so intent is not
     inert: the compose fix round, L4), and no AD2+AD3 row is written (the pin of orchestrator note 4)."""
 
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: T0)
     monkeypatch.setenv("LEARNLOOP_AD_MODELS", "off")

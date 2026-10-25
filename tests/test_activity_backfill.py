@@ -15,8 +15,10 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 
 from tests.helpers import NOW
+from tests.owner_vaults import owner_vault, owner_vaults
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
+FIXTURE_VAULT = owner_vault("linear_algebra")
 CLOCK = FrozenClock(NOW)
 
 
@@ -60,6 +62,7 @@ def _hashes(repo: Repository) -> tuple[list, list]:
     return cards, surfaces
 
 
+@owner_vaults
 def test_backfill_populates_substrate_from_fixture(tmp_path):
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
@@ -95,6 +98,7 @@ def test_backfill_populates_substrate_from_fixture(tmp_path):
     assert counts["activity_families"] >= report.practice_items
 
 
+@owner_vaults
 def test_backfill_is_idempotent_on_fixture_copy(tmp_path):
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
@@ -115,6 +119,7 @@ def test_backfill_is_idempotent_on_fixture_copy(tmp_path):
     assert second.attempts_skipped_existing == len(repo.list_all_attempts())
 
 
+@owner_vaults
 def test_backfill_render_once_per_shared_surface(tmp_path):
     """Multiple attempts on one item share a surface; only one 'rendered' exposure."""
 
@@ -133,6 +138,7 @@ def test_backfill_render_once_per_shared_surface(tmp_path):
     assert over_rendered == []  # the render-once index holds across shared surfaces
 
 
+@owner_vaults
 def test_diagnostic_probe_attempts_reuse_shared_surface_hash(tmp_path):
     """A diagnostic-probe attempt's adapter shares the practice surface_hash, so
     the shared ledger cannot manufacture novelty (§7.1 step 1)."""
@@ -156,6 +162,7 @@ def test_diagnostic_probe_attempts_reuse_shared_surface_hash(tmp_path):
     assert shared, "expected at least one surface_hash reused across card versions/purposes"
 
 
+@owner_vaults
 def test_backfill_marks_unverifiable_for_missing_item(tmp_path):
     """An attempt whose item is gone yields a placeholder surface marked
     legacy_surface_unverifiable (§7.1 step 4)."""
@@ -196,6 +203,7 @@ def test_backfill_marks_unverifiable_for_missing_item(tmp_path):
     assert observation["n"] == 1  # replay preserved
 
 
+@owner_vaults
 def test_backfill_logs_attempt_duration_interaction_events(tmp_path):
     """Where a legacy attempt carries a latency, an attempt_duration interaction
     event is logged (§3.8, 'log now, model later')."""

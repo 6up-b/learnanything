@@ -30,8 +30,10 @@ from learnloop.learner.recall_coverage import predicted_correctness, predicted_c
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
+from tests.owner_vaults import owner_vault, owner_vaults
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
+FIXTURE_VAULT = owner_vault("linear_algebra")
 FROZEN = FrozenClock(datetime.datetime(2026, 9, 1, tzinfo=datetime.timezone.utc))
 
 
@@ -76,6 +78,7 @@ def _read_models(vault) -> dict[str, Any]:
     }
 
 
+@owner_vaults
 @pytest.mark.parametrize(
     "model_name",
     [
@@ -99,6 +102,7 @@ def test_pinned_read_model_output_is_byte_identical(fixture_vault, model_name) -
     assert any(output not in ("null", "{}", "[]") for output in pinned)
 
 
+@owner_vaults
 @pytest.mark.parametrize(
     "model_name",
     [
@@ -143,6 +147,7 @@ def _per_facet_prediction(vault, repository, item, mastery) -> tuple[float, dict
     )
 
 
+@owner_vaults
 def test_predicted_correctness_with_one_shared_reader_is_byte_identical(fixture_vault, monkeypatch) -> None:
     vault, repository = fixture_vault
     compared = 0

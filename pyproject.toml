@@ -75,6 +75,7 @@ pythonpath = ["src"]
 addopts = ["--strict-markers"]
 markers = [
   "durability: use production SQLite durability and fresh vault construction for the test and every fixture it first builds",
+  "owner_vaults: reads backup-API copies of the owner's vaults that S0 removed from fixtures/; skipped unless LEARNLOOP_OWNER_VAULTS names their directory (tests/owner_vaults.py)",
 ]
 
 [dependency-groups]

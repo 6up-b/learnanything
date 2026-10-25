@@ -23,6 +23,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.owner_vaults import owner_vault, owner_vaults
 
 
 def test_doctor_clean_fresh_vault(tmp_path):
@@ -167,8 +168,9 @@ evidence_span_input_tokens = 1
     }
 
 
+@owner_vaults
 def test_plain_doctor_reports_pre_044_migrations_without_touching_database(tmp_path):
-    fixture_root = Path(__file__).resolve().parents[1] / "fixtures" / "conic-sections"
+    fixture_root = owner_vault("conic-sections")
     vault_root = tmp_path / "conic-sections"
     shutil.copytree(fixture_root, vault_root)
     sqlite_path = vault_root / "state.sqlite"

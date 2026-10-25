@@ -249,6 +249,20 @@ fixtures/**/state.sqlite-*
 # LEARNLOOP_VAULT=$PWD/fixtures-local/<name> or --vault fixtures-local/<name>.
 /fixtures-local/
 
+# Storage S0 (docs/specs/spec_storage_sync_v1.md §6.11, §7.1): the owner's
+# vaults left the public tip. Their live copies live outside every checkout
+# (~/learnloop-vaults/<name>, the S1 data root) and their tests run in the
+# opt-in owner_vaults lane on backup-API copies (tests/owner_vaults.py). These
+# names stay ignored so a leftover directory is never committed again.
+/fixtures/linear_algebra/
+/fixtures/probability/
+/fixtures/arxiv_v2/
+/fixtures/arxiv/
+/fixtures/conic-sections/
+/fixtures/law/
+/fixtures/physical_therapy/
+/fixtures/linear_algebra_legacy/
+
 # Local media scratch files
 *.mp3
 *.opus
@@ -256,6 +270,7 @@ fixtures/**/state.sqlite-*
 # UI mockups
 learnloop-handoff2/
 learnloop-handoff/
+# The owner's textbooks (S0: out of git and git-LFS; they live in ~/learnloop-books/).
 new_textbooks/
 
 # Local secrets and agent scratch (never commit)

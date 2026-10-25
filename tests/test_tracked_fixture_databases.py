@@ -1,7 +1,9 @@
 """Tracked fixture databases carry no un-checkpointed WAL frames.
 
-A tracked database may be in either journal mode: the owner's working vaults
-live under ``fixtures/`` and convert to WAL when they are migrated. A read-only
+A tracked database may be in either journal mode. Since storage S0 the only
+tracked databases are the historical fixtures (the migration head and
+``mvp017_route_check_replay``, both in rollback mode); the owner's vaults left
+the tip, and their owner-lane copies are guarded by ``tests/conftest.py``. A read-only
 open of a WAL database leaves an empty ``-wal`` and a ``-shm`` behind, which
 is harmless. What must never exist beside a tracked database is a non-empty
 ``-wal`` (a byte copy of the main file would miss its committed pages) or a
@@ -16,13 +18,15 @@ import subprocess
 from pathlib import Path
 
 from learnloop.db.copies import COMPANION_SUFFIXES
+from tests.owner_vaults import tracked_fixture_files
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 def test_tracked_fixture_databases_have_no_pending_wal_frames():
-    databases = sorted(FIXTURES.rglob("*.sqlite"))
-    assert databases, "expected tracked fixture databases under fixtures/"
+    # Only what git tracks: an untracked leftover in a checkout is not the tip's.
+    databases = tracked_fixture_files("*.sqlite")
+    assert databases, "expected tracked fixture databases under fixtures/ (S3 turns them into text dumps)"
     pending = [
         str(companion.relative_to(FIXTURES))
         for database in databases

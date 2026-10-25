@@ -30,16 +30,15 @@ from learnloop.learner.facet_evidence_timeline import (
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
+from tests.owner_vaults import fixture_vault_params, owner_vault, owner_vaults
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-FIXTURE_VAULTS = sorted(
-    path.name for path in FIXTURES.iterdir() if (path / "state.sqlite").exists()
-)
+# The vaults git tracks under fixtures/, plus the owner lane's copies.
+FIXTURE_VAULTS = fixture_vault_params()
 
 
-def _loaded_fixture(tmp_path, name):
-    root = tmp_path / name
-    shutil.copytree(FIXTURES / name, root)
+def _loaded_fixture(tmp_path, source):
+    root = tmp_path / source.name
+    shutil.copytree(source, root)
     toml_path = root / "learnloop.toml"
     text, count = re.subn(
         r'algorithm_version = "[^"]+"',
@@ -61,9 +60,10 @@ def _all_facets(vault, banked):
     return sorted(facets)
 
 
-@pytest.mark.parametrize("fixture_name", FIXTURE_VAULTS)
-def test_per_observation_itemization_sums_to_banked_credit(tmp_path, fixture_name):
-    vault, repository = _loaded_fixture(tmp_path, fixture_name)
+@pytest.mark.parametrize("fixture", FIXTURE_VAULTS)
+def test_per_observation_itemization_sums_to_banked_credit(tmp_path, fixture):
+    fixture_name = fixture.name
+    vault, repository = _loaded_fixture(tmp_path, fixture)
     if not repository.list_attempt_history():
         pytest.skip(f"fixture {fixture_name} has no attempt history")
 
@@ -97,8 +97,9 @@ def test_per_observation_itemization_sums_to_banked_credit(tmp_path, fixture_nam
         )
 
 
+@owner_vaults
 def test_ready_derivation_matches_canonical_recall_slices(tmp_path):
-    vault, repository = _loaded_fixture(tmp_path, "linear_algebra")
+    vault, repository = _loaded_fixture(tmp_path, owner_vault("linear_algebra"))
     project_canonical_facet_state(vault, repository)
 
     # Fold the persisted aggregate recall slices the projection wrote — the same
@@ -139,9 +140,10 @@ def test_ready_derivation_matches_canonical_recall_slices(tmp_path):
     assert checked > 0
 
 
+@owner_vaults
 def test_ready_derivation_none_on_legacy_vault(tmp_path):
     root = tmp_path / "legacy"
-    shutil.copytree(FIXTURES / "linear_algebra", root)
+    shutil.copytree(owner_vault("linear_algebra"), root)
     # Pin the behavior under test instead of depending on a fixture's native
     # version; fixture vaults may advance when a new projection becomes the
     # default.

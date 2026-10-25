@@ -23,8 +23,10 @@ import pytest
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.helpers import NOW_ISO, create_basic_vault, seed_due_item
+from tests.owner_vaults import owner_vault, owner_vaults
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
+FIXTURE_VAULT = owner_vault("linear_algebra")
 
 BLUEPRINTED_LO = "lo_blueprinted_no_items"
 BLUEPRINT_FACETS = ("facet_states_the_axioms", "facet_checks_closure")
@@ -374,6 +376,7 @@ def test_an_explicit_ask_is_never_deferred(ctx):
 # ── the real fixture vault ──────────────────────────────────────────────────
 
 
+@owner_vaults
 @pytest.mark.skipif(not FIXTURE_VAULT.exists(), reason="linear_algebra fixture absent")
 def test_fixture_vault_goal_over_unauthored_concepts_resolves(tmp_path):
     """The reported case: a goal over four freshly synthesized concepts.

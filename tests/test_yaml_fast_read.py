@@ -23,11 +23,13 @@ from learnloop.vault.yaml_io import (
     read_yaml,
     read_yaml_data,
 )
+from tests.owner_vaults import tracked_fixture_files
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-FIXTURE_YAML = sorted(FIXTURES.rglob("*.yaml"))
+# The files git tracks under fixtures/ (the owner's vaults left the tip in S0).
+FIXTURE_YAML = tracked_fixture_files("*.yaml")
 FIXTURE_MARKDOWN = sorted(
-    path for path in FIXTURES.rglob("*.md") if path.read_text(encoding="utf-8").startswith("---\n")
+    path for path in tracked_fixture_files("*.md") if path.read_text(encoding="utf-8").startswith("---\n")
 )
 PURE_PYTHON_LOADER = yaml_io._build_fast_loader(yaml.SafeLoader)
 

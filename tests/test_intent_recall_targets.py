@@ -33,12 +33,13 @@ from learnloop.scheduling.intent.serving import intent_serving
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, interval_for_retention
 from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import iso
 from tests.helpers import append_config_toml
 from tests.intent_fakes import NOW, make_intent_vault
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 W = FSRS6_DEFAULT_WEIGHTS
 
 
@@ -181,10 +182,10 @@ def test_stored_due_at_never_changes(tmp_path):
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies(tmp_path, fixture):
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     root = tmp_path / fixture
-    copy_tree_with_databases(FIXTURES / fixture, root)
+    copy_tree_with_databases(owner_vault(fixture), root)
     # Read-only on the copy at whatever migration it is (no upgrade).
     connection = sqlite3.connect(f"file:{root / 'state.sqlite'}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row

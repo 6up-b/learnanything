@@ -28,6 +28,7 @@ from learnloop.db.storage import (
     wal_size_bytes,
 )
 from tests.helpers import create_basic_vault
+from tests.owner_vaults import owner_vault, owner_vaults
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -344,7 +345,7 @@ def _cli_app():
 
 
 @pytest.mark.durability
-@pytest.mark.skipif(not (FIXTURES / "linear_algebra").exists(), reason="linear_algebra fixture absent")
+@owner_vaults
 def test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy(tmp_path):
     from learnloop.db.checkpoint import checkpoint_wal
     from learnloop.scheduling.scheduler import build_due_queue
@@ -354,7 +355,7 @@ def test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy(tmp_path
     from learnloop.vault.repository import open_vault_repository
 
     root = tmp_path / "linear_algebra"
-    copy_tree_with_databases(FIXTURES / "linear_algebra", root)
+    copy_tree_with_databases(owner_vault("linear_algebra"), root)
     vault = load_vault(root)
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     repository = open_vault_repository(vault.root, sqlite_path)

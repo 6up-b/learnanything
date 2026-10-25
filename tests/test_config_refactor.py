@@ -356,9 +356,18 @@ def test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it(tmp_path) -
 
 
 def test_tracked_fixture_config_corpus_is_compatibly_normalized() -> None:
-    fixture_root = Path(__file__).resolve().parents[1] / "fixtures"
-    config_paths = sorted(fixture_root.glob("*/learnloop.toml"))
-    assert len(config_paths) >= 9
+    from tests.owner_vaults import owner_vaults_root, tracked_fixture_files, OWNER_VAULT_NAMES
+
+    # The configs git tracks under fixtures/ (two since S0), plus the owner
+    # lane's copies of the vaults S0 removed when that lane is on.
+    config_paths = [path for path in tracked_fixture_files("*/learnloop.toml") if path.parent.parent.name == "fixtures"]
+    assert len(config_paths) >= 2
+    owner_root = owner_vaults_root()
+    if owner_root is not None:
+        config_paths += sorted(
+            owner_root / name / "learnloop.toml" for name in OWNER_VAULT_NAMES
+            if (owner_root / name / "learnloop.toml").exists()
+        )
 
     for config_path in config_paths:
         raw = tomllib.loads(config_path.read_text(encoding="utf-8"))

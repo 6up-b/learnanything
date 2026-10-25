@@ -14,6 +14,7 @@ from learnloop.db.migrate import (
     apply_migrations,
     discover_migrations,
 )
+from tests.owner_vaults import owner_vault, owner_vaults
 
 #: These tests build older databases and upgrade them directly: the test
 #: suite's named allowance (F8 of the coordinated-migration verify).
@@ -138,6 +139,7 @@ def test_fk_toggle_migration_is_atomic_and_restores_enforcement(tmp_path):
         ).fetchone() is None
 
 
+@owner_vaults
 def test_real_fk_rebuild_153_rolls_back_on_interruption(tmp_path, monkeypatch):
     """Exercise the transactional FK-toggle path on the actual table rebuild."""
 
@@ -145,7 +147,7 @@ def test_real_fk_rebuild_153_rolls_back_on_interruption(tmp_path, monkeypatch):
 
     repository_root = Path(__file__).resolve().parents[1]
     db = tmp_path / "state.sqlite"
-    shutil.copy2(repository_root / "fixtures" / "arxiv" / "state.sqlite", db)
+    shutil.copy2(owner_vault("arxiv") / "state.sqlite", db)
     with connect(db) as connection:
         before_count = connection.execute(
             "SELECT COUNT(*) FROM practice_attempts"
