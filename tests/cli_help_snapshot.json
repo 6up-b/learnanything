@@ -372,12 +372,12 @@
     "sha256": "a94d2157176e283a39767b773f6a0ddf2fcd6c2ce149d3e4af633ca5fa8ea6ff"
   },
   "embeddings fallback": {
-    "bytes": 1757,
-    "sha256": "9d9794325cb369c687808e82b723a6f3f19bd486511bb264df06922e77fe7b5c"
+    "bytes": 1927,
+    "sha256": "ad0d8cda006657d07d184a598db25af1f1c8e3ca6237097547e768a216efabfa"
   },
   "embeddings fallback backfill": {
-    "bytes": 1716,
-    "sha256": "03825ef60b417c682f9d8f1a3f036929a5e04aaa04352d0c147dd747aaa44df5"
+    "bytes": 1797,
+    "sha256": "ec1dacdfa4524f6e1a2dbb074fe0d1041ed86f9703cbe1259736413a7db70b2d"
   },
   "embeddings fusion": {
     "bytes": 1587,
