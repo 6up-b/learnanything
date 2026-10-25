@@ -23,12 +23,14 @@ import { findJargon } from "../copy/denyList";
 const stubs = vi.hoisted(() => ({
   config: {} as Record<string, unknown>,
   session: null as Record<string, unknown> | null,
+  root: "/vault",
+  dialogPath: null as string | null,
   api: {} as Record<string, (...args: unknown[]) => unknown>,
   reader: [] as Array<Record<string, unknown>>
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => null) }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => stubs.dialogPath) }));
 vi.mock("../components/useSourceFileDrop", () => ({ useSourceFileDrop: () => false, pickSourceFiles: async () => [] }));
 vi.mock("../components/InboxStrip", () => ({ InboxStrip: () => null }));
 
@@ -37,7 +39,7 @@ const PROB = { sourceId: "src_prob", title: "Probability" };
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
     loadVault: vi.fn(async () => ({
-      vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 4, practiceItems: 6 }, algorithmVersion: "mvp-0.31" },
+      vault: { root: stubs.root, subjects: [], subjectTitles: [], counts: { learningObjects: 4, practiceItems: 6 }, algorithmVersion: "mvp-0.31" },
       health: { ai: { ready: true, settingsReady: true, manualGrading: false, activeProvider: "chatgpt_plan" }, codex: { ready: false } },
       config: stubs.config,
       activeSession: stubs.session,
@@ -61,10 +63,17 @@ function stub(name: string) {
 vi.mock("../screens/ReaderScreen", () => ({
   ReaderScreen: (props: Record<string, unknown>) => {
     stubs.reader.push(props);
-    const initial = props.initialSource as { card: { sourceId: string }; spanId: string | null } | null;
-    const workbench = props.workbench as { resumeProblem?: { sessionId: string } | null } | undefined;
+    const initial = props.initialSource as { card: { sourceId: string }; spanId: string | null; reading?: string | null } | null;
+    const workbench = props.workbench as { resumeProblem?: { sessionId: string; extractionId?: string | null } | null } | undefined;
     return (
-      <div data-testid="reader-stub" data-source={initial?.card.sourceId ?? "shelf"} data-span={initial?.spanId ?? ""} data-resume={workbench?.resumeProblem?.sessionId ?? ""}>
+      <div
+        data-testid="reader-stub"
+        data-source={initial?.card.sourceId ?? "shelf"}
+        data-span={initial?.spanId ?? ""}
+        data-reading={initial?.reading ?? ""}
+        data-resume={workbench?.resumeProblem?.sessionId ?? ""}
+        data-resume-reading={workbench?.resumeProblem?.extractionId ?? ""}
+      >
         <button
           type="button"
           onClick={() =>
@@ -191,6 +200,8 @@ let store: Map<string, string>;
 beforeEach(() => {
   stubs.config = {};
   stubs.session = null;
+  stubs.root = "/vault";
+  stubs.dialogPath = null;
   stubs.api = {};
   stubs.reader = [];
   store = new Map<string, string>();
@@ -367,6 +378,9 @@ describe("threads open where they belong (3.3)", () => {
     expect(reader.getAttribute("data-source")).toBe("src_prob");
     expect(reader.getAttribute("data-span")).toBe("sp12");
     expect(reader.getAttribute("data-resume")).toBe("wb_1");
+    // Fix round 1 (F3): the passage and the resume keep the problem's reading.
+    expect(reader.getAttribute("data-reading")).toBe("ext_prob");
+    expect(reader.getAttribute("data-resume-reading")).toBe("ext_prob");
   });
 
   it("open in book ▸ opens an open question's passage", async () => {
@@ -382,5 +396,104 @@ describe("threads open where they belong (3.3)", () => {
     const reader = await screen.findByTestId("reader-stub");
     expect(reader.getAttribute("data-source")).toBe("src_prob");
     expect(reader.getAttribute("data-span")).toBe("sp9");
+    expect(reader.getAttribute("data-reading")).toBe("ext_prob");
+  });
+});
+
+// ── Fix round 1 (Codex review 20261025-022429-GJcOzo) ──────────────────────
+
+/** Open another library from ⋯ (the dialog answers `path`); vault B loads
+ *  with its own open session. */
+async function switchVault(path: string, sessionB: Record<string, unknown> | null) {
+  stubs.dialogPath = path;
+  stubs.root = path;
+  stubs.session = sessionB;
+  fireEvent.click(screen.getByRole("button", { name: "⋯" }));
+  fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: /^Open another library/ }));
+  await waitFor(() => expect(stubs.api.selectVault).toHaveBeenCalledWith(path));
+  await flush();
+}
+
+describe("fix round 1, F1: an implicit start never crosses a vault change", () => {
+  const SESSION_B = { ...STARTED, sessionId: "s_b" };
+
+  it("the minutes still being read when vault B opens: nothing is started in B, and A's check is not picked there", async () => {
+    const { startSession, planLearnerPick } = todayApis();
+    stubs.api.selectVault = vi.fn(async () => ({ version: 1 }));
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "3", altKey: true });
+    // The implicit start reads the plan's minutes: held until after the switch.
+    let releaseMinutes: (value: unknown) => void = () => undefined;
+    const settled = stubs.api.getDailyPlan;
+    stubs.api.getDailyPlan = vi.fn(() => new Promise((resolve) => (releaseMinutes = resolve)));
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(stubs.api.getDailyPlan).toHaveBeenCalled());
+    const held = stubs.api.getDailyPlan;
+    stubs.api.getDailyPlan = settled;
+    await switchVault("/vaultB", SESSION_B);
+    await act(async () => releaseMinutes(plan()));
+    await flush();
+    expect(held).toHaveBeenCalledWith(null);
+    expect(startSession).not.toHaveBeenCalled();
+    expect(planLearnerPick).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
+    expect(screen.queryByText(/Couldn't start practice/)).toBeNull();
+  });
+
+  it("the start answered after vault B opened: A's session is not installed in B and nothing is asked with it", async () => {
+    const { startSession, planLearnerPick } = todayApis();
+    stubs.api.selectVault = vi.fn(async () => ({ version: 1 }));
+    let releaseStart: (value: unknown) => void = () => undefined;
+    startSession.mockImplementationOnce(() => new Promise((resolve) => (releaseStart = resolve)) as never);
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    await switchVault("/vaultB", SESSION_B);
+    await act(async () => releaseStart(STARTED));
+    await flush();
+    expect(planLearnerPick).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
+    // B's own session is the shell's: an action in B starts nothing and uses it.
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(planLearnerPick.mock.calls[0][1]).toBe("s_b");
+    expect(startSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("after the switch, B's first implicit action starts its own session (A's pending start is forgotten)", async () => {
+    const { startSession, planLearnerPick } = todayApis();
+    stubs.api.selectVault = vi.fn(async () => ({ version: 1 }));
+    startSession.mockImplementationOnce(() => new Promise(() => undefined) as never);
+    render(<App />);
+    await screen.findByTestId("today-sentence");
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    await switchVault("/vaultB", null);
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(2);
+    expect(planLearnerPick.mock.calls[0][1]).toBe("s_new");
+  });
+});
+
+describe("fix round 1, F4: the full list with the plan off starts the session Today shows", () => {
+  it("40 minutes chosen, then a question from the list: the session is 40 minutes and the question opens in it", async () => {
+    const { startSession } = todayApis(plan(null));
+    render(<App />);
+    expect((await screen.findByTestId("today-sentence")).textContent).toContain("15 minutes today");
+    fireEvent.click(screen.getByRole("radio", { name: "40m" }));
+    await press({ key: "l" });
+    fireEvent.click(await screen.findByRole("button", { name: "Counting" }));
+    const practice = await screen.findByTestId("practice-stub");
+    expect(practice.getAttribute("data-item")).toBe("pi_q1");
+    expect(practice.getAttribute("data-session")).toBe("s_new");
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect(startSession).toHaveBeenCalledWith({ availableMinutes: 40 });
   });
 });
