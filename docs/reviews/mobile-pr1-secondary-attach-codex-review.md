@@ -117,3 +117,69 @@ Every pytest run used `systemd-run --user --scope --quiet -p MemoryMax=5G -p Mem
 3. Second validate run: 0 errors.
 
 There was no frontend, `src-tauri`, schema or migration change, so no npm, vitest or cargo run was needed.
+
+## Re-review (Codex job `20261025-121922-jTJbYp`, `da24c9834..39dfc4549`)
+
+The re-review confirmed F2 and F4 fixed, reopened F1 and F3, and added F5. F1's reopening is F5's scenario, so one
+fix covers F1, F3 and F5. The fix is in `ad1cc27ff`. No migration, successor, config key, model call or paid call,
+and no new constant: `LINK_ENTRY_SUFFIX` is a key format, not a parameter.
+
+**Reproduction.** Six new tests were run against the pre-fix `loader.py` (`39dfc4549`). All 6 failed, and the 21
+existing tests passed. With the fix, all 27 pass.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Truncation race: reopened because the alias bypass (F5) could publish empty protection | fixed (by F5's fix) | `ad1cc27ff` | the F5 tests below; the round-1 F1 tests pass unchanged |
+| F2 | Medium | A failed refresh permits stale state | confirmed fixed in round 1 | `aed32b727` | no change |
+| F3 | Medium | Link topology missing from the fingerprint | fixed | `ad1cc27ff` | `test_retargeting_a_directory_link_between_two_fingerprinted_directories_reloads`, `test_retargeting_a_file_link_to_a_same_sized_file_changes_the_fingerprint`. Before the fix, the fingerprint was unchanged after both retargets. |
+| F4 | Medium | Freshness window starts after loading | confirmed fixed in round 1 | `aed32b727` | no change |
+| F5 | High | Directory aliases bypass the empty-protection safeguard | fixed | `ad1cc27ff` | Four tests: `test_a_directory_alias_keeps_every_path_the_loader_sees`, `test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_sidecar`, `test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_chat_runtime` and `test_the_empty_source_sets_check_does_not_trust_a_missing_entry`. Before the fix, `sources/source_sets.yaml` was missing from the set, the sidecar attach was published with no exam member, the chat runtime's snapshot was not marked `SNAPSHOT_UNSETTLED`, and a missing entry read as "not empty". |
+
+### F5 (and F1): every loader-visible path is kept
+
+`content_files` no longer removes a directory it has already seen under another name. It is now an explicit walk
+(`os.scandir`, in sorted order) that follows directory links and carries the identities `(st_dev, st_ino)` of the
+directories on the current path. A link is not descended only when it points back to one of those directories, which
+is a cycle. A directory with two names (`a-sources -> sources`) is listed under both, so `sources/source_sets.yaml` is
+always in the set under the loader's name.
+
+`_source_sets_caught_empty` also no longer reads a missing entry as "not empty". When the configured path is not in
+the snapshot, it stats the file itself:
+- an empty file means caught mid-rewrite;
+- an absent file means not caught;
+- any other `OSError` means caught, so the check fails closed.
+
+Both secondaries get the fix through the shared helper:
+- the sidecar refuses with `vault_unsettled`;
+- the chat runtime marks the snapshot `SNAPSHOT_UNSETTLED`, which is its pre-fix behaviour restored, and the next
+  settled read is unmarked.
+
+### F3: link topology is fingerprinted
+
+Each symlink to a directory or to a content file adds its own entry: `<path>` + `LINK_ENTRY_SUFFIX` (`"\0link"`; NUL
+never occurs in a path, so the key cannot collide with a file's). The entry holds the link target's `(st_dev, st_ino)`.
+
+Retargeting `subjects/s/practice-items` from `data-a` to `data-b` therefore changes the fingerprint, even when the two
+directories hold files with the same names, sizes and mtimes. The secondary then reloads and serves `data-b`'s item.
+The same holds for a file link moved to a same-sized file. A link back to an ancestor keeps its entry, so turning it
+into a real directory also changes the fingerprint.
+
+The spec's §3.1 and §9.2 notes and the stage record's §1 note describe the walk as built.
+
+### Re-review gate
+
+Every pytest run used `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6 …`.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| pytest `test_secondary_attach` on the pre-fix `loader.py` (reproduction) | 6 failed, 21 passed (as expected) |
+| pytest `test_secondary_attach`, `test_diagnosis_input_provenance_landing`, `test_mcp_c1a_narrow`, `test_mcp_c1a_review`, `test_mcp_c1a_landing`, `test_mcp_cli`, `test_mcp_http`, `test_mcp_runtime`, `test_mcp_tools`, `test_reread_safety_landing`, `test_mobile_allowlist`, `test_mobile_host_coexistence`, `test_mobile_doctor`, `test_mobile_capture` | 472 passed, 2 xfailed |
+| pytest `test_architecture`, `test_public_tip_guards`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`, `test_table_roles`, `test_desktop_rpc_contract`, `test_sidecar_contract`, `test_sidecar_registry`, `test_sidecar_serializer_snapshot`, `test_vault_watcher_refresh`, `test_sidecar_golden_path`, `test_mobile_host_auth`, `test_mobile_pairing`, `test_mobile_shortcuts` | 183 passed, 5 skipped |
+| pytest `test_doctor`, `test_vault_writer`, `test_vault_template`, `test_cli_help_snapshot`, `test_exam_protection_identity`, `test_ad1_fix_round5`, `test_ad1_fix_round6`, `test_ingest_jobs`, `test_placement_sidecar` (`load_vault` consumers) | 140 passed, 1 skipped |
+| pytest `-m durability`: `test_secondary_attach`, `test_mcp_runtime`, `test_mcp_c1a_review`, `test_mobile_host_coexistence` | 3 passed |
+| pytest `--durable-sqlite tests/test_secondary_attach.py` | 27 passed |
+| `db_validate_reference.py` (under `env -i`, with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`) | 0 errors; no regeneration needed |
+
+There was no frontend, `src-tauri`, schema or migration change, so no npm, vitest or cargo run was needed.

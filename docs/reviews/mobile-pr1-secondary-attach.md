@@ -8,7 +8,7 @@ started. No migration, no successor, no new config key, no model call (no paid c
 
 ## 1. What changed
 
-> The Codex review's fixes (`docs/reviews/mobile-pr1-secondary-attach-codex-review.md`) change three points below: `load_secondary` publishes only a settled load (`settled_load_vault`) and refuses an unsettled one (`vault_unsettled`); the freshness window starts at the after-load check and does not advance on a failed refresh; and `content_files` prunes by name at the root only and follows directory links.
+> The Codex review's fixes (`docs/reviews/mobile-pr1-secondary-attach-codex-review.md`) change three points below: `load_secondary` publishes only a settled load (`settled_load_vault`) and refuses an unsettled one (`vault_unsettled`); the freshness window starts at the after-load check and does not advance on a failed refresh; and `content_files` prunes by name at the root only, follows directory links, keeps every name a file is reachable by (cutting only cycles) and fingerprints each link's target (the re-review's F3 and F5).
 
 * **`SidecarContext.load_secondary(vault_path, *, bind_ingest=False)`** (`src/learnloop_sidecar/context.py`):
   1. takes the content fingerprint, then loads the vault's files (`load_vault`);
