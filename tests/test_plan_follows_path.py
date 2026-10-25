@@ -218,19 +218,24 @@ def test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out(tmp_path
     assert statuses["lo_spectral"].status == "new"
 
 
-def test_a_stored_already_shown_that_no_longer_holds_is_core_for_the_plan(tmp_path, monkeypatch):
+def test_a_stored_already_shown_that_no_longer_holds_leaves_the_stale_path_to_the_order(tmp_path, monkeypatch):
+    """Codex review F2: the evidence behind "already shown" no longer holds,
+    so the learner state (and the path's key) moved: the stored judgment is
+    stale and the plan keeps the predecessor's order there (recorded), which
+    opens the section; it never re-judges."""
+
     from tests.test_reading_paths import _demonstrate
 
     with monkeypatch.context() as patched:
         _demonstrate(patched, "lo_eigen_basics")
         paths, repository, _ = _vault(tmp_path, monkeypatch, labels={"sec_eigen": "already_shown"})
         assert not RP.plan_path(load_vault(paths.root), repository, EXT).plannable("sec_eigen")
-    # The evidence no longer holds: the stale path is read with honest labels now.
     path = RP.plan_path(load_vault(paths.root), repository, EXT)
-    assert (path.fresh, path.label_for("sec_eigen")) == (False, "core")
+    assert (path.status, path.fresh, path.follows) == ("stale", False, False)
     reading, receipt = _step(paths, repository)
-    assert (reading.section_id, reading.path_label) == ("sec_eigen", "core")
-    assert receipt["paths"][0]["fresh"] is False
+    assert (reading.section_id, reading.path_label) == ("sec_eigen", None)
+    assert (receipt["chosen_by"], receipt["paths"][0]["status"], receipt["paths"][0]["fresh"]) == (
+        "order", "stale", False)
 
 
 def test_a_source_without_a_depth_or_a_judged_path_keeps_the_predecessors_order(tmp_path, monkeypatch):
@@ -264,6 +269,10 @@ def test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection
 
     paths, repository, spans = _vault(tmp_path, monkeypatch, config=DL1_ORDER, labels={"sec_eigen": "enrichment"})
     save_unit_selection(repository, EXT, list(spans), exam_use_modes={"sec_spectral": "held_out_evaluation"})
+    # The held-out section leaves the sendable list (a new state): the Guide re-judges it.
+    ctx = context(paths.root, reading_path_judge_client=PathJudgeFake({"sec_eigen": "enrichment"}),
+                  reading_path_inline=True)
+    assert call(ctx, "reader.reading_path", {"extractionId": EXT})["status"] == "ready"
     assert E.reading_step_rule(load_vault(paths.root)) == E.READING_RULE_DL1
     reading, receipt = _step(paths, repository, from_furthest=False)
     assert receipt["predecessor"]["section_id"] == "sec_eigen"

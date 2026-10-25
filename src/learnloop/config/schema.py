@@ -2630,12 +2630,14 @@ class ReadingPathsConfig(BaseModel):
     ``plan_uses_path`` (RW7b, spec §10.2) is the kill switch of the
     successor ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
     with ``enabled`` on too, the plan's reading block opens the next
-    unfinished core or prerequisite section of the source's judged path (a
-    "read it anyway" counts as core; "skip it", enrichment, already shown
-    and assumed are never planned; a source with no path keeps the
-    predecessor's order), and the plan records the section the
-    predecessor's order would have chosen. Off, below the tag, or with
-    ``enabled`` off: every plan build exactly as the predecessor. The plan
+    unfinished core or prerequisite section of the source's path judged
+    for the learner's current state (a "read it anyway" counts as core;
+    "skip it", enrichment, already shown and assumed are never planned; a
+    source with no path, or only a stale one, keeps the predecessor's
+    order), and the plan records the section the predecessor's order would
+    have chosen. Off, below the tag, or with ``enabled`` off: every plan
+    build exactly as the predecessor, and a plan already built gets the
+    predecessor's reading back while its reading is unstarted. The plan
     never calls the judge.
     """
 

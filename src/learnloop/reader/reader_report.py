@@ -40,7 +40,7 @@ from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
@@ -250,6 +250,74 @@ def _reading_paths(connection: Any, in_window: Any) -> dict[str, Any]:
     }
 
 
+#: The skip rows §15's outcome row reads: a "skip it" on a section the path
+#: labelled one the plan would serve (core, prerequisite).
+_SKIPPED_PLANNED_LABELS = ("core", "prerequisite")
+
+
+def _skipped_core(connection: Any, in_window: Any,
+                  section_los: Mapping[str, Mapping[str, Sequence[str]]]) -> dict[str, Any]:
+    """RW7b (spec §15's reading-path row, Codex review F4): misses on LOs
+    whose core section was skipped. Each "skip it" (in the window) on a core
+    or prerequisite section is joined, through ``section_los`` (the vault's
+    section-to-LO map, ``reading_paths.skipped_section_learning_objects``),
+    to the unaided graded attempts on those LOs **after** the skip and while
+    it stands (until the learner's next choice on that section at that
+    depth); an earlier attempt, or one on another LO, is not counted. A miss
+    is a graded attempt below the association reports' success line
+    (``intervention_outcomes.SUCCESS_CORRECTNESS``); held grades are no
+    outcome (``held_grades``). Counts only; associations, never causes."""
+
+    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.substrate.intervention_outcomes import SUCCESS_CORRECTNESS, is_assisted
+
+    rows = [dict(row) for row in connection.execute(
+        "SELECT extraction_id, depth, section_id, label, learner_override, created_at FROM reader_path_sections "
+        "WHERE learner_override IS NOT NULL ORDER BY created_at, id")]
+    attempts = [dict(row) for row in connection.execute(
+        "SELECT id, learning_object_id, attempt_type, hints_used, primed, correctness, created_at "
+        "FROM practice_attempts WHERE correctness IS NOT NULL ORDER BY created_at, id")]
+    held = held_for_review_attempts(connection)
+    graded = [row for row in attempts if row["id"] not in held and not is_assisted(row)]
+    skips = with_los = assessed = pending = with_miss = assessments = misses = 0
+    labels: Counter[str] = Counter()
+    missed: set[str] = set()
+    for index, row in enumerate(rows):
+        if row["learner_override"] != "skip" or str(row["label"]) not in _SKIPPED_PLANNED_LABELS:
+            continue
+        if not in_window(row["created_at"]):
+            continue
+        skips += 1
+        labels[str(row["label"])] += 1
+        key = (row["extraction_id"], row["depth"], row["section_id"])
+        until = next((later["created_at"] for later in rows[index + 1:]
+                      if (later["extraction_id"], later["depth"], later["section_id"]) == key
+                      and later["learner_override"] != "skip"), None)
+        los = set((section_los.get(str(row["extraction_id"])) or {}).get(str(row["section_id"])) or ())
+        if not los:
+            continue
+        with_los += 1
+        after = [attempt for attempt in graded
+                 if attempt["learning_object_id"] in los
+                 and str(attempt["created_at"]) > str(row["created_at"])
+                 and (until is None or str(attempt["created_at"]) < str(until))]
+        if not after:
+            pending += 1
+            continue
+        assessed += 1
+        assessments += len(after)
+        missed_here = [attempt for attempt in after if float(attempt["correctness"]) < SUCCESS_CORRECTNESS]
+        misses += len(missed_here)
+        with_miss += bool(missed_here)
+        missed |= {str(attempt["learning_object_id"]) for attempt in missed_here}
+    return {
+        "skips": skips, "by_label": dict(sorted(labels.items())), "with_learning_objects": with_los,
+        "assessed": assessed, "pending": pending, "with_miss": with_miss, "assessments": assessments,
+        "misses": misses, "learning_objects_missed": len(missed),
+        "miss_rule": "unaided graded attempt after the skip, below intervention_outcomes.SUCCESS_CORRECTNESS",
+    }
+
+
 def _role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]:
     """RW4e's proposals: one per object (its head's status), by role and
     confidence; every version by judge; agreement between judges."""
@@ -282,6 +350,7 @@ def build_reader_report(
     reading_paths_enabled: bool = True,
     figures_enabled: bool = False,
     figure_offers_enabled: bool = False,
+    skipped_section_los: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
 
@@ -295,7 +364,13 @@ def build_reader_report(
     ``figures`` block, so with figures off it is the report of before RW5a
     (fix round 3; the CLI passes the switch). ``figure_offers_enabled``
     (RW5b, ``figures.offers_enabled`` under it) adds the figures built from
-    an offer, by origin; off, the block is RW5a's."""
+    an offer, by origin; off, the block is RW5a's.
+
+    ``skipped_section_los`` (RW7b, §15's reading-path row): the vault's map
+    of skipped sections to their LOs (the CLI passes
+    ``reading_paths.skipped_section_learning_objects``); given, and with
+    ``reading_paths_enabled``, the reading-path block gains
+    ``skipped_core`` (misses on LOs whose core section was skipped)."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -400,6 +475,11 @@ def build_reader_report(
         # kind = instructional_role), counted by role, judge and confidence
         # (labels only: a proposal copies no text).
         reading_paths = _reading_paths(connection, in_window) if reading_paths_enabled else None
+        if reading_paths is not None and skipped_section_los is not None:
+            has_paths = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reader_path_sections'").fetchone()
+            if has_paths is not None:
+                reading_paths["skipped_core"] = _skipped_core(connection, in_window, skipped_section_los)
         role_versions = [
             {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
              "role": row["authorial_role"], "status": row["status"],

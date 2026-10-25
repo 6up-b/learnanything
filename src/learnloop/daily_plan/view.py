@@ -155,7 +155,9 @@ def _actual_minutes(records: list[PlanRecord]) -> float:
 
 def _totals(records: list[PlanRecord]) -> dict[str, Any]:
     items = [item for record in records for item in record.items()]
-    reading_blocks = [block for record in records for block in record.blocks if block.is_reading]
+    # A path reading the RW7b switch took back unread is no reading (F1).
+    reading_blocks = [block for record in records for block in record.blocks
+                      if block.is_reading and not block.withdrawn_path_reading]
     done = [item for item in items if item.done]
     return {
         "planned_minutes": round(sum(record.minutes_planned() for record in records), 4),

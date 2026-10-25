@@ -1157,12 +1157,33 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
 #: The effective labels the plan's reading block may open (§10.2): enrichment,
 #: already shown, assumed and a "skip it" are never planned.
 PLANNED_LABELS: tuple[str, ...] = ("core", "prerequisite")
-#: A path's state for the plan. ``path``: a judged path at the learner's
-#: depth (fresh or stale; the labels are re-checked now); ``no_depth``: the
-#: learner has not chosen one; ``not_judged``: nothing judged at that depth;
-#: ``withheld``: the reading is held out (or its exam predicate unreadable),
-#: so the path plans nothing; ``unreadable``: the path could not be read.
-PLAN_PATH_STATUSES: tuple[str, ...] = ("path", "no_depth", "not_judged", "withheld", "unreadable")
+#: A path's state for the plan. ``path``: a judgment for the learner's
+#: current state at their depth (the labels are re-checked now); ``stale``:
+#: judged only for an older state (a changed goal, LO status, section list
+#: or role), so the plan keeps the predecessor's order for that reading
+#: (RW7a's handoff default; Codex review F2) and calls no model; ``no_depth``:
+#: the learner has not chosen one; ``not_judged``: nothing judged at that
+#: depth; ``withheld``: the reading is held out (or its exam predicate
+#: unreadable), so the path plans nothing; ``unreadable``: the path could
+#: not be read.
+PLAN_PATH_STATUSES: tuple[str, ...] = ("path", "stale", "no_depth", "not_judged", "withheld", "unreadable")
+
+
+@dataclass(frozen=True)
+class PlanSectionRef:
+    """One section's effective label as the plan read it, with the rows it
+    came from (Codex review F3): the judge's row and the learner's newest
+    override row (None when there is none)."""
+
+    section_id: str
+    label: str
+    judgment_row_id: str
+    override_row_id: str | None = None
+    override: str | None = None
+
+    def receipt(self) -> dict[str, Any]:
+        return {"section_id": self.section_id, "label": self.label, "judgment_row_id": self.judgment_row_id,
+                "override_row_id": self.override_row_id, "override": self.override}
 
 
 @dataclass(frozen=True)
@@ -1174,23 +1195,35 @@ class PlanPath:
     extraction_id: str
     status: str
     depth: str | None = None
+    #: the key of the learner's state now (what a fresh judgment is keyed by).
     state_key: str | None = None
     fresh: bool = False
-    #: section id -> effective label, for the sections the judgment names.
-    labels: Mapping[str, str] = field(default_factory=dict)
+    #: section id -> what the plan read (a ``path`` only), in book order.
+    sections: tuple[PlanSectionRef, ...] = ()
     #: sections that may not be sent or shown now (exam, held out).
     withheld: frozenset[str] = frozenset()
+    #: the key of the judgment whose rows were consumed (a ``path`` only;
+    #: taken from the rows themselves, Codex review F3).
+    judged_state_key: str | None = None
+    #: a ``stale`` path: the newest state judged at this depth (never read).
+    latest_judged_state_key: str | None = None
 
     @property
     def follows(self) -> bool:
         return self.status in ("path", "withheld")
 
-    def label_for(self, section_id: str) -> str:
-        """A section the judgment does not name (one sendable since) is
-        ``core``: the label's fallback (§10.1), so the plan never skips a
-        section the path has not judged."""
+    @property
+    def labels(self) -> Mapping[str, str]:
+        """Section id -> effective label, for the sections the judgment names."""
 
-        return str(self.labels.get(section_id, "core"))
+        return {ref.section_id: ref.label for ref in self.sections}
+
+    def label_for(self, section_id: str) -> str | None:
+        """The section's effective label, or None for a section the judgment
+        does not name (a fresh judgment names every sendable section, so
+        only a withheld one): never planned through the path."""
+
+        return self.labels.get(section_id)
 
     def plannable(self, section_id: str) -> bool:
         if self.status == "withheld" or section_id in self.withheld:
@@ -1198,17 +1231,31 @@ class PlanPath:
         return self.label_for(section_id) in PLANNED_LABELS
 
     def receipt(self) -> dict[str, Any]:
-        return {"extraction_id": self.extraction_id, "status": self.status, "depth": self.depth,
-                "state_key": self.state_key, "fresh": self.fresh}
+        """The receipt's entry (Codex review F3): the inputs' key and the
+        consumed judgment's key apart, and every judge and override row the
+        labels came from, so neither a later judgment nor a later override
+        changes what the receipt says was read."""
+
+        out: dict[str, Any] = {"extraction_id": self.extraction_id, "status": self.status, "depth": self.depth,
+                               "input_state_key": self.state_key, "fresh": self.fresh}
+        if self.status == "path":
+            out["judgment"] = {"state_key": self.judged_state_key}
+            out["sections"] = [ref.receipt() for ref in self.sections]
+        elif self.status == "stale":
+            out["judgment"] = None
+            out["latest_judged_state_key"] = self.latest_judged_state_key
+        return out
 
 
 def plan_path(vault: Any, repository: Repository, extraction_id: str) -> PlanPath:
     """The reading path RW7b's plan follows for one reading, read now and
     never judged here (the plan calls no model). The labels are the Guide's
-    (:func:`effective_label`): the judge's rows for the current state, else
-    the newest judged state's (as the Guide shows while it re-judges), the
-    honest-label rule applied at today's LO statuses and the learner's
-    choices on top. A reading held out for an exam (or whose exam predicate
+    (:func:`effective_label`) from the judge's rows **for the learner's
+    current state**, the honest-label rule applied at today's LO statuses
+    and the learner's choices on top. A path judged only for an older state
+    is ``stale`` and not followed (Codex review F2: the plan keeps the
+    predecessor's order there, the receipt names it; the Guide re-judges on
+    its next open). A reading held out for an exam (or whose exam predicate
     cannot be read) is ``withheld``: followed, it plans nothing (fail
     closed)."""
 
@@ -1228,25 +1275,50 @@ def plan_path(vault: Any, repository: Repository, extraction_id: str) -> PlanPat
     key = inputs.state_key(depth)
     with repository.connection() as connection:
         rows = store.judged(connection, extraction_id, depth, key)
-        fresh = bool(rows)
-        if not rows:
-            rows = store.latest_judged(connection, extraction_id, depth)
+        latest = [] if rows else store.latest_judged(connection, extraction_id, depth)
         chosen = store.overrides(connection, extraction_id, depth)
     by_section = {str(row["section_id"]): row for row in rows}
-    labels: dict[str, str] = {}
+    if not rows or any(section.section_id not in by_section for section in inputs.sections):
+        # No judgment for today's state (or, never expected, one that does
+        # not name every section it was keyed on): stale, not followed.
+        return PlanPath(extraction_id=extraction_id, status="stale", depth=depth, state_key=key,
+                        withheld=inputs.withheld,
+                        latest_judged_state_key=str(latest[0]["state_key"]) if latest else None)
+    refs: list[PlanSectionRef] = []
     for section in inputs.sections:
-        row = by_section.get(section.section_id)
+        row = by_section[section.section_id]
         override_row = chosen.get(section.section_id)
-        if row is None:
-            # Not in the judgment: core (the fallback), unless the learner chose.
-            stored = "core"
-        else:
-            stored = str(row["label"])
-        _label, _changed, _choice, effective = effective_label(
-            stored, override_row, section.learning_object_ids, inputs.statuses)
-        labels[section.section_id] = effective
-    return PlanPath(extraction_id=extraction_id, status="path", depth=depth, state_key=key, fresh=fresh,
-                    labels=labels, withheld=inputs.withheld)
+        _label, _changed, choice, effective = effective_label(
+            str(row["label"]), override_row, section.learning_object_ids, inputs.statuses)
+        refs.append(PlanSectionRef(
+            section_id=section.section_id, label=effective, judgment_row_id=str(row["id"]),
+            override_row_id=str(override_row["id"]) if override_row is not None else None,
+            override=str(override_row["learner_override"]) if override_row is not None else None))
+    return PlanPath(extraction_id=extraction_id, status="path", depth=depth, state_key=key, fresh=True,
+                    sections=tuple(refs), withheld=inputs.withheld,
+                    judged_state_key=str(rows[0]["state_key"]))
+
+
+def skipped_section_learning_objects(vault: Any, repository: Repository) -> dict[str, dict[str, list[str]]]:
+    """RW7b's report adapter (spec §15's reading-path row, Codex review F4):
+    for every reading with a "skip it" row, each skipped section's linked
+    LOs (``reader_progression.learning_objects_by_section``, the map the
+    report's connection-only reader does not have). ``extraction_id ->
+    section_id -> LO ids``. A pure read; nothing is judged."""
+
+    with repository.connection() as connection:
+        if not store.tables_present(connection):
+            return {}
+        skipped: dict[str, set[str]] = {}
+        for row in connection.execute(
+                "SELECT DISTINCT extraction_id, section_id FROM reader_path_sections "
+                "WHERE learner_override = 'skip' ORDER BY extraction_id, section_id"):
+            skipped.setdefault(str(row[0]), set()).add(str(row[1]))
+    out: dict[str, dict[str, list[str]]] = {}
+    for extraction_id, sections in sorted(skipped.items()):
+        by_section = learning_objects_by_section(vault, repository, extraction_id=extraction_id)
+        out[extraction_id] = {section_id: sorted(by_section.get(section_id, [])) for section_id in sorted(sections)}
+    return out
 
 
 __all__ = [
@@ -1271,6 +1343,7 @@ __all__ = [
     "PathInputs",
     "PathSection",
     "PlanPath",
+    "PlanSectionRef",
     "ReadingPathError",
     "ReadingPathOutputV1",
     "SectionVerdict",
@@ -1292,6 +1365,7 @@ __all__ = [
     "path_inputs",
     "path_view",
     "plan_path",
+    "skipped_section_learning_objects",
     "pick_exercises",
     "reading_of",
     "reasons_held_back",

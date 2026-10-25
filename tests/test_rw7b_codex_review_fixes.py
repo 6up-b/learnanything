@@ -260,13 +260,9 @@ def test_f4_the_report_counts_misses_after_a_core_skip_only(tmp_path, monkeypatc
     assert (report["assessments"], report["misses"], report["with_miss"], report["pending"]) == (2, 1, 1, 0)
     assert report["learning_objects_missed"] == 1
     # Read it anyway ends the skip: a miss after that is no longer after a skipped section.
-    with repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO reader_path_sections(id, extraction_id, depth, section_id, label, reason, learner_override, "
-            "state_key, model, prompt_version, created_at) SELECT 'rps_clear', extraction_id, depth, section_id, "
-            "label, reason, 'read_anyway', state_key, model, prompt_version, ? FROM reader_path_sections "
-            "WHERE section_id = 'sec_spectral' AND learner_override = 'skip'", (stamp(timedelta(hours=4)),))
-        connection.commit()
+    monkeypatch._rw7b_clock.advance(hours=4)
+    call(context(paths.root), "reader.reading_path_override",
+         {"extractionId": EXT, "depth": "learn_to_use_it", "sectionId": "sec_spectral", "choice": "read_anyway"})
     _attempt(paths, "att_later", "lo_spectral", 0.0, stamp(timedelta(hours=5)))
     assert _report(paths)["misses"] == 1
 

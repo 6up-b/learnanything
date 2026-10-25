@@ -71,6 +71,7 @@ from learnloop.daily_plan.records import (
     PlanRecord,
     PlannedBlock,
     PlannedItem,
+    READING_PATH_OFF,
     RECEIPT_OPEN_LIST_PICK,
     RECEIPT_STOP,
     assemble,
@@ -185,7 +186,10 @@ def reading_path_plan_active(vault: Any) -> bool:
     (``reading_paths.enabled``: the plan never follows a path the learner
     cannot see). A successor, unlike U4's order: it changes what is served
     through labels a model judged (F3). Off, below the tag or with the
-    Guide's paths off, every plan build is the predecessor's exactly."""
+    Guide's paths off, every plan build is the predecessor's exactly, and a
+    plan already built goes back to the predecessor's reading while that
+    reading is unstarted (:func:`_reading_path_switched_off`; Codex review
+    F1)."""
 
     section = getattr(vault.config, "reading_paths", None)
     return (
@@ -205,18 +209,22 @@ def _reading_on_path(
 ) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
     """RW7b's reading step and its receipt. The step is the predecessor's
     order (U4's or DL1's, the exam filter included) narrowed, on each
-    reading with a judged path at the learner's depth, to the path's
-    unfinished core and prerequisite sections (``reading_paths.plan_path``:
-    the Guide's labels, honest labels re-applied now, "read it anyway" as
-    core, "skip it" left out). A reading with no path keeps the order's own
-    choice; one whose path is withheld (exam) or has nothing left to plan
-    offers none. The receipt records the section the predecessor's order
-    would have chosen (``predecessor``), whether the path chose
-    (``chosen_by``), and each path consulted. It is None when no path was in
+    reading with a path judged for the learner's current state at their
+    depth, to the path's unfinished core and prerequisite sections
+    (``reading_paths.plan_path``: the Guide's labels, honest labels
+    re-applied now, "read it anyway" as core, "skip it" left out). A reading
+    with no path, or only a stale one (judged for an older state; Codex
+    review F2), keeps the order's own choice; one whose path is withheld
+    (exam) or has nothing left to plan offers none. The receipt records the
+    section the predecessor's order would have chosen (``predecessor``),
+    whether the path chose (``chosen_by``), and each path consulted with the
+    judge and override rows it read (F3). It is None when no path was in
     play (every reading visited had no depth or nothing judged): the step is
     then the predecessor's and the plan is stored byte for byte as the
     predecessor's. No model is called; a path that cannot be read leaves
-    that reading to the predecessor's order (and is recorded)."""
+    that reading to the predecessor's order (and is recorded). Turning the
+    switch off later puts the predecessor's reading back while it is
+    unstarted (:func:`_reading_path_switched_off`, F1)."""
 
     import logging
 
@@ -1178,7 +1186,8 @@ def _streak(env: PlanEnv) -> int:
 
 
 def _reading_used_today(day: Sequence[PlanRecord]) -> bool:
-    return any(block.is_reading for record in day for block in record.blocks)
+    # A path reading the RW7b switch took back unread is no reading (F1).
+    return any(block.is_reading and not block.withdrawn_path_reading for record in day for block in record.blocks)
 
 
 def _new_planned_today(day: Sequence[PlanRecord]) -> int:
@@ -1797,7 +1806,9 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     reading_full = None
     if (
         reading_row
-        and not any(block.is_reading for block in record.blocks)
+        # RW7b (Codex review F1): a path reading the switch took back
+        # (ended unread) leaves the plan's reading to its predecessor's.
+        and not any(block.is_reading and not block.withdrawn_path_reading for block in record.blocks)
         # DL2 (Codex review F7): a choice since the plan was built can take
         # the reading's source out of reading.
         and (built.intent is None or reading_allowed(env, built.intent, str(reading_row.get("extraction_id") or "")))
@@ -2820,12 +2831,103 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
             if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
                 writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
                 block.ended_at = now
-    if writes:
+    path_split = _reading_path_switched_off(env, record, now, writes)
+    if writes or path_split is not None:
         with env.repository.atomic(), env.repository.connection() as connection:
             for block_id, kind, detail in writes:
                 _event(connection, block_id, kind, detail, now)
+            if path_split is not None:
+                store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
         return _reload(env, record.id)
     return record
+
+
+def _reading_path_switched_off(
+    env: PlanEnv, record: PlanRecord, now: str, writes: list[tuple[str, str, dict[str, Any]]]
+) -> dict[str, Any] | None:
+    """RW7b (Codex review F1): the kill switch reaches a plan already built.
+
+    A plan whose reading the path decided (its receipt's ``predecessor``
+    differs from its ``reading``) gets the predecessor's reading back once
+    ``reading_paths.plan_uses_path`` or ``reading_paths.enabled`` is off,
+    while no reading of the plan has started or ended: a staged, unstarted
+    path reading block is ended unread (``reading_path_off``, no minutes
+    counted; appended to ``writes``), the split's reading, its full minutes
+    and the admitted new minutes become what the predecessor's build gave
+    them (the lanes re-split from the build's loads when the minutes moved),
+    and the receipt records the transition. A reading the learner began, or
+    one already ended, is history and is kept. Recorded once: switching back
+    on does not re-read the path (the plan reads it only when it is built).
+    Returns the new split, or None when nothing changes; a plan the switch
+    never touched (no receipt) is never rewritten."""
+
+    if not record.is_open:
+        return None
+    split = record.split
+    receipt = split.get("reading_path")
+    if not isinstance(receipt, Mapping) or receipt.get("transition") is not None:
+        return None
+    predecessor = receipt.get("predecessor")
+    current = split.get("reading")
+    if current == predecessor or reading_path_plan_active(env.vault):
+        return None
+    reading_blocks = [block for block in record.blocks if block.is_reading]
+    pending = [block for block in reading_blocks if block.ended_at is None and block.started_at is None]
+    if len(pending) != len(reading_blocks):
+        return None  # a reading began or ended: kept as it is
+    for block in pending:
+        writes.append((block.id, "block_ended",
+                       {"outcome": "displaced", "reason": READING_PATH_OFF, "minutes_counted": 0.0}))
+        block.ended_at = now
+    old_full = float(split.get("reading_full_minutes") or 0.0)
+    new_full = (_estimator(env).reading_minutes(int(predecessor.get("words_left") or 0))
+                if isinstance(predecessor, Mapping) else None)
+    old_admitted = float(split.get("admitted_new_minutes") or 0.0)
+    admitted = max(old_admitted - old_full + (new_full or 0.0), 0.0)
+    updated: dict[str, Any] = {
+        **split,
+        "reading": dict(predecessor) if isinstance(predecessor, Mapping) else None,
+        "reading_full_minutes": round(new_full, 4) if new_full is not None else None,
+        "admitted_new_minutes": round(admitted, 4),
+    }
+    if abs(admitted - old_admitted) > _EPS:
+        # The minutes the predecessor's build would have split: the build's
+        # loads with the predecessor's reading in new (set_minutes' re-split).
+        lanes = split.get("lanes") or {}
+        loads = {lane: float((lanes.get(lane) or {}).get("load") or 0.0) for lane in LANES}
+        loads["new"] = admitted
+        config = env.plan_config
+        resplit = split_v1(
+            budget=record.budget,
+            requested_minutes=float(split.get("requested_minutes") or 0.0),
+            loads=loads,
+            admitted_new_minutes=admitted,
+            push_candidates=loads.get("push", 0.0) > _EPS,
+            repair_max_share=float(config.repair_max_share),
+            maintain_max_share=float(config.maintain_max_share),
+            lanes_allowed=record.lanes_allowed,
+            new_first=bool(split.get("new_first")),
+        )
+        updated.update(resplit.as_dict())
+        updated["epoch_ordinal"] = record.next_ordinal()
+        updated["epoch_at"] = now
+    updated["reading_path"] = {
+        **receipt,
+        "transition": {
+            "at": now,
+            "reason": READING_PATH_OFF,
+            "switch": {"plan_uses_path": bool(getattr(env.vault.config.reading_paths, "plan_uses_path", False)),
+                       "enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
+            "from": current,
+            "to": updated["reading"],
+            "from_full_minutes": round(old_full, 4) if current is not None else None,
+            "to_full_minutes": updated["reading_full_minutes"],
+            "from_admitted_new_minutes": round(old_admitted, 4),
+            "to_admitted_new_minutes": updated["admitted_new_minutes"],
+            "displaced_block_ids": [block.id for block in pending],
+        },
+    }
+    return updated
 
 
 def _open_cold_check_items(env: PlanEnv) -> frozenset[str]:
