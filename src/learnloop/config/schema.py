@@ -1432,6 +1432,15 @@ class AIRoutingConfig(BaseModel):
     # source_retrieval.llm_price_per_million and is held to
     # reading_paths.max_daily_cost_usd, checked before the call.
     reading_path_judge: str | None = None
+    # Deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6.2): the
+    # section coverage judge, one listwise call per learning object over its
+    # candidate sections across the library (titles, roles and lead passages;
+    # never learner text), cached by its state key. Empty = ai.active_provider
+    # (the ChatGPT plan under T1; estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # curriculum.max_daily_cost_usd (and, in learnloop curriculum cover, to
+    # curriculum.cover_max_cost_usd), checked before each call.
+    section_coverage_judge: str | None = None
     # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
     # figures. figure_author writes the declarative figure spec (a chat route;
     # a region or figure block sends its crop as an image when the profile
@@ -2631,6 +2640,34 @@ class ReadingPathsConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
+class CurriculumConfig(BaseModel):
+    """Deliverable curriculum C0a: section coverage and ``reader.correspondents``
+    (spec_deliverable_curriculum_v1 §6, §12; ux_reader_compare_ask_v1 §6).
+
+    One judged row per (section, learning object): for each LO, its candidate
+    sections across every teaching source (provenance, one search per source,
+    the learner's own links) are read by one listwise call
+    (``ai.routing.section_coverage_judge``, plan-first under T1), cached by
+    the LO's statement and the candidates' block hashes. From any section,
+    ``reader.correspondents`` lists the other books' sections that treat the
+    same LOs (no model call), or, with none judged yet, the live search hits
+    labelled "found by search, not checked". Exam and held-out material is
+    never a candidate and never listed. ``enabled`` is the kill switch (off:
+    every RPC refuses, no call). ``max_daily_cost_usd`` caps a metered judge
+    route a UTC day and ``cover_max_cost_usd`` one owner-run
+    ``learnloop curriculum cover`` (both checked before each call; the ChatGPT
+    plan is ``estimated_only``); ``max_prompt_tokens`` bounds one judgment's
+    prompt (the passages share it equally). Display and retrieval context
+    only: nothing in scoring, scheduling, projection or serving reads
+    coverage, so no algorithm successor.
+    """
+
+    enabled: bool = True
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
+    cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
+    max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -3818,6 +3855,7 @@ class LearnLoopConfig(BaseModel):
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
+    curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

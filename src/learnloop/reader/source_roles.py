@@ -70,7 +70,11 @@ CONFIDENCES: tuple[str, ...] = ("high", "medium", "low")
 JUDGE_ORGANIZER = "library_organizer"
 JUDGE_CUE = "passage_cue_judge"
 JUDGE_LABELLER = "role_labeller"
-JUDGES: tuple[str, ...] = (JUDGE_ORGANIZER, JUDGE_CUE, JUDGE_LABELLER)
+#: Curriculum C0a (spec_deliverable_curriculum_v1 §6.2): the coverage judge
+#: reads each candidate section's passages and proposes their roles at no
+#: extra call.
+JUDGE_COVERAGE = "section_coverage_judge"
+JUDGES: tuple[str, ...] = (JUDGE_ORGANIZER, JUDGE_CUE, JUDGE_LABELLER, JUDGE_COVERAGE)
 #: ``content_json.kind`` of an RW4e proposal.
 PROPOSAL_KIND = "instructional_role"
 #: The ids of RW4e's proposal objects (any version marked ``kind``), for SQL.
@@ -483,6 +487,7 @@ def best_roles(vault: Any, repository: Repository, keys: Iterable[Key]) -> dict[
 __all__ = [
     "CONFIDENCES",
     "JUDGES",
+    "JUDGE_COVERAGE",
     "JUDGE_CUE",
     "JUDGE_LABELLER",
     "JUDGE_ORGANIZER",

@@ -1237,6 +1237,29 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
         "measurement authority (path labels are display only)."),
+    # Deliverable curriculum C0a: section coverage and reader.correspondents.
+    # The switch is a boolean (classified so every new key has a rule); the
+    # two dollar caps are spend guardrails (`keep`: unapproved spend is the
+    # realistic harm) and the prompt bound is the context window's, as
+    # source_service.compare_max_prompt_tokens. None is a model or decision
+    # parameter: coverage is display and retrieval context only.
+    _ConfigRule(_exact(
+        "curriculum.enabled",
+    ), "structural", "operational",
+        "kill switch for section coverage (the coverage judge, learnloop curriculum cover, the learner's "
+        "corrections) and reader.correspondents; display and retrieval context only, no measurement, "
+        "scheduling or serving authority (no algorithm successor)."),
+    _ConfigRule(_exact(
+        "curriculum.max_daily_cost_usd",
+        "curriculum.cover_max_cost_usd",
+    ), "structural", "operational",
+        "keep: the coverage judge's metered spend a UTC day and per owner-run cover batch, checked before "
+        "each call; spend bounds with no measurement authority (coverage rows are display only)."),
+    _ConfigRule(_exact(
+        "curriculum.max_prompt_tokens",
+    ), "structural", "operational",
+        "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
+        "sections' passages; a size bound, never a threshold on any score."),
     # Reader workbench RW5a: explorable figures. The kill switches (booleans,
     # so Inventory A's numeric walk never reaches them; classified so every
     # new key has a rule) and the two routes' metered spend a UTC day and the

@@ -475,6 +475,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "extraction_id section_id spans_seen span_count revealed_at completed_at generation_batch_id "
         "updated_at",
         ""),
+    "section_coverage": (
+        "id extraction_id section_id learning_object_id treatment origin candidate_rank learner_override "
+        "section_hash lo_hash state_key ledger_id model prompt_version created_at",
+        "roles_json assumes_json notation_md learner_text"),
     "reveal_events": (
         "id practice_item_id learning_object_id remediation_episode_id source_kind amount "
         "question_event_id attempt_id created_at",

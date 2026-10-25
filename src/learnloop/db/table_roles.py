@@ -480,6 +480,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("scheduler_slate_candidates", TableRole.WORKFLOW),
     ("scheduler_slates", TableRole.WORKFLOW),
     ("schema_migrations", TableRole.RECEIPT),
+    # Deliverable curriculum C0a (migration 222): the coverage judge's
+    # treatment of each (section, learning object) and the learner's
+    # corrections (paid outputs, never re-run on rebuild); display and
+    # retrieval context only, replay never reads it; append-only by trigger.
+    ("section_coverage", TableRole.WORKFLOW),
     ("session_checkpoints", TableRole.WORKFLOW),
     ("sessions", TableRole.WORKFLOW),
     ("shadow_component_events", TableRole.RECEIPT),
