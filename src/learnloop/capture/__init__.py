@@ -16,6 +16,7 @@ from .inbox import (
     get_capture,
     get_inbox_summary,
     list_captures,
+    photo_for_practice_item,
     purge_capture,
     report_orphan_originals,
     route_capture,
@@ -28,7 +29,7 @@ __all__ = [
     "CaptureError", "authenticate_device", "create_pairing", "exchange_pairing",
     "list_devices", "revoke_device", "touch_device", "capture_media_preview", "create_capture",
     "dismiss_capture",
-    "get_capture", "get_inbox_summary", "list_captures", "purge_capture",
+    "get_capture", "get_inbox_summary", "list_captures", "photo_for_practice_item", "purge_capture",
     "report_orphan_originals", "route_capture", "sanitize_image", "validate_url",
     "log_request", "pinned_vault_info", "prune_request_log",
 ]

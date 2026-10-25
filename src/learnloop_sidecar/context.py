@@ -1080,12 +1080,13 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     from learnloop_sidecar.handlers.sessions import draft_self_grade_disclosure
 
     disclosure = draft_self_grade_disclosure(row)
-    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress, draft_hint_seen
+    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress, draft_hint_seen, draft_page_seen
 
     marker = draft_first_hint_progress(
         focus.get("practice") if isinstance(focus, dict) else None, submission_id
     )
     hint_seen = draft_hint_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
+    page_seen = draft_page_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
     return to_camel(
         {
             # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
@@ -1094,6 +1095,9 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             # AD1 fix round 5 (V4): a hint was seen on this draft; present
             # only when one was, for this retry key.
             **({"hint_seen": True} if hint_seen else {}),
+            # Reader CA1: the original page was opened before Submit on this
+            # draft (it counts as the book); present only when it was.
+            **({"page_seen": True} if page_seen else {}),
             "current_practice_item_id": row.get("current_practice_item_id"),
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,

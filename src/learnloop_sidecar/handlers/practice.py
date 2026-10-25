@@ -116,6 +116,11 @@ class PracticeDraftCheckpoint(ParamsModel):
     #: marker knows its first hint's timing is unknown. Never read by
     #: grading, scheduling or the assistance count (``hints_used``).
     hint_seen: bool | None = None
+    #: Reader CA1 (ux_reader_compare_ask_v1 §8.3, Q12): the original page was
+    #: opened before Submit, kept with the retry key so a restored draft still
+    #: counts it as the book (one hint-equivalent, the submit's existing
+    #: ``bookCounted`` component). Never read by grading or scheduling.
+    page_seen: bool | None = None
 
 
 class SelfGradeDisclosureInput(ParamsModel):
@@ -659,6 +664,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
         plan_presentation_id=params.plan_presentation_id,
         first_hint_progress=_draft_marker(vault, params),
         hint_seen=params.hint_seen if "hint_seen" in params.model_fields_set else KEEP_HINT_SEEN,
+        page_seen=params.page_seen if "page_seen" in params.model_fields_set else KEEP_HINT_SEEN,
     )
     return {"ok": True}
 

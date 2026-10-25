@@ -294,6 +294,69 @@ def _local_pdf_block_crop(
         return None, None
 
 
+def _local_pdf_crops(
+    path: Path | None, page: int | None, boxes: list[list[float]]
+) -> tuple[list[str | None], list[float] | None]:
+    """Reader CA1: several crops of one PDF page, the page rendered once. Each
+    box is in PDF-point space, as :func:`_local_pdf_block_crop`'s; a box that
+    crops nothing gives None in its place (never the page)."""
+
+    if path is None or page is None or not boxes:
+        return [None for _ in boxes], None
+    try:
+        with _pdf_page(path, int(page)) as pdf_page:
+            if pdf_page is None:
+                return [None for _ in boxes], None
+            page_size = [float(value) for value in pdf_page.get_size()]
+            bitmap = pdf_page.render(scale=_CROP_SCALE)
+            try:
+                image = bitmap.to_pil()
+                crops: list[str | None] = []
+                for bbox in boxes:
+                    if not bbox or len(bbox) != 4:
+                        crops.append(None)
+                        continue
+                    x0, y0, x1, y1 = (float(v) * _CROP_SCALE for v in bbox)
+                    left, right = sorted((x0, x1))
+                    top, bottom = sorted((y0, y1))
+                    left, top = max(0, int(left)), max(0, int(top))
+                    right, bottom = min(image.width, int(round(right))), min(image.height, int(round(bottom)))
+                    if right <= left or bottom <= top:
+                        crops.append(None)
+                        continue
+                    output = io.BytesIO()
+                    image.crop((left, top, right, bottom)).save(output, format="PNG", optimize=True)
+                    crops.append("data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii"))
+            finally:
+                bitmap.close()
+        return crops, page_size
+    except Exception:
+        return [None for _ in boxes], None
+
+
+def _local_pdf_page_label(path: Path | None, page: int | None) -> str | None:
+    """The page's printed label from the PDF's own page labels (``/PageLabels``),
+    or None when the file has none (the caller then shows the page's position)."""
+
+    if path is None or page is None:
+        return None
+    try:
+        import pypdfium2 as pdfium
+
+        with _PDFIUM_LOCK:
+            document = pdfium.PdfDocument(str(path))
+            try:
+                if page < 0 or page >= len(document):
+                    return None
+                label = document.get_page_label(int(page))
+            finally:
+                document.close()
+    except Exception:
+        return None
+    label = (label or "").strip()
+    return label or None
+
+
 def build_block_region(
     repo: Repository,
     extraction_id: str,

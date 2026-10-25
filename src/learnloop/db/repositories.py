@@ -19879,6 +19879,37 @@ class Repository(
             ).fetchall()
         return {str(row["span_id"]): str(row["content_hash"]) for row in rows}
 
+    def document_blocks(self, extraction_id: str, span_ids: Sequence[str]) -> list[DocumentBlock]:
+        """The named blocks of one extraction in reading order (ordinal), without
+        loading its IR; ids it lacks are left out (Reader CA1, the problem as printed)."""
+
+        wanted = list(dict.fromkeys(str(span) for span in span_ids))
+        if not wanted:
+            return []
+        marks = ",".join("?" for _ in wanted)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM source_document_blocks WHERE extraction_id = ? AND span_id IN ({marks}) "
+                "ORDER BY ordinal",
+                (extraction_id, *wanted),
+            ).fetchall()
+        return [_decode_document_block(row) for row in rows]
+
+    def document_blocks_on_pages(self, extraction_id: str, pages: Sequence[int]) -> list[DocumentBlock]:
+        """Every block of one extraction on the given pages, in reading order."""
+
+        wanted = sorted({int(page) for page in pages})
+        if not wanted:
+            return []
+        marks = ",".join("?" for _ in wanted)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM source_document_blocks WHERE extraction_id = ? AND page IN ({marks}) "
+                "ORDER BY ordinal",
+                (extraction_id, *wanted),
+            ).fetchall()
+        return [_decode_document_block(row) for row in rows]
+
     def load_document_ir(self, extraction_id: str) -> DocumentIR | None:
         run = self.get_extraction_run(extraction_id)
         if run is None:

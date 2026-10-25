@@ -251,6 +251,31 @@ def route_capture(repo: Repository, capture_id: str, *, route: str, result_refs)
         return get_capture(repo, capture_id)
 
 
+def photo_for_practice_item(repo: Repository, practice_item_id: str) -> dict | None:
+    """The phone photo a card was written from (Reader CA1, *your photo*): the
+    reverse of a routed capture's link, read from its ``result_refs_json``.
+
+    Only a photo capture routed to this item whose media is still held (not
+    purged, no deletion pending); the latest when several were. A read: the
+    photo itself is served by :func:`capture_media_preview`, from its hash."""
+
+    with repo.connection() as conn:
+        row = conn.execute(
+            """SELECT i.id, i.captured_at, i.received_at FROM capture_inbox i
+                 JOIN capture_routes r ON r.capture_id = i.id
+                WHERE r.state = 'routed' AND r.route IN ('make_card', 'photo_to_item')
+                  AND i.kind = 'image' AND i.media_sha256 IS NOT NULL AND i.purged_at IS NULL
+                  AND r.media_delete_pending = 0
+                  AND json_type(r.result_refs_json) = 'object'
+                  AND json_extract(r.result_refs_json, '$.practice_item_id') = ?
+                ORDER BY r.routed_at DESC, i.id DESC LIMIT 1""",
+            (practice_item_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return dict(capture_id=row["id"], captured_at=row["captured_at"] or row["received_at"])
+
+
 def dismiss_capture(repo: Repository, capture_id: str) -> dict:
     with repo.atomic(), repo.connection() as conn:
         capture = get_capture(repo, capture_id)

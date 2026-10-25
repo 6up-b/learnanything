@@ -2575,6 +2575,27 @@ class ReaderCompareConfig(BaseModel):
     keep_enabled: bool = True
 
 
+class AsPrintedConfig(BaseModel):
+    """Reader CA1: the problem as printed (ux_reader_compare_ask_v1 §8, K15).
+
+    ``enabled`` is the kill switch of *as printed* (a crop of only an imported
+    problem's own blocks from the page), *original page* (the whole page,
+    one hint-equivalent before Submit in the practice screen's existing book
+    component of ``hints_used``), *your photo* for a card written from a
+    phone photo, and *the transcription doesn't match the page* (a
+    maintenance notice). Off, ``practice.as_printed`` answers disabled, the
+    report refuses and every screen is exactly as before CA1.
+    """
+
+    enabled: bool = True
+
+
+class PracticeConfig(BaseModel):
+    """The practice surfaces' own display switches (Reader CA1: ``as_printed``)."""
+
+    as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
+
+
 class RolesConfig(BaseModel):
     """Reader workbench RW4e: instructional roles (spec_reader_workbench_v1 §7.9).
 
@@ -3816,6 +3837,7 @@ class LearnLoopConfig(BaseModel):
     library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
     figures: FiguresConfig = Field(default_factory=FiguresConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
+    practice: PracticeConfig = Field(default_factory=PracticeConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)

@@ -1204,6 +1204,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for keeping a source comparison as source-object proposals (with the learner's take, "
         "the kept-comparison mark and requested perspectives); proposals and display, no measurement, "
         "scheduling or serving authority."),
+    # Reader CA1: the problem as printed. The kill switch (a boolean,
+    # classified so every new key has a rule): the crop of an imported
+    # problem's own blocks, the original page (one hint-equivalent before
+    # Submit, in the existing book component of hints_used: no new evidence
+    # meaning), the learner's photo and the transcription report (a
+    # maintenance notice). Display and a report only.
+    _ConfigRule(_exact(
+        "practice.as_printed.enabled",
+    ), "structural", "operational",
+        "kill switch for the problem as printed (a crop of its own blocks), the original page link, the "
+        "learner's photo and the transcription report; display and a maintenance notice, no measurement, "
+        "scheduling or serving authority (the page's one hint-equivalent is the existing book count)."),
     # Reader workbench RW4e: instructional roles. The switches are booleans
     # (classified so every new key has a rule): the judges' role proposals
     # (source-object proposals, never evidence) and their positive use in

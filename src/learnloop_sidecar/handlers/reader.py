@@ -25,6 +25,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from pydantic import Field, model_validator
+
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
 from learnloop.reader import reader_dialogue as RD
@@ -665,12 +667,27 @@ def reader_block_health(ctx: SidecarContext, params: ReaderBlockHealthInput) -> 
 
 class ReaderBlockRegionInput(ParamsModel):
     extraction_id: str
-    span_id: str
+    span_id: str | None = None
+    #: Reader CA1 (ux_reader_compare_ask_v1 §12.4): the multi-block form, a
+    #: problem's own blocks, one crop per page in reading order and never a
+    #: neighbouring block (``learnloop.reader.as_printed.printed_crops``).
+    span_ids: list[str] | None = Field(default=None, min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def _one_form(self) -> "ReaderBlockRegionInput":
+        if (self.span_id is None) == (self.span_ids is None):
+            raise ValueError("Give spanId (one block) or spanIds (a problem's blocks), not both.")
+        return self
 
 
 @method("reader.block_original_region", ReaderBlockRegionInput)
 def reader_block_original_region(ctx: SidecarContext, params: ReaderBlockRegionInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    if params.span_ids is not None:
+        from learnloop.reader.as_printed import printed_crops
+
+        printed = printed_crops(repository, extraction_id=params.extraction_id, span_ids=params.span_ids, render=True)
+        return versioned({"extraction_id": params.extraction_id, "span_ids": list(params.span_ids), **printed})
     return versioned(SV.build_block_region(repository, params.extraction_id, params.span_id))
 
 

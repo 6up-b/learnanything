@@ -257,6 +257,14 @@ def _normalized_block_type(block_type: str | None) -> str:
     return (block_type or "").replace(" ", "").replace("_", "").lower()
 
 
+def is_figure_block(block: DocumentBlock) -> bool:
+    """A figure (or picture/image) block, by its type or its role hint: the
+    one test the Markdown rendering and the problem as printed share."""
+
+    return (_normalized_block_type(block.block_type) in _FIGURE_BLOCK_TYPES
+            or (block.role_hint or "").lower() == "figure")
+
+
 def _meaningful_section_path(section_path: Sequence[str]) -> list[str]:
     """Drop the synthetic ``root`` segment; keep real heading segments."""
 
@@ -297,8 +305,7 @@ def _figure_placeholder(block: DocumentBlock, assets: dict[str, DocumentAsset]) 
 
 def _render_block(block: DocumentBlock, assets: dict[str, DocumentAsset]) -> str:
     text = block.text.strip()
-    normalized_type = _normalized_block_type(block.block_type)
-    if normalized_type in _FIGURE_BLOCK_TYPES or (block.role_hint or "").lower() == "figure":
+    if is_figure_block(block):
         return _figure_placeholder(block, assets)
     # Equations, tables, and code keep their exact content verbatim (§2.3); plain
     # prose/captions render as-is. Either way the persisted block text is authoritative.
