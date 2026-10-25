@@ -17,6 +17,7 @@ from learnloop.tutor.tutor_qa import (
     ask_question,
     build_tutor_opening,
     build_tutor_qa_note,
+    practice_thread_events,
     question_usage,
 )
 from learnloop_sidecar.context import SidecarContext
@@ -545,11 +546,10 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
     except TutorQAError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     if params.context == "practice":
-        events = repository.question_events(
-            context="practice",
-            practice_item_id=params.practice_item_id,
-            session_id=params.session_id,
-            answer_status="answered",
+        # Owner capture 2026-10-25 (B3): the current attempt's thread; a
+        # reattempt starts a fresh one (earlier turns stay on record).
+        events = practice_thread_events(
+            repository, practice_item_id=params.practice_item_id, session_id=params.session_id,
         )
     elif params.context == "feedback":
         events = repository.question_events(

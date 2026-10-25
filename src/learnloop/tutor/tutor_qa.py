@@ -269,6 +269,34 @@ class QuestionLimitReached(Exception):
         )
 
 
+def practice_thread_events(
+    repository: Repository, *, practice_item_id: str | None, session_id: str | None,
+) -> list[dict[str, Any]]:
+    """The practice Ask thread of the attempt being composed: the answered
+    practice questions on (item, session) asked since the item's last
+    attempt (owner capture 2026-10-25, B3).
+
+    The window is the one a question is counted in as a hint
+    (:func:`hint_equivalents_for_submission`: after the item's most recent
+    attempt), so the thread the learner sees, the turns the tutor is given
+    and the budget are this attempt's. A question asked on an earlier
+    serving stays on record (its evidence, its saved note, its promotion)
+    and in the feedback and history views; it is no longer shown or sent as
+    if it were this attempt's conversation."""
+
+    events = repository.question_events(
+        context="practice",
+        practice_item_id=practice_item_id,
+        session_id=session_id,
+        answer_status="answered",
+    )
+    if not practice_item_id:
+        return events
+    attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
+    since = attempts[0]["created_at"] if attempts else None
+    return [event for event in events if since is None or str(event["created_at"]) > str(since)]
+
+
 def question_usage(
     vault: LoadedVault,
     repository: Repository,
@@ -289,12 +317,9 @@ def question_usage(
     # Only answered turns consume budget: a provider failure (answer_status
     # 'failed'/'pending') keeps the question on record without charging for it.
     if context == "practice":
-        used = repository.count_question_events(
-            context="practice",
-            practice_item_id=practice_item_id,
-            session_id=session_id,
-            answer_status="answered",
-        )
+        # Owner capture 2026-10-25 (B3): the budget is the current attempt's,
+        # as its thread is (:func:`practice_thread_events`).
+        used = len(practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id))
         return used, config.max_questions_practice
     if context == "feedback":
         used = repository.count_question_events(
@@ -1504,12 +1529,9 @@ def _thread(
     session_id: str | None,
 ) -> list[dict[str, Any]]:
     if context == "practice":
-        events = repository.question_events(
-            context="practice",
-            practice_item_id=practice_item_id,
-            session_id=session_id,
-            answer_status="answered",
-        )
+        # B3: only this attempt's turns (an earlier serving's are not this
+        # conversation).
+        events = practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id)
     elif context == "feedback":
         events = repository.question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"

@@ -138,3 +138,47 @@ def test_b4_a_submit_naming_an_answered_offer_still_grades(tmp_path, grader):
     assert second["attemptId"] != first["attemptId"]
     [row] = _rows(paths, "SELECT scheduler_candidate_id FROM practice_attempts WHERE id = ?", (second["attemptId"],))
     assert row["scheduler_candidate_id"] is None
+
+
+# -- B3: a reattempt starts a fresh Ask thread -----------------------------------------------------
+
+
+def _question(ctx, session, event_id, *, hint=True):
+    _vault, repository = ctx.require_vault()
+    from learnloop.clock import utc_now_iso
+
+    repository.insert_question_event({
+        "id": event_id, "context": "practice", "practice_item_id": ITEM, "session_id": session,
+        "question_md": f"question {event_id}", "answer_md": "an answer", "answer_status": "answered",
+        "hint_equivalent": 1 if hint else 0, "created_at": utc_now_iso(),
+    })
+
+
+def test_b3_a_reattempt_starts_a_fresh_ask_thread(tmp_path, grader):
+    import time
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_submission, question_usage
+
+    paths, ctx, session = _sidecar(tmp_path)
+    _question(ctx, session, "q_first")
+    transcript = {"context": "practice", "practiceItemId": ITEM, "sessionId": session}
+    assert [event["id"] for event in _call(ctx, "get_tutor_transcript", transcript)["events"]] == ["q_first"]
+    time.sleep(1.1)  # timestamps have one-second resolution
+    _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": "P = 1/2",
+                                  "hintsUsed": 0, "attemptType": "independent_attempt", "submissionId": "first"})
+    time.sleep(1.1)
+    # The item served again: the thread, the turns the tutor is given and
+    # the budget are this attempt's.
+    fresh = _call(ctx, "get_tutor_transcript", transcript)
+    vault, repository = ctx.require_vault()
+    assert fresh["events"] == []
+    assert fresh["remaining"] == vault.config.tutor_qa.max_questions_practice
+    used, _limit = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=session)
+    assert used == 0
+    _question(ctx, session, "q_second")
+    assert [event["id"] for event in _call(ctx, "get_tutor_transcript", transcript)["events"]] == ["q_second"]
+    # Evidence is unchanged: the earlier question was counted on the first
+    # attempt, never on this one.
+    assert hint_equivalents_for_submission(repository, ITEM, session) == 1
+    # The earlier turn stays on record.
+    assert {row["id"] for row in _rows(paths, "SELECT id FROM question_events")} == {"q_first", "q_second"}
