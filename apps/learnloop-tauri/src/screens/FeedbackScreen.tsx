@@ -66,7 +66,7 @@ import {
 } from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
 import { IntentCheckFeedback } from "../components/IntentCheckFeedback";
-import { PrintedAfterFeedback } from "../components/AsPrinted";
+import { PrintedAfterFeedback, printedPageInReader } from "../components/AsPrinted";
 import type { IntentRestorationDto } from "../api/dto";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -2302,7 +2302,8 @@ export function FeedbackScreen({
         <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
           <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
           {/* Reader CA1: the locator, the original page and the problem as printed. */}
-          <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""} />
+          <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""}
+            onOpenInReader={onOpenStudied ? (page) => onOpenStudied(printedPageInReader(page)) : undefined} />
           <FeedbackSurface
             feedback={f}
             item={item}
@@ -2866,7 +2867,8 @@ export function FeedbackScreen({
 
         <FbHeader first>Feedback</FbHeader>
         <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
-        <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""} />
+        <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""}
+            onOpenInReader={onOpenStudied ? (page) => onOpenStudied(printedPageInReader(page)) : undefined} />
 
         {/* ── main card ── */}
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 2, padding: "20px 22px" }}>

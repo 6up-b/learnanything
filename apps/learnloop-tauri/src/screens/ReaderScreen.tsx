@@ -1945,7 +1945,9 @@ export function ReaderScreen({
         sourceId: render.sourceId,
         revisionId: render.revisionId,
         renderViewId: render.renderViewId,
-        rawSelection: editedText ? { nodes, editedText } : { nodes },
+        // Reader CA1 (§12.4): a region selection keeps its sub-box, so the
+        // problem as printed is the learner's crop.
+        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection.region ? { region: selection.region } : {}) },
         clientIdempotencyKey: newKey(),
       });
       setExerciseImport({
@@ -2517,7 +2519,7 @@ export function ReaderScreen({
         sourceId: render.sourceId,
         revisionId: render.revisionId,
         renderViewId: render.renderViewId,
-        rawSelection: editedText ? { nodes, editedText } : { nodes },
+        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection.region ? { region: selection.region } : {}) },
         clientIdempotencyKey: newKey(),
       },
     });

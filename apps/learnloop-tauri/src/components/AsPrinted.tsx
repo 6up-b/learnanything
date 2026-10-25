@@ -17,7 +17,7 @@
 // screen reader hears the same problem. The image is never re-read by OCR.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import type { AsPrintedViewDto, PrintedCropsDto } from "../api/dto";
+import type { AsPrintedViewDto, IntentRestorationDto, PrintedCropsDto, PrintRegionDto } from "../api/dto";
 import { errorMessage } from "../errors";
 import { COLOR, FONT_MONO } from "./term";
 import { OpenInSource } from "./OpenInSource";
@@ -29,6 +29,8 @@ export const AS_PRINTED_COPY = {
   solutionAsPrinted: "the solution as printed",
   pending: "cropping the page…",
   noOriginal: "the page image isn't available for this book · the transcription is above",
+  noCrop: "the crop isn't available for this problem · the original page is",
+  openInReader: "open in the Reader ↗",
   failed: "Couldn't crop the page just now.",
   mismatchAsk: "doesn't match the page?",
   mismatchAction: "the transcription doesn't match the page",
@@ -100,6 +102,55 @@ export function useAsPrinted(practiceItemId: string | null | undefined): AsPrint
   return practiceItemId && state.id === practiceItemId && state.view?.enabled ? state.view : null;
 }
 
+/** The original page's target: the page of the problem's first block, its
+ *  blocks there outlined (and the book, to open it in the Reader). */
+export type OriginalPageTarget = { extractionId: string; spanId: string; outlineSpanIds: string[]; sourceId?: string | null };
+
+/** A problem known by its blocks (a Reader exercise candidate, the book's
+ *  solution, a workbench problem before its import binds): the server's
+ *  cheap first read of the multi-block form, no image drawn (Codex review
+ *  F3). Null while it is read, when the call is absent or fails, and when
+ *  the server crops nothing (the switch off, no page, no box): the host then
+ *  shows no *as printed* at all. */
+export function useProblemCrops(
+  extractionId: string | null | undefined,
+  spanIds: string[] | null | undefined,
+  region?: PrintRegionDto | null,
+): PrintedCropsDto | null {
+  const ids = spanIds ?? [];
+  const key = extractionId && ids.length ? `${extractionId}:${ids.join(",")}:${region ? JSON.stringify(region) : ""}` : null;
+  const [state, setState] = useState<{ key: string | null; crops: PrintedCropsDto | null }>({ key: null, crops: null });
+  useEffect(() => {
+    if (!key || !extractionId) return;
+    let alive = true;
+    const promise = maybe(() => api.readerProblemCrops({ extractionId, spanIds: ids, render: false, ...(region ? { region } : {}) }));
+    promise?.then(
+      (crops) => { if (alive) setState({ key, crops }); },
+      () => { if (alive) setState({ key, crops: null }); },
+    );
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const crops = key && state.key === key ? state.crops : null;
+  if (!crops || crops.status === "disabled" || crops.status === "no_geometry" || crops.status === "not_found") return null;
+  return crops;
+}
+
+/** *open in the Reader ↗* (§8.3) as the shell's way back to a place in a
+ *  book (the restoration link's shape: the book and the block). */
+export function printedPageInReader(page: OriginalPageTarget): IntentRestorationDto {
+  return { label: AS_PRINTED_COPY.openInReader, detail: null, inquiryRootEventIds: [], anchorSpanIds: [page.spanId],
+           extractionId: page.extractionId, sourceId: page.sourceId ?? null };
+}
+
+/** The original page of a problem known by its blocks, when its page image exists. */
+export function originalPageOfCrops(crops: PrintedCropsDto | null, sourceId?: string | null): OriginalPageTarget | null {
+  if (!crops || crops.status !== "ok" || crops.crops.length === 0) return null;
+  const first = crops.crops[0];
+  const outline = crops.crops.filter((crop) => crop.page === first.page).flatMap((crop) => crop.spanIds);
+  return { extractionId: crops.extractionId, spanId: first.spanIds[0], outlineSpanIds: outline, sourceId: sourceId ?? null };
+}
+
 /** "From Strang · Exercise 6.1.12 · p.297": the page part of the header locator. */
 export function printedPageLabel(view: AsPrintedViewDto | null): string | null {
   return view?.kind === "page" && view.locator?.pageLabel ? `p.${view.locator.pageLabel}` : null;
@@ -114,7 +165,7 @@ export function OriginalPageLink({
   view: AsPrintedViewDto | null;
   /** Before Submit and not yet counted: say first that it counts as a hint. */
   costs: boolean;
-  onOpen: (target: { extractionId: string; spanId: string; outlineSpanIds: string[] }) => void;
+  onOpen: (target: OriginalPageTarget) => void;
 }) {
   if (!view || view.kind !== "page" || !view.originalPage) return null;
   const target = view.originalPage;
@@ -128,13 +179,18 @@ export function OriginalPageLink({
 
 type Crop = { image: string | null };
 
-function PrintedFrame({ crops, alt, status }: { crops: Crop[]; alt: string; status?: string }) {
+function PrintedFrame({ crops, alt, status, notice }: { crops: Crop[]; alt: string; status?: string; notice?: string | null }) {
   const [zoom, setZoom] = useState(0);
   const images = crops.filter((crop) => crop.image);
   if (images.length === 0) {
+    // F5: a page known without a box says the crop can't be made (the
+    // original page is still there); never the whole page in its place.
+    const said = notice
+      ?? (status === "no_geometry" ? AS_PRINTED_COPY.noCrop
+        : status === "no_original" || status === "not_found" ? AS_PRINTED_COPY.noOriginal : AS_PRINTED_COPY.failed);
     return (
       <div role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-        {status === "no_original" || status === "no_geometry" || status === "not_found" ? AS_PRINTED_COPY.noOriginal : AS_PRINTED_COPY.failed}
+        {said}
       </div>
     );
   }
@@ -278,7 +334,8 @@ export function AsPrinted({
             <span aria-hidden="true">◐</span> {AS_PRINTED_COPY.pending}
           </div>
         ) : (
-          <PrintedFrame crops={(rendered?.crops ?? []) as Crop[]} alt={altText} status={rendered?.status ?? "failed"} />
+          <PrintedFrame crops={(rendered?.crops ?? []) as Crop[]} alt={altText} status={rendered?.status ?? "failed"}
+            notice={rendered ? rendered.notice ?? null : null} />
         )
       ) : null}
       {open && kind === "page" && view.transcriptionReport ? <TranscriptionReport practiceItemId={practiceItemId} /> : null}
@@ -309,35 +366,45 @@ function PhotoFrame({ captureId }: { captureId: string }) {
 }
 
 /** *▸ as printed* for a problem known by its blocks (a Reader exercise
- *  candidate, the book's solution in *compare methods*): the multi-block form
- *  of the crop RPC. The caller shows it only where nothing is hidden. */
+ *  candidate, the book's solution in *compare methods*, a workbench problem
+ *  before it binds): the multi-block form of the crop RPC. The caller shows
+ *  it only where nothing is hidden. Nothing renders until the server says a
+ *  crop can be made (F3: the switch off, or no page or box, shows nothing). */
 export function BlocksAsPrinted({
   extractionId,
   spanIds,
   label = AS_PRINTED_COPY.asPrinted,
   altText,
+  region = null,
+  probe,
 }: {
   extractionId: string;
   spanIds: string[];
   label?: string;
   altText: string;
+  /** A learner-drawn sub-box (§12.4): the crop shown for its block. */
+  region?: PrintRegionDto | null;
+  /** The host's own first read (it also wants the original page); else read here. */
+  probe?: PrintedCropsDto | null;
 }) {
+  const own = useProblemCrops(probe === undefined ? extractionId : null, spanIds, region);
+  const known = probe === undefined ? own : probe;
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<{ status: "idle" | "pending" | "ready" | "failed"; crops: PrintedCropsDto | null }>({ status: "idle", crops: null });
-  const key = `${extractionId}:${spanIds.join(",")}`;
+  const key = `${extractionId}:${spanIds.join(",")}:${region ? JSON.stringify(region) : ""}`;
   const asked = useRef<string | null>(null);
   useEffect(() => {
-    if (!open || asked.current === key) return;
+    if (!open || !known || asked.current === key) return;
     asked.current = key;
     setResult({ status: "pending", crops: null });
-    const promise = maybe(() => api.readerProblemCrops({ extractionId, spanIds }));
+    const promise = maybe(() => api.readerProblemCrops({ extractionId, spanIds, ...(region ? { region } : {}) }));
     if (!promise) {
       setResult({ status: "failed", crops: null });
       return;
     }
     promise.then((crops) => setResult({ status: "ready", crops }), () => setResult({ status: "failed", crops: null }));
-  }, [open, key, extractionId, spanIds]);
-  if (spanIds.length === 0) return null;
+  }, [open, known, key, extractionId, spanIds, region]);
+  if (spanIds.length === 0 || !known) return null;
   return (
     <div data-testid="blocks-as-printed" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <button type="button" style={{ ...toggleStyle, fontSize: 10 }} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
@@ -361,9 +428,18 @@ export function BlocksAsPrinted({
 /** After feedback (UX §4.6, §4.9): the full locator, *original page ↗* (free,
  *  unlabelled) and *▸ as printed*, for any problem that came from a page or a
  *  photo; the server still hides them while a check on your own is due. */
-export function PrintedAfterFeedback({ practiceItemId, altText }: { practiceItemId: string | null | undefined; altText: string }) {
+export function PrintedAfterFeedback({
+  practiceItemId,
+  altText,
+  onOpenInReader,
+}: {
+  practiceItemId: string | null | undefined;
+  altText: string;
+  /** §8.3: *open in the Reader ↗* from the original page (the shell's navigation). */
+  onOpenInReader?: (target: OriginalPageTarget) => void;
+}) {
   const view = useAsPrinted(practiceItemId);
-  const [page, setPage] = useState<{ extractionId: string; spanId: string; outlineSpanIds: string[] } | null>(null);
+  const [page, setPage] = useState<OriginalPageTarget | null>(null);
   if (!view || !practiceItemId || view.kind === "none") return null;
   const locator = view.kind === "page" && view.locator
     ? [view.locator.exerciseLabel, `${view.locator.sourceTitle ?? "your book"} p.${view.locator.pageLabel}`].filter(Boolean).join(" · ")
@@ -379,7 +455,8 @@ export function PrintedAfterFeedback({ practiceItemId, altText }: { practiceItem
       <AsPrinted key={`${practiceItemId}:${view.kind}`} view={view} practiceItemId={practiceItemId} altText={altText} />
       {page ? (
         <OpenInSource extractionId={page.extractionId} spanId={page.spanId} outlineSpanIds={page.outlineSpanIds}
-          context="provenance" entityType="practice_item" entityId={practiceItemId} onClose={() => setPage(null)} />
+          context="provenance" entityType="practice_item" entityId={practiceItemId} onClose={() => setPage(null)}
+          onOpenInReader={onOpenInReader && page.sourceId ? () => { setPage(null); onOpenInReader(page); } : undefined} />
       ) : null}
     </div>
   );

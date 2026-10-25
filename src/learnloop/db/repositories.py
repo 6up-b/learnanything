@@ -7706,6 +7706,22 @@ class Repository(
             ).fetchone()
         return _probe_presentation_record(row) if row is not None else None
 
+    def active_probe_presentation_for_item(self, practice_item_id: str) -> ProbePresentationRecord | None:
+        """The latest committed-but-unconsumed diagnostic presentation of an
+        item, in any episode (Reader CA1: the item is being measured on your
+        own, so nothing may locate it)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM probe_presentations
+                WHERE practice_item_id = ? AND status IN ('selected', 'served')
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (practice_item_id,),
+            ).fetchone()
+        return _probe_presentation_record(row) if row is not None else None
+
     def active_probe_presentation_for_session(
         self, session_id: str
     ) -> ProbePresentationRecord | None:

@@ -215,7 +215,8 @@ def test_the_practice_view_locates_the_problem_outside_a_check_and_records_nothi
     assert view["kind"] == "page" and view["cold"] is False
     assert view["label"] == "as printed (Strang p.1)"
     assert view["locator"] == {"sourceTitle": "Strang", "exerciseLabel": "Exercise 6.1.12", "pageLabel": "1"}
-    assert view["originalPage"] == {"extractionId": EXTRACTION, "spanId": "e1", "outlineSpanIds": ["e1", "e2", "f1"]}
+    assert view["originalPage"] == {"extractionId": EXTRACTION, "spanId": "e1", "outlineSpanIds": ["e1", "e2", "f1"],
+                                    "sourceId": "src_ca1"}
     assert view["transcriptionReport"] is True
     assert all(crop["image"] is None for crop in view["crops"])            # no render asked: labels only
     rendered = _call(ctx, "practice.as_printed", {"practiceItemId": ITEM, "render": True})

@@ -465,6 +465,15 @@ def author_exercises(
         }
         for span_id in span_ids
     ]
+    # Reader CA1 (ux_reader_compare_ask_v1 §12.4): a region selection (a
+    # learner-drawn box inside one block, ``ReaderSelection.region``) is kept
+    # on that block's ref, so the problem as printed shows the learner's crop.
+    from learnloop.reader.as_printed import region_for
+
+    for span_id, (page, box) in region_for(raw_selection.get("region"), span_ids).items():
+        for ref in source_refs:
+            if ref["locator"] == format_block_span(extraction_id, span_id):
+                ref["region"] = {"page": page, "bbox": list(box)}
 
     existing_prompts = {
         _normalize(item.prompt): item.id

@@ -7553,6 +7553,9 @@ export interface ReaderRawSelection {
   /** Learner-edited combined passage (capture editor): overrides the whole
    *  exercise surface while `nodes` keep anchoring the original blocks. */
   editedText?: string;
+  /** Reader CA1 (§12.4): a region selection's sub-box (one block), kept on
+   *  the imported exercise as the crop shown for it. */
+  region?: PrintRegionDto;
 }
 
 export interface ReaderTranslateSelectionInput {
@@ -7644,13 +7647,21 @@ export interface PrintedCropDto {
   image: string | null;
 }
 
+/** A learner-drawn sub-box of one block (ReaderSelection.region, §12.4). */
+export interface PrintRegionDto {
+  spanId: string;
+  page: number;
+  bbox: number[];
+}
+
 /** The multi-block form of reader.block_original_region. */
 export interface PrintedCropsDto {
   version?: number;
   extractionId: string;
   spanIds: string[];
-  /** ok · no_original (no readable page image) · no_geometry · not_found */
-  status: "ok" | "no_original" | "no_geometry" | "not_found";
+  /** ok · no_original (no readable page image) · no_geometry · not_found ·
+   *  disabled (practice.as_printed.enabled off: nothing is cropped) */
+  status: "ok" | "no_original" | "no_geometry" | "not_found" | "disabled";
   crops: PrintedCropDto[];
   skippedSpanIds: string[];
 }
@@ -7670,8 +7681,9 @@ export interface AsPrintedViewDto {
   /** kind page: PrintedCropDto; kind figure: only an index and the image. */
   crops?: Array<PrintedCropDto | { index: number; image: string | null }>;
   locator?: { sourceTitle: string | null; exerciseLabel: string | null; pageLabel: string };
-  originalPage?: { extractionId: string; spanId: string; outlineSpanIds: string[] } | null;
-  /** "the page image isn't available for this book · the transcription is above" */
+  originalPage?: { extractionId: string; spanId: string; outlineSpanIds: string[]; sourceId?: string | null } | null;
+  /** "the page image isn't available for this book · the transcription is above",
+   *  or (a page known without a box) "the crop isn't available for this problem · the original page is" */
   notice?: string;
   transcriptionReport?: boolean;
   photo?: { captureId: string; capturedAt: string | null };
@@ -8426,6 +8438,9 @@ export interface WorkbenchSessionDto {
   /** A multi-part import asks which part this problem is. */
   parts: WorkbenchPartDto[] | null;
   sourceId: string | null;
+  /** Reader CA1 (§12.4): the learner-drawn sub-box a region selection was
+   *  imported with (absent otherwise). */
+  printRegion?: PrintRegionDto;
   /** Once bound: the item's whole frozen presentation (review F9). */
   presentation?: ItemPresentationDto | null;
   /** RW4b: a textbook exercise picked from a proposal ("use this one"): the

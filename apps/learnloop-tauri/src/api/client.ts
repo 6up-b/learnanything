@@ -327,6 +327,7 @@ import type {
   ReaderAnnotationResultDto,
   ReaderBlockRegionDto,
   PrintedCropsDto,
+  PrintRegionDto,
   AsPrintedViewDto,
   TranscriptionReportDto,
   ReaderInvokePresetInput,
@@ -1486,7 +1487,7 @@ export const api = {
     call<ReaderBlockRegionDto>("reader_block_original_region", { input }),
   /** Reader CA1: the multi-block form, a problem's own blocks (one crop per
    *  page in reading order, never a neighbouring block). A read. */
-  readerProblemCrops: (input: { extractionId: string; spanIds: string[] }) =>
+  readerProblemCrops: (input: { extractionId: string; spanIds: string[]; render?: boolean; region?: PrintRegionDto | null }) =>
     call<PrintedCropsDto>("reader_block_original_region", { input }),
   /** Reader CA1: an item as printed; the server applies the cold rule (D46). */
   practiceAsPrinted: (input: { practiceItemId: string; render?: boolean }) =>

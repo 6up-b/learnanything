@@ -672,21 +672,36 @@ class ReaderBlockRegionInput(ParamsModel):
     #: problem's own blocks, one crop per page in reading order and never a
     #: neighbouring block (``learnloop.reader.as_printed.printed_crops``).
     span_ids: list[str] | None = Field(default=None, min_length=1, max_length=64)
+    #: The multi-block form only: ``False`` answers whether (and where) a crop
+    #: can be made without drawing it (a host's cheap first read, Codex review F3).
+    render: bool = True
+    #: The multi-block form only: a learner-drawn sub-box of one block
+    #: (``ReaderSelection.region``: span, page, box), the crop shown for it (§12.4).
+    region: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def _one_form(self) -> "ReaderBlockRegionInput":
         if (self.span_id is None) == (self.span_ids is None):
             raise ValueError("Give spanId (one block) or spanIds (a problem's blocks), not both.")
+        if self.span_ids is None and ("render" in self.model_fields_set or self.region is not None):
+            raise ValueError("render and region belong to the multi-block form (spanIds).")
         return self
 
 
 @method("reader.block_original_region", ReaderBlockRegionInput)
 def reader_block_original_region(ctx: SidecarContext, params: ReaderBlockRegionInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     if params.span_ids is not None:
-        from learnloop.reader.as_printed import printed_crops
+        from learnloop.reader.as_printed import printed_crops, region_for
 
-        printed = printed_crops(repository, extraction_id=params.extraction_id, span_ids=params.span_ids, render=True)
+        if not bool(vault.config.practice.as_printed.enabled):
+            # Reader CA1's kill switch (F3): the multi-block form is CA1's; off,
+            # it crops nothing and every host shows no *as printed*.
+            return versioned({"extraction_id": params.extraction_id, "span_ids": list(params.span_ids),
+                              "status": "disabled", "crops": [], "skipped_span_ids": []})
+        regions = region_for(params.region, params.span_ids)
+        printed = printed_crops(repository, extraction_id=params.extraction_id, span_ids=params.span_ids,
+                                render=params.render, regions=regions)
         return versioned({"extraction_id": params.extraction_id, "span_ids": list(params.span_ids), **printed})
     return versioned(SV.build_block_region(repository, params.extraction_id, params.span_id))
 

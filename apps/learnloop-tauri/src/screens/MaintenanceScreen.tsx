@@ -27,6 +27,7 @@ import type {
   EdgeDirectionResolution
 } from "../api/dto";
 import { OpenInSource } from "../components/OpenInSource";
+import { BlocksAsPrinted } from "../components/AsPrinted";
 import { COLOR, Dim, Divider, Faint, FONT_MONO, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { errorMessage } from "../errors";
 
@@ -300,12 +301,16 @@ export function MaintenanceScreen({
                 <AmbiguousEdgeCard notice={notice} onResolve={resolveDirection} onInspect={onInspect} />
               ) : notice.noticeType === "restructure_request" ? (
                 <RestructureRequestCard notice={notice} onInspect={onInspect} />
+              ) : notice.noticeType === "transcription_mismatch" ? (
+                <TranscriptionReportCard notice={notice} onInspect={onInspect} onError={reportError}
+                  onFixed={() => void feedQuery.refetch()} />
               ) : (
                 <div style={{ marginTop: 3 }}>{notice.title}</div>
               )}
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                 {notice.noticeType === "ambiguous_edge_direction" ||
-                notice.noticeType === "restructure_request" ? null : (
+                notice.noticeType === "restructure_request" ||
+                notice.noticeType === "transcription_mismatch" ? null : (
                   <button style={btn} title={notice.action.action}>
                     {notice.action.label ?? notice.action.action ?? "action"}
                   </button>
@@ -1298,6 +1303,109 @@ function RestructureRequestCard({
       {detail.rationale ? (
         <div style={{ marginTop: 6, fontSize: 12 }}>
           <Faint>rationale:</Faint> <Dim>{detail.rationale}</Dim>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Reader CA1: "the transcription doesn't match the page" ──────────────────
+// (ux_reader_compare_ask_v1 §8.2; Codex review F7.) The learner's report as
+// filed: how many times, their words, the wording they reported beside the
+// page itself, and the repair: *Fix the wording* edits the card's prompt
+// (edit_practice_item, the card controls' reword), after which the notice
+// resolves on its own; the inspector is one click away.
+
+interface TranscriptionReportDetail {
+  practiceItemId?: string;
+  prompt?: string;
+  extractionId?: string;
+  spanIds?: string[];
+  exerciseLabel?: string | null;
+  reports?: number;
+  notes?: Array<{ text: string; at: string }>;
+}
+
+export function TranscriptionReportCard({
+  notice,
+  onInspect,
+  onError,
+  onFixed
+}: {
+  notice: MaintenanceNoticeDto;
+  onInspect?: (id: string) => void;
+  onError: (error: unknown) => void;
+  onFixed?: () => void;
+}) {
+  const detail = (notice.detail ?? {}) as TranscriptionReportDetail;
+  const itemId = detail.practiceItemId ?? notice.entityId ?? (notice.action.practiceItemId as string | undefined) ?? null;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(detail.prompt ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const reports = detail.reports ?? 1;
+  const notes = detail.notes ?? [];
+  const save = async () => {
+    if (!itemId || saving) return;
+    const prompt = draft.trim();
+    if (!prompt || prompt === (detail.prompt ?? "").trim()) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.editPracticeItem({ practiceItemId: itemId, prompt, reason: "transcription_mismatch" });
+      setSaved(true);
+      setEditing(false);
+      onFixed?.();
+    } catch (err) {
+      onError(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div data-testid="transcription-report" style={{ marginTop: 3, display: "flex", flexDirection: "column", gap: 4 }}>
+      <div>{notice.title}</div>
+      <Faint style={{ fontSize: 11 }}>
+        reported {reports === 1 ? "once" : `${reports} times`}
+        {itemId ? (
+          <>
+            {" · "}
+            <span className="entity-link" role="button" onClick={() => onInspect?.(itemId)}>{itemId}</span>
+          </>
+        ) : null}
+      </Faint>
+      {notes.length > 0 ? (
+        <ul data-testid="transcription-report-notes" style={{ margin: "2px 0 0 16px", padding: 0, fontSize: 12 }}>
+          {notes.map((note, index) => (
+            <li key={`${note.at}:${index}`}><Dim>{note.text}</Dim></li>
+          ))}
+        </ul>
+      ) : null}
+      {detail.prompt ? (
+        <div style={{ fontSize: 12 }}>
+          <Faint>the wording reported:</Faint> <Dim>{detail.prompt}</Dim>
+        </div>
+      ) : null}
+      {detail.extractionId && detail.spanIds?.length ? (
+        <BlocksAsPrinted extractionId={detail.extractionId} spanIds={detail.spanIds} altText={detail.prompt ?? notice.title} />
+      ) : null}
+      {saved ? (
+        <Faint role="status" style={{ fontSize: 11 }}>saved · the report resolves now the wording changed</Faint>
+      ) : editing ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <textarea aria-label="the card's wording" value={draft} rows={3} onChange={(event) => setDraft(event.target.value)}
+            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`,
+                     color: COLOR.text, padding: 6, resize: "vertical", width: "100%" }} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button style={btn} disabled={saving} onClick={() => void save()}>{saving ? "…" : "save the wording"}</button>
+            <button style={btn} disabled={saving} onClick={() => setEditing(false)}>cancel</button>
+          </div>
+        </div>
+      ) : itemId ? (
+        <div>
+          <button style={btn} onClick={() => setEditing(true)}>{notice.action.label ?? "Fix the wording"}</button>
         </div>
       ) : null}
     </div>

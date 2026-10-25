@@ -16,6 +16,7 @@ export function OpenInSource({
   entityType,
   entityId,
   outlineSpanIds,
+  onOpenInReader,
   onClose
 }: {
   extractionId: string;
@@ -26,6 +27,9 @@ export function OpenInSource({
   /** Reader CA1 (the original page): every block of the problem on this page
    *  is outlined, not only the one opened. */
   outlineSpanIds?: string[];
+  /** Reader CA1 (§8.3): *open in the Reader ↗* from the page view, where the
+   *  host can take the learner there (absent: not offered). */
+  onOpenInReader?: () => void;
   onClose: () => void;
 }) {
   const [currentSpanId, setCurrentSpanId] = useState(spanId);
@@ -85,7 +89,14 @@ export function OpenInSource({
             {heading}
           </span>
           {view ? <Pill color={view.viewerMode.startsWith("pdf_") ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
-          <span style={{ marginLeft: "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
+          {onOpenInReader ? (
+            <button type="button" data-testid="open-in-reader" onClick={onOpenInReader}
+              style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer",
+                       color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, textDecoration: "underline" }}>
+              open in the Reader ↗
+            </button>
+          ) : null}
+          <span style={{ marginLeft: onOpenInReader ? 12 : "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
             esc ✕
           </span>
         </div>
