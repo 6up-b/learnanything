@@ -3,8 +3,8 @@ title: "Config - required_method"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml required_method"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/attempts/grading_support.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/local_embeddings_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
-  - "tests/test_chatgpt_plan_provider.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/required-method"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2727`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/attempts/grading_support.py:272` |
+| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2753`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/attempts/grading_support.py:272` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -62,6 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/local_embeddings_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
-- `tests/test_chatgpt_plan_provider.py`
 
 ## Extension and modification guidance
 

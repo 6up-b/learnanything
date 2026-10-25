@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 219
+schema_head: 220
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -114,11 +114,13 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 
 ### Upstream callers of the repository access surface
 
@@ -152,6 +154,10 @@ Database triggers:
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_e0_corpus.py`
+- `tests/test_e0_isolation.py`
+- `tests/test_e0_relabel_round.py`
+- `tests/test_e0_review_round1.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_exercise_arm.py`
@@ -164,10 +170,6 @@ Database triggers:
 - `tests/test_source_deletion.py`
 - `tests/test_source_roles.py`
 - `tests/test_sources_merge_composition.py`
-- `tests/test_tutor_delivery_fixes.py`
-- `tests/helpers.py`
-- `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad_projection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

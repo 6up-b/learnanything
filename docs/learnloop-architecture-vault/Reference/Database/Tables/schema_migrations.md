@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 219
+schema_head: 220
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/migrate.py"
+  - "src/learnloop/experiments/contextual_embeddings/runner.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
 tags:
@@ -77,6 +78,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/migrate.py`
+- `src/learnloop/experiments/contextual_embeddings/runner.py`
 
 ### Direct SQL writers
 

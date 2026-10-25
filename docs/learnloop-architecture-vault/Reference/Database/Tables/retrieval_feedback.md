@@ -3,23 +3,24 @@ title: "retrieval_feedback"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0b9bbe94499576bc36997040254b29356d441526"
-source_commit_timestamp: "2026-10-24T19:21:21-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_feedback"
   - "table retrieval_feedback"
-schema_head: 219
+schema_head: 220
 table_name: "retrieval_feedback"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "219_retrieval_spaces.sql"
+introduced_in: "220_retrieval_spaces.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/219_retrieval_spaces.sql"
+  - "migrations/220_retrieval_spaces.sql"
   - "src/learnloop/db/stores/retrieval_spaces.py"
+  - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/source_retrieval/feedback.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
@@ -47,8 +48,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/219_retrieval_spaces.sql`.
-- **Schema touched by:** `219_retrieval_spaces.sql`.
+- **Introduced by:** `migrations/220_retrieval_spaces.sql`.
+- **Schema touched by:** `220_retrieval_spaces.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

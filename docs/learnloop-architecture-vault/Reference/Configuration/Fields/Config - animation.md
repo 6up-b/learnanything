@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -28,12 +28,12 @@ source_paths:
   - "tests/figure_fixtures.py"
   - "tests/hint_fakes.py"
   - "tests/library_ask_fixtures.py"
+  - "tests/local_embeddings_fakes.py"
   - "tests/marker_fakes.py"
   - "tests/passage_cue_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/reading_path_fixtures.py"
-  - "tests/router_model_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -84,12 +84,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figure_fixtures.py`
 - `tests/hint_fakes.py`
 - `tests/library_ask_fixtures.py`
+- `tests/local_embeddings_fakes.py`
 - `tests/marker_fakes.py`
 - `tests/passage_cue_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/reading_path_fixtures.py`
-- `tests/router_model_fakes.py`
 
 ## Extension and modification guidance
 

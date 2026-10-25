@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 25117,
-    "sha256": "b28eb2e7e54ae445ad96a2e4e79920fc1b37d479506a21dd617ac39d73a4ab25"
+    "bytes": 25287,
+    "sha256": "ab03eb09dc948fbccd7645e6ee17b67a23023f091c3eb2bbb6e2394ae352bcdc"
   },
   "accept": {
     "bytes": 1593,
@@ -368,8 +368,8 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 2097,
-    "sha256": "ae0b5ef47c794d4422a4858238925761b30c44d1169251d16974b969058e334c"
+    "bytes": 2522,
+    "sha256": "a8a4d824dcc561edde03a9a92dd6e628aa81dcd3e9e3bc47a2ff9d4cd96778f6"
   },
   "embeddings adjudicate": {
     "bytes": 3984,
@@ -382,6 +382,42 @@
   "embeddings compare": {
     "bytes": 13849,
     "sha256": "a94d2157176e283a39767b773f6a0ddf2fcd6c2ce149d3e4af633ca5fa8ea6ff"
+  },
+  "embeddings fallback": {
+    "bytes": 1927,
+    "sha256": "ad0d8cda006657d07d184a598db25af1f1c8e3ca6237097547e768a216efabfa"
+  },
+  "embeddings fallback backfill": {
+    "bytes": 1797,
+    "sha256": "ec1dacdfa4524f6e1a2dbb074fe0d1041ed86f9703cbe1259736413a7db70b2d"
+  },
+  "embeddings fusion": {
+    "bytes": 1587,
+    "sha256": "e1222a50170b288029a3460a3fb92814aacfb11def57973ee11d252e34a5880f"
+  },
+  "embeddings fusion refit": {
+    "bytes": 1125,
+    "sha256": "66f43132a9fd731b8bbdbe64b858021e084046337740dc7835a2bbb827039763"
+  },
+  "embeddings local": {
+    "bytes": 2097,
+    "sha256": "07f5de3c160c81424f4012fdcf8b7f4e8a0ad6e098cffdad08fc3ae1ac741273"
+  },
+  "embeddings local index": {
+    "bytes": 1789,
+    "sha256": "126a4f231750200fcc0312bbf18a659ab1e89c9e23a5bff00f12c3da3126fff6"
+  },
+  "embeddings local profile": {
+    "bytes": 1963,
+    "sha256": "26d34705ad50326e82fcd5448e8610150a27f58b1b8c607b526b1f78279c2c4c"
+  },
+  "embeddings local setup": {
+    "bytes": 2556,
+    "sha256": "de18180bd8071626809d0b60bb771c99c013f286efe2fd7f129adc6a63ad687f"
+  },
+  "embeddings local status": {
+    "bytes": 1210,
+    "sha256": "68d78d4b74eb90c74946e0e2871a9a69b11d73c73968834c40b7767f35ba45df"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
@@ -466,6 +502,50 @@
   "exam-readiness": {
     "bytes": 1707,
     "sha256": "045a5c6d489e34fe399b928388403aee40020987eb2688657eb8c5c436874013"
+  },
+  "experiments": {
+    "bytes": 1589,
+    "sha256": "ea9d3ccc2341e7adf22242efd09786039b7a160e3783f7afb435fa7d7e99b12a"
+  },
+  "experiments e0": {
+    "bytes": 1843,
+    "sha256": "91724bdc22b090b812de0efc33f3c25a9fd06ef4c0f977bd310ebde1e543f723"
+  },
+  "experiments e0 prepare": {
+    "bytes": 1550,
+    "sha256": "c8d44bbbfa771cad524ec3c4b4e1d406119f1b863392bda1482a9a0016d03a95"
+  },
+  "experiments e0 report": {
+    "bytes": 1125,
+    "sha256": "3ddf338cbcd8148a2541d0e7174065e1e3153958eb92cd07bcc90b5a2d43b34c"
+  },
+  "experiments e0 run": {
+    "bytes": 7077,
+    "sha256": "cbbefdc423d3c79b1e541f92225d8b813fdd4e253241d0902d882029d3c5b26c"
+  },
+  "experiments e1": {
+    "bytes": 2098,
+    "sha256": "9383319c555bfde8364d2cd3212868c5f616829277dd9aad98c1b79e171e1663"
+  },
+  "experiments e1 import": {
+    "bytes": 1376,
+    "sha256": "ad2a5cbcabdcefdda5d48ce0901868995ffbf9aaa2301c1fcb41e3f4203cc115"
+  },
+  "experiments e1 plan": {
+    "bytes": 1546,
+    "sha256": "8c320a3c72590cc4307a21b5402d561a8dd590c5f88708c45cfcce1a912f6f49"
+  },
+  "experiments e1 preflight": {
+    "bytes": 1805,
+    "sha256": "fefc710cb3f33654cadbb8c2c65c63f6435f4c1304e2d9740e0b0cd893c825f5"
+  },
+  "experiments e1 report": {
+    "bytes": 1210,
+    "sha256": "1b3add658dd1c5241374344015fb7e343c96905ab8f31a4334e8489866234e8c"
+  },
+  "experiments e1 run": {
+    "bytes": 2485,
+    "sha256": "2c5ab6ef0f1458a4b87710b9aa19ea1d593e489cdbfc5ad4f8e79812f247aa0e"
   },
   "facet-candidates": {
     "bytes": 1369,

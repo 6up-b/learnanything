@@ -3,22 +3,23 @@ title: "retrieval_fusion_posteriors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0b9bbe94499576bc36997040254b29356d441526"
-source_commit_timestamp: "2026-10-24T19:21:21-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_fusion_posteriors"
   - "table retrieval_fusion_posteriors"
-schema_head: 219
+schema_head: 220
 table_name: "retrieval_fusion_posteriors"
 table_role: "derived"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "219_retrieval_spaces.sql"
+introduced_in: "220_retrieval_spaces.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/219_retrieval_spaces.sql"
+  - "migrations/220_retrieval_spaces.sql"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/stores/retrieval_spaces.py"
   - "src/learnloop/local_embeddings/fusion.py"
   - "src/learnloop/source_retrieval/feedback.py"
@@ -48,8 +49,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/219_retrieval_spaces.sql`.
-- **Schema touched by:** `219_retrieval_spaces.sql`.
+- **Introduced by:** `migrations/220_retrieval_spaces.sql`.
+- **Schema touched by:** `220_retrieval_spaces.sql`.
 - **Rebuild owner:** `retrieval_fusion_posteriors`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -106,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_rebuild_orchestrator.py`
 - `tests/test_retrieval_spaces_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

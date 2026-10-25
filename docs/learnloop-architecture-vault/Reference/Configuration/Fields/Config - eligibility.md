@@ -3,8 +3,8 @@ title: "Config - eligibility"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml eligibility"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/local_embeddings_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
-  - "tests/test_chatgpt_plan_provider.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/eligibility"
@@ -51,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3512`; `src/learnloop/ai/plan_fallback.py:123` |
+| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3600`; `src/learnloop/ai/plan_fallback.py:123` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -61,6 +61,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/local_embeddings_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -71,7 +72,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
-- `tests/test_chatgpt_plan_provider.py`
 
 ## Extension and modification guidance
 

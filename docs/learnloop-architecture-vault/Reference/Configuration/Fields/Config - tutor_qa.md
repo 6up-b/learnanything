@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2842badae10079a99be05e4d28c4e3cdc4112d87"
-source_commit_timestamp: "2026-10-24T22:53:15-04:00"
+source_commit: "247722912c7e157729b0531581dd16280d05fdf7"
+source_commit_timestamp: "2026-10-25T00:32:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -24,18 +24,18 @@ source_paths:
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/tutor/question_signal.py"
+  - "tests/e0_fakes.py"
   - "tests/figure_fixtures.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/test_daily_loop_reader_authored_practice.py"
   - "tests/test_daily_loop_reader_retire.py"
   - "tests/test_daily_loop_reference_adoption.py"
+  - "tests/test_e0_delivery.py"
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_library_ask_review.py"
   - "tests/test_project_capture.py"
   - "tests/test_question_signal.py"
-  - "tests/test_quick_check.py"
-  - "tests/test_reader_dialogue.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -79,18 +79,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/e0_fakes.py`
 - `tests/figure_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
+- `tests/test_e0_delivery.py`
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_project_capture.py`
 - `tests/test_question_signal.py`
-- `tests/test_quick_check.py`
-- `tests/test_reader_dialogue.py`
 
 ## Extension and modification guidance
 
