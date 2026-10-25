@@ -365,8 +365,9 @@ F7): it adds one nullable column, `learner_claims.applied_after_attempts`
 (the number of the claim's learning object's attempts already applied when
 the claim-fixes successor's re-anchor applied it, recorded in the claim's own
 transaction; replay applies the claim after that many attempts). Numbered
-221 on its branch; reader workbench RW7b may hold the same number, and the
-landing renumbers. The fixture has no claims, so the column is empty.
+221 on its branch and kept at landing (reader workbench RW7b, which landed
+first, added no migration). The fixture has no claims, so the column is
+empty.
 
 Rebuilt on the branch from the sanitized `migration_head_220` (main
 `fa2eb72f8`) as a backup-API copy with only 221 applied, through
@@ -376,7 +377,11 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_220` was renamed to this directory. Only
 `learner_claims`'s definition changed, and `schema_migrations` gained a row;
-the sanitized content is unchanged.
+the sanitized content is unchanged. At the landing onto main (`eae00d58a`,
+whose `migration_head_220` is byte-identical to `fa2eb72f8`'s) the head was
+rebuilt the same way from main's `migration_head_220`: the rebuilt database
+dumps identically to this one apart from 221's `applied_at` stamp, so this
+file was kept (docs/reviews/lp-min-claim-fixes.md, "Landing onto main").
 
 Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
 in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds

@@ -445,7 +445,7 @@ def test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the
 
 # -- G47 on fixture copies -----------------------------------------------------------------------------
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221"
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 
