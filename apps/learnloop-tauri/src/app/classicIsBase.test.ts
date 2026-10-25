@@ -378,6 +378,24 @@ export const UX3_CHANGES: Record<string, Behaviour[]> = {
       reason: "classic falls through to StartScreen and TodayScreen, unchanged"
     }
   ],
+  "components/InboxStrip.tsx": [
+    {
+      behaviour: "fix round 1 (F5): a count-free rendering for Today's expanded captures",
+      kind: "simple-only",
+      in: "screens/today/TodayPlace.tsx",
+      evidence: [/<InboxStrip subjects=\{subjects\} onAsk=\{onAsk\} countFree \/>/],
+      reason: "only TodayPlace passes countFree; without it (classic's strip) the counts render exactly as before"
+    }
+  ],
+  "screens/ReaderScreen.tsx": [
+    {
+      behaviour: "fix round 1 (F3): an opened passage may name the reading it was found on",
+      kind: "simple-only",
+      in: APP,
+      evidence: [/setReaderSource\(\{ card, spanId, reading \}\);/],
+      reason: "only Today's threads (openPassageNow, simple-only) set reading; without it openSource is called with no options, as in base"
+    }
+  ],
   "screens/reader/useReaderWorkbench.ts": [
     {
       behaviour: "Today's resume ▸ asks the workbench to resume a problem",
@@ -418,12 +436,19 @@ describe("UX Phase 3 keeps classic base's", () => {
     const app = read(APP);
     for (const snippet of UX3_APP_CLASSIC) expect(app.includes(snippet), snippet).toBe(true);
     // Every call that starts an implicit session sits in a simple-shell branch.
-    const calls = app.split("\n").map((line, index) => ({ line, index })).filter(({ line }) => /implicitSession\(\)/.test(line) && !/function implicitSession/.test(line));
-    expect(calls.length).toBeGreaterThanOrEqual(6);
+    // Fix round 1 (F1): the actions go through withImplicitSession (the start
+    // bound to its vault), whose own one call is the helper's body.
     const lines = app.split("\n");
+    const helper = lines.findIndex((line) => /function withImplicitSession\(/.test(line));
+    expect(helper).toBeGreaterThan(-1);
+    const calls = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => /\b(?:withImplicitSession|implicitSession)\(/.test(line) && !/function (?:withImplicitSession|implicitSession)\(/.test(line))
+      .filter(({ line, index }) => !(index > helper && index <= helper + 4 && /void implicitSession\(\)/.test(line)));
+    expect(calls.length).toBeGreaterThanOrEqual(6);
     for (const { index } of calls) {
       const context = lines.slice(Math.max(0, index - 3), index + 1).join("\n");
-      expect(/shellRef\.current === "simple"/.test(context), `implicitSession() at line ${index + 1} is gated`).toBe(true);
+      expect(/shellRef\.current === "simple"/.test(context), `an implicit start at line ${index + 1} is gated`).toBe(true);
     }
   });
 

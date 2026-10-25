@@ -104,7 +104,9 @@ Memory-capped scopes throughout (`systemd-run --user --scope --quiet -p MemoryMa
 
 Not run here, by the owner's rule (2026-10-17): the full pytest suite, the whole durability lane and the whole vitest run; they run once in the landing gate on the merged tree.
 
-### T4, as §11 measures it
+### T4's frontend dispatch (not T4 itself)
+
+Corrected in fix round 1 (`docs/reviews/ux-phase3-today-codex-review.md`): this is not T4 as §11 measures it. Tomorrow's plan is a mock and Practice a stub, so the test checks what the shell shows and sends on the next day's launch, not real next-day planning or unaided usability; T4 proper is the usability walk in open question 3.
 
 `app/App.today.test.tsx`, "T4: it's tomorrow…": the App launched on the next day (system time advanced), no session, the day's plan. Today opens on the plan sentence in minutes; no dialog and no required choice; no count of waiting things, no lane names, no deny-list term; the streak in the footer. **One key (Enter) from launch to the first question**: `start_session(25)`, `next_plan_item(serve)`, Practice on the plan's first item in the new session, and no session-first notice. The re-entry variant (after nine days away): the welcome-back sentence, nothing about what slipped on the surface, and Enter starts the 12-minute catch-up.
 

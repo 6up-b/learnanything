@@ -3,9 +3,12 @@
 //
 // - The simple shell opens on Today, Start and Today merged; classic keeps
 //   StartScreen and TodayScreen as they were.
-// - T4, as §11 measures it: "Close LearnLoop. It's tomorrow: open it and do
-//   today's learning." Success is the plan started with ↵. Measured here on
-//   the next day's launch: Today is the plan in minutes, nothing to decide
+// - T4's frontend dispatch (§11's T4 is "Close LearnLoop. It's tomorrow: open
+//   it and do today's learning", success the plan started with ↵). This is
+//   NOT T4 itself (fix round 1): tomorrow's plan comes from a mock and
+//   Practice is a stub, so it checks what the shell shows and sends on the
+//   next day's launch, not real next-day planning or unaided usability (the
+//   usability walk is still owed). Checked here: Today is the plan in minutes, nothing to decide
 //   first (no dialog, no required choice), no count of waiting things and no
 //   jargon, and one key (Enter) from launch to the first question; after a
 //   break, the same with the welcome-back plan.
@@ -460,7 +463,7 @@ describe("fix round 1, F1: an implicit start never crosses a vault change", () =
     await press({ key: "3", altKey: true });
     fireEvent.click(await screen.findByRole("button", { name: "check me" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
-    expect(planLearnerPick.mock.calls[0][1]).toBe("s_b");
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_b");
     expect(startSession).toHaveBeenCalledTimes(1);
   });
 
@@ -478,7 +481,7 @@ describe("fix round 1, F1: an implicit start never crosses a vault change", () =
     fireEvent.click(await screen.findByRole("button", { name: "check me" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     expect(startSession).toHaveBeenCalledTimes(2);
-    expect(planLearnerPick.mock.calls[0][1]).toBe("s_new");
+    expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
   });
 });
 
