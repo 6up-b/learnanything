@@ -352,3 +352,198 @@ Recorded in the spec's decision log too (`docs/specs/spec_storage_sync_v1.md`
   checkout all four papers are tracked and unmodified (its `git status` at
   the start of this session), and the
   rehearsal below backed them up from the working tree with their blob hashes.
+
+## Merge onto main and landing rehearsal (2026-10-25)
+
+Merge agent, worktree `learnanything-merge2`, branch `merge/s0-onto-main`
+from `main` at `bc6240a6e` (UX Phase 3 landed). No git command, file or vault
+of the main checkout was touched; the owner's mvp-0.30 backups were only read.
+No model call, paid or live.
+
+### Merge
+
+`git merge --no-ff storage/s0-clean-tip` (tip `24c10e55d`): **no conflict**.
+UX Phase 3 added no test that loads an owner vault and no fixture walker
+(`tests/test_ux_phase3_today.py` builds its own vaults; `test_mobile_allowlist`
+only pins `workbench.open_problems` desktop-only), so **no test moved to the
+`owner_vaults` lane**. In merge2 the merge deleted the eight vault directories
+and `new_textbooks/` from disk: they were clean git-HEAD copies with no
+untracked files, so nothing was lost, and the worktree is now in G6's
+fresh-clone condition.
+
+| Commit | What |
+|---|---|
+| `edefc35d3` | The merge |
+| `88b78c826` | Regeneration: `Config - ai.md` (four `ai_compare.py` line citations moved by review F3: `:860` to `:867`); the manual-attempt example (`Examples/Manual Attempt and State Inspection.md`) named `fixtures/linear_algebra` in `source_paths`, so `validate_vault.py` failed; it now copies an owner-lane copy |
+| `e74c18ebd` | Rehearsal finding R1 (below): `books-out` and an untracked nested repository under `new_textbooks/`, with its fail-first test |
+| `4b6f204c4` | The owner's decisions of 2026-10-25 here and in the spec's §10 |
+
+### Regeneration
+
+- **References:** `db_generate_reference.py` rewrote 422 notes; only
+  `Config - ai.md` changed beyond `source_commit` provenance (kept, above),
+  the rest discarded. `db_validate_reference.py`: 0 errors (351 table notes).
+- **`validate_vault.py`:** failed on the example above, then passed (1,154
+  notes, 1,152/1,152 reachable).
+- **Defaults snapshots:** all 22 recomputed with
+  `defaults_fingerprint_for_version` (`-B`, `env -i`): 0 mismatches.
+- **CLI help snapshot, RPC pins** (serializer snapshot, desktop RPC contract,
+  mobile allowlist): their tests pass with no file changed.
+
+### Gate (FULL), at `edefc35d3`; the files changed after it re-run at `4b6f204c4`
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` (5G scopes) | ok |
+| `uv run lint-imports --no-cache` | 35 kept, 0 broken |
+| full suite, `-n 8`, 10G scope (owner lane skipped) | **21,323 passed**, 74 skipped, 38 xfailed, 2 failed: `test_reading_hardening_2_fixes::test_f1_…` (known load flake) and `test_mvp021_upgrade::test_the_successor_rebuild_equals_mvp020s_projection` (a float difference in `facet_recall_state` under load); both **3/3 alone** |
+| `-m durability` | 121 passed, 1 skipped (the owner-lane WAL test) |
+| `-m owner_vaults`, `LEARNLOOP_OWNER_VAULTS` = backup-API copies of `vault-backups-20261025-mvp030/*` (three working vaults) plus the five older vaults from `main`'s tree | 101 passed, **2 failed, both data-dependent and pre-existing** (below) |
+| `-m owner_vaults` on backup-API copies of all eight vaults from `main`'s tree (what the stage used) | **103 passed** |
+| fixture walkers with the lane on (`test_yaml_fast_read`, `test_config_refactor`, `test_tracked_fixture_databases`, `test_migrations`, `test_receipt_exactness`, `test_receipt_derivation`) on the mvp-0.30 copies | 1,280 passed |
+| at `4b6f204c4`: `test_public_tip_guards`, `test_s0_landing` (29), `test_sqlite_file_copies`, `test_codex_lockdown_round3`, `test_architecture`, `test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_ai_compare`, `test_ux_phase3_today` | 386 passed |
+| `npm install`, `npm run typecheck` | ok |
+| `npx vitest run --maxWorkers=4` (whole) | 210 files, **1,822 passed** |
+| `npm run frontend:build`; `cargo check` | ok; ok |
+
+The two owner-lane failures on the mvp-0.30 copies read the owner's current
+data, not S0: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`
+finds no attempt without an activity observation in today's
+`linear_algebra` (every attempt is backfilled), and
+`test_placement_fixture_copies::…[arxiv_v2]` finds a never-practised LO
+(`lo_prepare_and_inspect_aligned_coordinate_tensors`) the mvp-0.10 baseline
+does not serve. Both fail the same way on `main` (`bc6240a6e`, before S0) with
+the same copies placed in `fixtures/`, and pass on the git-HEAD copies. S3's
+builders replace these tests; until then the owner lane is pinned to the data
+its goldens were written on.
+
+### Rehearsal of `scripts/s0_landing.py` on a scratch clone
+
+A local clone of the repository under `fixtures-local/s0-sim/checkout` (never
+the main checkout), `main` checked out at `bc6240a6e` with
+`GIT_LFS_SKIP_SMUDGE=1` (pointers, as in the main checkout), its
+`.git/lfs/objects` a reflink copy of the main checkout's store (443 MB, only
+read). Made to look like the owner's checkout: the root `.gitignore` carries
+the owner's uncommitted five-line edit (the conversation-traces block, copied
+from the main checkout's file); the three working vaults' databases are in
+WAL mode with an empty `-wal` beside them, and `linear_algebra`'s has an
+extra table and row; the four `learnloop.toml` the owner has edited carry an
+uncommitted line; `fixtures/linear_algebra/.learnloop/` holds a machine-local
+file; an untracked PDF in `docs/brainstorming/`, an untracked root
+`linear_algebra/`, and an untracked nested git repository
+`new_textbooks/Axler-Solutions/` (the main checkout has one). Its `git status`
+then matched the owner's line for line. Destinations: `--backup-root`,
+`--retired-root`, `--books-root` under `fixtures-local/s0-sim/home/`,
+`--vaults-root fixtures-local/s0-sim/vaults`. Every step ran with merge2's
+`.venv`, `env -i` and an empty `HOME`.
+
+| Step | Result |
+|---|---|
+| `check` (before anything) | **REFUSED**, exit 1: each vault still in the checkout and without a backup, no books manifest |
+| `move-out` (before copy-out) | **REFUSED**, exit 1: no verified backup; nothing moved |
+| `copy-out` | exit 0: eight vaults copied and verified (141, 113, 89, 116, 21, 70, 32, 30 files; one database each). Opening a WAL database read-only creates an empty `-shm` beside it (the owner's already exist) |
+| `books-out`, first run (before R1's fix) | **stopped with `IsADirectoryError`** before writing the manifest or copying anything: finding R1 |
+| `books-out` (after the fix, on a rebuilt clone) | exit 0: 22 textbooks from the LFS store, `interesting_courses.txt` from its blob, the four papers from the working tree, and the nested repository's working files (`Axler-Solutions/...`, not its `.git/`) |
+| `move-out` (dry run) | exit 0: eight `would move` lines (three to the vaults root, five to `learnloop-retired/<name>-2026-10-25`) |
+| `move-out --yes` | exit 0: eight renames; `git status` then shows ` M .gitignore` and 622 ` D fixtures/...` lines |
+| `check` | **OK**, exit 0 |
+| `git merge --ff-only s0-tip` | **refused by git**: "Your local changes to the following files would be overwritten by merge: .gitignore". The deleted vault files do not block the merge. Nothing changed |
+| save the `.gitignore` edit as a patch, `git checkout -- .gitignore`, `git merge --ff-only s0-tip`, `git apply` the patch | fast-forward; `git status`: ` M .gitignore` (the owner's edit back, uncommitted) and the owner's untracked files only. The four papers left `docs/brainstorming/` (their copies are in `books/papers/`); `new_textbooks/Axler-Solutions/` stayed (untracked) |
+| alternative, on a second worktree: commit the `.gitignore` edit first, then `git merge --no-ff s0-tip` | clean auto-merge of `.gitignore` (the hunks do not overlap) |
+| `verify-after` | OK, exit 0, with the re-pointing reminder |
+| `check` (after the merge) | OK, exit 0 |
+
+Afterwards the live `linear_algebra` held the extra table and row, the
+`learnloop.toml` edit, `.learnloop/machine-local.txt` and the
+`working-vault.json` mark. No prompt asks anything interactively; the only
+manual actions are the `.gitignore` handling and the merge itself.
+
+**R1 (fixed in `e74c18ebd`).** `git ls-files --others -- new_textbooks` names
+a nested repository as one entry ending in `/`; `media_inventory` read it as
+a file. The main checkout has `new_textbooks/Axler-Solutions/` with its own
+`.git/`, so the real `books-out` would have stopped there (before copying
+anything, so harmless, but the landing could not go on). Now each working
+file under it is listed and backed up; its `.git/` is not (git never deletes
+untracked files, so it stays in the checkout, and its index changes whenever
+git runs there, which would make `check` see drift).
+`tests/test_s0_landing.py::test_an_untracked_nested_repository_under_new_textbooks_is_backed_up_file_by_file`
+failed with `IsADirectoryError` before the fix.
+
+### The real landing: command sequence
+
+For the orchestrator, after the owner's go. Main must still be `bc6240a6e`;
+if it has moved, merge it into `merge/s0-onto-main` and gate again first.
+Same filesystem: the checkout and `~` are both on `/home` (btrfs), as
+`move-out` needs. None of `~/learnloop-backups`, `~/learnloop-vaults`,
+`~/learnloop-retired`, `~/learnloop-books` exists yet.
+
+```bash
+# 0. Close every LearnLoop process: the desktop app (npm run dev / Tauri),
+#    the mobile host (systemctl --user stop learnloop-mobile.service, if
+#    installed), the chat server (learnloop mcp serve / its unit), any CLI.
+pgrep -fa 'learnloop|learnloop_sidecar|learnloop-mobile'    # must print nothing
+S0=/home/saturn/Documents/thinking/learnanything-merge2     # the merged tree, synced .venv
+CHECKOUT=/home/saturn/Documents/thinking/learnanything
+PY="$S0/.venv/bin/python -B"
+cd "$S0"
+
+# 1-4. The script, with its default destinations under ~.
+$PY scripts/s0_landing.py check     --checkout "$CHECKOUT"   # expect REFUSED, exit 1
+$PY scripts/s0_landing.py copy-out  --checkout "$CHECKOUT"   # eight "copied ... and verified"
+$PY scripts/s0_landing.py books-out --checkout "$CHECKOUT"   # textbooks, papers, Axler-Solutions files
+$PY scripts/s0_landing.py move-out  --checkout "$CHECKOUT"   # dry run: read the eight lines
+$PY scripts/s0_landing.py move-out  --checkout "$CHECKOUT" --yes
+$PY scripts/s0_landing.py check     --checkout "$CHECKOUT"   # must print OK, exit 0; stop otherwise
+
+# 5. The merge, in the main checkout. git refuses while .gitignore has the
+#    owner's uncommitted edit, so set it aside as a patch and put it back.
+cd "$CHECKOUT"
+git status --short | grep -v '^ D fixtures/'                 # expect: " M .gitignore" + the owner's ?? files
+git diff -- .gitignore > ~/learnloop-s0-gitignore.patch
+git checkout -- .gitignore
+git merge --ff-only merge/s0-onto-main
+git apply ~/learnloop-s0-gitignore.patch
+git status --short                                           # expect: " M .gitignore" + the owner's ?? files only
+#    (Alternative if the owner prefers: commit the .gitignore edit first, then
+#    git merge --no-ff merge/s0-onto-main; it auto-merges cleanly.)
+
+cd "$S0"
+$PY scripts/s0_landing.py verify-after --checkout "$CHECKOUT"   # OK, exit 0
+$PY scripts/s0_landing.py check        --checkout "$CHECKOUT"   # still OK
+```
+
+If a step stops part-way, run it again (done and verified work is kept). If
+`check` reports that a moved vault changed after its backup:
+`copy-out --from-moved --backup-root ~/learnloop-backups/s0-2`, then
+`check --backup-root ~/learnloop-backups/s0-2`.
+
+**Re-pointing (the owner, right after `verify-after`):**
+
+1. **Desktop `last_vault`.** Start the desktop app and open
+   `~/learnloop-vaults/<name>` with its vault picker (an explicit selection
+   records it in `~/.config/learnloop/last_vault`; `LEARNLOOP_VAULT=` alone
+   does not). Without this, a remembered vault that is gone makes the app
+   open the first vault under the checkout's `fixtures-local/` instead.
+2. **`mobile.toml`** (`~/.config/learnloop/mobile.toml`, see
+   `deploy/mobile.toml.example`): change each `fixtures/<name>` vault path to
+   `~/learnloop-vaults/<name>`, then restart `learnloop-mobile.service`.
+3. **The chat unit** (`~/.config/systemd/user/learnloop-mcp.service`, if
+   installed; `docs/reviews/mcp-c1a.md`): change `--vault` to
+   `~/learnloop-vaults/<name>`, `systemctl --user daemon-reload`, restart.
+4. **Project hooks:** for each vault, `learnloop project status --vault
+   ~/learnloop-vaults/<name>` lists the enrolled repositories; for each with a
+   hook, `learnloop project install-hook <repo> --vault ~/learnloop-vaults/<name>`
+   rewrites its block with the new path ("updated").
+5. Keep `~/learnloop-backups/s0/`, `~/learnloop-retired/` and
+   `~/learnloop-s0-gitignore.patch` until a week has passed and a restore drill
+   has run (§7.1 step 5).
+
+### Open items
+
+- R1 fixed; Codex's remaining F7/F8 open as Low (above).
+- The owner lane's two data-dependent tests fail on the owner's current
+  vaults (also before S0); they pass on the git-HEAD copies. S3's builders end
+  this.
+- `test_mvp021_upgrade::test_the_successor_rebuild_equals_mvp020s_projection`
+  joins the known load flakes (3/3 alone).
+- The S0 tip itself is unchanged; the landing tip is `merge/s0-onto-main`.
