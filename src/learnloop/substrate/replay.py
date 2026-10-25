@@ -115,16 +115,26 @@ class _ClaimStream:
       made by then (``claims_as_of``), exactly the state the attempt path would
       otherwise construct from them;
     * each later claim from a re-anchoring source
-      (``mastery.REANCHORING_CLAIM_SOURCES``) re-anchors at its own instant
-      through the live function, before any attempt stamped after it. A claim
-      stamped at the same instant as an attempt goes first: a rung-variant
-      request writes its claim, then its self-report attempt.
+      (``mastery.REANCHORING_CLAIM_SOURCES``) re-anchors at its own point
+      through the live function, before any attempt after it.
+
+    Claims and attempts share one order, ``(created_at, id)`` (review F5):
+    stamps have one-second resolution, and ids minted in one process sort in
+    creation order (``learnloop.ids``), so within a second the id places a
+    claim. A rung-variant request writes its claim, then its self-report
+    attempt, so the claim goes first; a gap declared, or a too-easy report
+    made, just after an attempt in the same second goes after it, as it did
+    live. A claim id that is not a minted ULID (an import, a test) still
+    orders deterministically by its text.
 
     Claims are mutable rows (a re-claim replaces the earlier one), so a
     replaced claim's earlier version is not replayed.
     """
 
-    def __init__(self, vault: LoadedVault, repository: Repository, learning_object_id: str, claims: list[tuple[Any, dict[str, Any]]]):
+    def __init__(
+        self, vault: LoadedVault, repository: Repository, learning_object_id: str,
+        claims: list[tuple[tuple[Any, str], dict[str, Any]]],
+    ):
         self._vault = vault
         self._repository = repository
         self._learning_object_id = learning_object_id
@@ -138,7 +148,7 @@ class _ClaimStream:
         learning_object = vault.learning_objects.get(learning_object_id)
         if learning_object is None:
             return None
-        claims: list[tuple[Any, dict[str, Any]]] = []
+        claims: list[tuple[tuple[Any, str], dict[str, Any]]] = []
         for claim in repository.learner_claims():
             if str(claim.get("source")) not in learner_mastery.REANCHORING_CLAIM_SOURCES:
                 continue
@@ -147,14 +157,14 @@ class _ClaimStream:
             created = _parse_or_none(claim.get("created_at"))
             if created is None:
                 continue  # unordered: it can only act through the seed
-            claims.append((created, claim))
-        claims.sort(key=lambda pair: (pair[0], str(pair[1].get("id") or "")))
+            claims.append(((created, str(claim.get("id") or "")), claim))
+        claims.sort(key=lambda pair: pair[0])
         return cls(vault, repository, learning_object_id, claims)
 
-    def advance_to(self, until_iso: str) -> None:
-        """Apply every claim made by ``until_iso``; seed the row on first use."""
+    def advance_to(self, until_iso: str, attempt_id: str) -> None:
+        """Apply every claim made before the attempt ``(until_iso, attempt_id)``; seed the row on first use."""
 
-        until = parse_utc(until_iso)
+        position = (parse_utc(until_iso), str(attempt_id))
         if not self._seeded:
             self._seeded = True
             if self._repository.mastery_state(self._learning_object_id) is None:
@@ -165,18 +175,19 @@ class _ClaimStream:
                         self._learning_object_id,
                         until_iso,
                         claims_as_of=until_iso,
+                        claims_as_of_id=str(attempt_id),
                     )
                 )
-            # Claims made by the first attempt are in its seed already.
-            self._pending = [pair for pair in self._pending if pair[0] > until]
+            # Claims made before the first attempt are in its seed already.
+            self._pending = [pair for pair in self._pending if pair[0] > position]
             return
-        while self._pending and self._pending[0][0] <= until:
-            _created, claim = self._pending.pop(0)
+        while self._pending and self._pending[0][0] < position:
+            _position, claim = self._pending.pop(0)
             self._reanchor(claim)
 
     def finish(self) -> None:
         while self._pending:
-            _created, claim = self._pending.pop(0)
+            _position, claim = self._pending.pop(0)
             self._reanchor(claim)
 
     def _reanchor(self, claim: dict[str, Any]) -> None:
@@ -189,6 +200,7 @@ class _ClaimStream:
             prior_pseudo_count=float(claim["prior_pseudo_count"]),
             now_iso=created_at,
             claims_as_of=created_at,
+            claims_as_of_id=str(claim.get("id") or ""),
         )
 
 
@@ -239,7 +251,7 @@ def replay_learning_object(
         observed_at = parse_utc(attempt.get("created_at"))
         clock = FrozenClock(observed_at) if observed_at is not None else None
         if claim_stream is not None and observed_at is not None:
-            claim_stream.advance_to(str(attempt["created_at"]))
+            claim_stream.advance_to(str(attempt["created_at"]), str(attempt["id"]))
         override_attributions = (error_attribution_overrides or {}).get(attempt["id"])
         event_snapshot = existing_error_events.get(attempt["id"], [])
         replayed_result = replay_existing_attempt(

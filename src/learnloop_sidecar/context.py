@@ -136,6 +136,12 @@ class SidecarContext:
             VaultPaths(self.vault.root, self.vault.config).sqlite_path,
         )
         self.map_builds.bind(self.repository.sqlite_path)
+        # LP-min (a) (claim-fixes review F2): an upgrade that died after
+        # publishing the successor's config and before its commit left a
+        # journal; complete the activation before anything serves or
+        # re-projects the vault under the successor's label.
+        if _recover_claim_fixes_activation(self.vault_root, self.vault):
+            self.vault = load_vault(self.vault_root)
         # Finish a facet merge or undo that a previous process left mid-flight
         # before anything reads or re-projects the vault (facet identity F12).
         if _recover_facet_identity_actions(self.vault_root, self.repository):
@@ -546,6 +552,23 @@ class SidecarContext:
                 "streak": repository.session_day_streak(),
             }
         )
+
+
+def _recover_claim_fixes_activation(vault_root: Path, vault: LoadedVault) -> bool:
+    """Complete a journalled claim-fixes activation; True when one ran.
+
+    A failure never blocks opening the vault: the journal stays, so the next
+    start or ``learnloop upgrade`` completes it, and doctor reports the stale
+    rebuild meanwhile.
+    """
+
+    from learnloop.claim_fixes_upgrade import complete_interrupted_activation
+
+    try:
+        return complete_interrupted_activation(vault_root, vault=vault) is not None
+    except Exception:  # pragma: no cover - defensive: startup must not fail on recovery
+        _LOGGER.warning("claim-fixes activation recovery failed; run `learnloop upgrade` again", exc_info=True)
+        return False
 
 
 def _recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool:

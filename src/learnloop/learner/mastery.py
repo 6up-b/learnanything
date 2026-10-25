@@ -15,7 +15,8 @@ as the observation reliability weight. Legacy (mvp-0.6) behavior is unchanged.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from contextlib import nullcontext
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import copysign, exp, log, sqrt
 from typing import TYPE_CHECKING, Any
@@ -206,13 +207,23 @@ def initial_mastery_state_for_learning_object(
     now_iso: str,
     *,
     claims_as_of: str | None = None,
+    claims_as_of_id: str | None = None,
 ) -> MasteryState:
     """The LO's prior: the cold start, or the covering claim's re-anchor.
 
     ``claims_as_of`` (replay under the claim-fixes successor) reads only the
-    claims created at or before that instant, so a later claim never seeds an
-    earlier observation. ``None`` reads every claim on record, which live is
-    the same thing: no claim is created after now.
+    claims made by that point of the stream, so a later claim never seeds an
+    earlier observation. The point is ``(claims_as_of, claims_as_of_id)`` in
+    the shared row order ``(created_at, id)`` (``learnloop.ids``: ids minted in
+    one process sort in creation order), so a claim stamped in the same second
+    as an attempt is placed by its id, not assumed first (review F5). ``None``
+    reads every claim on record, which live is the same thing: no claim is
+    created after now.
+
+    Under the successor a claim moves the prior's mean only: the seeded
+    variance never drops below the cold start's (spec §3.0b, "the variance
+    never drops below the prior's"; AD §5.5; review F4). The floor is the
+    configured cold-start variance itself, so no new number.
     """
 
     mastery_config = vault.config.mastery
@@ -222,7 +233,9 @@ def initial_mastery_state_for_learning_object(
         now_iso,
         logit_variance=float(mastery_config.cold_start_prior_logit_variance),
     )
-    claim = covering_learner_claim(vault, repository, learning_object_id, as_of=claims_as_of)
+    claim = covering_learner_claim(
+        vault, repository, learning_object_id, as_of=claims_as_of, as_of_id=claims_as_of_id
+    )
     if claim is None:
         return state
     # Any covering claim seeds the prior (spec_tutor_promotion.md §3 G2): a low
@@ -235,10 +248,15 @@ def initial_mastery_state_for_learning_object(
     # floor keeps a self-report from impersonating measured evidence.
     claimed_level = float(claim["claimed_level"])
     prior_pseudo_count = max(float(claim["prior_pseudo_count"]), 0.25)
+    seeded_variance = max(1 / prior_pseudo_count, float(mastery_config.claim_prior_min_variance))
+    if claim_fixes_live(vault):
+        # Mean only (review F4): the claim never makes the prior more certain
+        # than the cold start it replaces.
+        seeded_variance = max(seeded_variance, state.logit_variance)
     return MasteryState(
         learning_object_id=learning_object_id,
         logit_mean=logit(clamp(claimed_level, 0.05, 0.98)),
-        logit_variance=max(1 / prior_pseudo_count, float(mastery_config.claim_prior_min_variance)),
+        logit_variance=seeded_variance,
         evidence_count=0,
         last_evidence_at=None,
         algorithm_version=vault.config.algorithms.algorithm_version,
@@ -301,21 +319,58 @@ def reanchor_mastery_from_claim(
     prior_pseudo_count: float,
     now_iso: str,
     claims_as_of: str | None = None,
+    claims_as_of_id: str | None = None,
 ) -> MasteryState:
     """Make a newly written claim take effect on an already-materialized LO.
 
     Zero-evidence states are fully re-seeded (the claim IS the prior); states
     with evidence get the precision-weighted merge, mean-only under the
-    claim-fixes successor. ``claims_as_of`` is replay's: the re-seed reads
-    only the claims made by the claim's own time. Persists and returns the
-    updated state.
+    claim-fixes successor. ``claims_as_of`` / ``claims_as_of_id`` are
+    replay's: the re-seed reads only the claims made by the claim's own point
+    in the stream. Under the successor a zero-evidence re-seed also keeps the
+    state's own variance (review F4: the seed is floored at the cold start,
+    and a materialized row's variance is never lowered by a claim). Persists
+    and returns the updated state.
+
+    Under the successor the read and the write are one ``BEGIN IMMEDIATE``
+    transaction (review F1; a savepoint inside a caller's): a concurrent
+    attempt's mastery update lands wholly before the read or after the write,
+    never between them, so this cannot overwrite it with a stale state.
     """
 
+    # Gated with the successor so the predecessor's writes stay exactly its own.
+    with repository.atomic() if claim_fixes_live(vault) else nullcontext():
+        return _reanchor_in_transaction(
+            vault,
+            repository,
+            learning_object_id,
+            claimed_level=claimed_level,
+            prior_pseudo_count=prior_pseudo_count,
+            now_iso=now_iso,
+            claims_as_of=claims_as_of,
+            claims_as_of_id=claims_as_of_id,
+        )
+
+
+def _reanchor_in_transaction(
+    vault,
+    repository,
+    learning_object_id: str,
+    *,
+    claimed_level: float,
+    prior_pseudo_count: float,
+    now_iso: str,
+    claims_as_of: str | None,
+    claims_as_of_id: str | None,
+) -> MasteryState:
     current = repository.mastery_state(learning_object_id)
     if current is None or current.evidence_count == 0:
         updated = initial_mastery_state_for_learning_object(
-            vault, repository, learning_object_id, now_iso, claims_as_of=claims_as_of
+            vault, repository, learning_object_id, now_iso,
+            claims_as_of=claims_as_of, claims_as_of_id=claims_as_of_id,
         )
+        if current is not None and claim_fixes_live(vault) and current.logit_variance > updated.logit_variance:
+            updated = replace(updated, logit_variance=current.logit_variance)
     else:
         updated = apply_claim_evidence(
             current,
@@ -329,7 +384,7 @@ def reanchor_mastery_from_claim(
 
 
 def covering_learner_claim(
-    vault, repository, learning_object_id: str, *, as_of: str | None = None
+    vault, repository, learning_object_id: str, *, as_of: str | None = None, as_of_id: str | None = None
 ) -> dict[str, Any] | None:
     """The one claim that seeds ``learning_object_id``'s prior, or None.
 
@@ -337,9 +392,11 @@ def covering_learner_claim(
     predecessor preferred the larger pseudo-count, then the HIGHER claimed
     level; under the claim-fixes successor the most recent claim wins, then
     the larger pseudo-count, and the level never breaks a tie (a learner who
-    revises a claim downward is believed). ``as_of`` keeps only claims created
-    at or before that instant (replay); it is honoured only under the
-    successor, so the predecessor's replay is unchanged.
+    revises a claim downward is believed). ``as_of`` keeps only claims made by
+    that point (replay): created before it, or at the same instant with an id
+    at or before ``as_of_id`` (the shared ``(created_at, id)`` order; without
+    an id, the whole instant). It is honoured only under the successor, so the
+    predecessor's replay is unchanged.
     """
 
     learning_object = vault.learning_objects.get(learning_object_id)
@@ -350,7 +407,7 @@ def covering_learner_claim(
         claim
         for claim in repository.learner_claims()
         if _claim_covers_learning_object(claim, learning_object)
-        and (not fixes or as_of is None or _claim_made_by(claim, as_of))
+        and (not fixes or as_of is None or _claim_made_by(claim, as_of, as_of_id))
     ]
     if not candidates:
         return None
@@ -378,8 +435,8 @@ def learning_objects_with_covering_claims(vault, repository, learning_object_ids
     return covered
 
 
-def _claim_made_by(claim: dict[str, Any], as_of: str) -> bool:
-    """Whether ``claim`` was created at or before ``as_of`` (UTC instants)."""
+def _claim_made_by(claim: dict[str, Any], as_of: str, as_of_id: str | None = None) -> bool:
+    """Whether ``claim`` was made by ``(as_of, as_of_id)`` in the ``(created_at, id)`` order."""
 
     created = _parse_instant(claim.get("created_at"))
     instant = _parse_instant(as_of)
@@ -387,7 +444,9 @@ def _claim_made_by(claim: dict[str, Any], as_of: str) -> bool:
         # An unordered claim cannot be placed in the stream; it is read, as
         # every claim was before the fix, rather than silently dropped.
         return True
-    return created <= instant
+    if created != instant or as_of_id is None:
+        return created <= instant
+    return str(claim.get("id") or "") <= str(as_of_id)
 
 
 def _claim_covers_learning_object(claim: dict[str, Any], learning_object) -> bool:

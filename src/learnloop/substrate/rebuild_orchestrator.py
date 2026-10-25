@@ -103,6 +103,13 @@ class ReplayCompletenessError(RuntimeError):
         )
 
 
+#: The stamp of a zero-attempt LO's cold mastery row after a full clear: no
+#: event exists from which a meaningful observation time could be derived.
+#: The claim-fixes activation writes the same row for a claim-covered LO with
+#: no attempts (``claim_fixes_upgrade``), so activation and rebuild agree.
+COLD_MASTERY_BASELINE_AT = "1970-01-01T00:00:00Z"
+
+
 # Dependency order is intentionally explicit.  Attempt-derived state is folded
 # first, canonical state is projected once over the resulting whole-vault
 # ledger, and identifiability consumes that projection.
@@ -367,7 +374,7 @@ def _run_learning_state(
                 context.vault,
                 context.repository,
                 learning_object_id,
-                "1970-01-01T00:00:00Z",
+                COLD_MASTERY_BASELINE_AT,
             )
             context.repository.upsert_mastery_state(state)
             cold_mastery_rows += 1
