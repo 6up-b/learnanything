@@ -142,8 +142,12 @@ class Resolution:
     exploration: dict[str, Any] = field(default_factory=dict)
     #: ``{record id: {list identity: rank}}`` of the contributing spaces' query lists.
     space_ranks: dict[str, dict[str, int]] = field(default_factory=dict)
-    #: ``{list identity: P(queried)}`` under the Thompson draw (empty under the seed).
+    #: ``{list identity: P(selected)}`` under the Thompson draw and the
+    #: assignment policy (empty under the seed).
     query_propensity: dict[str, float] = field(default_factory=dict)
+    #: The joint probability that the policy selected exactly the lists it
+    #: did (Codex re-review F18); None under the seed (not random).
+    query_set_propensity: float | None = None
     #: The extractions some contributing space actually answered for (set by
     #: :func:`meaning_lists`; None before it ran): coverage counts these only.
     answered: set[str] | None = None
@@ -176,7 +180,8 @@ class Resolution:
                 "coverage": self.coverage, "contributing": self.contributing(),
                 "spaces": {name: state.describe() for name, state in sorted(self.spaces.items())},
                 "weights": {"served": dict(self.served), "seed": dict(self.seed), "learned": self.learned,
-                            "source": self.weights_source, "query_propensity": dict(self.query_propensity)},
+                            "source": self.weights_source, "query_propensity": dict(self.query_propensity),
+                            "query_set_propensity": self.query_set_propensity},
                 "rrf_k": self.rrf_k, "exploration": dict(self.exploration)}
 
 
@@ -312,34 +317,56 @@ def resolve_source_spaces(vault: LoadedVault, repository: Repository, scope: Sco
     keys = {name: states[name].list_key for name in available}
     by_key = fusion.learned_weights(posterior, [keys[name] for name in available])
     learned = None if by_key is None else {name: by_key[keys[name]] for name in available}
-    served, source, propensity = dict(seed), "seed", {}
+    served, source, propensity, set_propensity = dict(seed), "seed", {}, None
     rrf_k = float(config.source_retrieval.rrf_k)
+
+    def assign(weights: Mapping[str, float]) -> dict[str, list[tuple[str, float]]]:
+        """The coverage assignment: each extraction to its positively weighted
+        covering spaces, else to the cheapest covering stand-in."""
+
+        top = max(weights.values(), default=0.0)
+        result: dict[str, list[tuple[str, float]]] = {}
+        for extraction_id in extraction_ids:
+            candidates = [name for name in available if extraction_id in states[name].covered]
+            if not candidates:
+                continue
+            weighted = [(name, weights[name]) for name in candidates if weights[name] > 0]
+            if not weighted:
+                stand_in = min(candidates, key=lambda name: (states[name].price_per_million, name))
+                weighted = [(stand_in, top or 1.0)]
+            result[extraction_id] = weighted
+        return result
+
+    def selected(assignment: Mapping[str, Sequence[tuple[str, float]]]) -> frozenset[str]:
+        return frozenset(keys[name] for pairs in assignment.values() for name, _w in pairs)
+
     if config.embedding.source_space.learned_fusion:
         # §5.2 (Codex review F7, F14): a Thompson draw, seeded by the receipt,
-        # at the posterior's own rrf_k; each list's P(queried) is logged.
-        drawn, propensity = fusion.thompson_weights(posterior, [keys[name] for name in available],
-                                                    seed=fusion.rng_seed(receipt_id or "unseeded"))
+        # at the posterior's own rrf_k.
+        drawn = fusion.thompson_weights(posterior, [keys[name] for name in available],
+                                        seed=fusion.rng_seed(receipt_id or "unseeded"))
         if drawn is not None:
             served = {name: (drawn.get(keys[name], 0.0) if name in keys else 0.0) for name in lists}
             source = "learned"
             rrf_k = float((posterior or {}).get("rrf_k") or rrf_k)
-        else:
-            propensity = {}
-    top = max(served.values(), default=0.0)
-    assignment: dict[str, list[tuple[str, float]]] = {}
-    for extraction_id in extraction_ids:
-        candidates = [name for name in available if extraction_id in states[name].covered]
-        if not candidates:
-            continue
-        weighted = [(name, served[name]) for name in candidates if served[name] > 0]
-        if not weighted:
-            stand_in = min(candidates, key=lambda name: (states[name].price_per_million, name))
-            weighted = [(stand_in, top or 1.0)]
-        assignment[extraction_id] = weighted
-        for name, _w in weighted:
+    assignment = assign(served)
+    if source == "learned":
+        # Codex re-review F18: the logged probability is the joint one of the
+        # set this policy selected (the assignment above applied to a draw,
+        # the forced stand-in included), under the posterior's covariance.
+        def policy(positive: frozenset[str]) -> frozenset[str]:
+            return selected(assign({name: (1.0 if name in keys and keys[name] in positive else 0.0)
+                                    for name in lists}))
+
+        set_propensity, propensity = fusion.selection_propensity(
+            posterior, [keys[name] for name in available], policy, selected(assignment),
+            seed=fusion.rng_seed((receipt_id or "unseeded") + ":selection"))
+    for extraction_id, pairs in assignment.items():
+        for name, _w in pairs:
             states[name].assigned.append(extraction_id)
     return Resolution(consumer, query_kind, states, seed, served, learned, source, rrf_k, assignment, posterior,
                       receipt_id=receipt_id, query_propensity=dict(propensity),
+                      query_set_propensity=set_propensity,
                       lists_available=[keys[name] for name in available])
 
 

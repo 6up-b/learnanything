@@ -260,9 +260,13 @@ def test_the_seed_serves_while_the_learned_rule_is_only_logged(tmp_path, monkeyp
     assert "voyage" in selection["contributing"] and client.query_calls
     # Codex review F14: the posterior's rrf_k serves with its coefficients.
     assert selection["rrf_k"] == 15.0
-    # Codex review F7: a Thompson draw, its query propensities logged.
+    # Codex review F7: a Thompson draw, its query propensities logged. Under
+    # the policy (re-review F18), Qwen alone covers the second source, so it
+    # is selected for every draw (its stand-in), and the set's probability is
+    # Voyage's being drawn positive.
     propensity = selection["weights"]["query_propensity"]
-    assert propensity[ids["voyage"]] > 0.99 and 0.5 < propensity[ids["qwen"]] < 1.0
+    assert propensity[ids["voyage"]] > 0.99 and propensity[ids["qwen"]] == 1.0
+    assert selection["weights"]["query_set_propensity"] > 0.99
 
 
 def test_a_successor_space_never_inherits_its_predecessors_weights(tmp_path, monkeypatch):
@@ -555,20 +559,23 @@ def test_the_logged_selection_probability_is_the_resolvers_joint_one(tmp_path, m
 
     paths, repository = _vault(tmp_path)
     client = _fallback(paths, monkeypatch, extra="\n\n[embedding.source_space]\nlearned_fusion = true")
-    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    for extraction_id in sorted(library_scope(repository).extractions):  # both spaces cover everything
+        fallback_space.backfill_fallback_vectors(loaded(paths), repository, extraction_id, client=client)
     ids = _identities(paths, repository)
     flat = {"global": {"lists": [ids["qwen"], ids["voyage"]], "mean": [0.0, 0.0], "signals": 3, "rrf_k": 60.0,
                        "covariance": [[1.0, 0.0], [0.0, 1.0]], "context_key": "global"}}
     monkeypatch.setattr("learnloop.db.stores.retrieval_spaces.fusion_posteriors", lambda _c: flat)
     expected = {("qwen",): 0.5, ("voyage",): 0.25, ("qwen", "voyage"): 0.25}
+    receipts = iter(f"rq_f18_{index:02d}" for index in range(12))
+    monkeypatch.setattr(feedback, "new_receipt_id", lambda: next(receipts))  # the draws are reproducible
     seen = set()
-    for _ in range(8):
+    for _ in range(12):
         selection = _search(paths, repository).space_selection
         chosen = tuple(selection["contributing"])
         recorded = selection["weights"]["query_set_propensity"]
-        assert abs(recorded - expected[chosen]) < 0.03, (chosen, recorded)
+        assert abs(recorded - expected[chosen]) < 0.04, (chosen, recorded)  # 5 standard errors
         seen.add(chosen)
         rows = [row for row in _feedback(repository)
                 if row["receipt_id"] == selection["receipt_id"] and row["event"] == "query"]
         assert rows and fusion._set_propensity(rows[0]["payload"], [ids["qwen"], ids["voyage"]], set()) == recorded
-    assert len(seen) >= 2
+    assert len(seen) == 3

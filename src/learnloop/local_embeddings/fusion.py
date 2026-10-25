@@ -21,13 +21,15 @@ position gives fewer signals for equally relevant spans, and the fit
 expects exactly that instead of learning position as relevance). The
 randomized-delivery correction is inverse-propensity weighting by the
 logged propensities only (Joachims, Swaminathan and Schnabel 2017): the
-probability that the drawn weights queried exactly the lists that were
-queried, times the exploration propensity of the span's final position.
+joint probability that the resolver's policy, applied to the Thompson draw,
+selected exactly the lists it queried (:func:`selection_propensity`, under
+the posterior's covariance, forced stand-ins included; Codex re-review F18),
+times the exploration propensity of the span's final position.
 
 **Serving (§5.2, Codex review F7, F14).** With
 ``embedding.source_space.learned_fusion`` on, the served weights are a
 Thompson draw from the posterior (seeded by the query receipt), and the
-probability that each list was queried (``P(draw > 0)``) is logged. A list
+probability of the selection it led to (and each list's) is logged. A list
 that was available but never queried keeps its prior, so a challenger at
 zero mean is still drawn positive sometimes, queried, observed, and can
 learn its way up. The posterior's own ``rrf_k`` serves with its
@@ -62,7 +64,7 @@ boundary, so the propensity describes the delivered position (Codex review F9).
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import hashlib
 import json
 import math
@@ -83,6 +85,9 @@ PROPENSITY_DRAWS = 256
 RRF_K_GRID = (0.25, 0.5, 1.0, 2.0, 4.0)
 #: keep (numerical): the smallest propensity an inverse-propensity weight divides by.
 MIN_PROPENSITY = 1e-6
+#: keep (computation budget): Monte Carlo draws behind a query's selection probability
+#: (standard error at most 0.5 / sqrt(draws), under 0.008).
+SELECTION_DRAWS = 4096
 
 PRIOR_BASIS = {
     "beta_mean": "legacy: full weight on the current default space (embedding.source_space.default), zero on "
@@ -230,19 +235,14 @@ def parse_feedback(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def _set_propensity(payload: Mapping[str, Any], lists: Sequence[str], ranked: set[str]) -> float:
-    """The probability that the drawn weights queried exactly the lists this
-    search queried (independent marginals ``P(draw_s > 0)``); 1 under the seed."""
+    """The logged probability that the resolver's policy selected the set of
+    lists this search queried (:func:`selection_propensity`, recorded at
+    serve time; Codex re-review F18), consumed as recorded; 1 under the seed,
+    whose selection is not random."""
 
-    propensity = dict(payload.get("query_propensity") or {})
-    available = set(payload.get("lists_available") or ())
-    queried = set(payload.get("queried") or ranked)
-    value = 1.0
-    for name in lists:
-        if available and name not in available:
-            continue
-        p = float(propensity.get(name, 1.0 if name in queried else 0.0))
-        value *= p if name in queried else (1.0 - p)
-    return value
+    del lists, ranked  # the joint probability is recorded whole, never rebuilt from marginals
+    value = payload.get("query_set_propensity")
+    return 1.0 if value is None else float(value)
 
 
 def _observations(queries: Sequence[Mapping[str, Any]], lists: Sequence[str], rrf_k: float,
@@ -425,31 +425,58 @@ def learned_weights(posterior: Mapping[str, Any] | None, available: Sequence[str
     return {name: value / total for name, value in raw.items()}
 
 
-def _normal_cdf(value: float) -> float:
-    return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
-
-
 def thompson_weights(posterior: Mapping[str, Any] | None, available: Sequence[str], *, seed: int
-                     ) -> tuple[dict[str, float] | None, dict[str, float]]:
+                     ) -> dict[str, float] | None:
     """A Thompson draw of the weights (§5.2): ``max(beta, 0)`` of one posterior
-    draw, renormalized over ``available``, and each list's probability of
-    being queried, ``P(beta_s > 0)`` (logged with the delivery). None without
-    a posterior (the seed serves)."""
+    draw, renormalized over ``available``. None without a posterior (the seed
+    serves). The probability of what the draw selects is
+    :func:`selection_propensity`'s: it depends on the resolver's policy, not
+    on the draw alone."""
 
     if not posterior or not posterior.get("signals") or not available:
-        return None, {}
+        return None
     keys = list(available)
     mean, cov = _marginals(posterior, keys)
     draw = np.random.default_rng(seed).multivariate_normal(mean, cov, method="svd")
     raw = {name: max(0.0, float(value)) for name, value in zip(keys, draw, strict=True)}
     total = sum(raw.values())
-    weights = {name: (value / total if total > 0 else 0.0) for name, value in raw.items()}
-    propensity = {}
-    for index, name in enumerate(keys):
-        spread = math.sqrt(max(float(cov[index, index]), 0.0))
-        propensity[name] = round(_normal_cdf(float(mean[index]) / spread) if spread > 0
-                                 else (1.0 if mean[index] > 0 else 0.0), 9)
-    return weights, propensity
+    return {name: (value / total if total > 0 else 0.0) for name, value in raw.items()}
+
+
+def selection_propensity(posterior: Mapping[str, Any] | None, available: Sequence[str],
+                         policy: Callable[[frozenset[str]], frozenset[str]], chosen: frozenset[str], *,
+                         seed: int) -> tuple[float, dict[str, float]]:
+    """The probability that the resolver's selection ``policy``, applied to a
+    Thompson draw from ``posterior`` over ``available``, selects exactly
+    ``chosen``, and each list's probability of being selected (Codex
+    re-review F18).
+
+    ``policy`` maps the set of lists drawn positive to the set the resolver
+    queries (its coverage assignment, the forced cheapest stand-in included);
+    a draw's selection depends only on which coefficients are positive. The
+    probability is joint, under the posterior's own covariance, estimated by
+    ``SELECTION_DRAWS`` draws (seeded, so a replay logs the same number) with
+    the served draw counted as one of them, so a selection that happened is
+    never given probability 0. ``(1.0, {})`` without a posterior: the seed's
+    selection is not random."""
+
+    if not posterior or not posterior.get("signals") or not available:
+        return 1.0, {}
+    keys = list(available)
+    mean, cov = _marginals(posterior, keys)
+    draws = np.random.default_rng(seed).multivariate_normal(mean, cov, size=SELECTION_DRAWS, method="svd")
+    patterns, counts = np.unique(draws > 0, axis=0, return_counts=True)
+    hits = 1
+    selected = {name: (1 if name in chosen else 0) for name in keys}
+    for pattern, count in zip(patterns, counts, strict=True):
+        picked = policy(frozenset(name for name, positive in zip(keys, pattern, strict=True) if positive))
+        if picked == chosen:
+            hits += int(count)
+        for name in picked:
+            if name in selected:
+                selected[name] += int(count)
+    total = SELECTION_DRAWS + 1
+    return round(hits / total, 9), {name: round(value / total, 9) for name, value in selected.items()}
 
 
 def explore(order: Sequence[str], features: Mapping[str, np.ndarray], posterior: Mapping[str, Any] | None,
@@ -530,4 +557,4 @@ def rng_seed(receipt_id: str) -> int:
 __all__ = ["FIT_VERSION", "GLOBAL", "PRIOR_BASIS", "SIGNAL_TYPES", "SPACE_LISTS", "examination_seed", "explore",
            "feature_row", "fit_context", "fit_examination", "learned_weights", "list_key", "list_name",
            "parse_feedback", "posterior_for", "refit", "refit_posteriors", "rng_seed", "seed_weights",
-           "thompson_weights"]
+           "selection_propensity", "thompson_weights"]

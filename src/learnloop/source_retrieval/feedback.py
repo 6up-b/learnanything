@@ -57,7 +57,8 @@ def new_receipt_id() -> str:
 def log_search(repository: Repository, *, receipt_id: str, consumer: str, query_kind: str, owner_id: str,
                resolution: Mapping[str, Any], hits: Sequence[Any], space_ranks: Mapping[str, Mapping[str, int]],
                lists_available: Sequence[str] = (), queried: Sequence[str] = (),
-               query_propensity: Mapping[str, float] | None = None) -> int:
+               query_propensity: Mapping[str, float] | None = None,
+               query_set_propensity: float | None = None) -> int:
     """The one ``query`` row of a search, its candidates' ranks included; returns rows written (0 on failure)."""
 
     candidates = {hit.record_id: dict(space_ranks.get(hit.record_id) or {}) for hit in hits}
@@ -66,6 +67,7 @@ def log_search(repository: Repository, *, receipt_id: str, consumer: str, query_
                                    "payload": {**dict(resolution), "lists_available": list(lists_available),
                                                "queried": list(queried),
                                                "query_propensity": dict(query_propensity or {}),
+                                               "query_set_propensity": query_set_propensity,
                                                "candidates": candidates}}]
     try:
         with repository.connection() as connection:

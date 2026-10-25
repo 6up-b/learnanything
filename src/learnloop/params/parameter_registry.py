@@ -306,6 +306,8 @@ _reg_const("source_windows:PART_TOKENS", "version", kind="structural", owner="so
            rationale="keep: structural, WINDOW_TOKENS minus one chunk marker: the most text one part of a split block holds, so every window holds the bound (Codex review F15).")
 _reg_const("local_fusion:MIN_PROPENSITY", "numerical", kind="structural", owner="local_fusion",
            rationale="keep: the smallest propensity an inverse-propensity weight divides by (a numerical floor, not a weight).")
+_reg_const("local_fusion:SELECTION_DRAWS", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: Monte Carlo draws behind a query's joint selection probability (a computation budget; standard error under 0.008, Codex re-review F18).")
 _reg_const("fallback_space:MAX_RETRIES", "operational", kind="structural", owner="fallback_space",
            rationale="keep: retries a capped fallback backfill reserves room for (the Qwen backfill's); spend stays under max_cost_usd_per_run.")
 _reg_const("local_index:PROFILE_POOL_FACTOR", "operational", kind="structural", owner="local_index",

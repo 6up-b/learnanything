@@ -588,7 +588,8 @@ def _log_delivery(vault: LoadedVault, repository: Repository, result: SpanSearch
         repository, receipt_id=resolution.receipt_id, consumer=resolution.consumer,
         query_kind=resolution.query_kind, owner_id=owner_id, resolution=result.space_selection,
         hits=result.hits, space_ranks=resolution.space_ranks, lists_available=resolution.lists_available,
-        queried=resolution.queried(), query_propensity=resolution.query_propensity)
+        queried=resolution.queried(), query_propensity=resolution.query_propensity,
+        query_set_propensity=resolution.query_set_propensity)
     result.space_selection["logged"] = written
 
 
