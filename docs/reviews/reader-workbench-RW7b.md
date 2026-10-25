@@ -18,17 +18,21 @@ predecessor's order:
   `next_reading_target`). "Continue from the furthest" still counts every section read into, a skipped enrichment
   section included.
 * **The labels are the Guide's.** `source_retrieval.reading_paths.plan_path` reads RW7a's rows at the learner's depth
-  (`depth_choice`: the newer of the Guide's choice and DL2's mapped intent): the judge's rows for the current state key,
-  else the newest judged state's (as the Guide shows while it re-judges), with the honest-label rule
-  (`honest_label`) re-applied at today's LO statuses and the learner's choices on top. One rule, `effective_label`, is now
-  shared by the Guide's `path_view` and the plan (a pure extraction; RW7a's golden guide output is unchanged).
+  (`depth_choice`: the newer of the Guide's choice and DL2's mapped intent): the judge's rows **for the current state
+  key only**, with the honest-label rule (`honest_label`) re-applied at today's LO statuses and the learner's choices on
+  top. One rule, `effective_label`, is now shared by the Guide's `path_view` and the plan (a pure extraction; RW7a's
+  golden guide output is unchanged).
   * `core` and `prerequisite` are planned; `enrichment`, `already_shown`, `assumed` and a "skip it" never are; "read it
     anyway" makes a section core.
-  * A stored `already_shown` or `assumed` that no longer holds is `core` for the plan, as the Guide shows it.
-  * A sendable section the judgment does not name (sendable since) is `core` (§10.1's fallback), so the plan never
-    skips a section the path has not judged.
+  * **A stale path is not followed** (Codex review F2; RW7a's handoff default): when only an older state was judged (a
+    changed goal, LO status, section list or role), the reading keeps the predecessor's order and the receipt names the
+    path `stale`; no model is called (the Guide re-judges on its next open). So a stored `already_shown`, `assumed` or
+    `enrichment` whose state moved never steers the plan.
+  * A fresh judgment names every sendable section (its key hashes the section list); a section it does not name (only
+    a withheld one) is never planned through the path, so the plan never says "on your reading path" for a section the
+    Guide does not list.
 * **Where there is no path**, nothing changes: a reading with no depth chosen, or nothing judged at that depth, keeps
-  the predecessor's order. A path that cannot be read (an exception) does the same and is recorded as `unreadable`.
+  the predecessor's order (so does a stale path, recorded). A path that cannot be read (an exception) does the same and is recorded as `unreadable`.
 * **Exam protection only tightens.** A reading held out whole (or whose exam predicate cannot be read) is `withheld`:
   followed, it plans nothing. A withheld section is never the path's step, even in DL1's exact selection
   (`reading_rule = "dl1"`, where the predecessor has no exam filter).
@@ -36,6 +40,15 @@ predecessor's order:
   source is tried.
 * **No model in the plan.** The plan never calls the judge; it reads stored rows once, at its build. Serving, AD's slot
   phases and the reading step read the plan's record.
+* **The switch reaches a plan already built** (Codex review F1). When `plan_uses_path` or the Guide's `enabled` is
+  turned off after a plan's reading was chosen by the path, the next reconcile (every plan RPC) puts the predecessor's
+  reading back while no reading of that plan has started or ended: a staged, unstarted path reading block is ended
+  unread (`block_ended` `{"outcome": "displaced", "reason": "reading_path_off", "minutes_counted": 0.0}`; it counts no
+  minutes and is no reading of the day), the split's `reading` becomes the receipt's `predecessor`, its full minutes and
+  the admitted new minutes are recomputed (the lanes re-split from the build's loads when they moved, with a new epoch),
+  and the receipt gains `transition` (when, the switch values, from/to, the minutes before and after, the displaced
+  block ids). A reading the learner began, or one already ended, is history and is kept. Recorded once: switching back
+  on does not re-read the path. A plan with no receipt (built off) is never touched.
 * **The why** (UX §4.11): the chosen target carries `path_label`; the staged frame's reason code is `reading_path_core`
   or `reading_path_prerequisite` ("Next on your reading path: §, central at the depth you chose." / "..., which the
   sections after it build on."; both pass the copy deny-list), and the logged lane reason gains ", core on your reading
@@ -82,13 +95,23 @@ upgrade docstring, the concept page row and the spec's as-built note; the chain-
  "predecessor": {"source_id": "...", "extraction_id": "...", "section_id": "sec_eigen", "section_title": "...",
                  "words_left": 27, "partial": false},
  "chosen_by": "path", "label": "prerequisite", "same_as_predecessor": false,
- "paths": [{"extraction_id": "...", "status": "path", "depth": "learn_to_use_it", "state_key": "...", "fresh": true}]}
+ "paths": [{"extraction_id": "...", "status": "path", "depth": "learn_to_use_it", "input_state_key": "...",
+            "fresh": true, "judgment": {"state_key": "..."},
+            "sections": [{"section_id": "sec_eigen", "label": "enrichment", "judgment_row_id": "rps_...",
+                          "override_row_id": null, "override": null}, "..."]}]}
 ```
+
+* Each followed path names the key of the learner's state now (`input_state_key`) and the key of the judgment whose
+  rows it read (`judgment.state_key`, taken from those rows), with every section's effective label, the judge row and
+  the learner's newest override row it came from (Codex review F3), so a later judgment or override cannot change what
+  the receipt says was read (the tables are append-only). A `stale` path records `judgment: null` and the newest
+  judged key it did not read (`latest_judged_state_key`).
+* `transition` (F1, above) is added when the switch took the path's reading back.
 
 * `predecessor` is the section the predecessor's order would have chosen (the same call without the path), or null.
 * `chosen_by`: `path` (the reading came through a followed path), `order` (from a reading with no path), null (no
   reading). `paths` lists every reading consulted, in visiting order, with its status (`path`, `withheld`,
-  `unreadable`, `no_depth`, `not_judged`).
+  `unreadable`, `no_depth`, `not_judged`, `stale`).
 * Written **only when a path was in play** (some status other than `no_depth` / `not_judged`): a vault without judged
   paths plans byte for byte as the predecessor even with the successor on. Cheap (one more call of the predecessor's
   function); no table needed, hence no migration.
@@ -102,7 +125,7 @@ upgrade docstring, the concept page row and the spec's as-built note; the chain-
   "prerequisite on your reading path"; core follows book order and finished sections are passed; enrichment, already
   shown and assumed are never planned and a finished core path offers no reading while the receipt keeps the
   predecessor's section; "read it anyway" makes enrichment core, "skip it" leaves a section out and marks nothing known;
-  a stored already-shown that no longer holds is core (stale path, honest labels now); no depth, nothing judged and an
+  a stored already-shown that no longer holds leaves the stale path to the order (review F2); no depth, nothing judged and an
   unreadable path keep the order (no receipt where no path was in play); a held-out section is never the path's step
   even in DL1's exact selection; an exam reading plans nothing through its path.
 * **Off is the predecessor** (the switch off, and the Guide off): on the same path vault (paths, depths and overrides
@@ -161,15 +184,19 @@ The files: `test_ad1_codex_rereview_fixes.py`, `test_ad1_codex_review_fixes.py`,
 
 1. **The Guide's switch gates the plan too.** With `reading_paths.enabled` off the plan ignores stored paths, so it never
    follows a path the learner cannot see. The spec names only `plan_uses_path`; the owner may prefer it alone.
-2. **Stale paths are followed.** When the learner state moved since the last judgment the plan reads the newest
-   judged state with honest labels re-applied (what the Guide shows while it re-judges); it never triggers a judgment.
-   A depth set through DL2's intent with no Guide visit has nothing judged, so it keeps the predecessor's order until
-   the Guide judges it.
+2. **Stale paths fall back to the order** (changed by the Codex review, F2, to RW7a's handoff default). When the
+   learner state moved since the last judgment the plan keeps the predecessor's order for that reading and records the
+   path as `stale`; it never triggers a judgment. A depth set through DL2's intent with no Guide visit has nothing
+   judged, so it keeps the predecessor's order until the Guide judges it. Since the key hashes LO statuses, the path
+   steers the plan only after a Guide open has judged the current state.
 3. **A finished core path offers no reading** from that source (enrichment is never planned, §10.2), even where the
    predecessor would go on to an enrichment section; the learner can still "read it anyway".
-4. **The report row** "after RW7b, misses on LOs whose core section was skipped" (§15's reading-path row) is not built
-   here: it needs the section-to-LO map the report's connection-only reader does not have. A follow-up can add it from
-   the receipts and RW7a's override rows.
+4. **The report row** "after RW7b, misses on LOs whose core section was skipped" (§15's reading-path row) is built in
+   the Codex review fix step (F4): `learnloop reader report`'s `reading_paths.skipped_core`, through the adapter
+   `reading_paths.skipped_section_learning_objects` (the section-to-LO map, read through a read-only attach). A miss is
+   an unaided graded attempt on a skipped section's LO after the skip and before the learner's next choice on that
+   section, below the association reports' existing success line (`intervention_outcomes.SUCCESS_CORRECTNESS`; no new
+   threshold); held grades are no outcome.
 5. **The receipt lives in `split_json`**, not a RECEIPT table: the plan is built once a day and its row is the plan's
    own durable record; a table would need a migration the spec says RW7b does not need.
 
