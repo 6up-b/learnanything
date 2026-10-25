@@ -12,8 +12,12 @@ file, over what git tracks (the index, read from the working tree):
 - no file under a ``canonical-sources/`` directory outside the historical
   fixtures;
 - no sample without a ``samples/NOTICE`` entry naming its licence;
-- no file over 5 MB (the two historical databases excepted until S3; at
-  migration head 220 they are 6.7 MB and 6.0 MB);
+- no file over 5 MB, but for a bounded exception for the two historical
+  databases until S3 turns them into text dumps (at migration head 220 they
+  are 6,696,960 and 5,976,064 bytes; the schema alone is about that size):
+  the head may grow to 8 MiB as migrations land, the frozen replay fixture
+  not past 6 MiB (owner decision 5 in the S0 stage record confirms or
+  tightens these);
 - no git-LFS rule and no LFS pointer file;
 - none of the paths S0 removed (§3.5), and a migration-head fixture that holds
   none of the replaced transcript and answers.
@@ -34,6 +38,15 @@ import pytest
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 MAX_BYTES = 5 * 1024 * 1024
+#: G8's bounded exception for the historical databases (Codex review of S0,
+#: F5: never an unlimited one). Guardrails, not model parameters: the head
+#: gains a few tables per migration, so it is bounded with room for them;
+#: ``mvp017_route_check_replay`` is frozen (only ``e238fa07a`` can regenerate
+#: it), so its bound sits just above its size. S3's text dumps end both.
+HISTORICAL_DATABASE_MAX_BYTES = (
+    (re.compile(r"^fixtures/migration_head_\d+/state\.sqlite$"), 8 * 1024 * 1024),
+    (re.compile(r"^fixtures/mvp017_route_check_replay/state\.sqlite$"), 6 * 1024 * 1024),
+)
 SQLITE_HEADER = b"SQLite format 3\x00"
 LFS_POINTER = b"version https://git-lfs.github.com/spec/v1"
 MEDIA_SUFFIXES = {
@@ -148,13 +161,31 @@ def test_every_sample_has_a_notice_entry_naming_its_licence(tracked):
     assert stale == [], f"samples/NOTICE names files that are not tracked: {stale}"
 
 
+def size_limit(path: str) -> int:
+    """The most bytes a tracked file may hold: 5 MB, or a historical database's bound."""
+    for pattern, limit in HISTORICAL_DATABASE_MAX_BYTES:
+        if pattern.match(path):
+            return limit
+    return MAX_BYTES
+
+
+def oversized(sizes: list[tuple[str, int]]) -> list[tuple[str, int, int]]:
+    return [(path, size, size_limit(path)) for path, size in sizes if size > size_limit(path)]
+
+
 def test_no_file_over_five_megabytes(tracked):
-    large = [
-        (path, (REPOSITORY / path).stat().st_size)
-        for path in tracked
-        if (REPOSITORY / path).stat().st_size > MAX_BYTES and not ALLOWED_DATABASE.match(path)
-    ]
-    assert large == [], f"tracked files over 5 MB: {large}"
+    large = oversized([(path, (REPOSITORY / path).stat().st_size) for path in tracked])
+    assert large == [], f"tracked files over their size limit (path, bytes, limit): {large}"
+
+
+def test_the_historical_databases_size_exception_is_bounded():
+    head, replay = "fixtures/migration_head_220/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
+    assert oversized([(head, 6_696_960), (replay, 5_976_064)]) == []
+    assert [row[0] for row in oversized([(head, 100 * 1024 * 1024), (replay, 7 * 1024 * 1024)])] == [head, replay]
+    # The exception is for those two databases only, never for a name elsewhere.
+    for path in ("fixtures/migration_head_220/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
+        assert oversized([(path, MAX_BYTES + 1)]) != []
+    assert all(limit < 2 * MAX_BYTES for _pattern, limit in HISTORICAL_DATABASE_MAX_BYTES)
 
 
 def test_no_git_lfs_rule_or_pointer(tracked):
