@@ -1056,15 +1056,23 @@ def mark_import(
         return _require(connection, session_id)
 
 
-def ensure_contract(repository: Any, session_id: str, version_id: str | None) -> dict[str, Any]:
+def ensure_contract(
+    repository: Any, session_id: str, version_id: str | None, *, subject_id: str | None = None,
+) -> dict[str, Any]:
     """Record the assessment contract the session shows, once: a resumed
-    problem keeps the contract it was opened (or bound) with."""
+    problem keeps the contract it was opened (or bound) with. ``subject_id``
+    is recorded with it (``contract_subject_id``): the subject a submit then
+    would record, so the field's signals for an unsubmitted session keep the
+    subject the learner was working in (RW2d re-review F3)."""
 
     with repository.atomic():
         connection = repository.connection()
         session = _require(connection, session_id)
         if version_id and not session.get("assessment_contract_version_id") and session.get("practice_item_id"):
-            store.update_session(connection, session_id, {"assessment_contract_version_id": version_id})
+            store.update_session(connection, session_id, {
+                "assessment_contract_version_id": version_id,
+                "contract_subject_id": str(subject_id) if subject_id else None,
+            })
             session = _require(connection, session_id)
         return session
 
@@ -1084,8 +1092,10 @@ def bind(repository: Any, session_id: str, practice_item_id: str, *, clock: Cloc
             raise WorkbenchError("validation_error", "This problem is already an item.")
         store.update_session(connection, session_id, {
             "practice_item_id": practice_item_id, "import_status": "bound", "import_error": None, "updated_at": now,
-            # A contract snapshotted for another item never governs this one.
+            # A contract snapshotted for another item never governs this one,
+            # nor the subject recorded with it.
             "assessment_contract_version_id": None,
+            "contract_subject_id": None,
         })
         session = _require(connection, session_id)
         _log(repository, session, "workbench_bound", clock)

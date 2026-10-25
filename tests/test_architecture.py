@@ -71,6 +71,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/capture/routing.py",
         # Learner field F2 placement receipts and quick-check queue state.
         "src/learnloop/db/stores/placement.py",
+        # Reader workbench RW2d: what the predecessor's derivation and rule
+        # would have decided where the workbench signals changed a placement.
+        "src/learnloop/db/stores/field_signal_receipts.py",
         # Slice A Phase 5a (PF-b): candidates, skeletons and DERIVED fingerprints.
         "src/learnloop/db/stores/pf.py",
         # Slice 2 T1: the recurrence-group projection and escalation receipts.

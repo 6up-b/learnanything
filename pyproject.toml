@@ -773,6 +773,13 @@ ignore_imports = [
     # edges cannot form a runtime cycle with the scheduling/substrate consumers.
     "learnloop.placement.* -> learnloop.field.types",
     "learnloop.placement.signals -> learnloop.field.signals",
+    # Reader workbench RW2d: placement asks the field which signal rows only
+    # the successor's derivation produces (field.workbench_signals: the
+    # predecessor's blocking for the receipts) and stamps its signal version
+    # on them. That module imports only the standard library,
+    # algorithm_versions and field.types, so it cannot cycle at import time.
+    "learnloop.placement.signals -> learnloop.field.workbench_signals",
+    "learnloop.placement.field_receipts -> learnloop.field.workbench_signals",
     # Learner field F2 review fix (F3): placement reads the existing
     # independence rule (attempts.reveal_ledger.production_admissibility over
     # reveal_events) rather than a copy of it. reveal_ledger imports only clock

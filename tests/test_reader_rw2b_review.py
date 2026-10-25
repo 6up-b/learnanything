@@ -205,7 +205,9 @@ def test_f11_every_key_rw2b_added_is_classified():
         "workbench.enabled", "workbench.open_session_days"} - {
         # Reader RW2c's four switches (classified in tests/test_rw2c_switch_off.py).
         "workbench.help_outcomes_enabled", "workbench.examples_enabled", "workbench.compare_methods_enabled",
-        "workbench.passage_draw_enabled"}
+        "workbench.passage_draw_enabled"} - {
+        # Reader RW2d's successor switch (classified in tests/test_field_workbench_signals.py).
+        "workbench.field_signals_enabled"}
     assert added == {key for key in RW2B_KEYS if key.startswith("workbench.")}
     unclassified = [key for key in RW2B_KEYS if registry.classify_config_path(key) is None]
     assert unclassified == []

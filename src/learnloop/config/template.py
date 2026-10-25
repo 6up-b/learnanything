@@ -1547,7 +1547,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # effective config gains the keys; all of them were recomputed from the
     # composed defaults (defaults_fingerprint_for_version).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.9": "f30b9cc93b5b995d581008ba64b291359817f14ebfe66ae2b612a5d642820ea3",
+    # Reader workbench RW2d (workbench signals in the learner field;
+    # docs/reviews/reader-workbench-RW2d.md) adds [workbench]
+    # field_signals_enabled (true; a modelled default, left out of the
+    # decision-only template): the kill switch of its successor. It acts only
+    # at that tag and later; at every earlier version the key is present and
+    # inert. Every snapshot moves only because the effective config gains the
+    # key; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "fdfdfd5b835cb398b4ebb6982355a7261226146ba24e146692e8a1d1bdebedaa",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1608,7 +1616,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.10": "754535f48ba26fe541c4b7c9d0e4b5277d420ef6922db8278eea850373f583d9",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.10": "bb69372ec7c27757bc2bd21280427d29e87da0bc7b6706ef8e218433f3d1b888",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1677,7 +1686,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.11": "84bce3e14cba5080bba4a3bd81384ed02160467e869638f05e08f2c59c426317",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.11": "8e20d34f929fe9645f6c33a6b0930c41aae885132e90f288b1f0dbc2b86dda14",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1740,7 +1750,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.12": "319c87f0231a6bd17af84d027a78139fb990d38b89cad89f014236ed0ea4de3a",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.12": "7b1819dd7ffc05619c03adb07c51682005f0fda81567936e00e0cb9ad5e8ba9e",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1798,7 +1809,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.13": "cff99e82e9e39493f48228470dd89edc13f9eb0614d4ae6f271c643e112e24f6",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.13": "7da75e01714ad5d09e5f26843c3793fd5cd0474ea24f5ab594803f0d2b32e5e7",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1855,7 +1867,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.14": "783515972e328528a5ca6c3d411f64e78ac09b5b6a5836637a6088275bad318a",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.14": "fe673ecd0b5c844d1b9eca7a1e7fc98dc42d15cf26db700e24e820617b467f8a",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1910,7 +1923,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.15": "cbf8174327ff7027d6d55b2dfb32f2353fad911190ec15ea6674069df95bdb7d",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.15": "a12748a23c68f89f5a7df52a10df22ab2f40fe03e874f726a7d06e12b8f238ab",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1972,7 +1986,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.16": "d9761fc694933a9774a2c2b4d27106aeefc9b8cba5774cf1ce32e6839d6ef97c",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.16": "7e2eed3e592f492c3861aabf9bea17cfe6e9be5e26881963c34b44c4e2df6627",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2030,7 +2045,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.17": "9bba505db531649583db4ed641914dfb70fe0998def4a7d9c0aeedec76962036",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.17": "555c1072ef2a1c61fd63953f7d4fd00b877ddb4e0676210c51bc9639ee456d03",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2081,7 +2097,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.18": "883ceb06598ec7cf8d6b2a898718cdf2573ac56ff2ee6cf0d271cb99cab6bb9a",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.18": "38a1ee235ecef955d983fee034c76e9ebff32f83157ec2a1709a40a351087e5f",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2132,7 +2149,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.19": "2339ec7eaf47495ebcff69d37bdd754133f32e593b17044e7d384c847be3e970",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.19": "f519ef47814404c55d0598252d5b1c43fbcfe35e2da762a3dd8d9d6a2c80ad98",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2179,7 +2197,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.20": "dfd6f7c2eb84504a1bb363c7c296f930c931aeabff763b155d4ba7a92d369248",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.20": "533bd9a9b1c94dee2f995700e01c51577d8f114b9d2475a9085a066a190d128c",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2235,7 +2254,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.21": "d6492bc7d151a52611997485397f1795b98e567b8c9d2e905ad584c992d1c956",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.21": "acbac96ff909ab5191fda94d88f2f7bc5b3b06a4df6b605d88f1950d40b2b332",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2283,7 +2303,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.22": "eddf77889ee37ced2ac9400275ca9a03cf86a3b6b111eba5a111d2848e81bb54",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.22": "437b11814ffe2e576b10b7a5c6de9e48a1e262c399e01c7e4cf91722486f7421",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2326,7 +2347,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.23": "18820d20137b2e61964445da73a7862462b2b4525569cb06355aae215dd32ca5",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.23": "98ea7ce5583b940437aba954c0cffc09104f7e400bff1cc3ceb926b496147e9a",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2366,7 +2388,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.24": "23b2cf38fa5a43fdb7091764bcb99f9b19c2fc16d7dffb7483d90c0cd7f8bcd7",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.24": "ee6276342c9eb1c6f6cdc496a7266ed081ac64e0239642e88659d0aa23ad4e0c",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2404,7 +2427,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.25": "a328b35eb87aa1c96facc1c70b6a2c51c0ec7445f150cc84c7f528d17a99cc0d",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.25": "061ddde1c0d0812b60ae63734c32dc8400d53c4ed6d757e8640dbba6967e8cd9",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2441,7 +2465,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.26": "2785ae7321771c4b44736b82b7eb481490c84574890bda906afe40e5cb1495c9",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.26": "ae0e6ae70e3ace973d52d3b0cd92b1467917f96e76ee5d1080714c8730860261",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2478,7 +2503,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.27": "690770b7b428a76f2bc33f0087bbcee4a6ff93fa7801d1b4441c1e4eafbc1c27",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.27": "fdb6817f8f8369060d16c91764189b6cf3a415d5867acddd6cd01e7fe7e59522",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2492,8 +2518,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.28 is never used on main and AD2+AD3 lands as mvp-0.30 after it.
     # Existing vaults reach it by `learnloop upgrade` (default target) from
     # the predecessor, or from mvp-0.9 onwards through the chain. New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.30 merged.
     # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
@@ -2504,7 +2530,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants, and its routes on the plan's tiers (T1), move it too (see mvp-0.30; dormant below it).
-    "mvp-0.29": "4fa269f33727e495f052314e002aad5f2517310e0ed2225e839aefbcdf5f5f11",
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.29": "c3ed91ec61b0fb48d057d8b928804a4a9f6baddbe1587efc9f88f33ace46b7b7",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2523,8 +2550,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Existing vaults reach it by `learnloop upgrade` (default target) from
     # mvp-0.29, or from mvp-0.9 onwards through the chain (mvp-0.28 is never
     # used: AD2+AD3 lands after DL2, orchestrator decision 2026-10-20). New vaults start
-    # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.30": "8c7f2fcbd712c59955c07681c55f6044d8c92178875538cfb7742d46498e6770",
+    # here until mvp-0.31 landed (the template's LATEST_ALGORITHM_VERSION).
+    # Reader workbench RW2d's [workbench] field_signals_enabled moves it too (see mvp-0.9; inert below mvp-0.31).
+    "mvp-0.30": "09fec9ee4dc7d36f22092bab8d6722aad8b32cd830a64ab38a867d24cd05e2aa",
+    # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
+    # field; spec_reader_workbench_v1 §5.11, docs/reviews/
+    # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
+    # mvp-0.30 at its landing): mvp-0.30 plus two zero-mass field
+    # signals from the workbench (a mid-work stuck step with text, help
+    # before the first step) that keep an LO out of fast-track and teach it
+    # first, with receipts of what the predecessor would have decided. Kill
+    # switch [workbench] field_signals_enabled (default true; off derives,
+    # serves and plans exactly as the predecessor). No default changes here:
+    # only the version string moves the fingerprint (the key is in every
+    # snapshot above, inert below the tag). Existing vaults reach it by
+    # `learnloop upgrade` (default target) from mvp-0.30, or from
+    # mvp-0.9 onwards through the chain. New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.31": "57089a49ba041f3ca7c2914a34c3933ae96e30c383ae93a79e13ba0af4411ff4",
 }
 
 

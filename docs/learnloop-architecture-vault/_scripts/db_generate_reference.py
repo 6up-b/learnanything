@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_218/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_219/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_218" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_219" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 218
+SCHEMA_HEAD = 219
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -1354,6 +1354,15 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
         "recorded primed flag, never this switch."
     ),
+    "workbench.field_signals_enabled": (
+        "Kill switch for reader workbench RW2d's successor (learnloop.field.workbench_signals). On, the "
+        "field's interaction-signal derivation reads a mid-work workbench stuck step with text and help "
+        "asked for before the first step as zero-mass rows (no outcome, no mass, no attempt link: never the "
+        "record) that keep the LO out of fast-track and teach it first; field_signal_receipts and the "
+        "taught_first_predecessor component record what the predecessor would have decided. Off (or below "
+        "the successor) the derivation, Phase 6 serving and every plan build run as the predecessor and no "
+        "workbench table is read."
+    ),
     "intent.enabled": (
         "Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, "
         "serving reads the learner's intent: Pause, Reference, Let go and an answered \"Check once\" "
@@ -2053,7 +2062,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_218/state.sqlite",
+                "fixtures/migration_head_219/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

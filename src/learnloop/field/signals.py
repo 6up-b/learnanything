@@ -14,6 +14,13 @@ signal of the same kind: a ``stuck_confusion`` row on
 the item's LO. It is already graded as an attempt, so it carries no outcome
 and no mass (no double counting); it only blocks fast-track, like a confused
 question.
+
+RW2d (successor ``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION``, behind
+``workbench.field_signals_enabled``): a mid-work workbench stuck step with
+text and help asked for before the first step are two more zero-mass rows
+(:mod:`learnloop.field.workbench_signals`), appended after this derivation so
+every row it produces is unchanged. Below the tag or switched off they are
+not read.
 """
 from __future__ import annotations
 
@@ -30,6 +37,7 @@ from typing import Any
 from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
+from learnloop.field.workbench_signals import is_workbench_signal, load_workbench_signals
 from learnloop.hint_window import ITEM_WINDOW_QUESTION_CONTEXTS, following_attempt
 
 #: v2: learner-text gap targets (implementation_handoffs §4) join the
@@ -398,7 +406,7 @@ def _target_subject(event: Mapping[str, Any], lo: str, attempt: AttemptRow | Non
 
 def load_interaction_signals(
     connection: Any, vault: Any, attempts: Iterable[AttemptRow],
-    *, diagnostics: dict[str, Any] | None = None,
+    *, diagnostics: dict[str, Any] | None = None, include_workbench: bool = True,
 ) -> tuple[SignalRow, ...]:
     """Read logged mappings and paid outputs, never today's authored model.
 
@@ -406,6 +414,14 @@ def load_interaction_signals(
     when an object's updated_at predates an event. Without an immutable mapping
     snapshot they cannot resolve historical questions. Unmapped questions are
     counted in the derivation log, not guessed from present-day content.
+
+    At the RW2d successor with its switch on, the workbench's rows
+    (:func:`learnloop.field.workbench_signals.load_workbench_signals`) are
+    merged in after the derivation, which never sees them, so every row it
+    produces is the predecessor's; the predecessor's output is exactly the
+    result without :func:`is_workbench_signal` rows. ``include_workbench``
+    false leaves them out (a rebuild never reads the workbench tables; the
+    rows it reads, ``enrich_attempts``'s, do not depend on them).
     """
     def rows(table: str) -> list[dict[str, Any]]:
         cursor = connection.execute(f"SELECT * FROM {table}")
@@ -420,7 +436,7 @@ def load_interaction_signals(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_classifications'"
     ).fetchone()
     cached = rows("question_classifications") if has_cache else ()
-    return derive_interaction_signals(
+    derived = derive_interaction_signals(
         questions, readers, attempts,
         facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
         # mvp-0.13: graded stuck answers the grader read as confusion. Read
@@ -428,6 +444,11 @@ def load_interaction_signals(
         stuck_confusions=stuck_answers(connection),
         learner_gaps=learner_gap_targets(connection, vault),
     )
+    workbench = load_workbench_signals(connection, vault, diagnostics=diagnostics) if include_workbench else ()
+    if not workbench:
+        return derived
+    # Zero mass: the daily cap the derivation applied is unchanged by them.
+    return tuple(sorted((*derived, *workbench), key=lambda s: (instant(s.observed_at), s.signal_id)))
 
 
 def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
@@ -559,8 +580,10 @@ def enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]
             help_before_work=attempt.help_before_work or any(s.help_before_work for s in linked),
             # A stuck answer is an attempt, not a question: it never marks a
             # later attempt as preceded by one (report strata stay as before).
+            # Nor does RW2d's workbench row (a step or a help request, linked
+            # to no attempt): it routes, it never changes an attempt's row.
             preceded_by_question=attempt.preceded_by_question or any(
-                not s.signal_id.startswith(("hint:", "stuck:")) for s in prior
+                not s.signal_id.startswith(("hint:", "stuck:")) and not is_workbench_signal(s) for s in prior
             ),
         ))
     return tuple(result)

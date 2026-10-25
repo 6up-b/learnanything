@@ -1336,11 +1336,11 @@ def _order_new_material(
     slots = [index for index, scheduled in enumerate(queue) if scheduled.components.get("new_material", 0.0) > 0]
     if not slots:
         return queue
-    from learnloop.placement.signals import taught_first_learning_objects
+    from learnloop.placement.signals import taught_first_by_predecessor
     from learnloop.placement.state import order_new_material
 
     by_id = {queue[index].practice_item_id: queue[index] for index in slots}
-    taught_first = taught_first_learning_objects(
+    taught_first, predecessor_taught_first = taught_first_by_predecessor(
         vault, repository, {queue[index].learning_object_id for index in slots}
     )
     ordered = order_new_material(
@@ -1353,6 +1353,14 @@ def _order_new_material(
     for index, (item_id, components) in zip(slots, ordered, strict=True):
         scheduled = by_id[item_id]
         scheduled.components.update(components)
+        if (scheduled.learning_object_id in predecessor_taught_first) != (components["taught_first"] > 0):
+            # RW2d's receipt (spec §5.11): only workbench signals put this LO
+            # first; the predecessor's derivation would have left it in place.
+            # Absent wherever the two agree, so a build without such a
+            # difference is the predecessor's exactly.
+            scheduled.components["taught_first_predecessor"] = (
+                1.0 if scheduled.learning_object_id in predecessor_taught_first else 0.0
+            )
         if components["taught_first"] > 0:
             scheduled.plain_english.insert(0, "taught first: you asked about this topic or needed help on it")
         result[index] = scheduled

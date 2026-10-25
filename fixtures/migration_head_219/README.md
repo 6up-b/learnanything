@@ -1,8 +1,9 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-218, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
-applied after 215-218 at AD2+AD3's compose rounds). Migration 167 adds the learner-field F1 read model
+219, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+applied after 215-218 at AD2+AD3's compose rounds, and 219 on that head at RW2d's
+landing). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -260,7 +261,7 @@ main `bd0bb7267`) as a backup-API copy of main's `migration_head_218` with only 
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade allowance
 (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
 1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with the backup API, with no
-companion files. The directory keeps its name: the highest version present is still 218.
+companion files. The directory kept its name then: the highest version present was still 218.
 Before that, rebuilt at T1's round as a backup-API copy of this directory's
 `migration_head_217` (git `ad6dad0c4`) with only 218 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
@@ -268,6 +269,29 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_217` was renamed to this directory.
+
+Migration 219 comes from reader workbench RW2d (`reader/rw2d`, workbench
+signals in the learner field, docs/reviews/reader-workbench-RW2d.md): it adds
+`field_signal_receipts` (RECEIPT, append-only by trigger: what the
+predecessor's field derivation and placement rule would have decided where
+the workbench signals changed a fast-track or quick-check decision, with its
+LO index and its no-update and no-delete triggers) and, since the RW2d
+re-review's F3, the `workbench_sessions.contract_subject_id` column (the
+subject recorded with a session's frozen assessment contract; NULL on every
+session from before 219). The table is empty here.
+
+Rebuilt at RW2d's landing onto main (`merge/rw2d-onto-main`, main `e25739a96`)
+as a backup-API copy of main's `migration_head_218` (which holds adaptive
+difficulty AD2+AD3's 214) with only 219 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_218` was renamed to this directory. 219's
+objects (the table, its two indexes and triggers, and the
+`workbench_sessions` column) are identical to the RW2d branch's head. On the
+branch it had been rebuilt the same way from the 218 database at git
+`bd0bb7267` (no 214), and again at the re-review fix (F3, the added column).
 
 Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
 in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds

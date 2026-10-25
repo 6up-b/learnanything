@@ -122,7 +122,11 @@ def _ensure_contract(vault, repository, session_id: str) -> None:
         version_id = snapshot_for_presentation(repository, vault, item)
     except Exception:  # noqa: BLE001 - without a snapshot the submit takes the current one, as before
         return
-    _run(WB.ensure_contract, repository, session_id, version_id)
+    # The subject a submit now would record on the attempt (its first, else
+    # the field's 'default'), frozen with the contract (RW2d re-review F3).
+    subjects = list(vault.subjects_for_item(item) or [])
+    _run(WB.ensure_contract, repository, session_id, version_id,
+         subject_id=str(subjects[0]) if subjects else "default")
 
 
 def _presentation(vault, repository, row: dict[str, Any]) -> dict[str, Any] | None:

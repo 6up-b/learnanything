@@ -473,8 +473,11 @@ def _run_family_memory(
         # The canonical outcome view with the complete coldness derivation
         # (interaction signals included): the rows evaluation replays.
         with context.repository.connection() as connection:
+            # RW2d: a rebuild never reads the workbench tables (RW2a's W1);
+            # the attempt rows it folds do not depend on them.
             return load_effective_replay_rows(
                 connection, context.vault, legacy_fallback=PROJECTION_LEGACY_FALLBACK,
+                include_workbench=False,
             )[0]
 
     # Group membership can cross the requested LO subset; rebuild the small

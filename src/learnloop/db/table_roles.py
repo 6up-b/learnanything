@@ -312,6 +312,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # check's queue state. Never evidence; never cleared by replay.
     ("assumption_decisions", TableRole.RECEIPT),
     ("assumption_returns", TableRole.RECEIPT),
+    # Reader workbench RW2d (migration 219): what the predecessor's field
+    # derivation and placement rule would have decided where the workbench
+    # signals changed a fast-track or quick-check decision. Append-only.
+    ("field_signal_receipts", TableRole.RECEIPT),
     ("placement_quick_checks", TableRole.WORKFLOW),
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),

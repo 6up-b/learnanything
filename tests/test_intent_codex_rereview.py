@@ -217,11 +217,13 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     )
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it as the latest (the compose round).
-    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-2]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.30"
-    assert SUCCESSOR_CHAIN[-3] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30"})
+    # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it, and the Reader workbench RW2d's field
+    # signals (mvp-0.31) follow that as the latest (the landing composes); both keep it.
+    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-3]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.31"
+    assert SUCCESSOR_CHAIN[-2] == "mvp-0.30"
+    assert SUCCESSOR_CHAIN[-4] == PREDECESSOR
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -241,6 +243,7 @@ def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):
 def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
     from typer.testing import CliRunner
 
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.cli.app import app
     from learnloop.intent_upgrade import upgrade_to_mvp029
     from learnloop.vault.loader import load_vault
@@ -268,7 +271,8 @@ def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(
     # round; DL2's own step is --to mvp-0.29.
     invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.29"])
     assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> mvp-0.29" in invoked.output
+    # The default is the latest successor (RW2d's), through this step.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output
 
 
 def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
@@ -277,6 +281,6 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
-    # The latest successor (adaptive difficulty's mvp-0.30) keeps intent live.
-    assert config.algorithms.algorithm_version == "mvp-0.30"
+    # The latest successor (RW2d's mvp-0.31, after adaptive difficulty's mvp-0.30) keeps intent live.
+    assert config.algorithms.algorithm_version == "mvp-0.31"
     assert intent_enabled(config)
