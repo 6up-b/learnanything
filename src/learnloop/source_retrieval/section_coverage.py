@@ -28,15 +28,18 @@ O(sections), never O(sections²). How two treatments relate stays on demand in
    validated); each passage it reads may also get RW4e role proposals
    through RW4e's own writer (judge ``section_coverage_judge``), at no extra
    call, while ``roles.on_demand_enabled`` is on. The ledger records them
-   with the verdicts, and they are applied before the rows are written (the
-   rows mark the state done), so a run that stopped in between applies them
-   from the ledger next time, with no call.
+   with the verdicts, and they commit in one transaction with the rows (the
+   rows mark the state done; re-review F10): a proposal changes the prompt a
+   stopped run is resumed by, so a run that stopped before the commit keeps
+   neither and is answered from the ledger next time, with no call.
 
 **Protection while it runs** (:class:`CoverageGuard`): the predicate is read
 again before each attempt, each physical request and each record, from the
-vault loaded then; a section it reads that is protected now, or another open
-vault, refuses the rest (``stale``, nothing kept). A batch reads protection
-again before each LO. Candidate discovery's metered query embeddings count in
+vault as it is then (the sidecar's published snapshot, bound to its reload
+generation; for the CLI, the vault's files loaded again: re-review F1); a
+section it reads that is protected now, or another open vault, refuses the
+rest (``stale``, nothing kept). A batch reads protection again before each LO
+(the CLI's from the vault's files). Candidate discovery's metered query embeddings count in
 the same envelopes as the judge (the daily one; the owner-run batch's).
 
 The judgment is cached by its ``state_key`` (the prompt version, the LO's
@@ -287,12 +290,14 @@ class Library:
         self._provenance: dict[str, list[tuple[str, str]]] | None = None
         self._section_los: dict[tuple[str, str], tuple[str, ...]] = {}
 
-    def refreshed(self, vault: Any | None = None) -> Library:
+    def refreshed(self, vault: Any | None = None, *, protection: Protection | None = None) -> Library:
         """This library if protection (and the vault object) are unchanged, else
-        a new one read under today's protection (nothing cached is reused)."""
+        a new one read under today's protection (nothing cached is reused).
+        ``protection``: one the caller read (the CLI batch reads it from the
+        vault's files, :func:`protection_on_disk`), else ``vault``'s."""
 
         vault = vault if vault is not None else self.vault
-        protection = read_protection(vault, self.repository)
+        protection = protection if protection is not None else read_protection(vault, self.repository)
         if vault is self.vault and protection.key == self.protection.key:
             return self
         return Library(vault, self.repository, protection=protection)
@@ -815,17 +820,60 @@ class ProtectionChanged(BaseException):
     admission_refused = True
 
 
+#: How many times a check reads protection again when the loaded vault was
+#: reloaded while it was being read (re-review F1), before refusing: a
+#: guardrail (keep: a bound on a check's retry cost, as AD's ``sending.RELOAD_RETRIES``), not
+#: a model parameter.
+RELOAD_RETRIES = 3
+
+
+def vault_on_disk(root: Path | str) -> Any:
+    """The vault as its files say now, for a caller with no loaded-vault
+    provider (the CLI: the desktop may change a source's role meanwhile;
+    re-review F1). A load the files changed under, or one that caught the
+    source-sets file empty mid-rewrite, is refused (``CoverageError``: fail
+    closed), never trusted for protection."""
+
+    from learnloop.vault.loader import settled_load_vault
+
+    try:
+        loaded = settled_load_vault(Path(root))
+    except Exception as exc:  # noqa: BLE001 - an unreadable vault protects everything
+        raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material.") from exc
+    if not loaded.settled:
+        raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material "
+                                        "(its files were changing).")
+    return loaded.vault
+
+
+def protection_on_disk(vault: Any, repository: Repository) -> Protection:
+    """:func:`read_protection` of the vault's files now (:func:`vault_on_disk`)."""
+
+    return read_protection(vault_on_disk(vault.root), repository)
+
+
 class CoverageGuard:
     """One judgment's protection check, before every physical request it
     makes (the context's request gate, so a retry or a provider's own
     follow-up is checked again) and before each record it writes.
 
-    The predicate is read afresh each time, from the vault loaded now
-    (``live_vault``: the sidecar's loaded-vault provider, so a same-vault
-    reload's source sets count; None: the vault the job holds, whose
-    database marks are still read afresh). A vault other than the job's
-    refuses everything (a switch). The first refusal refuses every later
-    request and record of the judgment."""
+    The predicate is read afresh each time, from the vault as it is now:
+    with ``live_vault`` (the sidecar's loaded-vault provider), the snapshot
+    it publishes, so a same-vault reload's source sets count; without one
+    (the CLI), the vault's files loaded again (:func:`vault_on_disk`), so a
+    source the desktop made an exam meanwhile counts too (re-review F1). A
+    vault other than the job's refuses everything (a switch). The first
+    refusal refuses every later request and record of the judgment.
+
+    Generation-bound (re-review F1): a provider with ``snapshot()`` and
+    ``admit(generation)`` (the sidecar's) is read as one snapshot, and the
+    check admits only if that snapshot is still the published one when its
+    verdict is reached (``admit`` compares under the provider's publication
+    lock). A reload published while protection was being read is read again,
+    up to :data:`RELOAD_RETRIES` times, then refused. The guarantee is AD's
+    (``adaptive_difficulty.sending``): nothing is sent or recorded that is
+    protected in the snapshot current at that request's or record's
+    admission; a reload after admission is an edit made a moment after it."""
 
     def __init__(self, library: Library, keys: Iterable[tuple[str, str]], *,
                  live_vault: Callable[[], Any] | None = None) -> None:
@@ -838,30 +886,55 @@ class CoverageGuard:
         #: Why the judgment's requests and records are refused (None: they are not).
         self.changed: str | None = None
 
-    def _vault(self) -> Any | None:
+    def _snapshot(self) -> tuple[Any | None, Any]:
+        """``(the vault now, its reload generation or None)``, read as one snapshot."""
+
         if self._live is None:
-            return self._library.vault
-        try:
-            return self._live()
-        except Exception:  # noqa: BLE001 - an unreadable vault admits nothing
-            return None
+            return vault_on_disk(self._root), None
+        snapshot = getattr(self._live, "snapshot", None)
+        if snapshot is not None:
+            vault, generation = snapshot()
+            return vault, generation
+        reader = getattr(self._live, "generation", None)
+        return self._live(), (reader() if reader is not None else None)
+
+    def _still_published(self, generation: Any) -> bool:
+        if self._live is None or generation is None:
+            return True  # the files were read settled, or the provider has no generation
+        admit = getattr(self._live, "admit", None)
+        if admit is not None:
+            return bool(admit(generation))
+        return self._snapshot()[1] == generation
+
+    def _refusal(self) -> str | None:
+        """Why the judgment may send or record nothing more now (None: it may)."""
+
+        for _attempt in range(1 + RELOAD_RETRIES):
+            try:
+                vault, generation = self._snapshot()
+            except Exception:  # noqa: BLE001 - an unreadable vault admits nothing
+                return "the library's exam material could not be checked"
+            if vault is None or Path(vault.root).resolve() != self._root:
+                return "another vault is open"
+            try:
+                protection = read_protection(vault, self._library.repository)
+            except CoverageError:
+                return "the library's exam material could not be checked"
+            sendable = self._library.sendable_under(protection, self._keys)
+            try:
+                published = self._still_published(generation)
+            except Exception:  # noqa: BLE001 - an unreadable provider never admits
+                return "the library's exam material could not be checked"
+            if published:
+                return None if sendable else "a section it reads is protected now"
+        return "the vault kept being reloaded while its protection was checked"
 
     def check(self, purpose: str = "request") -> None:
         """Raise :class:`ProtectionChanged` when the judgment may send or record nothing more."""
 
         with self._lock:
             if self.changed is None:
-                vault = self._vault()
-                if vault is None or Path(vault.root).resolve() != self._root:
-                    self.changed = "another vault is open"
-                else:
-                    try:
-                        protection = read_protection(vault, self._library.repository)
-                    except CoverageError:
-                        self.changed = "the library's exam material could not be checked"
-                    else:
-                        if not self._library.sendable_under(protection, self._keys):
-                            self.changed = "a section it reads is protected now"
+                self.changed = self._refusal()
             if self.changed is not None:
                 raise ProtectionChanged(f"{purpose} refused: {self.changed}")
 
@@ -889,7 +962,15 @@ class CoverageGuard:
 
 def _write_rows(repository: Repository, library: Library, learning_object: Any, candidates: Sequence[Candidate],
                 prompt: Prompt, key: str, rows: Mapping[tuple[str, str], Mapping[str, Any]], model: str,
-                clock: Clock | None, guard: CoverageGuard | None = None) -> None:
+                clock: Clock | None, guard: CoverageGuard | None = None, *, vault: Any | None = None,
+                claims: Sequence[Mapping[str, Any]] = ()) -> None:
+    """The judgment's RW4e role proposals (``claims``) and its rows, in one
+    transaction (re-review F10): a proposal changes the sections' roles, so
+    the rebuilt prompt, and with it the ledger lookup a stopped run is
+    resumed by. Committed together, a stop before the commit leaves neither
+    (the next run rebuilds the same prompt and answers it from the ledger,
+    with no call) and a stop after it leaves the state judged."""
+
     now = utc_now_iso(clock)
     by_key = {candidate.key: candidate for candidate in candidates}
     with repository.atomic():
@@ -898,6 +979,10 @@ def _write_rows(repository: Repository, library: Library, learning_object: Any, 
             return  # another writer stored this state meanwhile
         if guard is not None:
             guard.check("recording coverage")  # the last check, inside the write transaction
+        if claims:
+            # Idempotent per passage, role and judge; a savepoint of this transaction.
+            RS.propose_roles(vault if vault is not None else library.vault, repository, claims,
+                             judge=RS.JUDGE_COVERAGE, prompt_version=PROMPT_VERSION, model=model, clock=clock)
         for ref, candidate_key in prompt.refs.items():
             ledger = rows.get(candidate_key)
             section = library.section(*candidate_key)
@@ -957,9 +1042,9 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
           live_vault: Callable[[], Any] | None = None) -> JudgeResult:
     """Judge one LO's coverage across the library: no call when its current
     state is stored; otherwise one listwise call, then its RW4e proposals and
-    its rows (the rows last: they mark the state done, so a run that stopped
-    before them applies the proposals from the ledger next time, with no
-    call). Never raises for a model failure.
+    its rows in one transaction (they mark the state done; a run that stopped
+    before the commit is answered from the ledger next time, under the same
+    prompt, with no call: re-review F10). Never raises for a model failure.
 
     Candidate discovery and the judgment run inside the daily envelope (a
     metered query embedding counts there too; Codex review F2). Every
@@ -1056,15 +1141,12 @@ def _judge(vault: Any, repository: Repository, learning_object: Any, *, library:
         return result
     model = str(outcome.model or route.model or "unknown")
     try:
-        guard.check("recording role proposals")
-        # The proposals first (idempotent per passage, role and judge), then the
-        # rows: a stop between them is resumed from the ledger with no call.
+        # The proposals and the rows in one transaction, after the last check
+        # inside it (re-review F10): a stop before the commit is resumed from
+        # the ledger with no call, under the same prompt.
         claims = _proposal_claims(prompt, outcome.rows) if RS.on_demand_enabled(vault) else []
-        if claims:
-            RS.propose_roles(vault, repository, claims, judge=RS.JUDGE_COVERAGE, prompt_version=PROMPT_VERSION,
-                             model=model, clock=clock)
         _write_rows(repository, library, learning_object, found, prompt, key, outcome.rows, model, clock,
-                    guard=guard)
+                    guard=guard, vault=vault, claims=claims)
     except ProtectionChanged:
         return stale(guard)
     except sqlite3.IntegrityError:
@@ -1088,7 +1170,8 @@ def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str]
             break
         if not _active(vault, lo_id):
             continue
-        library = library.refreshed()
+        # The vault's files now: the desktop may have changed a source's role (re-review F1).
+        library = library.refreshed(protection=protection_on_disk(vault, repository))
         result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder, clock=clock)
         results.append(result)
         if result.status in ("unavailable", "capped", "stale"):
@@ -1266,7 +1349,8 @@ def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_
                 continue
             if not dry_run:
                 try:
-                    library = library.refreshed()
+                    # The vault's files now: the desktop may have changed a source's role (re-review F1).
+                    library = library.refreshed(protection=protection_on_disk(vault, repository))
                 except CoverageError as exc:
                     entry.update(status="stale", reason="protection_unreadable", message=str(exc))
                     out.update(status="stale", reason=str(exc))
