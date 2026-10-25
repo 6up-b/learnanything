@@ -45,6 +45,7 @@ import logging
 import time
 from typing import Any
 
+from learnloop import confidence_events
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import call_labels, content_key
 from learnloop.ai.spend import SpendLimitExceeded, spend_envelopes
@@ -401,7 +402,8 @@ def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, i
 
 def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state: HintState, target: Target,
            writer: WriterRoute, *, request: HintRequestV1, assist_id: str,
-           cancelled: Callable[[], bool], claim_verifier: Any | None = None) -> _Served:
+           cancelled: Callable[[], bool], claim_verifier: Any | None = None,
+           now_iso: str | None = None) -> _Served:
     """Ask, check, re-ask once naming the failure; then the level-3
     ``next_step`` downgrade (§4.6), except where it would raise a fixed level
     (:func:`downgrade_allowed`: then nothing is served); a leak re-asked
@@ -421,6 +423,11 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
     may_downgrade = downgrade_allowed(target, request)
     last_round = 3 if may_downgrade else 2
     round_ = 0
+    # Teacher TE0 (spec_teacher_v1 §15.2): the learner's confidence events on
+    # this topic, read once, through the shared protection (fail closed).
+    confidence = confidence_events.safe_learner_events(
+        vault, repository, learning_object_ids=[item.learning_object_id], before_iso=now_iso or utc_now_iso(),
+        titles={lo_id: lo.title for lo_id, lo in vault.learning_objects.items()})
     while round_ < last_round:
         round_ += 1
         if cancelled():
@@ -437,7 +444,7 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
         prompt = build_prompt(vault, item, state, current, request_text=request.feedback_text,
                               selection=request.feedback_selection, feedback=feedback, request_id=assist_id,
                               workbench=request.workbench.prompt_block() if request.workbench is not None
-                              else None)
+                              else None, confidence=confidence)
         served.prompt = prompt
         ask_kwargs: dict[str, Any] = {}
         if request.workbench is not None:
@@ -717,7 +724,8 @@ def request_hint(
                             shortcut=request.feedback_shortcut, answered=answered)
             try:
                 served = _write(vault, repository, item, state, target, writer, request=request,
-                                assist_id=assist_id, cancelled=is_cancelled, claim_verifier=claim_verifier)
+                                assist_id=assist_id, cancelled=is_cancelled, claim_verifier=claim_verifier,
+                                now_iso=requested_at)
             except AIInterrupted:
                 raise
             except WriterUnavailable as exc:

@@ -34,6 +34,19 @@ class TutorQAContext:
     diagnostic_decision: dict | None = None
     source_spans: list[dict] = field(default_factory=list)
     answer_mode: str | None = None
+    #: Teacher TE0 (spec_teacher_v1 §15.2): the learner's confidence events on
+    #: the context's topics (``learnloop.confidence_events``). None renders and
+    #: hashes exactly as before TE0 (:func:`tutor_context_payload`).
+    learner_confidence: dict | None = None
+
+
+def tutor_context_payload(context: "TutorQAContext") -> dict:
+    """The context as rendered and hashed; an absent confidence block is omitted."""
+
+    payload = asdict(context)
+    if payload.get("learner_confidence") is None:
+        payload.pop("learner_confidence", None)
+    return payload
 
 
 @dataclass(frozen=True)
@@ -616,7 +629,8 @@ def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     return render_structured_prompt(
         "learnloop tutor qa",
         version,
-        {"task": shared + " " + task + (_TUTOR_QA_TOOLS_TASK if with_tools else ""), "context": asdict(context)},
+        {"task": shared + " " + task + (_TUTOR_QA_TOOLS_TASK if with_tools else ""),
+         "context": tutor_context_payload(context)},
     )
 
 

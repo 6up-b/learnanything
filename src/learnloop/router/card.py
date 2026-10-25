@@ -20,6 +20,17 @@ excerpts and stems, then older attempts; typed fields never drop.
 **Hash**: the SHA-256 of the canonical JSON of the typed card and its text, on
 the decision row (``card_hash``) and with the stored payload.
 
+**Confidence** (teacher TE0, spec_teacher_v1 §15.2; ``learner_state_card_v2``):
+each recent attempt line carries its confidence event in words (the tap and
+the grader's hedge read with the outcome, "marked 5/5 sure; wrong"), the
+7-day window lists the candidate topics' events, and the card states the
+limit when the taps so far do not span the scale ("your taps so far are all
+4-5"). Never raw scalars and never threshold counts: the reading models
+decide what counts as confident. The caller renders the events
+(``learnloop.confidence_events``); with no confidence data a v2 card's text
+and typed fields are a v1 card's, byte for byte, and only the version
+label differs.
+
 A leaf module (the router package): no imports beyond the standard library.
 """
 from __future__ import annotations
@@ -31,7 +42,9 @@ import json
 import math
 from typing import Any
 
-CARD_VERSION = "learner_state_card_v1"
+CARD_VERSION = "learner_state_card_v2"
+#: The predecessor (before TE0): the same card without confidence events.
+PREDECESSOR_CARD_VERSION = "learner_state_card_v1"
 #: router.card_token_budget's default (D8).
 DEFAULT_TOKEN_BUDGET = 16_000
 EXCERPT_LIMIT = 400
@@ -43,7 +56,7 @@ STATEMENT_LIMIT = 300
 #: adds a typed section there without changing this card's version scheme.
 TYPED_SECTIONS: tuple[str, ...] = (
     "decision", "session", "intent", "candidates", "learning_objects", "interaction_7d",
-    "open_hypotheses", "unknowns", "self_reports", "evidence_sections",
+    "confidence_7d", "open_hypotheses", "unknowns", "self_reports", "evidence_sections",
 )
 
 
@@ -79,9 +92,15 @@ class CardInputs:
     #: newest first; each: attempt_id, at, learning_object_id, topic, kind,
     #: result (correct | partial | incorrect | held_for_review | not_graded),
     #: hints_used, key_status, stem (the pinned revision's question, or None),
-    #: stem_note (why a shown attempt has no question), answer (or None)
+    #: stem_note (why a shown attempt has no question), answer (or None) and,
+    #: when the attempt has a tap or a hedge read, confidence (its event in words)
     recent_work: Sequence[Mapping[str, Any]] = ()
     evidence_sections: Mapping[str, Any] = field(default_factory=dict)
+    #: TE0: per candidate topic id, its confidence events in the 7-day window,
+    #: newest first: each {"attempt_id", "at", "event"}. Empty: no section.
+    confidence_7d: Mapping[str, Sequence[Mapping[str, Any]]] = field(default_factory=dict)
+    #: TE0: the stated limit when the taps so far do not span the scale.
+    confidence_limit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +131,8 @@ def _work_line(entry: Mapping[str, Any]) -> str:
     parts.append("held for review (no score yet)" if result == "held_for_review" else result.replace("_", " "))
     hints = int(entry.get("hints_used") or 0)
     parts.append("no hints" if hints == 0 else f"{hints} hint{'s' if hints != 1 else ''}")
+    if entry.get("confidence"):
+        parts.append(str(entry["confidence"]))
     if entry.get("key_status") == "unverified":
         parts.append("answer key not verified")
     if entry.get("withheld"):
@@ -183,6 +204,19 @@ def render_text(card: Mapping[str, Any]) -> str:
     signals = card.get("interaction_7d") or {}
     lines.append("# Last 7 days")
     lines.append(", ".join(f"{key} {value}" for key, value in sorted(signals.items())) or "nothing recorded")
+    confidence = card.get("confidence_7d") or {}
+    if confidence or card.get("confidence_limit"):
+        # TE0 (spec_teacher_v1 §15.2): each tap or hedge read with its
+        # outcome, never a count; absent with no confidence data.
+        lines.append("# Confidence, last 7 days (taps and the grader's hedge reads, newest first)")
+        titles = {lo_id: (row or {}).get("title") for lo_id, row in (card.get("learning_objects") or {}).items()}
+        for lo_id, events in sorted(confidence.items(), key=lambda pair: str(titles.get(pair[0]) or pair[0])):
+            shown = "; ".join(f"{str(event.get('at') or '')[:10]} {event.get('event')}" for event in events)
+            lines.append(f"- {titles.get(lo_id) or lo_id}: {shown}")
+        if not confidence:
+            lines.append("none on these topics")
+        if card.get("confidence_limit"):
+            lines.append(f"({card['confidence_limit']})")
     lines.append("# Open problems")
     hypotheses = card.get("open_hypotheses") or ()
     if not hypotheses:
@@ -243,7 +277,7 @@ def _card_version(inputs: CardInputs) -> str:
 
 
 def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+    card = {
         "card_version": _card_version(inputs),
         "decision": dict(inputs.decision),
         "session": dict(inputs.session),
@@ -258,6 +292,14 @@ def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mappin
         "evidence_sections": dict(inputs.evidence_sections),
         "truncation": dict(truncation),
     }
+    # TE0: present only with confidence data, so a card without any is the
+    # predecessor's card in every typed field (only the version differs).
+    if inputs.confidence_7d:
+        card["confidence_7d"] = {lo: [dict(event) for event in events]
+                                 for lo, events in sorted(inputs.confidence_7d.items())}
+    if inputs.confidence_limit:
+        card["confidence_limit"] = inputs.confidence_limit
+    return card
 
 
 def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) -> LearnerStateCard:
@@ -309,7 +351,9 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
 
 
 __all__ = [
+    "AD_CARD_VERSION",
     "CARD_VERSION",
+    "PREDECESSOR_CARD_VERSION",
     "CardInputs",
     "DEFAULT_TOKEN_BUDGET",
     "LearnerStateCard",

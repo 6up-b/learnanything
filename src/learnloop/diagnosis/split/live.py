@@ -173,6 +173,7 @@ def current_attempt_for(
         return None
     contract = None
     trace = None
+    confidence = None
     if repository is not None:
         from learnloop.db.stores.answered_contracts import answered_contracts
         from learnloop.diagnosis.split.workbench_trace import trace_for_attempt
@@ -185,6 +186,7 @@ def current_attempt_for(
         # Fix rounds 11 and 14: the CURRENT symbolic switch, read from the
         # live config file per job (a drain's captured vault may be stale).
         trace = trace_for_attempt(repository, attempt, symbolic_enabled=symbolic_switch_now(vault))
+        confidence = current_confidence(repository, attempt, record)
     return current_attempt_from(
         vault,
         item,
@@ -194,7 +196,45 @@ def current_attempt_for(
         blind_grade=record,
         contract=contract,
         workbench_trace=trace,
+        confidence=confidence,
     )
+
+
+def current_confidence(repository: Any, attempt: Mapping[str, Any],
+                       record: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Teacher TE0 (spec_teacher_v1 §15.2): the diagnosed attempt's confidence
+    event (its tap, and the hedge read of the grade the diagnoser is shown:
+    the blind record's own, else the current grading evidence's) with the
+    stated limit on the taps up to and including this one; None with
+    neither a tap nor a hedge read (the context renders as before). The
+    diagnoser is history-aware; the blind grader never reads any of it."""
+
+    from learnloop import confidence_events as ce
+
+    attempt_id = str(attempt["id"])
+    completed_at = str(attempt.get("created_at") or "")
+    with repository.connection() as connection:
+        tap = attempt.get("answer_confidence")
+        if "answer_confidence" not in attempt:
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+            if "answer_confidence" in columns:
+                found = connection.execute(
+                    "SELECT answer_confidence FROM practice_attempts WHERE id = ?", (attempt_id,)
+                ).fetchone()
+                tap = found[0] if found is not None else None
+        hedge = ce.hedge_from_record(record)
+        if hedge is None:
+            hedge = ce.read_hedges(connection, [attempt_id]).get(attempt_id)
+        reading = ce.Reading(tap=ce.valid_tap(tap), hedge=hedge)
+        if not reading.present:
+            return None
+        taps = ce.taps_before(connection, completed_at)
+    result = ce.result_class(record.get("rubric_score"), record.get("max_points"))
+    block: dict[str, Any] = {"version": ce.VERSION, "note": ce.NOTE, "event": ce.event_text(reading, result)}
+    limit = ce.taps_limit([*taps, *([reading.tap] if reading.tap is not None else [])])
+    if limit:
+        block["taps_so_far"] = limit
+    return block
 
 
 def needs_diagnosis(record: Mapping[str, Any]) -> bool:

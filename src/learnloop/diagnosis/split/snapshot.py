@@ -123,6 +123,8 @@ def render_attempt(attempt: HistoryAttempt, title: str) -> str:
                 ("assisted", attempt.assisted),
                 ("primed", attempt.primed),
                 ("grader_mode", attempt.grader_mode),
+                # TE0: the confidence event, only when the attempt has one.
+                *((("confidence", attempt.confidence_event),) if attempt.confidence_event else ()),
             ]
         ),
         "",
