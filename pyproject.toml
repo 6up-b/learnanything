@@ -437,6 +437,7 @@ type = "forbidden"
 # any package added later) for an import of learnloop.experiments.
 source_modules = [
     "learnloop.adaptive_difficulty",
+    "learnloop.ad_successor_upgrade",
     "learnloop.ai",
     "learnloop.algorithm_versions",
     "learnloop.app_launch",
@@ -510,6 +511,7 @@ source_modules = [
     "learnloop.vault_lock",
     "learnloop.voi_stopping_upgrade",
     "learnloop.workbench",
+    "learnloop.workbench_field_signals_upgrade",
     "learnloop_sidecar",
     "learnloop_mobile",
     "learnloop_mcp",
