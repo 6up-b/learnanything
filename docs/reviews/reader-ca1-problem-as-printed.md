@@ -11,6 +11,13 @@ page" behaves like any other source opening during practice) and D46/G61
 
 **No migration, no successor, no model call, no exposure semantics changed.**
 
+> Codex review fixes (F1-F8): `docs/reviews/reader-ca1-problem-as-printed-codex-review.md`.
+> Where this record and that one differ, that one holds: the crop join compares areas,
+> not centres (F2); every cold administration hides the print (F1); the switch also turns
+> off the multi-block form and every host (F3); selection imports and region sub-boxes
+> have their print (F4, §5 item 3 done); the workbench and feedback open the page itself,
+> with *open in the Reader ↗* (F6, §5 item 4 done except before Submit).
+
 ## 1. What was built
 
 | Surface | Before Submit (not a check on your own) | During a check on your own | After feedback |
