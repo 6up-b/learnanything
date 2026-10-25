@@ -27,7 +27,6 @@ spend). SQLite (WAL, ``busy_timeout``) serializes them with the desktop's.
 
 from __future__ import annotations
 
-import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -41,9 +40,12 @@ from learnloop.learner_context import SNAPSHOT_UNSETTLED
 from learnloop.remote.endpoint_token import read_alias_key
 from learnloop.vault.loader import (
     CONTENT_FINGERPRINT_TTL_SECONDS,
+    SETTLE_ATTEMPTS,
+    SETTLE_PAUSE_SECONDS,
     content_digest as _digest,
     content_files,
     load_vault,
+    settled_load_vault,
     vault_content_fingerprint,
 )
 from learnloop.vault.models import DoctorIssue, LoadedVault
@@ -52,9 +54,9 @@ from learnloop.vault.paths import VaultPaths
 #: Seconds a content fingerprint is reused before the vault's files are stat'ed again
 #: (the vault loader's, shared with ``SidecarContext.load_secondary``).
 FINGERPRINT_TTL_SECONDS = CONTENT_FINGERPRINT_TTL_SECONDS
-#: Loads tried while the vault's files change under them, and the pause between.
-SETTLE_ATTEMPTS = 3
-SETTLE_PAUSE_SECONDS = 0.05
+# ``SETTLE_ATTEMPTS`` and ``SETTLE_PAUSE_SECONDS`` (loads tried while the vault's
+# files change under them, and the pause between) are the vault loader's, used
+# by ``settled_load_vault`` here and in ``SidecarContext.load_secondary``.
 
 
 class SchemaMismatch(RuntimeError):
@@ -130,30 +132,20 @@ class RemoteRuntime:
         """A load whose files did not change while it ran, with its fingerprint;
         else the last load, marked unsettled, and no fingerprint."""
 
-        vault: LoadedVault | None = None
-        for attempt in range(SETTLE_ATTEMPTS):
-            if attempt:
-                time.sleep(SETTLE_PAUSE_SECONDS)
-            vault = load_vault(self.vault_root, load_environment=self.load_environment)
-            after = content_files(self.vault_root)
-            if _digest(after) == fingerprint and not self._caught_mid_write(vault, after):
-                return vault, fingerprint
-            files, fingerprint = after, _digest(after)
-        assert vault is not None
-        vault.issues.append(DoctorIssue(
+        result = settled_load_vault(
+            self.vault_root,
+            # Looked up at call time, so a test's patch of this module's load_vault applies.
+            load=lambda root: load_vault(root, load_environment=self.load_environment),
+            fingerprint=fingerprint,
+            attempts=SETTLE_ATTEMPTS,
+            pause_seconds=SETTLE_PAUSE_SECONDS,
+        )
+        if result.settled:
+            return result.vault, result.fingerprint
+        result.vault.issues.append(DoctorIssue(
             SNAPSHOT_UNSETTLED, "the vault's files were changing while they were read; protection is not read from "
             "this snapshot", None))
-        return vault, None
-
-    def _caught_mid_write(self, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool:
-        """The source-sets file read empty: the desktop truncated it to rewrite it."""
-
-        try:
-            relative = os.path.relpath(VaultPaths(self.vault_root, vault.config).source_sets_path, self.vault_root)
-        except (OSError, ValueError):
-            return True
-        found = files.get(relative)
-        return found is not None and found[0] == 0
+        return result.vault, None
 
     def read_repository(self) -> Repository:
         """A read-only attach: reads through it can never write."""

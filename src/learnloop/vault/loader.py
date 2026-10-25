@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -99,10 +101,14 @@ def vault_loads_forbidden(reason: str | None) -> Iterator[None]:
 #: (mobile spec §3.1, G12). A guardrail on stat cost, not a model parameter.
 CONTENT_FINGERPRINT_TTL_SECONDS = 2.0
 #: The kinds of file :func:`load_vault` reads (YAML, the TOML config, Markdown
-#: subjects and notes). Dot-directories (``.learnloop`` machine-local state) and
-#: the raw source store are not vault content.
+#: subjects and notes).
 _CONTENT_SUFFIXES = (".yaml", ".yml", ".toml", ".md")
-_CONTENT_SKIP_DIRS = frozenset({"canonical-sources", "node_modules", "__pycache__"})
+#: Directories at the vault's root that are not vault content: dot-directories
+#: (``.learnloop`` machine-local state, ``.git``), the raw source store and
+#: tooling caches. Pruned at the root only: the loader reads every directory
+#: under ``subjects/`` whatever its name (a subject may be called
+#: ``canonical-sources``), so nothing below the root is skipped by name.
+_ROOT_SKIP_DIRS = frozenset({"canonical-sources", "node_modules", "__pycache__"})
 
 
 def content_files(root: Path) -> dict[str, tuple[int, int]]:
@@ -111,15 +117,38 @@ def content_files(root: Path) -> dict[str, tuple[int, int]]:
     A superset of what the loader opens, chosen by suffix rather than by
     repeating the loader's walk, so a reader added to the loader is covered
     without an edit here (``tests/test_secondary_attach.py`` pins that every
-    file a load opens is in this set). A file outside the loader's walk that
-    changes costs a secondary one extra reload, never a stale vault.
+    file a load opens is in this set, for nonstandard subject names and
+    linked content too). A file outside the loader's walk that changes costs
+    a secondary one extra reload, never a stale vault.
+
+    Directory symlinks are followed, as the loader's ``Path`` operations
+    follow them; a directory already walked (a link cycle, or two links to
+    one directory) is walked once. File stats follow links, so an edit to a
+    linked file's target changes its entry.
     """
 
+    root_text = os.fspath(root)
     files: dict[str, tuple[int, int]] = {}
-    for directory, subdirectories, names in os.walk(root):
-        subdirectories[:] = [
-            name for name in subdirectories if not name.startswith(".") and name not in _CONTENT_SKIP_DIRS
-        ]
+    try:
+        root_stat = os.stat(root_text)
+    except OSError:
+        return files
+    walked = {(root_stat.st_dev, root_stat.st_ino)}
+    for directory, subdirectories, names in os.walk(root_text, followlinks=True):
+        kept: list[str] = []
+        for name in sorted(subdirectories):  # sorted: one walk order, so one set of names
+            if directory == root_text and (name.startswith(".") or name in _ROOT_SKIP_DIRS):
+                continue
+            try:
+                stat = os.stat(os.path.join(directory, name))
+            except OSError:  # removed, or a dangling link
+                continue
+            identity = (stat.st_dev, stat.st_ino)
+            if identity in walked:
+                continue
+            walked.add(identity)
+            kept.append(name)
+        subdirectories[:] = kept
         for name in names:
             if not name.endswith(_CONTENT_SUFFIXES):
                 continue
@@ -128,7 +157,7 @@ def content_files(root: Path) -> dict[str, tuple[int, int]]:
                 stat = os.stat(path)
             except OSError:  # removed between the listing and the stat
                 continue
-            files[os.path.relpath(path, root)] = (stat.st_size, stat.st_mtime_ns)
+            files[os.path.relpath(path, root_text)] = (stat.st_size, stat.st_mtime_ns)
     return files
 
 
@@ -151,6 +180,84 @@ def vault_content_fingerprint(root: Path) -> str:
     """
 
     return content_digest(content_files(Path(root)))
+
+
+#: Loads tried while the vault's files change under them, and the pause
+#: between: guardrails on a reader's retry cost, not model parameters.
+SETTLE_ATTEMPTS = 3
+SETTLE_PAUSE_SECONDS = 0.05
+
+
+@dataclass(frozen=True)
+class SettledLoad:
+    """A vault load checked against the files it was read from.
+
+    ``fingerprint`` is the content fingerprint the files had both before and
+    after the load, or None when no attempt settled (the files kept changing,
+    or the source-sets file was caught empty mid-rewrite): such a ``vault``
+    must not be trusted for protection. ``verified_at`` is the
+    ``time.monotonic()`` reading taken just before the after-load fingerprint
+    was collected: the snapshot is known current as of then, so a freshness
+    window (G12) starts there, never at publication.
+    """
+
+    vault: LoadedVault
+    fingerprint: str | None
+    verified_at: float
+
+    @property
+    def settled(self) -> bool:
+        return self.fingerprint is not None
+
+
+def settled_load_vault(
+    root: Path,
+    *,
+    load: Callable[[Path], LoadedVault] | None = None,
+    fingerprint: str | None = None,
+    attempts: int = SETTLE_ATTEMPTS,
+    pause_seconds: float = SETTLE_PAUSE_SECONDS,
+) -> SettledLoad:
+    """Load the vault while another process may be writing it (a secondary's read).
+
+    The desktop rewrites YAML in place (truncate, then write), so a load can
+    read a half-written or empty file: an empty ``source_sets.yaml`` parses as
+    no source sets, without an issue, and exam protection would vanish from
+    the snapshot. A load is kept only when the files' fingerprint is the same
+    before and after it and the source-sets file is not empty; otherwise it is
+    tried again, up to ``attempts`` times. ``fingerprint`` is one the caller
+    took before this call (else it is taken here); ``load`` defaults to
+    :func:`load_vault`.
+    """
+
+    vault_root = Path(root)
+    read = load if load is not None else load_vault
+    before = fingerprint if fingerprint is not None else vault_content_fingerprint(vault_root)
+    vault: LoadedVault | None = None
+    verified_at = time.monotonic()
+    for attempt in range(max(1, int(attempts))):
+        if attempt:
+            time.sleep(pause_seconds)
+        vault = read(vault_root)
+        verified_at = time.monotonic()
+        after = content_files(vault_root)
+        digest = content_digest(after)
+        if digest == before and not _source_sets_caught_empty(vault_root, vault, after):
+            return SettledLoad(vault=vault, fingerprint=digest, verified_at=verified_at)
+        before = digest
+    assert vault is not None
+    return SettledLoad(vault=vault, fingerprint=None, verified_at=verified_at)
+
+
+def _source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool:
+    """The source-sets file is empty: a writer truncated it to rewrite it."""
+
+    try:
+        relative = os.path.relpath(VaultPaths(root, vault.config).source_sets_path, root)
+    except (OSError, ValueError):
+        return True
+    found = files.get(relative)
+    return found is not None and found[0] == 0
 
 
 def load_vault(

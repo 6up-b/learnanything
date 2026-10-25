@@ -29,6 +29,7 @@ from learnloop.vault.loader import (
     CONTENT_FINGERPRINT_TTL_SECONDS,
     load_practice_item_file,
     load_vault,
+    settled_load_vault,
     vault_content_fingerprint,
 )
 from learnloop.vault.models import LoadedVault
@@ -112,8 +113,11 @@ class SidecarContext:
     # attached by :meth:`load_secondary`. Every later reload of this context
     # stays secondary; only an explicit :meth:`load` makes it primary.
     secondary: bool = field(default=False, repr=False)
-    # The content fingerprint taken just before the secondary's last load,
-    # and when it was last compared (``time.monotonic()``).
+    # The content fingerprint the secondary's last load was verified against
+    # (the same before and after it), and when the vault was last known to
+    # match it (``time.monotonic()``): the start of the G12 freshness window.
+    # It advances only on a comparison that matched or a reload that
+    # succeeded, so a failed refresh is retried by the next request.
     content_fingerprint: str | None = field(default=None, repr=False)
     _fingerprint_checked_at: float = field(default=float("-inf"), repr=False, compare=False)
 
@@ -261,10 +265,18 @@ class SidecarContext:
                 "vault_loaded_as_primary",
                 "This context holds its vault as the primary; it cannot attach as a secondary.",
             )
-        # Taken before the load: a file that changes while it runs makes the
-        # next comparison differ, so the change is loaded then, never missed.
-        fingerprint = vault_content_fingerprint(target)
-        vault = load_vault(target)
+        # A settled snapshot only (review F1): the primary rewrites YAML in
+        # place, and a source-sets file read mid-rewrite parses as no source
+        # sets, so exam protection would vanish from the published vault.
+        # ``load_vault`` is looked up at call time (tests patch this module's).
+        loaded = settled_load_vault(target, load=lambda root: load_vault(root))
+        if not loaded.settled:
+            raise SidecarError(
+                "vault_unsettled",
+                "The vault's files were changing while they were read; try again in a moment.",
+                details={"vault_root": str(target)},
+            )
+        vault = loaded.vault
         sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
         if not schema_is_current(sqlite_path):
             raise SidecarError(
@@ -284,8 +296,10 @@ class SidecarContext:
         self.repository = Repository.attach(sqlite_path, read_only=False)
         self.vault = vault
         self.secondary = True
-        self.content_fingerprint = fingerprint
-        self._fingerprint_checked_at = time.monotonic()
+        self.content_fingerprint = loaded.fingerprint
+        # The window starts when the snapshot was verified against the files,
+        # after the load, never when it began (review F4).
+        self._fingerprint_checked_at = loaded.verified_at
         # In-memory only: lets a serve's background builds run in this process.
         self.map_builds.bind(sqlite_path)
 
@@ -293,9 +307,15 @@ class SidecarContext:
         """Reload a secondary context when another process changed the vault's files.
 
         Run before each request (mobile spec §3.1, G12). The fingerprint is
-        compared at most every ``CONTENT_FINGERPRINT_TTL_SECONDS``, so a change
-        is seen by the first request at most that long after it. A mismatch
-        reloads with :meth:`load_secondary`. True when it reloaded.
+        compared at most every ``CONTENT_FINGERPRINT_TTL_SECONDS`` after the
+        vault was last known current, so a change is seen by the first request
+        at most that long after it. A mismatch reloads with
+        :meth:`load_secondary`. True when it reloaded.
+
+        A reload that fails (an unparseable config, a schema this code would
+        have to migrate, files still changing) raises, and the window does not
+        advance (review F2): every later request compares and tries again, so
+        none is served from the old vault while the change stands.
         """
 
         if not self.secondary or self.vault_root is None:
@@ -303,11 +323,10 @@ class SidecarContext:
         moment = time.monotonic() if now is None else float(now)
         if moment - self._fingerprint_checked_at < CONTENT_FINGERPRINT_TTL_SECONDS:
             return False
-        self._fingerprint_checked_at = moment
         if vault_content_fingerprint(self.vault_root) == self.content_fingerprint:
+            self._fingerprint_checked_at = moment
             return False
-        self.load_secondary(self.vault_root)
-        self._fingerprint_checked_at = moment
+        self.load_secondary(self.vault_root)  # sets the window from its own verification
         return True
 
     def reconcile_hint_work(self) -> None:

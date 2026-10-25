@@ -274,32 +274,177 @@ def test_content_fingerprint_reload_within_the_freshness_bound(tmp_path):
     assert _db_snapshot(paths.sqlite_path) == db_before
 
     reloaded = ctx.vault
-    assert ctx.refresh_if_content_changed(now=200.0) is False  # nothing changed: no reload
+    # Nothing changed: past the window the files are compared again, and nothing reloads.
+    assert ctx.refresh_if_content_changed(now=time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS) is False
     assert ctx.vault is reloaded
 
 
-def test_a_change_during_the_load_is_loaded_at_the_next_comparison(tmp_path, monkeypatch):
-    """The fingerprint is taken before the load, so a write the load raced is never missed."""
+def test_a_change_during_a_slow_load_is_in_the_snapshot_and_the_window_starts_after_it(tmp_path, monkeypatch):
+    """Review F4: a write that races a slow load is never published stale with a fresh
+    window. The snapshot is checked against the files after the load (and loaded again
+    when they changed), and the freshness window starts at that check, so an immediate
+    request is served the edit."""
 
     import learnloop_sidecar.context as context_module
 
     paths = create_basic_vault(tmp_path / "vault")
     real_load = context_module.load_vault
-    raced = {"done": False}
+    edited_at: list[float] = []
 
-    def racing_load(root, *args, **kwargs):
+    def slow_racing_load(root, *args, **kwargs):
         vault = real_load(root, *args, **kwargs)
-        if not raced["done"]:
-            raced["done"] = True
+        if not edited_at:
             _edit_item_prompt(paths, "Written while the secondary was loading.")
+            edited_at.append(time.monotonic())
+            time.sleep(0.2)  # the load goes on after the edit
         return vault
 
-    monkeypatch.setattr(context_module, "load_vault", racing_load)
+    monkeypatch.setattr(context_module, "load_vault", slow_racing_load)
     ctx = SidecarContext()
     ctx.load_secondary(paths.root)
-    assert ctx.vault.practice_items["pi_svd_define_001"].prompt == "Define SVD."
-    assert ctx.refresh_if_content_changed(now=time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS) is True
     assert ctx.vault.practice_items["pi_svd_define_001"].prompt == "Written while the secondary was loading."
+    assert ctx._fingerprint_checked_at > edited_at[0]
+    assert ctx.content_fingerprint == vault_content_fingerprint(paths.root)
+    assert ctx.refresh_if_content_changed() is False  # immediate: the published snapshot is current
+
+    # An explicit reload of the secondary is checked the same way.
+    edited_at.clear()
+    ctx.reload(maintenance=False)
+    assert ctx.vault.practice_items["pi_svd_define_001"].prompt == "Written while the secondary was loading."
+    assert ctx._fingerprint_checked_at > edited_at[0]
+
+
+_EXAM_SETS = {
+    "schema_version": 1,
+    "source_sets": [{
+        "id": "set_exam", "subject_id": "linear-algebra", "title": "Exam prep",
+        "members": [{"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"}],
+    }],
+}
+
+
+def _exam_members(vault) -> list[str]:
+    from learnloop.content.sources.exam_material import is_exam_role
+
+    return [member.source_id for source_set in vault.source_sets for member in source_set.members
+            if is_exam_role(member.default_role)]
+
+
+def _rewrite_source_sets(path: Path, *, stamp_ns: int) -> None:
+    write_yaml(path, _EXAM_SETS)
+    os.utime(path, ns=(stamp_ns, stamp_ns))  # a rewrite after the fingerprint: a later mtime
+
+
+@pytest.mark.parametrize("phase", ["attach", "refresh"])
+def test_a_source_sets_rewrite_during_the_load_never_publishes_empty_protection(tmp_path, monkeypatch, phase):
+    """Review F1: the primary rewrites source_sets.yaml in place (truncate, then write).
+    A load that reads it empty sees no source sets and no issue; the snapshot must not be
+    published, so the exam member stays in the secondary's vault."""
+
+    import learnloop_sidecar.context as context_module
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    assert _exam_members(load_vault(paths.root)) == ["src_exam"]
+    real_load = context_module.load_vault
+    racing = {"on": phase == "attach", "stamp": 1_000_000_001_000_000_000}
+
+    def caught_mid_rewrite(root, *args, **kwargs):
+        if not racing["on"]:
+            return real_load(root, *args, **kwargs)
+        racing["on"] = False
+        paths.source_sets_path.write_text("", encoding="utf-8")  # truncated: the write has not landed
+        vault = real_load(root, *args, **kwargs)
+        assert vault.source_sets == [] and not [issue for issue in vault.issues if "source" in issue.code]
+        _rewrite_source_sets(paths.source_sets_path, stamp_ns=racing["stamp"])
+        return vault
+
+    monkeypatch.setattr(context_module, "load_vault", caught_mid_rewrite)
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    if phase == "refresh":
+        assert _exam_members(ctx.vault) == ["src_exam"]
+        _edit_item_prompt(paths, "A change the next request reloads.")
+        racing["on"] = True
+        assert ctx.refresh_if_content_changed(now=time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS) is True
+    assert _exam_members(ctx.vault) == ["src_exam"]
+    assert ctx.content_fingerprint == vault_content_fingerprint(paths.root)
+
+
+def test_a_source_sets_file_that_stays_truncated_is_refused_not_published(tmp_path, monkeypatch):
+    """Review F1: when no load settles (the file is empty at every try) the attach is
+    refused and nothing is published; once the rewrite lands, the attach succeeds."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_000_000_000_000)
+    paths.source_sets_path.write_text("", encoding="utf-8")
+
+    ctx = SidecarContext()
+    with pytest.raises(SidecarError) as refused:
+        ctx.load_secondary(paths.root)
+    assert refused.value.code == "vault_unsettled"
+    assert ctx.vault is None and ctx.vault_root is None and ctx.repository is None
+
+    _rewrite_source_sets(paths.source_sets_path, stamp_ns=1_000_000_001_000_000_000)
+    ctx.load_secondary(paths.root)
+    assert _exam_members(ctx.vault) == ["src_exam"]
+
+    # On a refresh: the attached vault is kept, the request is refused, and so is the next one.
+    paths.source_sets_path.write_text("", encoding="utf-8")
+    loaded = ctx.vault
+    start = time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS
+    for offset in (0.0, 0.1):  # the second request is inside the window the first would have started
+        with pytest.raises(SidecarError) as again:
+            ctx.refresh_if_content_changed(now=start + offset)
+        assert again.value.code == "vault_unsettled"
+    assert ctx.vault is loaded
+
+
+def _break_config(paths: VaultPaths):
+    text = paths.config_path.read_text(encoding="utf-8")
+    paths.config_path.write_text(text + "\n[broken\n", encoding="utf-8")
+    return lambda: paths.config_path.write_text(text + "\n", encoding="utf-8")
+
+
+def _break_schema(paths: VaultPaths):
+    with closing(connect(paths.sqlite_path)) as connection:
+        row = tuple(connection.execute(
+            "SELECT * FROM schema_migrations WHERE version = (SELECT MAX(version) FROM schema_migrations)"
+        ).fetchone())
+        connection.execute("DELETE FROM schema_migrations WHERE version = ?", (row[0],))
+        connection.commit()
+    _edit_item_prompt(paths, "A change that makes the next request reload.")
+
+    def restore() -> None:
+        with closing(connect(paths.sqlite_path)) as connection:
+            connection.execute(f"INSERT INTO schema_migrations VALUES ({', '.join('?' * len(row))})", row)
+            connection.commit()
+
+    return restore
+
+
+@pytest.mark.parametrize("breaks", [_break_config, _break_schema], ids=["config_parse", "schema_mismatch"])
+def test_a_failed_refresh_is_retried_by_every_later_request(tmp_path, breaks):
+    """Review F2: a refresh whose reload fails never lets the next requests (inside the
+    freshness window) proceed on the old vault: each compares again and fails again,
+    until the vault loads; then the window starts from that load."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    loaded = ctx.vault
+    start = time.monotonic() + CONTENT_FINGERPRINT_TTL_SECONDS
+    restore = breaks(paths)
+
+    for offset in (0.0, 0.1, 0.5, 1.9):
+        with pytest.raises(Exception):
+            ctx.refresh_if_content_changed(now=start + offset)
+    assert ctx.vault is loaded and ctx.secondary is True
+
+    restore()
+    assert ctx.refresh_if_content_changed(now=start + 2.0) is True
+    assert ctx.vault is not loaded
+    assert ctx.refresh_if_content_changed() is False
 
 
 def test_fingerprint_sees_renames_and_older_mtimes(tmp_path):
@@ -321,11 +466,56 @@ def test_fingerprint_sees_renames_and_older_mtimes(tmp_path):
     assert vault_content_fingerprint(paths.root) != after_rename
 
 
-def test_fingerprint_covers_every_file_the_loader_reads(tmp_path):
-    """The file set cannot drift from the loader's (spec §3.1): every file a load opens is fingerprinted."""
+def _ordinary(paths: VaultPaths, tmp_path: Path) -> Path:
+    return paths.practice_item_path(*_ITEM)
+
+
+def _subject_named_canonical_sources(paths: VaultPaths, tmp_path: Path) -> Path:
+    """A subject folder whose name is the raw store's, below ``subjects/`` (review F3)."""
+
+    moved = paths.root / "subjects" / "canonical-sources"
+    paths.subject_dir(_ITEM[0]).rename(moved)
+    return moved / "practice-items" / f"{_ITEM[1]}.yaml"
+
+
+def _linked_subject_dir(paths: VaultPaths, tmp_path: Path) -> Path:
+    """A subject directory that is a symlink to one outside the vault (review F3)."""
+
+    outside = tmp_path / "elsewhere" / _ITEM[0]
+    outside.parent.mkdir(parents=True)
+    paths.subject_dir(_ITEM[0]).rename(outside)
+    paths.subject_dir(_ITEM[0]).symlink_to(outside, target_is_directory=True)
+    return paths.practice_item_path(*_ITEM)
+
+
+def _linked_items_dir(paths: VaultPaths, tmp_path: Path) -> Path:
+    items = paths.subject_dir(_ITEM[0]) / "practice-items"
+    outside = tmp_path / "elsewhere-items"
+    items.rename(outside)
+    items.symlink_to(outside, target_is_directory=True)
+    return paths.practice_item_path(*_ITEM)
+
+
+def _linked_item_file(paths: VaultPaths, tmp_path: Path) -> Path:
+    item = paths.practice_item_path(*_ITEM)
+    outside = tmp_path / "elsewhere-item.yaml"
+    item.rename(outside)
+    item.symlink_to(outside)
+    return item
+
+
+_LAYOUTS = [_ordinary, _subject_named_canonical_sources, _linked_subject_dir, _linked_items_dir, _linked_item_file]
+
+
+@pytest.mark.parametrize("layout", _LAYOUTS, ids=[layout.__name__.lstrip("_") for layout in _LAYOUTS])
+def test_fingerprint_covers_every_file_the_loader_reads(tmp_path, layout):
+    """The file set cannot drift from the loader's (spec §3.1): every file a load opens is
+    fingerprinted, for a subject with any folder name and for linked content (review F3),
+    and an edit to the item the load read changes the fingerprint."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    subject = paths.subject_dir("linear-algebra")
+    item_path = layout(paths, tmp_path)
+    subject = item_path.parent.parent
     (subject / "notes").mkdir(parents=True, exist_ok=True)
     (subject / "notes" / "svd.md").write_text("---\nid: note_svd\n---\nSVD notes.\n", encoding="utf-8")
     root = str(paths.root)
@@ -334,7 +524,8 @@ def test_fingerprint_covers_every_file_the_loader_reads(tmp_path):
 
     def audit(event, args):
         if recording["on"] and event == "open" and isinstance(args[0], (str, bytes, os.PathLike)):
-            path = os.path.realpath(os.fsdecode(args[0]))
+            # The path as the loader named it (not resolved): linked content stays under the vault.
+            path = os.path.abspath(os.fsdecode(args[0]))
             if path.startswith(root + os.sep) and os.path.isfile(path):
                 opened.append(os.path.relpath(path, root))
 
@@ -345,10 +536,28 @@ def test_fingerprint_covers_every_file_the_loader_reads(tmp_path):
     finally:
         recording["on"] = False
     assert vault.notes  # the walk reached a note, so notes are among the files checked
+    assert _ITEM[1] in vault.practice_items
     assert opened, "the audit hook saw no vault file open"
     covered = content_files(paths.root)
     missing = sorted(set(opened) - set(covered))
     assert missing == [], f"load_vault read files the content fingerprint does not cover: {missing}"
+
+    before = vault_content_fingerprint(paths.root)
+    data = read_yaml_data(item_path)
+    data["prompt"] = "Edited where the loader reads it."
+    write_yaml(item_path.resolve(), data)
+    stamp = os.stat(item_path).st_mtime_ns + 1_000_000_000
+    os.utime(item_path, ns=(stamp, stamp))
+    assert vault_content_fingerprint(paths.root) != before
+
+
+def test_fingerprint_walks_a_link_cycle_once(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    subject = paths.subject_dir(_ITEM[0])
+    (subject / "loop").symlink_to(paths.root, target_is_directory=True)
+    files = content_files(paths.root)
+    assert not any(path.startswith(os.path.join("subjects", _ITEM[0], "loop")) for path in files)
+    assert os.path.join("subjects", _ITEM[0], "practice-items", f"{_ITEM[1]}.yaml") in files
 
 
 # -- durability lane: a real second process on a WAL vault -------------------------------
