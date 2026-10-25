@@ -69,7 +69,8 @@ words with the outcome**. It never renders a raw scalar or a threshold count.
 Checked against `docs/algorithm-change-playbook.md`. **No successor**, which confirms the spec's 2026-10-24 default.
 
 1. **Scoring, scheduling, projections, admissibility.** None of these reads anything new.
-   * There is no migration, no new table, no config key and no default change.
+   * There is no migration, no new table and no default change. The one config key, the kill switch
+     `teacher.confidence_events_enabled`, came with the Codex review (F5).
    * Every `table_roles` classification and every defaults snapshot is unchanged.
    * Replay and rebuild never read the card, a model context or `confidence_events`.
 2. **The card version.**
@@ -122,11 +123,12 @@ The commands, pass counts and the list of test files run are recorded at the end
 2. **The Reader tutor.** The Reader tutor (`context == "reader"`, with or without retrieval) gets no confidence
    events. Its manifest (design A.2) excludes any learner ability reading, and an event carries a past outcome.
    §15.2 says "tutor contexts". Should the Reader tutor be included?
-3. **No kill switch.** The spec names none for TE0. It is a context-only change, and every reader renders as before
-   without data. A `teacher.confidence_events.enabled` switch would add a config key to every defaults snapshot.
-4. **The card's 7-day section is unbounded within the window.** It is a typed field, so it never drops under
-   `router.card_token_budget`: the budget drops recent work first. A heavy week could therefore push the card over
-   budget. A per-topic bound like the hint writer's is easy to add if wanted.
+3. **No kill switch.** *Resolved by the Codex review (F5, `docs/reviews/teacher-te0-codex-review.md`):*
+   `teacher.confidence_events_enabled` (default on) is checked by every reader, and off restores each predecessor
+   context. It adds one key to every defaults snapshot, which superseded §3's "no config key".
+4. **The card's 7-day section is unbounded within the window.** *Resolved by the Codex review (F3):* each topic
+   keeps its newest `CONTEXT_EVENT_LIMIT` events, and the section is the first thing the token budget trims. Both
+   omissions are stated.
 5. **The scope of "taps so far".** It counts every tap before the context's cutoff, vault-wide, including taps on
    protected attempts (as numbers only). The alternatives are to restrict it to unprotected attempts, or to the
    context's topics.
