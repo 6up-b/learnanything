@@ -45,6 +45,8 @@ from typing import Any, Iterable, Mapping, Sequence
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
 from learnloop.db.stores.figures import shown_verification
+from learnloop.held_grades import held_for_review_attempts
+from learnloop.substrate.intervention_outcomes import SUCCESS_CORRECTNESS, is_assisted
 
 REPORT_VERSION = "reader-report-v1"
 OPEN_AFTER = timedelta(days=7)
@@ -267,9 +269,6 @@ def _skipped_core(connection: Any, in_window: Any,
     is a graded attempt below the association reports' success line
     (``intervention_outcomes.SUCCESS_CORRECTNESS``); held grades are no
     outcome (``held_grades``). Counts only; associations, never causes."""
-
-    from learnloop.held_grades import held_for_review_attempts
-    from learnloop.substrate.intervention_outcomes import SUCCESS_CORRECTNESS, is_assisted
 
     rows = [dict(row) for row in connection.execute(
         "SELECT extraction_id, depth, section_id, label, learner_override, created_at FROM reader_path_sections "

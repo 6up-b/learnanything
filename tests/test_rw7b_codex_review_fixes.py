@@ -94,6 +94,25 @@ def test_f1_switching_off_after_the_build_restores_the_predecessors_reading(tmp_
     assert _split(repository) == split
 
 
+def test_f1_a_finished_core_path_that_planned_no_reading_gets_the_predecessors_back_with_its_minutes(
+        tmp_path, monkeypatch):
+    every = {section: "enrichment" for section in ("sec_eigen", "sec_spectral", "sec_diag", "sec_history")}
+    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=every)
+    call(context(paths.root), "get_daily_plan", {})
+    built = _split(repository)
+    assert built["reading"] is None and built["reading_path"]["predecessor"]["section_id"] == "sec_eigen"
+    append_config_toml(paths.root, OFF)
+    plan = call(context(paths.root), "get_daily_plan", {})
+    split = _split(repository)
+    assert split["reading"] == built["reading_path"]["predecessor"]
+    assert split["admitted_new_minutes"] == pytest.approx(
+        built["admitted_new_minutes"] + split["reading_full_minutes"], abs=1e-3)
+    # The lanes are re-split from the build's loads with the reading in new (a new epoch).
+    assert split["lanes"]["new"]["load"] == pytest.approx(split["admitted_new_minutes"], abs=1e-3)
+    assert split["epoch_ordinal"] == 2 and split["reading_path"]["transition"]["from"] is None
+    assert any(row.get("readingTitle") == "1 Eigenvalues" for row in plan["plan"]["projected"])
+
+
 def test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors_is_served(tmp_path, monkeypatch):
     paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
     ctx = context(paths.root)
