@@ -400,6 +400,8 @@ export function useWorkbenchHelp(options: {
     }
   }, []);
 
+  const ladderRef = useRef(ladder);
+  ladderRef.current = ladder;
   const setHelpStyle = useCallback(async (style: HelpStyle | null) => {
     const previous = helpStyle;
     setHelpStyleState(style);
@@ -408,11 +410,15 @@ export function useWorkbenchHelp(options: {
       if (alive.current) {
         setHelpStyleState(saved.helpStyle);
         setStoredHelpStyle(saved.storedHelpStyle);
+        // Owner capture 2026-10-25 (B2): a suggestion on screen was judged
+        // under the style before; the open ladder asks again under this one.
+        const open = ladderRef.current;
+        if (open.open && saved.helpStyle !== previous) openHelp(open.focusedStepId);
       }
     } catch {
       if (alive.current) setHelpStyleState(previous);
     }
-  }, [helpStyle, sessionId]);
+  }, [helpStyle, openHelp, sessionId]);
 
   return {
     enabled, hintsEnabled, check, checkPending, checkNotice, ladder, hints, hintPending, notice, bridges,

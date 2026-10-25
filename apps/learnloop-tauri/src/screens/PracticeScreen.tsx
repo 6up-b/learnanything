@@ -221,11 +221,12 @@ export function PracticeScreen({
     attemptProgress: AttemptProgress;
     proactiveOpen?: boolean;
     draftMd?: string;
+    workMd?: string;
   }) => void;
   /** Registers a reader of this screen's ask state (when the item opened, and
    *  whether an answer was started) so App's command-palette ask carries the
    *  same state the in-screen ask does; null when the screen unmounts. */
-  onAskState?: (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null) => void;
+  onAskState?: (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string }) | null) => void;
   onError: (message: string) => void;
 }) {
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
@@ -378,9 +379,23 @@ export function PracticeScreen({
   // The command-palette ask (App) reads the same state at the moment it opens.
   const attemptProgressRef = useRef<AttemptProgress>("no_draft");
   attemptProgressRef.current = answer.trim() || whyLine.trim() ? "draft_started" : "no_draft";
+  // Owner capture 2026-10-25 (B1): in "Work in steps" the work is the steps
+  // (the workbench reports them as they change); null on the answer box.
+  const stepsWorkRef = useRef<string | null>(null);
+  const onStepsWork = useCallback((workMd: string) => { stepsWorkRef.current = workMd; }, []);
+  const askState = (): { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string } => {
+    const steps = stepsWorkRef.current;
+    if (steps !== null) {
+      return { openedAtMs: openedAtMs.current, attemptProgress: steps.trim() ? "draft_started" : "no_draft",
+               ...(steps.trim() ? { workMd: steps } : {}) };
+    }
+    return { openedAtMs: openedAtMs.current, attemptProgress: attemptProgressRef.current };
+  };
+  const askStateRef = useRef(askState);
+  askStateRef.current = askState;
   useEffect(() => {
     if (!onAskState) return undefined;
-    onAskState(() => ({ openedAtMs: openedAtMs.current, attemptProgress: attemptProgressRef.current }));
+    onAskState(() => askStateRef.current());
     return () => onAskState(null);
   }, [onAskState]);
   const openAsk = (options?: { proactiveOpen?: boolean }) =>
@@ -388,13 +403,13 @@ export function PracticeScreen({
       context: "practice",
       practiceItemId,
       sessionId: session.sessionId,
-      openedAtMs: openedAtMs.current,
       // "No work yet" is logged explicitly: nothing typed in the answer or the
-      // why-line when the learner asks (hints revealed are help, not work).
-      attemptProgress: answer.trim() || whyLine.trim() ? "draft_started" : "no_draft",
+      // why-line when the learner asks (hints revealed are help, not work);
+      // in steps, no step written yet.
+      ...askState(),
       // Canonical sources S4: "Explain this with my work" grounds the tutor in
       // a chosen passage and this draft.
-      ...(answer.trim() ? { draftMd: answer } : {}),
+      ...(stepsWorkRef.current === null && answer.trim() ? { draftMd: answer } : {}),
       ...options
     });
   // The editor grows with its content but is capped so the answer card never
@@ -787,6 +802,7 @@ export function PracticeScreen({
       firstHint.noteUntimedHint();
       seeHint();
     }
+    stepsWorkRef.current = null;
     setWbSession(null);
   }, [item, firstHint.noteUntimedHint, seeHint]);
   const refreshWbItemSessions = useCallback(() => {
@@ -847,7 +863,16 @@ export function PracticeScreen({
       if (screenLeavesKey(event, { ownChords: true })) return;
       if (vaultFrozen.current) return;
       // RW2a: in steps, the workbench owns the keys (Esc twice is Leave for now).
-      if (stepsMode) return;
+      // Owner capture 2026-10-25 (B1): Ask's `?` still opens the tutor (the
+      // workbench handles it when it has focus; here when nothing does).
+      if (stepsMode) {
+        if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.defaultPrevented
+            && !isTypingTarget(event.target) && interactionReady) {
+          event.preventDefault();
+          openAsk();
+        }
+        return;
+      }
       if (committedRecovery) {
         if (event.key.toLowerCase() === "r") {
           event.preventDefault();
@@ -1764,7 +1789,18 @@ export function PracticeScreen({
                   backToAnswerBox(closing);
                   refreshWbItemSessions();
                 }}
-                onSubmitted={(result) => onFeedback(result.attempt.attemptId)}
+                onSubmitted={(result) => {
+                  // Owner capture 2026-10-25 (B3, B4): the steps answered the
+                  // item, so the answer box's draft (its retry key, its hints,
+                  // its offer binding) is superseded: never saved again on
+                  // unmount nor restored when the item is served again (the
+                  // sidecar's submit cleared its checkpoint).
+                  suppressDraftFlush.current = true;
+                  onCheckpointCleared({ practiceItemId: item.id, submissionId: submissionId.current });
+                  onFeedback(result.attempt.attemptId);
+                }}
+                onAsk={() => openAsk()}
+                onWorkChange={onStepsWork}
                 onError={onError}
               />
             </div>
