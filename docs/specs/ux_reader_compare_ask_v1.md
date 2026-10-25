@@ -1,8 +1,8 @@
 # Reader: comparing sources, skimming across books, and Ask, revised — experience design (v1)
 
-**Status:** draft for owner review (2026-10-25). It revises three parts of `docs/specs/ux_reader_workbench_v1.md` (the *UX doc* below): §4.5 (ask your library, compare, keep), W9–W10 (the comparing posture and the compare table), and Ask wherever it appears (§4.2, §4.9, §5.12, W13). It adds two things the UX doc lacks: skimming and jumping across corresponding sections of the learner's books, and the problem as printed for imported problems. The UX doc still governs everything this document doesn't name. The workbench spec (`docs/specs/spec_reader_workbench_v1.md`, *spec* below) wins on behaviour, data and gates, and this document on presentation, as before.
+**Status:** owner decisions recorded 2026-10-25 (§15: every recommended answer adopted except Q3, which keeps today's rule). Aligned the same day with the companion curriculum spec at `5facf66b9`. It revises three parts of `docs/specs/ux_reader_workbench_v1.md` (the *UX doc* below): §4.5 (ask your library, compare, keep), W9–W10 (the comparing posture and the compare table), and Ask wherever it appears (§4.2, §4.9, §5.12, W13). It adds two things the UX doc lacks: skimming and jumping across corresponding sections of the learner's books, and the problem as printed for imported problems. The UX doc still governs everything this document doesn't name. The workbench spec (`docs/specs/spec_reader_workbench_v1.md`, *spec* below) wins on behaviour, data and gates, and this document on presentation, as before.
 
-**Changes no data contract by itself.** Where the design needs a contract changed, §12 says so, with the spec or code it touches. A few changes are requests to specs that other stages own: the bug-fix stage on `fix/owner-capture-1025`, the sources spec (`spec_source_practice_and_probes_v1.md`, `compare_sources`), and the companion spec `docs/specs/spec_deliverable_curriculum_v1.md` (branch `docs/deliverable-curriculum`), which owns the **section correspondence index**. That spec owns the index's data and how it is computed. This document owns how the index is presented, and §12.3 lists what the presentation needs from it. On 2026-10-25 the companion spec was not yet written, so §12.3 is a request for it to adopt, not a citation of it.
+**Changes no data contract by itself.** Where the design needs a contract changed, §12 says so, with the spec or code it touches. A few changes are requests to specs that other stages own: the bug-fix stage on `fix/owner-capture-1025`, the sources spec (`spec_source_practice_and_probes_v1.md`, `compare_sources`), and the companion spec `docs/specs/spec_deliverable_curriculum_v1.md` (branch `docs/deliverable-curriculum`, commit `5facf66b9`). The companion spec owns the **section correspondence index**: its backbone table `section_coverage` (one judged row per section × LO; two sections correspond when both cover the same LO) and the read API `reader.correspondents`. It owns that data and how it is computed. This document owns how it is presented (§6), and §12.3 records what the presentation reads from it and the little it still asks for.
 
 **The owner's notes (2026-10-25), which this document answers:**
 1. "make it easier to compare sources in learnloop within the reader ux, with natural language querying available to the user. revise also the specific reader table for ux" → §4 and §5.
@@ -68,10 +68,10 @@ The owner is in the linear algebra vault, in Strang's chapter on eigenvalues. Ea
 **Moment 1 — noticing the other books.** Under the section bar in the Guide sits one dim line: *also in Axler §5.A, Lay §5.1 ▸*. Nothing else changed. They keep reading.
 - *Does not:* put a mark in the text, say "2 other sources", or pulse.
 
-**Moment 2 — a peek.** At the characteristic polynomial, they wonder how Axler gets eigenvalues without determinants. `x` focuses the line, and `↓` reaches *Axler §5.A · same topic · no determinants*. `Space` shows that section in the right side. The crumb strip reads `↩ Strang §6.1 ¶4 › peek Axler §5.A`. `Esc` closes the peek, and they are back at ¶4.
+**Moment 2 — a peek.** At the characteristic polynomial, they wonder how Axler gets eigenvalues without determinants. `x` focuses the line, and `↓` reaches *Axler §5.A Invariant subspaces · introduces it*, under the LO *eigenvalues of a linear map*. `Space` shows that section in the right side. The crumb strip reads `↩ Strang §6.1 ¶4 › peek Axler §5.A`. `Esc` closes the peek, and they are back at ¶4.
 - *Feels:* the other book was one key away and didn't cost them their place.
 
-**Moment 3 — side by side.** They want to read both. `Ctrl+\`: Strang on the left, Axler on the right, and the rail folds to its gutter. As they scroll Strang into §6.2, Axler moves to the section the index pairs with it, once, at the boundary. When they start scrolling Axler, it leads instead, and Strang follows.
+**Moment 3 — side by side.** They want to read both. `Ctrl+\`: Strang on the left, Axler on the right, and the rail folds to its gutter. As they scroll Strang into §6.2, Axler moves to its section covering the same LO, once, at the boundary. When they start scrolling Axler, it leads instead, and Strang follows.
 - *Does not:* jitter line by line, or move the pane they are reading.
 
 **Moment 4 — asking across books in their own words.** `Ctrl+Shift+F`, then they type *how do Axler and Strang show eigenvalues exist?* The box shows *comparing Axler · Strang · on: why eigenvalues exist · change* for a second, and the table opens beside the book. Its rows are *existence argument*, *what's assumed about the field*, *role of the determinant*. Each row has Axler's words and Strang's words, with a dim LearnLoop line under each. The chips read *different assumptions* on the first row and *they disagree* on the third: one book builds on the determinant, the other avoids it.
@@ -88,7 +88,7 @@ The owner is in the linear algebra vault, in Strang's chapter on eigenvalues. Ea
 **Moment 8 — a reattempt.** Two weeks later the plan serves 6.1.12 again, as ordinary practice. Ask is empty, and so is the hint list. At the Ask panel's foot sits a dim line: *earlier on this question ▸*. They leave it closed and work it fresh.
 - *Does not:* show last time's hints as if they were today's, or feed them to the model.
 
-**Moment 9 — a check on your own.** A cold check from another book. `?` opens Ask with the placeholder *ask in your words — sending makes this practice with help ◌*. They close it and solve it alone. *As printed* is hidden, and so is *earlier on this question*. After feedback, both appear, with *Exercise 4.22 · p.214 · original page ↗*.
+**Moment 9 — a check on your own.** A cold check from another book. `?` opens Ask with the placeholder *ask in your words — a question about the maths makes it practice with help ◌; asking what the question means doesn't*. They ask what a symbol in the stem means. The answer is labelled *a clarification · still on your own*, and the banner doesn't change. They solve it alone. *As printed* is hidden, and so is *earlier on this question*. After feedback, both appear, with *Exercise 4.22 · p.214 · original page ↗*.
 
 ---
 
@@ -104,7 +104,7 @@ The owner is in the linear algebra vault, in Strang's chapter on eigenvalues. Ea
 | **Compare: perspectives** | Free text, comma-separated, beside *compare pinned*. At most 4 kept. They come back as *perspectives: …* and *not found in your library: …* lines. | `LibraryAnswer.tsx:190-198, :485-497`; `kept_comparisons.py:110` |
 | **Compare: narrow widths** | `LibraryPane` is half the window, at least 480 px, and leaves at least 360 px for the book. It does **not** stack below 1,040 px, although UX §3.1 says the comparing posture should. Its width isn't re-clamped when the window is resized. | `LibraryPane.tsx`; `screens/workbench/splitWidth.ts:6-20` |
 | **Compare: keys** | Inside the answer only: `↑↓` move, `Space` peek, `p` pin, `o` open, `c` compare pinned, `Ctrl+↵` ask the tutor about pinned. | `LibraryAnswer.tsx:323-366` |
-| **Cross-source sections** | **No correspondence data exists.** Nearest: LO and facet teaching links (`entity_source_links`, `build_cross_source_spans`), used for *where else is this explained*; stored comparisons are per question, not per section. | `content/authoring/practice_leakage.py:271`; `library_ask.py:408-427` |
+| **Cross-source sections** | **No correspondence data exists on `main`.** Nearest: LO and facet teaching links (`entity_source_links`, `build_cross_source_spans`), used for *where else is this explained*; stored comparisons are per question, not per section. The curriculum spec (`5facf66b9`) specifies `section_coverage` and `reader.correspondents` (its phase C0, or C0a alone); not built yet. | `content/authoring/practice_leakage.py:271`; `library_ask.py:408-427` |
 | **Return stack** | Shipped (RW1a): entries *origin · branch · peek · citation · source*, `Alt+←/→`, the detour strip. | `returnStack.ts`; `useReaderInquiry.ts:404-434, :545-551`; `DetourStrip.tsx` |
 | **Ask: practice** | `AskOverlay`, **a modal** shared by the practice, feedback, library and reader contexts. The practice thread and its question budget are keyed by **(item, session)**, with no attempt key, so a second serve of an item in the same session shows the old thread and sends it to the model as history. Pills: *counted as hint*. Footer: *tutor answers are logged · never reveals the answer*. | `FE/components/AskOverlay.tsx`; `src/learnloop/tutor/tutor_qa.py:291-298, :1497-1530`; `SC/tutor_qa.py:532-575` |
 | **Ask: Work in Steps** | **No Ask.** The `?` handler returns early in steps mode, and the Ask button lives in the answer-box branch that steps mode replaces. The key bar still advertises *? ask*. The palette's Ask opens the practice overlay with the hidden answer box's progress and no steps. In the Reader's working posture, Ask waits: *"Ask the tutor is beside the book. Leave for now (your steps are kept) and Ask opens."* `ask_tutor_question` has no workbench field; the Reader path has `workbench_session_id`. | `PracticeScreen.tsx:841, :850, :2070, :2086`; `ReaderWorkingPosture.tsx:16`; `SC/reader.py:111` |
@@ -112,7 +112,7 @@ The owner is in the linear algebra vault, in Strang's chapter on eigenvalues. Ea
 | **Hints: practice** | The adaptive hint panel (`HintPanel.tsx`) resets on (item, session) on the client; the server counts per `submission_id`. The draft checkpoint restores `submissionId` and `hintsUsed`, so reopening an item after a steps submit restores both and fails as a stale offer (bug-fix B4). The help style lives in Settings and the panel's `⋯` menu, **not on the screen**. | `useAdaptiveHints.ts:139-154`; `SC/hints.py:178-181`; `hints/state.py:40-66`; `PracticeScreen.tsx:238, :320, :374, :521` |
 | **Hints: workbench** | The ladder, *check my work*, per-problem help style (`HelpStyleControl`), restored on reopen by `workbench_help_state`. Help is on only once the session is bound to an item. | `screens/workbench/*`; `SC/workbench_help.py` |
 | **Help style** | One stored preference, `[hints] help_style`. It reaches the hint state, the writer prompt and the chooser prompt, but not the deterministic fallback (bug-fix B2). Ask doesn't read it: the Reader has its own answer mode, and practice Ask has none. | `hints/writer.py:256`; `hints/chooser.py:97` |
-| **Cold checks** | DL2's banner and the ladder's take header are in place for Hint. **Ask isn't gated by the take step**: its only warning is *substantive questions count as hints*, and the server doesn't check cold status on `ask_tutor_question`. `cold_retry` follow-ups say *"No hints on this one: it's a check on your own."*, which withholds hints, against UX U11 and P3 §11. The item header hides locators (D46, `locators_hidden`). | `src/learnloop/intent/checks.py:44-62, :155`; `PracticeScreen.tsx:935-963, :1496-1515, :1536-1541` |
+| **Cold checks** | DL2's banner and the ladder's take header are in place for Hint. **Ask isn't gated by the take step**: its only warning is *substantive questions count as hints*, and the server doesn't check cold status on `ask_tutor_question`. "Substantive" is the tutor model's own `question_type` on each answer: `prerequisite`, `mechanism` and `strategy` count (`HINT_EQUIVALENT_TYPES`); `clarification`, `verification` and `other` don't. A Reader Ask bound to a cold workbench session counts **whatever its type** (`tutor_qa.py:855-867`), so the two cold paths disagree today. `cold_retry` follow-ups say *"No hints on this one: it's a check on your own."*, which withholds hints, against UX U11 and P3 §11. The item header hides locators (D46, `locators_hidden`). | `src/learnloop/intent/checks.py:44-62, :155`; `PracticeScreen.tsx:935-963, :1496-1515, :1536-1541` |
 | **Original page** | **No *original page ↗* on any practice item** (none in the frontend). PDF blocks from Marker, pypdf, Datalab and GLM-OCR keep `page` and `bbox_json`. Imported textbook exercises keep `canonical_exercise.span_ids`, but the DTO carries no page or box. A crop RPC exists, `reader.block_original_region` (a PNG data URL of a block, or a sub-box of it), **with no UI caller**. `OpenInSource` renders a page with a box highlighted, opened from provenance and citations, never from practice or feedback. A phone photo becomes a hand-written card; the item keeps no link back to the photo. The image drop-in path is only specced. | `migrations/032_source_layer.sql:70-77`; `ingest/extractors/glm_ocr.py:20-27, :738`; `vault/models.py:735-749`; `FE/api/dto.ts:2411-2422`; `SC/reader.py:666-674`; `reader/span_view.py:257-370`; `capture/inbox.py:100-160, :234` |
 | **The bug-fix stage** | `fix/owner-capture-1025` has one commit: fail-first tests for B4 (a steps submit releases the draft; a stale offer still grades, unattributed). Its docstring names B3 (Ask belongs to the current attempt) and B2 (the help style changes the fallback). | `tests/test_owner_capture_1025.py` on that branch |
 
@@ -196,6 +196,8 @@ The question that started a comparison is rarely the last one:
   | `unclear` | *unclear* | at least one pair returned it |
   | (only one book addresses the point) | *only in Axler* | the other cells are *not addressed here* |
 
+  **Only the relations that exist.** The five model relations above are exactly `compare_sources`' `RELATIONS` (`source_retrieval/compare.py:71`), and v2 keeps that set unchanged (§12.2). *Only in Axler* is not a relation: it is how the table shows a row where only one book has a verified cell. `complementary` is **not** a chip. The comparison model never emits it; it exists only in RW4d's mapping table (`kept_comparisons.py:97-104`, and `CompareKeep.tsx`'s fine labels), where it maps to `refines`. How two books complement each other is already visible as their different cells on the same row, and as rows only one book fills. Adding `complementary` as a model relation would be a `source_compare` prompt and schema change, and this design doesn't ask for it.
+
   A row shows every label its pairs returned, in the table's order above, never a summary of them. With more than two books, focusing the chip opens the pairs: *Axler ⇄ Strang · different assumptions · "…" / "…"* (the pair's statement and both quotes; RW4d's band, moved onto its row). The chip has words and no colour coding. *They disagree* gets the same treatment as every other label: books disagreeing is the content, not an alarm (U6, C3).
 - **The learner's column**, last, headed *› you*: each row's *your take* in the learner's voice, empty until written. `t` on a row opens a one-line box there, with *ⓘ where this goes* (UX §4.10's comparison wording). A take not tied to a row goes in the table's foot (*about the whole comparison*). This replaces today's *about* select: the row is the *about*.
 - **The table's header:** *COMPARE · Axler · Strang · on: why eigenvalues exist · differences kept · each line quotes its own book*, then *perspectives* (the refine box), *by point · by book* (the layout toggle, §5.6), *keep ⇄* and *esc back*.
@@ -262,54 +264,66 @@ The owner's question: while reading a section, see and reach the sections of oth
 
 ### 6.2 *Also in your books*, in the Guide **[CA5]**
 
-- **Where:** in the Guide rail, directly under the section progress line, one dim line: *also in Axler §5.A, Lay §5.1 ▸*. If the names don't fit one line it ends *and Lay, Treil ▸*, still names and never a number (C4). Nothing appears when the index has nothing for the section (no ghost line, no "none found").
-- **Expanded** (`x` from the reading posture, or a click): one line per corresponding section, ordered as the index orders them:
+**The data is the curriculum spec's** (`spec_deliverable_curriculum_v1.md` §6, commit `5facf66b9`). Its backbone is `section_coverage`, one judged row per (section, LO). Two sections in two books **correspond when their coverage names the same LO** with a treatment other than `not_about` (the *section correspondence index* in this document is that join). The read API is `reader.correspondents(extraction_id, section_id)`. Per LO and per other source, it returns the sections with their `treatment`, roles, notation line, any relation the learner kept, and a `jump` locator, ordered by treatment (`introduces` and `develops` first) and then by retrieval rank. It makes no model call. This section designs only how that answer looks.
+
+- **Where:** in the Guide rail, directly under the section progress line, one dim line: *also in Axler §5.A, Lay §5.1 ▸*. If the names don't fit one line it ends *and others ▸*, still names and never a number (C4). The line appears only when `reader.correspondents` returns judged coverage for the section. Unchecked search hits never put it on screen by themselves (below). Nothing appears when there is nothing (no ghost line, no "none found").
+- **Expanded** (`x` from the reading posture, or a click): grouped by LO, because a correspondence *is* a shared LO, in the API's order:
 
   ```
   also in your books
-    Axler  §5.A Invariant subspaces     same topic · no determinants      ▸
-    Lay    §5.1 Eigenvectors…           same topic · more computation     ▸
-    Lay    §5.2 The characteristic eq.  goes further                      ▸
-  space peek · ↵ go there · s side by side · esc
+  eigenvalues of a linear map
+    Axler  §5.A Invariant subspaces     introduces it                     ▸
+    Lay    §5.1 Eigenvectors…           develops it · uses row vectors    ▸
+  the characteristic polynomial
+    Lay    §5.2 The characteristic eq.  develops it · you compared these: different notation  ▸
+  space peek · ↵ go there · s side by side · c compare · ⋯ not about this
   ```
 
-  Each line has the book, the section's own number and title (`§`, the book's words), and **one relation in plain words** from the index (§12.3): *same topic · introduces it · goes further · uses it · a worked example of it · exercises on it*. It may also carry a short `◇` note of how the treatment differs (*no determinants*), labelled as LearnLoop's when focused. A section the learner has read carries *read* (a reading fact, never `●`). A section in a book whose reading position is past it carries nothing extra.
-- **Keys:** `↑↓` move, `Space` peek, `↵` go there, `s` side by side, `c` compare (opens §4 with this section and the current one as anchors), `Esc` folds it back to one line. `x` joins the Reader's single keys (`w`, `[`, `]`, `\`): off while the intent box shows or a text field has focus, and checked against the PDF surface's and `LiveMarkdownEditor`'s bindings by CA5a.
-- **Off switch on the element:** its `⋯` has *hide for this book · hide everywhere* (U13). Hidden leaves nothing behind. Settings brings it back.
-- **Skim mode:** shown. Skim mutes what LearnLoop says about the learner and the text (marks, reconnects, quick checks); this line is a table of contents, and skimming across books is exactly what it serves (§15 Q8).
+  - **The LO heading** is the LO's title, the learner's map vocabulary.
+  - **Each line** has the book, then the section's own number and title (`§`, the book's words), then its **treatment** in plain words: `introduces` → *introduces it*, `develops` → *develops it*, `applies` → *uses it*, `mentions` → *mentions it*.
+  - **The notation line** (`notation_md`, *uses row vectors*) is the coverage judge's words, so it shows in LearnLoop's voice (`◇` when focused).
+  - **A kept relation** shows as *you compared these: different notation*, the learner's own record.
+  - **Read sections** carry *read* when the learner has read them (a reading fact, never `●`).
+  - **No line carries a model-written pair relation.** The index has none: pair relations stay on demand in `compare_sources` (`c`).
+  - **One section under several shared LOs** shows once, under its first LO in the API's order, with *also: the characteristic polynomial* on focus.
+- **Keys:** `↑↓` move, `Space` peek, `↵` go there, `s` side by side, `c` compare (pins both sections' passages into `compare_sources`, as the curriculum spec's §6.4 says, and opens §5's table), `Esc` folds it back to one line. `x` joins the Reader's single keys (`w`, `[`, `]`, `\`): it is off while the intent box shows or a text field has focus, and CA5 checks it against the PDF surface's and `LiveMarkdownEditor`'s bindings.
+- **Corrections** (curriculum §6.5), in each line's `⋯`: *not about this* (one key; the line goes, with *undo*) and *also about…* (a one-line box: *this is really about orthogonal projection*). The curriculum spec resolves and records them as `learner` rows. *ⓘ where this goes* reads *"Tells LearnLoop which sections treat what, so these lines get better. It isn't read for gaps in your understanding — and never grades you."*
+- **Off switch on the element:** the block's `⋯` has *hide for this book · hide everywhere* (U13). Hidden leaves nothing behind. Settings brings it back.
+- **Skim mode:** shown. Skim mutes what LearnLoop says about the learner and the text (marks, reconnects, quick checks). This line is a table of contents, and skimming across books is exactly what it serves (§15 Q8).
 
-**Before the index exists** (or for a book it hasn't reached): no line appears on its own. The Guide's footer has a pressed action, *find this section in my other books ▸*, which runs today's library ask (`find_sources`, scope library) on the section's heading and its LOs, and lists section-level hits in the same layout. The relation shows as *found by keyword + meaning*. It makes no model call beyond retrieval, so it is cheap and quiet. It retires when the index covers the book (§13 CA5a).
+**A section with no coverage yet** (the curriculum spec builds coverage on demand, per deliverable, plus an owner-run `learnloop curriculum cover`). Here `reader.correspondents` returns live `search_spans` hits per source, labelled unchecked, with no model call and no write. Those hits never appear on their own. The Guide's footer has a pressed action, *find this section in my other books ▸* **[CA5a]**, which calls the same API and lists the hits in the same layout. They are grouped by book instead of by LO, and each line reads *found by search, not checked*, without a treatment. *Not about this* works on them too (it is a correction like any other). The action isn't shown for a section that already has its one-line entry.
 
 ### 6.3 Peek and jump
 
-- **Peek** (`Space`): the section opens in the right side, as a library hit's peek does today (UX §4.5), scrolled to its start with its first blocks outlined. The detour strip gains `› peek Axler §5.A`. `Esc` closes it and returns focus to the line it came from.
-- **Go there** (`↵`): the left pane navigates to that book and section. The return stack records `source` with the origin passage, the strip shows `↩ Strang §6.1 ¶4 › Axler §5.A`, and `Alt+←` returns to ¶4 with its selection. Arriving shows nothing extra: no reconnect line, because the learner didn't leave a question behind.
-- **From the other side:** after a jump, the new section's *also in your books* lists the origin section too, so going back and forth by meaning is symmetric, not only through `Alt+←`.
+- **Peek** (`Space`): the section opens in the right side, as a library hit's peek does today (UX §4.5), scrolled to the API's `jump` locator with the first blocks outlined. The detour strip gains `› peek Axler §5.A`. `Esc` closes it and returns focus to the line it came from.
+- **Go there** (`↵`): the left pane navigates to the `jump` locator. The return stack records a `source` entry with the origin passage, the strip shows `↩ Strang §6.1 ¶4 › Axler §5.A`, and `Alt+←` returns to ¶4 with its selection. Arriving shows nothing extra: no reconnect line, because the learner didn't leave a question behind.
+- **From the other side:** correspondence is a join on the LO, so it is symmetric. After a jump, the new section's *also in your books* lists the origin section, so going back and forth by meaning doesn't depend on `Alt+←`.
 - **A plan's reading block:** jumping to another book during a plan's reading block keeps the plan banner (shell §7.3). The banner's *Back to today's plan* is unchanged, and the plan's section is the stack's root.
 
 ### 6.4 Side by side **[CA6]**
 
-- **Entry:** `s` on a corresponding section, `Ctrl+\` from reading (it opens the first corresponding section), or *read side by side* in a peek's header. It is a variant of the comparing posture, so it pushes a crumb: `↩ Strang §6.1 › side by side with Axler §5.A`.
+- **Entry:** `s` on a corresponding section, `Ctrl+\` from reading (it opens the first correspondent in the API's order), or *read side by side* in a peek's header. It is a variant of the comparing posture, so it pushes a crumb: `↩ Strang §6.1 › side by side with Axler §5.A`.
 - **Layout:** two source panes, each with its own small header (*§ Strang · §6.1* / *§ Axler · §5.A* plus *✕*). The rail folds to its 28 px gutter (`\` reopens it as an overlay at the right). The two panes together are the source area, so U2's "source ≥ 60%" holds. The split is resizable and remembered per device. `F6` moves focus between the panes. `Ctrl+\` or `Esc` closes the second pane, and the first returns to its full width at the same position.
-- **Follow along** (default on; a toggle in the second pane's header, *follow along ●*, plus a key checked for clashes, proposed `Ctrl+Shift+L`):
+- **Follow along** (default on, §15 Q14). It has a toggle in the second pane's header, *follow along ●*, and a key, proposed as `Ctrl+Shift+L` and checked for clashes.
   - **The leading pane** is the one the learner last scrolled, clicked or selected in. The other pane follows.
-  - **The following pane moves only when the leading pane crosses into a new section** that the index pairs with a section of the following book. It moves to that section's start, once, with no animation (instant under reduced motion). Mid-section scrolling in the leader moves nothing. That is C5's test.
-  - **When the index has paragraph-level anchors** for a pair (§12.3, optional), a thin `↔` sits in the gutter between the panes beside each anchored paragraph pair in view, and `↵` on it aligns the follower to that paragraph. This is the only finer alignment, and it is the learner's to use. Paragraph scrolling is never automatic: line-level sync would jitter, and the books' paragraphs don't correspond one to one.
-  - With no pair for the new section, the follower stays where it is, and its header reads *no matching section here · stays put*, dim, until the learner moves it.
+  - **The following pane moves only when the leading pane crosses into a new section.** It moves to the first of the follower book's correspondents for that section (`reader.correspondents`, the API's order), at its `jump` locator, once, with no animation (instant under reduced motion). Mid-section scrolling in the leader moves nothing. That is C5's test. Only judged coverage moves a pane, never an unchecked search hit.
+  - **Section level only.** The index pairs sections, not paragraphs, so there is no paragraph alignment and no gutter glyph in v1. Line-level sync would jitter anyway, and the books' paragraphs don't correspond one to one. Paragraph anchors would be the curriculum spec's to add, and its deferral list holds the related *precomputed section × section relation index*.
+  - **With no correspondent** for the new section in the follower's book, the follower stays where it is. Its header reads *no matching section here · stays put*, dim, until the learner moves it.
 - **Everything else works in both panes.** Selecting in either pane shows the intent box (UX §4.1). *How do my other books treat this?* on a selection in one pane names the other pane's book as the source (§4.1). Margin marks follow the density setting per pane, as if each pane were the reader alone. Notes and highlights go to their own book.
 - **Narrow windows** (below 1,040 px): side by side isn't offered. `s` and `Ctrl+\` peek instead, in the sheet UX §3.1 uses, with one dim line, *side by side needs a wider window*.
 
 ### 6.5 The attention budget, extended
 
 UX §4.12's table gains two entries in *allowed, quietly, and only these*:
-- the Guide's one-line *also in your books*, static, only when the index has a correspondence;
-- in side by side, which the learner opened, the following pane's move at a section crossing, and the `↔` gutter glyphs.
+- the Guide's one-line *also in your books*, static, only when judged coverage exists for the section;
+- in side by side, which the learner opened, the following pane's move at a section crossing.
 
 What this design never does, in addition to UX §4.12's list:
-- **a correspondence mark in the text column** (§15 Q9: none by default);
+- **a correspondence mark in the text column** (§15 Q9);
 - **a count of matching sections or books**;
+- **unchecked search hits shown unasked**;
 - **an offer to compare, or a correspondence line, while the learner is in the working posture** (the Guide is folded into the workbench's `⋯` there anyway);
-- **any correspondence that points into exam material.** The index excludes `exam_material` sources (§12.3), and the presentation double-checks: a section in an exam source is never listed, peeked or paired. Exam questions are never taught.
+- **any correspondence that points into exam material.** The curriculum spec reads coverage and correspondents only through `exam_withheld`, `reading_held_back` and `spans_withheld` (its §9, gate G-C1), and the presentation adds nothing that could bypass them. A section in an exam source is never listed, peeked or paired. Exam questions are never taught.
 
 **Records:** peeks, jumps and side-by-side sessions are `reader_action_invoked` events with `event` = `corresponding_section_peeked`, `corresponding_section_opened`, `side_by_side_opened`, or `follow_along_moved` (salience only, spec §4.3). The detour return rate (UX §9.2) covers jumps with no new measure.
 
@@ -331,7 +345,7 @@ There is one **Ask panel**: a thread, a box, a context line, the help style, and
 1. **The context line**: what the answer will see, in words, each part a chip with `×` for this question only: *about › Exercise 6.1.12 · your draft · § Strang §6.1 (open)*; in the workbench, *about › step 3 · your steps 1–4 · the last check*; in the Reader, *about › your selection in §6.1 ¶4 · this thread*. *ⓘ what's sent* opens the plain list (shell §4.3's *details ▸*). Removing *your draft* sends the question without it. The chips are the context, not filters on retrieval: the server still derives policy and retrieval from the call (sources §5.2).
 2. **The help style**: *help style: balanced ▾* (§7.4).
 3. **The thread**: this attempt's exchanges in order, each an exchange as in UX §4.2: *›* the question, then the answer in book-first order (§7.8). It is empty at the start of every attempt (§7.3).
-4. **The box**: *ask in your words* (on a cold check, §7.7's placeholder), `↵` sends, `Shift+↵` new line, `$math$` renders. Under it, one dim line says the cost before sending: on an item, *a question about solving this counts as a hint · questions about the idea don't* (the server's existing classification, said plainly). It never says *N left*. The question budget is a money bound, and it shows only as UX §4.0's capped state.
+4. **The box**: *ask in your words* (on a cold check, §7.7's placeholder), `↵` sends, `Shift+↵` new line, `$math$` renders. Under it, one dim line says the cost before sending: on an item, *a question about the maths counts as a hint · asking what the question means doesn't*. That is the existing rule, said plainly: the tutor model's `question_type` on its answer, where `prerequisite`, `mechanism` and `strategy` count and `clarification`, `verification` and `other` don't (`HINT_EQUIVALENT_TYPES`). After the answer lands, its label says which it was: *counts as a hint* or *a clarification · free*. It never says *N left*. The question budget is a money bound, and it shows only as UX §4.0's capped state.
 5. **The foot**: *earlier on this question ▸* when there are earlier threads and no cold check (§7.3).
 
 **Keys, the same in every host:** `?` (outside a text field) opens the panel with the box focused. In the workbench, `?` asks about the focused step. `↵` sends, and `Esc` closes the panel, returning focus to where it was. In the Reader, `?` with a selection keeps focusing the intent box (UX §3.5), so asking about a selection still goes through the box.
@@ -346,7 +360,7 @@ There is one **Ask panel**: a thread, a box, a context line, the help style, and
 
 - **The rule (C6):** on an item, an Ask thread belongs to **one attempt-in-progress**, keyed by the attempt's submission id, the same key the hint service already counts by (`SC/hints.py:178-181`). A new serve of the item has a new submission id. It opens with an empty thread, an empty hint list and an empty help footer (bug-fix B3, with B4's checkpoint release). Feedback Ask stays keyed by attempt id. Reader inquiries are unchanged (they aren't attempts).
 - **Earlier threads are browsable and never current.** *earlier on this question ▸* opens a list by date. Each entry gives its date and how that attempt ended, in the evidence vocabulary: *Tue 14 Oct · solved with help ◌*, *Sat 4 Oct · on your own ●*, *Thu 2 Oct · left unfinished*. Opening one shows its exchanges read-only, under a dim header: *from your attempt on 14 Oct — not part of this one*. Hints that attempt took show the same way, under their own label. No earlier thread's text enters the model context of a later attempt (§11 K6). What carries over is what the learner model already knows: the facet's history, read by the hint chooser and the tutor as state, never as text to repeat.
-- **Its cost, before Submit.** Rereading last time's help is help, so *earlier on this question* says what opening it costs before it opens: *earlier on this question ▸ · opening one counts as a hint*. It is recorded as one hint-equivalent (`hints_used` += 1), the same rule as the book left open (spec §5.4). After Submit it is free, and the feedback screen offers it plainly (*your earlier attempts ▸*). §15 Q2 asks the owner to confirm this rule.
+- **Its cost, before Submit.** Rereading last time's help is help, so *earlier on this question* says what opening it costs before it opens: *earlier on this question ▸ · opening one counts as a hint*. It is recorded as one hint-equivalent (`hints_used` += 1), the same rule as the book left open (spec §5.4). After Submit it is free, and the feedback screen offers it plainly (*your earlier attempts ▸*). The owner decided this rule on 2026-10-25 (§15 Q2).
 - **During a check on your own:** absent, both the link and any hint carried from before (U11: a cold check shows nothing from before). After feedback it appears.
 - **What "reattempt" means.** Every new serve of the item counts: the plan serving it again, *practice this* choosing it, a guided redo, a resumed Work-in-Steps session's **next** attempt. Resuming the **same** unfinished workbench session is not a reattempt. Its steps and help are the same attempt, so they come back (UX §5.3, `workbench_help_state`), with its thread.
 - **Carried hints** between the answer box and steps (`carriedHints`, today's *hints-carried* banner) stay: they are the same attempt moving between two answer surfaces.
@@ -369,12 +383,13 @@ There is one **Ask panel**: a thread, a box, a context line, the help style, and
 
 ### 7.5 Ask and hints: one ladder, two doors
 
-**Recommendation (§15 Q1): one help record and one ladder, with two ways in.**
+**Decided (§15 Q1, 2026-10-25): one help record and one ladder, with two ways in.**
 - **Two doors.** *Hint* (`Ctrl+H`, the ladder in the workbench) is help LearnLoop chooses for your work. *Ask* (`?`) is help in your own words. Both stay, because the learner sometimes knows what they need and sometimes doesn't.
 - **One record.** Every check, hint, question and answer taken on the attempt lands in the attempt's **help footer**, in order and each with its cost: *help used: a check · a question (counts as a hint) · a hint (L3)*. The help column (workbench) and the docked panel (practice) list the same items. The server counts them as it already does: hints and checks at levels 1–3 add to `hints_used`, worked help sets `primed`, and hint-equivalent questions fold in at Submit (`tutor_qa.py:1166-1186`). §11 K8–K9 pin that one surface never shows a different total from another.
 - **One ladder.** The five rungs measure how much of the solution the help does (spec §5.4), whichever door it came through:
   - A **strategy question** (*how do I go on?*, *what should I try?*) is answered by the hint service as a hint of a chosen kind (hints §4.1, H4). It lands where a hint lands, labelled *◇ model · the next step · answering your question*, and counts as that hint.
-  - A **question about the idea** (*why is a polynomial's root an eigenvalue?*) is answered by the tutor in book-first order (§7.8). It counts as a hint only when the server classifies it as about solving this item, as today, and the box said so before it was sent (§7.1).
+  - A **question about the idea** (*why is a polynomial's root an eigenvalue?*) is answered by the tutor in book-first order (§7.8). It counts as a hint when the tutor's `question_type` says it is substantive (a prerequisite or a mechanism), as today. A **clarification** (*what does this symbol mean?*) or a verification is free. The box said so before it was sent (§7.1), and the answer's label says which it was.
+  - **Who decides is always a model, with a receipt.** The tutor's `question_type` is its judgment, written on the question event with the answer's model and prompt version. Recognizing a strategy question to hand to the hint service is H4's (hints §4.1). Where that needs a judgment before answering, it is a model's typed choice logged in `judgment_ledger`, never a word list. If the CA2 agent finds a receipt lacks model or prompt version, it adds them to the event payload (no migration).
   - **A request for the answer** (*just show me*, *what's the final matrix?*) is never served as worked help on the spot. The answer is the ladder's take step, inline in the thread: *That's worked help ◌ — ↵ work a piece of it for me · show me the worked answer · or ask something smaller*. Taking it is the ladder's rung 4 or 5, recorded as such. Leak control applies to every Ask answer at levels 1–3, as for hints (hints §4.6).
 - **Why not two ladders.** Two ladders would put two totals on one attempt and let the learner reach worked help through whichever door is less guarded. The owner's "hints and Ask reset together" is easier to keep with one record.
 
@@ -401,9 +416,13 @@ The bug-fix stage makes Ask work in steps mode: `?` outside a text field, the pa
 
 ### 7.7 Cold checks: never blocked, honest about the change
 
-- **Ask is always reachable** (U11, P3 §11, C9). On a check on your own, opening the panel shows nothing from before: no earlier threads and no carried hints. The box's placeholder reads *ask in your words — sending makes this practice with help ◌*.
-- **Sending is the take step** (spec D42's choose-then-take, with no dialog). Any question sent during a cold check makes the attempt practice with help, whatever the question classifies as, because the answer is help the learner saw. It is recorded as a hint-equivalent on a `help_assists` row with surface `tutor`. The banner then changes from *A check on your own…* to *Practice with help ◌ — you asked a question*, and the attempt's record line says the same at Submit. This tightens today's behaviour, where only substantive questions count; §15 Q3 asks the owner to confirm it.
-- **The Hint door** keeps DL2's take header (*"Taking any help makes this attempt practice with help, not a check on your own."*). Both doors say the same thing in the same words.
+- **Ask is always reachable** (U11, P3 §11, C9). On a check on your own, opening the panel shows nothing from before: no earlier threads and no carried hints. The box's placeholder reads *ask in your words — a question about the maths makes this practice with help ◌; asking what the question means doesn't*.
+- **Today's rule decides what converts** (owner decision, §15 Q3). Only a **substantive** question makes a check on your own practice with help. Substantive means the existing classification: the tutor model's `question_type` on its answer is `prerequisite`, `mechanism` or `strategy` (`HINT_EQUIVALENT_TYPES`). A **clarification** (what a symbol or a word in the stem means), a verification (*am I right?*, which the tutor deflects) or anything `other` leaves the check as it was. The judgment is the model's, written on the question event with its model and prompt version as its receipt (§7.5), never a hand list of words.
+  - **After a substantive question,** it is recorded as a hint-equivalent (the existing fold). The banner changes from *A check on your own…* to *Practice with help ◌ — you asked about the maths*, the answer's label says *counts as help*, and the attempt's record line says the same at Submit.
+  - **After a clarification,** the answer is labelled *a clarification · still on your own* and the banner doesn't change.
+  - **A clarification's answer is still checked for leaks.** If its text overlaps the key, the existing reveal row (`tutor_answer`, with its overlap) is written as for any tutor answer, and the reveal-aware rules apply exactly as they do today. The classification only decides the hint count; it never hides a reveal.
+  - **The Reader's bound cold Ask follows the same rule.** Today it counts whatever its type (`tutor_qa.py:855-867`), so one rule now covers both cold paths. The CA2 agent checks whether this changes an existing attempt's classification (§13's successor ruling).
+- **The Hint door** keeps DL2's take header (*"Taking any help makes this attempt practice with help, not a check on your own."*). Any hint converts the check: a hint is help by construction. The Ask door's placeholder states its own rule in the same plain words.
 - **`cold_retry` and certification probes** today say *"No hints on this one: it's a check on your own."* and withhold hints. That contradicts U11. This design replaces it with the same take step as every other cold check (§15 Q4). Taking help converts the attempt, so the measurement stays honest and nothing is withheld.
 - **Diagnostic blocks** keep today's refusal of the tutor until the block ends (hints §4.8). The panel says so in one line: *Ask opens after this short set · your question is kept*, and it keeps a typed question for then.
 - **After feedback,** Ask works as on any feedback screen, and *earlier on this question* appears.
@@ -579,19 +598,27 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 ```
 │ GUIDE    ask    notes                    │
 │ section · 6.1 ━━━━━━━━━──────            │
-│ also in Axler §5.A, Lay §5.1 ▸           │   (dim; static; only when the index has one)
+│ also in Axler §5.A, Lay §5.1 ▸           │   (dim; static; only with judged coverage)
 │ ──────────────────────────────────────── │
 │ your path · learn to use it   …          │
 
     after x:
 │ also in your books                    ⋯ │
+│ eigenvalues of a linear map              │
 │  Axler §5.A Invariant subspaces          │
-│        same topic · no determinants  ▸  │
+│        introduces it                 ▸  │
 │  Lay   §5.1 Eigenvectors and…            │
-│        same topic · more computation ▸  │
+│        develops it · read            ▸  │
+│        ◇ uses row vectors               │
+│ the characteristic polynomial            │
 │  Lay   §5.2 The characteristic eq.       │
-│        goes further · read           ▸  │
-│ space peek · ↵ go · s side by side · c  │
+│        develops it · you compared    ▸  │
+│        these: different notation         │
+│ space peek · ↵ go · s side · c compare  │
+
+    no coverage yet (pressed: find this section in my other books ▸):
+│  Axler §5.A Invariant subspaces          │
+│        found by search, not checked  ▸  │
 ```
 
 **X8 — Peek, then the way back.** **[CA5]**
@@ -612,15 +639,16 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 ┌ READER · side by side                                                                                ┐
 │ ↩ Strang §6.1  ›  side by side with Axler §5.A                                       alt+← back      │
 ├───────────────────────────────────────────────┬─┬───────────────────────────────────────────────┬────┤
-│ § Strang · §6.2 Diagonalizing           ✕ lead│↔│ § Axler · §5.C  follow along ● (^⇧L)       ✕ │ ⋮  │
+│ § Strang · §6.2 Diagonalizing           ✕ lead│ │ § Axler · §5.C  follow along ● (^⇧L)       ✕ │ ⋮  │
 │                                               │ │                                               │    │
 │   6.2 Diagonalizing a matrix …                │ │   5.C Eigenspaces and diagonal matrices …     │    │
-│   …                                           │↔│   …                                           │    │
+│   …                                           │ │   …                                           │    │
 │                                               │ │                                               │    │
 ├───────────────────────────────────────────────┴─┴───────────────────────────────────────────────┴────┤
-│ F6 other pane  ^⇧L follow along  ↔ ↵ align here  select ask·act  ^\ close side by side  \ rail       │
+│ F6 other pane  ^⇧L follow along  select ask·act  ^\ close side by side  \ rail                        │
 
-    no pair for the new section:   § Axler · §5.C · no matching section here · stays put
+    the follower moves only when the leader crosses into a new section (to its first correspondent)
+    no correspondent for the new section:   § Axler · §5.C · no matching section here · stays put
 ```
 
 **X10 — Ask on the practice screen, docked, at the start of a reattempt.** **[CA2]**
@@ -638,8 +666,8 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 │ [ Submit ^↵ ]  Hint ^h · I'm stuck · Ask ? · Skip       │ ┌────────────────────────┐ │
 │ help used: nothing yet                                 │ │ ask in your words       │ │
 │                                                        │ └────────────────────────┘ │
-│                                                        │ a question about solving   │
-│                                                        │ this counts as a hint      │
+│                                                        │ a question about the maths │
+│                                                        │ counts as a hint           │
 │                                                        │ earlier on this question ▸ │
 │                                                        │ · opening one counts as a  │
 │                                                        │   hint                     │
@@ -658,7 +686,7 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 │  3 › λ is real because …                                                         · not checked             │
 │      ┌ about › step 3 · your steps 1–3 ──────────────────────────────────────┐                             │
 │      │ › why can I assume λ is real here?                                   ↵ │                             │
-│      └ a question about solving this counts as a hint ────────────────────────┘                             │
+│      └ a question about the maths counts as a hint · what the question means doesn't ┘                      │
 │  4 › _                                                                                                     │
 │ ^k check my work (a hint)  ^h help  ? ask about this step  ^d I'm stuck                       ^↵ submit   │
 │ help used: a question (counts as a hint)                             help so far ▸   esc leave · ⋯        │
@@ -674,13 +702,15 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 │                                                   ┌ ASK ─────────────────────────────────────────────┐ │
 │                                                   │ about › this check · your draft                  │ │
 │                                                   │ ┌──────────────────────────────────────────────┐ │ │
-│                                                   │ │ ask in your words — sending makes this        │ │ │
-│                                                   │ │ practice with help ◌                          │ │ │
+│                                                   │ │ ask in your words — a question about the      │ │ │
+│                                                   │ │ maths makes this practice with help ◌; asking │ │ │
+│                                                   │ │ what the question means doesn't               │ │ │
 │                                                   │ └──────────────────────────────────────────────┘ │ │
 │                                                   │ esc keep it on my own                            │ │
 │                                                   └──────────────────────────────────────────────────┘ │
 
-    after sending:   ┃ Practice with help ◌ — you asked a question
+    after a question about the maths:   ┃ Practice with help ◌ — you asked about the maths
+    after a clarification:              ◇ model · a clarification · still on your own   (banner unchanged)
     after feedback:  Exercise 4.22 · Lay p.214 · original page ↗ · ▸ as printed · why this check ▸
                      earlier on this question ▸
 ```
@@ -740,7 +770,7 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 | Hints on reattempt | Restored from the checkpoint; stale offer on submit | Empty on a new serve; checkpoint released; stale offer still grades | Bug-fix |
 | Help style | Settings and the hint `⋯` menu; the Reader has a separate mode select; the fallback ignores the style | Visible on every help panel; drives hints and Ask's mode; one vocabulary | Bug-fix (fallback) → CA2 (visible, Ask mode) |
 | Ask and hints | Separate panels, separate counts on screen | One help record and one ladder, two doors; requests for the answer go through the take step | CA2 |
-| Cold checks and Ask | Ask isn't gated by the take step; only substantive questions count | Sending is the take step and always converts; the banner says so | CA2 (§15 Q3) |
+| Cold checks and Ask | Ask's cold consequence isn't said before sending; practice counts only substantive questions while the Reader's bound cold Ask counts every question | One rule on both paths (owner, Q3): substantive questions convert and clarifications don't, judged by the tutor's `question_type` with its receipt; the placeholder says so before sending, and the answer's label and the banner say what happened | CA2 (§15 Q3) |
 | `cold_retry` "No hints on this one" | Hints withheld | The same take step as every cold check | CA2 (§15 Q4) |
 | Citations | Reader: book first; practice overlay: a "sources:" chip row | Book first on every host; `§` chips peek in place | CA2 |
 | Original page | Not rendered for any practice item; crop RPC unused | *Original page ↗* and *▸ as printed* on practice, workbench, feedback and candidates; hidden during a cold check; figure-only exception | CA1 |
@@ -764,7 +794,7 @@ Widths are indicative. `◐` marks pending; `▓` marks a selection.
 | **K7** | **One Ask contract for practice and the workbench:** the practice Ask RPC accepts `submission_id` and `workbench_session_id`; the server derives policy (`assisted_practice`, `cold_attempt`); no client-sent policy or count is trusted. | **N** (CA2) | sidecar, extending `test_reader_find_sources_callers.py`'s pattern |
 | **K8** | **One help record:** the attempt's help footer on every host lists every check, hint, question and worked help taken, in order; its count of hint-equivalents equals what Submit records. | **N** (CA2) | sidecar (fold) + vitest (footer) |
 | **K9** | **Ask never serves worked help without the take step:** an Ask answer at levels 1–3 passes the hint service's leak control; a request for the answer returns the rung 4/5 take step, recorded as that rung only if taken. | **N** (CA2) | sidecar |
-| **K10** | **Cold: Ask is never blocked, and sending converts.** The box shows the consequence before sending; a sent question makes the attempt practice with help (`help_assists`, surface `tutor`); earlier threads and carried hints are absent; diagnostic blocks keep today's refusal, with the question kept. | **N** (CA2; Q3) | sidecar + vitest. *If the agent finds this changes an attempt's classification beyond the existing hint-equivalent mapping, stop: it becomes a successor (the next free `mvp-0.N`) under the algorithm-change playbook.* |
+| **K10** | **Cold: Ask is never blocked, and only substantive questions convert** (owner, Q3). The box states the rule before sending. A question whose tutor `question_type` is `prerequisite`, `mechanism` or `strategy` makes the attempt practice with help (the existing hint-equivalent fold). A `clarification`, `verification` or `other` question leaves it on your own, and its answer is labelled so. The classification is the model's, with its receipt (model and prompt version) on the question event. The Reader's bound cold Ask follows the same rule. Leak overlap still writes its reveal row whatever the type. Earlier threads and carried hints are absent. Diagnostic blocks keep today's refusal, with the question kept. | **N** (CA2; Q3) | sidecar + vitest. *If the agent finds this changes an attempt's classification beyond the existing hint-equivalent mapping, stop: it becomes a successor (the next free `mvp-0.N`) under the algorithm-change playbook.* |
 | **K11** | **Book first on every host:** a verified `§` excerpt when one answers, then `◇`, then the bridge; "your books don't cover this directly" when none is kept; exam material never cited. | **N** (CA2) | vitest (order), sidecar (policy) |
 | **K12** | **One comparison request:** every door issues the same RPC with the same payload shape; a selection-started comparison needs no pins; named sources only narrow the scope; the server derives the policy; exam material is withheld (unchanged). | **N** (CA3) | sidecar + vitest (door parity) |
 | **K13** | **No merged answer, and cells are quoted or empty:** every cell's quote is verified in code (sources §9.4, unchanged); a cell without one reads *not addressed here*; chips are exactly the relations the comparison returned for the row's pairs. | **N** (CA4) | sidecar (v2 schema has no consensus field) + vitest |
@@ -785,22 +815,36 @@ K1–K4, as that stage's own tests define them. Two notes so the presentation ca
 ### 12.2 To the Reader and sources specs (comparisons)
 
 - **`reader.library_compare` accepts an anchor without pins** (zero or one pin plus discovery), and **named sources** (`source_ids`, which only narrow the scope; refused if they would widen it, as `policy` is). `compare_sources` gains the same optional `source_ids` (sources §9.4). Exam material stays withheld.
-- **A v2 comparison output** (`source_compare.v2`, the same route and one call): a list of **points**, each with a short label, and per source a cell `{quote, line, span_key}` or `not_addressed`; per point, its pairs' relations with statements and quotes; requested perspectives as points labelled by the learner's words. Quote verification is unchanged. Stored in `source_comparisons.comparison_json` (no migration); v1 rows keep rendering by book (§5.3). `CompareKeep` maps a kept v2 row to the same proposals as today (RW4d's mapping, spec §3.4 item 15), one claim per cell, with the row's label in `content_json`.
+- **A v2 comparison output** (`source_compare.v2`, the same route and one call): a list of **points**, each with a short label, and per source a cell `{quote, line, span_key}` or `not_addressed`; per point, its pairs' relations with statements and quotes, drawn from the **unchanged** `RELATIONS` set (`equivalent`, `different_assumptions`, `different_notation`, `disagreement`, `unclear`; no `complementary`); requested perspectives as points labelled by the learner's words. Quote verification is unchanged. Stored in `source_comparisons.comparison_json` (no migration); v1 rows keep rendering by book (§5.3). `CompareKeep` maps a kept v2 row to the same proposals as today (RW4d's mapping, spec §3.4 item 15), one claim per cell, with the row's label in `content_json`.
 - **The four-view bound** (`MAX_PERSPECTIVES`) is a stored-size bound and is labelled a `keep` guardrail in config, not a learned constant.
 - **A Decider task, `compare_scope`** (T1 plan-first; a typed choice over the vault's book list, never a chat fallback). Unavailable means "all books, the words as the query" (§4.3). It writes ledger verdicts like `reader_intent` (`decider`, then `learner_card` on *change*), so its error is measurable without a chore.
 
-### 12.3 To the companion spec: what the presentation needs from the section correspondence index
+### 12.3 The companion spec: what the presentation reads from the section correspondence index
 
-The curriculum spec owns the index's data and how it is computed. The presentation needs, per section of a source (§6):
-1. **Its corresponding sections** in the learner's other sources, each with source, section id, the section's own number and title, and its first block's span (for peek and jump).
-2. **One relation per pair, from a small closed set the UI can name in plain words:** same topic · introduces it · goes further · uses it · a worked example of it · exercises on it. The index may refine the set; the UI shows its words.
-3. **An order** (the index's own, from its learned scores). The UI shows no score.
-4. **Optionally, a short note** of how the treatment differs, written by a model and labelled as such (shown as `◇`).
-5. **Optionally, paragraph-level anchor pairs** for side by side's `↔` (§6.4).
-6. **Exclusion of `exam_material` sources** (A8), and of sections the sources spec's exposure rule marks for a check the learner hasn't taken, if the index is ever used to pick checks.
-7. **Freshness:** a section whose source revision changed is dropped from the index until it is recomputed, never shown pointing at old text.
+The curriculum spec (`spec_deliverable_curriculum_v1.md` §6, commit `5facf66b9`) defines the data and its read API. This document adds nothing to them and reads them as follows:
 
-The names this document uses: *section correspondence index* for the data, *also in your books* for the Guide line, *side by side* and *follow along* for the paired view.
+| The presentation needs | The curriculum spec provides | Used in |
+|---|---|---|
+| A section's corresponding sections in the learner's other books | `reader.correspondents(extraction_id, section_id)`: per LO, per other source, the sections whose `section_coverage` names the same LO with a treatment other than `not_about` | §6.2's list, grouped by LO |
+| How each one treats the shared LO, in plain words | `treatment`: `introduces` · `develops` · `applies` · `mentions` | the line's *introduces it · develops it · uses it · mentions it* |
+| An order, with no score on screen | ordered by treatment (`introduces`, `develops` first), then retrieval rank | the list's order; side by side's follower target |
+| A short, labelled model note | `notation_md` (the judge's one line), plus `roles_json` | the `◇` notation line; roles in the peek header |
+| The learner's own record of a relation | the kept relation, if any (RW4d) | *you compared these: different notation* |
+| Where to land | the `jump` locator | peek, go there, side by side |
+| Sections with no coverage yet | live `search_spans` hits per source, labelled unchecked, with no model call and no write | CA5a's pressed *find this section in my other books* only (§6.2) |
+| Corrections | *not about this* and *also about…* rows (`learner`, curriculum §6.5) | each line's `⋯` |
+| Exam and reading protection | reads only through `exam_withheld`, `reading_held_back`, `spans_withheld` (curriculum §9, G-C1) | every surface in §6 |
+| Freshness | a changed `state_key` writes new rows, and old rows are no longer read (curriculum §6.1) | nothing stale is shown |
+
+**What the index deliberately doesn't have,** and how this design copes:
+- **No pair relation between two sections.** The curriculum spec keeps pair relations on demand in `compare_sources` and in RW4d's keeps. So §6 shows no model-written pair relation, and `c` runs the comparison.
+- **No paragraph-level anchors.** Side by side follows at section level only (§6.4).
+
+**Two small requests remain, both on presentation-facing details and neither a new table:**
+1. `reader.correspondents` returns the section's own number and title (or ids the client can resolve without a second round trip), so a line can quote the book's heading.
+2. It returns, per section, whether it is the same section the call was made from under another extraction of the same source, so a re-extracted book never lists itself.
+
+The names this document uses: *section correspondence index* for the `section_coverage` join, *also in your books* for the Guide line, *side by side* and *follow along* for the paired view.
 
 ### 12.4 Items and import paths (original page)
 
@@ -821,16 +865,16 @@ The names this document uses: *section correspondence index* for the data, *also
 | **CA2 — one Ask** | The Ask panel in three hosts (the docked practice panel; inline per step in the workbench; the rail restyled); context chips; the help style visible on every help panel and driving Ask's mode; *earlier on this question*; one help record; the take step for worked help; Ask on cold checks with the take step; book first on every host. Library and capture contexts keep the overlay | CA0 | **M** | possibly a submission-id column on stored tutor exchanges, if they don't already carry one in their payload (K5) |
 | **CA3 — compare from anywhere** | The selection verb; *compare these books*; the ask box with `compare_scope`; chips, *+ add a book*; refine (`/`) for books; one request for every door (anchor without pins, named sources) | — | **S–M** | none |
 | **CA4 — the table by point** | `source_compare.v2`; the grid, chips, *› you* column, perspectives as rows, hide row, keyboard map, narrow cards, *by book*, v1 rendering, resize re-clamp | CA3 (shares the request) | **M** | none (JSON in `source_comparisons`) |
-| **CA5a — find this section in my other books** | The pressed fallback in the Guide's footer, listed as §6.2's lines, *found by keyword + meaning*; peek, go there, compare | — | **S** | none |
-| **CA5 — also in your books** | The one-line Guide entry and its list from the section correspondence index; retires CA5a for covered books | the curriculum spec's index | **S** on top of the index | none here |
-| **CA6 — side by side** | Two panes, follow along, the `↔` gutter when anchors exist, narrow fallback to peek | CA5 (CA5a's hits give a section-level pairing for the pair opened, without follow-along) | **M** | none |
+| **CA5a — find this section in my other books** | The pressed action in the Guide's footer over `reader.correspondents`' unchecked search hits, by book, *found by search, not checked*; peek, go there, compare; *not about this* | the curriculum spec's C0a (`reader.correspondents`; its search fallback needs no coverage) | **S** | none here |
+| **CA5 — also in your books** | The one-line Guide entry and its list grouped by LO from judged `section_coverage`; treatment words, notation line, kept relation, *read*; corrections; the off switch | the curriculum spec's C0a, with coverage built for the LOs in question (a deliverable, or `learnloop curriculum cover`) | **S** on top of C0a | none here |
+| **CA6 — side by side** | Two panes; follow along at section level from `reader.correspondents` (judged coverage only); narrow fallback to peek | CA5 | **M** | none |
 | **CA7 — the phone** (owner trigger) | Kept comparisons by point, read-only plus *your take*; *as printed* after feedback | owner decisions on the allowlist (mobile spec) | **S** | none |
 
-**Why CA1 first:** it answers one of the owner's notes on its own, uses data and an RPC that already exist, changes no evidence semantics outside one stated rule (the page before Submit, Q12), and is useful on every OCR'd problem from the first day. CA2 waits for the bug-fix stage, so it builds on fixed behaviour rather than around it. CA3 is the cheapest way to make comparing easier, and it doesn't wait for the v2 table. CA5 waits on the companion spec's index; CA5a gives the skim-and-jump experience before that.
+**Why CA1 first:** it answers one of the owner's notes on its own, uses data and an RPC that already exist, changes no evidence semantics outside one stated rule (the page before Submit, Q12), and is useful on every OCR'd problem from the first day. CA2 waits for the bug-fix stage, so it builds on fixed behaviour rather than around it. CA3 is the cheapest way to make comparing easier, and it doesn't wait for the v2 table. CA5a and CA5 wait on the curriculum spec's C0a (`section_coverage` and `reader.correspondents`; that spec's Q15 recommends C0a first when this spec is ready to build). CA5a is usable the day C0a lands, because its search fallback needs no coverage.
 
-**Successor ruling.** None of these changes scoring, scheduling or projections, with two places to check. K6's "opening an earlier thread counts as a hint" and K10's "any cold question converts" both map onto the existing `hints_used` field with its existing meaning (spec §5.4). If the CA2 agent finds that either changes an existing attempt's classification in a way the field doesn't already express, it stops and makes it a successor (the next free `mvp-0.N`), following `docs/algorithm-change-playbook.md`.
+**Successor ruling.** None of these changes scoring, scheduling or projections, with two places to check. K6's "opening an earlier thread counts as a hint" maps onto the existing `hints_used` field with its existing meaning (spec §5.4). K10 keeps practice's existing rule, but it changes the Reader's bound cold Ask, which counts every question today, to count only substantive ones (`tutor_qa.py:855-867`). If the CA2 agent finds that either changes an existing attempt's classification in a way the field doesn't already express, it stops and makes it a successor (the next free `mvp-0.N`), following `docs/algorithm-change-playbook.md`.
 
-**Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
+**Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---
 
@@ -841,9 +885,9 @@ No new table; the measures read existing events and rows (spec §4.3, §5.7, §7
 | After | Owner does | Looks at |
 |---|---|---|
 | CA1 | Practise OCR'd problems as usual | *As printed* opened per OCR'd item; *the transcription doesn't match the page* reports (each is a transcription defect worth fixing); *original page* opened before vs after Submit |
-| CA2 | Two weeks of normal practice, some in steps | Asks per attempt by host; questions answered as hints vs about the idea; take steps shown vs taken for worked help; *earlier on this question* opened before vs after Submit; cold checks converted by Ask vs by Hint; help-style changes and the mix of kinds under each style |
+| CA2 | Two weeks of normal practice, some in steps | Asks per attempt by host; questions answered as hints vs about the idea; take steps shown vs taken for worked help; *earlier on this question* opened before vs after Submit; cold checks converted by Ask vs by Hint, and cold questions classified as clarifications (each with its `question_type` receipt, so a misclassified one can be found); help-style changes and the mix of kinds under each style |
 | CA3–CA4 | Compare when curious | Comparisons by door; named-book readings corrected with *change* (the `compare_scope` error rate); rows hidden; takes written; keeps; *by book* chosen |
-| CA5–CA6 | A week reading across two books | Peeks and jumps per reading hour and their **return rate** (UX §9.2); side-by-side minutes; follow-along moves the learner undid by scrolling back (a sign the pairing was wrong) |
+| CA5–CA6 | A week reading across two books | Peeks and jumps per reading hour and their **return rate** (UX §9.2); side-by-side minutes; follow-along moves the learner undid by scrolling back (a sign the pairing was wrong); *not about this* and *also about…* corrections, which the curriculum spec counts as the coverage judge's error rate |
 
 **Questions for the week's end** (added to UX §9.4's checklist):
 1. When you wondered how another book did something, could you get there in one or two keys?
@@ -856,25 +900,27 @@ No new table; the measures read existing events and rows (spec §4.3, §5.7, §7
 
 ---
 
-## 15. Open questions, with recommended answers
+## 15. Decisions (owner, 2026-10-25)
 
-| # | Question | Recommended answer |
+The owner adopted every recommended answer except Q3's, which was decided against the recommendation: today's rule stands. Each row gives the decision. The recommendation is kept only where it differed.
+
+| # | Question | Decision |
 |---|---|---|
-| **Q1** | Ask and hints: one ladder or two? | **One help record and one ladder, two doors** (§7.5). Strategy questions are served as hints; requests for the answer go through the take step; one footer. |
-| **Q2** | Opening an earlier attempt's thread before Submit: free, or a hint? | **One hint-equivalent, said first; free after Submit; absent during a cold check.** Rereading last time's help is help, and the book-open rule already counts that way. |
-| **Q3** | During a check on your own, does every sent question make it practice with help, or only questions the server classifies as substantive (today)? | **Every sent question.** The learner sees an answer either way, and the box says so before sending, so it is honest and costs one key. If the owner prefers today's rule, the placeholder must say *"questions about solving this make it practice with help"*, and the server's classification must run before the answer is shown. |
-| **Q4** | `cold_retry` and certification probes withhold hints (*No hints on this one*). Keep that, or use the take step? | **The take step,** as for every cold check: help is never withheld (U11, P3 §11), and taking it converts the attempt, so the measurement stays honest. |
-| **Q5** | Retire the Reader's per-source answer-mode select in favour of the help style? | **Yes:** one vocabulary, one stored preference, plus *change* for one question. A learner who wants one source always answered directly can use the workbench-style per-problem override, extended to a per-source override if it is missed (revisit after CA2's two weeks). |
-| **Q6** | The practice screen's Ask: docked panel or modal overlay? | **Docked,** so the question and draft stay in view (U3: anchor on the learner's work). Below 1,040 px, a sheet with the stem pinned. |
-| **Q7** | The screen reader's "Comparison ready: 4 points": a count of rows in a finished table. Keep it, or say only "Comparison ready"? | **Keep it.** It is a fact about the finished table, not a count of waiting things (shell rule 10), and it tells a screen-reader user how long the table is. |
-| **Q8** | *Also in your books* in skim mode? | **Shown.** It is navigation, and skimming across books is what it serves. Skim still mutes everything LearnLoop says about the learner or the text. |
-| **Q9** | A margin mark beside paragraphs that have a correspondence? | **No.** It would double the margin's load for little gain over the Guide line. Paragraph-level pairs show only in side by side, which the learner opened. Revisit if the owner finds the Guide line too far from the text. |
-| **Q10** | During a cold check, show the figure a problem depends on, cropped figure-only? | **Yes,** with no caption, number or page. Without it the problem is unanswerable, and a figure crop doesn't locate the exercise the way a number or page does (D46's purpose). |
-| **Q11** | Kept comparisons on the phone (read-only plus *your take*)? | **Later, on the owner's trigger,** when the phone page is used most days. It needs two allowlist entries (§5.7). |
-| **Q12** | *Original page* before Submit: a hint, or free? | **One hint-equivalent, labelled first.** The page shows neighbouring material (other exercises, a worked example, sometimes a solution), the same as the book left open. *As printed* (the problem's own blocks) stays free. |
-| **Q13** | Named books in the ask box: compare only those, or those plus every other match? | **Only the named books,** with the others found by retrieval listed under *also discussed in* (one key to add). Naming books is the learner narrowing on purpose. |
-| **Q14** | Follow along: on by default in side by side? | **On,** section-level only, with the last-touched pane leading. The owner asked to jump between corresponding sections; following at boundaries is that jump, made for them. One toggle turns it off for the session. |
-| **Q15** | Should *how do my other books treat this?* replace *where else is this explained?* | **No, keep both.** *Where else* finds passages (cheap, sources first); *how do my other books treat this?* compares them (one model call). They answer different questions, and both sit in Transfer. |
+| **Q1** | Ask and hints: one ladder or two? | **DECIDED 2026-10-25, as recommended.** **One help record and one ladder, two doors** (§7.5). Strategy questions are served as hints; requests for the answer go through the take step; one footer. |
+| **Q2** | Opening an earlier attempt's thread before Submit: free, or a hint? | **DECIDED 2026-10-25, as recommended.** **One hint-equivalent, said first; free after Submit; absent during a cold check.** Rereading last time's help is help, and the book-open rule already counts that way. |
+| **Q3** | During a check on your own, does every sent question make it practice with help, or only questions the server classifies as substantive (today)? | **DECIDED 2026-10-25, against the recommendation: today's rule.** Only substantive questions convert. *Substantive* is the existing rule: the tutor model's `question_type` is `prerequisite`, `mechanism` or `strategy`. Clarifying questions (what a symbol or word means), verification and `other` leave the check on your own. Where Ask needs a judgment to classify, it is the model's, logged as a receipt (the question event with model and prompt version; a `judgment_ledger` row where a judgment comes before the answer), never a hand list. The placeholder states the rule before sending, the answer's label says which it was, and the Reader's bound cold Ask follows the same rule (§7.7, K10). *(The recommendation had been: every sent question converts.)* |
+| **Q4** | `cold_retry` and certification probes withhold hints (*No hints on this one*). Keep that, or use the take step? | **DECIDED 2026-10-25, as recommended.** **The take step,** as for every cold check: help is never withheld (U11, P3 §11), and taking it converts the attempt, so the measurement stays honest. |
+| **Q5** | Retire the Reader's per-source answer-mode select in favour of the help style? | **DECIDED 2026-10-25, as recommended.** **Yes:** one vocabulary, one stored preference, plus *change* for one question. A learner who wants one source always answered directly can use the workbench-style per-problem override, extended to a per-source override if it is missed (revisit after CA2's two weeks). |
+| **Q6** | The practice screen's Ask: docked panel or modal overlay? | **DECIDED 2026-10-25, as recommended.** **Docked,** so the question and draft stay in view (U3: anchor on the learner's work). Below 1,040 px, a sheet with the stem pinned. |
+| **Q7** | The screen reader's "Comparison ready: 4 points": a count of rows in a finished table. Keep it, or say only "Comparison ready"? | **DECIDED 2026-10-25, as recommended.** **Keep it.** It is a fact about the finished table, not a count of waiting things (shell rule 10), and it tells a screen-reader user how long the table is. |
+| **Q8** | *Also in your books* in skim mode? | **DECIDED 2026-10-25, as recommended.** **Shown.** It is navigation, and skimming across books is what it serves. Skim still mutes everything LearnLoop says about the learner or the text. |
+| **Q9** | A margin mark beside paragraphs that have a correspondence? | **DECIDED 2026-10-25, as recommended.** **No.** It would double the margin's load for little gain over the Guide line. The index pairs sections, not paragraphs (§12.3), so v1 has no paragraph-level pairing anywhere. Revisit if the owner finds the Guide line too far from the text. |
+| **Q10** | During a cold check, show the figure a problem depends on, cropped figure-only? | **DECIDED 2026-10-25, as recommended.** **Yes,** with no caption, number or page. Without it the problem is unanswerable, and a figure crop doesn't locate the exercise the way a number or page does (D46's purpose). |
+| **Q11** | Kept comparisons on the phone (read-only plus *your take*)? | **DECIDED 2026-10-25, as recommended.** **Later, on the owner's trigger,** when the phone page is used most days. It needs two allowlist entries (§5.7). |
+| **Q12** | *Original page* before Submit: a hint, or free? | **DECIDED 2026-10-25, as recommended.** **One hint-equivalent, labelled first.** The page shows neighbouring material (other exercises, a worked example, sometimes a solution), the same as the book left open. *As printed* (the problem's own blocks) stays free. |
+| **Q13** | Named books in the ask box: compare only those, or those plus every other match? | **DECIDED 2026-10-25, as recommended.** **Only the named books,** with the others found by retrieval listed under *also discussed in* (one key to add). Naming books is the learner narrowing on purpose. |
+| **Q14** | Follow along: on by default in side by side? | **DECIDED 2026-10-25, as recommended.** **On,** section-level only, with the last-touched pane leading. The owner asked to jump between corresponding sections; following at boundaries is that jump, made for them. One toggle turns it off for the session. |
+| **Q15** | Should *how do my other books treat this?* replace *where else is this explained?* | **DECIDED 2026-10-25, as recommended.** **No, keep both.** *Where else* finds passages (cheap, sources first); *how do my other books treat this?* compares them (one model call). They answer different questions, and both sit in Transfer. |
 
 ---
 
