@@ -23,8 +23,8 @@ concepts:
     aliases:
       - focus-directrix definition of a parabola
       - parabola locus definition
-    description: A parabola is the set of points equidistant from a fixed point 
-      called the focus and a fixed line called the directrix.
+    description: Every point of a parabola lies exactly as far from one fixed 
+      point, its focus, as from one fixed line, its directrix.
     tags:
       - parabolas
       - conic-sections

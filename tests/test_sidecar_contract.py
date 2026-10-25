@@ -27,14 +27,17 @@ from tests.helpers import (
     seed_due_item,
     use_init_algorithm_version,
 )
+from tests.owner_vaults import owner_vault, owner_vaults
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
 pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
+FIXTURE_VAULT = owner_vault("linear_algebra")
 
 
+@owner_vaults
 def test_sidecar_loads_linear_algebra_fixture_vault(tmp_path):
     # The dev fixture vault the Tauri sidecar loads by default. Copy it to a temp
     # dir first so loading (which creates state.sqlite) never mutates the tracked
@@ -1936,11 +1939,12 @@ def test_sidecar_vault_tree_and_file_read(tmp_path):
     assert responses[3]["error"]["data"]["code"] == "invalid_path"
 
 
+@owner_vaults
 def test_sidecar_get_recent_ingests_lists_canonical_sources(tmp_path):
     # The arxiv fixture vault holds canonical_source notes plus the proposal
     # batches their ingests produced; copy it so loading never mutates it.
     vault_root = tmp_path / "vault"
-    shutil.copytree(Path(__file__).resolve().parents[1] / "fixtures" / "arxiv", vault_root)
+    shutil.copytree(owner_vault("arxiv"), vault_root)
 
     responses = _rpc(
         [
@@ -2456,6 +2460,7 @@ class _GradingServer:
         return Handler
 
 
+@owner_vaults
 def test_sidecar_get_facet_mastery_shape_on_fixture_vault(tmp_path):
     # Radar-chart rollup over the read-only linear_algebra fixture (copied to a
     # temp dir so loading never mutates the tracked fixture files).
@@ -2519,6 +2524,7 @@ def test_sidecar_get_facet_mastery_shape_on_fixture_vault(tmp_path):
     assert result["counts"]["practiceItems"] == len(seen_items)
 
 
+@owner_vaults
 def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
     # 2D similarity map over the read-only fixture (copied so loading never
     # mutates the tracked fixture files).
@@ -2595,6 +2601,7 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
         assert dists == sorted(dists)
 
 
+@owner_vaults
 def test_sidecar_get_knowledge_map_deterministic_and_geometric(tmp_path):
     vault_root = tmp_path / "vault"
     shutil.copytree(FIXTURE_VAULT, vault_root)

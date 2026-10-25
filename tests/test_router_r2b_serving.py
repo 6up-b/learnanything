@@ -38,6 +38,7 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.helpers import create_daily_plan_vault
 from tests.router_mixture_helpers import B, mixture_env, payloads, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, options_in
+from tests.owner_vaults import owner_vault, working_vault_params
 
 FROZEN = datetime(2026, 10, 14, 9, 30, tzinfo=UTC)
 
@@ -571,28 +572,26 @@ def test_a_drawn_llm_pick_shows_its_rationale_and_its_cited_answers(tmp_path):
 # -- G8 at the successor, on the owner's working vaults' backup copies ------------------------------
 
 
-@pytest.mark.parametrize("fixture", ("linear_algebra", "probability", "arxiv_v2"))
+@pytest.mark.parametrize("fixture", working_vault_params())
 def test_the_switches_at_the_successor_serve_their_predecessors_on_fixture_copies(tmp_path, monkeypatch, fixture):
     """``router.enabled = false`` at mvp-0.24 serves mvp-0.22's plan, and
     ``router.mode = "staged"`` serves mvp-0.23's (block sequence and every
     ``block_chosen`` detail apart from ids and the card's hash, which names
     the version), on backup-API copies."""
 
-    from pathlib import Path
-
     from learnloop.db.copies import copy_tree_with_databases
 
     from tests.helpers import append_config_toml, set_algorithm_version
     from tests.test_router_r2a_serving import _plan_trace
 
-    fixtures = Path(__file__).resolve().parents[1] / "fixtures"
-    if not (fixtures / fixture / "state.sqlite").exists():
+    source = owner_vault(fixture)
+    if not (source / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
 
     def trace(name: str, version: str, toml: str | None):
         root = tmp_path / name
-        copy_tree_with_databases(fixtures / fixture, root)
+        copy_tree_with_databases(source, root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)
         if toml:
             append_config_toml(root, toml)

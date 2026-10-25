@@ -249,7 +249,10 @@ def test_current_records_by_model_counts_current_identities_per_model(connection
 def _migration_head_fixture() -> Path:
     # Resolved, not hard-coded: CLAUDE.md's head-fixture procedure lists the
     # paths to rename, and this test must not become an unlisted sixth one.
-    heads = sorted((Path(__file__).resolve().parents[1] / "fixtures").glob("migration_head_*"))
+    # Only what git tracks: an untracked leftover directory is not the head.
+    from tests.owner_vaults import tracked_fixture_databases
+
+    heads = [path.parent for path in tracked_fixture_databases() if path.parent.name.startswith("migration_head_")]
     assert len(heads) == 1, heads
     return heads[0]
 

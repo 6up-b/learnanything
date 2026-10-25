@@ -33,12 +33,13 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled, seed_due
 from tests.helpers import append_config_toml, create_daily_plan_vault, set_algorithm_version
 from tests.test_daily_plan_build import _assert_finite, _seed_wide, _wide_items, _wide_vault
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 _VOLATILE = {"schedulerSlateId", "schedulerCandidateId", "generatedAt"}
 
@@ -58,7 +59,7 @@ def _served(value):
 
 def _copy(tmp_path, fixture, name, *, version, toml=None):
     root = tmp_path / name
-    copy_tree_with_databases(FIXTURES / fixture, root)
+    copy_tree_with_databases(owner_vault(fixture), root)
     set_algorithm_version(type("Paths", (), {"root": root})(), version)
     if toml:
         append_config_toml(root, toml)
@@ -86,7 +87,7 @@ def _plan_rows(root):
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_plan_off_is_dl0_on_fixture_copies(tmp_path, monkeypatch, fixture):
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     dl0, _ = _copy(tmp_path, fixture, "dl0", version="mvp-0.13")

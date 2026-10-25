@@ -36,6 +36,7 @@ from learnloop.scheduling.decay_pressure import decay_pressure
 from learnloop.goals.goal_projection import FacetProjection, GoalReport
 from learnloop.learner.overconfidence import blueprint_weight_by_facet, overconfidence_facets
 from learnloop.scheduling.reentry_summary import reentry_summary
+from tests.owner_vaults import owner_vault, owner_vaults
 
 
 # --- lightweight fakes -------------------------------------------------------
@@ -278,8 +279,9 @@ def test_decay_pressure_already_below_target_crosses_at_zero(monkeypatch):
 # --- F5 overconfidence probe origin (§4.3) -----------------------------------
 
 
+@owner_vaults
 def test_overconfidence_probe_records_origin(tmp_path, migration_upgrade_allowed):
-    root = Path("fixtures/linear_algebra")
+    root = owner_vault("linear_algebra")
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)
@@ -296,13 +298,14 @@ def test_overconfidence_probe_records_origin(tmp_path, migration_upgrade_allowed
     assert fetched.trigger == "goal_diagnostic"
 
 
+@owner_vaults
 def test_overconfidence_probe_origin_survives_target_selection(tmp_path, migration_upgrade_allowed):
     """Driving the real target-selection flow overwrites target_decision_json but
     must not erase the origin (spec §4.3)."""
 
     from learnloop.diagnosis.probe_episodes import stop_diagnosing_and_teach
 
-    root = Path("fixtures/linear_algebra")
+    root = owner_vault("linear_algebra")
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)
@@ -323,10 +326,11 @@ def test_overconfidence_probe_origin_survives_target_selection(tmp_path, migrati
     assert fetched.origin == "overconfidence_list"  # origin still durable
 
 
+@owner_vaults
 def test_probe_episode_without_origin_is_null(tmp_path, migration_upgrade_allowed):
     """A legacy/ordinary episode entered with no origin keeps NULL origin."""
 
-    root = Path("fixtures/linear_algebra")
+    root = owner_vault("linear_algebra")
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)

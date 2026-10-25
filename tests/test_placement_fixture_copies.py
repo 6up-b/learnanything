@@ -22,16 +22,17 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import append_config_toml, set_algorithm_version
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 MOMENT = FrozenClock(datetime(2026, 10, 12, 9, 30, tzinfo=UTC))
 
 
 def _copy(tmp_path, fixture, name, *, version, placement_toml=None, sync=True):
     root = tmp_path / name
-    copy_tree_with_databases(FIXTURES / fixture, root)
+    copy_tree_with_databases(owner_vault(fixture), root)
     paths = type("Paths", (), {"root": root})()
     set_algorithm_version(paths, version)
     if placement_toml:
@@ -57,7 +58,7 @@ def _fingerprint(vault, repository):
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_kill_switch_matches_the_predecessor_on_fixture_copies(tmp_path, fixture):
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     baseline = _fingerprint(*_copy(tmp_path, fixture, "baseline", version="mvp-0.9"))
     # The split (mvp-0.10) changes grading, not serving: same queue.
@@ -84,7 +85,7 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
     practised LOs start as learning (new material) instead of waiting behind
     an opening probe."""
 
-    if not (FIXTURES / fixture / "state.sqlite").exists():
+    if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     from learnloop.placement.state import ignored_opening_episode_ids
 

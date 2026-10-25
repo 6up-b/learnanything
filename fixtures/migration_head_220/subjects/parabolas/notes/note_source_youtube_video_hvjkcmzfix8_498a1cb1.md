@@ -22,190 +22,190 @@ updated_at: '2026-05-30T00:55:43Z'
 
 # YouTube video hvJkCMzFiX8
 
-[t=0.1-2.9] Professor Dave again, let’s graph some parabolas.
+[t=0.1-2.9] Hello again; today we sketch parabolas by hand.
 
-[t=9.7-14.0] Moving on to another conic section, we have the parabola.
+[t=9.7-14.0] Our next curve in the family of conics is the parabola.
 
-[t=14.0-19.5] This is where a plane intersects a cone, going through the edge of the cone and cutting down
+[t=14.0-19.5] Slice a double cone with a plane that runs parallel to one of its slanted sides
 
-[t=19.5-25.4] to the base of that section, rather than across to the other side of the cone, like with circles
+[t=19.5-25.4] and the cut you get never closes up, unlike the circle or the ellipse we met
 
-[t=25.4-27.0] and ellipses.
+[t=25.4-27.0] in earlier lessons.
 
-[t=27.0-32.3] We learned quite a bit about parabolas earlier, when we first learned how to graph functions,
+[t=27.0-32.3] You have drawn parabolas already, as graphs of quadratic functions such as y equals x squared,
 
-[t=32.3-35.4] but let’s learn the rigid definition.
+[t=32.3-35.4] so here we add the geometric definition.
 
-[t=35.4-40.9] A parabola is the set of all points that are equidistant from a fixed point called the
+[t=35.4-40.9] Pick one point, which we name the focus, and one line, which we name the directrix.
 
-[t=40.9-45.3] focus, and a fixed line called the directrix.
+[t=40.9-45.3] The curve collects every point whose two distances agree.
 
-[t=45.3-50.7] In other words, any point on this curve will be just as far from the focus as it is from
+[t=45.3-50.7] Put differently, measure from a point on the curve to the focus, then measure straight across
 
-[t=50.7-54.3] this directrix at its closest point.
+[t=50.7-54.3] to the directrix; the two numbers match.
 
-[t=54.3-59.4] This is different from something like an ellipse, where it’s the sum of the distances from
+[t=54.3-59.4] Compare the ellipse, where we add the distances to two special points and keep that total
 
-[t=59.4-62.1] two foci that remains constant.
+[t=59.4-62.1] fixed as the point moves.
 
-[t=62.1-68.0] We also already know that parabolas are second degree polynomials, but we only looked at
+[t=62.1-68.0] Algebraically a parabola is the graph of a quadratic, and some quadratics are easy to read,
 
-[t=68.0-76.0] very simple examples like X squared, and others in vertex form that involve only known transformations
+[t=68.0-76.0] like y equals x squared or a shifted copy written with the square of x minus a number
 
-[t=76.0-77.6] of X squared.
+[t=76.0-77.6] plus a constant.
 
-[t=77.6-83.1] What if we have something trickier, like negative X squared minus two X plus one.
+[t=77.6-83.1] Harder cases look like y equals minus x squared, minus two x, plus one.
 
-[t=83.1-88.6] With this standard form, we can’t readily identify shifts or stretches that can be applied
+[t=83.1-88.6] Written this way, the shifts and the stretch are hidden, so we cannot read them off
 
-[t=88.6-90.2] to a simpler function.
+[t=88.6-90.2] the formula directly.
 
-[t=90.2-94.2] Instead, we can do one of two things.
+[t=90.2-94.2] There are two good routes forward.
 
-[t=94.2-100.6] We can either rearrange the equation to get it into vertex form, or we can follow a series
+[t=94.2-100.6] Route one rewrites the formula into vertex form; route two keeps standard form and follows a checklist
 
-[t=100.6-106.1] of steps that will allow us to figure out where the vertex is, and other information
+[t=100.6-106.1] that tells us where the turning point sits, which way the curve opens, and which
 
-[t=106.1-108.9] that will allow us to graph the function.
+[t=106.1-108.9] extra points help us draw it.
 
-[t=108.9-112.1] Let’s try the first way first.
+[t=108.9-112.1] We will start with route one.
 
-[t=112.1-114.7] Remember when we learned how to complete the square?
+[t=112.1-114.7] It relies on the trick called completing the square.
 
-[t=114.7-120.5] That’s exactly what we are going to do here, so that we can get this parabola in vertex
+[t=114.7-120.5] Completing the square turns the quadratic part into one squared binomial, which exposes vertex
 
-[t=120.5-125.9] form, because once in vertex form, we can just identify all the transformations we need
+[t=120.5-125.9] form, and from vertex form we can list each shift and stretch applied
 
-[t=125.9-131.0] to apply to a simple X squared curve to get this particular parabola.
+[t=125.9-131.0] to the plain curve y equals x squared.
 
-[t=131.0-136.5] Let’s discuss how to do this to a generalized version of a parabola first.
+[t=131.0-136.5] First we work it out for a general quadratic before we use real numbers.
 
-[t=136.5-142.9] Remember, from AX squared plus BX plus C, we want to get it into this form, where we
+[t=136.5-142.9] Start from a x squared plus b x plus c; the goal is a times x minus h, squared,
 
-[t=142.9-150.5] have A out here, X minus H inside parentheses which is then squared, and then K out here.
+[t=142.9-150.5] plus k, where h and k are numbers we still need to find,
 
-[t=150.5-156.9] A, H, and K will then represent terms that stretch and shift the parabola so that it’s
+[t=150.5-156.9] and where a, h and k tell us how the basic curve is stretched and moved,
 
-[t=156.9-158.2] easy to graph.
+[t=156.9-158.2] which makes it simple to draw.
 
-[t=158.2-163.6] The first thing we need to do to get closer to this form is to factor an A out of the
+[t=158.2-163.6] Step one is to pull the factor a out of the two terms that contain x, leaving c
 
-[t=163.6-165.5] first two terms.
+[t=163.6-165.5] where it is for now.
 
-[t=165.5-171.9] For AX squared we just lose the A, but for BX, we end up with B over A times X.
+[t=165.5-171.9] Inside the brackets the x squared term loses its a, and the x term becomes b over a times x.
 
-[t=171.9-174.9] Then, we complete the square.
+[t=171.9-174.9] Step two completes the square.
 
-[t=174.9-181.4] Remember, to do that, we take this term here, cut it in half, and then square it.
+[t=174.9-181.4] Take the coefficient of x inside the brackets, halve it, and square the result,
 
-[t=181.4-184.9] That gives us B squared over four A squared.
+[t=181.4-184.9] which gives b squared over four a squared.
 
-[t=184.9-190.0] We add that inside the parenthetical term, but we must realize that we are really adding
+[t=184.9-190.0] Adding that inside the brackets secretly adds a times that amount to the whole expression,
 
-[t=190.0-196.9] A times this term, since A is multiplying across this sum, which means we also have
+[t=190.0-196.9] because the factor a multiplies everything inside, so to keep the value unchanged
 
-[t=196.9-203.3] to subtract B squared over four A elsewhere in the expression, so that we don’t change
+[t=196.9-203.3] we take away b squared over four a outside the brackets,
 
-[t=203.3-205.5] the value of the expression.
+[t=203.3-205.5] and nothing about the function moves.
 
-[t=205.5-211.2] Then, this trinomial is a perfect square, which was the point of all this, so we express
+[t=205.5-211.2] Now the three terms inside form a perfect square, so we can collapse them
 
-[t=211.2-215.3] it as X plus B over 2A quantity squared.
+[t=211.2-215.3] into x plus b over two a, all squared.
 
-[t=215.3-222.3] Now, if we express this term as X minus negative B over 2A, we have this precisely in vertex
+[t=215.3-222.3] Writing that as x minus the quantity negative b over two a shows the shape we wanted:
 
-[t=222.3-225.5] form for a parabola.
+[t=222.3-225.5] the vertex form.
 
-[t=225.5-230.4] We have an H and a K, which will allow us to find the vertex, and we have a stretch
+[t=225.5-230.4] Here h equals negative b over two a, and k is whatever constant is left outside, and together they mark the vertex;
 
-[t=230.4-232.4] value over here.
+[t=230.4-232.4] a still sets the stretch.
 
-[t=232.4-240.2] Let’s take our particular parabola and use the A, B, and C values to evaluate H and K,
+[t=232.4-240.2] Back to our example: a is negative one, b is negative two and c is one, so h and k come out
 
-[t=240.2-248.9] which will give us negative one and two as the X and Y coordinates of the vertex respectively.
+[t=240.2-248.9] as negative one and two, putting the vertex at the point negative one, two.
 
-[t=248.9-255.3] Beyond this, A is negative one, which means that the parabola opens downwards.
+[t=248.9-255.3] Because a is negative one, the curve opens downward and has the same width as x squared.
 
-[t=255.3-260.8] And that’s how we take a parabola in standard form and put it into vertex form, so that
+[t=255.3-260.8] That is the whole path from standard form to vertex form, and vertex form
 
-[t=260.8-262.6] it’s easy to graph.
+[t=260.8-262.6] is quick to sketch.
 
-[t=262.6-267.5] Of course we don’t have to derive this equation every time, we can just complete the square
+[t=262.6-267.5] With practice you can skip the general derivation and repeat the same moves
 
-[t=267.5-269.5] regularly with numbers.
+[t=267.5-269.5] directly on the numbers.
 
-[t=269.5-275.4] We just factor A out of the first two terms, complete the square, being careful to compensate
+[t=269.5-275.4] Factor a from the x terms, complete the square, remember to multiply the added amount by a
 
-[t=275.4-282.2] for this coefficient, change this to a binomial squared, and there’s our equation in vertex form.
+[t=275.4-282.2] when you balance it outside, collapse the square, and read off the vertex.
 
-[t=285.0-289.5] Now let’s try the other way we mentioned, where we leave the equation as it is.
+[t=285.0-289.5] Now for route two, where we keep the standard form and work through a checklist.
 
-[t=289.5-294.2] The first step in this algorithm will be to figure out whether the parabola opens upwards
+[t=289.5-294.2] Step one: decide which way the curve opens, up
 
-[t=294.2-295.7] or downwards.
+[t=294.2-295.7] or down.
 
-[t=295.7-300.2] To do this, we look at A and see if it is positive or negative.
+[t=295.7-300.2] That depends only on the sign of the leading coefficient a.
 
-[t=300.2-303.3] If the coefficient is positive, it opens up.
+[t=300.2-303.3] A positive a gives a curve that opens up.
 
-[t=303.3-305.4] If negative, it opens down.
+[t=303.3-305.4] A negative a gives one that opens down.
 
-[t=305.4-310.3] In this case, we can take the coefficient as being negative one, so it opens down.
+[t=305.4-310.3] Our a is negative one, so this curve opens downward.
 
-[t=310.3-312.8] The next step is to find the vertex.
+[t=310.3-312.8] Step two: locate the vertex.
 
-[t=312.8-318.6] As we said, this will have an X coordinate equal to negative B over two A, which in this
+[t=312.8-318.6] Its x coordinate is negative b divided by two a, which for our numbers is
 
-[t=318.6-325.1] case is equal to the negative of negative two over two times negative one, which all
+[t=318.6-325.1] that is, minus negative two, divided by twice negative one,
 
-[t=325.1-327.5] comes out to negative one.
+[t=325.1-327.5] and that equals negative one.
 
-[t=327.5-332.6] Once we have that, we can plug it into the function to get the corresponding Y value,
+[t=327.5-332.6] Next we substitute x equals negative one into the formula to get the matching y value,
 
-[t=332.6-335.7] which in this case will be two.
+[t=332.6-335.7] which works out to two here.
 
-[t=335.7-340.6] This confirms that the vertex is at the point negative one, two.
+[t=335.7-340.6] So the turning point really is negative one, two.
 
-[t=340.6-346.0] From here, we could get additional points by finding the X and Y intercepts.
+[t=340.6-346.0] To add detail we can look for the points where the graph meets each axis.
 
-[t=346.0-351.5] The X intercepts are the points where the function is equal to zero, so we can find
+[t=346.0-351.5] The x intercepts are where y is zero, so we set the formula equal to zero
 
-[t=351.5-355.0] them by setting the function equals to zero.
+[t=351.5-355.0] and solve that equation for x.
 
-[t=355.0-360.4] In this particular case, in order to solve this, we have to use the quadratic formula.
+[t=355.0-360.4] For this quadratic the roots are not whole numbers, so we reach for the quadratic formula,
 
-[t=360.4-365.1] We went over this in a previous tutorial, which you can check out now in case you forgot
+[t=360.4-365.1] which an earlier lesson covers if you want a refresher on
 
-[t=365.1-367.0] how to use this.
+[t=365.1-367.0] the steps involved.
 
-[t=367.0-374.0] Otherwise, we just plug in all the coefficients, and when we get the answers, we can just evaluate
+[t=367.0-374.0] Substituting a, b and c gives two roots, and rounding each one to one decimal place
 
-[t=374.0-379.7] these to the nearest tenth so that we can get an approximate value to graph.
+[t=374.0-379.7] is accurate enough to place them on a sketch.
 
-[t=379.7-384.7] The Y intercept will be much easier to get, because that is the value of the function
+[t=379.7-384.7] The y intercept is easier: it is the height of the curve
 
-[t=384.7-390.1] when X equals zero, or the point where the function crosses the Y axis.
+[t=384.7-390.1] at x equals zero, where the graph crosses the vertical axis.
 
-[t=390.1-393.9] We plug in zero, and we should get one.
+[t=390.1-393.9] Substituting zero gives one.
 
-[t=393.9-400.5] Lastly, we could find the axis of symmetry, which will be X equals negative B over two
+[t=393.9-400.5] Finally we can draw the axis of symmetry, the vertical line x equals negative b over two
 
-[t=400.5-404.6] A, just to make sure everything looks right.
+[t=400.5-404.6] a, as a check on the rest.
 
-[t=404.6-410.3] So now we have the vertex, some intercepts, and a line, and that’s all we really need
+[t=404.6-410.3] With the vertex, the intercepts and the axis in hand we have all we need
 
-[t=410.3-415.8] to generate a reasonable sketch of this function.
+[t=410.3-415.8] for a fair sketch of the curve.
 
-[t=415.8-421.0] We now have a variety of ways to graph parabolas, and not just the easy kind.
+[t=415.8-421.0] So we now know several ways to graph a parabola, even one that starts in an awkward form.
 
-[t=421.0-427.3] We can graph parabolas in vertex form by applying transformations, or we can even graph parabolas
+[t=421.0-427.3] Vertex form lets us apply shifts and stretches, and standard form can be handled
 
-[t=427.3-433.8] in standard form by completing the square, or finding various points on the curve.
+[t=427.3-433.8] by completing the square or by computing key points one at a time.
 
-[t=433.8-440.3] Parabolas are tremendously useful in physics, because projectile motion always follows parabolic paths.
+[t=433.8-440.3] Parabolas also show up in mechanics: a thrown ball follows one when we ignore air resistance.
 
-[t=440.3-444.7] Physics is awesome, though we can’t get sidetracked just now, as we have one more
+[t=440.3-444.7] That is a story for another lesson, because one more conic still waits
 
-[t=444.7-446.1] conic section to go.
+[t=444.7-446.1] for us after this.
 
-[t=446.1-448.2] But first, let’s check comprehension.
+[t=446.1-448.2] Before moving on, try the practice questions.

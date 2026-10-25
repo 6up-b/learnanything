@@ -46,10 +46,11 @@ from learnloop.tui.screens.today import TodayScreen
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
+from tests.owner_vaults import owner_vault, working_vault_params
 from tests.helpers import add_followup_item, begin_session, create_basic_vault, seed_due_item
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-WORKING_FIXTURES = ("linear_algebra", "probability", "arxiv_v2")
+# The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
+WORKING_FIXTURES = working_vault_params()
 SECOND_ITEM = "pi_svd_define_002"
 
 
@@ -208,7 +209,7 @@ def test_the_streak_counts_any_clients_started_sessions(tmp_path):
 
 @pytest.mark.parametrize("fixture_name", WORKING_FIXTURES)
 def test_the_streak_count_is_unchanged_on_fixture_copies(tmp_path, fixture_name):
-    source = FIXTURES / fixture_name
+    source = owner_vault(fixture_name)
     if not (source / "state.sqlite").exists():
         pytest.skip(f"{fixture_name} fixture absent")
     root = tmp_path / fixture_name
@@ -252,7 +253,7 @@ def test_today_queue_serves_the_same_queue_without_energy_on_fixture_copies(tmp_
     §3.1). The clock is frozen because forgetting risk decays continuously.
     """
 
-    source = FIXTURES / fixture_name
+    source = owner_vault(fixture_name)
     if not (source / "state.sqlite").exists():
         pytest.skip(f"{fixture_name} fixture absent")
     root = tmp_path / fixture_name

@@ -574,8 +574,16 @@ def test_surface_group_mirrors_the_projection():
 
     from learnloop.substrate.canonical_projection import surface_group_id
 
-    for path in sorted((__import__("pathlib").Path(__file__).resolve().parents[1] / "fixtures" / "conic-sections"
-                        / "subjects").rglob("practice-items/*.yaml"))[:20]:
+    from tests.owner_vaults import tracked_fixture_databases
+
+    # The tracked fixture vaults' items (conic-sections left the tip in S0).
+    paths = sorted(
+        path
+        for database in tracked_fixture_databases()
+        for path in (database.parent / "subjects").rglob("practice-items/*.yaml")
+    )
+    assert paths
+    for path in paths[:20]:
         from learnloop.vault.models import PracticeItem
         import yaml
 

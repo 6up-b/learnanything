@@ -147,19 +147,31 @@ def _fixture_database_state() -> dict[str, tuple[str, tuple[str, ...]]]:
     from learnloop.db.copies import COMPANION_SUFFIXES
     from learnloop.db.storage import header_journal_mode
 
+    from tests.owner_vaults import owner_vaults_root, tracked_fixture_files
+
+    # The repository side is what git tracks under fixtures/ (Codex review of
+    # S0, F6): an untracked vault left there is not the tip's, and another
+    # process may be using it. The owner lane's copies are guarded like
+    # tracked fixtures, through the lane's own root only: a test must copy
+    # them before opening one writable.
+    roots = [("", _FIXTURES, tracked_fixture_files("*.sqlite"))]
+    owner_root = owner_vaults_root()
+    if owner_root is not None and owner_root.is_dir():
+        roots.append(("owner:", owner_root, sorted(owner_root.rglob("*.sqlite"))))
     # A read-only open of a WAL database creates an empty -wal and a -shm, so
     # companion presence alone is not a change; only the header mode and
     # un-checkpointed WAL frames are.
     state = {}
-    for database in sorted(_FIXTURES.rglob("*.sqlite")):
-        pending = tuple(
-            database.name + suffix
-            for suffix in COMPANION_SUFFIXES
-            if database.with_name(database.name + suffix).exists()
-            and database.with_name(database.name + suffix).stat().st_size > 0
-            and suffix != "-shm"
-        )
-        state[str(database.relative_to(_FIXTURES))] = (header_journal_mode(database), pending)
+    for prefix, root, databases in roots:
+        for database in databases:
+            pending = tuple(
+                database.name + suffix
+                for suffix in COMPANION_SUFFIXES
+                if database.with_name(database.name + suffix).exists()
+                and database.with_name(database.name + suffix).stat().st_size > 0
+                and suffix != "-shm"
+            )
+            state[prefix + str(database.relative_to(root))] = (header_journal_mode(database), pending)
     return state
 
 
@@ -187,6 +199,20 @@ def pytest_sessionfinish(session, exitstatus):
     if reporter is not None:
         reporter.write_line(f"ERROR: {message}", red=True)
     session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip the ``owner_vaults`` lane unless ``LEARNLOOP_OWNER_VAULTS`` names its copies."""
+    from tests.owner_vaults import OWNER_VAULTS_ENV, OWNER_VAULTS_SKIP_REASON, owner_vaults_root
+
+    root = owner_vaults_root()
+    if root is not None and root.is_dir():
+        return
+    reason = OWNER_VAULTS_SKIP_REASON if root is None else f"{OWNER_VAULTS_ENV}={root} is not a directory"
+    skip = pytest.mark.skip(reason=reason)
+    for item in items:
+        if item.get_closest_marker("owner_vaults") is not None:
+            item.add_marker(skip)
 
 
 @pytest.hookimpl(tryfirst=True)

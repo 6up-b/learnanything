@@ -26,8 +26,10 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, write_facets
 from tests.test_km3_projections import COMP_A, COMP_B, INTEG, LO_ID, build_blueprint_vault
+from tests.owner_vaults import owner_vault, owner_vaults
 
-FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
+FIXTURE_VAULT = owner_vault("linear_algebra")
 
 
 def test_classical_mds_reuses_exact_cached_layout():
@@ -139,6 +141,7 @@ def test_knowledge_map_facet_field_carries_no_lock_fields(tmp_path):
     assert field[COMP_A]["title"] == "Component A"
 
 
+@owner_vaults
 def test_fixture_facet_field_carries_no_lock_fields(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
     points = _call(ctx, "get_knowledge_map", {})["facetField"]["points"]
@@ -232,6 +235,7 @@ def test_get_facet_detail_unknown_facet_raises(tmp_path):
 # --- preview_knowledge_map -------------------------------------------------
 
 
+@owner_vaults
 def test_preview_knowledge_map_baseline_matches_live_map(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
     live = _call(ctx, "get_knowledge_map", {})
@@ -248,6 +252,7 @@ def test_preview_knowledge_map_baseline_matches_live_map(tmp_path):
     assert preview["stress"] == pytest.approx(preview["baseline"]["stress"])
 
 
+@owner_vaults
 def test_preview_knowledge_map_new_edge_changes_geometry(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
     # A prerequisite edge between two previously-distant concepts pulls their
@@ -272,6 +277,7 @@ def test_preview_knowledge_map_new_edge_changes_geometry(tmp_path):
     assert prop_xy != base_xy  # the hypothetical edge moved something
 
 
+@owner_vaults
 def test_preview_knowledge_map_removed_edge_and_determinism(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
     params = {
@@ -290,6 +296,7 @@ def test_preview_knowledge_map_removed_edge_and_determinism(tmp_path):
     assert prop_xy != base_xy  # the real removal still exercises the preview
 
 
+@owner_vaults
 def test_preview_knowledge_map_unknown_concept_raises(tmp_path):
     from learnloop_sidecar.errors import SidecarError
 

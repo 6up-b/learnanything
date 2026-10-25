@@ -21,6 +21,7 @@ from learnloop.substrate.dataset import DEFAULT_EMBARGO, export_dataset, parse_e
 from learnloop.substrate.dataset import outcome_records
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault, production_journal_mode, seed_due_item
+from tests.owner_vaults import owner_vault, owner_vaults
 
 
 def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
@@ -425,7 +426,7 @@ def _linear_algebra_fixture_split_inputs(tmp_path):
     from learnloop.substrate.dataset import _split_source_links
 
     copy = tmp_path / "state.sqlite"
-    shutil.copyfile(Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra" / "state.sqlite", copy)
+    shutil.copyfile(owner_vault("linear_algebra") / "state.sqlite", copy)
     connection = sqlite3.connect(copy)
     connection.row_factory = sqlite3.Row
     try:
@@ -437,6 +438,7 @@ def _linear_algebra_fixture_split_inputs(tmp_path):
         connection.close()
 
 
+@owner_vaults
 def test_content_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families(tmp_path):
     attempts, contracts, links = _linear_algebra_fixture_split_inputs(tmp_path)
     assignments = split_assignments(attempts, contracts, links, policy="content")
@@ -445,6 +447,7 @@ def test_content_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_famili
     assert Counter(row["split"] for row in assignments) == Counter(train=23, quarantined_boundary_overlap=47)
 
 
+@owner_vaults
 def test_temporal_split_on_a_copy_of_the_linear_algebra_fixture_has_holdouts(tmp_path):
     attempts, contracts, links = _linear_algebra_fixture_split_inputs(tmp_path)
 

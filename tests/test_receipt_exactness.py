@@ -36,17 +36,16 @@ from learnloop.learner.facet_evidence_timeline import (
 from learnloop.substrate.canonical_projection import configured_repeat_discount
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
+from tests.owner_vaults import fixture_vault_params, owner_vault, owner_vaults
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-FIXTURE_VAULTS = sorted(
-    path.name for path in FIXTURES.iterdir() if (path / "state.sqlite").exists()
-)
+# The vaults git tracks under fixtures/, plus the owner lane's copies.
+FIXTURE_VAULTS = fixture_vault_params()
 ALGORITHM_VERSIONS = ("mvp-0.7", "mvp-0.8")
 
 
-def _loaded_fixture(tmp_path, name, algorithm_version="mvp-0.7"):
-    root = tmp_path / name
-    shutil.copytree(FIXTURES / name, root)
+def _loaded_fixture(tmp_path, source, algorithm_version="mvp-0.7"):
+    root = tmp_path / source.name
+    shutil.copytree(source, root)
     toml_path = root / "learnloop.toml"
     text, count = re.subn(
         r'algorithm_version = "[^"]+"',
@@ -69,11 +68,12 @@ def _all_facets(vault, banked):
 
 
 @pytest.mark.parametrize("algorithm_version", ALGORITHM_VERSIONS)
-@pytest.mark.parametrize("fixture_name", FIXTURE_VAULTS)
+@pytest.mark.parametrize("fixture", FIXTURE_VAULTS)
 def test_timeline_final_credit_equals_banked_ledger_credit(
-    tmp_path, fixture_name, algorithm_version
+    tmp_path, fixture, algorithm_version
 ):
-    vault, repository = _loaded_fixture(tmp_path, fixture_name, algorithm_version)
+    fixture_name = fixture.name
+    vault, repository = _loaded_fixture(tmp_path, fixture, algorithm_version)
     attempts = repository.list_attempt_history()
     if not attempts:
         pytest.skip(f"fixture {fixture_name} has no attempt history")
@@ -109,11 +109,12 @@ def test_timeline_final_credit_equals_banked_ledger_credit(
         )
 
 
+@owner_vaults
 def test_from_scratch_fold_equals_incremental_fold_on_real_history(tmp_path):
     """§16 replay invariant on real fixture data: folding every prefix of the
     extracted observation events reproduces the full series byte-identically."""
 
-    vault, repository = _loaded_fixture(tmp_path, "linear_algebra")
+    vault, repository = _loaded_fixture(tmp_path, owner_vault("linear_algebra"))
     project_canonical_facet_state(vault, repository)
     discount = configured_repeat_discount(vault)
     checked = 0

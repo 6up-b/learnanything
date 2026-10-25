@@ -10,6 +10,7 @@ from learnloop.attempt_types import SUPPORTED_ATTEMPT_TYPES
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
+from tests.owner_vaults import fixture_database_params
 
 #: These tests build older databases and upgrade them directly: the test
 #: suite's named allowance (F8 of the coordinated-migration verify).
@@ -89,16 +90,11 @@ def test_repository_carries_a_fixture_at_the_current_migration_head():
     )
 
 
-_FIXTURE_DATABASES = sorted(
-    (Path(__file__).resolve().parents[1] / "fixtures").glob("*/state.sqlite")
-)
+# The databases git tracks under fixtures/, plus the owner lane's copies.
+_FIXTURE_DATABASES = fixture_database_params()
 
 
-@pytest.mark.parametrize(
-    "source",
-    _FIXTURE_DATABASES,
-    ids=lambda source: source.parent.name,
-)
+@pytest.mark.parametrize("source", _FIXTURE_DATABASES)
 def test_every_fixture_upgrades_with_clean_foreign_keys(tmp_path, source):
     sqlite_path = tmp_path / "state.sqlite"
     shutil.copy2(source, sqlite_path)
