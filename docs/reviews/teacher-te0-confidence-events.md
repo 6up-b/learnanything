@@ -132,3 +132,255 @@ The commands, pass counts and the list of test files run are recorded at the end
    context's topics.
 6. **Self-grades.** A self-grade's `learner_confidence` is derived from the learner's self-grade confidence. It is
    treated as neither a tap nor a hedge read. Should it be rendered as its own event ("self-graded, sure")?
+
+## 6. Gate (as run)
+
+All test commands ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, one at a time.
+
+* `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`.
+* `uv run lint-imports --no-cache`: **36 kept, 0 broken**. This includes the new
+  `graders-never-read-confidence-events` contract.
+* `uv run pytest -n 6 tests/test_teacher_te0_confidence_events.py`: **19 passed**.
+* The contract tests: `uv run pytest -n 6 tests/test_architecture.py tests/test_instructional_layering.py
+  tests/test_sidecar_serializer_snapshot.py tests/test_desktop_rpc_contract.py tests/test_mobile_allowlist.py
+  tests/test_cli_help_snapshot.py tests/test_table_roles.py tests/test_coordinated_migrations.py
+  tests/test_tracked_fixture_databases.py tests/test_sqlite_file_copies.py`: **317 passed**.
+* The targeted run: `uv run pytest -n 6 -p no:cacheprovider <the files below>`. These are every existing test file
+  that exercises a changed module (router card and gatherer, router chooser and staged frame, `diagnosis.split`,
+  hints service and writer, tutor QA and its contracts, `learner_protection`), plus the new file. The run gave
+  **5,063 passed, 2 skipped, 2 xfailed** in 22 min.
+* **Not run.** These are not applicable: there is no migration, DB or connection change (so no durability tests), no
+  frontend change, no change under `src-tauri`, no schema change and no config change. Per the owner's rule, the
+  full suite was not run.
+
+Files in the targeted run:
+
+- `tests/test_active_errors_overlay.py`
+- `tests/test_ad1_fix_round4.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad2_serving.py`
+- `tests/test_ad3_subject_view.py`
+- `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_ai_compare.py`
+- `tests/test_ai_config.py`
+- `tests/test_approach_map_replay.py`
+- `tests/test_authoring_contract.py`
+- `tests/test_capture_desktop.py`
+- `tests/test_capture_route_recovery.py`
+- `tests/test_chatgpt_plan_landing.py`
+- `tests/test_chatgpt_plan_provider.py`
+- `tests/test_chatgpt_plan_workspace.py`
+- `tests/test_codex_lockdown_round2.py`
+- `tests/test_codex_lockdown_round3.py`
+- `tests/test_codex_output_schema.py`
+- `tests/test_codex_tool_lockdown.py`
+- `tests/test_coldness_receipt.py`
+- `tests/test_compare_methods.py`
+- `tests/test_compare_sources_keep.py`
+- `tests/test_config_refactor.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reader_retire.py`
+- `tests/test_daily_loop_reference_adoption.py`
+- `tests/test_daily_plan_composition.py`
+- `tests/test_daily_plan_kill_switch.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_diagnose_review.py`
+- `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_card.py`
+- `tests/test_diagnosis_context.py`
+- `tests/test_diagnosis_contract.py`
+- `tests/test_diagnosis_embeddings.py`
+- `tests/test_diagnosis_history_modes.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_replay.py`
+- `tests/test_diagnosis_reports.py`
+- `tests/test_dialogue_causal_join.py`
+- `tests/test_e0_delivery.py`
+- `tests/test_embedding_backfill.py`
+- `tests/test_embedding_recipe_hash_pins.py`
+- `tests/test_embedding_route_isolation.py`
+- `tests/test_exam_protection.py`
+- `tests/test_exam_protection_review.py`
+- `tests/test_field_signal_production_paths.py`
+- `tests/test_field_split_outcomes.py`
+- `tests/test_figure_offers.py`
+- `tests/test_figures_codex_review.py`
+- `tests/test_figures_rw5b_fix_round2.py`
+- `tests/test_figures_rw5b_review.py`
+- `tests/test_figures_scope_redesign.py`
+- `tests/test_forecast_receipts_landing.py`
+- `tests/test_forecast_receipts.py`
+- `tests/test_grading_support.py`
+- `tests/test_held_grade_composition.py`
+- `tests/test_held_grade_evidence.py`
+- `tests/test_help_outcomes.py`
+- `tests/test_hint_authored_reveal_ruling.py`
+- `tests/test_hint_blind.py`
+- `tests/test_hint_contracts.py`
+- `tests/test_hint_discriminating.py`
+- `tests/test_hint_evidence.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_h2a_review.py`
+- `tests/test_hint_h2a_review_round2.py`
+- `tests/test_hint_h2a_review_round3.py`
+- `tests/test_hint_h2a_review_round4.py`
+- `tests/test_hint_h2b_fix3.py`
+- `tests/test_hint_h2b_fix4.py`
+- `tests/test_hint_h2b_rereview.py`
+- `tests/test_hint_h2b_review.py`
+- `tests/test_hint_kill_switch.py`
+- `tests/test_hint_outcome.py`
+- `tests/test_hint_replies.py`
+- `tests/test_hint_report.py`
+- `tests/test_hint_service.py`
+- `tests/test_hint_telemetry.py`
+- `tests/test_integration_daily_loop_field.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_intent_fix_round7.py`
+- `tests/test_judge_routes.py`
+- `tests/test_learner_text_gaps_composition.py`
+- `tests/test_learner_text_gaps_flow.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_rereview.py`
+- `tests/test_learner_text_gaps_review.py`
+- `tests/test_library_ask.py`
+- `tests/test_library_ask_review.py`
+- `tests/test_library_exercises.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_tools.py`
+- `tests/test_method_explicit_landing.py`
+- `tests/test_method_explicit_upgrade.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_model_usage_report.py`
+- `tests/test_mvp010_upgrade.py`
+- `tests/test_mvp013_upgrade.py`
+- `tests/test_mvp014_upgrade.py`
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_mvp016_upgrade.py`
+- `tests/test_mvp017_upgrade.py`
+- `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
+- `tests/test_mvp022_upgrade.py`
+- `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_openai_chat_client.py`
+- `tests/test_output_budget.py`
+- `tests/test_pfc_unassessed_readers.py`
+- `tests/test_pfc_unverified_unassessed.py`
+- `tests/test_pinned_span_bridge.py`
+- `tests/test_placement_diagnosis_decides.py`
+- `tests/test_placement_opening_probes.py`
+- `tests/test_placement_signals.py`
+- `tests/test_placement_split_grades.py`
+- `tests/test_plan_first_transport_grant_scope.py`
+- `tests/test_plan_first_transport_offer_grants.py`
+- `tests/test_plan_first_transport_offer_grants_r5.py`
+- `tests/test_plan_first_transport.py`
+- `tests/test_post_attempt_worker.py`
+- `tests/test_question_context.py`
+- `tests/test_question_promotion_jobs.py`
+- `tests/test_question_promotions.py`
+- `tests/test_question_signal.py`
+- `tests/test_quick_check.py`
+- `tests/test_reader_branches.py`
+- `tests/test_reader_cues.py`
+- `tests/test_reader_dialogue.py`
+- `tests/test_reader_formative_texts.py`
+- `tests/test_reader_guidance.py`
+- `tests/test_reader_inquiry_kill_switch.py`
+- `tests/test_reader_inquiry_status.py`
+- `tests/test_reader_recap_review_r3.py`
+- `tests/test_reader_reconnect.py`
+- `tests/test_reader_report.py`
+- `tests/test_reader_rw1b_review.py`
+- `tests/test_reader_rw1c_review.py`
+- `tests/test_reader_rw2b_fix10.py`
+- `tests/test_reader_rw2b_fix11.py`
+- `tests/test_reader_rw2b_fix12.py`
+- `tests/test_reader_rw2b_fix13.py`
+- `tests/test_reader_rw2b_fix14.py`
+- `tests/test_reader_rw2b_fix15.py`
+- `tests/test_reader_rw2b_fix3.py`
+- `tests/test_reader_rw2b_fix4.py`
+- `tests/test_reader_rw2b_fix5.py`
+- `tests/test_reader_rw2b_fix6.py`
+- `tests/test_reader_rw2b_fix7.py`
+- `tests/test_reader_rw2b_fix8.py`
+- `tests/test_reader_rw2b_fix9.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reader_tutor_offers.py`
+- `tests/test_reader_tutor_retrieval.py`
+- `tests/test_reader_tutor_switch_off.py`
+- `tests/test_reader_workbench_rw2a.py`
+- `tests/test_recurrence_benchmarks.py`
+- `tests/test_recurrence_commands.py`
+- `tests/test_recurrence_deferral.py`
+- `tests/test_recurrence_groups.py`
+- `tests/test_recurrence_live.py`
+- `tests/test_recurrence_merge_composition.py`
+- `tests/test_reference_gate_imports.py`
+- `tests/test_regrade_contract_replay.py`
+- `tests/test_regrade_contract_successor.py`
+- `tests/test_required_method_authority.py`
+- `tests/test_required_method_grading.py`
+- `tests/test_required_method_items.py`
+- `tests/test_required_method_round3_review.py`
+- `tests/test_reread_safety_landing.py`
+- `tests/test_reveal_ledger.py`
+- `tests/test_router_card.py`
+- `tests/test_router_g1_feasibility.py`
+- `tests/test_router_r2a_landing.py`
+- `tests/test_router_r2a_serving.py`
+- `tests/test_router_r2bc_landing.py`
+- `tests/test_router_r2c_retrieval.py`
+- `tests/test_router_r2c_teach_back.py`
+- `tests/test_route_rules_in_grader.py`
+- `tests/test_router_why_copy.py`
+- `tests/test_rw2c_fix_round2.py`
+- `tests/test_rw2c_fix_round3.py`
+- `tests/test_rw2c_switch_off.py`
+- `tests/test_rw4_kill_switches.py`
+- `tests/test_sidecar_reader_p3.py`
+- `tests/test_sidecar_reader.py`
+- `tests/test_sidecar_source_retrieval.py`
+- `tests/test_sidecar_teach_back.py`
+- `tests/test_source_retrieval_followup.py`
+- `tests/test_source_retrieval_guards.py`
+- `tests/test_source_retrieval_rereview_cost.py`
+- `tests/test_source_retrieval_rereview.py`
+- `tests/test_source_retrieval_search.py`
+- `tests/test_source_retrieval_tutor.py`
+- `tests/test_source_space_resolver.py`
+- `tests/test_structured_transport_parity.py`
+- `tests/test_stuck_prompt_composition.py`
+- `tests/test_stuck_prompt.py`
+- `tests/test_stuck_prompt_replay.py`
+- `tests/test_teach_back.py`
+- `tests/test_tutor_citations.py`
+- `tests/test_tutor_delivery_fixes.py`
+- `tests/test_tutor_practice_request.py`
+- `tests/test_tutor_promotion_service.py`
+- `tests/test_tutor_promotion_w2.py`
+- `tests/test_tutor_qa.py`
+- `tests/test_tutor_tool_requests.py`
+- `tests/test_ux_phase1_connect_ai.py`
+- `tests/test_ux_phase1_landing.py`
+- `tests/test_ux_phase1_usability_round1.py`
+- `tests/test_ux_phase4_feedback.py`
+- `tests/test_ux_phase4_landing.py`
+- `tests/test_voi_stopping.py`
+- `tests/test_workbench_assistance.py`
+- `tests/test_workbench_check.py`
+- `tests/test_workbench_chooser.py`
+- `tests/test_workbench_discriminate.py`
+- `tests/test_workbench_hint_service.py`
+- `tests/test_workbench_hints.py`
+- `tests/test_workbench_passage_draw.py`
+- `tests/test_workbench_route_example.py`
+- `tests/test_workbench_text_gaps.py`
+- `tests/test_workbench_trace.py`
+- `tests/test_teacher_te0_confidence_events.py`
