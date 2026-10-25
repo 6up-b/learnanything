@@ -473,22 +473,18 @@ def fallback_backfill(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Windows, requests and the dollar bound; send nothing.")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Embed the Voyage fallback space's missing windows (each source capped at
-    embedding.fallback.max_cost_usd_per_run, admitted at the full price)."""
+    """Embed the Voyage fallback space's missing windows: the WHOLE command is
+    one run, capped at embedding.fallback.max_cost_usd_per_run and admitted
+    at the full price (the aggregate estimate and charge are reported)."""
 
     from learnloop.source_retrieval.corpus import current_extractions
-    from learnloop.source_retrieval.fallback_space import backfill_fallback_vectors
+    from learnloop.source_retrieval.fallback_space import backfill_fallback_run
 
     try:
         loaded, repository = _vault_and_repository(vault, write=not dry_run)
         targets = list(extraction_id or sorted(current_extractions(repository)))
         with _cancellation() as stop:
-            reports = [backfill_fallback_vectors(loaded, repository, target, cancelled=stop.is_set, dry_run=dry_run)
-                       for target in targets]
-        statuses = {report["status"] for report in reports}
-        status = ("dry_run" if dry_run else "complete" if statuses <= {"complete"} else
-                  "disabled" if statuses == {"disabled"} else "incomplete")
-        report = {"status": status, "sources": reports}
+            report = backfill_fallback_run(loaded, repository, targets, cancelled=stop.is_set, dry_run=dry_run)
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     _emit(report, json_output, frozenset({"dry_run", "complete"}))

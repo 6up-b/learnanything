@@ -234,6 +234,22 @@ def plan_library_search(vault: LoadedVault, repository: Repository, *, query: st
     else:
         embedding = {"status": "unused", "calls": 0, "reason": meaning.get("reason")}
     plan["query_embedding"] = embedding
+    # Codex review F2: the hosted fallback space's query is a paid request of
+    # the same search, planned at its worst case (queried whenever it serves a
+    # source in scope) under the same caller budget.
+    from learnloop.source_retrieval.spaces import resolver_active
+
+    if resolver_active(vault.config):
+        from learnloop.source_retrieval.fallback_space import plan_query
+
+        texts = {"query": needle}
+        if rewrite.get("status") == "would_call":
+            texts["rewrite"] = "x" * MAX_QUERY_CHARS
+        fallback_query = plan_query(vault, repository, texts)
+        plan["fallback_query_embedding"] = fallback_query
+        calls += int(fallback_query["calls"])
+        if total_usd is not None:
+            total_usd += float(fallback_query["estimated_usd"])
     plan["caps"] = (caps.as_dict() if caps is not None else
                     {"rewrite": rewrite_caps(vault).as_dict(), "query_embedding": QUERY_EMBEDDING_CAPS.as_dict()})
     plan["time_box_seconds"] = config.retrieval_timeout_seconds

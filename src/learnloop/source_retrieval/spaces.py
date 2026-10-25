@@ -331,7 +331,7 @@ def _rank(vectors: Mapping[str, Mapping[str, np.ndarray]], extraction_ids: Seque
 def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolution, texts: Mapping[str, str], *,
                   qwen_index: Any, qwen_vectors: Callable[[], tuple[dict[str, np.ndarray], dict[str, Any]]],
                   depth: Callable[[str], int], permit: Callable[[str], bool], owner_id: str,
-                  deadline: float | None) -> dict[str, Any]:
+                  deadline: float | None, budget: Any | None = None) -> dict[str, Any]:
     """Each contributing space's ranking per query text, and the fused lists.
 
     Returns ``{"fused": {key: [record ids]}, "per_space": {space: {key: [record ids]}},
@@ -354,7 +354,7 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
         elif name == VOYAGE:
             client, why = fallback_space.fallback_client(vault)
             vectors, status = (fallback_space.query_vectors(vault, repository, texts, client=client, owner_id=owner_id,
-                                                            deadline=deadline)
+                                                            deadline=deadline, budget=budget)
                                if client is not None else ({}, {"status": "unavailable", "reason": why, "paid": False}))
             state.query = status
         else:

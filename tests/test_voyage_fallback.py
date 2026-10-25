@@ -135,3 +135,34 @@ def test_the_run_cap_stops_the_spend(tmp_path):
     client = FakeVoyageClient()
     report = fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
     assert report["status"] == "over_budget" and client.document_calls == []
+
+
+def test_one_command_is_one_run_under_the_per_run_cap(tmp_path):
+    """Codex review F3: the cap covers the whole command, not each source."""
+
+    from learnloop.source_retrieval.fallback_space import backfill_fallback_run
+    from tests.source_retrieval_fakes import seed_source
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    seed_source(repository, source_id="src_two", revision_id="rev_two", extraction_id="ext_two", title="Two",
+                units={"u": ("Chapter 1 Spans", [("The span of a list is the set of its linear combinations.", 1)])})
+    append_config_toml(paths.root, VOYAGE_PROFILE)
+    vault = loaded(paths)
+    targets = ["ext_book", "ext_two"]
+    dry = backfill_fallback_run(vault, repository, targets, dry_run=True)
+    single = [source["estimate"]["usd_upper_bound"] for source in dry["sources"]]
+    assert dry["status"] == "dry_run" and dry["estimate"]["usd_upper_bound"] == pytest.approx(sum(single))
+    cap = max(single) * 1.01  # room for either source alone, never both
+    assert cap < sum(single)
+    from dataclasses import replace
+
+    capped = vault.config.model_copy(deep=True)
+    capped.embedding.fallback.max_cost_usd_per_run = cap
+    vault = replace(vault, config=capped)
+    client = FakeVoyageClient()
+    report = backfill_fallback_run(vault, repository, targets, client=client)
+    assert report["status"] == "over_budget", report
+    assert report["charged"]["estimated_usd"] <= cap + 1e-12
+    assert [source["status"] for source in report["sources"]].count("complete") == 1
+    assert sum(float(source["charged"]["estimated_usd"] or 0) for source in report["sources"]) == pytest.approx(
+        report["charged"]["estimated_usd"])

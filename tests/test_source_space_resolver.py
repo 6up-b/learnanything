@@ -256,3 +256,34 @@ def test_exploration_is_its_own_switch_and_logs_its_propensities(tmp_path, monke
     assert explored.space_selection["weights"]["source"] == "seed"
     delivered = [row for row in _feedback(repository) if row["event"] == "delivered"]
     assert any(row["payload"]["propensity"] < 1.0 for row in delivered)
+
+
+def test_the_fallback_query_spends_from_the_callers_budget_and_is_planned(tmp_path, monkeypatch):
+    """Codex review F2: a Voyage query is admitted against the caller's budget
+    (a zero budget sends nothing) and the dry run plans it."""
+
+    from learnloop.ai.spend import SpendBudget
+    from learnloop.source_retrieval.library import deep_search_caps, plan_library_search
+
+    paths, repository = _vault(tmp_path)
+    seed_source(repository, source_id="src_new", revision_id="rev_new", extraction_id="ext_new",
+                title="Bases Notes", units=NEW_BOOK)
+    client = _fallback(paths, monkeypatch)
+    assert fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_new", client=client)["status"] == "complete"
+    question = "what is a basis of a vector space"
+    zero = SpendBudget(deep_search_caps(max_calls=0, max_tokens=0, max_cost_usd=0.0))
+    clear_cache()
+    result = search_spans(loaded(paths), repository, question, library_scope(repository), deep=True, rewrite=False,
+                          embedder=HashingEmbedder(), pool="hybrid_rrf", consumer="library", budget=zero)
+    assert client.query_calls == [] and zero.used.calls == 0
+    assert result.space_selection["spaces"]["voyage"]["query"]["status"] == "over_budget"
+    roomy = SpendBudget(deep_search_caps(max_calls=5, max_tokens=50_000, max_cost_usd=0.05))
+    clear_cache()
+    result = search_spans(loaded(paths), repository, question, library_scope(repository), deep=True, rewrite=False,
+                          embedder=HashingEmbedder(), pool="hybrid_rrf", consumer="library", budget=roomy)
+    assert len(client.query_calls) == 1 and roomy.used.calls == 2  # Qwen's query and Voyage's, one budget
+    assert result.space_selection["spaces"]["voyage"]["query"]["charged"]["calls"] == 1
+    plan = plan_library_search(loaded(paths), repository, query="a new question about bases", deep=True)
+    fallback = plan["fallback_query_embedding"]
+    assert fallback["calls"] == 1 and fallback["estimated_usd"] > 0
+    assert plan["calls"] >= 1 + plan["query_embedding"]["calls"]

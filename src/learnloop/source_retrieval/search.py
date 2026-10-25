@@ -552,7 +552,7 @@ def _resolved_meaning(vault: LoadedVault, repository: Repository, scope: Scope, 
         return keep(split_record_id(record_id))
 
     built = meaning_lists(vault, repository, resolution, texts, qwen_index=index, qwen_vectors=qwen_vectors,
-                          depth=depth, permit=permit, owner_id=owner_id, deadline=deadline)
+                          depth=depth, permit=permit, owner_id=owner_id, deadline=deadline, budget=budget)
     result.notes.extend(built["notes"])
     ranks = space_ranks(built["per_space"])
     for name, key in (("meaning", "query"), ("rewrite_meaning", "rewrite")):

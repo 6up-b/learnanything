@@ -183,10 +183,58 @@ def backfill_caps(config: LearnLoopConfig, batches: Sequence[Sequence[Window]]) 
                      max_estimated_usd=config.embedding.fallback.max_cost_usd_per_run)
 
 
+def _missing(vault: LoadedVault, repository: Repository, space: str,
+             extraction_id: str) -> tuple[list[Window], list[Window]]:
+    """``(windows, the windows the fallback space lacks)`` under the current policy."""
+
+    windows = extraction_windows(vault, repository, extraction_id, "grouped")
+    keys = expected_keys(space, windows)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        have = window_vectors(connection, space, extraction_id, keys)
+    return windows, [window for window in windows if any(span not in have for span in window.span_ids)]
+
+
+def run_budget(vault: LoadedVault, repository: Repository, extraction_ids: Sequence[str], *,
+               cancelled: Callable[[], bool] | None = None) -> SpendBudget:
+    """ONE budget for a backfill run over many sources (Codex review F3): its
+    calls and tokens are the run's whole plan, its dollars the per-run cap
+    (``embedding.fallback.max_cost_usd_per_run``, keep), so a command over
+    many sources never spends more than one run's cap."""
+
+    space, _pins = fallback_space(vault.config)
+    batches = [batch for extraction_id in extraction_ids
+               for batch in _batches(_missing(vault, repository, space, extraction_id)[1])]
+    return SpendBudget(backfill_caps(vault.config, batches), cancelled=cancelled)
+
+
+def backfill_fallback_run(vault: LoadedVault, repository: Repository, extraction_ids: Sequence[str], *,
+                          client: Any | None = None, cancelled: Callable[[], bool] | None = None,
+                          dry_run: bool = False) -> dict[str, Any]:
+    """Backfill several sources under one run budget; the aggregate estimate and charge."""
+
+    budget = None if dry_run or fallback_reason(vault.config) is not None else run_budget(
+        vault, repository, extraction_ids, cancelled=cancelled)
+    reports = [backfill_fallback_vectors(vault, repository, extraction_id, client=client, cancelled=cancelled,
+                                         dry_run=dry_run, budget=budget) for extraction_id in extraction_ids]
+    statuses = {report["status"] for report in reports}
+    status = ("dry_run" if dry_run else "complete" if statuses <= {"complete"} else
+              "disabled" if statuses == {"disabled"} else "over_budget" if "over_budget" in statuses else "incomplete")
+    estimate = {"tokens_upper_bound": sum(int((report.get("estimate") or {}).get("tokens_upper_bound") or 0)
+                                          for report in reports),
+                "usd_upper_bound": round(sum(float((report.get("estimate") or {}).get("usd_upper_bound") or 0.0)
+                                             for report in reports), 6)}
+    return {"status": status, "sources": reports, "estimate": estimate,
+            "cap_usd": vault.config.embedding.fallback.max_cost_usd_per_run,
+            "charged": asdict(budget.used) if budget is not None else None}
+
+
 def backfill_fallback_vectors(vault: LoadedVault, repository: Repository, extraction_id: str, *,
                               client: Any | None = None, cancelled: Callable[[], bool] | None = None,
-                              dry_run: bool = False) -> dict[str, Any]:
-    """Embed the windows of ``extraction_id`` the fallback space lacks (aggregate report only)."""
+                              dry_run: bool = False, budget: SpendBudget | None = None) -> dict[str, Any]:
+    """Embed the windows of ``extraction_id`` the fallback space lacks (aggregate report only).
+
+    ``budget``: a run's shared budget (:func:`backfill_fallback_run`); without
+    one this extraction is its own run, capped at the per-run cap."""
 
     report: dict[str, Any] = {"extraction_id": extraction_id, "space": NAME}
     reason = fallback_reason(vault.config)
@@ -196,11 +244,7 @@ def backfill_fallback_vectors(vault: LoadedVault, repository: Repository, extrac
         return {**report, "status": "disabled", "reason": "embedding.fallback.maintain_index is false"}
     space, _pins = fallback_space(vault.config)
     report["space_id"] = space
-    windows = extraction_windows(vault, repository, extraction_id, "grouped")
-    keys = expected_keys(space, windows)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        have = window_vectors(connection, space, extraction_id, keys)
-    missing = [window for window in windows if any(span not in have for span in window.span_ids)]
+    windows, missing = _missing(vault, repository, space, extraction_id)
     batches = _batches(missing)
     price = float(vault.config.embedding.fallback.price_per_million)
     tokens = sum(token_upper_bound(text) for window in missing for text in window.chunks)
@@ -215,7 +259,8 @@ def backfill_fallback_vectors(vault: LoadedVault, repository: Repository, extrac
         client, why = fallback_client(vault)
         if client is None:
             return {**report, "status": "unavailable", "reason": why}
-    budget = SpendBudget(backfill_caps(vault.config, batches), cancelled=cancelled)
+    budget = budget or SpendBudget(backfill_caps(vault.config, batches), cancelled=cancelled)
+    before = asdict(budget.used)
 
     def observe(action: str, event: dict[str, Any]) -> None:
         if action == "start" and event.get("parent_call_id") is None:
@@ -256,8 +301,11 @@ def backfill_fallback_vectors(vault: LoadedVault, repository: Repository, extrac
         status, report["error_type"] = "provider_failed", getattr(exc, "provider_error", type(exc).__name__)
     except ValueError as exc:
         status, report["reason"] = "invalid", str(exc)
+    after = asdict(budget.used)
+    charged = {key: (after[key] - (before.get(key) or 0)) if isinstance(after[key], (int, float)) else after[key]
+               for key in after}
     return {**report, "status": status, "embedded_windows": embedded, "remaining_windows": len(missing) - embedded,
-            "charged": asdict(budget.used)}
+            "charged": charged}
 
 
 # -- queries -------------------------------------------------------------------------------
@@ -267,12 +315,11 @@ def _query_hash(text: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def query_vectors(vault: LoadedVault, repository: Repository, texts: Mapping[str, str], *, client: Any | None,
-                  owner_id: str = "", deadline: float | None = None) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    """Query vectors in the fallback space (cached by text; one capped, paid request for the rest)."""
+def _query_text(text: str) -> str:
+    return collapse_whitespace(text)[:2000]
 
-    space, _pins = fallback_space(vault.config)
-    wanted = {key: collapse_whitespace(text)[:2000] for key, text in texts.items() if text.strip()}
+
+def _cached_queries(repository: Repository, space: str, wanted: Mapping[str, str]) -> dict[str, np.ndarray]:
     found: dict[str, np.ndarray] = {}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         for key, text in wanted.items():
@@ -281,6 +328,42 @@ def query_vectors(vault: LoadedVault, repository: Repository, texts: Mapping[str
                                 task_prefix=QUERY_TASK_PREFIX)
             if vector is not None:
                 found[key] = vector
+    return found
+
+
+def plan_query(vault: LoadedVault, repository: Repository, texts: Mapping[str, str]) -> dict[str, Any]:
+    """The dry run of :func:`query_vectors` at its worst case (Codex review F2):
+    whether the fallback space may be queried for this search, and the one
+    request's token and dollar bound. Read-only: no client, nothing sent."""
+
+    reason = fallback_reason(vault.config)
+    if reason is not None:
+        return {"status": "unused", "calls": 0, "estimated_tokens": 0, "estimated_usd": 0.0, "reason": reason}
+    space, _pins = fallback_space(vault.config)
+    wanted = {key: _query_text(text) for key, text in texts.items() if text.strip()}
+    pending = {key: text for key, text in wanted.items() if key not in _cached_queries(repository, space, wanted)}
+    price = float(vault.config.embedding.fallback.price_per_million)
+    tokens = sum(token_upper_bound(text) for text in pending.values())
+    return {"status": "may_call" if pending else "cached", "space_id": space, "texts": len(wanted),
+            "pending": len(pending), "calls": 1 if pending else 0, "estimated_tokens": tokens,
+            "estimated_usd": round(tokens * price / 1_000_000, 8), "price_per_million": price,
+            "cost_basis": "worst case: queried whenever it serves a source in scope (admitted at the full price)",
+            "billing": "metered"}
+
+
+def query_vectors(vault: LoadedVault, repository: Repository, texts: Mapping[str, str], *, client: Any | None,
+                  owner_id: str = "", deadline: float | None = None,
+                  budget: SpendBudget | None = None) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Query vectors in the fallback space (cached by text; one capped, paid request for the rest).
+
+    ``budget`` is the CALLER's (a deep search's, a CLI or MCP run's): the
+    request is admitted against it, so it counts toward that caller's calls
+    and dollars (Codex review F2). Without one, the Qwen query path's own
+    caps apply (one request, at most a cent)."""
+
+    space, _pins = fallback_space(vault.config)
+    wanted = {key: _query_text(text) for key, text in texts.items() if text.strip()}
+    found = _cached_queries(repository, space, wanted)
     pending = [(key, text) for key, text in sorted(wanted.items()) if key not in found]
     if not pending:
         return found, {"status": "cached", "paid": False, "cached": len(found)}
@@ -290,12 +373,16 @@ def query_vectors(vault: LoadedVault, repository: Repository, texts: Mapping[str
             return found, {"status": "unavailable", "reason": why, "paid": False}
     price = float(vault.config.embedding.fallback.price_per_million)
     size = sum(token_upper_bound(text) for _key, text in pending)
-    # The Qwen query path's caps (one request, at most a cent): the same query
-    # time box and money bound for whichever space answers.
-    budget = SpendBudget(QUERY_EMBEDDING_CAPS)
+    budget = budget or SpendBudget(QUERY_EMBEDDING_CAPS)
+    before = asdict(budget.used)
 
     def observe(action: str, event: dict[str, Any]) -> None:
         repository.record_model_event(action, event, owner_kind="source_query_embedding", owner_id=owner_id)
+
+    def charged() -> dict[str, Any]:
+        after = asdict(budget.used)
+        return {key: (after[key] - (before.get(key) or 0)) if isinstance(after[key], (int, float)) else after[key]
+                for key in after}
 
     remaining = None if deadline is None else deadline - time.monotonic()
     if remaining is not None and remaining <= 0:
@@ -319,11 +406,11 @@ def query_vectors(vault: LoadedVault, repository: Repository, texts: Mapping[str
     except AIProviderUnavailable as exc:
         timed_out = getattr(exc, "provider_error", None) == "APITimeoutError"
         return found, {"status": "timed_out" if timed_out else "provider_failed", "paid": True,
-                       "charged": asdict(budget.used)}
+                       "charged": charged()}
     except ValueError as exc:
         return found, {"status": "invalid", "reason": str(exc), "paid": True}
     return found, {"status": "embedded", "paid": True, "embedded": len(pending), "cached": len(found) - len(pending),
-                   "charged": asdict(budget.used)}
+                   "charged": charged()}
 
 
 def coverage(vault: LoadedVault, repository: Repository, extraction_ids: Sequence[str],
@@ -350,11 +437,14 @@ __all__ = [
     "FALLBACK_JOB",
     "NAME",
     "backfill_caps",
+    "backfill_fallback_run",
     "backfill_fallback_vectors",
     "coverage",
     "fallback_client",
     "fallback_reason",
     "fallback_space",
+    "plan_query",
     "query_vectors",
+    "run_budget",
     "window_vectors",
 ]
