@@ -78,6 +78,55 @@ def show_me_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "show_me_enabled", False))
 
 
+def figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None:
+    """Reader RW5d (Codex review F3, F4): where a figure built with no passage
+    lands, as ``(extraction_id, span_id)``: the reading position of every
+    request that built or reused it or a version it supersedes, first asked
+    first. Empty for a figure with a passage (its anchor is its home) or with
+    no recorded request (RW5a/b rows before migration 224); None when a stored
+    position is unreadable (a caller fails closed).
+
+    The one rule the figure service (listing, delivery, predictions) and the
+    learner-text gap reader share, by SQL, so the gap reader never imports the
+    figure package: a home is rechecked for held-out material with the
+    passages the author was sent, distinctly from them (it was never sent)."""
+
+    import json
+
+    names = {row[0] for row in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('interactive_figures', 'figure_requests')")}
+    if names != {"interactive_figures", "figure_requests"}:
+        return []
+    homes: list[tuple[str, str]] = []
+    current: str | None = str(figure_id)
+    seen: set[str] = set()
+    while current and current not in seen and len(seen) < 100:
+        seen.add(current)
+        row = connection.execute(
+            "SELECT supersedes_id, span_ids_json, region_json FROM interactive_figures WHERE id = ?",
+            (current,)).fetchone()
+        if row is None:
+            break
+        try:
+            if json.loads(row[1] or "[]") or json.loads(row[2] or "null"):
+                return []
+            for (raw,) in connection.execute(
+                    "SELECT reading_at_json FROM figure_requests WHERE figure_id = ? AND anchor_json IS NULL "
+                    "ORDER BY created_at, id", (current,)):
+                found = json.loads(raw) if raw else None
+                if found is None:
+                    continue
+                if not isinstance(found, dict) or not found.get("extraction_id") or not found.get("span_id"):
+                    return None
+                key = (str(found["extraction_id"]), str(found["span_id"]))
+                if key not in homes:
+                    homes.append(key)
+        except (TypeError, ValueError):
+            return None
+        current = row[0]
+    return homes
+
+
 #: The block types an offer may name: an equation, or a figure the figure
 #: author may crop (the figure service's own figure block types).
 OFFER_BLOCK_TYPES = frozenset({"Equation", "Figure", "FigureGroup", "Picture", "PictureGroup"})
@@ -163,6 +212,51 @@ def tutor_explorable_yes(repository: Any, question_event_id: str, keys: Any) -> 
     return {ids[found] for found, row in rows.items()
             if row.get("task") == TUTOR_EXPLORABLE_TASK and row.get("left_id") == str(question_event_id)
             and explorable_yes(row.get("verdict"))}
+
+
+#: Reader RW5d P1 (Codex review F6): the ``judgment_ledger`` task of the
+#: Reader tutor's figure goal, one row per answer that wrote one (left: the
+#: answer's question event; right: the goal's digest). The press is checked
+#: against this row, not against the stored view's JSON alone.
+TUTOR_FIGURE_GOAL_TASK = "figure_goal_offer"
+#: The row's verdict: the tutor offered this goal on this answer.
+FIGURE_GOAL_OFFERED = "offered"
+
+
+def tutor_figure_goal_judgment_id(question_event_id: str) -> str:
+    """The ledger id of an answer's figure goal: derived, so the press reads it
+    back without a search, and an answer offers at most one goal."""
+
+    from learnloop.ai.execution import content_key
+
+    return "fgj_" + content_key([str(question_event_id), TUTOR_FIGURE_GOAL_TASK])[:40]
+
+
+def figure_goal_digest(text: Any, span_keys: Any) -> str:
+    """The identity of a figure goal: its whitespace-normalized text and the
+    cited passages it is grounded in, in order."""
+
+    from learnloop.ai.execution import content_key
+
+    keys = [[str(key[0]), str(key[1])] for key in span_keys or () if len(key) == 2]
+    return content_key([" ".join(str(text or "").split()), keys])
+
+
+def tutor_figure_goal_offered(repository: Any, question_event_id: str, text: Any, span_keys: Any) -> bool:
+    """Whether the answer's ledger row records this very goal (its text and
+    its grounding keys) as offered by the tutor's model."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.practice_index import judgments_by_ids
+
+    found_id = tutor_figure_goal_judgment_id(question_event_id)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = judgments_by_ids(connection, [found_id]).get(found_id)
+    return bool(row) and row.get("task") == TUTOR_FIGURE_GOAL_TASK \
+        and row.get("left_id") == str(question_event_id) and row.get("verdict") == FIGURE_GOAL_OFFERED \
+        and row.get("right_id") == figure_goal_digest(text, span_keys)
 
 
 def text_key(vault: Any) -> Hashable:
@@ -255,9 +349,13 @@ __all__ = [
     "FiguresChanged",
     "FiguresGate",
     "OFFER_BLOCK_TYPES",
+    "FIGURE_GOAL_OFFERED",
     "TUTOR_EXPLORABLE_TASK",
+    "TUTOR_FIGURE_GOAL_TASK",
     "advanced_panels_enabled",
     "explorable_yes",
+    "figure_goal_digest",
+    "figure_home_keys",
     "figures_enabled",
     "offer_kind",
     "offerable",
@@ -266,4 +364,6 @@ __all__ = [
     "text_key",
     "tutor_explorable_judgment_id",
     "tutor_explorable_yes",
+    "tutor_figure_goal_judgment_id",
+    "tutor_figure_goal_offered",
 ]

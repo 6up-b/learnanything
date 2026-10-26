@@ -95,6 +95,7 @@ from learnloop.figure_admission import (
     FiguresChanged,
     FiguresGate,
     advanced_panels_enabled,
+    figure_home_keys,
     figures_enabled,
     offers_enabled,
 )
@@ -366,7 +367,26 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         message = withheld_message(vault, repository, row["extraction_id"], _figure_spans(row))
     elif not row.get("input_span_keys"):
         return "That figure has no source to check, so it isn't shown."
-    return message or keys_withheld(vault, repository, row.get("input_span_keys") or ())
+    message = message or keys_withheld(vault, repository, row.get("input_span_keys") or ())
+    if message is None and row.get("id"):
+        # RW5d (Codex review F4): a figure with no passage is also checked at
+        # every place it lands (its homes: never sent to the author, so not in
+        # its input manifest), as the request itself was.
+        homes = figure_homes(repository, row)
+        if homes is None:
+            return "That figure's place in the book is unreadable, so it isn't shown."
+        message = keys_withheld(vault, repository, homes)
+    return message
+
+
+def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None:
+    """Where a figure with no passage lands (:func:`learnloop.figure_admission.figure_home_keys`):
+    every recorded request's reading position; empty for an anchored figure."""
+
+    if row.get("span_ids") or row.get("region"):
+        return []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return figure_home_keys(connection, str(row["id"]))
 
 
 def show_me_row(row: Mapping[str, Any]) -> bool:
@@ -680,16 +700,21 @@ def _prediction_view(found: Mapping[str, Any] | None) -> dict[str, Any] | None:
             "explanation_text": found.get("explanation_text")}
 
 
-def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1) -> dict[str, Any]:
+def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1,
+                home: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A figure as the Reader shows it. The spec goes out as JSON text (its
     keys are the spec's own), and only for a shown figure. A prediction's
     answer is never sent before the learner answers it. A stored "verified"
-    shows as an illustration (:func:`shown_row`)."""
+    shows as an illustration (:func:`shown_row`).
+
+    ``home`` (RW5d, Codex review F3): where a figure with no passage lands in
+    this view (the request delivering it, or one placement in a listing);
+    unset, its own request's reading position."""
 
     row = advanced_off_row(vault, shown_row(row))
     region = row.get("region") or {}
     asked = _figure_request(repository, row)
-    home = (asked or {}).get("reading_at") or {}
+    home = home or (asked or {}).get("reading_at") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
         # Under the selection's last block; a region's figure (no selected
@@ -954,12 +979,24 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     ``find`` (RW5d) is the grounding retrieval (the sources service's, unset)."""
 
     request = check_request(vault, repository, request)
+    # One gate for the whole request (Codex review F1): grounding's rewrite,
+    # embedding and verification calls, the reuse lookup and the author are
+    # each admitted against the configuration as it is NOW (``live_vault``),
+    # so switching figures or show me off stops the request wherever it is.
+    gate = FiguresGate(vault, key_for(request), live_vault=live_vault)
+    try:
+        with gate_model_requests(gate):
+            return _build(vault, repository, request, gate=gate, author_client=author_client, clock=clock, find=find)
+    except FiguresChanged as exc:
+        raise FigureRefused("figures_changed", str(exc)) from exc
+
+
+def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: FiguresGate,
+           author_client: Any | None, clock: Clock | None, find: FindSources | None) -> BuildOutcome:
     grounding = ground(vault, repository, request, find=find)
-    if not anchored(request):
-        # Rechecked here too (G-SM2): the switch and the kept passages, as now.
-        if request.goal_text is not None and not show_me_enabled(vault):
-            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                    "(figures.show_me_enabled).")
+    # Rechecked against the live configuration (G-SM2; Codex review F1): the
+    # switches as they are now, after grounding's calls.
+    gate.check("grounding")
     context = source_context(vault, repository, request) if anchored(request) else \
         passages_context(vault, repository, grounding)
     previous = None
@@ -993,7 +1030,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         reused = _reusable(vault, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
     if reused is not None:
-        return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock)
+        return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
     # One build per input at a time (Codex review F7): an identical request
     # made while one runs waits for it and takes its figure, with no call.
     with _building(repository, input_hash):
@@ -1005,9 +1042,9 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
             latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
             generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
         if reused is not None:
-            return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock)
+            return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
-            return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock)
+            return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock, gate=gate)
         # The request's identity is its input and its retry generation, never
         # a fresh id: rerun after a crash between a paid answer and its row,
         # the same prompt recovers that answer (its checkpoint or receipt)
@@ -1015,15 +1052,10 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         # generation, so "try again" asks afresh.
         request_id = content_key({"input_hash": input_hash, "generation": generation})
         author.bind_owner(f"figure:{request_id}")
-        gate = FiguresGate(vault, key_for(request), live_vault=live_vault)
-        try:
-            with gate_model_requests(gate):
-                return _author_and_store(vault, repository, request, context, author, previous=previous,
-                                         versions=versions, image=image, asset_id=asset_id, digest=digest,
-                                         input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
-                                         advanced=advanced, grounding=grounding)
-        except FiguresChanged as exc:
-            raise FigureRefused("figures_changed", str(exc)) from exc
+        return _author_and_store(vault, repository, request, context, author, previous=previous,
+                                 versions=versions, image=image, asset_id=asset_id, digest=digest,
+                                 input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
+                                 advanced=advanced, grounding=grounding)
 
 
 _BUILDS_GUARD = threading.Lock()
@@ -1075,20 +1107,35 @@ def _request_row(request: FigureRequest, grounding: Grounding, *, figure_id: str
     }
 
 
+#: A reused figure's request could not be recorded (the vault is busy): the
+#: request fails, retryably, and its retry reuses the same paid figure.
+STORAGE_BUSY = "storage_busy"
+
+
 def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, request: FigureRequest | None = None,
-            grounding: Grounding | None = None, clock: Clock | None = None) -> BuildOutcome:
+            grounding: Grounding | None = None, clock: Clock | None = None,
+            gate: FiguresGate | None = None) -> BuildOutcome:
+    if gate is not None:
+        # The live configuration, as for every other step (Codex review F1).
+        gate.check("reuse")
     if request is not None:
         # RW5d: a reused figure's request is recorded too (what was asked, and
-        # that it took this figure). Bookkeeping: a failure never costs the
-        # learner the figure.
+        # that it took this figure). Required (Codex review F7): a request
+        # that cannot be recorded fails, retryably; its retry reuses this same
+        # figure, so nothing is built or paid for twice.
         try:
             with repository.atomic():
                 store.insert_request(repository.connection(), _request_row(
                     request, grounding or Grounding("anchor"), figure_id=str(row["id"]), clock=clock))
-        except sqlite3.Error:
-            pass
-    return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"]))),
-                        reused=True)
+        except sqlite3.Error as exc:
+            raise FigureRefused(STORAGE_BUSY, "LearnLoop couldn't record this request just now (the vault is "
+                                              "busy). Try again: the figure is kept, so nothing is built twice.") from exc
+    # Delivered where THIS request lands (Codex review F3): a goal-only figure
+    # reused from another paragraph of the same book opens at this request's
+    # home, not at the first request's.
+    home = request.reading_at if request is not None and not anchored(request) else None
+    return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"])),
+                                    home=home), reused=True)
 
 
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
@@ -1208,7 +1255,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             first = store.reusable(connection, input_hash, S.SPEC_VERSION)
         if first is None:
             raise
-        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock)
+        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate)
     stored = dict(row)
     stored["verification_report"] = row["verification_report"]
     return BuildOutcome(figure_view(vault, repository, stored, versions=versions), reused=False,
@@ -1317,8 +1364,13 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         pick = (drawable or shown or chain)[-1]
         if row_withheld(vault, repository, pick) is not None:
             continue
+        # RW5d (Codex review F3): a figure with no passage is listed at every
+        # paragraph of this source it was asked at (one view per placement),
+        # each opening where that request was made.
+        homes = [{"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
+                 if key[0] == extraction_id] or [None]
         try:
-            views.append(figure_view(vault, repository, pick, versions=len(chain)))
+            views.extend(figure_view(vault, repository, pick, versions=len(chain), home=home) for home in homes)
         except S.SpecError:
             continue
     return sorted(views, key=lambda view: view["created_at"])
@@ -1436,6 +1488,7 @@ __all__ = [
     "check_request",
     "enabled",
     "figure_view",
+    "figure_homes",
     "figure_withheld",
     "ground",
     "keys_withheld",

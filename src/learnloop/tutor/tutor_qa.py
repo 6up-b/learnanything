@@ -226,6 +226,46 @@ def _record_explorable_verdicts(repository: Repository, event_id: str, answer: A
         logger.warning("tutor explorable verdicts not recorded: %s", type(exc).__name__)
 
 
+def _record_figure_goal(repository: Repository, event_id: str, goal: Mapping[str, Any], *, model: str | None,
+                        prompt_version: str, clock: Clock | None) -> None:
+    """RW5d P1 (Codex review F6): the tutor's figure goal is an LLM judgment
+    (a figure would help this question), so it gets its ``judgment_ledger``
+    row as RW5b's ``explorable`` verdicts do: task ``figure_goal_offer``, the
+    model and prompt version, the input's identity (prompt version and the
+    answer's event) and, as its right id, the goal's digest (its text and its
+    grounding keys). Idempotent (the id is derived from the answer). The press
+    reads it back; without it the goal is not offered. Bookkeeping: a failure
+    is logged, never raised, and costs the learner only that answer's button."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.db.stores.practice_index import judgments_by_ids
+    from learnloop.figure_admission import (
+        FIGURE_GOAL_OFFERED,
+        TUTOR_FIGURE_GOAL_TASK,
+        figure_goal_digest,
+        tutor_figure_goal_judgment_id,
+    )
+
+    text, keys = goal.get("text"), [list(key) for key in goal.get("span_keys") or ()]
+    if not str(text or "").strip():
+        return
+    found_id = tutor_figure_goal_judgment_id(event_id)
+    try:
+        with repository.connection() as connection:
+            if found_id in judgments_by_ids(connection, [found_id]):
+                return
+            append_judgment(
+                connection, id=found_id, task=TUTOR_FIGURE_GOAL_TASK, left_kind="question_event",
+                left_id=str(event_id), right_kind="figure_goal", right_id=figure_goal_digest(text, keys),
+                judge="llm", judge_model=model or "unspecified", prompt_version=prompt_version,
+                input_hash=content_key([prompt_version, str(event_id)])[:40], verdict=FIGURE_GOAL_OFFERED,
+                score=1.0, rationale=json.dumps({"figure_goal": str(text), "span_keys": keys}, sort_keys=True),
+                created_at=utc_now_iso(clock))
+    except Exception as exc:  # noqa: BLE001 - the goal button is optional
+        logger.warning("tutor figure goal not recorded: %s", type(exc).__name__)
+
+
 def tutor_show_me_enabled(vault: LoadedVault) -> bool:
     """RW5d P1: the Reader tutor may write an optional ``figure_goal`` only
     while RW5b's tutor offers are on and ``figures.show_me_enabled``; off,
@@ -960,6 +1000,9 @@ def ask_question(
     if reader_view is not None and "explorable" in reader_view:
         _record_explorable_verdicts(repository, event_id, answer, model=getattr(client, "model", None),
                                     prompt_version=_prompt_version(ai_context, tools=tools), clock=clock)
+    if reader_view is not None and isinstance(reader_view.get("figure_goal"), Mapping):
+        _record_figure_goal(repository, event_id, reader_view["figure_goal"], model=getattr(client, "model", None),
+                            prompt_version=_prompt_version(ai_context, tools=tools), clock=clock)
     if item is not None:
         record_reveal(
             repository,

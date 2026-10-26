@@ -97,7 +97,7 @@ def _require(ctx: SidecarContext):
 
 
 def _refused(exc: FS.FigureRefused) -> SidecarError:
-    return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped"))
+    return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped", FS.STORAGE_BUSY))
 
 
 def _event(repository: Any, event: str, payload: dict[str, Any], *, extraction_id: str | None) -> None:
@@ -233,7 +233,11 @@ def tutor_figure_goal(repository: Any, offer_ref: str | None) -> dict[str, Any] 
     wrote (its text and the cited spans it grounds in), read from the stored
     output only (as :func:`offered_spans` reads its explorable blocks): the
     press makes no model call, and a goal the answer did not write is refused
-    (G-SM5)."""
+    (G-SM5). Confirmed by the goal's own ``judgment_ledger`` row (Codex review
+    F6: the append-only ledger, not the event's JSON alone, says what the
+    tutor offered): a view whose goal or grounding differs from it is refused."""
+
+    from learnloop.figure_admission import tutor_figure_goal_offered
 
     if not offer_ref:
         return None
@@ -241,6 +245,8 @@ def tutor_figure_goal(repository: Any, offer_ref: str | None) -> dict[str, Any] 
     view = ((event or {}).get("source_context") or {}).get("reader_tutor") or {}
     goal = view.get("figure_goal")
     if not isinstance(goal, dict) or not str(goal.get("text") or "").strip():
+        return None
+    if not tutor_figure_goal_offered(repository, offer_ref, goal.get("text"), goal.get("span_keys") or ()):
         return None
     return goal
 
@@ -251,6 +257,40 @@ def _same_goal(left: str | None, right: str | None) -> bool:
 
 #: P1's hosts are the Reader's: the attempt, workbench and lesson references are P3's and P4's.
 _LATER_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id", "lesson_id", "node_id")
+
+
+def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str, Any],
+                 offer_ref: str | None) -> Any | None:
+    """The caller a request's question-event reference determines, or None
+    when it names none (Codex review F2). Every supplied question event, from
+    any origin (``hostRef.questionEventId``, and a tutor offer's ``offerRef``),
+    is resolved on the server through ``caller_for_question_event``: the
+    restriction it was asked under (cold, or bound to an item) is the
+    request's, so the caller's policy refuses it below. P1's hosts are the
+    Reader's: a question asked anywhere else is refused here."""
+
+    from dataclasses import replace
+
+    from learnloop.instructional.policy import caller_for_question_event
+    from learnloop.source_retrieval.policy import PolicyRefused
+
+    named = [str(ref) for ref in (host_ref.get("question_event_id"), offer_ref if origin == "tutor" else None) if ref]
+    if not named:
+        return None
+    if len(set(named)) > 1:
+        raise SidecarError("validation_error", "The request names two different answers.")
+    event = repository.question_event(named[0])
+    if event is None:
+        raise SidecarError("not_found", "That answer is no longer kept.")
+    if str(event.get("context") or "") != "reader":
+        raise SidecarError("validation_error", "Figures on practice, feedback or lessons come in a later version.")
+    try:
+        caller = caller_for_question_event(vault, repository, named[0])
+    except PolicyRefused as exc:
+        raise SidecarError("not_found", str(exc)) from exc
+    # The caller kind follows the origin (spec §7.2): the tutor's for a tutor
+    # press, the Reader's otherwise; the event's restriction is kept either way.
+    return caller if origin == "tutor" else replace(caller, kind="reader")
 
 
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
@@ -301,17 +341,8 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
             raise SidecarError("not_offered", "That passage was not offered as an explorable figure.")
     elif goal is not None:
         goal_author = "learner"
-    if host_ref.get("question_event_id") and repository.question_event(str(host_ref["question_event_id"])) is None:
-        raise SidecarError("not_found", "That answer is no longer kept.")
-    if origin == "tutor" and goal is not None:
-        from learnloop.instructional.policy import caller_for_question_event
-        from learnloop.source_retrieval.policy import PolicyRefused
-
-        try:
-            caller = caller_for_question_event(vault, repository, str(offer_ref))
-        except PolicyRefused as exc:
-            raise SidecarError("not_found", str(exc)) from exc
-    else:
+    caller = _host_caller(vault, repository, origin=origin, host_ref=host_ref, offer_ref=offer_ref)
+    if caller is None:
         caller = reader_caller(vault, repository, extraction_id=home or None)
     policy, _why = derive_policy(caller)
     if policy == "cold_attempt":

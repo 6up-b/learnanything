@@ -41,6 +41,7 @@ from learnloop.attempts import stuck as stuck_module
 from learnloop.content.sources.exam_material import spans_withheld
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.figure_admission import figure_home_keys
 from learnloop.figure_admission import figures_enabled as _figures_switch
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
 from learnloop.reader.reader_progression import learning_objects_for_span
@@ -501,7 +502,44 @@ def figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: 
     message = spans_withheld(vault, repository, str(row["extraction_id"]), manifest) if row.get("extraction_id") else None
     for extraction_id, spans in keys.items():
         message = message or spans_withheld(vault, repository, extraction_id, spans)
+    if message is None and row.get("figure_id"):
+        # Reader RW5d (Codex review F4): a figure with no passage is also
+        # checked at every place it lands (the figure service's same rule).
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            homes = figure_home_keys(connection, str(row["figure_id"]))
+        if homes is None:
+            return "the figure's place in the book is unreadable"
+        for extraction_id, span_id in homes:
+            message = message or spans_withheld(vault, repository, extraction_id, [span_id])
     return message
+
+
+def figure_grounding_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Reader RW5d (Codex review F5): the passages a figure with no passage of
+    its own was grounded in, ``(extraction_id, span_id)`` across sources: the
+    kept ones its request recorded (the verified retrieval's picks, or a tutor
+    answer's cited spans), else every retrieved key it was sent. Empty for an
+    anchored figure (its selection is its passage)."""
+
+    if figure_prediction_spans(row):
+        return []
+    kept: list[tuple[str, str]] = []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'"
+                              ).fetchone():
+            found = connection.execute(
+                "SELECT r.grounding_manifest_json FROM interactive_figures AS f JOIN figure_requests AS r "
+                "ON r.id = f.request_id WHERE f.id = ?", (str(row.get("figure_id") or ""),)).fetchone()
+            try:
+                manifest = json.loads(found[0] or "{}") if found else {}
+                kept = [(str(key[0]), str(key[1])) for key in (manifest.get("kept") or ())
+                        if isinstance(key, list) and len(key) == 2 and key[0] and key[1]]
+            except (TypeError, ValueError, AttributeError):
+                kept = []
+    if not kept:
+        grouped = figure_input_keys(row) or {}
+        kept = [(extraction_id, span) for extraction_id, spans in grouped.items() for span in spans]
+    return list(dict.fromkeys(kept))
 
 
 def missed_prediction_ids(repository: Repository) -> list[str]:
@@ -572,9 +610,12 @@ def figure_prediction_text(vault: LoadedVault, repository: Repository, predictio
     text = words if not explanation else f"{words}. What changed, in my words: {explanation}"
     extraction_id = str(row["extraction_id"])
     spans = figure_prediction_spans(row)
+    # The passages the figure was built from: its selection, else (Reader RW5d,
+    # Codex review F5) the passages its goal was grounded in, in any source.
+    keys = [(extraction_id, span) for span in spans] or figure_grounding_keys(repository, row)
     los: list[str] = []
-    for span_id in spans:
-        for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id):
+    for key_extraction, span_id in keys:
+        for lo_id in learning_objects_for_span(vault, repository, extraction_id=key_extraction, span_id=span_id):
             if lo_id in vault.learning_objects and lo_id not in los:
                 los.append(lo_id)
     los.sort()
@@ -585,7 +626,7 @@ def figure_prediction_text(vault: LoadedVault, repository: Repository, predictio
         "surface": "reader_formative",
         "style": "figure_prediction",
         "question": str(prediction.get("prompt") or ""),
-        "passage": _span_texts(repository, extraction_id, spans),
+        "passage": _key_texts(repository, keys),
         "expected_answer": (f"{shown} (the figure's readout went from {observed.get('before')} to "
                             f"{observed.get('after')})")[:FORMATIVE_EXPECTED_CHARS],
         "expected_answer_from": "LearnLoop's figure (computed, not the book's words)",
@@ -661,6 +702,16 @@ def _missed_answer_ids(repository: Repository) -> list[str]:
             (*styles, *checks),
         ).fetchall()
     return [str(row[0]) for row in rows]
+
+
+def _key_texts(repository: Repository, keys: Sequence[tuple[str, str]]) -> str:
+    """The passages' texts in order, across sources (one source: :func:`_span_texts`)."""
+
+    by_extraction: dict[str, list[str]] = {}
+    for extraction_id, span_id in keys:
+        by_extraction.setdefault(extraction_id, []).append(span_id)
+    parts = [_span_texts(repository, extraction_id, spans) for extraction_id, spans in by_extraction.items()]
+    return " ".join(part for part in parts if part)[:FORMATIVE_PASSAGE_CHARS]
 
 
 def _span_texts(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str:
