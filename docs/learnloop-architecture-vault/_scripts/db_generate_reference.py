@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_221/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_222/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_221" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_222" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 221
+SCHEMA_HEAD = 222
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -900,6 +900,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
     "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
+    "curriculum": "deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6): section coverage, one judged row per (section, learning object) from one listwise call per LO over its candidate sections across the library (provenance, one search per source, the learner's own links; ai.routing.section_coverage_judge, plan-first), and reader.correspondents, the other books' sections that treat the same LOs (no model call; unchecked search hits when none is judged); exam and held-out material never a candidate: the kill switch, the judge's daily metered cap, the owner-run cover batch's cap and the prompt bound (display and retrieval context only, no successor)",
     "teacher": "teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor)",
 }
 
@@ -2063,7 +2064,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_221/state.sqlite",
+                "fixtures/migration_head_222/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

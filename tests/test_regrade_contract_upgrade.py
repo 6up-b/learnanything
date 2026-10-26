@@ -43,7 +43,7 @@ from tests.test_regrade_contract_successor import JOINT, _settle, _vault
 TARGET = REGRADE_CONTRACT_ALGORITHM_VERSION
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
 CLOCK = FrozenClock(datetime(2026, 12, 1, 12, 0, tzinfo=UTC))
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222"
 
 
 def _attempt_rows(repository):

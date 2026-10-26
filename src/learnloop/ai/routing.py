@@ -130,6 +130,8 @@ AITask = Literal[
     "role_labeller",
     # Reader workbench RW7a: the reading-path judge (a chat task, one call per source and depth).
     "reading_path_judge",
+    # Deliverable curriculum C0a: the section coverage judge (a listwise task, one call per LO).
+    "section_coverage_judge",
     # Reader workbench RW5a: the figure author (the declarative spec).
     "figure_author",
 ]
@@ -251,6 +253,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW7a: one structured call labelling a source's sections
     # for the learner's depth (the Guide's path; display only).
     "reading_path_judge": "reading_path_judge",
+    # Deliverable curriculum C0a: one listwise call judging how each candidate
+    # section of the library treats one learning object (coverage; display
+    # and retrieval context only).
+    "section_coverage_judge": "section_coverage_judge",
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",

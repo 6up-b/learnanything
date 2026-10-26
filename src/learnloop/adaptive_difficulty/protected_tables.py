@@ -144,6 +144,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("rung_variant_requests", DENIED),
     ("scheduler_slate_candidates", DENIED),
     ("schema_migrations", NEUTRAL),
+    # Curriculum C0a (migration 222): a coverage row names a reading's section.
+    ("section_coverage", PROTECTED),
     ("source_artifacts", NEUTRAL),
     ("source_document_assets", PROTECTED),
     ("source_document_blocks", PROTECTED),
@@ -376,6 +378,13 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         derived="label reason state_key"),
     "reader_section_progress": _table({"extraction_id": "extraction", "section_id": "section@extraction_id"},
         values="revealed_at completed_at generation_batch_id updated_at", derived="spans_seen span_count"),
+    # Curriculum C0a (migration 222): the coverage judge's treatment of one LO by one section is a
+    # READING row; what the judge or the learner wrote and the hashes and keys it was judged under are
+    # never read as stored (AD reads no coverage).
+    "section_coverage": _table({"extraction_id": "extraction", "section_id": "section@extraction_id"},
+        values="id learning_object_id origin learner_override ledger_id model prompt_version created_at",
+        derived="treatment roles_json assumes_json notation_md candidate_rank learner_text section_hash lo_hash "
+                "state_key"),
     "reveal_events": _table({
         "practice_item_id": "item", "attempt_id": "attempt", "question_event_id": "question_event",
     },
@@ -492,6 +501,12 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
         "kind", "learning_object_id", "suppressed_reason", "propensity", "p_open", "p_open_source", "density")},
     **{("reader_path_sections", column): "unread: the path judge's label under the incumbent's learner state; "
                                          "AD reads no reading path" for column in ("label", "reason", "state_key")},
+    # Curriculum C0a: AD reads no section coverage.
+    **{("section_coverage", column): "unread: the coverage judge's (or the learner's) reading of a section "
+                                     "against an LO, ranked among other readings' sections; AD reads no "
+                                     "coverage" for column in (
+        "treatment", "roles_json", "assumes_json", "notation_md", "candidate_rank", "learner_text",
+        "section_hash", "lo_hash", "state_key")},
 })
 
 #: The READING tables (round 8, Option B): rows that describe a reading's structure or a reading
@@ -509,6 +524,8 @@ READING = frozenset({
     # The compose round (main 558e85ab1): RW3b's cues and impressions, RW5a's figures and predictions,
     # RW7a's path labels (none is attempt evidence).
     "passage_links", "reader_cue_impressions", "interactive_figures", "figure_predictions", "reader_path_sections",
+    # Curriculum C0a: section coverage (display and retrieval context, never attempt evidence).
+    "section_coverage",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

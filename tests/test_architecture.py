@@ -136,6 +136,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Reader workbench RW7a: reader_path_sections and reader_path_depths
         # (migration 217), the path judge's labels and the learner's choices.
         "src/learnloop/db/stores/reading_paths.py",
+        # Deliverable curriculum C0a: section_coverage (migration 222), the
+        # coverage judge's rows and the learner's corrections (append-only).
+        "src/learnloop/db/stores/section_coverage.py",
         # Reader workbench RW4a: library_asks (migration 209), one row per
         # library question with its manifests and organizer lines.
         "src/learnloop/db/stores/library_asks.py",

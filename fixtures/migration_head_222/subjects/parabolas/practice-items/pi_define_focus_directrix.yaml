@@ -1,0 +1,85 @@
+schema_version: 1
+id: pi_define_focus_directrix
+learning_object_id: lo_parabola_focus_directrix_definition
+subjects:
+  - parabolas
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+  - open_text
+evidence_facets:
+  - equidistant_condition
+  - focus_identification
+  - directrix_identification
+  - line_distance_precision
+evidence_weights:
+  directrix_identification: 0.25
+  equidistant_condition: 0.25
+  focus_identification: 0.25
+  line_distance_precision: 0.25
+criterion_facet_weights: {}
+prompt: In the focus-directrix definition, what condition must every point on a 
+  parabola satisfy?
+expected_answer: Every point on the parabola must be the same distance from the 
+  fixed focus as it is from the fixed directrix line, measured to the closest 
+  point on the line.
+difficulty: 0.31
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - focus
+  - directrix
+  - definition
+hints:
+  - One object is a fixed point and the other is a fixed line.
+  - The important comparison is equality of distances.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.55
+transfer_distance: 0.15
+scaffold_level: 0.2
+surface_family: definition_recall
+repair_targets:
+  - equidistant_condition
+  - focus_identification
+  - directrix_identification
+  - line_distance_precision
+  - ellipse_definition_confusion
+grading_rubric:
+  max_points: 3
+  criteria:
+    - id: equidistant_condition
+      points: 1.25
+      description: States that points are equidistant from two objects.
+    - id: names_focus
+      points: 0.75
+      description: Identifies the fixed point as the focus.
+    - id: names_directrix
+      points: 0.75
+      description: Identifies the fixed line as the directrix.
+    - id: closest_line_distance
+      points: 0.25
+      description: Mentions that distance to the directrix is the shortest 
+        perpendicular distance to the line.
+  fatal_errors:
+    - id: ellipse_definition_confusion
+      description: Defines a parabola using the constant sum of distances to two
+        foci.
+      max_grade: 1
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=35.4-54.3
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=35.4-54.3
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:14Z'
+updated_at: '2026-05-30T01:11:14Z'

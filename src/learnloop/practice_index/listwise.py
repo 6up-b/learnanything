@@ -162,6 +162,16 @@ def from_ledger(task: ListwiseTask, keys: Sequence[Key], ids: Mapping[Key, str],
     return ListwiseOutcome(status, picks=picks, rows=found, model=model)
 
 
+def _jsonable(value: Any) -> Any:
+    """A recorded judgment field as JSON (a nested model, or a list of them, dumped)."""
+
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(entry) for entry in value]
+    return value
+
+
 def judge_listwise(
     vault: LoadedVault,
     repository: Repository,
@@ -259,7 +269,7 @@ def judge_listwise(
             rank = picks.index(key) + 1 if key in picks else None
             details: dict[str, Any] = {"text": judgment.rationale.strip()[:600], "pick_rank": rank}
             for name in task.ledger_fields:
-                details[name] = getattr(judgment, name, None)
+                details[name] = _jsonable(getattr(judgment, name, None))
             append_judgment(
                 connection, id=judgment_id, task=task.ledger_task, left_kind=task.left_kind,
                 left_id=left_id, right_kind=task.right_kind, right_id=right_id(key), judge="llm",

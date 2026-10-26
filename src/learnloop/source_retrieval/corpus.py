@@ -479,6 +479,18 @@ def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tupl
     return found
 
 
+def exercise_and_solution_spans(repository: Repository, extraction_ids: Iterable[str]) -> set[tuple[str, str]]:
+    """Every exercise and solution block of these readings (a solution with the
+    body after its lead), by effective role hint: what an item-bound scope
+    drops (the same rule; curriculum C0a's coverage candidates drop it too)."""
+
+    wanted = sorted({str(value) for value in extraction_ids if value})
+    if not wanted:
+        return set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return _role_hint_exclusions(connection, wanted)
+
+
 def _ref_spans(extraction_id: str | None, span_ids: Sequence[str]) -> set[tuple[str, str]]:
     """A YAML source ref's ``span_ids``: plain (``s4``) or namespaced (``ext/s4``, ``ext:s4``)."""
 
@@ -731,6 +743,7 @@ __all__ = [
     "library_scope",
     "exam_exclusions",
     "exam_withheld",
+    "exercise_and_solution_spans",
     "model_reader_withheld",
     "role_keys",
     "role_proposal_keys",

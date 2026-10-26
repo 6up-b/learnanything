@@ -590,8 +590,15 @@ def test_the_router_cards_read_is_typed_and_pure(compared):
     assert los
     card = KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los, as_of="2999-01-01T00:00:00Z")
     assert len(card) == 1 and card[0]["status"] == "proposed" and card[0]["takes"] == 1
-    assert card[0]["relations"][0] == {"relation_type": "refines", "fine": "different_notation",
-                                       "relation_id": card[0]["relations"][0]["relation_id"]}
+    relation = card[0]["relations"][0]
+    objects = {source["source_object_id"] for source in card[0]["sources"]}
+    assert relation == {"relation_type": "refines", "fine": "different_notation",
+                        "relation_id": relation["relation_id"],
+                        "left_source_object_id": relation["left_source_object_id"],
+                        "right_source_object_id": relation["right_source_object_id"]}
+    # Its two ends are two of the card's own sources (C0a Codex review F6).
+    assert {relation["left_source_object_id"], relation["right_source_object_id"]} <= objects
+    assert relation["left_source_object_id"] != relation["right_source_object_id"]
     assert "mine" not in json.dumps(card)  # no prose: the take is counted, never quoted
     assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los,
                                         as_of="2000-01-01T00:00:00Z") == []

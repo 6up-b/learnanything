@@ -1,0 +1,44 @@
+schema_version: 1
+id: lo_convert_standard_to_vertex_form
+title: Convert a Standard-Form Parabola to Vertex Form
+subjects:
+  - parabolas
+concept: concept_complete_square_to_vertex_form
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Rewrite ax^2+bx+c as a(x-h)^2+k by factoring a from the x-terms, 
+  completing the square inside the parentheses, compensating outside, and 
+  simplifying.
+prerequisites:
+  - complete the square
+  - factor a common coefficient
+  - interpret vertex form
+confusables:
+  - forgetting to compensate for the outside coefficient a
+difficulty_prior: 0.68
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - standard-form
+  - vertex-form
+  - completing-the-square
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=158.2-225.5
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=158.2-225.5
+      quote:
+      quote_hash:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=269.5-282.2
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=269.5-282.2
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:13Z'
+updated_at: '2026-05-30T01:11:13Z'

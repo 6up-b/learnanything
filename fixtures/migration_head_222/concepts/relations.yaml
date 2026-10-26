@@ -1,0 +1,11 @@
+schema_version: 1
+edges:
+  - id: edge_complete_square_requires_vertex_form
+    relation_type: prerequisite
+    source: concept_parabola_vertex_form
+    target: concept_complete_square_to_vertex_form
+    strength: 0.75
+    rationale: Students need to know what vertex form represents before 
+      completing the square feels useful for graphing.
+    created_at: '2026-05-30T01:11:16Z'
+    updated_at: '2026-05-30T01:11:16Z'

@@ -1,0 +1,32 @@
+schema_version: 1
+id: lo_parabola_focus_directrix_definition
+title: Define a Parabola Using Focus and Directrix
+subjects:
+  - parabolas
+concept: concept_parabola_focus_directrix
+knowledge_type: conceptual
+status: active
+contradicts:
+summary: A parabola consists of all points whose distance to a fixed focus 
+  equals their shortest distance to a fixed directrix line.
+prerequisites: []
+confusables:
+  - ellipse constant-sum definition
+difficulty_prior: 0.32
+difficulty_source: llm_estimate
+tags:
+  - parabolas
+  - conic-sections
+  - definition
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: note_source_youtube_video_hvjkcmzfix8_498a1cb1:t=35.4-54.3
+      path: 
+        subjects/parabolas/notes/note_source_youtube_video_hvjkcmzfix8_498a1cb1.md
+      locator: t=35.4-54.3
+      quote:
+      quote_hash:
+created_at: '2026-05-30T01:11:13Z'
+updated_at: '2026-05-30T01:11:13Z'

@@ -1023,7 +1023,11 @@ def kept_comparisons_for_card(vault: LoadedVault, repository: Repository, *, lea
             "learning_object_ids": los,
             "sources": [{"source_id": obj.get("source_id"), "key": obj["key"], "object_type": obj["object_type"],
                          "source_object_id": obj["id"]} for obj in kept.get("objects") or ()],
-            "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"]}
+            # Each relation's two ends (C0a Codex review F6: a comparison of
+            # three sections relates pairs, never all of them at once).
+            "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"],
+                           "left_source_object_id": rel.get("left_object_id"),
+                           "right_source_object_id": rel.get("right_object_id")}
                           for rel in kept.get("relations") or ()],
             "takes": sum(1 for take in kept.get("takes") or () if by_then(take.get("created_at"))),
             "status": "proposed",
