@@ -185,10 +185,10 @@ it("the hook sends a joint request with the selection and the words, and skips w
 });
 
 it("the routed line says what show me uses, and only for show me", () => {
-  const action = { label: SHOW_ME_LABEL, intention: "understand" as const, effect: { kind: "figure" } };
+  const action = { label: SHOW_ME_LABEL, intention: "understand" as const, effect: { kind: "figure" as const } };
   expect(routedLine(action, "but with complex eigenvalues")).toBe("Understand · show me · from your selection and your words");
   expect(routedLine(action, " ")).toBe("Understand · show me · from your selection");
-  expect(routedLine({ label: "make this explorable", intention: "understand", effect: { kind: "figure" } }, "words"))
+  expect(routedLine({ label: "make this explorable", intention: "understand", effect: { kind: "figure" as const } }, "words"))
     .toBe("Understand · make this explorable");
 });
 

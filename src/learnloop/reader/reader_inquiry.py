@@ -94,6 +94,12 @@ RW5A_SERVER_EVENTS: tuple[str, ...] = (
     "figure_predicted",
     "figure_explained",
 )
+# Reader RW5d P1's server-owned event (the sidecar's ``figure.request``): a
+# "show me" asked with words (how: its origin, whether it had a passage and
+# who wrote the goal; never the words themselves).
+RW5D_SERVER_EVENTS: tuple[str, ...] = (
+    "show_me_requested",
+)
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 
 # Existing kinds the Reader UI records without an ``event`` field.
@@ -366,6 +372,7 @@ __all__ = [
     "RW1B_SERVER_EVENTS",
     "RW4A_SERVER_EVENTS",
     "RW5A_SERVER_EVENTS",
+    "RW5D_SERVER_EVENTS",
     "CLIENT_ACTIVITY_KINDS",
     "INQUIRY_EVENTS",
     "InquiryError",

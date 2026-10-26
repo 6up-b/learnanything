@@ -59,7 +59,8 @@ GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "reading_paths_base_a7
 def _without_rw5a(contract: dict) -> dict:
     """RW5a (explorable figures, landed after a76c8358a and on by default) adds its own key and its one intent-box
     action, pinned by tests/test_figures_switch_off.py; these pins are about RW7a's switch (RW5a landing)."""
-    assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True}  # RW5b: offers
+    assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
+                                       "showMe": True}  # RW5b: offers; RW5d P1: showMe
     for group in contract["intent"]["palette"]:
         group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
     return contract

@@ -567,3 +567,26 @@ def test_the_reader_report_counts_show_me_without_the_words(tmp_path):
     assert GOAL not in json.dumps(report)
     off = build_reader_report(repository.sqlite_path, figures_enabled=True, figure_offers_enabled=True)
     assert "show_me" not in off["figures"]
+
+
+# ---------------------------------------------------------------------------
+# G-SM19: the new event is salience-only and carries no words
+# ---------------------------------------------------------------------------
+
+def test_show_me_requested_is_a_salience_only_event_without_the_words(tmp_path):
+    from learnloop.attempts import salience_firewall as SF
+    from learnloop.reader import reader_inquiry as RI
+
+    paths, repository = _vault(tmp_path)
+    ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative")]), find=FindFake([]))
+    show_me(ctx)
+    events = [row for row in repository.reader_interaction_events(kind="reader_action_invoked")
+              if row["payload"].get("event") in RI.RW5D_SERVER_EVENTS]
+    (row,) = events
+    assert {key: row["payload"].get(key) for key in ("via", "anchored", "goal_author")} == {
+        "via": "show_me", "anchored": False, "goal_author": "learner"}
+    assert row["payload"]["authority_class"] == SF.SALIENCE_ONLY
+    with pytest.raises(SF.SalienceEvidenceRejected):
+        SF.reject_salience(row)
+    assert GOAL not in json.dumps(row["payload"])
+    assert not set(RI.RW5D_SERVER_EVENTS) & set(RI.CLIENT_ACTION_EVENTS)
