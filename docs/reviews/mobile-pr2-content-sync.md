@@ -97,6 +97,9 @@ the attempt's five scheduling fields survive and the content columns still recon
 | `test_a_stale_snapshot_never_reactivates_a_probe_an_attempt_retired` | decision from the row under the lock | unit, direct call |
 | `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read` | desktop watcher refresh | after `practice_item_state(id)` |
 | `test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync` | update, real second process (G6b's PR-2 clause) | after `practice_item_states()` |
+| `test_a_probe_attempt_after_the_fallback_read_stays_retired` | Codex F1: real probe attempt; decision read under the lock | after the row read |
+| `test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired` | Codex F2: real measurement correction | after `superseded_measurement_item_ids()` |
+| `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive` | Codex F2 (`review_parked` twin) | after the `pending_review` read |
 
 The subprocess runs under a minimal environment (`PATH`, an empty `HOME` and `LEARNLOOP_CONFIG_DIR` under
 `tmp_path`, `PYTHONPATH`); the self-graded path makes no provider call.
