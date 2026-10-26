@@ -1,6 +1,6 @@
 # Reader RW5d: "Show me", explorable figures from a question, a passage or both, a sketch tier, and exploration as evidence (v1)
 
-**Status:** draft for owner review, 2026-10-25. Specification only: no code changed, no model or paid call made, no test run, no vault opened.
+**Status:** owner-approved 2026-10-25: every recommended answer in §18 adopted as decided. Specification only: no code changed, no model or paid call made, no test run, no vault opened.
 - **Base:** `main` at `eae00d58a` (migration head `220_retrieval_spaces.sql`; RW5a and RW5b landed). In flight and read from their specs only: LP claim fixes (migration 221), curriculum C0a (migration 222, `section_coverage` and `reader.correspondents`), Reader CA1 and CA2, the teacher spec rev 4 (approved, not built).
 - **Parent specs:** `docs/specs/spec_reader_workbench_v1.md` (§8 RW5, W1–W14, D28, D46, §17), `docs/specs/ux_reader_workbench_v1.md` (§4.0, §4.7, §4.10, §4.12), `docs/specs/ux_reader_compare_ask_v1.md` (§7 Ask, §8.5, §13). This spec adds a phase family, **RW5d**, under RW5. It changes no landed rule; where it amends one, the amendment is named.
 - Code paths are under `src/learnloop/` unless they say otherwise. "The figure service" is `figures/service.py`.
@@ -672,6 +672,8 @@ The owner checkpoint for P1 is one real "show me" on a `fixtures-local` copy wit
 | **R9. One more dependency and binary** (`wasmtime`, the engine) | Pinned, hashed, reproducibly built; the grammar tier keeps working with the sketch tier off |
 
 ## 18. Open questions, each with a recommended answer
+
+**Decided (owner, 2026-10-25): all fifteen recommendations below are adopted as written.**
 
 | # | Question | Recommendation |
 |---|---|---|
