@@ -246,3 +246,71 @@ MemoryMax=5G -p MemorySwapMax=1G`, one at a time. pytest ran with `-n 6` and vit
   **112 passed**.
 - `git diff --check`: clean. No `src-tauri` change, so no cargo check. No migration, DB or
   connection change, so no durability tests and no DB reference regeneration.
+
+## Fix round (orchestrator)
+
+The final Codex verify of `3dd930d25` REOPENED F9 and F11. Orchestrator rulings (proportionate
+bar): fix both. Each was reproduced first: the five new Python tests failed on `3dd930d25`
+(5 failed), and the two new vitest cases failed on the pre-fix `OpenInSource.tsx` (2 failed,
+the Reader opened `e9`, the passage that never showed).
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| F9 | High | a free crop showing a neighbouring exercise (a block shared by two items of a split; a split written with `source_service.enabled = false`, so no import rows) | fixed | see below | `tests/test_reader_ca1_codex_review.py::test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page` (the verify's bbox `[0, 0, 200, 80]` holding "1. Compute 2+2." and "2. Compute 3+3.", on a two-page PDF drawn with PIL), `::test_a_split_over_disjoint_and_shared_blocks_withholds_only_the_sharing_items_crop`, `::test_a_split_with_an_unanchored_sibling_owns_nothing`, `::test_a_split_written_with_no_import_rows_withholds_the_free_crop`, `::test_an_import_written_before_ownership_was_kept_shows_only_the_page` |
+| F11 | Medium | *open in the Reader ↗* passes the passage the viewer could not show | fixed | see below | `src/components/AsPrinted.test.tsx`: "after next fails in the original page, the Reader opens the passage still shown", "while next is still loading, the Reader opens the passage still shown" |
+
+**F9.** A free crop now needs evidence that its geometry is the item's alone.
+
+- *At import* (`exercise_authoring._owned_spans`): every item of the batch is anchored first,
+  skipped ones too. An item's blocks are the parts its statement overlaps; they are its own
+  only when no other item's statement overlaps any of them. One shared block means the item
+  owns none (its crop would show the other exercise, or only part of its own). A sibling
+  whose statement could not be anchored may sit in any block, so then no item of that split
+  owns anything; a selection-level edit stays "unknown" as before. Every Reader import now
+  records `owned` on each ref, split or not (an unsplit import owns every block, so the F4
+  behaviour is unchanged).
+- *At read* (`as_printed._selection_origin`): a ref's `owned` is the only evidence. A Reader
+  import with no `owned` was written before ownership was kept. Nothing durable says whether
+  its selection also held other exercises: a split's skipped or deduplicated sibling leaves no
+  item and no row, and with `source_service` off there are no rows at all. So it gets no free
+  crop. `_split_import` (the row-based guess) is removed.
+- *What the learner sees*: when the crop is withheld, the view is `kind: "page"` with
+  `crops: []`, the existing notice *the crop isn't available for this problem · the original
+  page is*, and the original page, located by every block of the selection. That page is
+  charged before Submit (Q12) and free after feedback. During a check on your own, nothing
+  shows. This is never an error.
+- *Consequence*: Reader selection imports written before this stage show the page, not a
+  crop. They had no crop on main, so nothing they had is lost.
+
+**F11.** `OpenInSource`'s *open in the Reader ↗* now takes its target from the view on screen
+(`view.extractionId`, `view.spanId`), not from the span asked for. When next or prev goes to a
+passage that fails, or is still loading, the passage still shown is the one the Reader opens.
+The link is disabled until a first view has loaded.
+
+No migration, no new config key, constant or parameter, nothing under `src-tauri`.
+
+### Fix-round gate
+
+Every pytest, vitest and npm command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G`, one at a time, pytest at `-n 6`, vitest at `--maxWorkers=4`; Python/CLI
+outside pytest under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. Fakes
+only, no live or paid calls.
+
+- Targeted pytest (22 files): **1145 passed**. Files: tests/test_reader_ca1_as_printed.py
+  tests/test_reader_ca1_codex_review.py tests/test_exercise_authoring.py
+  tests/test_import_split_parity.py tests/test_library_exercises.py
+  tests/test_required_method_authority.py tests/test_required_method_items.py
+  tests/test_source_exercise_rpcs.py tests/test_source_exercise_import.py
+  tests/test_facet_locks_landing.py tests/test_codex_output_schema.py
+  tests/test_structured_transport_parity.py tests/test_maintenance_feed.py
+  tests/test_desktop_rpc_contract.py tests/test_mobile_allowlist.py tests/test_architecture.py
+  tests/test_sidecar_reader.py tests/test_exam_protection.py tests/test_exam_protection_review.py
+  tests/test_plan_first_transport.py tests/test_reference_gate_imports.py
+  tests/test_reader_workbench_rw2a.py.
+- Contract pytest (4 files: serializer snapshot, sidecar contract, public-tip guards, tracked
+  fixture databases): **100 passed, 5 skipped**.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- `npm run typecheck`: exit 0.
+- vitest set 1 (21 files, the re-review's set 1): **189 passed**. vitest set 2 (11 files: every
+  other test file that renders `OpenInSource`, plus `FeedbackScreen*` and `feedback/`):
+  **137 passed**.
