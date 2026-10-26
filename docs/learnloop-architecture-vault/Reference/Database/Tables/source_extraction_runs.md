@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
-source_commit_timestamp: "2026-10-26T15:33:20-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -141,8 +141,8 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/experiments/contextual_embeddings/corpus.py`
+- `src/learnloop/figures/service.py`
 - `src/learnloop/instructional/exercises.py`
-- `src/learnloop/instructional/interventions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

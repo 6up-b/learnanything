@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
-source_commit_timestamp: "2026-10-26T15:33:20-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -143,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_reword_confirm.py`
+- `tests/test_figures_show_me_codex_review.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `tests/test_reader_pdf_selection.py`
 - `tests/test_reading_hardening_landing.py`
 - `tests/test_reread_safety.py`
-- `tests/test_sidecar_ingest_m3.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

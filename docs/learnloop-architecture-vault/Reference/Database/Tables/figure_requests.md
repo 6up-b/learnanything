@@ -3,8 +3,8 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "73d7d146740284eca0a5ff26ab53593429e7cc20"
-source_commit_timestamp: "2026-10-26T10:42:06-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/224_figure_requests.sql"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/figure_admission.py"
   - "src/learnloop/figures/service.py"
   - "src/learnloop/reader/reader_report.py"
 tags:
@@ -98,6 +100,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figure_admission.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -115,6 +119,7 @@ None found by exact static reference scan.
 
 - `tests/test_figure_requests_migration.py`
 - `tests/test_figures_show_me.py`
+- `tests/test_figures_show_me_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

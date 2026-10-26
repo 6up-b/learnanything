@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
-source_commit_timestamp: "2026-10-26T15:33:20-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/207_workbench.sql`.
-- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`, `221_workbench_earlier_opened.sql`.
+- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`, `223_workbench_earlier_opened.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -147,8 +147,8 @@ None found by exact static reference scan.
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
-- `tests/test_retrieval_spaces_migration.py`
 - `tests/test_rw2d_receipts_migration.py`
+- `tests/test_section_coverage_migration.py`
 - `tests/test_t1_batch_origin_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

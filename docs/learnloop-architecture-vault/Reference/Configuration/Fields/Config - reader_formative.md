@@ -3,8 +3,8 @@ title: "Config - reader_formative"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
-source_commit_timestamp: "2026-10-26T15:33:20-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_formative"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_formative.enabled` | `true` | boolean | modeled default or validator seed | Turns reader formative behavior on or off within reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2449`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/diagnosis/text_gaps/jobs.py:156` |
+| `reader_formative.enabled` | `true` | boolean | modeled default or validator seed | Turns reader formative behavior on or off within reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2451`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/diagnosis/text_gaps/jobs.py:156` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

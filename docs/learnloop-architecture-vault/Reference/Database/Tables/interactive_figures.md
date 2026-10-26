@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
-source_commit_timestamp: "2026-10-26T15:33:20-04:00"
+source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
+source_commit_timestamp: "2026-10-26T19:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/figures.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/figure_admission.py"
   - "src/learnloop/figures/service.py"
-  - "src/learnloop/reader/reader_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/figures.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figure_admission.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -150,6 +151,7 @@ None found by exact static reference scan.
 - `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_show_me.py`
+- `tests/test_figures_show_me_codex_review.py`
 - `tests/test_figures_switch_off.py`
 - `tests/test_section_coverage_migration.py`
 
