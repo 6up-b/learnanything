@@ -155,3 +155,59 @@ MemorySwapMax=1G`, pytest at `-n 6` and vitest at `--maxWorkers=4`.
 - **The other files the grep selects:** AD, field, kinship, LP, TE0, tool dispatch and others.
 
 The exact list is the 96 paths passed to that run.
+
+## Re-review (Codex job `20261026-130931-cbjykg`)
+
+Scope: `11da87ef9..reader/rw5d-p1-show-me`. F1 was confirmed fixed. F2 was reopened as a partial fix. F10 is new.
+Each was reproduced first with a failing test, then fixed. No live calls. No migration, schema, config or successor change.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | Grounding model calls bypass the figure kill switch | confirmed fixed (no change) | `879eacecd` | as above |
+| F2 | High | A tutor goal's `offerRef` overwrote a different `hostRef.questionEventId` before the references were validated | fixed | `51a775f36` | `test_f2_rereview_a_valid_goal_offer_with_a_different_host_is_refused` (×2: cold host, open host). It uses a **valid** tutor goal offer with its ledger row. It failed before the fix (DID NOT RAISE: the request started under `reading`). |
+| F10 | Medium | Multiple placements interfere with prediction radio controls | fixed | `0e241f5e6` | vitest `RW5d re-review F10: a figure placed under two paragraphs opens at one placement, and its prediction is that placement's` and `RW5d re-review F10: two mounted prediction controls for one figure never share a radio group`. Both failed before the fix: both placements expanded, and both groups were named `prediction-fig_1-0`. |
+
+**F2 fix.** `_request_figure` (`src/learnloop_sidecar/handlers/figures.py`) now passes the supplied `host_ref` and `offer_ref`
+to `_host_caller` unchanged. A tutor goal whose `offerRef` differs from `hostRef.questionEventId` is refused there with
+"two different answers" (`validation_error`), before any job, retrieval or model call. The request's `host_ref` is set to
+the offering answer only after that validation. If both references are the same, or the host is left out, the request
+builds as before. The test checks that its stored `host_ref` is `{question_event_id: <offer>}`.
+
+**F10 fix.** Expansion is now tracked per placement, not per figure ID. `useFigures` exposes `expandedKey`
+(`figurePlacementKey` = figure ID plus anchor span), and `setExpanded(figure | null)` replaces `setExpanded(figureId)`.
+The Ask rail's "open" passes the figure's placement. Only one placement is open at a time, as before.
+`PredictionBlock` names each radio group with `useId()`, so no two mounted controls share a native group. Prediction
+results stay shared by figure ID (`patchPrediction` is unchanged), and the test shows the result at both placements.
+
+### Re-review gate
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| New F2 test against the pre-fix handler (reproduction) | failed (DID NOT RAISE) |
+| `pytest -k f2 tests/test_figures_show_me_codex_review.py` after the fix | 9 passed |
+| Targeted pytest set 1 (`-n 6`, below) | **463 passed**, 0 failed |
+| Targeted pytest set 2 (`-n 6`, below) | **76 passed**, 0 failed |
+| `npm install`, `npm run typecheck` | ok, 0 errors |
+| New F10 vitest against the pre-fix frontend (reproduction) | 2 failed, 14 passed |
+| `npx vitest run --maxWorkers=4 src/screens/reader/figures/` | 8 files, **247 passed** |
+| `npx vitest run --maxWorkers=4 src/screens/reader/splitRails.test.tsx` | 1 file, **5 passed** |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `-m durability`, DB reference generate / validate | not run: no migration, DB, connection or schema change |
+
+Every pytest, npm and vitest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`.
+
+**Targeted pytest set 1:** `tests/test_figures_show_me_codex_review.py`, `tests/test_figures_show_me.py`,
+`tests/test_figure_offers.py`, `tests/test_figure_region.py`, `tests/test_figures_codex_review.py`, `tests/test_figures_rpc.py`,
+`tests/test_figures_rw5b_fix_round2.py`, `tests/test_figures_rw5b_review.py`, `tests/test_figures_scope_redesign.py`,
+`tests/test_plan_first_transport_offer_grants.py`, `tests/test_plan_first_transport_offer_grants_r5.py`,
+`tests/test_mobile_allowlist.py`, `tests/test_architecture.py`.
+
+**Targeted pytest set 2:** `tests/test_desktop_rpc_contract.py`, `tests/test_figures_switch_off.py`, `tests/test_figure_predictions.py`,
+`tests/test_figure_revisions.py`, `tests/test_figures_final_round.py`, `tests/test_figures_fix_round2.py`,
+`tests/test_figures_fix_round3.py`, `tests/test_figures_fix_round4.py`, `tests/test_figures_fix_round5.py`.
+
+**Vitest files:** all 8 under `src/screens/reader/figures/`, including the changed `FigureInline.test.tsx` and
+`showMe.test.tsx`. Also `src/screens/reader/splitRails.test.tsx`.
