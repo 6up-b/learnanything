@@ -140,3 +140,77 @@ All pytest runs inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p Me
 2. **The rebuild-equivalence fix's retired class** (§4): if it retires items for a reason
    `practice_item_activatable` does not know, a later sync reactivates them, before and after PR-2 alike. Worth a
    look when that fix lands.
+
+## Landing onto main (2026-10-26)
+
+This stage and the rebuild-equivalence fix (`fix/rebuild-equivalence`, the successor `mvp-0.34`) landed together,
+in one merge branch with one full gate. The branch is `merge/rbeq-pr2-onto-main` in `learnanything-merge2`, cut from
+`main` at `eaf9859ad`. The full landing record (chain, journal, gate and parity) is in
+[`rebuild-equivalence-fix.md`](rebuild-equivalence-fix.md#landing-onto-main-2026-10-26). This section covers what
+concerns PR-2. Main was neither fast-forwarded nor pushed.
+
+### Commits and conflicts
+
+- `6b388e6f5` merges the rebuild-equivalence fix.
+- `03b86177c` is the `--no-ff` merge of `mobile/pr2-content-sync` (`9a4e8d218`).
+  - Only generated reference notes conflicted: four config notes and three table notes whose line citations moved
+    on both sides. They were kept as main's and then regenerated (`beeb7a759`).
+  - **`repositories.py`, `state_sync.py` and `src/learnloop_sidecar/context.py` merged without a textual conflict.**
+    The rebuild fix's repository reads (`inactive_practice_item_ids`, `keep_practice_items_inactive`, the bounded
+    attempt windows, `has_whole_vault_rebuild`) sit beside PR-2's `update_practice_item_content_state` and
+    `initialize_practice_item_state(active=)`.
+- The landing's own change to `context.py` is outside PR-2's code. The sidecar now installs the chain's latest
+  activation completion (`replay_ledger_upgrade.complete_interrupted_activation`, which hands a claim-fixes journal
+  to the claim fixes); see the other record.
+- PR-2 adds no migration, no successor and no config key. Its spec note (§9.3) and its race tests land as built.
+
+### Interactions with the rebuild-equivalence fix (open question 2)
+
+- **Retired items stay retired.** The fix's replay keeps every deactivation that is not in the attempt ledger
+  (`keep_practice_items_inactive`). Its "retired" class is YAML `status: retired`, which `practice_item_activatable`
+  already rejects (any status but `active`). **No new class was needed.**
+  - `tests/test_rebuild_equivalence.py::test_a_full_sync_after_a_rebuild_keeps_retired_items_retired` covers a
+    `too_easy` and a `duplicate_surface` retirement, closed by a primary load, then a rebuild, then a full sync.
+  - Both stay inactive, the sync writes none of their scheduling fields, and the shadow is 0/0/0.
+  - Deactivations outside the YAML (probe lifecycle, coherence) are kept by replay and decided by this stage's rule
+    at the next sync, exactly as before either stage.
+- **`atomic()` nesting.** The fix makes every per-LO replay one `Repository.atomic()`, and this stage's reconcile is
+  another.
+  - `test_content_sync_nests_inside_a_rebuild_transaction_and_rolls_back_with_it` runs a rebuild and a sync inside
+    one caller transaction.
+  - Both become savepoints of it: a raise rolls back mastery and `practice_item_state` byte for byte, and without the
+    raise they commit together.
+  - The stage's §4 reasoning (replay's full upsert wins any interleaving) holds under the write lock.
+- **The race tests** (`test_state_sync_scheduling_race.py`, durability lane) run in the landing's durability gate,
+  on the merged tree.
+
+### Gate and parity
+
+- **Gate:** one full gate for both stages (the table is in the other record).
+  - The durability lane, which runs `test_state_sync_scheduling_race.py`'s nine race tests on the merged tree: **137
+    passed**, 1 skipped.
+  - The full suite: 21,663 passed. Its 12 failures are 10 for the machine's Codex CLI upgrade (failing on main too)
+    and 2 known flakes (3/3 alone).
+  - The owner lane: the 6 known failures.
+  - Vitest: 1,834 passed. lint-imports: 36 kept.
+
+- **Parity (a)** (main vs merge at `mvp-0.33`, owner-backup copies, after the normal primary load):
+  - every row of the 357 tables is identical (18,496 rows on linear_algebra, 8,129 on probability);
+  - certification, Today and the plan are byte-identical.
+  - **So PR-2 changes nothing without a concurrent writer.**
+  - The only side difference anywhere is the rebuild fix's shadow on linear_algebra (main 30 reopened retired items,
+    the merge 0), which is that stage's lifecycle fix.
+
+### Owner notes
+
+- Nothing to do for this stage. With the desktop app and the phone page writing at the same time, a content sync no
+  longer overwrites an answer's memory state or due date.
+- It ships with the `mvp-0.34` upgrade note in the other record, but it does not depend on that upgrade.
+
+### Open items
+
+- **The reverse race (open question 1).** Attempt recording still writes the whole `practice_item_state` row,
+  including `active = 1` for a non-probe item and the content hash it computed. A sync that closes an item while an
+  answer is being graded can still be undone by that answer. This goes to PR-4 or the M2 two-process gate (G6b),
+  with `test_mobile_two_process.py`.
+- Open question 2 is answered above (no new class).
