@@ -1,6 +1,6 @@
 # Reader RW5d: "Show me", explorable figures from a question, a passage or both, a sketch tier, rich tiers (JS and Manim), figures built ahead of need, and exploration as evidence (v1, revision 2)
 
-**Status:** revision 1 owner-approved 2026-10-25 (every recommended answer in §18 Q1–Q15 adopted). **Revision 2 drafted 2026-10-25 on the owner's direction (below); its new questions Q16–Q27 await the owner.** Specification only: no code changed, no model or paid call made, no test run, no vault opened.
+**Status:** owner-approved. Rev 1 (2026-10-25): Q1–Q15 adopted as recommended. Rev 2 (2026-10-26): Q16–Q27 adopted as recommended.
 
 ## Revision 2 (owner, 2026-10-25)
 
@@ -1345,7 +1345,7 @@ The owner checkpoint for P1 is one real "show me" on a `fixtures-local` copy wit
 
 ## 18. Open questions, each with a recommended answer
 
-**Decided (owner, 2026-10-25): all fifteen recommendations Q1–Q15 are adopted as written, and still decided in revision 2.** The owner's rev-2 direction amends the reach of Q2, Q3 and Q5, as noted in their rows. Q16–Q27 are new and await the owner.
+**Decided (owner, 2026-10-25): all fifteen recommendations Q1–Q15 are adopted as written, and still decided in revision 2.** The owner's rev-2 direction amends the reach of Q2, Q3 and Q5, as noted in their rows. Q16–Q27 are new in revision 2; **decided (owner, 2026-10-26): all twelve adopted as recommended.**
 
 | # | Question | Recommendation |
 |---|---|---|
