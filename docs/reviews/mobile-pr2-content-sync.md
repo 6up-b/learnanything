@@ -23,28 +23,29 @@ new memory state and due date reverted to the pre-attempt values. The same patte
 
 ## 2. What changed
 
-* **`Repository.update_practice_item_content_state(item_id, *, active, content_hash, expected=None, clock=None)`**
+* **`Repository.update_practice_item_content_state(item_id, *, active, content_hash, clock=None)`**
   (`src/learnloop/db/repositories.py`): a targeted `UPDATE` of `active`, `content_hash` and `updated_at` only, the
-  change §3.3 PR-2 names. With `expected`, it applies only while the row still holds exactly that state (every
-  scheduling column, the flag and the hash, compared with `IS`, so `NULL`s match) and returns whether it applied.
+  change §3.3 PR-2 names. (The first version also took an `expected` row for a compare-and-swap; the Codex review
+  fix removed it, see below.)
 * **`Repository.initialize_practice_item_state(…, active=True)`**: the existing insert-if-missing
   (`ON CONFLICT DO NOTHING`) gained an `active` argument (default unchanged for its one caller, `pf_publish`).
 * **`reconcile_practice_item_state(repository, item_id, item, *, state, review_parked, measurement_superseded,
   content_hash=None, clock=None) -> (outcome, active)`** (`src/learnloop/substrate/state_sync.py`): the per-item
   step both sync paths now share.
-  1. Decide `active` with `practice_item_activatable` from the snapshot.
-  2. No row in the snapshot: insert if missing. If a row appeared (an attempt created it), fall through to 4.
-  3. Row in the snapshot: if flag and hash already agree, nothing is written. Otherwise update guarded on the
-     snapshot.
-  4. If the guarded write did not apply (the row moved), re-read the row, decide once more from it, and write that
-     decision without the guard.
+  1. Decide `active` with `practice_item_activatable` from the caller's snapshots (the row and the two lifecycle
+     sets). If flag and hash already agree, nothing is written.
+  2. Otherwise, inside one `Repository.atomic()` (`BEGIN IMMEDIATE`) transaction: re-read the row, the
+     review-parked set and the measurement-superseded set, decide again from them, and insert the row if it is
+     missing or update the two content columns if they differ.
 
-  Why the guard: the active decision reads the row. An attempted `diagnostic_probe` is single-use; its attempt
-  writes `active = 0` and `last_attempt_at`. A sync deciding from the pre-attempt snapshot would compute
-  "activatable" and, even with a targeted update, reactivate the probe. The guard makes the flag follow the row the
-  decision was made from. The two-decision structure is the fix's shape (snapshot, then one fresh read), not a tuned
-  retry count; neither write can touch a scheduling field. If the row changes yet again under the fresh read (only a
-  concurrent rebuild deletes rows), the item is left to that writer and the next sync reconciles it.
+  Why the decision runs under the write lock: it reads the row and the lifecycle tables. An attempted
+  `diagnostic_probe` is single-use (its attempt writes `active = 0` and `last_attempt_at`); a measurement
+  correction supersedes its original; a parked instance waits for review. A sync deciding from inputs read before
+  any of those commits would reactivate the item. As first built, the update was guarded on the row snapshot and,
+  when the guard missed, decided again from a fresh read and wrote *without* a guard; Codex review F1/F2 showed that
+  an attempt landing after that fresh read, or a correction or parking landing after the lifecycle sets were read,
+  was still undone. Under the lock nothing can commit between those reads and the write. Neither write touches a
+  scheduling field.
 * **`sync_vault_state`** uses the helper for the create and update branches and `set_practice_item_active(…,
   active=False)` (flag only, already existing) for the deactivate branch. Counts are unchanged in meaning; a row an
   attempt created first counts as neither created nor updated.
@@ -70,8 +71,8 @@ That fix makes replay restore retired items as inactive. PR-2 does not touch rep
 `reset_learning_object_derived_state`, and the two compose:
 
 * Replay deletes rows for an LO's attempted items and re-creates them with full upserts. If it deletes a row between
-  a sync's snapshot and its write, the guarded update misses, the fresh read finds nothing, and the sync inserts a
-  fresh row only if none exists; replay's later full upsert overwrites it. If replay finished first, the sync's
+  a sync's snapshot and its write, the sync's read under the write lock finds nothing and it inserts a fresh row
+  (replay cannot interleave with that transaction); replay's later full upsert overwrites it. If replay finished first, the sync's
   insert is a no-op and replay's row stands. Either way replay's state wins, which is what rebuild equivalence needs.
 * What PR-2 does **not** change: the sync's activation rule. A full sync reactivates every YAML-active item that is
   not review-parked, measurement-superseded, a microprobe or an attempted diagnostic probe. If the fix retires items
@@ -90,10 +91,10 @@ the attempt's five scheduling fields survive and the content columns still recon
 
 | Test | Branch | Window |
 |---|---|---|
-| `test_content_change_sync_keeps_an_attempt_committed_after_its_snapshot` | update (guard misses, fresh decision writes the edited hash) | after `practice_item_states()` |
+| `test_content_change_sync_keeps_an_attempt_committed_after_its_snapshot` | update (decision re-taken under the write lock writes the edited hash) | after `practice_item_states()` |
 | `test_creating_sync_keeps_a_row_an_attempt_inserted_after_its_snapshot` | create (row appeared first) | after `practice_item_states()` |
 | `test_deactivating_sync_keeps_an_attempt_committed_after_its_snapshot` | deactivate | after `practice_item_states()` |
-| `test_a_stale_snapshot_never_reactivates_a_probe_an_attempt_retired` | guard: decision from the fresh row | unit, direct call |
+| `test_a_stale_snapshot_never_reactivates_a_probe_an_attempt_retired` | decision from the row under the lock | unit, direct call |
 | `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read` | desktop watcher refresh | after `practice_item_state(id)` |
 | `test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync` | update, real second process (G6b's PR-2 clause) | after `practice_item_states()` |
 
@@ -130,7 +131,7 @@ All pytest runs inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p Me
    (`_upsert_practice_item_state_record`), including the `active` and `content_hash` it computed from the item it
    graded. A sync that changes the flag while an attempt is being graded (for example retiring a superseded item)
    can be overwritten by that attempt, and the attempt path also sets `active = 1` for any non-probe item it grades.
-   The next sync repairs the hash and a superseded/parked flag, so the harm is one stale serve at most. The
+   A later content sync repairs the hash and a superseded/parked flag, but nothing guarantees when one runs (queue reads do not trigger one), so the stale flag can be served more than once until then (the Codex review corrected an earlier "one stale serve at most"). The
    symmetric fix is for attempt recording to write only its scheduling columns (and `active = 0` for a probe).
    Suggest folding it into PR-4 or the M2 two-process gate (G6b), whose `test_mobile_two_process.py` would catch it.
 2. **The rebuild-equivalence fix's retired class** (§4): if it retires items for a reason

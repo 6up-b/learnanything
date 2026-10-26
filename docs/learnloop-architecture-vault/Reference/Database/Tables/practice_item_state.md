@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "c36ecd6c4875f79bab11435a5fe0fb5961c9d55f"
+source_commit_timestamp: "2026-10-25T20:13:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -94,6 +94,7 @@ Indexes and uniqueness:
 - `Repository.replace_attempt_derived_outcome()`
 - `Repository.reset_learning_object_derived_state()`
 - `Repository.set_practice_item_active()`
+- `Repository.update_practice_item_content_state()`
 - `Repository.upsert_practice_item_state()`
 
 ### Direct SQL readers

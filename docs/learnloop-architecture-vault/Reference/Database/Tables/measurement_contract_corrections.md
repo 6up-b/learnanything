@@ -3,8 +3,8 @@ title: "measurement_contract_corrections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "c36ecd6c4875f79bab11435a5fe0fb5961c9d55f"
+source_commit_timestamp: "2026-10-25T20:13:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_contract_corrections"
@@ -125,6 +125,7 @@ Database triggers:
 
 - `tests/test_measurement_corrections.py`
 - `tests/test_migrations.py`
+- `tests/test_state_sync_scheduling_race.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "probe_item_family_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
-source_commit_timestamp: "2026-10-25T14:44:42-04:00"
+source_commit: "c36ecd6c4875f79bab11435a5fe0fb5961c9d55f"
+source_commit_timestamp: "2026-10-25T20:13:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_family_links"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `tests/test_probe_lifecycle.py`
 - `tests/test_probe_llm_instances.py`
 - `tests/test_probe_surface_mint.py`
+- `tests/test_state_sync_scheduling_race.py`
 - `tests/helpers.py`
 - `tests/test_p2_acceptance.py`
 - `tests/test_p2_leakage_suite.py`
