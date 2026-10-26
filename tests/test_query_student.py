@@ -310,11 +310,13 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
                             out_dir=data)
     assert stats["train"] > 0 and stats["temperature"] > 0 and stats["documents"] > 0
     gold = find_gold(repository)
-    ids, _matrix = Q.documents(loaded(paths), repository, space, exclude={("ext_book", gold)})
-    assert stats["documents"] == len(ids) and not any(gold in record for record in ids)
+    camp = Q.campaign(loaded(paths), repository, root=root, space=space, bank=D.load_bank(bank))
+    ids = camp["candidates"]["ids"]
+    assert stats["documents"] == len(ids) and not any(record.endswith("/" + gold) for record in ids)
+    assert stats["dataset_fingerprint"] == camp["fingerprint"]
     job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": recipe, "budget": 50_000, "seed": 0}, space=space,
                         base_dir=tmp_path, data_dir=data, out_dir=tmp_path / "out", temperature=stats["temperature"],
-                        plan_id="t")
+                        plan_id="t", dataset_fingerprint=camp["fingerprint"])
     job["epochs"] = 1
     output = student_trainer.run_training(job, model_factory=__import__("tests.query_student_fakes",
                                                                          fromlist=["x"]).tiny_factory,
@@ -325,6 +327,7 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     assert output["latency"]["device"]["probes"] >= 1 and 0.0 <= output["dev"]["agreement_mean"] <= 1.0
     manifest = json.loads((Path(output["checkpoint_dir"]) / "student.json").read_text())
     assert manifest["frozen_base"] is (recipe == "projection_only") and "cpu" in manifest["canaries"]
+    assert manifest["dataset_fingerprint"] == camp["fingerprint"]
     sha = Q.install_checkpoint(output, root=root, space=space)
     assert (E.checkpoint_dir(root, space, sha) / "student.safetensors").is_file()
     assert sha == student_trainer.checkpoint_digest(manifest)
@@ -395,15 +398,30 @@ def test_a_failed_run_blocks_the_schedule_with_its_reason(tmp_path):
 
 
 def _trained(tmp_path):
-    paths, repository, root, model, space, bank = _targets(tmp_path)
+    """Generate (default bank), then targets, the whole schedule and evaluation against ONE bank:
+    the teacher's own top blocks as evidence, a twin of a training question (dropped by the
+    teacher-cosine guard, so the schedule runs with leakage drops: Codex review F7) and a
+    question about another vault's book (out of scope for every arm, F4)."""
+
+    paths, repository, root, model, space, _default = _generated(tmp_path)
     vault = loaded(paths)
+    good = _bank_for(paths, repository, model, space, good=True, tmp_path=tmp_path)
+    rows = D.stored_queries(D.data_dir(root, space, vault))
+    twin = next(row for row in rows if row["split"] == "train" and row["shape"] != "deictic")
+    write_bank(good, json.loads(good.read_text()) + [
+        {"query_id": "bank_twin", "question": twin["text"], "family": "fam_alias_1", "evidence_sets": []},
+        {"query_id": "bank_elsewhere", "question": "What is a Markov chain?", "family": "fam_alias_2",
+         "evidence_sets": [{"set_id": "e", "required": [["ext_other_vault", "s1", 0, 1]]}]}])
+    _bank_targets(paths, repository, model, good)
+    assert twin["id"] in Q.targets_index(SP.space_home(root, space))["dropped"]
+    set_up_bases(root)
     trainer = InProcessTrainer()
     for _ in range(12):
-        out = Q.run_next(vault, repository, bank_path=bank, launcher=trainer, preflight=lambda: [], locks=no_locks)
+        out = Q.run_next(vault, repository, bank_path=good, launcher=trainer, preflight=lambda: [], locks=no_locks)
         if out["status"] != "trained":
             break
     assert out["status"] == "evaluate", out
-    return paths, repository, root, model, space, bank, out
+    return paths, repository, root, model, space, good, out
 
 
 def _bank_targets(paths, repository, model, bank):
@@ -412,27 +430,81 @@ def _bank_targets(paths, repository, model, bank):
     assert out["status"] == "complete", out
 
 
-def test_a_student_that_matches_its_teacher_is_adopted_and_one_that_misses_is_not(torch_present, tmp_path):
-    paths, repository, root, model, space, _bank, _out = _trained(tmp_path)
+class _TeacherEncoder:
+    def __init__(self, model):
+        self.model = model
+
+    def encode(self, texts, *, deadline=None):
+        return TeacherService(self.model).encode(texts)
+
+
+def _judgments(paths):
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        return [(row[0], row[1], row[2]) for row in connection.execute(
+            "SELECT judge, verdict, left_id FROM judgment_ledger WHERE task = ? ORDER BY created_at, rowid",
+            (Q.JUDGMENT_TASK,))]
+
+
+def test_evaluation_recommends_the_owner_adopts_and_a_failed_reevaluation_withdraws(torch_present, tmp_path):
+    """Codex review F4, F5, F7, F13, F14, F15: every arm on the same in-scope questions; the rule
+    recommends (never adopts alone while the label posterior is the simplified one); the owner's
+    adopt is a judgment_ledger verdict and a lambda observation; re-evaluating the adopted checkpoint
+    against better measured alternatives withdraws it."""
+
+    paths, repository, root, model, space, bank, trained = _trained(tmp_path)
     vault = loaded(paths)
-    good = _bank_for(paths, repository, model, space, good=True, tmp_path=tmp_path)
-    _bank_targets(paths, repository, model, good)
+    sha = trained["step"]["checkpoint_sha256"]
+    factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
+    result = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory)
+    assert result["status"] == "recommended", result  # F7: train's "evaluate" is evaluate's too
+    assert result["recommendation"] == "adopt" and result["authority"]["automatic"] is False
+    assert result["decision"]["chosen"] == "student" and set(result["decision"]["p_best"]) >= {"student", "qwen"}
+    assert result["alternatives"]["qwen"].startswith("prior:")  # E1's aggregates are labelled priors (F4)
+    assert result["strata"]["all"]["p_student_ge_teacher"] > 0.3
+    assert E.read_adoption(root, space) is None  # the rule recommends; the owner adopts (F5)
+    record = Q.read_ledger(SP.space_home(root, space))["decisions"][-1]
+    assert record["scope"]["questions"] == 4 and record["scope"]["outside"] == {"no_evidence_set": 1,
+                                                                                "another_corpus": 1}
+    assert (SP.space_home(root, space) / "evaluation" / record["draws"]["file"]).is_file()
+    assert _judgments(paths) == [("verifier", "recommend_adopt", sha)]
+    adopted = Q.owner_choice(vault, repository, accept=True)
+    assert adopted["status"] == "adopted" and E.read_adoption(root, space)["checkpoint_sha256"] == sha
+    assert E.read_adoption(root, space)["judgment_id"] == adopted["judgment_id"]
+    lam, _nu = Q.exchange_rates(SP.space_home(root, space), 0.8)
+    assert len(lam.observations) == 1 and lam.observations[0]["accepted"] is True  # F14
+    # (No query receipts here, so that choice cost nothing and says nothing about lambda; a costed one moves it.)
+    Q.record_owner_choice(SP.space_home(root, space), rate="lambda", dq=0.05, cost=2.0, s=0.02, accepted=False,
+                          what="declined a $2 option worth 5 points")
+    moved, _nu = Q.exchange_rates(SP.space_home(root, space), 0.8)
+    assert moved.mean() > SD.seeded_lambda().mean()  # declining it says a dollar costs more quality
+    # Better measured alternatives on the same questions: the adopted checkpoint loses and is withdrawn (F13).
+    scoped = [q["query_id"] for q in D.load_bank(bank) if q["query_id"].startswith("bank_") and
+              q["query_id"] not in ("bank_twin", "bank_elsewhere")]
+    arms = {}
+    for name in ("qwen", "voyage"):
+        arms[name] = tmp_path / f"{name}.json"
+        arms[name].write_text(json.dumps({qid: 1.0 for qid in scoped}), encoding="utf-8")
+    again = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, arms=arms)
+    assert again["status"] == "withdrawn" and again["recommendation"] == "keep_alternatives", again
+    assert again["alternatives"]["qwen"].startswith("measured")
+    assert E.read_adoption(root, space) is None
+    assert [verdict for _judge, verdict, _left in _judgments(paths)] == [
+        "recommend_adopt", "adopt", "recommend_keep_alternatives", "withdrawn"]
+    # An alternative that does not cover the same questions is refused, never compared (F4).
+    arms["qwen"].write_text(json.dumps({scoped[0]: 1.0}), encoding="utf-8")
+    partial = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, arms=arms)
+    assert partial["status"] == "refused" and "same questions" in partial["reason"]
 
-    class Encoder:
-        def encode(self, texts, *, deadline=None):
-            return TeacherService(model).encode(texts)
 
-    adopted = Q.evaluate(vault, repository, bank_path=good, encoder_factory=lambda _sha: Encoder())
-    assert adopted["status"] == "adopted", adopted
-    assert adopted["decision"]["chosen"] == "student" and set(adopted["decision"]["p_best"]) >= {"student", "qwen"}
-    assert adopted["strata"]["all"]["p_student_ge_teacher"] > 0.3
-    record = E.read_adoption(root, space)
-    assert record["checkpoint_sha256"] == _out["step"]["checkpoint_sha256"]
-    assert Q.revoke(vault)["status"] == "revoked" and E.read_adoption(root, space) is None
-    bad = _bank_for(paths, repository, model, space, good=False, tmp_path=tmp_path)
-    _bank_targets(paths, repository, model, bad)
-    refused = Q.evaluate(vault, repository, bank_path=bad, encoder_factory=lambda _sha: Encoder())
-    assert refused["status"] == "not_adopted" and E.read_adoption(root, space) is None
+def test_the_owner_revoke_is_a_judgment_ledger_verdict(tmp_path):
+    """Codex review F15."""
+
+    paths, repository, root, _model, _report = student_vault(tmp_path)
+    space = _space(paths)
+    sha = _adopt(root, space)
+    out = Q.revoke(loaded(paths), repository)
+    assert out["status"] == "revoked" and out["judgment_id"]
+    assert _judgments(paths) == [("owner", "revoked", sha)] and E.read_adoption(root, space) is None
 
 
 # -- the query process and its client ---------------------------------------------------------------------
@@ -625,3 +697,319 @@ def test_a_student_that_misses_the_time_box_is_late_and_the_others_serve(tmp_pat
     assert selection["spaces"]["local:grouped"]["status"] == "encoder_late"
     assert selection["spaces"]["local:grouped"]["query"]["status"] == "encoder_late"
     assert "qwen" in selection["contributing"]  # the extractions the late student held are reassigned
+
+
+# -- Codex review fixes (stage retrieval-lr-p2-query-student) -------------------------------------------------
+def test_the_default_base_loader_is_called_with_its_keyword_only_device(torch_present, tmp_path, monkeypatch):
+    """F1: production training reaches ``load_base`` (device keyword-only); only the Hugging Face
+    loaders are replaced, by the tiny model and tokenizer."""
+
+    import transformers
+
+    from learnloop.local_embeddings import student_trainer
+    from tests.query_student_fakes import TinyTokenizer, tiny_model
+
+    seen = {}
+
+    def model_from(path, **kwargs):
+        seen["model"] = (path, kwargs)
+        return tiny_model()
+
+    def tokenizer_from(path, **kwargs):
+        seen["tokenizer"] = (path, kwargs)
+        return TinyTokenizer()
+
+    monkeypatch.setattr(transformers.AutoModel, "from_pretrained", model_from)
+    monkeypatch.setattr(transformers.AutoTokenizer, "from_pretrained", tokenizer_from)
+    paths, repository, root, _model, space, bank = _targets(tmp_path)
+    data = tmp_path / "data"
+    stats = Q.build_dataset(loaded(paths), repository, root=root, space=space, budget=2_000, bank_path=bank,
+                            out_dir=data)
+    job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": "align", "budget": 2_000, "seed": 0}, space=space,
+                        base_dir=tmp_path, data_dir=data, out_dir=tmp_path / "out", temperature=stats["temperature"],
+                        plan_id="t")
+    job["epochs"] = 1
+    output = student_trainer.run_training(job, device="cpu", base_check=lambda _job: [])
+    assert output["status"] == "complete", output
+    assert seen["model"][1]["local_files_only"] is True and seen["model"][1]["trust_remote_code"] is True
+
+
+def test_a_targets_run_interrupted_before_the_bank_shards_admits_no_question(tmp_path):
+    """F2: the query shards finished, the bank's did not: nothing is screened, nothing trains, and
+    the twin of a bank question is dropped once the complete bank is screened."""
+
+    paths, repository, root, model, space, bank = _generated(tmp_path)
+    vault = loaded(paths)
+    rows = D.stored_queries(D.data_dir(root, space, vault))
+    twin = next(row for row in rows if row["split"] == "train" and row["shape"] != "deictic")
+    write_bank(bank, json.loads(bank.read_text()) + [{"query_id": "bank_twin", "question": twin["text"],
+                                                      "evidence_sets": []}])
+
+    class AbortsBeforeTheBank(InProcessLauncher):
+        def __call__(self, job, workdir, *, meter, plan_id):
+            job["query_shards"] = [shard for shard in job["query_shards"] if shard["name"].startswith("q")]
+            output = super().__call__(job, workdir, meter=meter, plan_id=plan_id)
+            return {**output, "status": "aborted", "reason": "below the host floor"}
+
+    partial = Q.run_targets(vault, repository, bank_path=bank, launcher=AbortsBeforeTheBank(model),
+                            preflight=lambda: [], locks=no_locks)
+    assert partial["status"] == "partial" and partial["leakage_screen"]["complete"] is False, partial
+    index = Q.targets_index(SP.space_home(root, space))
+    assert twin["id"] in index["queries"] and Q.eligible_rows(rows, index, D.load_bank(bank)) == []
+    set_up_bases(root)
+    refused = Q.run_next(vault, repository, bank_path=bank, launcher=InProcessTrainer(), preflight=lambda: [],
+                         locks=no_locks)
+    assert refused["status"] == "refused" and "teacher target" in refused["reason"]
+    done = Q.run_targets(vault, repository, bank_path=bank, launcher=InProcessLauncher(model), preflight=lambda: [],
+                         locks=no_locks)
+    assert done["status"] == "complete" and done["bank_owed"] == 2, done
+    index = Q.targets_index(SP.space_home(root, space))
+    eligible = {row["id"] for row in Q.eligible_rows(rows, index, D.load_bank(bank))}
+    assert twin["id"] in index["dropped"] and twin["id"] not in eligible and eligible
+    # Another bank (a changed question) is another screen: nothing is eligible until it is screened.
+    write_bank(bank, json.loads(bank.read_text())[:-1])
+    assert Q.eligible_rows(rows, index, D.load_bank(bank)) == []
+
+
+def test_training_candidates_hold_training_families_only_and_no_bank_tainted_window(tmp_path):
+    """F3: the KD top-k and the hard negatives come from an explicit manifest: no held-out family,
+    no block whose contextual window holds a bank support, negatives from the query's own source."""
+
+    from learnloop.source_retrieval.windows import windows_by_extraction
+
+    paths, repository, root, _model, space, bank = _targets(tmp_path)
+    vault = loaded(paths)
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    candidates = camp["candidates"]
+    held = set(candidates["held_out"])
+    assert held and not held & set(candidates["families"])
+    held_extractions = {e for e, family in camp["by_extraction"].items() if family in held}
+    assert not any(record.split("/")[0] in held_extractions for record in candidates["ids"])
+    gold = find_gold(repository)
+    windows = windows_by_extraction(vault, repository, ["ext_book"], ("grouped",))[("ext_book", "grouped")]
+    tainted = {member.span_id for window in windows if any(m.span_id == gold for m in window.members)
+               for member in window.members}
+    if "ext_book" not in held_extractions:
+        assert len(tainted) > 1 and candidates["bank_tainted_blocks"] >= len(tainted)
+        assert not any(record == f"ext_book/{span}" for span in tainted for record in candidates["ids"])
+    data = tmp_path / "data"
+    Q.build_dataset(vault, repository, root=root, space=space, budget=2_000, bank_path=bank, out_dir=data, camp=camp)
+    negatives = json.loads((data / "train_negatives.json").read_text())
+    train = D.nested(camp["rows"], 2_000)
+    assert len(negatives) == len(train)
+    assert all(candidates["sources"][index] == row["extraction_id"]
+               for row, found in zip(train, negatives) for index in found)
+
+
+def test_unjudged_retrieved_material_is_latent_never_a_miss():
+    """F5: a top 10 that completes no evidence set but holds a block the protocol never judged is
+    unknown (imputed by the posterior); with every retrieved block judged it is a miss."""
+
+    question = {"evidence_sets": [[("ext", "s1"), ("ext", "s2")]], "judged": [("ext", "s3")]}
+    assert Q.judged_outcome(["ext/s1", "ext/s2"], question) == 1.0
+    assert Q.judged_outcome(["ext/s1", "ext/s3"], question) == 0.0
+    assert Q.judged_outcome(["ext/s1", "ext/s9"], question) is None
+    assert Q.judged_outcome(["ext/s1", "ext/s9"], {**question, "judged": None}) == 0.0
+
+
+def test_the_query_process_never_runs_a_changed_base(tmp_path, monkeypatch):
+    """F6: the base's pinned files are checked before ``load_base`` (trust_remote_code) runs any of
+    them: a ``modeling.py`` changed after setup refuses the start, and the loader is never reached."""
+
+    from learnloop.local_embeddings import student_server, student_trainer
+
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+    (base_dir / "modeling.py").write_text("x = 1\n", encoding="utf-8")
+    pinned = {"modeling.py": (6, student_trainer.sha256_file(base_dir / "modeling.py"))}
+    base = {**SP.STUDENT_BASES[SP.PRIMARY_BASE], "files": pinned, "remote_code": ["modeling.py"], "inert_python": []}
+    job = {"base_dir": str(base_dir), "base": base, "status_path": str(tmp_path / "status.json"),
+           "checkpoint_sha256": "a" * 64, "limits": {}}
+    assert student_server.base_check(job) == []
+    (base_dir / "modeling.py").write_text("x = 2\n", encoding="utf-8")  # same size, other code
+    (tmp_path / "job.json").write_text(json.dumps(job), encoding="utf-8")
+    for key in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_HUB_DISABLE_TELEMETRY", "HF_HOME", "HF_MODULES_CACHE",
+                "TOKENIZERS_PARALLELISM"):
+        monkeypatch.setenv(key, "test")
+    monkeypatch.setattr(student_server.W, "_guard_network", lambda: None)
+    monkeypatch.setattr(student_server, "start_problems", lambda *_a, **_k: [])
+    monkeypatch.setattr(student_server, "checkpoint_problems", lambda _job: [])
+
+    def never(*_args, **_kwargs):
+        raise AssertionError("the base loader ran")
+
+    monkeypatch.setattr(student_server, "load_service", never)
+    monkeypatch.setattr(student_trainer, "load_base", never)
+    assert student_server.main(["--job", str(tmp_path / "job.json")]) == 3
+    status = json.loads((tmp_path / "status.json").read_text())
+    assert status["status"] == "refused" and "modeling.py" in status["reason"]
+
+
+def test_a_client_that_gives_up_never_stops_the_query_process(_fresh):
+    """F12: the first client times out and closes its socket before the reply; the process keeps
+    serving and the second client is answered."""
+
+    import socket as socket_module
+    import threading
+
+    from learnloop.local_embeddings import student_server
+
+    class Slow(TeacherService):
+        def encode(self, texts):
+            time.sleep(0.4)
+            return super().encode(texts)
+
+    socket_path = _fresh / "slow.sock"
+    reasons = []
+    thread = threading.Thread(target=lambda: reasons.append(student_server.serve_forever(
+        Slow(), socket_path, idle_s=5.0, timeout_s=0.2)), daemon=True)
+    thread.start()
+    for _ in range(200):
+        if socket_path.exists():
+            break
+        time.sleep(0.01)
+    with pytest.raises((TimeoutError, socket_module.timeout)):
+        E.request(socket_path, {"op": "encode", "texts": ["slow"]}, timeout_s=0.05)
+    time.sleep(0.6)  # the reply to the closed socket has failed by now
+    assert thread.is_alive()
+    reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=5.0)
+    assert reply["ok"] and len(reply["vectors"]) == 1
+    assert E.request(socket_path, {"op": "shutdown"}, timeout_s=5.0)["ok"]
+    thread.join(timeout=5)
+    assert reasons == ["shutdown"]
+
+
+def test_a_resident_gpu_student_yields_before_an_index_batch(tmp_path, _fresh, monkeypatch):
+    """F11: a student serving on the GPU is asked to exit before the 9B's start checks; the index
+    batch then runs. A CPU student is not a GPU workload and is left alone."""
+
+    import threading
+
+    from learnloop.local_embeddings import student_server
+
+    paths, repository, root, model, _report = student_vault(tmp_path)
+    home = _fresh / "learnloop-student" / "abc"
+    home.mkdir(parents=True)
+    socket_path = home / "student.sock"
+    thread = threading.Thread(target=student_server.serve_forever, args=(TeacherService(model), socket_path),
+                              kwargs={"idle_s": 30.0, "timeout_s": 0.2}, daemon=True)
+    thread.start()
+    for _ in range(200):
+        if socket_path.exists():
+            break
+        time.sleep(0.01)
+    (home / "status.json").write_text(json.dumps({"status": "ready", "device": "gpu", "pid": 4242}), encoding="utf-8")
+    cpu_home = _fresh / "learnloop-student" / "cpu"
+    cpu_home.mkdir()
+    (cpu_home / "status.json").write_text(json.dumps({"status": "ready", "device": "cpu", "pid": 4343}),
+                                          encoding="utf-8")
+    monkeypatch.setattr(E, "_pid_alive", lambda pid: thread.is_alive() if pid == 4242 else pid == 4343)
+    order = []
+
+    def preflight():
+        order.append("preflight")
+        return ["a concurrent GPU workload is running (python)"] if thread.is_alive() else []
+
+    def yielder():
+        order.append("yield")
+        return E.yield_gpu_students(wait_s=5.0)
+
+    from tests.query_student_fakes import CALCULUS
+    from tests.source_retrieval_fakes import seed_source
+
+    seed_source(repository, source_id="src_new", revision_id="rev_new", extraction_id="ext_new",
+                title="New Notes", units=CALCULUS)  # a new book: the batch has work
+    seed = local_index.run_local_index(loaded(paths), repository, launcher=InProcessLauncher(model),
+                                       preflight=preflight, locks=no_locks, force=True, yielder=yielder)
+    assert order[:2] == ["yield", "preflight"] and not thread.is_alive()
+    assert seed["students_yielded"] == {"asked": 1, "exited": 1, "still_running": 0}
+    assert seed["status"] != "waiting_for_gpu", seed
+
+
+def test_a_due_replay_is_scheduled_for_a_fully_indexed_library(tmp_path):
+    """F10: indexing is complete and the adopted student's queries wait; the host's sweep queues one
+    replay-only index batch (once), and nothing while a batch ran within the cadence."""
+
+    import threading
+    from types import SimpleNamespace
+    from datetime import datetime, timedelta, timezone
+
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec
+    from learnloop.db.repositories import Repository
+
+    paths, repository, root, model, _report = student_vault(tmp_path)
+    vault = loaded(paths)
+    assert vault.config.source_retrieval.dense
+    runner = IngestRunner(Repository(repository.sqlite_path), vault_root=paths.root, worker_id="test")
+    first = runner.enqueue_batch(local_index.INDEX_JOB, [JobSpec(local_index.INDEX_JOB, {"extraction_id": "ext_book"})])
+    [job] = repository.ingest_jobs_for_batch(first)
+    assert repository.transition_unleased_ingest_job(job["id"], status="completed", result={"status": "complete"})
+    [job] = repository.ingest_jobs_for_batch(first)
+    started: list[int] = []
+    now = datetime.now(timezone.utc)
+    host = SimpleNamespace(_runner=runner, _stop=threading.Event(), reading_now=lambda: now, _background=True,
+                           _lock=threading.Lock(), _worker_thread=SimpleNamespace(is_alive=lambda: True),
+                           _ensure_worker=lambda: started.append(1))
+    assert DurableIngestJobs.resume_contextual_index(host) is None  # no replay queued
+    vector = TeacherService(model).encode(["how are eigenvectors found"])[0]
+    E.queue_replay(vault, receipt_id="rq_1", texts=["how are eigenvectors found"], vectors=[vector],
+                   encoder_id="qe_x", checkpoint_sha="a" * 64)
+    assert DurableIngestJobs.resume_contextual_index(host) is None  # the batch above ran within the cadence
+    host.reading_now = lambda: now + timedelta(hours=SP.REPLAY_EVERY_HOURS + 1)
+    batch = DurableIngestJobs.resume_contextual_index(host)
+    assert batch == f"{local_index.INDEX_JOB}_replay_after_{job['id']}" and started == [1]
+    [queued] = repository.ingest_jobs_for_batch(batch)
+    assert queued["status"] == "queued" and queued["payload"]["replay"] is True
+    assert DurableIngestJobs.resume_contextual_index(host) is None  # the replay batch is live: nothing twice
+    # The queued batch, run, replays the queue with the teacher (no items owed).
+    out = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(model), preflight=lambda: [],
+                                      locks=no_locks, now=now + timedelta(hours=SP.REPLAY_EVERY_HOURS + 1))
+    assert out["replay"]["replayed"] == 1 and E.pending_replay(vault.root) == []
+
+
+def test_families_group_editions_and_bank_questions_by_their_evidence(tmp_path):
+    """F8: one persisted family mapping: alternate editions share a family (splits by family), and a
+    bank question's family is its evidence's, whatever alias the bank's own tool gave it."""
+
+    from tests.query_student_fakes import PROBABILITY
+    from tests.source_retrieval_fakes import seed_source
+
+    paths, repository, root, _model, _report = student_vault(tmp_path)
+    seed_source(repository, source_id="src_prob_2e", revision_id="rev_prob_2e", extraction_id="ext_prob_2e",
+                title="Probability Notes 2nd edition", units=PROBABILITY)
+    directory = tmp_path / "families"
+    families = D.family_map(directory, repository)
+    assert families["src_prob"] == families["src_prob_2e"] != families["src_calc"]
+    assert json.loads((directory / "families.json").read_text())["sources"] == families
+    by_extraction = D.extraction_families(repository, families)
+    question = {"evidence_sets": [[("ext_prob_2e", "s1")]], "answer_spans": [], "family": "fam_3f2a9c"}
+    assert D.question_families(question, by_extraction) == {families["src_prob"]}
+    found = [{**p, "family": families[p["source_id"]]} for p in D.passages(loaded(paths), repository, excluded=set())]
+    held = D.held_out_family(found)
+    splits = {D.split_of(p, held) for p in found if p["source_id"] in ("src_prob", "src_prob_2e")}
+    assert splits == {"heldout"} or "heldout" not in splits  # both editions on the same side
+
+
+def test_a_run_is_reused_only_on_the_dataset_it_learned(tmp_path):
+    """F9: the schedule's completed runs carry their dataset fingerprint; another vault, bank or
+    candidate set starts the schedule again."""
+
+    teacher_q = np.full(64, 0.8)
+    run = {"run_id": "r1", "status": "complete", "checkpoint_sha256": "c" * 64, "charged_s": 1.0,
+           "dev": {"agreements": [0.9] * 10}, "latency": {}, "load_s": 0.1,
+           "spec": {"base": SP.PRIMARY_BASE, "recipe": "projection_only", "budget": 100, "seed": 0, "dataset": "A"}}
+    ledger = {"runs": {"r1": run}, "decisions": []}
+    same = Q.next_step(ledger, n_train=100, has_positives=True, teacher_q=teacher_q, box_s=2.0, hours_left=5.0,
+                       dataset="A")
+    other = Q.next_step(ledger, n_train=100, has_positives=True, teacher_q=teacher_q, box_s=2.0, hours_left=5.0,
+                        dataset="B")
+    assert same["spec"]["recipe"] == "align" and other["spec"]["recipe"] == "projection_only"
+    assert other["spec"]["dataset"] == "B"
+    paths, repository, root, _model, space, bank = _targets(tmp_path)
+    vault = loaded(paths)
+    first = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    write_bank(tmp_path / "bank2.json", json.loads(bank.read_text()) + [
+        {"query_id": "bank_extra", "question": "What is a random variable?", "evidence_sets": []}])
+    second = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(tmp_path / "bank2.json"))
+    assert first["fingerprint"] != second["fingerprint"] and second["rows"] == []  # not screened by bank2 yet

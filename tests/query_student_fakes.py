@@ -148,7 +148,21 @@ class TinyTokenizer:
         return {"input_ids": ids, "attention_mask": mask}
 
 
-def tiny_factory(_base_dir: Path, _base: Mapping[str, Any], device: str):
+def tiny_model():
+    """A tiny random-initialised Qwen3 (the pplx-embed-v1 architecture), no download."""
+
+    import torch
+    from transformers import Qwen3Config, Qwen3Model
+
+    torch.manual_seed(0)
+    config = Qwen3Config(vocab_size=257, hidden_size=32, intermediate_size=64, num_hidden_layers=2,
+                         num_attention_heads=2, num_key_value_heads=1, head_dim=16, max_position_embeddings=128)
+    return Qwen3Model(config)
+
+
+def tiny_factory(_base_dir: Path, _base: Mapping[str, Any], *, device: str):
+    """Signature-faithful to ``student_trainer.load_base`` (device keyword-only, Codex review F1)."""
+
     import torch
     from transformers import Qwen3Config, Qwen3Model
 
