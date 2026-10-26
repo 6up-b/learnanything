@@ -121,7 +121,7 @@ def _root(vault: Path | None) -> Path:
     return root
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a), re-review F2).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 too).
 
     Installed for every CLI command (``learnloop.activation_journal``), so
     each command's opener completes it before the command reads the vault."""

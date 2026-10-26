@@ -669,7 +669,7 @@ class SidecarContext:
 
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a), re-review F2).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 too).
 
     Installed for the desktop sidecar (``learnloop.activation_journal``): the
     opener in :meth:`SidecarContext.load` completes it before anything serves

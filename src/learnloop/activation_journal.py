@@ -1,7 +1,11 @@
 """An activation that did not commit: its journal, and what may open the vault meanwhile.
 
 LP-min (a) (claim-fixes review F2, re-review): ``learnloop.claim_fixes_upgrade``
-journals its activation across the config file and the database. A process
+journals its activation across the config file and the database, and so does
+the next link's, rebuild equivalence's ``learnloop.replay_ledger_upgrade``, at
+the same path (the journal names its target; the installed completion is the
+chain's latest upgrade's, which hands an earlier link's journal to that link).
+A process
 that dies after it publishes the successor's config and before it commits the
 database leaves the successor's label over the predecessor's state, with a
 journal beside the database. Nothing may serve the vault in that state:
