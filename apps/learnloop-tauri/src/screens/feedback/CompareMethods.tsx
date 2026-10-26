@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { WorkbenchCompareJobResultDto, WorkbenchCompareLinesDto, WorkbenchComparisonDto } from "../../api/dto";
 import { quietLine, quietLink } from "../../components/PlainParts";
+import { AS_PRINTED_COPY, BlocksAsPrinted } from "../../components/AsPrinted";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "../reader/voices";
 import { errorMessage } from "../../errors";
@@ -134,7 +135,14 @@ export function CompareMethods({ attemptId, correctness, held }: {
               </ol>
             </LearnerVoice>
             {comparison.reference.kind === "book_solution" ? (
-              <SourceVoice source={comparison.reference.label}><MarkdownMath value={comparison.reference.text} /></SourceVoice>
+              <>
+                <SourceVoice source={comparison.reference.label}><MarkdownMath value={comparison.reference.text} /></SourceVoice>
+                {/* Reader CA1: the book's solution as printed, when it came from a page. */}
+                {comparison.reference.extractionId && comparison.reference.spanIds?.length ? (
+                  <BlocksAsPrinted extractionId={comparison.reference.extractionId} spanIds={comparison.reference.spanIds}
+                    label={AS_PRINTED_COPY.solutionAsPrinted} altText={comparison.reference.text} />
+                ) : null}
+              </>
             ) : (
               <div data-voice="item" style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <MeaningLabel style={{ fontSize: 10 }}>{comparison.reference.label}</MeaningLabel>

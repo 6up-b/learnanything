@@ -41,6 +41,8 @@ import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
+import { AS_PRINTED_COPY, AsPrinted, OriginalPageLink, printedPageLabel, useAsPrinted } from "../components/AsPrinted";
+import { OpenInSource } from "../components/OpenInSource";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -138,6 +140,7 @@ export function PracticeScreen({
   restoredDisclosure = null,
   restoredFirstHintProgress = null,
   restoredHintSeen = false,
+  restoredPageSeen = false,
   onFeedback,
   onBlockEnd,
   onContinueDiagnostic,
@@ -183,6 +186,8 @@ export function PracticeScreen({
   restoredFirstHintProgress?: FirstHintProgress | null;
   /** AD1 fix round 5 (V4): the restored draft saw a hint of some kind. */
   restoredHintSeen?: boolean;
+  /** Reader CA1 (Q12): the restored draft opened the original page before Submit. */
+  restoredPageSeen?: boolean;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
    *  attempt in it, not just the one that closed it. */
@@ -208,6 +213,8 @@ export function PracticeScreen({
     firstHintProgress?: FirstHintProgress | null;
     /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
     hintSeen?: boolean;
+    /** Reader CA1 (Q12): the original page was opened before Submit. */
+    pageSeen?: boolean;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -240,6 +247,14 @@ export function PracticeScreen({
   // RW2a review F2: a book a problem in steps counted comes back to the
   // answer box with the learner, and counts there as the one hint it was.
   const [bookLeft, setBookLeft] = useState(false);
+  // Reader CA1 (ux_reader_compare_ask_v1 §8.3, Q12): the original page opened
+  // before Submit is the book left open: one hint-equivalent, in the same
+  // book component a book counted in steps uses (never counted twice), kept
+  // with the draft so a restart still counts it.
+  const [pageSeen, setPageSeen] = useState(restoredPageSeen === true);
+  const [originalPage, setOriginalPage] = useState<{ extractionId: string; spanId: string; outlineSpanIds: string[] } | null>(null);
+  const originalPageOpen = useRef(false);
+  originalPageOpen.current = originalPage !== null;
   const [submitting, setSubmitting] = useState(false);
   // mvp-0.13: "I'm stuck" replaces "I don't know". One tap turns the answer
   // box into "write what you can, or what's confusing you"; the same Submit
@@ -331,7 +346,8 @@ export function PracticeScreen({
     // restart still submits bound to its plan presentation.
     planPresentationId,
     ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
-    ...(hintSeen ? { hintSeen: true } : {})
+    ...(hintSeen ? { hintSeen: true } : {}),
+    ...(pageSeen ? { pageSeen: true } : {})
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -443,10 +459,11 @@ export function PracticeScreen({
       declaredStuck: stuck,
       planPresentationId,
       ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
-      ...(hintSeen ? { hintSeen: true } : {})
+      ...(hintSeen ? { hintSeen: true } : {}),
+      ...(pageSeen ? { pageSeen: true } : {})
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen, pageSeen]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -657,7 +674,7 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
     }, 350);
     return () => clearTimeout(timer);
-  }, [answer, flushDraft, hintsUsed, hintSeen, onError, practiceItemId, session.sessionId, stuck]);
+  }, [answer, flushDraft, hintsUsed, hintSeen, pageSeen, onError, practiceItemId, session.sessionId, stuck]);
 
   useEffect(() => {
     return () => {
@@ -674,7 +691,8 @@ export function PracticeScreen({
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
                        planPresentationId: presentation,
                        selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null,
-                       firstHintProgress: firstHintRef.current, hintSeen: hintSeenRef.current });
+                       firstHintProgress: firstHintRef.current, hintSeen: hintSeenRef.current,
+                       ...(latestDraft.current.pageSeen ? { pageSeen: true } : {}) });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -845,8 +863,12 @@ export function PracticeScreen({
   // A book counted on this problem, in steps left this visit or on its open
   // problem (after a restart too), counts on the answer box as one hint.
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
-  const answerHints = hintsUsed + (bookCarried ? 1 : 0);
-  carriedRef.current = { hints: hintsUsed, book: bookCarried };
+  // Reader CA1 (Q12): the original page opened before Submit is the same
+  // book, so it joins the book component (one hint-equivalent however many
+  // ways the book was seen); it goes into steps as a carried book too.
+  const bookCounts = bookCarried || pageSeen;
+  const answerHints = hintsUsed + (bookCounts ? 1 : 0);
+  carriedRef.current = { hints: hintsUsed, book: bookCounts };
   // A carried book is a hint the marker never timed (fix round 4, V4).
   if (bookCarried) firstHint.noteUntimedHint();
   useEffect(() => {
@@ -862,6 +884,8 @@ export function PracticeScreen({
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { ownChords: true })) return;
       if (vaultFrozen.current) return;
+      // Reader CA1: the original page is a modal; it owns the keys (its Esc closes it).
+      if (originalPageOpen.current) return;
       // RW2a: in steps, the workbench owns the keys (Esc twice is Leave for now).
       // Owner capture 2026-10-25 (B1): Ask's `?` still opens the tutor (the
       // workbench handles it when it has focus; here when nothing does).
@@ -970,6 +994,21 @@ export function PracticeScreen({
   // under the probe's duty; the contract carries the check's view for it
   // (chosen server-side: no help promised, no ladder header).
   const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null;
+
+  // Reader CA1 (ux_reader_compare_ask_v1 §8): the problem as printed, as the
+  // server allows it (D46: during a check on your own only the figure it
+  // needs). The original page is the book left open: offered only where a
+  // hint may be taken (never in a diagnostic block or on a cold follow-up,
+  // which a hint would void) and not in steps, where this screen has no book
+  // (UX §5.1: hidden while the book is hidden).
+  const asPrinted = useAsPrinted(item?.id);
+  const originalPageOffered = !probeActive && !onYourOwnCheck && !isTeachBack && !intentCheck?.locatorsHidden;
+  function openOriginalPage(target: { extractionId: string; spanId: string; outlineSpanIds: string[] }) {
+    if (!pageSeen && !bookCounts) firstHint.mark(attemptProgressRef.current);
+    setPageSeen(true);
+    seeHint();
+    setOriginalPage(target);
+  }
   const [checkHelpOpen, setCheckHelpOpen] = useState(false);
   useEffect(() => setCheckHelpOpen(false), [item?.id]);
 
@@ -1179,8 +1218,9 @@ export function PracticeScreen({
         // RW2b fix round 5: the authored reveals on their own; the server
         // adds the book and the workbench's help from its own records, once.
         authoredHints: hintsUsed,
-        // Fix round 12: whether that count holds a book (its own component).
-        bookCounted: bookCarried,
+        // Fix round 12: whether that count holds a book (its own component);
+        // Reader CA1: the original page opened before Submit is that book.
+        bookCounted: bookCounts,
         latencySeconds: elapsedSeconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
@@ -1247,7 +1287,7 @@ export function PracticeScreen({
         practiceItemId: submittedItemId,
         hintsUsed: answerHints,
         authoredHints: hintsUsed,
-        bookCounted: bookCarried,
+        bookCounted: bookCounts,
         latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
@@ -1555,6 +1595,8 @@ export function PracticeScreen({
           {/* In steps, the problem as the session froze it (RW2a review F1):
               the statement and required method it is graded against. */}
           <ItemPresentation presentation={stepsMode && wbSession?.presentation ? wbSession.presentation : item.presentation} />
+          {/* Reader CA1: the problem as printed, free (its own blocks only). */}
+          <AsPrinted key={`${item.id}:${asPrinted?.kind ?? "none"}`} view={asPrinted} practiceItemId={item.id} altText={item.prompt} />
           {/* Adaptive difficulty AD2+AD3 (§12): why the plan's draw chose this item, one quiet line. */}
           <WhyThisItem planPresentationId={planPresentationId} />
           {item.canonicalExercise && intentCheck?.locatorsHidden ? (
@@ -1570,8 +1612,28 @@ export function PracticeScreen({
               <Faint>
                 From {item.canonicalExercise.sourceTitle ?? "your book"}: {item.canonicalExercise.label}
                 {item.canonicalExercise.relation === "variant_of" ? " (a variant)" : ""}
+                {printedPageLabel(asPrinted) ? ` · ${printedPageLabel(asPrinted)}` : ""}
                 {item.canonicalExercise.keyLabel ? ` · ${item.canonicalExercise.keyLabel}` : ""}
               </Faint>
+              {originalPageOffered && !stepsMode ? (
+                <>
+                  {" · "}
+                  <OriginalPageLink view={asPrinted} costs={!bookCounts} onOpen={openOriginalPage} />
+                </>
+              ) : null}
+            </div>
+          ) : asPrinted?.kind === "page" && asPrinted.locator && !intentCheck?.locatorsHidden ? (
+            // Reader CA1 (Codex review F4): a problem imported from a Reader
+            // selection has no canonical exercise, but its page is the book's:
+            // the same locator and original page, as the server allows them.
+            <div className="queue-meta" data-testid="printed-locator" style={{ fontSize: 11 }}>
+              <Faint>From {asPrinted.locator.sourceTitle ?? "your book"} · {printedPageLabel(asPrinted)}</Faint>
+              {originalPageOffered && !stepsMode ? (
+                <>
+                  {" · "}
+                  <OriginalPageLink view={asPrinted} costs={!bookCounts} onOpen={openOriginalPage} />
+                </>
+              ) : null}
             </div>
           ) : null}
           {!probeActive && (!simple || controlsOpen) ? (
@@ -1959,6 +2021,10 @@ export function PracticeScreen({
               <div className="hint-banner" data-testid="book-carried">
                 <Pill tone="amber">book</Pill> the book you had open while working in steps counts as one hint
               </div>
+            ) : pageSeen ? (
+              <div className="hint-banner" data-testid="page-counted">
+                <Pill tone="amber">page</Pill> {AS_PRINTED_COPY.pageCounted}
+              </div>
             ) : null}
             {assistLookupFailed ? (
               <div style={{ ...quietLine, marginTop: 6 }} data-testid="assist-lookup-failed">
@@ -2097,6 +2163,19 @@ export function PracticeScreen({
           )}
         </Card>
       </div>
+      {originalPage && item ? (
+        // Reader CA1: the whole page, the problem's blocks outlined; the view
+        // records its exposure (get_span_view), and it counted as the book above.
+        <OpenInSource
+          extractionId={originalPage.extractionId}
+          spanId={originalPage.spanId}
+          outlineSpanIds={originalPage.outlineSpanIds}
+          context="provenance"
+          entityType="practice_item"
+          entityId={item.id}
+          onClose={() => setOriginalPage(null)}
+        />
+      ) : null}
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
         ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []

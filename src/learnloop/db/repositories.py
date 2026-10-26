@@ -7849,6 +7849,22 @@ class Repository(
             ).fetchone()
         return _probe_presentation_record(row) if row is not None else None
 
+    def active_probe_presentation_for_item(self, practice_item_id: str) -> ProbePresentationRecord | None:
+        """The latest committed-but-unconsumed diagnostic presentation of an
+        item, in any episode (Reader CA1: the item is being measured on your
+        own, so nothing may locate it)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM probe_presentations
+                WHERE practice_item_id = ? AND status IN ('selected', 'served')
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """,
+                (practice_item_id,),
+            ).fetchone()
+        return _probe_presentation_record(row) if row is not None else None
+
     def active_probe_presentation_for_session(
         self, session_id: str
     ) -> ProbePresentationRecord | None:
@@ -20034,6 +20050,37 @@ class Repository(
             ).fetchall()
         return {str(row["span_id"]): str(row["content_hash"]) for row in rows}
 
+    def document_blocks(self, extraction_id: str, span_ids: Sequence[str]) -> list[DocumentBlock]:
+        """The named blocks of one extraction in reading order (ordinal), without
+        loading its IR; ids it lacks are left out (Reader CA1, the problem as printed)."""
+
+        wanted = list(dict.fromkeys(str(span) for span in span_ids))
+        if not wanted:
+            return []
+        marks = ",".join("?" for _ in wanted)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM source_document_blocks WHERE extraction_id = ? AND span_id IN ({marks}) "
+                "ORDER BY ordinal",
+                (extraction_id, *wanted),
+            ).fetchall()
+        return [_decode_document_block(row) for row in rows]
+
+    def document_blocks_on_pages(self, extraction_id: str, pages: Sequence[int]) -> list[DocumentBlock]:
+        """Every block of one extraction on the given pages, in reading order."""
+
+        wanted = sorted({int(page) for page in pages})
+        if not wanted:
+            return []
+        marks = ",".join("?" for _ in wanted)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM source_document_blocks WHERE extraction_id = ? AND page IN ({marks}) "
+                "ORDER BY ordinal",
+                (extraction_id, *wanted),
+            ).fetchall()
+        return [_decode_document_block(row) for row in rows]
+
     def load_document_ir(self, extraction_id: str) -> DocumentIR | None:
         run = self.get_extraction_run(extraction_id)
         if run is None:
@@ -20980,6 +21027,31 @@ class Repository(
                 (status, snoozed_until, status, now, notice_id),
             )
             connection.commit()
+
+    def resolve_maintenance_notice_if_detail(
+        self, notice_id: str, *, detail_key: str, expected: Any, clock: Clock | None = None
+    ) -> bool:
+        """Resolve a live notice only while its stored ``detail[detail_key]``
+        is still ``expected`` (one guarded statement: a write that changed the
+        detail since the caller read it keeps the notice). Reader CA1's
+        transcription reports resolve this way (Codex review F8). Returns
+        whether it was resolved."""
+
+        if not detail_key.isidentifier():
+            raise ValueError(f"not a detail key: {detail_key!r}")
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            changed = connection.execute(
+                f"""
+                UPDATE maintenance_notices
+                   SET status = 'resolved', resolved_at = ?
+                 WHERE id = ? AND status IN ('active', 'snoozed')
+                   AND json_extract(detail_json, '$.{detail_key}') IS ?
+                """,
+                (now, notice_id, expected),
+            ).rowcount
+            connection.commit()
+        return bool(changed)
 
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on

@@ -1308,8 +1308,26 @@ def session_view(
             help_fold=fold,
         ),
         "parts": None,
+        **_print_region(session),
         **dict(extra or {}),
     }
+
+
+def _print_region(session: Mapping[str, Any]) -> dict[str, Any]:
+    """Reader CA1 (§12.4): the learner-drawn sub-box a problem opened from a
+    region selection was imported with, so its crop is the learner's before
+    the import binds it; present only when there is one."""
+
+    request = import_request(session) or {}
+    raw = request.get("raw_selection") or request.get("rawSelection") or {}
+    region = raw.get("region") if isinstance(raw, Mapping) else None
+    if not isinstance(region, Mapping):
+        return {}
+    span = region.get("span_id") or region.get("spanId")
+    bbox = region.get("bbox")
+    if not span or region.get("page") is None or not isinstance(bbox, list) or len(bbox) != 4:
+        return {}
+    return {"print_region": {"span_id": str(span), "page": region.get("page"), "bbox": list(bbox)}}
 
 
 def _summary(session: Mapping[str, Any], rows: Sequence[Mapping[str, Any]], *, now: datetime | None,

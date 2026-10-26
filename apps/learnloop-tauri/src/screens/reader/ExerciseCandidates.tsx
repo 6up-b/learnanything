@@ -13,6 +13,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { EXERCISE_COPY, exerciseLocator, keyStatusLine, type ExerciseCandidate } from "./exerciseCandidates";
 import { MeaningLabel, SourceVoice } from "./voices";
+import { BlocksAsPrinted } from "../../components/AsPrinted";
 
 const linkStyle: CSSProperties = {
   border: 0,
@@ -53,6 +54,8 @@ export function ExerciseCandidates({
           <SourceVoice source={null} locator={exerciseLocator(candidate) || null}>
             <MarkdownMath value={clip(candidate.statement)} />
           </SourceVoice>
+          {/* Reader CA1: the exercise's own blocks, cropped from the page (free). */}
+          <BlocksAsPrinted extractionId={candidate.extractionId} spanIds={candidate.spanIds} altText={candidate.statement} />
           <MeaningLabel style={{ fontSize: 10 }}>{keyStatusLine(null)}</MeaningLabel>
           {candidate.exposure.exposed && candidate.exposure.label ? (
             <MeaningLabel style={{ fontSize: 11 }}>

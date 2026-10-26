@@ -223,6 +223,7 @@ def patch_checkpoint(
     self_grade_disclosure: Any = _KEEP,
     first_hint_progress: Any = _KEEP,
     hint_seen: Any = _KEEP,
+    page_seen: Any = _KEEP,
 ) -> None:
     """Merge ``params`` into the session's checkpoint.
 
@@ -266,6 +267,9 @@ def patch_checkpoint(
 
     if hint_seen is not _KEEP:
         focus = _with_hint_seen(focus, hint_seen)
+
+    if page_seen is not _KEEP:
+        focus = _with_keyed_flag(focus, "pageSeen", page_seen)
 
     current_item = _merged_value(existing, params, fields, "current_practice_item_id")
     if self_grade_disclosure is not _KEEP:
@@ -385,6 +389,33 @@ def _with_hint_seen(focus: dict[str, Any] | None, seen: Any) -> dict[str, Any]:
         practice.pop("hintSeen", None)
     payload["practice"] = practice
     return payload
+
+
+def _with_keyed_flag(focus: dict[str, Any] | None, name: str, value: Any) -> dict[str, Any]:
+    """A flag kept in the practice envelope under the retry key it was set
+    under (Reader CA1's ``pageSeen``, as ``hintSeen``); anything but True
+    clears it."""
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    key = practice.get("submissionId") or practice.get("submission_id")
+    if value is True and isinstance(key, str) and key.strip():
+        practice[name] = {"submissionId": key.strip()}
+    else:
+        practice.pop(name, None)
+    payload["practice"] = practice
+    return payload
+
+
+def draft_page_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:
+    """Reader CA1: whether a saved draft records the original page opened
+    before Submit under ``submission_id``."""
+
+    if not isinstance(practice, dict) or not submission_id:
+        return False
+    stored = practice.get("pageSeen")
+    return isinstance(stored, dict) and stored.get("submissionId") == submission_id
 
 
 def draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:

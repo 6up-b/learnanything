@@ -257,6 +257,52 @@ def _normalized_block_type(block_type: str | None) -> str:
     return (block_type or "").replace(" ", "").replace("_", "").lower()
 
 
+def is_figure_block(block: DocumentBlock) -> bool:
+    """A figure (or picture/image) block, by its type or its role hint: the
+    one test the Markdown rendering and the problem as printed share."""
+
+    return (_normalized_block_type(block.block_type) in _FIGURE_BLOCK_TYPES
+            or (block.role_hint or "").lower() == "figure")
+
+
+def page_region(value: object) -> tuple[int, tuple[float, float, float, float]] | None:
+    """A box on one page, ``{page, bbox}`` (a learner-drawn region, Reader
+    CA1 §12.4), normalised to ``(page, (left, top, right, bottom))``; None
+    when malformed or empty."""
+
+    if not isinstance(value, dict):
+        return None
+    page, bbox = value.get("page"), value.get("bbox")
+    if page is None or not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+        return None
+    try:
+        x0, y0, x1, y1 = (float(v) for v in bbox)
+        page_index = int(page)
+    except (TypeError, ValueError):
+        return None
+    left, right = sorted((x0, x1))
+    top, bottom = sorted((y0, y1))
+    if right <= left or bottom <= top:
+        return None
+    return page_index, (left, top, right, bottom)
+
+
+def selection_region(
+    value: object, span_ids: Sequence[str]
+) -> dict[str, tuple[int, tuple[float, float, float, float]]]:
+    """A selection's ``region`` (``spanId``/``span_id``, page, box) keyed by
+    its span; nothing when it names a block outside ``span_ids`` or is
+    malformed."""
+
+    if not isinstance(value, dict):
+        return {}
+    span = str(value.get("span_id") or value.get("spanId") or "")
+    region = page_region(value)
+    if not span or span not in {str(s) for s in span_ids} or region is None:
+        return {}
+    return {span: region}
+
+
 def _meaningful_section_path(section_path: Sequence[str]) -> list[str]:
     """Drop the synthetic ``root`` segment; keep real heading segments."""
 
@@ -297,8 +343,7 @@ def _figure_placeholder(block: DocumentBlock, assets: dict[str, DocumentAsset]) 
 
 def _render_block(block: DocumentBlock, assets: dict[str, DocumentAsset]) -> str:
     text = block.text.strip()
-    normalized_type = _normalized_block_type(block.block_type)
-    if normalized_type in _FIGURE_BLOCK_TYPES or (block.role_hint or "").lower() == "figure":
+    if is_figure_block(block):
         return _figure_placeholder(block, assets)
     # Equations, tables, and code keep their exact content verbatim (§2.3); plain
     # prose/captions render as-is. Either way the persisted block text is authoritative.

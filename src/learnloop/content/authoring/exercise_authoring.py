@@ -24,7 +24,7 @@ rung (``select_rung`` owns that).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 import json
@@ -42,6 +42,7 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.ingest.ir import selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
     LEGACY_UNMAPPED,
@@ -146,10 +147,10 @@ def _clamp01(value: Any) -> float | None:
     return max(0.0, min(1.0, float(value)))
 
 
-def _anchor_statement(selection_text: str, statement: str) -> str | None:
-    """Re-anchor the model's echoed statement as a verbatim slice of the
-    learner's selection (whitespace-tolerant, same idea as annotation quote
-    relocation). Returns the source-owned slice, or None for a paraphrase."""
+def _anchor_range(selection_text: str, statement: str) -> tuple[int, int] | None:
+    """Where the model's echoed statement sits in the learner's selection, as
+    a verbatim slice (whitespace-tolerant, same idea as annotation quote
+    relocation); None for a paraphrase."""
 
     tokens = _normalize(statement).split()
     if not tokens:
@@ -158,7 +159,55 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
     match = re.search(pattern, selection_text)
     if match is None:
         return None
-    return selection_text[match.start() : match.end()]
+    return match.start(), match.end()
+
+
+def _anchor_statement(selection_text: str, statement: str) -> str | None:
+    """Re-anchor the model's echoed statement as a verbatim slice of the
+    learner's selection. Returns the source-owned slice, or None for a paraphrase."""
+
+    found = _anchor_range(selection_text, statement)
+    return None if found is None else selection_text[found[0] : found[1]]
+
+
+def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
+                 ranges: Sequence[tuple[int, int] | None], index: int) -> set[str]:
+    """Reader CA1 (Codex re-review F9, final verify F9): the blocks one item
+    of a split selection is printed from, when they are its alone.
+
+    An item's blocks are the parts its statement's slice overlaps. They are
+    its own only when no other item of the split overlaps any of them: a
+    block holding two exercises belongs to neither, and an item with one
+    such block owns none (its crop would show the other exercise, or only
+    part of its own). Empty when ownership can't be read: a selection-level
+    edit replaced the text, or a sibling's statement could not be anchored
+    (it may sit in any block)."""
+
+    if part_ranges is None or any(found is None for found in ranges):
+        return set()
+
+    def blocks(found: tuple[int, int]) -> set[str]:
+        start, end = found
+        return {span for span, part_start, part_end in part_ranges if part_start < end and start < part_end}
+
+    mine = blocks(ranges[index])
+    others = set().union(*(blocks(found) for other, found in enumerate(ranges) if other != index))
+    return set() if mine & others else mine
+
+
+def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *,
+               owned: set[str]) -> list[dict[str, Any]]:
+    """One item's copy of the selection's refs. Every block stays a ref (the
+    selection is the item's provenance), and each ref says whether that block
+    is this item's own (``owned``), so its print never crops another item's
+    exercise (Codex re-review F9). Every import records it, split or not: a
+    Reader import without it was written before ownership was kept, and its
+    crop is not shown as its own (final verify F9)."""
+
+    refs = [json.loads(json.dumps(ref)) for ref in source_refs]
+    for ref, span_id in zip(refs, span_ids):
+        ref["owned"] = span_id in owned
+    return refs
 
 
 def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
@@ -383,10 +432,12 @@ def author_exercises(
         if span and quote:
             edited_quotes.setdefault(span, []).append(quote)
     parts: list[str] = []
+    part_spans: list[str] = []
     consumed: dict[str, int] = {}
     transliterated = False
     for segment in segments:
         span = str(segment.get("span_id") or "")
+        part_spans.append(span)
         queue = edited_quotes.get(span) or []
         index = consumed.get(span, 0)
         if index < len(queue):
@@ -405,6 +456,13 @@ def author_exercises(
                 transliterated = transliterated or changed
             parts.append(part)
     exercise_text = "\n\n".join(parts)
+    # Each part's place in the joined text, so an item split from the
+    # selection knows which blocks are its own (Codex re-review F9).
+    part_ranges: list[tuple[str, int, int]] | None = []
+    offset = 0
+    for span, part in zip(part_spans, parts):
+        part_ranges.append((span, offset, offset + len(part)))
+        offset += len(part) + 2
 
     # The capture editor combines a multi-block selection into ONE passage; a
     # selection-level edit overrides the whole surface (per-node edits above
@@ -416,6 +474,7 @@ def author_exercises(
         # Learner-authority override — used verbatim, Unicode and all.
         exercise_text = edited_text
         transliterated = False
+        part_ranges = None
 
     span_ids: list[str] = []
     for segment in segments:
@@ -465,6 +524,15 @@ def author_exercises(
         }
         for span_id in span_ids
     ]
+    # Reader CA1 (ux_reader_compare_ask_v1 §12.4): a region selection (a
+    # learner-drawn box inside one block, ``ReaderSelection.region``) is kept
+    # on that block's ref, so the problem as printed shows the learner's crop.
+    raw_region = raw_selection.get("region")
+    for span_id, (page, box) in selection_region(dict(raw_region) if isinstance(raw_region, Mapping) else None,
+                                                 span_ids).items():
+        for ref in source_refs:
+            if ref["locator"] == format_block_span(extraction_id, span_id):
+                ref["region"] = {"page": page, "bbox": list(box)}
 
     existing_prompts = {
         _normalize(item.prompt): item.id
@@ -476,10 +544,15 @@ def author_exercises(
                           warnings=warnings, anchor_status=str(translation.get("status") or "exact"))
     skipped = batch.skipped
 
+    split = len(result.items) > 1
+    # Every item's slice, skipped ones too: a sibling's place decides which
+    # blocks are an item's alone (final verify F9).
+    anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
-        statement = _anchor_statement(exercise_text, entry.statement_md)
+        found = anchored[ordinal - 1]
+        statement = None if found is None else exercise_text[found[0] : found[1]]
         if statement is None:
             if len(result.items) == 1:
                 statement = exercise_text
@@ -619,7 +692,9 @@ def author_exercises(
                 else None
             ),
             "hints": hints,
-            "provenance": {"origin": "canonical_extract", "source_refs": source_refs},
+            "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
+                source_refs, span_ids,
+                owned=_owned_spans(part_ranges, anchored, ordinal - 1) if split else set(span_ids))},
             "created_at": now,
             "updated_at": now,
         }

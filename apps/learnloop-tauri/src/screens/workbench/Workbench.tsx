@@ -36,6 +36,8 @@ import { WhereThisGoes } from "./WhereThisGoes";
 import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
 import { useWorkbenchHelp } from "./useWorkbenchHelp";
 import { PassageExtras, ShowMeExample, useRouteExamples } from "./RouteExample";
+import { AS_PRINTED_COPY, AsPrinted, BlocksAsPrinted, originalPageOfCrops, useAsPrinted, useProblemCrops, type OriginalPageTarget } from "../../components/AsPrinted";
+import { OpenInSource } from "../../components/OpenInSource";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
 
@@ -132,6 +134,24 @@ export function Workbench(props: WorkbenchProps) {
 
   const title = problemTitle(session.stemMd);
   const fromBook = session.origin === "reader";
+  // Reader CA1 (ux_reader_compare_ask_v1 §8.1): the problem as printed under
+  // the stem (the practice screen draws its own above, so not here then); a
+  // bound problem asks the server, which applies the cold rule (D46).
+  const asPrinted = useAsPrinted(props.hideProblem ? null : session.practiceItemId);
+  // Before the import binds it, the problem is known by its blocks (and the
+  // learner's region, §12.4): the server's first read says whether it can be
+  // cropped at all (F3: the switch off, or no page, shows nothing).
+  const blocksPrint = useProblemCrops(
+    !props.hideProblem && !session.practiceItemId && fromBook ? session.extractionId : null,
+    session.spanIds, session.printRegion ?? null,
+  );
+  // Reader CA1 (F6): the original page opens the page itself (OpenInSource's
+  // page view, the problem's blocks outlined), only where the server found a
+  // page image (the item's view once bound, the blocks' read before).
+  const originalPageTarget: OriginalPageTarget | null = session.practiceItemId
+    ? (asPrinted?.kind === "page" && asPrinted.originalPage ? asPrinted.originalPage : null)
+    : originalPageOfCrops(blocksPrint, session.sourceId);
+  const [originalPage, setOriginalPage] = useState<OriginalPageTarget | null>(null);
   const bound = session.practiceItemId !== null;
   const open = session.status === "open";
   const live = liveSteps(steps);
@@ -373,6 +393,15 @@ export function Workbench(props: WorkbenchProps) {
         {" · "}{title}
         {fromBook && session.sourceVisible ? " · from the book, verbatim" : ""}
       </span>
+      {/* Reader CA1: the page itself, beside the problem in the book pane;
+          hidden while the book is hidden (UX §5.1), so it never costs more
+          than the book already does. */}
+      {fromBook && session.sourceVisible && open && !readOnly && originalPageTarget ? (
+        <button type="button" data-testid="workbench-original-page" style={linkStyle}
+          onClick={() => setOriginalPage(originalPageTarget)}>
+          {AS_PRINTED_COPY.originalPage}
+        </button>
+      ) : null}
       {layout === "stacked" && fromBook && props.onShowInBook ? (
         <button type="button" onClick={props.onShowInBook} style={{ ...linkStyle, marginLeft: "auto" }}>show in the book ▾</button>
       ) : null}
@@ -453,6 +482,26 @@ export function Workbench(props: WorkbenchProps) {
           <MarkdownMath value={session.stemMd} />
         </div>
       )}
+      {session.practiceItemId ? (
+        <AsPrinted key={`${session.practiceItemId}:${asPrinted?.kind ?? "none"}`} view={asPrinted}
+          practiceItemId={session.practiceItemId} altText={session.stemMd} />
+      ) : fromBook && session.extractionId && session.spanIds.length > 0 ? (
+        <BlocksAsPrinted extractionId={session.extractionId} spanIds={session.spanIds} altText={session.stemMd}
+          region={session.printRegion ?? null} probe={blocksPrint} />
+      ) : null}
+      {originalPage ? (
+        // The book is already shown (and counted) here, so the page costs
+        // nothing more; it records its exposure as every source opening does.
+        <OpenInSource extractionId={originalPage.extractionId} spanId={originalPage.spanId}
+          outlineSpanIds={originalPage.outlineSpanIds} context="provenance"
+          entityType={session.practiceItemId ? "practice_item" : null} entityId={session.practiceItemId}
+          onClose={() => setOriginalPage(null)}
+          onOpenInReader={props.onPeekPassage ? (shown) => {
+            // Re-review F11: the passage on screen now, after Next/Previous.
+            setOriginalPage(null);
+            peek(shown.spanId, { extractionId: shown.extractionId });
+          } : undefined} />
+      ) : null}
     </div>
   );
 

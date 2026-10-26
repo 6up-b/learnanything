@@ -326,6 +326,10 @@ import type {
   ReaderCreateAnnotationInput,
   ReaderAnnotationResultDto,
   ReaderBlockRegionDto,
+  PrintedCropsDto,
+  PrintRegionDto,
+  AsPrintedViewDto,
+  TranscriptionReportDto,
   ReaderInvokePresetInput,
   ReaderPresetReceiptDto,
   ReaderSetModeResultDto,
@@ -573,6 +577,8 @@ export const api = {
     firstHintProgress?: FirstHintProgress | null;
     /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
     hintSeen?: boolean;
+    /** Reader CA1 (Q12): the original page was opened before Submit. */
+    pageSeen?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   /** Adaptive hints H0: telemetry for one authored hint the screen revealed
    *  (fire and forget; never awaited by the screen, and never invalidates). */
@@ -1479,6 +1485,16 @@ export const api = {
     call<Record<string, unknown>>("reader_block_health", { input }),
   readerBlockOriginalRegion: (input: { extractionId: string; spanId: string }) =>
     call<ReaderBlockRegionDto>("reader_block_original_region", { input }),
+  /** Reader CA1: the multi-block form, a problem's own blocks (one crop per
+   *  page in reading order, never a neighbouring block). A read. */
+  readerProblemCrops: (input: { extractionId: string; spanIds: string[]; render?: boolean; region?: PrintRegionDto | null }) =>
+    call<PrintedCropsDto>("reader_block_original_region", { input }),
+  /** Reader CA1: an item as printed; the server applies the cold rule (D46). */
+  practiceAsPrinted: (input: { practiceItemId: string; render?: boolean }) =>
+    call<AsPrintedViewDto>("practice_as_printed", { input }),
+  /** Reader CA1: "the transcription doesn't match the page" (a maintenance notice). */
+  reportTranscription: (input: { practiceItemId: string; note?: string | null }) =>
+    mutating([TAG.maintenance], call<TranscriptionReportDto>("practice_report_transcription", { input })),
   readerTranslateSelection: (input: ReaderTranslateSelectionInput) =>
     call<ReaderTranslationDto>("reader_translate_selection", { input }),
   readerCapture: (input: ReaderCaptureInput) =>

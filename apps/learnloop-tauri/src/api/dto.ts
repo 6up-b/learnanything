@@ -749,6 +749,9 @@ export interface SessionCheckpoint {
   /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft;
    *  present (true) only when one was, under this retry key. */
   hintSeen?: boolean;
+  /** Reader CA1 (Q12): the original page was opened before Submit on this
+   *  draft (it counts as the book); present only when it was. */
+  pageSeen?: boolean;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -7560,6 +7563,9 @@ export interface ReaderRawSelection {
   /** Learner-edited combined passage (capture editor): overrides the whole
    *  exercise surface while `nodes` keep anchoring the original blocks. */
   editedText?: string;
+  /** Reader CA1 (§12.4): a region selection's sub-box (one block), kept on
+   *  the imported exercise as the crop shown for it. */
+  region?: PrintRegionDto;
 }
 
 export interface ReaderTranslateSelectionInput {
@@ -7636,6 +7642,68 @@ export interface ReaderBlockRegionDto {
   regionRender: string | null;
   pageRenderSize?: number[] | null;
   reason: string;
+}
+
+// ── Reader CA1: the problem as printed (ux_reader_compare_ask_v1 §8) ─────────
+
+/** One crop of a problem's own blocks on one page (never a neighbour, C10). */
+export interface PrintedCropDto {
+  page: number;
+  /** The printed page label when the PDF has them, else the page's position. */
+  pageLabel: string;
+  bbox: number[];
+  spanIds: string[];
+  /** A PNG data URL; null when not rendered or not available. */
+  image: string | null;
+}
+
+/** A learner-drawn sub-box of one block (ReaderSelection.region, §12.4). */
+export interface PrintRegionDto {
+  spanId: string;
+  page: number;
+  bbox: number[];
+}
+
+/** The multi-block form of reader.block_original_region. */
+export interface PrintedCropsDto {
+  version?: number;
+  extractionId: string;
+  spanIds: string[];
+  /** ok · no_original (no readable page image) · no_geometry · not_found ·
+   *  disabled (practice.as_printed.enabled off: nothing is cropped) */
+  status: "ok" | "no_original" | "no_geometry" | "not_found" | "disabled";
+  crops: PrintedCropDto[];
+  skippedSpanIds: string[];
+}
+
+/** practice.as_printed: what an item may show of its print, decided on the server. */
+export interface AsPrintedViewDto {
+  version?: number;
+  practiceItemId?: string;
+  enabled: boolean;
+  /** page: the crop and the original page · figure: a check on your own, the
+   *  figure alone (Q10) · photo: the learner's photo · none */
+  kind: "page" | "figure" | "photo" | "none";
+  cold: boolean;
+  reason?: string;
+  label?: string;
+  status?: "ok" | "no_original" | "no_geometry" | "not_found";
+  /** kind page: PrintedCropDto; kind figure: only an index and the image. */
+  crops?: Array<PrintedCropDto | { index: number; image: string | null }>;
+  locator?: { sourceTitle: string | null; exerciseLabel: string | null; pageLabel: string };
+  originalPage?: { extractionId: string; spanId: string; outlineSpanIds: string[]; sourceId?: string | null } | null;
+  /** "the page image isn't available for this book · the transcription is above",
+   *  or (a page known without a box) "the crop isn't available for this problem · the original page is" */
+  notice?: string;
+  transcriptionReport?: boolean;
+  photo?: { captureId: string; capturedAt: string | null };
+}
+
+export interface TranscriptionReportDto {
+  version?: number;
+  noticeId: string | null;
+  status: string | null;
+  reports: number;
 }
 
 /** P3 slice 2: nine-preset palette, demand-paged synthesis, source objects (§5-§7). */
@@ -8380,6 +8448,9 @@ export interface WorkbenchSessionDto {
   /** A multi-part import asks which part this problem is. */
   parts: WorkbenchPartDto[] | null;
   sourceId: string | null;
+  /** Reader CA1 (§12.4): the learner-drawn sub-box a region selection was
+   *  imported with (absent otherwise). */
+  printRegion?: PrintRegionDto;
   /** Once bound: the item's whole frozen presentation (review F9). */
   presentation?: ItemPresentationDto | null;
   /** RW4b: a textbook exercise picked from a proposal ("use this one"): the

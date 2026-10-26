@@ -237,6 +237,17 @@ READER_RW2A_RPCS = (
 # UX Phase 3 (Today) adds workbench.open_problems: every source's open
 # problems for Today's "Pick up a thread". A pure read. Desktop only.
 UX_PHASE3_RPCS = ("workbench.open_problems",)
+# Reader CA1 (the problem as printed) adds the item's crop view and the
+# transcription report, and extends reader.block_original_region (pinned with
+# RW5a's) with its multi-block form. Desktop only (no phone RPC in v1, D20;
+# showing the crop on the phone is CA7, an owner decision).
+READER_CA1_RPCS = ("practice.as_printed", "practice.report_transcription", "reader.block_original_region")
+
+
+def test_the_pinned_ca1_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.as_printed import AS_PRINTED_RPCS
+
+    assert set(AS_PRINTED_RPCS) <= set(READER_CA1_RPCS)
 
 
 # Reader workbench RW6a ("Last time here") adds four RPCs -- the returning
@@ -692,7 +703,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA1_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

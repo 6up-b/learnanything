@@ -15,6 +15,8 @@ export function OpenInSource({
   context,
   entityType,
   entityId,
+  outlineSpanIds,
+  onOpenInReader,
   onClose
 }: {
   extractionId: string;
@@ -22,6 +24,13 @@ export function OpenInSource({
   context?: string;
   entityType?: string | null;
   entityId?: string | null;
+  /** Reader CA1 (the original page): every block of the problem on this page
+   *  is outlined, not only the one opened. */
+  outlineSpanIds?: string[];
+  /** Reader CA1 (§8.3): *open in the Reader ↗* from the page view, where the
+   *  host can take the learner there (absent: not offered). It is given the
+   *  passage shown now, which prev/next may have moved (Codex re-review F11). */
+  onOpenInReader?: (shown: { extractionId: string; spanId: string }) => void;
   onClose: () => void;
 }) {
   const [currentSpanId, setCurrentSpanId] = useState(spanId);
@@ -32,7 +41,12 @@ export function OpenInSource({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (screenLeavesKey(e, { modal: true })) return;
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // The modal's Esc is its own (Reader CA1: the screen beneath, practice
+        // or feedback, must not also take it as "back").
+        e.stopPropagation();
+        onClose();
+      }
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
@@ -76,7 +90,20 @@ export function OpenInSource({
             {heading}
           </span>
           {view ? <Pill color={view.viewerMode.startsWith("pdf_") ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
-          <span style={{ marginLeft: "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
+          {onOpenInReader ? (
+            // The passage on screen is the last view that loaded: prev/next
+            // toward one that fails, or is still loading, leaves it there, so
+            // the Reader opens that one, and nothing before any has loaded
+            // (final verify F11).
+            <button type="button" data-testid="open-in-reader" disabled={!view}
+              onClick={() => { if (view) onOpenInReader({ extractionId: view.extractionId, spanId: view.spanId }); }}
+              style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0,
+                       cursor: view ? "pointer" : "default", opacity: view ? 1 : 0.4,
+                       color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, textDecoration: "underline" }}>
+              open in the Reader ↗
+            </button>
+          ) : null}
+          <span style={{ marginLeft: onOpenInReader ? 12 : "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
             esc ✕
           </span>
         </div>
@@ -104,6 +131,10 @@ export function OpenInSource({
                         style={{ width: "100%", display: "block", border: `1px solid ${COLOR.border}` }}
                       />
                       <PdfRegion bbox={view.bbox} pageSize={view.pageRenderSize} />
+                      {(outlineSpanIds ?? [])
+                        .filter((id) => id !== view.spanId)
+                        .map((id) => view.pageSpans.find((span) => span.spanId === id))
+                        .map((span) => (span ? <PdfRegion key={span.spanId} bbox={span.bbox} pageSize={view.pageRenderSize} /> : null))}
                     </div>
                   ) : null}
                   <div style={pageBoxStyle}>

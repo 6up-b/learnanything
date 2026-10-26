@@ -26,7 +26,7 @@ const mirror = (overrides: Partial<PracticeDraftMirror> = {}): PracticeDraftMirr
 it("restores the stuck marker from the in-memory mirror after navigation", () => {
   expect(restoredPracticeDraft("item-1", mirror(), checkpoint())).toEqual({
     answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null, planPresentationId: null,
-    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
+    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false, pageSeen: false
   });
   expect(restoredPracticeDraft("item-1", mirror({ declaredStuck: false }), null).stuck).toBe(false);
 });
@@ -41,7 +41,7 @@ it("restores the stuck marker from the session checkpoint after a restart", () =
 it("never carries a stuck marker to another item", () => {
   expect(restoredPracticeDraft("item-2", mirror(), checkpoint({ declaredStuck: true }))).toEqual({
     answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
-    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
+    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false, pageSeen: false
   });
 });
 
@@ -82,4 +82,13 @@ it("restores the draft's first-hint progress marker with the draft", () => {
     .toBe("draft_started");
   expect(restoredPracticeDraft("item-1", null, checkpoint()).firstHintProgress).toBeNull();
   expect(restoredPracticeDraft("item-2", null, checkpoint({ firstHintProgress: "no_draft" })).firstHintProgress).toBeNull();
+});
+
+// Reader CA1 (Q12): the original page opened before Submit is restored with
+// the draft (it counts as the book), from the mirror or the checkpoint.
+it("restores an original page opened before Submit with the draft", () => {
+  expect(restoredPracticeDraft("item-1", mirror({ pageSeen: true }), null).pageSeen).toBe(true);
+  expect(restoredPracticeDraft("item-1", null, checkpoint({ pageSeen: true })).pageSeen).toBe(true);
+  expect(restoredPracticeDraft("item-1", null, checkpoint()).pageSeen).toBe(false);
+  expect(restoredPracticeDraft("item-2", mirror({ pageSeen: true }), checkpoint({ pageSeen: true })).pageSeen).toBe(false);
 });

@@ -18,6 +18,8 @@ export type PracticeDraftMirror = {
   firstHintProgress?: FirstHintProgress | null;
   /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
   hintSeen?: boolean;
+  /** Reader CA1 (Q12): the original page was opened before Submit. */
+  pageSeen?: boolean;
 };
 
 export type RestoredPracticeDraft = {
@@ -39,6 +41,9 @@ export type RestoredPracticeDraft = {
   /** AD1 fix round 5 (V4): a hint was seen on this draft (false on a legacy
    *  draft that never recorded it, and on a draft with no hint). */
   hintSeen: boolean;
+  /** Reader CA1 (Q12): the original page was opened before Submit on this
+   *  draft, so it counts as the book (false on a draft that never opened it). */
+  pageSeen: boolean;
 };
 
 /** What a practice screen for `practiceItemId` restores: the in-memory mirror
@@ -61,13 +66,14 @@ export function restoredPracticeDraft(
           ? localDraft.selfGradeDisclosure
           : null,
       firstHintProgress: localDraft.firstHintProgress ?? null,
-      hintSeen: localDraft.hintSeen === true
+      hintSeen: localDraft.hintSeen === true,
+      pageSeen: localDraft.pageSeen === true
     };
   }
   if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
     return {
       answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
-      selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
+      selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false, pageSeen: false
     };
   }
   return {
@@ -83,6 +89,8 @@ export function restoredPracticeDraft(
         : null,
     // The sidecar returns it only under the draft's own retry key.
     firstHintProgress: checkpoint.firstHintProgress ?? null,
-    hintSeen: checkpoint.hintSeen === true
+    hintSeen: checkpoint.hintSeen === true,
+    // The sidecar returns it only under the draft's own retry key.
+    pageSeen: checkpoint.pageSeen === true
   };
 }

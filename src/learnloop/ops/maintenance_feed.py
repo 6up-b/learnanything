@@ -20,6 +20,7 @@ longer holds.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -62,7 +63,15 @@ NOTICE_TYPES: dict[str, NoticeType] = {
     # Urgent because the measurement lane is stalled; auto-resolves when a
     # fresh surface appears (the empty-pool sweep also self-resolves it).
     "probe_pool_empty": NoticeType("probe_pool_empty", "auto_resolution", "action_needed"),
+    # Reader CA1 (ux_reader_compare_ask_v1 §8.2): the learner compared a
+    # textbook exercise with the page and the transcription differs. A
+    # learner's report, held until the wording changes (the card reworded,
+    # re-imported or gone) and then resolved; dismissing it is the owner's.
+    "transcription_mismatch": NoticeType("transcription_mismatch", "auto_resolution", "action_needed"),
 }
+
+#: Reader CA1's learner report ("the transcription doesn't match the page").
+TRANSCRIPTION_MISMATCH = "transcription_mismatch"
 
 
 @dataclass
@@ -114,10 +123,13 @@ def generate_maintenance_feed(
 
     # Aging: auto-resolution / auto-expiry clear a live notice whose condition no
     # longer holds; escalation raises severity after N snoozes.
+    # Reader CA1 (F8): a transcription report is the learner's record, never
+    # regenerated from a snapshot; it resolves by its own guarded rule.
+    _resolve_reworded_transcription_reports(vault, repository, clock=clock)
     for live in repository.maintenance_notices(include_hidden=True):
         key = (live["notice_type"], live["dedup_key"])
         spec = NOTICE_TYPES.get(live["notice_type"])
-        if spec is None:
+        if spec is None or live["notice_type"] == TRANSCRIPTION_MISMATCH:
             continue
         if live["status"] in {"dismissed"}:
             continue
@@ -330,6 +342,131 @@ def _probe_pool_empty_notices(vault, repository) -> list[_Notice]:
             )
         )
     return out
+
+
+# --- Reader CA1: the transcription doesn't match the page --------------------
+
+
+def _prompt_sha256(prompt: str) -> str:
+    import hashlib
+
+    return "sha256:" + hashlib.sha256((prompt or "").encode("utf-8")).hexdigest()
+
+
+def report_transcription_mismatch(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    origin: Any,
+    note: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """File the learner's report that an imported exercise's transcription
+    doesn't match the page (ux_reader_compare_ask_v1 §8.2).
+
+    One notice per item, keyed by the wording reported: every report adds the
+    learner's text (when there is any) and counts, and a report on a notice
+    that was dismissed, resolved or expired opens it again. It records nothing
+    else: no evidence, no retirement, no change to the item. It resolves on
+    its own once the wording differs from the one reported. Raises
+    ``LookupError`` for an unknown item, ``ValueError`` for an item with no
+    print of its own (not imported from a page, or a variant). ``origin`` is
+    where its print is, as the caller read it (``reader.as_printed.
+    printed_origin``: ``extraction_id``, ``span_ids``, ``label``,
+    ``relation``), or None.
+
+    Codex review F8: the read of the stored report, the append and the
+    reopening are one ``BEGIN IMMEDIATE`` transaction, so two reports (or a
+    report and a feed refresh, which never rewrites a report's detail) can't
+    lose one another's text or count."""
+
+    from learnloop.clock import utc_now_iso
+
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        raise LookupError(practice_item_id)
+    if origin is None or origin.relation != "verbatim":
+        raise ValueError("Only a problem imported verbatim from a page has a transcription to report.")
+    text = (note or "").strip()
+    prompt_hash = _prompt_sha256(item.prompt)
+    spec = NOTICE_TYPES[TRANSCRIPTION_MISMATCH]
+    with repository.atomic():
+        now = utc_now_iso(clock)
+        with repository.connection() as connection:
+            row = connection.execute(
+                "SELECT detail_json FROM maintenance_notices WHERE notice_type = ? AND dedup_key = ?",
+                (TRANSCRIPTION_MISMATCH, practice_item_id),
+            ).fetchone()
+        previous: dict[str, Any] = {}
+        if row is not None and row[0]:
+            try:
+                loaded = json.loads(row[0])
+            except (TypeError, ValueError):
+                loaded = None
+            previous = dict(loaded) if isinstance(loaded, dict) else {}
+        if previous.get("prompt_sha256") != prompt_hash:
+            previous = {}
+        notes = [*list(previous.get("notes") or []), *([{"text": text, "at": now}] if text else [])]
+        detail = {
+            "practice_item_id": practice_item_id,
+            "prompt_sha256": prompt_hash,
+            # The wording reported, so Maintenance can show it beside the
+            # page and offer the fix (F7).
+            "prompt": item.prompt,
+            "extraction_id": origin.extraction_id,
+            "span_ids": list(origin.span_ids),
+            "exercise_label": origin.label,
+            "reports": int(previous.get("reports") or 0) + 1,
+            "first_reported_at": previous.get("first_reported_at") or now,
+            "last_reported_at": now,
+            "notes": notes,
+        }
+        notice_id = repository.upsert_maintenance_notice(
+            notice_type=TRANSCRIPTION_MISMATCH, dedup_key=practice_item_id,
+            title=_transcription_title(origin.label, practice_item_id),
+            action=_transcription_action(practice_item_id),
+            aging_policy=spec.aging_policy, severity=spec.default_severity,
+            subject_id=None, entity_type="practice_item", entity_id=practice_item_id,
+            detail=detail, clock=clock,
+        )
+        current = repository.maintenance_notice(notice_id)
+        if current is not None and current["status"] not in {"active", "snoozed"}:
+            repository.set_maintenance_notice_status(notice_id, status="active", clock=clock)
+            current = repository.maintenance_notice(notice_id)
+    return current or {}
+
+
+def _transcription_title(label: str | None, practice_item_id: str) -> str:
+    return f"The transcription of {label or practice_item_id} doesn't match the page"
+
+
+def _transcription_action(practice_item_id: str) -> dict[str, Any]:
+    return {"action": "open_practice_item", "label": "Fix the wording", "practice_item_id": practice_item_id}
+
+
+def _resolve_reworded_transcription_reports(
+    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+) -> list[str]:
+    """Resolve every live report whose item no longer has the wording reported
+    (a reword, a re-import or the item gone). The feed never re-upserts a
+    report (its detail is the learner's, F8): each resolution is a guarded
+    update that holds only while the stored report is still the one read, so
+    a report filed meanwhile (a new wording, a reopening) is never resolved."""
+
+    resolved: list[str] = []
+    for live in repository.maintenance_notices(include_hidden=True):
+        if live["notice_type"] != TRANSCRIPTION_MISMATCH or live["status"] not in {"active", "snoozed"}:
+            continue
+        reported = (live.get("detail") or {}).get("prompt_sha256")
+        item = vault.practice_items.get(live["dedup_key"])
+        if item is not None and _prompt_sha256(item.prompt) == reported:
+            continue
+        if repository.resolve_maintenance_notice_if_detail(
+            live["id"], detail_key="prompt_sha256", expected=reported, clock=clock
+        ):
+            resolved.append(live["id"])
+    return resolved
 
 
 _COLLECTORS: tuple[Callable[[LoadedVault, Repository], list[_Notice]], ...] = (
