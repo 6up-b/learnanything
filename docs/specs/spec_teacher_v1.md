@@ -107,7 +107,7 @@ Paths in this section are in the LearnHarness repository. Everything here paraph
 | **Voice and accuracy** | No praise or agreement bias, and a wrong answer is named plainly. Verify doubts before teaching; flag what can't be verified | `shared/10-voice.md`; `shared/15-accuracy.md`; `teacher/40-jobs.md` |
 | **Compaction that keeps the learner** | The summary keeps, in order: the learner's understanding and how it changed (the heaviest part), the teaching arc, the plan verbatim, and the current moment | `src/core/compaction.ts` (`buildCompactionPrompt`) |
 | **Practice doctrine** | States the distinction this spec rests on: a teaching check asks about an idea still active in mind, so it measures comprehension, while practice must produce the idea from an inactive state in a fresh situation. Also: three modes, a minimal-reveal hint ladder, miss classes, fresh-surface retests | `src/agent/prompts/practice/10-doctrine.md` §I–IX |
-| **Instruments over description** | For a dynamic idea, build a verified demo or a checked figure | `teacher/50-demos.md` |
+| **Instruments over description** | For a dynamic idea, build a verified demo or a checked figure. *(LearnLoop: served by Reader RW5d, `spec_reader_show_me_figures_v1.md` §10.4: a figure as a manipulative in a discovery step, grammar or sketch tier.)* | `teacher/50-demos.md` |
 
 ### 2.2 What it lacks, and LearnLoop has
 
@@ -499,7 +499,7 @@ The brief is built deterministically from the ledger and versioned. It is the on
 ### 8.2 `TeacherTurnV1` (desktop teacher → code)
 
 One strict-schema object per model turn:
-- **`message`:** Markdown with LaTeX. Optional `choices`; an optional `visual` spec (the existing figure and animation routes).
+- **`message`:** Markdown with LaTeX. Optional `choices`; an optional `visual` spec (the existing figure and animation routes). *(RW5d: a figure `visual` is a `FigureRequestV1` with origin `teacher`, and the figure's own predictions are off in lessons; see `spec_reader_show_me_figures_v1.md` §6.5, §7.1.)*
 - **`prediction?`:** `{node, prompt, choices?}`. It opens immediately.
 - **`check?`:** `{node, question, form (choices | free), committed_solution, rubric (criteria named by fact), anchors}`. It opens collapsed, below the message.
 - **`requests`:** zero or more actions from §9.
@@ -1245,7 +1245,7 @@ The thresholds in these triggers are `keep`. They decide when to spend engineeri
 | Sensor rendering (track records, percentiles), the `learner_surprise` column, `tap_shown` | A consumer exists, and ≥200 tapped attempts with ≥20% of taps ≤ 3. (Confidence as events on the card and in model contexts is not deferred: it is TE0) |
 | Lesson-check items joining the practice pool | The delayed-check picker finds no unseen-family item for >30% of landed nodes over a month |
 | Split diagnoser on lesson checks | Lesson misconceptions recur on delayed checks without a gap proposal |
-| Teacher-built demos with headless verification | Lessons asking for a dynamic demo the figure and animation routes can't express |
+| Teacher-built demos with headless verification | Lessons asking for a dynamic demo the figure and animation routes can't express. *Superseded (2026-10-25): built as RW5d's sketch tier (`spec_reader_show_me_figures_v1.md` §9, phase P2) on the owner's direction, not on this trigger; lessons reach it through `visual`* |
 | A background fact-check research agent | Citation validation rejects >10% of source claims, or the owner asks |
 | Multi-session curricula | Three resumed lessons on one goal |
 | Change-point variance after lessons (sweep §1.2.5) | Subsumed by TE3. Revisit if the field harness shows post-lesson first attempts miscalibrated |
