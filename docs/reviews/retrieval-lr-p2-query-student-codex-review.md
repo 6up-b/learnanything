@@ -145,3 +145,25 @@ Behaviour change to note: generation now picks the hold-out from the mapping's c
 | `test_codex_lockdown_round3.py` (imports the P2 modules) | **13 passed, 3 failed**: the same 3 `test_the_installed_codex_*` environmental failures recorded by every earlier gate |
 | `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
 | `db_validate_reference.py` (under `env -i`) | 2 moved anchors, then after `db_generate_reference.py`: **0 errors** |
+
+### F19 residual and F20 (scoped verify, codex-job `20261026-153448-dFvUTA`, verdict REOPENED)
+
+**Fix base** `b329520d9`. The verify confirmed F19-b fixed and the new producer and fallback correct. It reopened one residual and raised F20. Both were reproduced first by new tests on the pre-fix code. The first-round list was accepted as `checkpoint_manifest`, so its family-A questions read `unseen_family`. Generation counted 32 training rows where 8 are current, and planned no call.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F19 (residual) | Medium | A list pinned by the first F19 producer is still trusted | **fixed**: the trainer job carries `training_families_provenance = TRAINING_FAMILIES_PROVENANCE` (`"consumed-queries-and-candidates-v1"`, the producer `run_training_families`). The trainer writes it beside the list in `student.json`, and `checkpoint_digest` covers it when present, so a manifest without it keeps its old digest. `checkpoint_training_families` accepts `checkpoint_manifest` only for a digest-matching manifest whose provenance is the current version. Any other pinned list (none, or another version) falls back to `current_dataset` when the run was trained on this dataset, else `unknown`. No real checkpoint exists (no real training has run), so nothing is migrated | e4b7e3b9f | `test_only_the_current_producers_pinned_families_are_provenance`: a first-round list (no provenance) or another version on an older dataset gives `unknown` with no `unseen_family`; on the current dataset it gives `current_dataset`; the job carries the version; changing the version changes the digest. The torch test checks that the trained manifest holds it |
+| F20 | Medium | Generation resume counts obsolete training splits | **fixed**: `D.current_rows(rows, by_extraction)` gives stored rows their current family (from their extraction) and their current split (`current_split` under `vault_held_out`). `generate` counts its progress (`trainable_now`, the remaining room, `reachable_budgets`, the final `budgets`) from it. `campaign` and the doctor's `status` now use the same helper instead of their inline copies. A family held out after it filled the budget no longer fills it, and a family no longer held out counts toward it, so neither direction mis-plans | e4b7e3b9f | `test_generation_counts_its_budget_by_the_current_splits`: the held-out family's rows are relabelled `train`, one training passage is made owed, and the budget is set to the stale training count. `questions.train` is the current count, and the owed passage is planned (1 call) |
+
+No new tunable parameter: the provenance version is an identity string, like `TRAINER_VERSION`. No migration, no successor, no CLI change. The reference regeneration moved the two consumer anchors (`query_student.py:1486`, `student_data.py:523`) and the commit stamps.
+
+#### Gate (F19 residual, F20)
+
+| Step | Result |
+|---|---|
+| Pre-fix reproduction (the 2 new tests against `b329520d9`'s code) | **2 failed** (`basis == "checkpoint_manifest"` with `unseen_family` on a first-round list; `questions.train` 32 ≠ 8 current) |
+| `tests/test_query_student.py` with torch (`uv sync ... --extra pdf`) | **50 passed** |
+| Gate env (re-synced `--extra dev --extra mobile` + `pypdfium2`): `test_query_student.py`, `test_query_student_gpu.py`, `test_registry_audit.py`, `test_architecture.py`, `test_cli_help_snapshot.py`, `test_local_index.py`, `test_source_space_resolver.py` | **116 passed, 9 skipped** |
+| `test_codex_lockdown_round3.py` | **13 passed, 3 failed**: the same 3 `test_the_installed_codex_*` environmental failures |
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| `db_validate_reference.py` (under `env -i`) | 2 moved anchors, then after `db_generate_reference.py`: **0 errors** |
