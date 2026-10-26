@@ -202,8 +202,13 @@ MemorySwapMax=1G`, pytest at `-n 6` at most, and vitest at `--maxWorkers=4`.
 4. **A re-asked goal** runs its grounding retrieval (`source_rerank`'s verification, cached by that service's own
    verdict cache) before the reuse key can be computed, because the key includes the kept passages. The author is not
    called again.
-5. **Goal-only reuse is per home book** (see "Design choice" above).
-6. **The Ask rail's passage chips are text,** not RW1c's peeking chips. "open" jumps with the Reader's `jumpToSpan`
-   (no "back to where I was" crumb). Both are small follow-ups if the owner wants them.
+5. **Goal-only reuse is per home book** (see "Design choice" above). Within that book a reused figure lands where the
+   current request was made, and is listed under every paragraph it was asked at (Codex review F3).
+6. **The Ask rail's passage chips peek** as RW1c's citations do (this book: a peek with its crumb; another book: opened
+   as a detour), and "open" goes to the figure through the return stack, with "back to where I was" (Codex review F8).
 7. **The Ask rail sends a goal-only request even with a selection** (the spec's Ask-rail framing). Joint requests come
    from the intent box.
+
+## Codex review
+
+The findings, their fixes and the gate are in `docs/reviews/reader-rw5d-p1-show-me-codex-review.md`.

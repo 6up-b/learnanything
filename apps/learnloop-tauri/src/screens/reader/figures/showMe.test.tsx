@@ -30,7 +30,7 @@ const { api, contract } = vi.hoisted(() => ({
     readerLogActivity: vi.fn(), readerSetAnswerMode: vi.fn(), findPractice: vi.fn(), runSourceTool: vi.fn(),
     recordProposalImpressions: vi.fn(), recordSourceOfferShown: vi.fn(),
     readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
-    figureRequest: vi.fn(),
+    figureRequest: vi.fn(), readerFigureRevise: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
 }));
@@ -266,7 +266,7 @@ it("F3: a reused goal landing at a second paragraph keeps both placements", asyn
   expect(result.current.under("a").figures).toHaveLength(1);
   expect(result.current.under("b").figures).toHaveLength(1);
   // A new version takes every placement of the one it supersedes.
-  api.readerFigureRevise = vi.fn().mockResolvedValue({ jobId: "j3", kind: "figure_build", askId: null, state: "done",
+  api.readerFigureRevise.mockResolvedValue({ jobId: "j3", kind: "figure_build", askId: null, state: "done",
     result: { figure: { ...first, figureId: "fig_2", supersedesId: "fig_1", anchorSpanId: "a" }, reused: false } });
   await act(async () => { result.current.revise(result.current.figures[1], "slower"); await new Promise((resolve) => setTimeout(resolve, 0)); });
   await waitFor(() => expect(result.current.figures.map((item) => [item.figureId, item.anchorSpanId])).toEqual([["fig_2", "a"], ["fig_2", "b"]]));
