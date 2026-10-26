@@ -117,10 +117,46 @@ assisted attempt is dampened by its `hints_used` as any hinted attempt is.
 * **The earlier-attempt count across a restart.** It is client-counted (like the book left open, with no new ledger
   kind: `interaction_events.kind` and `help_assists.assist_kind` are CHECK-constrained, so a durable row needs a
   migration). A restart mid-attempt forgets that it was opened; opening it again counts it again (the link says so).
+* **The submit's fold still counts by the window.** A question asked under one serve's key, the item skipped and served
+  again with a new key, folds into the next attempt on the item (B3's window, unchanged evidence semantics), though the
+  new serve's thread starts empty. Folding by key would change classification again (another successor); left as is.
+* **The help record** lists the questions answered in this visit; a thread restored from the transcript after a
+  remount is shown in the panel but not re-listed in the record line.
+* **The successor's number.** `fix/rebuild-equivalence` (`c8a138009`) also names its bounded-replay successor
+  `mvp-0.34`. Both are one constant; whichever lands second renumbers (and moves its predecessor).
 * **Q4's measurement.** An assisted cold follow-up leaves its measurement to be withdrawn at the next serve (the repair
   ends unmeasurable, honestly). Whether a fresh cold retry should be scheduled instead is a scheduling decision for the
   owner.
 
-## 4. Gate
+## 4. Gate (targeted; the full suite runs once in the landing gate)
 
-See the stage's structured result (the exact commands and counts are recorded there and below once run).
+Every command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`; pytest at `-n 6` or
+fewer, vitest at `--maxWorkers=4`, one test run at a time.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| pytest, the new file `tests/test_reader_ca2_one_ask.py` | 30 passed |
+| pytest batch 1 (35 files: the successor's chain pins and the contracts, below) | 1,258 passed, 14 skipped, 5 failed (chain-tail pins and the CLI help snapshot this stage moves); fixed, then the 5 files plus `test_ad_guard.py`, `test_ad_protected_tables.py`, `test_architecture.py`, `test_reader_ca2_one_ask.py`, `test_sidecar_tutor_qa.py`, `test_capture_route_recovery.py`: 217 passed, 3 skipped |
+| pytest batch 2 (151 files that exercise a changed module, below) | 8,948 passed, 3 skipped, 2 xfailed, 6 failed; fixed (B3's budget assertion is K5's now; two tests of other things pin the panel off; the recovered capture answer carries its mode; RW1c's golden strips the new receipt), then the 6 files: 119 passed, and `test_reader_tutor_switch_off.py` 2 passed |
+| `npm install`, `npm run typecheck`, `npm run frontend:build` (apps/learnloop-tauri) | clean, clean, built |
+| vitest, new: `src/components/AskOverlay.panel.test.tsx`, `src/screens/PracticeScreen.ca2OneAsk.test.tsx` | 12 passed, 7 passed |
+| vitest, touched (148 files: `src/components/AskOverlay*`, `src/screens/PracticeScreen*`, `src/screens/workbench`, `src/screens/practice`, `src/screens/reader`, `src/screens/ReaderScreen.workbench`, `.inquiry`, `.inquiryOff`, `src/screens/FeedbackScreen*`, `src/app`) | 1,341 passed, 5 failed: all in `src/app/App.fixRound4.test.tsx`, 5 s timeouts under the parallel load; alone 9 passed |
+| cargo check | not run: nothing under `src-tauri` changed (no new RPC; `ask_tutor_question` and `get_tutor_transcript` are passthroughs) |
+| durability lane, DB reference scripts | not run: no migration, no DB or connection code, no schema change (`source_context_json` and `answer_mode` already exist) |
+
+**Batch 1:** `test_ad23_successor.py test_field_workbench_signals.py test_intent_codex_rereview.py
+test_method_explicit_upgrade.py test_mvp09_upgrade.py test_mvp010_upgrade.py test_mvp011_upgrade.py
+test_mvp013_upgrade.py`-`test_mvp018_upgrade.py test_mvp020_upgrade.py`-`test_mvp024_upgrade.py
+test_reading_step_switch.py test_recurrence_commands.py test_regrade_contract_successor.py
+test_required_method_grading.py test_route_rules_in_grader.py test_serve_eligibility_review.py
+test_serve_eligibility.py test_plan_follows_path.py test_config_refactor.py test_cli_help_snapshot.py
+test_sidecar_serializer_snapshot.py test_sidecar_contract.py test_desktop_rpc_contract.py test_mobile_allowlist.py
+test_architecture.py test_table_roles.py test_constraint_engine.py`.
+
+**Batch 2** (every test file naming `tutor_qa`, `reader_modes`, `reader_dialogue`, `reader.ask`, `served_check`,
+`intent.checks`, `config_dto`, `tutor_qa_prompt`, `certification_cold_probe`, `remediation`, `ask_tutor_question`,
+`get_tutor_transcript`, `BoundAsk` or `reader_tutor`, less those in batch 1): test_ad1_attempt_columns.py test_ad1_codex_review_fixes.py test_ad1_fix_round4.py test_ad1_reading_opportunities.py test_ad23_contract.py test_ad3_dose_arm.py test_adaptive_difficulty_ad1.py test_ai_config.py test_assumed_known.py test_authoring_contract.py test_capture_desktop.py test_capture_route_recovery.py test_causal_attribution_p0.py test_causal_attribution_p2.py test_causal_cold_outcomes.py test_causal_factor_deferral.py test_causal_orchestrator.py test_causal_p2_acceptance.py test_causal_repair_sidecar_rpcs.py test_certification_cold_probe.py test_chatgpt_plan_provider.py test_chatgpt_plan_workspace.py test_codex_lockdown_round2.py test_codex_lockdown_round3.py test_codex_output_schema.py test_codex_tool_lockdown.py test_coldness_receipt.py test_collection_dataset.py test_common_repair_delivery.py test_compare_sources_keep.py test_daily_loop_reader_authored_practice.py test_daily_loop_reader_retire.py test_daily_loop_reference_adoption.py test_diagnosis_input_provenance_landing.py test_diagnosis_input_provenance.py test_diagnostic_probe_freshness.py test_dialogue_causal_join.py test_dl2_rw4b_keyed_pick_check.py test_e0_delivery.py test_embedding_route_isolation.py test_exam_protection.py test_exam_protection_review.py test_field_signal_production_paths.py test_figure_offers.py test_figures_rw5b_fix_round2.py test_figures_rw5b_review.py test_followup_diagnostic_selection.py test_forecast_receipts.py test_goal_certification_any_of.py test_goal_series.py test_guided_redo.py test_held_grade_evidence.py test_hint_kill_switch.py test_hypothesis_surface_wiring.py test_instrument_servability_journeys.py test_instrument_serving.py test_integration_daily_loop_field.py test_intent_checks.py test_intent_codex_review.py test_intent_fix_round4.py test_intent_fix_round5.py test_intent_orchestrator_rulings.py test_intent_plan.py test_judge_routes.py test_learner_text_gaps_composition.py test_learner_text_gaps_flow.py test_learner_text_gaps.py test_learner_text_gaps_review.py test_library_ask.py test_library_ask_review.py test_mcp_c1a_landing.py test_migrations.py test_misconception_transitions_intake.py test_model_usage_report.py test_output_budget.py test_owner_capture_1025.py test_p2_leakage_suite.py test_p3_journeys.py test_pfc_unassessed_readers.py test_pf_generation.py test_pinned_span_bridge.py test_placement_opening_probes.py test_placement_signals.py test_plan_first_transport_grant_scope.py test_plan_first_transport_offer_grants.py test_plan_first_transport.py test_post_attempt_pipeline.py test_prescription_passages.py test_primed_attempts.py test_probe_remint.py test_question_context.py test_question_promotions.py test_question_queue.py test_question_signal.py test_quick_check.py test_reader_activity.py test_reader_branches.py test_reader_dialogue.py test_reader_guidance.py test_reader_inquiry_kill_switch.py test_reader_inquiry_status.py test_reader_intent.py test_reader_observation_records.py test_reader_passage_check.py test_reader_recap.py test_reader_recap_review.py test_reader_recap_review_r2.py test_reader_reconnect.py test_reader_report.py test_reader_rw1b_review.py test_reader_rw1c_review.py test_reader_tutor_offers.py test_reader_tutor_retrieval.py test_reader_tutor_switch_off.py test_reader_wrap_up.py test_remediation_cold_retry.py test_retrieval_interventions_write_points.py test_reveal_ledger.py test_rw2c_switch_off.py test_rw4_kill_switches.py test_salience_firewall.py test_scheduler.py test_scoreboard.py test_sidecar_measurement.py test_sidecar_reader_p3.py test_sidecar_reader.py test_sidecar_remediation_surfaces.py test_sidecar_source_retrieval.py test_sidecar_teach_back.py test_sidecar_tutor_qa.py test_source_retrieval_followup.py test_source_retrieval_guards.py test_source_retrieval_rereview_cost.py test_source_retrieval_rereview.py test_source_retrieval_search.py test_source_retrieval_tutor.py test_source_space_resolver.py test_structured_transport_parity.py test_stuck_prompt.py test_teacher_te0_confidence_events.py test_tutor_citations.py test_tutor_delivery_fixes.py test_tutor_practice_request.py test_tutor_promotion_w2.py test_tutor_qa.py test_tutor_tool_requests.py test_ux_phase1_connect_ai.py test_ux_phase1_landing.py test_ux_phase1_usability_round1.py test_ux_phase2_shell.py test_ux_phase4_feedback.py
+
+No paid or live call was made: every model is a fake, no vault was opened, no provider was routed.
