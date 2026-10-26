@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite placement_quick_check_items"
   - "table placement_quick_check_items"
-schema_head: 222
+schema_head: 224
 table_name: "placement_quick_check_items"
 table_role: "workflow"
 functionality_status: "active"

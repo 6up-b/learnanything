@@ -113,7 +113,7 @@ export const readerIntentContractFixture: ReaderIntentContractDto = {
           "id": "make_explorable",
           "group": "understand",
           "intention": "understand",
-          "label": "make this explorable",
+          "label": "show me…",
           "effect": {
             "kind": "figure"
           },

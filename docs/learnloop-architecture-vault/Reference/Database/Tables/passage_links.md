@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite passage_links"
   - "table passage_links"
-schema_head: 222
+schema_head: 224
 table_name: "passage_links"
 table_role: "workflow"
 functionality_status: "active"

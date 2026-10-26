@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 222
+schema_head: 224
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"

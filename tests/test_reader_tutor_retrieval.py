@@ -71,7 +71,8 @@ def test_retrieved_passages_join_after_the_selection_and_its_neighbours(tmp_path
     retrieved = [(e, s) for e, s, relation in given if relation == "retrieved"]
     assert ("ext_book", "s7") in retrieved  # "The determinant changes sign when two rows of a matrix are swapped."
     assert tutor.contexts[-1]["reader_tutor"]["books_cover"] is True
-    assert tutor.result_models[-1] == "ReaderTutorAnswerWithTools"
+    # RW5d P1 (figures.show_me_enabled, on by default): RW1c's answer with the optional figure goal.
+    assert tutor.result_models[-1] == "ReaderTutorShowMeAnswerWithTools"
     # The manifest is stored with the exchange, with the spans the tutor was given.
     stored = _event(repository, answer)["source_context"]
     assert stored["source_retrieval"]["basis"] == "reader_lookup"

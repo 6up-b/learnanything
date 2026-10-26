@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 222
+schema_head: 224
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"

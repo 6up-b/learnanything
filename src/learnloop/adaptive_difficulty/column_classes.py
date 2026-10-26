@@ -289,8 +289,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "payload_json actor locator_json privacy_locality consent_context"),
     "interactive_figures": (
         "id extraction_id span_ids_json asset_id input_span_ids_json origin supersedes_id spec_version kind "
-        "verification unsupported_kind model prompt_version input_hash created_at",
-        "region_json revision_note spec_json verification_report_json"),
+        "verification unsupported_kind model prompt_version input_hash created_at "
+        # Reader RW5d P1 (migration 224).
+        "request_id grounding tier program_version engine_sha256 runtime_digest instrumented_sha256 "
+        "media_file_name fuller_of_id",
+        "region_json revision_note spec_json verification_report_json goal_text input_span_keys_json checks_json"),
     "item_forecast_payloads": (
         "id owner_key forecaster kind content_hash created_at",
         "content_json"),

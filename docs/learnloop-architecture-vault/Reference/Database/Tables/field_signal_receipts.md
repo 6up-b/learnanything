@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite field_signal_receipts"
   - "table field_signal_receipts"
-schema_head: 222
+schema_head: 224
 table_name: "field_signal_receipts"
 table_role: "receipt"
 functionality_status: "active"

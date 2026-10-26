@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite subject_identifiability_watermarks"
   - "table subject_identifiability_watermarks"
-schema_head: 222
+schema_head: 224
 table_name: "subject_identifiability_watermarks"
 table_role: "derived"
 functionality_status: "active"

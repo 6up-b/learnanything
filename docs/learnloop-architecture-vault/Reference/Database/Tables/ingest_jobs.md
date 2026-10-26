@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 222
+schema_head: 224
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"

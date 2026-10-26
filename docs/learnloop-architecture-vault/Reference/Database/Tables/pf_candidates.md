@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite pf_candidates"
   - "table pf_candidates"
-schema_head: 222
+schema_head: 224
 table_name: "pf_candidates"
 table_role: "workflow"
 functionality_status: "active"

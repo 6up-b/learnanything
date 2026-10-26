@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
   - "table source_block_fts"
-schema_head: 222
+schema_head: 224
 table_name: "source_block_fts"
 table_role: "derived"
 functionality_status: "active"

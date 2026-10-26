@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retirement_records"
   - "table retirement_records"
-schema_head: 222
+schema_head: 224
 table_name: "retirement_records"
 table_role: "receipt"
 functionality_status: "active"

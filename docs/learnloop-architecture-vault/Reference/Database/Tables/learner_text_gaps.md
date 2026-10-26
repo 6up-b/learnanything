@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 222
+schema_head: 224
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"

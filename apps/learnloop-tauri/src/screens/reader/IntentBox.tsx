@@ -48,7 +48,7 @@ export function IntentBox({ box }: { box: IntentBoxController }) {
             <LearnerQuote>{words}</LearnerQuote>
           </span>
           <div role="status" aria-live="polite" style={{ display: "flex", gap: 8, alignItems: "baseline", color: COLOR.textDim }}>
-            <span>→ {routedLine(routed.action)}</span>
+            <span>→ {routedLine(routed.action, words)}</span>
             {routed.reason && routed.action.id === "ask" ? (
               <MeaningLabel style={{ fontSize: 10 }}>(LearnLoop's model couldn't choose, so this asks)</MeaningLabel>
             ) : null}

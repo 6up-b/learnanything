@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_skeletons"
   - "table item_skeletons"
-schema_head: 222
+schema_head: 224
 table_name: "item_skeletons"
 table_role: "workflow"
 functionality_status: "active"

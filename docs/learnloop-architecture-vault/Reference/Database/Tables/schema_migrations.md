@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 222
+schema_head: 224
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -99,6 +99,7 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_doctor.py`
 - `tests/test_exam_protection_identity.py`
+- `tests/test_figure_requests_migration.py`
 - `tests/test_figures_migration.py`
 - `tests/test_init.py`
 - `tests/test_mcp_runtime.py`
@@ -112,7 +113,6 @@ None found by exact static reference scan.
 - `tests/test_secondary_attach.py`
 - `tests/test_sqlite_wal.py`
 - `tests/test_sqlite_wal_lifecycle.py`
-- `tests/test_vault_template.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

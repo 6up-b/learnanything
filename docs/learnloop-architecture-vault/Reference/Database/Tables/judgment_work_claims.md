@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 222
+schema_head: 224
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"

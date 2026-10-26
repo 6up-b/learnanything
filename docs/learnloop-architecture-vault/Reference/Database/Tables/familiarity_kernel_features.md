@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite familiarity_kernel_features"
   - "table familiarity_kernel_features"
-schema_head: 222
+schema_head: 224
 table_name: "familiarity_kernel_features"
 table_role: "receipt"
 functionality_status: "active"

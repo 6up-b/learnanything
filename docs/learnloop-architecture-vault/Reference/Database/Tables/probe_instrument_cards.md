@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_instrument_cards"
   - "table probe_instrument_cards"
-schema_head: 222
+schema_head: 224
 table_name: "probe_instrument_cards"
 table_role: "raw_ledger"
 functionality_status: "active"

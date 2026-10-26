@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 222
+schema_head: 224
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"

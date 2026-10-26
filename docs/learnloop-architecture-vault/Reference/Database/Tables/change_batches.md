@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite change_batches"
   - "table change_batches"
-schema_head: 222
+schema_head: 224
 table_name: "change_batches"
 table_role: "workflow"
 functionality_status: "active"

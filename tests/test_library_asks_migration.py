@@ -35,6 +35,7 @@ from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_
 from tests.test_retrieval_spaces_migration import P1_ADDED_OBJECTS
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
+from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00Z"
 SECTION_7_5 = {
@@ -72,7 +73,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
@@ -123,6 +124,6 @@ def test_library_asks_is_workflow():
 
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 222
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 224

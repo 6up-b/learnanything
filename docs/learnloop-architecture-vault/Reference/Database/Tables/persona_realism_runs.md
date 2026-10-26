@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite persona_realism_runs"
   - "table persona_realism_runs"
-schema_head: 222
+schema_head: 224
 table_name: "persona_realism_runs"
 table_role: "receipt"
 functionality_status: "active"

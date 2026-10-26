@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_item_dependencies"
   - "table proposed_patch_item_dependencies"
-schema_head: 222
+schema_head: 224
 table_name: "proposed_patch_item_dependencies"
 table_role: "workflow"
 functionality_status: "active"

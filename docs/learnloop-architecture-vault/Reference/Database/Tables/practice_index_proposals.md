@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_index_proposals"
   - "table practice_index_proposals"
-schema_head: 222
+schema_head: 224
 table_name: "practice_index_proposals"
 table_role: "receipt"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
   - "table remediation_episodes"
-schema_head: 222
+schema_head: 224
 table_name: "remediation_episodes"
 table_role: "workflow"
 functionality_status: "active"

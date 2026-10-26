@@ -160,11 +160,12 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
     code from that passage. A later explanation's source (``...:explained``)
     has its prediction's record."""
 
-    from learnloop.diagnosis.text_gaps.sources import figure_input_manifest, figure_prediction_id
+    from learnloop.diagnosis.text_gaps.sources import figure_input_keys, figure_input_manifest, figure_prediction_id
 
     prediction_id, _explained = figure_prediction_id(prediction_id)
     row = connection.execute(
-        "SELECT f.extraction_id, f.span_ids_json, f.region_json, f.input_span_ids_json, f.asset_id "
+        "SELECT f.extraction_id, f.span_ids_json, f.region_json, f.input_span_ids_json, f.asset_id, "
+        "f.input_span_keys_json "
         "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
         (prediction_id,),
     ).fetchone()
@@ -172,15 +173,22 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
         return WriteRecord.incomplete("the figure prediction is gone", inputs=Inputs.of(topics=topics))
     manifest = figure_input_manifest({"span_ids_json": row[1], "region_json": row[2], "input_span_ids_json": row[3],
                                       "asset_id": row[4]})
-    if manifest is None:
+    keys = figure_input_keys({"input_span_keys_json": row[5]})
+    if manifest is None or keys is None:
         return WriteRecord.incomplete("the figure's input spans are unreadable", inputs=Inputs.of(topics=topics))
-    spans = set(manifest)
-    source_id = connection.execute(
-        "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
-        "ON revision.id = run.revision_id WHERE run.id = ?", (row[0],)).fetchone()
-    source = {"ref_type": "canonical_source", "ref_id": (source_id[0] if source_id else None) or row[0],
-              "source_id": source_id[0] if source_id else None, "extraction_id": row[0], "span_ids": sorted(spans)}
-    return WriteRecord(Inputs.of(topics=topics, sources=[source]))
+    # Reader RW5d: a show-me figure's retrieved passages (any source) are inputs too.
+    by_extraction: dict[str, set[str]] = {str(row[0]): set(manifest)} if row[0] and (manifest or not keys) else {}
+    for extraction_id, spans in keys.items():
+        by_extraction.setdefault(extraction_id, set()).update(spans)
+    sources = []
+    for extraction_id, spans in by_extraction.items():
+        source_id = connection.execute(
+            "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
+            "ON revision.id = run.revision_id WHERE run.id = ?", (extraction_id,)).fetchone()
+        sources.append({"ref_type": "canonical_source", "ref_id": (source_id[0] if source_id else None) or extraction_id,
+                        "source_id": source_id[0] if source_id else None, "extraction_id": extraction_id,
+                        "span_ids": sorted(spans)})
+    return WriteRecord(Inputs.of(topics=topics, sources=sources))
 
 
 def hint_feedback_record(connection: Any, text: Any) -> WriteRecord:

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite golden_path_runs"
   - "table golden_path_runs"
-schema_head: 222
+schema_head: 224
 table_name: "golden_path_runs"
 table_role: "workflow"
 functionality_status: "active"

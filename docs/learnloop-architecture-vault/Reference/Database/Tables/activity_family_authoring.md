@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_family_authoring"
   - "table activity_family_authoring"
-schema_head: 222
+schema_head: 224
 table_name: "activity_family_authoring"
 table_role: "raw_ledger"
 functionality_status: "active"

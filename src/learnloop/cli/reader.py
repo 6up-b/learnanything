@@ -67,6 +67,8 @@ def reader_report(
                                      figures_enabled=bool(loaded.config.figures.enabled),
                                      figure_offers_enabled=bool(loaded.config.figures.enabled
                                                                 and loaded.config.figures.offers_enabled),
+                                     figure_show_me_enabled=bool(loaded.config.figures.enabled
+                                                                 and loaded.config.figures.show_me_enabled),
                                      skipped_section_los=skipped_section_los)
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))

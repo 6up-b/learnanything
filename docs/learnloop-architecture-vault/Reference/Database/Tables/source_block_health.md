@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_health"
   - "table source_block_health"
-schema_head: 222
+schema_head: 224
 table_name: "source_block_health"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
   - "table library_asks"
-schema_head: 222
+schema_head: 224
 table_name: "library_asks"
 table_role: "workflow"
 functionality_status: "active"

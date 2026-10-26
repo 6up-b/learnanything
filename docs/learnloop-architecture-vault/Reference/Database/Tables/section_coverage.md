@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 222
+schema_head: 224
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"

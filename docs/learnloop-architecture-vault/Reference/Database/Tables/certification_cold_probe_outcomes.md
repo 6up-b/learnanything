@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite certification_cold_probe_outcomes"
   - "table certification_cold_probe_outcomes"
-schema_head: 222
+schema_head: 224
 table_name: "certification_cold_probe_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"

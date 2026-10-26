@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
   - "table router_outcomes"
-schema_head: 222
+schema_head: 224
 table_name: "router_outcomes"
 table_role: "derived"
 functionality_status: "active"

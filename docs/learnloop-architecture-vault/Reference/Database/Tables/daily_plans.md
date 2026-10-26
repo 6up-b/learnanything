@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 222
+schema_head: 224
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"

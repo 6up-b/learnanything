@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_outcome_observations"
   - "table facet_outcome_observations"
-schema_head: 222
+schema_head: 224
 table_name: "facet_outcome_observations"
 table_role: "derived"
 functionality_status: "active"

@@ -694,6 +694,22 @@ def finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[di
             for entry in judged if str(getattr(entry, "explorable", "")).lower() == "yes"
             and (str(entry.extraction_id), str(entry.span_id)) in cited]
         view["explorable"] = list({(e["extraction_id"], e["span_id"]): e for e in yes}.values())
+    goal = " ".join(str(getattr(answer, "figure_goal", None) or "").split())
+    if goal:
+        # RW5d P1 (a show-me answer model only, so off the view is RW5b's): the
+        # tutor's figure goal (AI-written, at most 160 characters), grounded
+        # in the passages the answer shows as cited (none on abstention: the
+        # figure is then "not from your books"). The press builds; this is
+        # what the press is checked against.
+        from learnloop.figure_admission import GROUNDING_PASSAGES
+        from learnloop.tutor.ai_contracts import FIGURE_GOAL_CHARS
+
+        shown_keys = [] if abstained else [(str(c.get("extraction_id")), str(c.get("span_id"))) for c in citations
+                                           if c.get("extraction_id") and c.get("span_id")]
+        if excerpt is not None and not abstained:
+            shown_keys.insert(0, (str(excerpt["extraction_id"]), str(excerpt["span_id"])))
+        view["figure_goal"] = {"text": goal[:FIGURE_GOAL_CHARS],
+                               "span_keys": [list(key) for key in dict.fromkeys(shown_keys)][:GROUNDING_PASSAGES]}
     displayed = [] if abstained else list(citations)
     if abstained and citations:
         view["withheld_citations"] = len(citations)

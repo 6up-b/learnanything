@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_block_crosswalk"
   - "table source_render_block_crosswalk"
-schema_head: 222
+schema_head: 224
 table_name: "source_render_block_crosswalk"
 table_role: "raw_ledger"
 functionality_status: "active"

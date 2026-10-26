@@ -96,6 +96,8 @@ import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { FiguresUnder } from "./reader/figures/FigureInline";
 import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
+import type { ShowMeLine } from "./reader/figures/showMe";
+import type { FigurePassageDto, FigureViewDto } from "../api/dto";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
@@ -418,6 +420,12 @@ export function ReaderScreen({
   // figures.offers_enabled is on). The build runs where its passage is: in
   // this book at once, in another once that book is open (a detour).
   const figureOffersOn = Boolean(contract?.figures?.offers) && !offline;
+  // RW5d P1: "show me" in the learner's words (the contract names it only while
+  // figures.show_me_enabled is on): the intent box's words, the Ask rail's
+  // "show me ▸" and the tutor's figure goal.
+  const showMeOn = Boolean(contract?.figures?.showMe) && !offline;
+  const [showMeLines, setShowMeLines] = useState<ShowMeLine[]>([]);
+  useEffect(() => { setShowMeLines([]); }, [render?.extractionId]);
   // A press waiting for its passage's book (`waitingOfferRef` is the one that
   // may still dispatch: a newer press, or a lapse, replaces it).
   const [offeredFigure, setOfferedFigure] = useState<OfferedPress | null>(null);
@@ -2594,10 +2602,37 @@ export function ReaderScreen({
         // RW5a: built in the background; it lands under its passage.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "make_explorable", ...meta });
         const region = selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null;
-        figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+        const words = text?.trim();
+        if (words && showMeOn) {
+          // RW5d P1: "show me…" with words: the selection and the learner's words, jointly.
+          figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region, goalText: words, origin: "show_me" });
+        } else {
+          figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+        }
         return;
       }
     }
+  };
+  // RW5d P1: the Ask rail's "show me ▸": the box's words as a figure goal, landing
+  // under the passage the learner was reading (the inquiry's, else the
+  // selection's, else the reading position); the thread keeps one line for it.
+  const showMeFromAsk = () => {
+    const goal = question.trim();
+    const home = parentExchange?.spanId ?? selectionSpanIds[selectionSpanIds.length - 1] ?? readingSpan ?? activeSpan;
+    if (!goal || !home || !showMeOn) return;
+    const key = `show_me:${newKey()}`;
+    setShowMeLines((lines) => [...lines, { key, goal, state: "pending", figure: null }]);
+    setQuestion("");
+    const settle = (patch: Partial<ShowMeLine>) =>
+      setShowMeLines((lines) => lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+    void figuresCtl.request({
+      spanIds: [], goalText: goal, origin: "show_me", readingAt: { spanId: home },
+      onLanded: (figure) => settle({ state: "landed", figure }),
+    }).then((outcome) => {
+      if (outcome === "shown") return;
+      setShowMeLines((lines) => lines.map((line) => (line.key === key && line.state === "pending"
+        ? { ...line, state: outcome === "cancelled" || outcome === "skipped" ? "cancelled" : "failed" } : line)));
+    });
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
   // still pending stops; an active-reading card or "another way" closes (its
@@ -3359,6 +3394,29 @@ export function ReaderScreen({
             onCommit={(root, preset) => void commitInquiry(root, preset)}
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
+            showMe={showMeOn && figuresCtl.enabled ? {
+              lines: showMeLines,
+              onShowMe: () => showMeFromAsk(),
+              onOpen: (figure: FigureViewDto) => {
+                figuresCtl.setExpanded(figure);
+                // The learner pressed, so the jump is theirs, with a crumb
+                // ("back to where I was") when they had scrolled away (spec
+                // §6.2; Codex review F8): the return stack's peek.
+                if (figure.anchorSpanId) peekPassage(figure.anchorSpanId);
+              },
+              // A cited passage peeks in this book, or opens its book as a
+              // detour (RW1c's citations, as the tutor's onOpenPassage does).
+              onPeekPassage: offline ? null : (passage: FigurePassageDto) => {
+                if (render && passage.extractionId === render.extractionId) {
+                  peekPassage(passage.spanId);
+                  return;
+                }
+                if (passage.sourceId) {
+                  void openLibraryHit({ sourceId: passage.sourceId, spanId: passage.spanId, extractionId: passage.extractionId });
+                }
+              },
+              onDismiss: (key: string) => setShowMeLines((lines) => lines.filter((line) => line.key !== key)),
+            } : null}
             {...(readerTutor ? {
               // RW1c: the tutor looks things up; another way, that didn't
               // help and the offers under its answers (absent while off).
@@ -3374,6 +3432,14 @@ export function ReaderScreen({
                   { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
                 onTryNextStep: readerTutor.tryNextStep && activeReadingOn
                   ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  : null,
+                // RW5d P1: the tutor's figure goal, pressed: it lands under the
+                // passage the question was asked on (the server checks the goal).
+                onShowMe: showMeOn && figureOffersOn && render
+                  ? (goal: string, offerRef: string, exchange: { spanId: string }) => {
+                    void figuresCtl.request({ spanIds: [], goalText: goal, origin: "tutor", offerRef,
+                      readingAt: { spanId: exchange.spanId } });
+                  }
                   : null,
                 // RW5b: a cited equation or figure of this book the tutor judged explorable.
                 onMakeExplorable: figureOffersOn && render

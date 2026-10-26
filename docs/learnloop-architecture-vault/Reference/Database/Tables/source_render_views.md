@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_views"
   - "table source_render_views"
-schema_head: 222
+schema_head: 224
 table_name: "source_render_views"
 table_role: "workflow"
 functionality_status: "active"

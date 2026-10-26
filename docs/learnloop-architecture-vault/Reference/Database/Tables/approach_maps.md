@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite approach_maps"
   - "table approach_maps"
-schema_head: 222
+schema_head: 224
 table_name: "approach_maps"
 table_role: "workflow"
 functionality_status: "active"

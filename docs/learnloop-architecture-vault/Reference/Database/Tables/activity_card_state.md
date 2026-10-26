@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_card_state"
   - "table activity_card_state"
-schema_head: 222
+schema_head: 224
 table_name: "activity_card_state"
 table_role: "raw_ledger"
 functionality_status: "active"

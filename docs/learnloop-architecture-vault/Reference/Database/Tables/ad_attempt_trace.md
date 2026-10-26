@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_attempt_trace"
   - "table ad_attempt_trace"
-schema_head: 222
+schema_head: 224
 table_name: "ad_attempt_trace"
 table_role: "derived"
 functionality_status: "active"

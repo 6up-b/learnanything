@@ -227,7 +227,7 @@ class IntentRoutings:
                     "status": "completed" if routing.status == RI.ROUTED else "failed",
                     "failure_reason": routing.reason,
                     "latency_ms": routing.latency_ms, "model_wait_ms": routing.latency_ms, "model": routing.model,
-                    "prompt_version": RI.QUESTION_SET_VERSION, "route": RI.ROUTE,
+                    "prompt_version": routing.question_set, "route": RI.ROUTE,
                 }, subject_id=extraction_id)
             except Exception as exc:  # noqa: BLE001 - a routing that broke routes to Ask
                 running.error = type(exc).__name__

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
   - "table synthesis_manifests"
-schema_head: 222
+schema_head: 224
 table_name: "synthesis_manifests"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -1406,6 +1406,8 @@ sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
 // figures, predictions and "what changed?"): desktop only.
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");
+// Reader RW5d P1 ("show me": FigureRequestV1, one request for every host): desktop only.
+sidecar_passthrough!(figure_request, "figure.request");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");
 sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");

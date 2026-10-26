@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_quality_state"
   - "table practice_item_quality_state"
-schema_head: 222
+schema_head: 224
 table_name: "practice_item_quality_state"
 table_role: "derived"
 functionality_status: "active"

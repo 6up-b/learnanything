@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capability_residual_state"
   - "table capability_residual_state"
-schema_head: 222
+schema_head: 224
 table_name: "capability_residual_state"
 table_role: "derived"
 functionality_status: "active"

@@ -43,6 +43,25 @@ off, it may not emit them, and a stored figure that uses one is shown as
 ``library`` | ``tutor``): the same pipeline, its gate also watching the
 offers switch (:func:`offer_build_key`).
 
+**RW5d P1: "show me"** (spec_reader_show_me_figures_v1 §7, §8). A request may
+carry a goal in the learner's words (``goal_text``; ``goal_author`` is set on
+the server only: ``learner`` for the box, ``tutor`` only for a goal the
+tutor's stored answer wrote), with a passage (a joint request: the anchor's
+context exactly as before, plus the goal) or without one. With no passage the
+request is grounded in the learner's books (:func:`ground`: the sources
+service's verified retrieval, ``find_sources_for_caller(intent="explain",
+verify=True)``, at most :data:`GROUNDING_PASSAGES` passages, each with its
+neighbours; exam and held-out material is withheld inside it and every kept
+span is rechecked here) and its home is where the learner was reading
+(``reading_at``). Nothing found: it is built anyway with ``grounding`` none,
+forced an illustration that quotes nothing, and labelled "not from your
+books". A goal and its grounding enter the author's context, its prompt
+version (``+show-me-v1``) and the reuse key; an RW5a/b request (no goal, an
+anchor) is built, prompted and hashed exactly as before. Every request,
+built or reused, appends one ``figure_requests`` row (what was asked, the
+derived policy, the grounding and its manifest). ``figures.show_me_enabled``
+off: a goal is refused and a figure built from one is not listed.
+
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a
@@ -76,18 +95,36 @@ from learnloop.figure_admission import (
     FiguresChanged,
     FiguresGate,
     advanced_panels_enabled,
+    figure_home_keys,
     figures_enabled,
     offers_enabled,
 )
+from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
+from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
 from learnloop.figures import grammar as G
 from learnloop.figures import routes as R
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
 
-ORIGINS = ("selection", "library", "tutor")
+#: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
+#: intent box with words, or its Ask rail); ``ask`` (CA2's panel), ``teacher``
+#: (TE1) and ``prefetch`` (P5, in-process only) are reserved by migration 224
+#: and refused from every request until their phases land.
+ORIGINS = ("selection", "library", "tutor", "show_me")
+RESERVED_ORIGINS = ("ask", "teacher", "prefetch")
 #: RW5b: the origins an offer builds with (``figures.offers_enabled``).
 OFFER_ORIGINS = ("library", "tutor")
+#: RW5d: who wrote a goal (set on the server, never taken from a client).
+GOAL_AUTHORS = ("learner", "tutor")
+GOAL_CHARS = 600
+#: keep: prompt size (:data:`learnloop.figure_admission.GROUNDING_PASSAGES`).
+GROUNDING_PASSAGES = ADMISSION_GROUNDING_PASSAGES
+GROUNDINGS = ("anchor", "retrieved", "none")
+SHOW_ME_VERSION = "show-me-v1"
+REQUEST_PREFIX = "frq_"
+#: What a figure built with nothing from the learner's books says (RW1c's abstention).
+NOT_FROM_BOOKS_LABEL = "AI-built illustration · not from your books"
 FIGURE_BLOCK_TYPES = frozenset({"Figure", "FigureGroup", "Picture", "PictureGroup"})
 #: Paragraphs on each side of the selection sent as context.
 CONTEXT_BLOCKS = 2
@@ -131,6 +168,22 @@ class FigureRequest:
     origin: str = "selection"
     supersedes_id: str | None = None
     revision_note: str | None = None
+    #: RW5d: the goal in the learner's words (or a tutor's goal).
+    goal_text: str | None = None
+    #: Who wrote the goal (``learner`` | ``tutor``): set on the server only.
+    goal_author: str | None = None
+    #: ``{extraction_id, span_id}``: where the learner was reading (the home
+    #: of a request with no passage; never sent to the author).
+    reading_at: dict[str, Any] | None = None
+    #: The host references the server verified (P1: a tutor answer's question event).
+    host_ref: dict[str, Any] = field(default_factory=dict)
+    #: The caller the server derived (:class:`~learnloop.source_retrieval.policy.CallerContext`).
+    caller: Any = None
+    #: Fixed grounding passages (``(extraction_id, span_id)``): a tutor goal's
+    #: cited spans, or a revision's own; None: retrieved (:func:`ground`).
+    grounding_keys: list[tuple[str, str]] | None = None
+    #: A revision keeps its base's grounding (``none`` stays ``none``).
+    grounding_fixed: str | None = None
 
 
 @dataclass
@@ -140,6 +193,35 @@ class SourceContext:
     #: Every sent span's text (for quote verification).
     span_texts: dict[str, str] = field(default_factory=dict)
     figure_span: str | None = None
+    #: RW5d: every ``(extraction_id, span_id)`` sent from retrieved passages
+    #: (their neighbours too), rechecked for held-out material on every delivery.
+    keys: list[tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class Grounding:
+    """Where a request's source text comes from (spec §8.3): ``anchor`` (the
+    learner chose the passage), ``retrieved`` (found in their books for the
+    goal) or ``none`` (nothing found: an illustration that quotes nothing)."""
+
+    mode: str
+    keys: list[tuple[str, str]] = field(default_factory=list)
+    #: The kept passages as the figure line cites them (source title, section).
+    passages: list[dict[str, Any]] = field(default_factory=list)
+    manifest: dict[str, Any] = field(default_factory=dict)
+
+
+def anchored(request: "FigureRequest") -> bool:
+    """A request with a passage (a selection or a region)."""
+
+    return bool(request.span_ids or request.region)
+
+
+def show_me_input(request: "FigureRequest") -> bool:
+    """RW5d: a request whose goal or grounding the author is sent (a goal, or no
+    passage). Every other request is RW5a/b's, prompted and hashed as before."""
+
+    return request.goal_text is not None or not anchored(request)
 
 
 def enabled(vault: Any) -> bool:
@@ -176,7 +258,17 @@ def offered(request: "FigureRequest") -> bool:
     return request.origin in OFFER_ORIGINS and request.supersedes_id is None
 
 
+def show_me_build_key(vault: Any) -> tuple[Any, ...]:
+    """A show-me build's key: :func:`build_key` and ``figures.show_me_enabled``."""
+
+    return (*build_key(vault), show_me_enabled(vault))
+
+
 def key_for(request: "FigureRequest"):
+    if show_me_input(request):
+        if offered(request):
+            return lambda vault: (*offer_build_key(vault), show_me_enabled(vault))
+        return show_me_build_key
     return offer_build_key if offered(request) else build_key
 
 
@@ -206,6 +298,12 @@ def figure_offers_enabled(vault: Any) -> bool:
     """RW5b's offers (``figures.offers_enabled``)."""
 
     return offers_enabled(vault)
+
+
+def show_me_enabled(vault: Any) -> bool:
+    """RW5d's "show me" (``figures.show_me_enabled``; :func:`learnloop.figure_admission.show_me_enabled`)."""
+
+    return admission_show_me_enabled(vault)
 
 
 #: What a stored figure that uses an RW5b panel shows while the panels are off.
@@ -243,15 +341,72 @@ def _figure_spans(row: Mapping[str, Any]) -> list[str]:
     return list(dict.fromkeys(spans))
 
 
+def keys_withheld(vault: Any, repository: Repository, keys: Sequence[Sequence[str]]) -> str | None:
+    """RW5d: the refusal when any ``(extraction_id, span_id)`` (a retrieved
+    passage in any source, or its neighbour) is held out now, else None: the
+    one predicate, asked per source."""
+
+    by_extraction: dict[str, list[str]] = {}
+    for key in keys:
+        if len(key) == 2 and key[0]:
+            by_extraction.setdefault(str(key[0]), []).append(str(key[1]))
+    for extraction_id, spans in by_extraction.items():
+        message = withheld_message(vault, repository, extraction_id, spans)
+        if message is not None:
+            return message
+    return None
+
+
+def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None:
+    """A stored figure's held-out refusal now, else None: its home's spans and
+    (RW5d) every retrieved passage it was built from, across sources. A figure
+    with no home (P3's practice hosts) is checked through its keys alone."""
+
+    message = None
+    if row.get("extraction_id"):
+        message = withheld_message(vault, repository, row["extraction_id"], _figure_spans(row))
+    elif not row.get("input_span_keys"):
+        return "That figure has no source to check, so it isn't shown."
+    message = message or keys_withheld(vault, repository, row.get("input_span_keys") or ())
+    if message is None and row.get("id"):
+        # RW5d (Codex review F4): a figure with no passage is also checked at
+        # every place it lands (its homes: never sent to the author, so not in
+        # its input manifest), as the request itself was.
+        homes = figure_homes(repository, row)
+        if homes is None:
+            return "That figure's place in the book is unreadable, so it isn't shown."
+        message = keys_withheld(vault, repository, homes)
+    return message
+
+
+def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None:
+    """Where a figure with no passage lands (:func:`learnloop.figure_admission.figure_home_keys`):
+    every recorded request's reading position; empty for an anchored figure."""
+
+    if row.get("span_ids") or row.get("region"):
+        return []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return figure_home_keys(connection, str(row["id"]))
+
+
+def show_me_row(row: Mapping[str, Any]) -> bool:
+    """A figure built from a goal or with no anchor (RW5d): absent while ``figures.show_me_enabled`` is off."""
+
+    return row.get("goal_text") is not None or (row.get("grounding") or "anchor") != "anchor"
+
+
 def figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool:
     """Whether a stored figure may not go out now (its row is gone, or any
-    span it was built from is held out). Fails closed."""
+    span it was built from is held out, or (RW5d) it is a show-me figure
+    while show me is off). Fails closed."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.figure(connection, figure_id) if store.has_tables(connection) else None
     if row is None:
         return True
-    return withheld_message(vault, repository, row["extraction_id"], _figure_spans(row)) is not None
+    if show_me_row(row) and not show_me_enabled(vault):
+        return True
+    return row_withheld(vault, repository, row) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +445,170 @@ def source_context(vault: Any, repository: Repository, request: FigureRequest) -
                                "text": " ".join((block.text or "").split())[:CONTEXT_CHARS]})
         context.span_texts[block.span_id] = block.text or ""
     return context
+
+
+def passages_context(vault: Any, repository: Repository, grounding: Grounding) -> SourceContext:
+    """RW5d: the retrieved passages as the author is sent them (spec §8.2,
+    §8.3): each kept block with the paragraphs around it (held-out ones left
+    out), keyed ``extraction_id:span_id`` so a quote is verified against the
+    right block of the right book. Nothing for ``none``."""
+
+    from learnloop.content.sources.exam_material import exam_material
+
+    context = SourceContext()
+    if grounding.mode != "retrieved" or not grounding.keys:
+        return context
+    material = exam_material(vault, repository)
+    titles = {(str(item.get("extraction_id")), str(item.get("span_id"))): item.get("source_title")
+              for item in grounding.passages}
+    documents: dict[str, Any] = {}
+    placed: list[tuple[str, list[Any], int]] = []
+    for extraction_id, span_id in grounding.keys:
+        if extraction_id not in documents:
+            documents[extraction_id] = repository.load_document_ir(extraction_id)
+        ir = documents[extraction_id]
+        if ir is None:
+            continue
+        blocks = list(ir.blocks)
+        index = {block.span_id: position for position, block in enumerate(blocks)}
+        if span_id not in index or material.covers(extraction_id, span_id):
+            continue
+        key = f"{extraction_id}:{span_id}"
+        if key in context.span_texts:
+            continue
+        block = blocks[index[span_id]]
+        entry: dict[str, Any] = {"span_id": key, "type": block.block_type,
+                                 "text": " ".join((block.text or "").split())[:PASSAGE_CHARS]}
+        if titles.get((extraction_id, span_id)):
+            entry["source"] = str(titles[(extraction_id, span_id)])[:200]
+        context.passage.append(entry)
+        context.span_texts[key] = block.text or ""
+        context.keys.append((extraction_id, span_id))
+        placed.append((extraction_id, blocks, index[span_id]))
+    # Then the paragraphs around each (a kept passage is never repeated as a neighbour).
+    for extraction_id, blocks, position in placed:
+        for neighbour in blocks[max(0, position - CONTEXT_BLOCKS):position] + blocks[position + 1:position + 1 + CONTEXT_BLOCKS]:
+            near = f"{extraction_id}:{neighbour.span_id}"
+            if near in context.span_texts or material.covers(extraction_id, neighbour.span_id):
+                continue
+            context.around.append({"span_id": near, "type": neighbour.block_type,
+                                   "text": " ".join((neighbour.text or "").split())[:CONTEXT_CHARS]})
+            context.span_texts[near] = neighbour.text or ""
+            context.keys.append((extraction_id, str(neighbour.span_id)))
+    return context
+
+
+#: ``(vault, repository, query, *, caller, **kwargs) -> SourceHits``: the
+#: sources service's verified retrieval (injected in tests).
+FindSources = Callable[..., Any]
+
+
+def _find_sources(vault: Any, repository: Repository, query: str, **kwargs: Any) -> Any:
+    from learnloop.source_retrieval.find_sources import find_sources_for_caller
+
+    return find_sources_for_caller(vault, repository, query, **kwargs)
+
+
+def _reading_learning_objects(vault: Any, repository: Repository, reading_at: Mapping[str, Any] | None) -> list[str]:
+    """The learning objects of the passage the learner was reading (retrieval context only)."""
+
+    if not reading_at or not reading_at.get("extraction_id") or not reading_at.get("span_id"):
+        return []
+    try:
+        from learnloop.source_retrieval.reader_tutor import passage_learning_objects
+
+        return list(passage_learning_objects(vault, repository, extraction_id=str(reading_at["extraction_id"]),
+                                             span_ids=[str(reading_at["span_id"])]))
+    except Exception:  # noqa: BLE001 - context for ranking only; none is fine
+        return []
+
+
+def _passage_ref(hit: Mapping[str, Any]) -> dict[str, Any]:
+    return {"extraction_id": str(hit.get("extraction_id")), "span_id": str(hit.get("span_id")),
+            "source_id": hit.get("source_id"), "source_title": hit.get("source_title"), "section": hit.get("section"),
+            "page": hit.get("page")}
+
+
+def _with_sources(repository: Repository, passages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Each passage with its source's id and title (Codex review F8: the
+    Reader's citation chips peek in this book and open another as a detour,
+    which needs the source). Read from the stored extraction; a passage whose
+    source cannot be read keeps what it had."""
+
+    found: dict[str, tuple[str | None, str | None]] = {}
+    shown = []
+    for passage in passages:
+        extraction_id = str(passage.get("extraction_id") or "")
+        if extraction_id not in found:
+            source_id, title = None, None
+            try:
+                run = repository.get_extraction_run(extraction_id) or {}
+                revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+                source_id = revision.get("source_id")
+                title = (repository.get_source_artifact(str(source_id)) or {}).get("display_title") if source_id else None
+            except Exception:  # noqa: BLE001 - the chip only loses its detour
+                pass
+            found[extraction_id] = (source_id, title)
+        source_id, title = found[extraction_id]
+        shown.append({**passage, "source_id": passage.get("source_id") or source_id,
+                      "source_title": passage.get("source_title") or title})
+    return shown
+
+
+def ground(vault: Any, repository: Repository, request: FigureRequest, *, find: FindSources | None = None
+           ) -> Grounding:
+    """A request's grounding (spec §8.3). With a passage, the anchor. With
+    fixed keys (a tutor goal's cited spans, a revision's), those still allowed
+    now. Otherwise the sources service's verified retrieval for the goal,
+    under the caller's derived policy (exam material is withheld inside it),
+    the reading position's learning objects as context: its verified picks,
+    at most :data:`GROUNDING_PASSAGES`, each rechecked here. Nothing verified
+    (or retrieval unavailable): ``none``, built anyway and labelled."""
+
+    from learnloop.source_retrieval.policy import CallerContext
+
+    if anchored(request):
+        return Grounding("anchor")
+    if request.grounding_keys is not None:
+        given = list(dict.fromkeys((str(key[0]), str(key[1])) for key in request.grounding_keys))
+        kept = [key for key in given if keys_withheld(vault, repository, [key]) is None][:GROUNDING_PASSAGES]
+        mode = "none" if request.grounding_fixed == "none" or not kept else "retrieved"
+        manifest = {"source": "given", "given": [list(key) for key in given],
+                    "kept": [list(key) for key in kept] if mode == "retrieved" else []}
+        if mode == "none":
+            return Grounding("none", manifest=manifest)
+        return Grounding("retrieved", kept, _with_sources(repository, [{"extraction_id": key[0], "span_id": key[1]}
+                                                                      for key in kept]), manifest)
+    caller = request.caller or CallerContext(kind="reader")
+    query = request.goal_text or ""
+    try:
+        hits = (find or _find_sources)(
+            vault, repository, query, caller=caller, intent="explain", verify=True, limit=GROUNDING_PASSAGES,
+            learning_object_ids=_reading_learning_objects(vault, repository, request.reading_at),
+            owner_id=f"figure_grounding:{content_key([query, request.extraction_id])[:24]}")
+    except FiguresChanged:
+        raise
+    except Exception as exc:  # noqa: BLE001 - nothing found is an honest "not from your books"
+        return Grounding("none", manifest={"source": "retrieval", "status": f"unavailable: {type(exc).__name__}"})
+    manifest: dict[str, Any] = {"source": "retrieval", "status": getattr(hits, "status", "ok"),
+                                "find_sources": dict(getattr(hits, "manifest", None) or {})}
+    if manifest["status"] != "ok":
+        # Unverified hits are not grounding: only the verification's picks are.
+        return Grounding("none", manifest={**manifest, "kept": []})
+    kept: list[tuple[str, str]] = []
+    passages: list[dict[str, Any]] = []
+    for hit in list(getattr(hits, "hits", None) or ()):
+        key = (str(hit.get("extraction_id") or ""), str(hit.get("span_id") or ""))
+        if not all(key) or key in kept or keys_withheld(vault, repository, [key]) is not None:
+            continue
+        kept.append(key)
+        passages.append(_passage_ref(hit))
+        if len(kept) >= GROUNDING_PASSAGES:
+            break
+    manifest["kept"] = [list(key) for key in kept]
+    if not kept:
+        return Grounding("none", manifest=manifest)
+    return Grounding("retrieved", kept, _with_sources(repository, passages), manifest)
 
 
 def _decode(render: str | None) -> tuple[str, bytes] | None:
@@ -387,6 +706,8 @@ def property_checks(report: Mapping[str, Any]) -> list[str]:
 
 def _label(row: Mapping[str, Any]) -> str:
     verification = row["verification"]
+    if verification == "illustrative" and row.get("grounding") == "none":
+        return NOT_FROM_BOOKS_LABEL
     if verification in LABELS:
         return LABELS[verification]
     reason = str((row.get("verification_report") or {}).get("reason") or "")
@@ -407,19 +728,27 @@ def _prediction_view(found: Mapping[str, Any] | None) -> dict[str, Any] | None:
             "explanation_text": found.get("explanation_text")}
 
 
-def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1) -> dict[str, Any]:
+def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1,
+                home: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A figure as the Reader shows it. The spec goes out as JSON text (its
     keys are the spec's own), and only for a shown figure. A prediction's
     answer is never sent before the learner answers it. A stored "verified"
-    shows as an illustration (:func:`shown_row`)."""
+    shows as an illustration (:func:`shown_row`).
+
+    ``home`` (RW5d, Codex review F3): where a figure with no passage lands in
+    this view (the request delivering it, or one placement in a listing);
+    unset, its own request's reading position."""
 
     row = advanced_off_row(vault, shown_row(row))
     region = row.get("region") or {}
+    asked = _figure_request(repository, row)
+    home = home or (asked or {}).get("reading_at") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
         # Under the selection's last block; a region's figure (no selected
-        # text) under the region's block (Codex review F2).
-        "anchor_span_id": (list(row.get("span_ids") or ()) or [region.get("span_id")])[-1],
+        # text) under the region's block (Codex review F2); RW5d: a figure
+        # with no passage under the passage the learner was reading.
+        "anchor_span_id": (list(row.get("span_ids") or ()) or [region.get("span_id") or home.get("span_id")])[-1],
         "region": row.get("region"),
         "origin": row["origin"], "verification": row["verification"], "kind": row.get("kind"),
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
@@ -427,6 +756,16 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         "revision_note": row.get("revision_note"), "versions": versions, "created_at": row["created_at"],
         "spec_json": None, "demonstrates": None, "assumptions": [], "predictions": [], "property_checks": [],
     }
+    if show_me_enabled(vault):
+        # RW5d (absent while show me is off, so the view is RW5a/b's key for key):
+        # the goal in its author's voice, the grounding and the cited passages.
+        manifest = (asked or {}).get("grounding_manifest") or {}
+        view.update({
+            "goal_text": row.get("goal_text"), "goal_author": (asked or {}).get("goal_author"),
+            "grounding": row.get("grounding") or "anchor",
+            "passages": [dict(item) for item in manifest.get("passages") or ()]
+            if (row.get("grounding") or "anchor") == "retrieved" else [],
+        })
     if row["verification"] not in store.SHOWN or not row.get("spec_json"):
         return view
     compiled = S.parse_spec(row["spec_json"])
@@ -458,6 +797,15 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     return view
 
 
+def _figure_request(repository: Repository, row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The ``figure_requests`` row a figure was built for (RW5d), or None (RW5a/b rows before 224)."""
+
+    if not row.get("request_id"):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return store.request(connection, str(row["request_id"]))
+
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -471,18 +819,32 @@ REUSE_ORIGIN = "selection"
 
 
 def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
-                 advanced: bool = False) -> str:
+                 advanced: bool = False, grounding: Grounding | None = None) -> str:
     """The reuse key: the spec and prompt versions (RW5b's panels have their
     own prompt version, so RW5a's hashes are unchanged while they are off)
-    and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`)."""
+    and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`).
 
-    return content_key({
-        "spec_version": S.SPEC_VERSION, "prompt_version": R.author_prompt_version(advanced=advanced),
+    RW5d (spec §8.5): a show-me request's key also names the goal
+    (whitespace-normalized, case kept) and who wrote it, the grounding and the
+    kept passages' keys (their texts are the passage and around above); its
+    prompt version carries ``+show-me-v1``. A request with no goal and an
+    anchor hashes exactly as before migration 224 (G-SM4). A request with no
+    passage names its home (``extraction_id``, where the learner was
+    reading), so it lands and lists there."""
+
+    show_me = show_me_input(request)
+    key: dict[str, Any] = {
+        "spec_version": S.SPEC_VERSION, "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me),
         "extraction_id": request.extraction_id,
         "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
-    })
+    }
+    if show_me:
+        grounding = grounding or Grounding("anchor")
+        key.update({"show_me": SHOW_ME_VERSION, "goal_text": request.goal_text, "goal_author": request.goal_author,
+                    "grounding": grounding.mode, "grounding_keys": [list(item) for item in grounding.keys]})
+    return content_key(key)
 
 
 def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> dict[str, Any] | None:
@@ -506,13 +868,37 @@ def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> 
 def _validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
     if not enabled(vault):
         raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
+    if request.origin in RESERVED_ORIGINS:
+        raise FigureRefused("validation_error", f"Figures with origin {request.origin!r} are not made here.")
     if request.origin not in ORIGINS:
         raise FigureRefused("validation_error", f"Unknown figure origin {request.origin!r}.")
     if offered(request) and not figure_offers_enabled(vault):
         raise FigureRefused("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
+    goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
+    goal_author = request.goal_author if goal is not None else None
+    if goal is not None:
+        if not show_me_enabled(vault):
+            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
+                                                    "(figures.show_me_enabled).")
+        # Who wrote it is the server's: the learner for the box and the rail,
+        # the tutor only for its stored answer's goal (G-SM5).
+        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor"}.get(request.origin)
+        if expected is None or goal_author != expected:
+            raise FigureRefused("validation_error", "That figure goal can't come from here.")
+    elif request.origin == "show_me":
+        raise FigureRefused("validation_error", "Say what you want to see first.")
     spans = [str(span) for span in dict.fromkeys(request.span_ids) if span][:40]
+    reading_at = None
+    if request.reading_at and request.reading_at.get("extraction_id") and request.reading_at.get("span_id"):
+        reading_at = {"extraction_id": str(request.reading_at["extraction_id"]),
+                      "span_id": str(request.reading_at["span_id"])}
     if not spans and not request.region:
-        raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
+        if goal is None:
+            raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
+        if reading_at is None:
+            # P1's hosts are the Reader's: a figure with no passage lands under
+            # the passage the learner was reading (spec §7.2, "Home").
+            raise FigureRefused("validation_error", "Open a passage first, so the figure has a place to land.")
     region = None
     if request.region is not None:
         if not region_enabled(vault):
@@ -526,8 +912,14 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         if not revisions_enabled(vault):
             raise FigureRefused("revisions_disabled", "Asking for a better version is switched off (figures.revisions_enabled).")
         note = " ".join(str(request.revision_note or "").split())[:NOTE_CHARS] or None
-    return FigureRequest(extraction_id=str(request.extraction_id), span_ids=spans, region=region,
-                         origin=request.origin, supersedes_id=request.supersedes_id, revision_note=note)
+    extraction_id = str(request.extraction_id) if (spans or region) else str((reading_at or {}).get("extraction_id"))
+    keys = None if request.grounding_keys is None else [
+        (str(key[0]), str(key[1])) for key in request.grounding_keys if len(key) == 2 and key[0] and key[1]]
+    return FigureRequest(extraction_id=extraction_id, span_ids=spans, region=region,
+                         origin=request.origin, supersedes_id=request.supersedes_id, revision_note=note,
+                         goal_text=goal, goal_author=goal_author, reading_at=reading_at,
+                         host_ref=dict(request.host_ref or {}), caller=request.caller, grounding_keys=keys,
+                         grounding_fixed=request.grounding_fixed if request.grounding_fixed in GROUNDINGS else None)
 
 
 def check_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
@@ -536,7 +928,13 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
 
     request = _validated_request(vault, repository, request)
     spans = [*request.span_ids, *([request.region["span_id"]] if request.region else [])]
+    if not anchored(request):
+        # RW5d: with no passage, the home (the passage the learner was
+        # reading): a figure never lands on held-out material.
+        spans = [str((request.reading_at or {}).get("span_id"))]
     message = withheld_message(vault, repository, request.extraction_id, spans)
+    if message is None and request.grounding_keys:
+        message = keys_withheld(vault, repository, request.grounding_keys)
     if message is not None:
         raise FigureRefused("exam_material", message)
     if request.supersedes_id is not None:
@@ -544,7 +942,10 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
             base = store.figure(connection, request.supersedes_id)
         if base is None or base["extraction_id"] != request.extraction_id:
             raise FigureRefused("not_found", "That figure is not on this source.")
-        if withheld_message(vault, repository, base["extraction_id"], _figure_spans(base)) is not None:
+        if show_me_row(base) and not show_me_enabled(vault):
+            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
+                                                    "(figures.show_me_enabled).")
+        if row_withheld(vault, repository, base) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
         if not advanced_enabled(vault) and _advanced_kinds(base):
             # Codex review F4: a figure that uses a panel kind switched off
@@ -564,7 +965,8 @@ class BuildOutcome:
 
 
 def _author_context(request: FigureRequest, context: SourceContext, image_digest: str | None,
-                    previous: Mapping[str, Any] | None, problems: Sequence[str], *, request_id: str) -> dict[str, Any]:
+                    previous: Mapping[str, Any] | None, problems: Sequence[str], *, request_id: str,
+                    grounding: Grounding | None = None) -> dict[str, Any]:
     payload: dict[str, Any] = {
         # One request's own id: "try again" after a failure asks afresh (a
         # paid answer is recovered only for the same request).
@@ -576,6 +978,14 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
         "image": {"sha256": image_digest, "note": "the figure's crop (only the selected region) is attached"}
         if image_digest else None,
     }
+    if show_me_input(request):
+        # RW5d: the goal, labelled with who wrote it, and where the passages
+        # come from (spec §8.2); a request with no passage says so.
+        if not anchored(request):
+            payload["request"] = "what the learner asked to see (no passage selected)"
+        if request.goal_text is not None:
+            payload["learner_request"] = {"text": request.goal_text, "written_by": request.goal_author}
+        payload["grounding"] = (grounding or Grounding("anchor")).mode
     if previous is not None:
         payload["earlier_version"] = {"spec_json": previous.get("spec_json") or "",
                                       "verification": previous.get("verification")}
@@ -586,16 +996,37 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
 
 
 def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, author_client: Any | None = None,
-                 clock: Clock | None = None, live_vault: Callable[[], Any] | None = None) -> BuildOutcome:
+                 clock: Clock | None = None, live_vault: Callable[[], Any] | None = None,
+                 find: FindSources | None = None) -> BuildOutcome:
     """Build one figure (module docstring). Raises :class:`FigureRefused`.
 
     ``live_vault`` gives the vault as configured now (the sidecar's loaded
     vault; unset, the vault is reloaded from disk): the build's
     :class:`~learnloop.figure_admission.FiguresGate` compares it with the
-    start before every physical request and before the row is stored."""
+    start before every physical request and before the row is stored.
+    ``find`` (RW5d) is the grounding retrieval (the sources service's, unset)."""
 
     request = check_request(vault, repository, request)
-    context = source_context(vault, repository, request)
+    # One gate for the whole request (Codex review F1): grounding's rewrite,
+    # embedding and verification calls, the reuse lookup and the author are
+    # each admitted against the configuration as it is NOW (``live_vault``),
+    # so switching figures or show me off stops the request wherever it is.
+    gate = FiguresGate(vault, key_for(request), live_vault=live_vault)
+    try:
+        with gate_model_requests(gate):
+            return _build(vault, repository, request, gate=gate, author_client=author_client, clock=clock, find=find)
+    except FiguresChanged as exc:
+        raise FigureRefused("figures_changed", str(exc)) from exc
+
+
+def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: FiguresGate,
+           author_client: Any | None, clock: Clock | None, find: FindSources | None) -> BuildOutcome:
+    grounding = ground(vault, repository, request, find=find)
+    # Rechecked against the live configuration (G-SM2; Codex review F1): the
+    # switches as they are now, after grounding's calls.
+    gate.check("grounding")
+    context = source_context(vault, repository, request) if anchored(request) else \
+        passages_context(vault, repository, grounding)
     previous = None
     versions = 1
     if request.supersedes_id is not None:
@@ -621,13 +1052,13 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         request.region = {**request.region, "bbox": [round(float(value), 2) for value in clipped]}
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
     advanced = advanced_enabled(vault)
-    input_hash = request_hash(request, context, digest, advanced=advanced)
-    other_hash = request_hash(request, context, digest, advanced=not advanced)
+    input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding)
+    other_hash = request_hash(request, context, digest, advanced=not advanced, grounding=grounding)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reused = _reusable(vault, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
     if reused is not None:
-        return _reused(vault, repository, reused)
+        return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
     # One build per input at a time (Codex review F7): an identical request
     # made while one runs waits for it and takes its figure, with no call.
     with _building(repository, input_hash):
@@ -639,9 +1070,9 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
             latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
             generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
         if reused is not None:
-            return _reused(vault, repository, reused)
+            return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
-            return _reused(vault, repository, latest)
+            return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock, gate=gate)
         # The request's identity is its input and its retry generation, never
         # a fresh id: rerun after a crash between a paid answer and its row,
         # the same prompt recovers that answer (its checkpoint or receipt)
@@ -649,15 +1080,10 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         # generation, so "try again" asks afresh.
         request_id = content_key({"input_hash": input_hash, "generation": generation})
         author.bind_owner(f"figure:{request_id}")
-        gate = FiguresGate(vault, key_for(request), live_vault=live_vault)
-        try:
-            with gate_model_requests(gate):
-                return _author_and_store(vault, repository, request, context, author, previous=previous,
-                                         versions=versions, image=image, asset_id=asset_id, digest=digest,
-                                         input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
-                                         advanced=advanced)
-        except FiguresChanged as exc:
-            raise FigureRefused("figures_changed", str(exc)) from exc
+        return _author_and_store(vault, repository, request, context, author, previous=previous,
+                                 versions=versions, image=image, asset_id=asset_id, digest=digest,
+                                 input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
+                                 advanced=advanced, grounding=grounding)
 
 
 _BUILDS_GUARD = threading.Lock()
@@ -686,29 +1112,81 @@ def _building(repository: Repository, input_hash: str) -> Iterator[None]:
                 _BUILDS.pop(key, None)
 
 
-def _reused(vault: Any, repository: Repository, row: Mapping[str, Any]) -> BuildOutcome:
-    return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"]))),
-                        reused=True)
+def _request_row(request: FigureRequest, grounding: Grounding, *, figure_id: str | None,
+                 clock: Clock | None) -> dict[str, Any]:
+    """The ``figure_requests`` row of one request (RW5d, spec §13.1): what was
+    asked, as normalized, and what the server derived."""
+
+    from learnloop.source_retrieval.policy import CallerContext, derive_policy
+
+    caller = request.caller or CallerContext(kind="tutor" if request.origin == "tutor" else "reader")
+    policy, derived_from = derive_policy(caller)
+    anchor = {"extraction_id": request.extraction_id, "span_ids": list(request.span_ids),
+              **({"region": request.region} if request.region else {})} if anchored(request) else None
+    return {
+        "id": REQUEST_PREFIX + new_ulid(), "origin": request.origin, "goal_text": request.goal_text,
+        "goal_author": request.goal_author, "anchor": anchor, "reading_at": request.reading_at,
+        "host_ref": dict(request.host_ref or {}), "policy": policy, "caller_kind": caller.kind,
+        "policy_derived_from": derived_from, "grounding": grounding.mode,
+        "grounding_manifest": {**grounding.manifest, "kept": [list(key) for key in grounding.keys],
+                               "passages": list(grounding.passages)},
+        "build_mode": "pressed", "tiers_allowed": ["grammar"], "figure_id": figure_id,
+        "created_at": utc_now_iso(clock),
+    }
+
+
+#: A reused figure's request could not be recorded (the vault is busy): the
+#: request fails, retryably, and its retry reuses the same paid figure.
+STORAGE_BUSY = "storage_busy"
+
+
+def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, request: FigureRequest | None = None,
+            grounding: Grounding | None = None, clock: Clock | None = None,
+            gate: FiguresGate | None = None) -> BuildOutcome:
+    if gate is not None:
+        # The live configuration, as for every other step (Codex review F1).
+        gate.check("reuse")
+    if request is not None:
+        # RW5d: a reused figure's request is recorded too (what was asked, and
+        # that it took this figure). Required (Codex review F7): a request
+        # that cannot be recorded fails, retryably; its retry reuses this same
+        # figure, so nothing is built or paid for twice.
+        try:
+            with repository.atomic():
+                store.insert_request(repository.connection(), _request_row(
+                    request, grounding or Grounding("anchor"), figure_id=str(row["id"]), clock=clock))
+        except sqlite3.Error as exc:
+            raise FigureRefused(STORAGE_BUSY, "LearnLoop couldn't record this request just now (the vault is "
+                                              "busy). Try again: the figure is kept, so nothing is built twice.") from exc
+    # Delivered where THIS request lands (Codex review F3): a goal-only figure
+    # reused from another paragraph of the same book opens at this request's
+    # home, not at the first request's.
+    home = request.reading_at if request is not None and not anchored(request) else None
+    return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"])),
+                                    home=home), reused=True)
 
 
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
                       request_id: str, clock: Clock | None, gate: FiguresGate,
-                      advanced: bool = False) -> BuildOutcome:
+                      advanced: bool = False, grounding: Grounding | None = None) -> BuildOutcome:
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
+    grounding = grounding or Grounding("anchor")
+    show_me = show_me_input(request)
     images = (image,) if image is not None else ()
-    prompt_version = R.author_prompt_version(advanced=advanced)
+    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me)
     problems: list[str] = []
     compiled: S.CompiledFigure | None = None
     report = V.Report()
     output: Any = None
     unsupported: tuple[str, str] | None = None
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
-        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id),
-                                 advanced=advanced)
+        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
+                                                 grounding=grounding),
+                                 advanced=advanced, show_me=show_me)
         try:
             output = author.ask(prompt, R.FigureAuthorOutputV1, images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
@@ -735,7 +1213,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             break
         try:
             # Off, RW5b's panels are refused (the author was not told of them).
-            compiled = S.parse_spec(output.spec_json, advanced=advanced)
+            compiled = S.parse_spec(_ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
+                                    advanced=advanced)
         except S.SpecError as exc:
             problems, compiled = exc.problems, None
             continue
@@ -746,11 +1225,16 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             continue
         break
     figure_id = FIGURE_PREFIX + new_ulid()
+    asked = _request_row(request, grounding, figure_id=None, clock=clock)
     row: dict[str, Any] = {
         "id": figure_id, "extraction_id": request.extraction_id, "span_ids": request.span_ids,
         "region": request.region, "asset_id": asset_id,
-        # Everything the author was sent, for every later held-out recheck (F1).
-        "input_span_ids": list(dict.fromkeys([*context.span_texts, *([asset_id] if asset_id else [])])),
+        # Everything the author was sent, for every later held-out recheck (F1);
+        # RW5d: retrieved passages (any source) by their keys.
+        "input_span_ids": [] if context.keys else list(dict.fromkeys(
+            [*context.span_texts, *([asset_id] if asset_id else [])])),
+        "input_span_keys": list(dict.fromkeys(context.keys)),
+        "request_id": asked["id"], "goal_text": request.goal_text, "grounding": grounding.mode, "tier": "grammar",
         "origin": request.origin,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
         "spec_version": S.SPEC_VERSION, "model": author.model, "prompt_version": prompt_version,
@@ -786,7 +1270,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     try:
         with repository.atomic():
             connection = repository.connection()
+            store.insert_request(connection, asked)
             store.insert_figure(connection, row)
+            store.set_request_figure(connection, asked["id"], figure_id)
             append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
                             judge="verifier", input_hash=input_hash, verdict=report.outcome,
                             rationale=(report.reason or "")[:400], created_at=row["created_at"])
@@ -797,11 +1283,57 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             first = store.reusable(connection, input_hash, S.SPEC_VERSION)
         if first is None:
             raise
-        return _reused(vault, repository, first)
+        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate)
     stored = dict(row)
     stored["verification_report"] = row["verification_report"]
     return BuildOutcome(figure_view(vault, repository, stored, versions=versions), reused=False,
                         author_calls=author.made)
+
+
+def _ungrounded(raw: Any) -> Any:
+    """RW5d (spec §8.3 step 3): with nothing from the learner's books, the
+    figure is an illustration that quotes nothing, whatever the author wrote:
+    code forces ``kind`` illustrative and drops every source claim and quote
+    (there is no passage to verify them against)."""
+
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (TypeError, ValueError):
+        return raw
+    if not isinstance(data, dict):
+        return raw
+    data["kind"] = "illustrative"
+    data["source_claims"] = []
+    assumptions = data.get("assumptions")
+    if isinstance(assumptions, list):
+        data["assumptions"] = [{**item, "span_id": None, "quote": None} if isinstance(item, dict) else item
+                               for item in assumptions]
+    invariants = data.get("invariants")
+    if isinstance(invariants, list):
+        # An equals_source invariant names a passage's equation; there is none.
+        data["invariants"] = [item for item in invariants
+                              if not (isinstance(item, dict) and item.get("kind") == "equals_source")]
+    return data
+
+
+def revision_request(repository: Repository, base: Mapping[str, Any], note: str) -> FigureRequest:
+    """"Not right?" on a stored figure: the same input with the note. RW5d: a
+    show-me figure keeps its goal (and who wrote it), its home and its
+    grounding (its passages, or none: nothing is retrieved again)."""
+
+    asked = _figure_request(repository, base) or {}
+    keys = None
+    fixed = None
+    if (base.get("grounding") or "anchor") != "anchor":
+        manifest = asked.get("grounding_manifest") or {}
+        keys = [tuple(key) for key in manifest.get("kept") or ()]
+        fixed = base.get("grounding")
+    return FigureRequest(
+        extraction_id=base["extraction_id"], span_ids=list(base.get("span_ids") or ()), region=base.get("region"),
+        origin=base["origin"], supersedes_id=base["id"], revision_note=note,
+        goal_text=base.get("goal_text"), goal_author=asked.get("goal_author") if base.get("goal_text") else None,
+        reading_at=asked.get("reading_at"), host_ref=dict(asked.get("host_ref") or {}),
+        grounding_keys=keys, grounding_fixed=fixed)
 
 
 def _chain_length(repository: Repository, figure_id: str) -> int:
@@ -844,6 +1376,9 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
             return []
         rows = store.figures_for_extraction(connection, extraction_id)
     rows = [row for row in rows if row["spec_version"] == S.SPEC_VERSION]
+    if not show_me_enabled(vault):
+        # RW5d off: a figure built from a goal (or with no passage) is absent.
+        rows = [row for row in rows if not show_me_row(row)]
     by_id = {row["id"]: row for row in rows}
     chains: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -855,10 +1390,15 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         # still be drawn, before one that would list as "can't draw this yet".
         drawable = [row for row in shown if advanced_off_row(vault, row) is row]
         pick = (drawable or shown or chain)[-1]
-        if withheld_message(vault, repository, pick["extraction_id"], _figure_spans(pick)) is not None:
+        if row_withheld(vault, repository, pick) is not None:
             continue
+        # RW5d (Codex review F3): a figure with no passage is listed at every
+        # paragraph of this source it was asked at (one view per placement),
+        # each opening where that request was made.
+        homes = [{"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
+                 if key[0] == extraction_id] or [None]
         try:
-            views.append(figure_view(vault, repository, pick, versions=len(chain)))
+            views.extend(figure_view(vault, repository, pick, versions=len(chain), home=home) for home in homes)
         except S.SpecError:
             continue
     return sorted(views, key=lambda view: view["created_at"])
@@ -876,7 +1416,10 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
         raise FigureRefused("not_found", "That figure is not shown.")
     if advanced_off_row(vault, row) is not row:
         raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
-    if withheld_message(vault, repository, row["extraction_id"], _figure_spans(row)) is not None:
+    if show_me_row(row) and not show_me_enabled(vault):
+        raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
+                                                "(figures.show_me_enabled).")
+    if row_withheld(vault, repository, row) is not None:
         raise FigureRefused("exam_material", "That figure's passage is held out now.")
     return row, S.parse_spec(row["spec_json"])
 
@@ -964,12 +1507,23 @@ __all__ = [
     "BuildOutcome",
     "FigureRefused",
     "FigureRequest",
+    "GROUNDING_PASSAGES",
+    "Grounding",
     "LABELS",
+    "NOT_FROM_BOOKS_LABEL",
+    "anchored",
     "build_figure",
     "check_request",
     "enabled",
     "figure_view",
+    "figure_homes",
     "figure_withheld",
+    "ground",
+    "keys_withheld",
+    "revision_request",
+    "row_withheld",
+    "show_me_enabled",
+    "show_me_input",
     "list_figures",
     "predictions_enabled",
     "record_explanation",

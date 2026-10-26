@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_answers"
   - "table exam_answers"
-schema_head: 222
+schema_head: 224
 table_name: "exam_answers"
 table_role: "raw_ledger"
 functionality_status: "active"

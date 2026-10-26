@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 222
+schema_head: 224
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"

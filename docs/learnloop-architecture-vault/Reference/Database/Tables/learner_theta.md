@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_theta"
   - "table learner_theta"
-schema_head: 222
+schema_head: 224
 table_name: "learner_theta"
 table_role: "compat"
 functionality_status: "dormant-owner-gated"

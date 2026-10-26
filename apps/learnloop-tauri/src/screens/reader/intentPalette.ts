@@ -47,8 +47,16 @@ const GROUP_WORDS: Record<string, string> = {
   understand: "Understand", apply: "Apply", consolidate: "Consolidate", transfer: "Transfer", orient: "Orient",
 };
 
-/** The routed line, in the palette's own words (UX §4.1 microcopy): "Understand · ask · help me reason". */
-export function routedLine(action: Pick<ReaderIntentActionDto, "label" | "intention">): string {
+/** RW5d P1: the figure action's label while figures.show_me_enabled is on (the sidecar's palette). */
+export const SHOW_ME_LABEL = "show me…";
+
+/** The routed line, in the palette's own words (UX §4.1 microcopy): "Understand · ask · help me reason".
+ *  RW5d P1: "show me" says what it will use ("from your selection and your words"). */
+export function routedLine(action: Pick<ReaderIntentActionDto, "label" | "intention"> & { effect?: ReaderIntentActionDto["effect"] },
+                           words?: string): string {
   const intention = action.intention ? GROUP_WORDS[action.intention] : null;
-  return [intention, action.label].filter(Boolean).join(" · ");
+  const showMe = action.label === SHOW_ME_LABEL && action.effect?.kind === "figure";
+  const label = showMe ? "show me" : action.label;
+  const uses = showMe ? (words?.trim() ? "from your selection and your words" : "from your selection") : null;
+  return [intention, label, uses].filter(Boolean).join(" · ");
 }

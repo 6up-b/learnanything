@@ -624,6 +624,7 @@ fn main() {
             reader_reading_path_set_depth,
             reader_reading_path_override,
             reader_figure_request,
+            figure_request,
             reader_figure_revise,
             reader_figure_job,
             reader_figure_job_cancel,

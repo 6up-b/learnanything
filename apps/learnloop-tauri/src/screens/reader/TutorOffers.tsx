@@ -66,6 +66,9 @@ export const OFFER_COPY = {
   nextStep: "try the next step first",
   makeExplorable: "make this explorable",
   explorableBuilding: "building an interactive version under the passage",
+  /** RW5d P1: the tutor's figure goal (AI-written), a button the learner presses (D28). */
+  showMe: "show me:",
+  showMeAiWritten: "(AI-written)",
   looking: "looking in your books",
   comparing: "comparing",
   nothing: "nothing in your practice or books fits this yet",
@@ -80,7 +83,7 @@ export const OFFER_COPY = {
 /** The proposals a practice offer shows (and the impression names). */
 export const MAX_SHOWN = 3;
 
-export type OfferKind = "practice" | "passages" | "compare" | "try_next_step" | "make_explorable";
+export type OfferKind = "practice" | "passages" | "compare" | "try_next_step" | "make_explorable" | "show_me";
 
 /** One proposal the practice offer shows. */
 export interface OfferItem {
@@ -171,6 +174,9 @@ export interface TutorOffersProps {
   /** RW5b: build the figure of a cited block the tutor judged explorable;
    *  absent: no such button. */
   onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
+  /** RW5d P1: build the tutor's figure goal (the press is the grant; the server
+   *  checks the goal against the stored answer). Absent: no such button. */
+  onShowMe?: ((goal: string, offerRef: string) => void) | null;
   /** RW5b (Codex review F1): the judgment an explorable press names, the
    *  answer's QUESTION event (where the tutor's view is stored), never
    *  `exchangeId` (its reader_answer_submitted interaction event, which the
@@ -214,6 +220,14 @@ function offersFor(props: TutorOffersProps): Offer[] {
       if (button.kind !== "make_explorable" || button.extractionId !== props.extractionId) continue;
       offers.push({ key: `explorable:${button.spanId}`, kind: "make_explorable", label: OFFER_COPY.makeExplorable, reason: null,
         toolCallId: null, button });
+    }
+  }
+  if (props.onShowMe && props.offerRef) {
+    // RW5d P1: at most one figure goal per answer (its label is the goal).
+    const goal = (props.buttons ?? []).find((button) => button.kind === "show_me" && button.label.trim());
+    if (goal) {
+      offers.push({ key: `show_me:${props.exchangeId}`, kind: "show_me", label: OFFER_COPY.showMe, reason: null,
+        toolCallId: null, button: goal });
     }
   }
   return offers;
@@ -410,7 +424,7 @@ export function TutorOffers(props: TutorOffersProps) {
     logReaderAction("tutor_offer_pressed", {
       extraction_id: props.extractionId, exchange_id: props.exchangeId, offer_kind: offer.kind,
       tool_call_id: offer.toolCallId,
-      offer_result: offer.kind === "try_next_step" || offer.kind === "make_explorable" ? "opened" : lookup?.phase === "ready" ? "shown"
+      offer_result: offer.kind === "try_next_step" || offer.kind === "make_explorable" || offer.kind === "show_me" ? "opened" : lookup?.phase === "ready" ? "shown"
         : lookup?.phase === "loading" ? "looking" : lookup?.phase === "empty" ? "empty" : "run",
     });
     if (offer.kind === "try_next_step" && offer.button) {
@@ -422,6 +436,12 @@ export function TutorOffers(props: TutorOffersProps) {
       state.pressed = new Set(state.pressed).add(offer.key);
       notify(state);
       props.onMakeExplorable?.(offer.button.spanId, props.offerRef);
+      return;
+    }
+    if (offer.kind === "show_me" && offer.button && props.offerRef) {
+      state.pressed = new Set(state.pressed).add(offer.key);
+      notify(state);
+      props.onShowMe?.(offer.button.label, props.offerRef);
       return;
     }
     state.pressed = new Set(state.pressed).add(offer.key);
@@ -443,7 +463,7 @@ export function TutorOffers(props: TutorOffersProps) {
             </span>
           );
         }
-        if (offer.kind === "make_explorable" && isPressed) {
+        if ((offer.kind === "make_explorable" || offer.kind === "show_me") && isPressed) {
           // RW5b: the build shows under its passage (RW5a's pending line), not here.
           return (
             <span key={offer.key} data-offer={offer.kind} data-offer-pressed="">
@@ -457,8 +477,10 @@ export function TutorOffers(props: TutorOffersProps) {
             {!isPressed || retryable ? (
               <span style={{ display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap" }}>
                 <button type="button" onClick={() => press(offer)} style={buttonStyle}>
-                  {offer.label}{offer.kind === "passages" ? ` ${clip(offer.reason ?? "", 80)}` : ""}
+                  {offer.kind === "show_me" ? "▸ " : ""}{offer.label}{offer.kind === "passages" ? ` ${clip(offer.reason ?? "", 80)}` : ""}
+                  {offer.kind === "show_me" && offer.button ? <> ◇ “{clip(offer.button.label, 160)}”</> : null}
                 </button>
+                {offer.kind === "show_me" ? <MeaningLabel>{OFFER_COPY.showMeAiWritten}</MeaningLabel> : null}
                 {offer.reason && offer.kind !== "passages" ? (
                   <MeaningLabel>{OFFER_COPY.reasonLabel}: {clip(offer.reason, 120)}</MeaningLabel>
                 ) : null}

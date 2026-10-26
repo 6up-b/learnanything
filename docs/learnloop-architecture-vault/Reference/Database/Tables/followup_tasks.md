@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 222
+schema_head: 224
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"

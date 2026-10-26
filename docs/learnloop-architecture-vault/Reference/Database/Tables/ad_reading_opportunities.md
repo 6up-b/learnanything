@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
   - "table ad_reading_opportunities"
-schema_head: 222
+schema_head: 224
 table_name: "ad_reading_opportunities"
 table_role: "receipt"
 functionality_status: "active"

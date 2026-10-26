@@ -1653,6 +1653,10 @@ export const api = {
   // readerFigureJob. Exam and held-out material is refused before any call.
   readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; origin?: "selection" | "library" | "tutor"; offerRef?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
+  // Reader RW5d P1: "show me" (FigureRequestV1): a goal in the learner's words,
+  // with or without a passage; the same build job (read it with readerFigureJob).
+  figureRequest: (input: import("./dto").FigureRequestV1Input) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("figure_request", { input }),
   readerFigureRevise: (input: { figureId: string; note: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
   readerFigureJob: (input: { jobId: string }) =>

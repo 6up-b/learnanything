@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_contract_corrections"
   - "table measurement_contract_corrections"
-schema_head: 222
+schema_head: 224
 table_name: "measurement_contract_corrections"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite failure_triage_routes"
   - "table failure_triage_routes"
-schema_head: 222
+schema_head: 224
 table_name: "failure_triage_routes"
 table_role: "raw_ledger"
 functionality_status: "active"

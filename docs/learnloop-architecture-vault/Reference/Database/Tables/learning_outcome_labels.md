@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_outcome_labels"
   - "table learning_outcome_labels"
-schema_head: 222
+schema_head: 224
 table_name: "learning_outcome_labels"
 table_role: "derived"
 functionality_status: "active"

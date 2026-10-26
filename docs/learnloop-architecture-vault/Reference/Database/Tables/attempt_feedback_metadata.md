@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_feedback_metadata"
   - "table attempt_feedback_metadata"
-schema_head: 222
+schema_head: 224
 table_name: "attempt_feedback_metadata"
 table_role: "raw_ledger"
 functionality_status: "active"

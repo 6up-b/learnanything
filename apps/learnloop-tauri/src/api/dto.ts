@@ -6760,7 +6760,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -6945,8 +6945,9 @@ export interface ReaderTutorViewDto {
 }
 /** RW1c: a button the Reader decides itself ("Try the next step first" on a cited derivation or worked example). */
 export interface ReaderTutorButtonDto {
-  /** RW5b adds "make_explorable" (a cited equation or figure the tutor judged explorable). */
-  kind: "try_next_step" | "make_explorable";
+  /** RW5b adds "make_explorable" (a cited equation or figure the tutor judged explorable); RW5d P1
+   *  adds "show_me" (the tutor's figure goal: `label` is the goal, AI-written; `spanId` is empty). */
+  kind: "try_next_step" | "make_explorable" | "show_me";
   extractionId: string;
   spanId: string;
   label: string;
@@ -9160,7 +9161,8 @@ export interface FigureViewDto {
   spanIds: string[];
   anchorSpanId: string | null;
   region: { spanId: string; bbox: number[] } | null;
-  origin: "selection" | "library" | "tutor";
+  /** RW5d P1 adds "show_me" (the intent box with words, or the Ask rail). */
+  origin: "selection" | "library" | "tutor" | "show_me";
   verification: FigureVerification;
   kind: "reconstructed" | "illustrative" | null;
   /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
@@ -9178,6 +9180,36 @@ export interface FigureViewDto {
   predictions: FigurePredictionDto[];
   /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
   propertyChecks?: string[];
+  /** RW5d P1 (present only while figures.show_me_enabled is on): the goal in its author's voice. */
+  goalText?: string | null;
+  goalAuthor?: "learner" | "tutor" | null;
+  /** Where its passages came from: the learner's selection, found in their books, or none ("not from your books"). */
+  grounding?: FigureGrounding;
+  /** The passages found in the learner's books it was built from (grounding "retrieved"). */
+  passages?: FigurePassageDto[];
+}
+
+export type FigureGrounding = "anchor" | "retrieved" | "none";
+
+export interface FigurePassageDto {
+  extractionId: string;
+  spanId: string;
+  /** The passage's source (Codex review F8: its chip opens another book as a detour). */
+  sourceId?: string | null;
+  sourceTitle?: string | null;
+  section?: string | null;
+  page?: number | null;
+}
+
+/** RW5d P1: FigureRequestV1 (spec §7.1). goalAuthor, the policy and the tiers are the server's, never sent. */
+export interface FigureRequestV1Input {
+  goalText?: string | null;
+  anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null } | null;
+  origin: "selection" | "library" | "tutor" | "show_me";
+  hostRef?: { questionEventId?: string | null } | null;
+  readingAt?: { extractionId: string; spanId: string } | null;
+  offerRef?: string | null;
+  coldActive?: boolean;
 }
 
 export interface FigureBuildResultDto {

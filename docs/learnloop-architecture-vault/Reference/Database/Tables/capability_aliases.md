@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capability_aliases"
   - "table capability_aliases"
-schema_head: 222
+schema_head: 224
 table_name: "capability_aliases"
 table_role: "raw_ledger"
 functionality_status: "active"

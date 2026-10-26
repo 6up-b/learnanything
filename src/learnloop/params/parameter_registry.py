@@ -209,6 +209,9 @@ MODULE_INVENTORY: dict[str, str] = {
     "local_index": "src/learnloop/source_retrieval/local_index.py",
     "voyage_contextual": "src/learnloop/ai/providers/voyage_contextual.py",
     "retrieval_feedback": "src/learnloop/source_retrieval/feedback.py",
+    # Reader RW5d P1 (spec_reader_show_me_figures_v1 §8.3, §15): the figure
+    # switches' leaf module, home of the grounding-passage cap.
+    "figure_admission": "src/learnloop/figure_admission.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -324,6 +327,12 @@ _reg_const("voyage_contextual:MAX_TOKENS_PER_DOCUMENT", "constraint", kind="stru
            rationale="keep: Voyage's documented tokens per chunk (provider limit).")
 _reg_const("voyage_contextual:REQUEST_TIMEOUT_S", "constraint", kind="structural", owner="voyage_contextual",
            rationale="keep: one request's timeout when no retrieval time box applies (operational).")
+
+# Reader RW5d P1 (Codex review F9): the one new module constant (keep).
+_reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural", owner="figure_admission",
+           rationale="keep: prompt size (spec_reader_show_me_figures_v1 §8.3, §15, owner-approved): at most three "
+                     "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
+                     "author's context. A bound on what is sent, never a weight, margin or threshold.")
 
 # probe_families
 _reg_const("probe_families:ORDINAL_VOCABULARY", "likelihood", owner="probe_families",
@@ -1337,6 +1346,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "kill switches for RW5b's figure panels / \"make this explorable\" offers on organizer and tutor "
         "citations; on-off availability of content, no measurement, scheduling or serving authority."),
+    # Reader RW5d P1: "show me" (the learner's words, with or without a
+    # passage; the tutor's optional figure goal). A kill switch over content.
+    _ConfigRule(_exact(
+        "figures.show_me_enabled",
+    ), "structural", "operational",
+        "kill switch for RW5d's \"show me\" (figure goals in the learner's words, grounding in their books, "
+        "the tutor's figure_goal button); on-off availability of content, no measurement, scheduling or "
+        "serving authority."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",

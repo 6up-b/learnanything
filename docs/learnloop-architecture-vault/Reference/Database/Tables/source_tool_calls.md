@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_tool_calls"
   - "table source_tool_calls"
-schema_head: 222
+schema_head: 224
 table_name: "source_tool_calls"
 table_role: "receipt"
 functionality_status: "active"

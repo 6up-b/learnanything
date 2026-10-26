@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_outcome_windows"
   - "table controller_outcome_windows"
-schema_head: 222
+schema_head: 224
 table_name: "controller_outcome_windows"
 table_role: "workflow"
 functionality_status: "active"

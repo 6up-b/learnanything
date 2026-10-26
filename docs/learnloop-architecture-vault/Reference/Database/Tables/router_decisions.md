@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 222
+schema_head: 224
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"

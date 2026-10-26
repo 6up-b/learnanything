@@ -18,6 +18,7 @@ const { api, contract } = vi.hoisted(() => ({
     readerLogActivity: vi.fn(), readerRouteIntent: vi.fn(), readerIntentRouting: vi.fn(), readerIntentOutcome: vi.fn(),
     readerSetMode: vi.fn(),
     readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
+    figureRequest: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
 }));
@@ -89,7 +90,7 @@ it("make this explorable runs a build and the figure lands under its passage", a
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
-  fireEvent.click(within(palette).getByRole("button", { name: "make this explorable" }));
+  fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null }));
   const line = await screen.findByRole("button", { name: /interactive version/ });
   // Inline under its passage: the figure's slot follows the passage's block.
@@ -97,6 +98,29 @@ it("make this explorable runs a build and the figure lands under its passage", a
   expect(slot).not.toBeNull();
   const passage = document.querySelector(`[data-span-id="${anchor}"]`)!;
   expect(passage.compareDocumentPosition(slot!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("RW5d P1: show me with words sends the selection and the words jointly (G-SM6)", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, intent,
+    figures: { predictions: true, region: true, revisions: true, showMe: true } };
+  api.figureRequest.mockResolvedValue({ jobId: "ljob_2", kind: "figure_build", askId: null, state: "done",
+    result: { reused: false, figure: { ...figure(), origin: "show_me", goalText: "but with p near 1", goalAuthor: "learner", grounding: "anchor", passages: [] } } });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  select(block);
+  const box = await screen.findByRole("textbox", { name: BOX });
+  fireEvent.change(box, { target: { value: "but with p near 1" } });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
+  await waitFor(() => expect(api.figureRequest).toHaveBeenCalledWith({
+    goalText: "but with p near 1", origin: "show_me", anchor: { extractionId: view.extractionId, spanIds: [anchor], region: null },
+    readingAt: null, offerRef: null,
+  }));
+  expect(api.readerFigureRequest).not.toHaveBeenCalled();
+  // The collapsed line quotes the learner's words, outside the code-owned badge.
+  const goal = await screen.findByText("but with p near 1", { selector: "[data-figure-goal] *" });
+  expect(goal.closest("[data-figure-badge]")).toBeNull();
 });
 
 it("switched off, the Reader has no figure action, calls no figure RPC and draws nothing", async () => {
@@ -107,7 +131,7 @@ it("switched off, the Reader has no figure action, calls no figure RPC and draws
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
-  expect(within(palette).queryByRole("button", { name: "make this explorable" })).toBeNull();
+  expect(within(palette).queryByRole("button", { name: "show me…" })).toBeNull();
   await new Promise((resolve) => setTimeout(resolve, 20));
   for (const name of ["readerFigures", "readerFigureRequest", "readerFigureJob", "readerFigureJobCancel"] as const) {
     expect(api[name]).not.toHaveBeenCalled();

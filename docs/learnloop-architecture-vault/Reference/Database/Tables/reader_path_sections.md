@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_path_sections"
   - "table reader_path_sections"
-schema_head: 222
+schema_head: 224
 table_name: "reader_path_sections"
 table_role: "workflow"
 functionality_status: "active"

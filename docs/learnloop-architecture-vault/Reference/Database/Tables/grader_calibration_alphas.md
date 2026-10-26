@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grader_calibration_alphas"
   - "table grader_calibration_alphas"
-schema_head: 222
+schema_head: 224
 table_name: "grader_calibration_alphas"
 table_role: "raw_ledger"
 functionality_status: "active"

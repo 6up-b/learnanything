@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite fitted_parameters"
   - "table fitted_parameters"
-schema_head: 222
+schema_head: 224
 table_name: "fitted_parameters"
 table_role: "raw_ledger"
 functionality_status: "active"

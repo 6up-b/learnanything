@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_fusion_posteriors"
   - "table retrieval_fusion_posteriors"
-schema_head: 222
+schema_head: 224
 table_name: "retrieval_fusion_posteriors"
 table_role: "derived"
 functionality_status: "active"

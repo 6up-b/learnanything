@@ -311,8 +311,13 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         "input_span_ids_json": "spans@extraction_id",
     },
         values="id region_json asset_id origin supersedes_id revision_note spec_version kind verification "
-               "unsupported_kind model prompt_version input_hash created_at",
-        derived="spec_json verification_report_json"),
+               "unsupported_kind model prompt_version input_hash created_at "
+               # Reader RW5d P1 (migration 224): the request's id, the grounding mode, the tier
+               # and P2b's reserved runtime columns name nothing the predicate withholds.
+               "request_id grounding tier program_version engine_sha256 runtime_digest instrumented_sha256 "
+               "media_file_name fuller_of_id checks_json",
+        # The goal and the retrieved passages' keys (any reading, any source) are never read as stored.
+        derived="spec_json verification_report_json goal_text input_span_keys_json"),
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
@@ -491,7 +496,8 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
                                                "section's completion only",
     # The compose round (main 558e85ab1): AD reads none of RW3b's, RW5a's or RW7a's tables.
     **{("interactive_figures", column): "unread: a model's figure from the spans sent, which can cite other "
-                                        "readings; AD reads no figure" for column in ("spec_json", "verification_report_json")},
+                                        "readings; AD reads no figure" for column in (
+        "spec_json", "verification_report_json", "goal_text", "input_span_keys_json")},
     **{("passage_links", column): "unread: the cue judge's pick for an incumbent diagnosis target, ranked "
                                   "against other passages; AD reads no cue" for column in (
         "target_kind", "target_id", "relation", "pick_rank", "ranks_json", "roles_json", "target_facets_json",

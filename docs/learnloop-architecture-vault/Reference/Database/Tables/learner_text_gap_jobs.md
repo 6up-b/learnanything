@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 222
+schema_head: 224
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"

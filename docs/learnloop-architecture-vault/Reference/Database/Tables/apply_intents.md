@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite apply_intents"
   - "table apply_intents"
-schema_head: 222
+schema_head: 224
 table_name: "apply_intents"
 table_role: "workflow"
 functionality_status: "active"

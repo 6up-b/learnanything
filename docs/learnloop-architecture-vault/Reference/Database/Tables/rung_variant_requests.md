@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite rung_variant_requests"
   - "table rung_variant_requests"
-schema_head: 222
+schema_head: 224
 table_name: "rung_variant_requests"
 table_role: "workflow"
 functionality_status: "active"

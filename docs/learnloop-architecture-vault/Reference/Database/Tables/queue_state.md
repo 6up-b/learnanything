@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 222
+schema_head: 224
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_anchor_segments"
   - "table source_annotation_anchor_segments"
-schema_head: 222
+schema_head: 224
 table_name: "source_annotation_anchor_segments"
 table_role: "raw_ledger"
 functionality_status: "active"

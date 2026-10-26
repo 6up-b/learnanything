@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
   - "table ingest_batches"
-schema_head: 222
+schema_head: 224
 table_name: "ingest_batches"
 table_role: "workflow"
 functionality_status: "active"

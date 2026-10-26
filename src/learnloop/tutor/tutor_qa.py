@@ -59,8 +59,12 @@ from learnloop.content.sources.exam_material import held_out_among, held_out_mat
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     READER_TUTOR_EXPLORABLE_PROMPT_VERSION,
+    READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION,
+    READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION,
     READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION,
     READER_TUTOR_PROMPT_VERSION,
+    READER_TUTOR_SHOW_ME_PROMPT_VERSION,
+    READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION,
     READER_TUTOR_TOOLS_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
     TUTOR_QA_ANSWER_MODE_SUFFIX,
@@ -70,7 +74,13 @@ from learnloop.tutor.ai_contracts import (
     ReaderTutorExplorableAnswer,
     ReaderTutorExplorableAnswerWithTools,
     ReaderTutorExplorableQAContext,
+    ReaderTutorExplorableShowMeAnswer,
+    ReaderTutorExplorableShowMeAnswerWithTools,
+    ReaderTutorExplorableShowMeQAContext,
     ReaderTutorQAContext,
+    ReaderTutorShowMeAnswer,
+    ReaderTutorShowMeAnswerWithTools,
+    ReaderTutorShowMeQAContext,
     TutorAnswer,
     TutorAnswerWithTools,
     TutorQAContext,
@@ -181,6 +191,11 @@ def request_tutor_answer(
 
 
 def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
+    # RW5d P1: with show me on, the answer may also carry a figure goal.
+    if isinstance(context, ReaderTutorExplorableShowMeQAContext):
+        return ReaderTutorExplorableShowMeAnswerWithTools if tools else ReaderTutorExplorableShowMeAnswer
+    if isinstance(context, ReaderTutorShowMeQAContext):
+        return ReaderTutorShowMeAnswerWithTools if tools else ReaderTutorShowMeAnswer
     if isinstance(context, ReaderTutorExplorableQAContext):
         # RW5b: with figure offers on, the answer judges its cited equation and figure blocks.
         return ReaderTutorExplorableAnswerWithTools if tools else ReaderTutorExplorableAnswer
@@ -190,6 +205,11 @@ def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
 
 
 def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
+    if isinstance(context, ReaderTutorExplorableShowMeQAContext):
+        return (READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION if tools
+                else READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION)
+    if isinstance(context, ReaderTutorShowMeQAContext):
+        return READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_SHOW_ME_PROMPT_VERSION
     if isinstance(context, ReaderTutorExplorableQAContext):
         return READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
     if isinstance(context, ReaderTutorQAContext):
@@ -241,6 +261,56 @@ def _record_explorable_verdicts(repository: Repository, event_id: str, answer: A
                     created_at=utc_now_iso(clock))
     except Exception as exc:  # noqa: BLE001 - offers are optional
         logger.warning("tutor explorable verdicts not recorded: %s", type(exc).__name__)
+
+
+def _record_figure_goal(repository: Repository, event_id: str, goal: Mapping[str, Any], *, model: str | None,
+                        prompt_version: str, clock: Clock | None) -> None:
+    """RW5d P1 (Codex review F6): the tutor's figure goal is an LLM judgment
+    (a figure would help this question), so it gets its ``judgment_ledger``
+    row as RW5b's ``explorable`` verdicts do: task ``figure_goal_offer``, the
+    model and prompt version, the input's identity (prompt version and the
+    answer's event) and, as its right id, the goal's digest (its text and its
+    grounding keys). Idempotent (the id is derived from the answer). The press
+    reads it back; without it the goal is not offered. Bookkeeping: a failure
+    is logged, never raised, and costs the learner only that answer's button."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.db.stores.practice_index import judgments_by_ids
+    from learnloop.figure_admission import (
+        FIGURE_GOAL_OFFERED,
+        TUTOR_FIGURE_GOAL_TASK,
+        figure_goal_digest,
+        tutor_figure_goal_judgment_id,
+    )
+
+    text, keys = goal.get("text"), [list(key) for key in goal.get("span_keys") or ()]
+    if not str(text or "").strip():
+        return
+    found_id = tutor_figure_goal_judgment_id(event_id)
+    try:
+        with repository.connection() as connection:
+            if found_id in judgments_by_ids(connection, [found_id]):
+                return
+            append_judgment(
+                connection, id=found_id, task=TUTOR_FIGURE_GOAL_TASK, left_kind="question_event",
+                left_id=str(event_id), right_kind="figure_goal", right_id=figure_goal_digest(text, keys),
+                judge="llm", judge_model=model or "unspecified", prompt_version=prompt_version,
+                input_hash=content_key([prompt_version, str(event_id)])[:40], verdict=FIGURE_GOAL_OFFERED,
+                score=1.0, rationale=json.dumps({"figure_goal": str(text), "span_keys": keys}, sort_keys=True),
+                created_at=utc_now_iso(clock))
+    except Exception as exc:  # noqa: BLE001 - the goal button is optional
+        logger.warning("tutor figure goal not recorded: %s", type(exc).__name__)
+
+
+def tutor_show_me_enabled(vault: LoadedVault) -> bool:
+    """RW5d P1: the Reader tutor may write an optional ``figure_goal`` only
+    while RW5b's tutor offers are on and ``figures.show_me_enabled``; off,
+    its prompt and output are RW5b's (G-SM7)."""
+
+    from learnloop.figure_admission import show_me_enabled
+
+    return tutor_explorable_enabled(vault) and show_me_enabled(vault)
 
 
 def tutor_explorable_enabled(vault: LoadedVault) -> bool:
@@ -1211,6 +1281,9 @@ def ask_question(
     if reader_view is not None and "explorable" in reader_view:
         _record_explorable_verdicts(repository, event_id, answer, model=getattr(client, "model", None),
                                     prompt_version=_prompt_version(ai_context, tools=tools), clock=clock)
+    if reader_view is not None and isinstance(reader_view.get("figure_goal"), Mapping):
+        _record_figure_goal(repository, event_id, reader_view["figure_goal"], model=getattr(client, "model", None),
+                            prompt_version=_prompt_version(ai_context, tools=tools), clock=clock)
     if item is not None:
         record_reveal(
             repository,
@@ -2038,7 +2111,7 @@ def _build_context(
                 answer_mode=answer_mode, withheld=reader_withheld, delivery_receipt=delivery_receipt,
                 budget_tokens=settings.context_token_budget, expanded=settings.expanded_delivery,
                 guard=reader_binding.context_guard if reader_binding is not None else None, guarded=guarded,
-                explorable=tutor_explorable_enabled(vault),
+                explorable=tutor_explorable_enabled(vault), show_me=tutor_show_me_enabled(vault),
             )
         if delivery_receipt is not None and guarded:
             delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
@@ -2141,6 +2214,7 @@ def _reader_lookup_context(
     guard: Any = None,
     guarded: Mapping[str, int] | None = None,
     explorable: bool = False,
+    show_me: bool = False,
 ) -> ReaderTutorQAContext:
     """RW1c's Reader context: the selection and its neighbours first, then the
     retrieved passages (each its complete canonical block unless
@@ -2197,6 +2271,11 @@ def _reader_lookup_context(
                                                                str(span.get("span_id")))) in kinds else span
                     for span in kept]
     context_type = ReaderTutorExplorableQAContext if explorable else ReaderTutorQAContext
+    if show_me and guard is None and getattr(request, "policy", "reading") == "reading":
+        # RW5d P1: the optional figure goal, whatever is delivered (its own
+        # prompt version); never for a question bound to an item or asked
+        # during a check on your own (SM4: P1 builds nothing in attempts).
+        context_type = ReaderTutorExplorableShowMeQAContext if explorable else ReaderTutorShowMeQAContext
     return context_type(
         context="reader",
         question_md=question_md,

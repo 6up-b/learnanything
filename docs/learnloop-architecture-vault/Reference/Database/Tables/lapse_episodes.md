@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lapse_episodes"
   - "table lapse_episodes"
-schema_head: 222
+schema_head: 224
 table_name: "lapse_episodes"
 table_role: "workflow"
 functionality_status: "active"

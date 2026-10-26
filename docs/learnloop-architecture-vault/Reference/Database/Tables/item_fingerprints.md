@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_fingerprints"
   - "table item_fingerprints"
-schema_head: 222
+schema_head: 224
 table_name: "item_fingerprints"
 table_role: "derived"
 functionality_status: "active"

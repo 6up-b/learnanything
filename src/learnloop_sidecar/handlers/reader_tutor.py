@@ -345,6 +345,18 @@ def offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id
         if figure_offers_enabled(vault):
             buttons = [*buttons, *RT.explorable_buttons(repository, extraction_id=extraction_id,
                                                         explorable=explorable)]
+    goal = (result.get("tutor") or {}).get("figure_goal")
+    if isinstance(goal, dict) and str(goal.get("text") or "").strip():
+        # RW5d P1 (D28: the tutor requests, the learner presses): the tutor's
+        # figure goal as a button, only while show me and figure offers are on.
+        # The press sends the goal with the answer's event as its offer; the
+        # server checks it against this stored goal.
+        from learnloop.figure_admission import offers_enabled as figure_offers_enabled
+        from learnloop.figure_admission import show_me_enabled
+
+        if figure_offers_enabled(vault) and show_me_enabled(vault):
+            buttons = [*buttons, {"kind": "show_me", "extraction_id": extraction_id, "span_id": "",
+                                  "label": str(goal["text"]), "role": "figure_goal"}]
     return {"buttons": buttons}
 
 

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_adjudications"
   - "table grade_adjudications"
-schema_head: 222
+schema_head: 224
 table_name: "grade_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
   - "table item_serve_inputs"
-schema_head: 222
+schema_head: 224
 table_name: "item_serve_inputs"
 table_role: "receipt"
 functionality_status: "active"

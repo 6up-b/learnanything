@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_spaces"
   - "table embedding_spaces"
-schema_head: 222
+schema_head: 224
 table_name: "embedding_spaces"
 table_role: "workflow"
 functionality_status: "active"

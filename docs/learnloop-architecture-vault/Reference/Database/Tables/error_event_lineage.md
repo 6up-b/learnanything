@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_event_lineage"
   - "table error_event_lineage"
-schema_head: 222
+schema_head: 224
 table_name: "error_event_lineage"
 table_role: "raw_ledger"
 functionality_status: "active"

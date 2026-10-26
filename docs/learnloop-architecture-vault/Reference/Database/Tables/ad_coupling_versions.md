@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_coupling_versions"
   - "table ad_coupling_versions"
-schema_head: 222
+schema_head: 224
 table_name: "ad_coupling_versions"
 table_role: "receipt"
 functionality_status: "active"

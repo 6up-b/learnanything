@@ -9,12 +9,12 @@
 // slider; step buttons under reduced motion; nothing moves until pressed,
 // D39), the values table (`t`) and "not right?". Nothing here takes focus,
 // animates by itself or opens a modal (W12, G54).
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { FigurePredictionDto, FigureViewDto } from "../../../api/dto";
 import { COLOR, FONT_MONO } from "../../../components/term";
 import { errorMessage } from "../../../errors";
 import { logReaderAction } from "../activity";
-import { MeaningLabel, ModelVoice, SourceVoice } from "../voices";
+import { LearnerQuote, MeaningLabel, ModelVoice, SourceVoice } from "../voices";
 import { FigurePanel, formatValue } from "./FigurePanels";
 import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter } from "./figureSpec";
 
@@ -27,6 +27,8 @@ import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter 
 // claim; that label is RW5c's.
 export const FIGURE_FRAME = {
   illustration: "AI-built illustration of an interpretation · not checked against the book",
+  /** RW5d P1: built with nothing from the learner's books (grounding "none", code-written). */
+  notFromBooks: "not from your books — LearnLoop's model's illustration · not checked against the book",
   failed: "couldn't build a reliable version of this",
   unsupported: "can't draw this yet · noted",
   checksLead: "checked by LearnLoop:",
@@ -44,10 +46,43 @@ export const PROPERTY_CHECK_COPY: Readonly<Record<string, string>> = Object.free
 });
 
 /** The badge slot's text: from the status alone (a stored "verified" is shown as the illustration it is). */
-export function frameBadge(verification: FigureViewDto["verification"]): string {
+export function frameBadge(verification: FigureViewDto["verification"], grounding?: FigureViewDto["grounding"]): string {
   if (verification === "failed") return FIGURE_FRAME.failed;
   if (verification === "unsupported") return FIGURE_FRAME.unsupported;
-  return FIGURE_FRAME.illustration;
+  // RW5d P1: the grounding is a closed, code-written value; never the model's words.
+  return grounding === "none" ? FIGURE_FRAME.notFromBooks : FIGURE_FRAME.illustration;
+}
+
+/** RW5d P1: the figure's goal on its collapsed line, in its author's voice
+ *  (the learner's words quoted; a tutor's goal marked AI-written). Outside the
+ *  badge slot. Nothing for a figure with no goal. */
+export function FigureGoal({ figure }: { figure: FigureViewDto }) {
+  const goal = figure.goalText?.trim();
+  if (!goal) return null;
+  if (figure.goalAuthor === "tutor") {
+    return (
+      <span data-figure-goal="tutor">
+        <span style={{ color: COLOR.purpleText }}>◇ “{goal}”</span> <MeaningLabel style={{ fontSize: 10 }}>(AI-written)</MeaningLabel>
+      </span>
+    );
+  }
+  return <span data-figure-goal="learner">› <LearnerQuote>{goal}</LearnerQuote></span>;
+}
+
+/** RW5d P1: the passages from the learner's books a figure was built from (grounding "retrieved"). */
+export function FigurePassages({ figure }: { figure: FigureViewDto }) {
+  if (figure.grounding !== "retrieved" || !figure.passages?.length) return null;
+  return (
+    <span data-figure-passages="">
+      <MeaningLabel style={{ fontSize: 10 }}>{FIGURE_COPY.fromYourBooks}</MeaningLabel>{" "}
+      {figure.passages.map((passage) => (
+        <span key={`${passage.extractionId}:${passage.spanId}`} data-figure-passage={`${passage.extractionId}:${passage.spanId}`}
+          style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim, marginRight: 6 }}>
+          § {[passage.sourceTitle, passage.section].filter(Boolean).join(" ") || passage.spanId}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /** The property checks' words, for the closed keys only (anything else is dropped). */
@@ -56,7 +91,7 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
     .map((key) => PROPERTY_CHECK_COPY[key]);
 }
 
-import type { FigurePending, FiguresCtl } from "./useFigures";
+import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFigures";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -82,6 +117,8 @@ export const FIGURE_COPY = {
   shows: "what it shows",
   assumes: "what it assumes",
   unreadable: "couldn't draw this version here",
+  /** RW5d P1. */
+  fromYourBooks: "from your books:",
 } as const;
 
 const PLAY_STEPS = 40;
@@ -153,6 +190,10 @@ function PredictionBlock({
   const [choice, setChoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Each mounted control is its own radio group (Codex re-review F10): two
+  // placements of one figure never share a native group, so what shows
+  // selected is what is sent. The answer itself is the figure's.
+  const group = `prediction-${figure.figureId}-${prediction.index}-${useId()}`;
   const submit = async () => {
     if (!choice || busy) return;
     setBusy(true);
@@ -174,7 +215,7 @@ function PredictionBlock({
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: FONT_MONO, fontSize: 11 }}>
         {prediction.choices.map((option) => (
           <label key={option.value} style={{ display: "flex", gap: 4, alignItems: "center", color: COLOR.text }}>
-            <input type="radio" name={`prediction-${figure.figureId}-${prediction.index}`} value={option.value}
+            <input type="radio" name={group} value={option.value}
               checked={choice === option.value} onChange={() => setChoice(option.value)}
               onKeyDown={(event) => { if (event.key === "Enter") void submit(); }} />
             {option.label}
@@ -425,7 +466,7 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
 /** One figure under its passage: the collapsed line and, when expanded, the figure. */
 export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: FiguresCtl }) {
   const shown = figure.verification === "verified" || figure.verification === "illustrative";
-  const expanded = shown && ctl.expandedId === figure.figureId;
+  const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
   const compiled = useMemo(() => {
     if (!shown || !figure.specJson) return null;
     try {
@@ -438,13 +479,18 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
     return (
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
         style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
+        <FigureGoal figure={figure} />
         <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{frameBadge(figure.verification)}</MeaningLabel></span>
         {figure.verification === "unsupported" && figure.unsupportedKind ? (
           <span data-figure-detail="">needs {figure.unsupportedKind}</span>
         ) : null}
         {figure.verification === "failed" && figure.reason ? <span data-figure-detail="">({figure.reason})</span> : null}
         {figure.verification === "failed" ? (
-          <button type="button" style={linkStyle} onClick={() => ctl.request({ spanIds: figure.spanIds, region: figure.region })}>
+          <button type="button" style={linkStyle} onClick={() => ctl.request(figure.goalText && figure.origin !== "tutor"
+            // RW5d: a show-me figure asks again with its words (a tutor's goal is pressed from its answer).
+            ? { spanIds: figure.spanIds, region: figure.region, goalText: figure.goalText, origin: "show_me",
+                readingAt: figure.anchorSpanId ? { spanId: figure.anchorSpanId } : null }
+            : { spanIds: figure.spanIds, region: figure.region })}>
             {FIGURE_COPY.tryAgain}
           </button>
         ) : null}
@@ -454,7 +500,7 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
   const checks = frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
-    ctl.setExpanded(expanded ? null : figure.figureId);
+    ctl.setExpanded(expanded ? null : figure);
   };
   return (
     <div data-figure={figure.figureId} data-figure-verification={figure.verification} style={{ margin: "4px 0 8px 0", display: "flex", flexDirection: "column", gap: 4 }}>
@@ -462,8 +508,10 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
         <button type="button" aria-expanded={expanded} onClick={toggle}
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {FIGURE_COPY.collapsed} ·{" "}
-          <span data-figure-badge="">{frameBadge(figure.verification)}</span>
+          {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
+          <span data-figure-badge="">{frameBadge(figure.verification, figure.grounding)}</span>
         </button>
+        <FigurePassages figure={figure} />
         {checks.length ? (
           <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
         ) : null}

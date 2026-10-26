@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_repair_class_definitions"
   - "table causal_repair_class_definitions"
-schema_head: 222
+schema_head: 224
 table_name: "causal_repair_class_definitions"
 table_role: "raw_ledger"
 functionality_status: "active"

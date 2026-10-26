@@ -236,6 +236,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # changed?" text. Formative, never evidence; append-only by trigger (the
     # only update sets explanation_text once). Replay never reads it.
     ("figure_predictions", TableRole.RAW_LEDGER),
+    # Reader RW5d P1 (migration 224; spec_reader_show_me_figures_v1 §13.1):
+    # what a figure request asked (the learner's words or a tutor's goal, the
+    # anchor, the derived policy, the grounding and its find_sources
+    # manifest). Append-only by trigger (figure_id is set once); never
+    # evidence, and replay never reads it.
+    ("figure_requests", TableRole.RAW_LEDGER),
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),
     ("followup_tasks", TableRole.WORKFLOW),

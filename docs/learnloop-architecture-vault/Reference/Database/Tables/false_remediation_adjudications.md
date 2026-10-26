@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite false_remediation_adjudications"
   - "table false_remediation_adjudications"
-schema_head: 222
+schema_head: 224
 table_name: "false_remediation_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"

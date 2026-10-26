@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_selections"
   - "table ad_selections"
-schema_head: 222
+schema_head: 224
 table_name: "ad_selections"
 table_role: "raw_ledger"
 functionality_status: "active"

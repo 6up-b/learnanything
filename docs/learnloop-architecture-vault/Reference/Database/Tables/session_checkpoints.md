@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 222
+schema_head: 224
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"

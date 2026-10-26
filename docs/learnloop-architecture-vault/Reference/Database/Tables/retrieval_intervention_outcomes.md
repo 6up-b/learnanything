@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_intervention_outcomes"
   - "table retrieval_intervention_outcomes"
-schema_head: 222
+schema_head: 224
 table_name: "retrieval_intervention_outcomes"
 table_role: "derived"
 functionality_status: "active"

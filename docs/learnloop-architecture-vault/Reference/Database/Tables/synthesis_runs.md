@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 222
+schema_head: 224
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"

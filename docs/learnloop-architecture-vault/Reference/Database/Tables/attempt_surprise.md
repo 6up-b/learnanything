@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 222
+schema_head: 224
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite family_memory_state"
   - "table family_memory_state"
-schema_head: 222
+schema_head: 224
 table_name: "family_memory_state"
 table_role: "derived"
 functionality_status: "active"

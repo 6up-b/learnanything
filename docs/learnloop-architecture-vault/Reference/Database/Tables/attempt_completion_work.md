@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_completion_work"
   - "table attempt_completion_work"
-schema_head: 222
+schema_head: 224
 table_name: "attempt_completion_work"
 table_role: "workflow"
 functionality_status: "active"

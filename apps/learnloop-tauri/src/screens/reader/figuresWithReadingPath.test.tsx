@@ -125,7 +125,7 @@ it("the palette carries both actions and each reaches only its own RPCs", async 
   await screen.findByText(PATH.next!.text);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   let palette = await openPalette();
-  expect(within(palette).getByRole("button", { name: "make this explorable" })).toBeTruthy();
+  expect(within(palette).getByRole("button", { name: "show me…" })).toBeTruthy();
   const pathReads = api.readerReadingPath.mock.calls.length;
   await act(async () => { fireEvent.click(within(palette).getByRole("button", { name: "what matters here?" })); });
   await waitFor(() => expect(screen.getByText(PATH.next!.text).closest("[style*='display: none']")).toBeNull());
@@ -134,7 +134,7 @@ it("the palette carries both actions and each reaches only its own RPCs", async 
   palette = await openPalette();
   const afterPath = api.readerReadingPath.mock.calls.length;
   expect(afterPath).toBeGreaterThanOrEqual(pathReads);
-  fireEvent.click(within(palette).getByRole("button", { name: "make this explorable" }));
+  fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null }));
   expect(api.readerReadingPath.mock.calls.length).toBe(afterPath);
   expect(api.readerRouteIntent).not.toHaveBeenCalled();

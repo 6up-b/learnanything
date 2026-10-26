@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_calibrations"
   - "table probe_item_calibrations"
-schema_head: 222
+schema_head: 224
 table_name: "probe_item_calibrations"
 table_role: "raw_ledger"
 functionality_status: "active"

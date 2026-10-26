@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_gap_check_advances"
   - "table learner_gap_check_advances"
-schema_head: 222
+schema_head: 224
 table_name: "learner_gap_check_advances"
 table_role: "receipt"
 functionality_status: "active"

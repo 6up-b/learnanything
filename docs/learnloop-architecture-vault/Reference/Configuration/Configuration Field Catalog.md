@@ -107,7 +107,7 @@ Every one of the 1056 effective leaves has a semantic Function, a runtime/refact
 | [[Config - reader_formative|`reader_formative`]] | 1 | Runtime configuration |
 | [[Config - library_ask|`library_ask`]] | 4 | Runtime configuration |
 | [[Config - library_exercises|`library_exercises`]] | 2 | Runtime configuration |
-| [[Config - figures|`figures`]] | 8 | Runtime configuration |
+| [[Config - figures|`figures`]] | 9 | Runtime configuration |
 | [[Config - reader_compare|`reader_compare`]] | 2 | Runtime configuration |
 | [[Config - practice|`practice`]] | 1 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |

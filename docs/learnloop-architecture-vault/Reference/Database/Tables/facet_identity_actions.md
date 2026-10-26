@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_identity_actions"
   - "table facet_identity_actions"
-schema_head: 222
+schema_head: 224
 table_name: "facet_identity_actions"
 table_role: "workflow"
 functionality_status: "active"

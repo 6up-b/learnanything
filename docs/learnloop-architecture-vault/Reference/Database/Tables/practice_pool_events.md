@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_pool_events"
   - "table practice_pool_events"
-schema_head: 222
+schema_head: 224
 table_name: "practice_pool_events"
 table_role: "receipt"
 functionality_status: "active"

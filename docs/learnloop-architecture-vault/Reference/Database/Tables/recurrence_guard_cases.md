@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite recurrence_guard_cases"
   - "table recurrence_guard_cases"
-schema_head: 222
+schema_head: 224
 table_name: "recurrence_guard_cases"
 table_role: "raw_ledger"
 functionality_status: "active"

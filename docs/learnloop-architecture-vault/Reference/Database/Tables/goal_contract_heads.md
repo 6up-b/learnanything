@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_contract_heads"
   - "table goal_contract_heads"
-schema_head: 222
+schema_head: 224
 table_name: "goal_contract_heads"
 table_role: "workflow"
 functionality_status: "active"

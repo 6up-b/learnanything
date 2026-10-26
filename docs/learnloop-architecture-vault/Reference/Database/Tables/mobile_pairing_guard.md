@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_pairing_guard"
   - "table mobile_pairing_guard"
-schema_head: 222
+schema_head: 224
 table_name: "mobile_pairing_guard"
 table_role: "workflow"
 functionality_status: "active"

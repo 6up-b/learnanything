@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite card_lineages"
   - "table card_lineages"
-schema_head: 222
+schema_head: 224
 table_name: "card_lineages"
 table_role: "raw_ledger"
 functionality_status: "active"

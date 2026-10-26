@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 222
+schema_head: 224
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"

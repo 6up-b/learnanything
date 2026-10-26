@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_verifications"
   - "table causal_cold_verifications"
-schema_head: 222
+schema_head: 224
 table_name: "causal_cold_verifications"
 table_role: "raw_ledger"
 functionality_status: "active"

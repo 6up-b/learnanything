@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 222
+schema_head: 224
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"

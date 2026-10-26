@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite discrimination_profile_matches"
   - "table discrimination_profile_matches"
-schema_head: 222
+schema_head: 224
 table_name: "discrimination_profile_matches"
 table_role: "receipt"
 functionality_status: "active"

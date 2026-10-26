@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_citations"
   - "table source_object_citations"
-schema_head: 222
+schema_head: 224
 table_name: "source_object_citations"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_sensitivity_certificates"
   - "table parameter_sensitivity_certificates"
-schema_head: 222
+schema_head: 224
 table_name: "parameter_sensitivity_certificates"
 table_role: "receipt"
 functionality_status: "active"

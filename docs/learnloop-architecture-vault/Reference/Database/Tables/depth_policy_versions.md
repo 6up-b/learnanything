@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite depth_policy_versions"
   - "table depth_policy_versions"
-schema_head: 222
+schema_head: 224
 table_name: "depth_policy_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

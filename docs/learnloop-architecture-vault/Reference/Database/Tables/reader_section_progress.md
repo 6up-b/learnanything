@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
   - "table reader_section_progress"
-schema_head: 222
+schema_head: 224
 table_name: "reader_section_progress"
 table_role: "workflow"
 functionality_status: "active"

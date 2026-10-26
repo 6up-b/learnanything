@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 222
+schema_head: 224
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"

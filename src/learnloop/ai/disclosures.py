@@ -169,8 +169,10 @@ _WHEN = {
         "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "
         "passage, its caption and the paragraphs around it (and the figure's image or your selected region of "
         "it, when the route can read images), so LearnLoop's model can write an interactive version; with "
-        "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. Nothing else "
-        "about you, and never material held out for an exam."
+        "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. With "
+        "figures.show_me_enabled, \"show me\" sends your request in your words (or the goal LearnLoop's tutor "
+        "wrote, when you press it) and, when you select no passage, the passages LearnLoop finds in your books for "
+        "it (or none) -- never to grade you. Nothing else about you, and never material held out for an exam."
     ),
 }
 

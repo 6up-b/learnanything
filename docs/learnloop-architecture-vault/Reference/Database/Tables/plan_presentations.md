@@ -9,7 +9,7 @@ last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 222
+schema_head: 224
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
