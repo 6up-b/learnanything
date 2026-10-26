@@ -223,3 +223,14 @@ def test_221_adds_only_the_earlier_opening_column(tmp_path):
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")}
     assert "earlier_opened_at" in columns
+
+
+def test_f16_the_session_view_reads_the_problems_own_opening_by_default(tmp_path, grader):
+    from learnloop.reader import workbench as WB
+    from learnloop.db.repositories import Repository
+
+    paths, ctx, session = _steps_sidecar(tmp_path)
+    _draft(ctx, session, CDF_ITEM, "kA", earlierOpened=True)
+    view = _open(ctx, session)
+    plain = WB.session_view(Repository(paths.sqlite_path), view["sessionId"])
+    assert plain["earlier_opened"] is True and plain["record"]["earlier_hints"] == 1

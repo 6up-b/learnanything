@@ -298,3 +298,16 @@ under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
 * An earlier opening carried onto a problem stays held while that problem is open, so a later attempt of the item
   submitted from the answer box while the problem is still open counts it too: the same held rule the problem's
   carried authored hints and book already follow (RW2a review F2), not a new one.
+
+### Fix-round verify
+
+The scoped Codex verify of `git diff 4e9b92d4f..dfab1478c` (codex-job `20261026-024130-2viknr`, read-only, high
+effort) returned **VERDICT: CLEAN**: F15, F1, F12 and F14 confirmed fixed, with traces of the answer-box and
+workbench submits, resume, abandon/reopen, another item's draft, a restart, and the record and footer; the budget
+read with the thread's keys on ask, transcript and capture recovery. One new Low:
+
+* **F16 (Low), fixed after the verify.** `reader.workbench.session_view`'s new `earlier_hints` parameter shadowed
+  the module's `earlier_hints` helper, so a call without the override raised `TypeError` (both sidecar callers pass
+  it, so no production path hit it). The parameter is `earlier` now;
+  `test_f16_the_session_view_reads_the_problems_own_opening_by_default` failed before (the `TypeError`) and passes;
+  the CA2 and workbench files rerun green (153 passed), import contracts 36 kept.

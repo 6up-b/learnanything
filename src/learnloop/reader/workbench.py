@@ -1303,7 +1303,7 @@ def session_view(
     *,
     question_hints: int = 0,
     server_hints: int = 0,
-    earlier_hints: int | None = None,
+    earlier: int | None = None,
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Everything the workbench shows for one session (snake_case; the
@@ -1313,7 +1313,7 @@ def session_view(
     attempt there), named in the record line with the client's; ``carried_hints`` stays the client's
     own count, which the answer box restores on the way back (the answer
     box folds the service's rows itself, so neither is counted twice).
-    ``earlier_hints``: the earlier attempt's opened help the submit will add
+    ``earlier``: the earlier attempt's opened help the submit will add
     (the caller's server-side read; default: this problem's own), named in
     the record line as itself; ``earlier_opened`` tells the answer box the
     opening is counted, apart from its authored reveals (fix F15)."""
@@ -1360,7 +1360,7 @@ def session_view(
             question_hints=question_hints, composed=composed,
             carried=carried_hints(session) + max(0, int(server_hints or 0)),
             help_fold=fold,
-            earlier=earlier_hints(session) if earlier_hints is None else int(earlier_hints),
+            earlier=earlier_hints(session) if earlier is None else int(earlier),
         ),
         "parts": None,
         **dict(extra or {}),

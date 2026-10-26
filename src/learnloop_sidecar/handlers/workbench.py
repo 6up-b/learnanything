@@ -110,7 +110,7 @@ def record_line(vault, repository, session_id: str) -> dict[str, Any]:
     row = _run(WB.session_row, repository, session_id)
     view = _run(WB.session_view, repository, session_id, question_hints=_question_hints(vault, repository, row),
                 server_hints=_carried_server_hints(repository, row),
-                earlier_hints=_earlier_hints(vault, repository, row))
+                earlier=_earlier_hints(vault, repository, row))
     return {"updated_at": view.get("updated_at"), "record": to_camel(view.get("record"))}
 
 
@@ -272,7 +272,7 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
         server_hints=_carried_server_hints(repository, row),
-        earlier_hints=_earlier_hints(vault, repository, row),
+        earlier=_earlier_hints(vault, repository, row),
         extra=extra,
     )
     return to_camel(view)
