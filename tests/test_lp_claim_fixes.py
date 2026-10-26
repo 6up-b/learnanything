@@ -123,11 +123,13 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.claim_fixes_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    assert LATEST_ALGORITHM_VERSION == TAG == SUCCESSOR_CHAIN[-1]
+    # Rebuild equivalence's mvp-0.34 landed after it as the latest and keeps it.
+    assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
     # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
     assert TAG == "mvp-0.33"
-    assert CLAIM_FIXES_VERSIONS == frozenset({TAG})
+    assert CLAIM_FIXES_VERSIONS == frozenset({TAG, LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
@@ -496,6 +498,7 @@ def test_upgrade_from_the_predecessor_replays_claimed_los_and_through_the_chain(
     assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
+    # Its own step (the default target is the latest's, rebuild equivalence's, since its landing).
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", TAG])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {TAG}" in invoked.output

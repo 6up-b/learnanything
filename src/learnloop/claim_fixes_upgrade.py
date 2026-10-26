@@ -281,7 +281,7 @@ def _activate_as_writer(
                 # so the database never holds the successor's mastery under
                 # the predecessor's label, and a label without its database is
                 # always journalled.
-                _write_journal(journal_path, predecessor, target)
+                write_activation_journal(journal_path, predecessor, target)
 
                 def renamed() -> None:
                     nonlocal published
@@ -329,8 +329,11 @@ def _read_journal(path: Path) -> tuple[str, str] | None:
     return (str(payload.get("predecessor")), str(payload.get("target")))
 
 
-def _write_journal(path: Path, predecessor: str, target: str) -> None:
-    """Write the journal durably (temporary file, fsync, rename, directory fsync)."""
+def write_activation_journal(path: Path, predecessor: str, target: str) -> None:
+    """Write the journal durably (temporary file, fsync, rename, directory fsync).
+
+    Public: the next link's upgrade (rebuild equivalence) journals its own
+    activation at the same path the same way."""
 
     tmp = path.with_name(path.name + ".tmp")
     try:
@@ -379,4 +382,4 @@ def _fsync_directory(directory: Path) -> None:
         os.close(handle)
 
 
-__all__ = ["PREDECESSOR", "complete_interrupted_activation", "upgrade_to_claim_fixes"]
+__all__ = ["PREDECESSOR", "complete_interrupted_activation", "upgrade_to_claim_fixes", "write_activation_journal"]

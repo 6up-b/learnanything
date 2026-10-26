@@ -120,18 +120,20 @@ def _root(vault: Path | None) -> Path:
     bind_command_vault(root)
     return root
 
-def _complete_claim_fixes_activation(vault_root: Path) -> None:
+def _complete_interrupted_activation(vault_root: Path) -> None:
     """Complete an activation a dead upgrade left journalled (LP-min (a), re-review F2).
 
     Installed for every CLI command (``learnloop.activation_journal``), so
     each command's opener completes it before the command reads the vault."""
 
-    from learnloop.claim_fixes_upgrade import complete_interrupted_activation
+    # The chain's latest upgrade completes its own journal and hands an
+    # earlier link's to that link (rebuild equivalence's landing).
+    from learnloop.replay_ledger_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 
 
-activation_journal.install_completer(_complete_claim_fixes_activation)
+activation_journal.install_completer(_complete_interrupted_activation)
 
 
 def _repository(vault_root: Path) -> Repository:

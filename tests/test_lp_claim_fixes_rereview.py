@@ -55,9 +55,9 @@ def _cli_process(monkeypatch):
     """This process as the CLI is: importing it installs the completion."""
 
     from learnloop import activation_journal
-    from learnloop.cli.runtime import _complete_claim_fixes_activation
+    from learnloop.cli.runtime import _complete_interrupted_activation
 
-    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_claim_fixes_activation)
+    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
 
 
 def _expected_after_activation(tmp_path):
