@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
+source_commit_timestamp: "2026-10-26T10:27:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -86,6 +86,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.derived_state_rebuild_version_changes()`
+- `Repository.has_whole_vault_rebuild()`
 - `Repository.latest_canonical_projection_rebuild()`
 - `Repository.latest_derived_state_rebuild()`
 - `Repository.record_derived_state_rebuild()`
@@ -108,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/regrade_contract_upgrade.py`
+- `src/learnloop/replay_ledger_upgrade.py`
 - `src/learnloop/substrate/canonical_projection_rollout.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/p0_projection.py`

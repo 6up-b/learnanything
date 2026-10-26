@@ -3,8 +3,8 @@ title: "Config - plan"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
+source_commit_timestamp: "2026-10-26T10:27:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml plan"
@@ -71,7 +71,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `plan.new_item_reviews_14d` | `4` | integer | modeled default or validator seed | Reviews assumed for a new item in its first two weeks when costing its admission (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3338`; `src/learnloop/ai/plan_fallback.py:124` |
 | `plan.max_new_items_per_day` | `10` | integer | modeled default or validator seed | Most new items planned a day across the day's plans; learner requests are exempt (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3339`; `src/learnloop/ai/plan_fallback.py:124` |
 | `plan.min_new_items_per_day` | `1` | integer | modeled default or validator seed | Fewest new items a day when new material exists and the plan is not re-entry (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3340`; `src/learnloop/ai/plan_fallback.py:124` |
-| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3342`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/cli/app.py:2898` |
+| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3342`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/cli/app.py:2909` |
 | `plan.read_words_per_minute` | `120` | integer | modeled default or validator seed | Reading pace that turns a section's words left into a reading block's estimate. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3344`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/cli/sources.py:341` |
 | `plan.pre_questions` | `3` | integer | modeled default or validator seed | Pre-questions a reading block may open with (DL4; DL1 serves none). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3346`; `src/learnloop/ai/plan_fallback.py:124` |
 | `plan.reentry_minutes` | `15` | integer | modeled default or validator seed | Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3348`; `src/learnloop/ai/plan_fallback.py:124` |

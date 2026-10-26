@@ -3,8 +3,8 @@ title: "practice_item_quality_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
+source_commit_timestamp: "2026-10-26T10:27:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_quality_state"
@@ -109,6 +109,8 @@ Indexes and uniqueness:
 
 - `tests/test_doctor.py`
 - `tests/test_held_grade_evidence.py`
+- `tests/test_mvp017_route_check_replay.py`
+- `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`
