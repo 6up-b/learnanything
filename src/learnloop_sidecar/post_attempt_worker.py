@@ -108,13 +108,19 @@ class PostAttemptWorker:
             return any(thread.is_alive() for thread in self._threads.values())
 
     def shutdown(self, timeout: float = 2.0) -> None:
+        """Stop the slots: each wakes and returns, and a job in flight stops
+        before its next paid request. Joins them for at most ``timeout``
+        seconds in all (a slot inside a model call is a daemon thread whose
+        lease lapses; the next start reclaims its job)."""
+
         self._stop.set()
         for event in self._wake.values():
             event.set()
         with self._lock:
             threads = list(self._threads.values())
+        deadline = time.monotonic() + timeout
         for thread in threads:
-            thread.join(timeout=timeout)
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
 
     # -- work --------------------------------------------------------------------
 
