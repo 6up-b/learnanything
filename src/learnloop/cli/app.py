@@ -6,6 +6,7 @@ from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
+    REPLAY_LEDGER_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -94,8 +95,8 @@ def upgrade(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
                 "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
-                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION} or "
-                f"{CLAIM_FIXES_ALGORITHM_VERSION}); default: the latest."
+                f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, "
+                f"{CLAIM_FIXES_ALGORITHM_VERSION} or {REPLAY_LEDGER_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -204,13 +205,19 @@ def upgrade(
     next core or prerequisite section of the path you chose in the Guide,
     never an enrichment section or one you skipped, over an mvp-0.31 vault
     (or an mvp-0.9 to mvp-0.30 vault through the chain; kill switch:
-    ``reading_paths.plan_uses_path = false``). ``--to mvp-0.33`` (default,
-    the latest successor; the claim fixes) lets a gap you declare to the
-    tutor move that topic's level, applies what you said about your level at
-    the time you said it, never lets a claim make a level you have practised
-    look more certain, and believes your most recent claim, over an mvp-0.32
-    vault (or an mvp-0.9 to mvp-0.31 vault through the chain; kill switch:
-    ``mastery.claim_fixes_enabled = false``)."""
+    ``reading_paths.plan_uses_path = false``). ``--to mvp-0.33`` (the claim
+    fixes) lets a gap you declare to the tutor move that topic's level,
+    applies what you said about your level at the time you said it, never
+    lets a claim make a level you have practised look more certain, and
+    believes your most recent claim, over an mvp-0.32 vault (or an mvp-0.9 to
+    mvp-0.31 vault through the chain; kill switch:
+    ``mastery.claim_fixes_enabled = false``). ``--to mvp-0.34`` (default, the
+    latest successor; rebuild equivalence) makes a rebuild reproduce your
+    live estimates: replay reads your history as each answer saw it, never
+    the answers after it, so the activation's rebuild moves rebuilt mastery
+    and due times toward the live values, over an mvp-0.33 vault (or an
+    mvp-0.9 to mvp-0.32 vault through the chain; kill switch:
+    ``replay.ledger_bounded = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -314,13 +321,17 @@ def upgrade(
         from learnloop.claim_fixes_upgrade import upgrade_to_claim_fixes
 
         result = upgrade_to_claim_fixes(_root(vault))
+    elif to == REPLAY_LEDGER_ALGORITHM_VERSION:
+        from learnloop.replay_ledger_upgrade import upgrade_to_replay_ledger
+
+        result = upgrade_to_replay_ledger(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
             f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, "
-            f"{READING_PATH_PLAN_ALGORITHM_VERSION} or {CLAIM_FIXES_ALGORITHM_VERSION}."
+            f"{READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION} or {REPLAY_LEDGER_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

@@ -218,12 +218,13 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it, and the Reader workbench RW2d's field
-    # signals (mvp-0.31), RW7b's reading path (mvp-0.32) and LP-min (a)'s claim fixes (mvp-0.33, the latest) follow that; all keep it.
-    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-5]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.33"
-    assert SUCCESSOR_CHAIN[-4] == "mvp-0.30"
-    assert SUCCESSOR_CHAIN[-6] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33"})
+    # signals (mvp-0.31), RW7b's reading path (mvp-0.32), LP-min (a)'s claim fixes (mvp-0.33) and rebuild
+    # equivalence (mvp-0.34, the latest) follow that; all keep it.
+    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[19]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
+    assert SUCCESSOR_CHAIN[20] == "mvp-0.30"
+    assert SUCCESSOR_CHAIN[18] == PREDECESSOR
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -285,6 +286,7 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
-    # The latest successor (LP-min (a)'s mvp-0.33, after RW7b's, RW2d's and adaptive difficulty's) keeps intent live.
-    assert config.algorithms.algorithm_version == "mvp-0.33"
+    # The latest successor (rebuild equivalence's mvp-0.34, after LP-min (a)'s, RW7b's, RW2d's and adaptive
+    # difficulty's) keeps intent live.
+    assert config.algorithms.algorithm_version == "mvp-0.34"
     assert intent_enabled(config)

@@ -471,6 +471,25 @@ READING_PATH_PLAN_ALGORITHM_VERSION = "mvp-0.32"
 # or below the tag: every claim seed, re-anchor, merge, ranking and replay
 # exactly as the predecessor).
 CLAIM_FIXES_ALGORITHM_VERSION = "mvp-0.33"
+# mvp-0.34 (rebuild equivalence: replay reads the ledger as the live write saw
+# it; docs/reviews/rebuild-equivalence-fix.md and its Codex review F4), on top
+# of mvp-0.33 (the LP claim fixes; the chain stays linear: mvp-0.34 means
+# everything mvp-0.33 means PLUS this). Built on main at mvp-0.31 while RW7b
+# (mvp-0.32) and the LP claim fixes (mvp-0.33) landed; the landing chained it
+# after them (the tag lives in this ONE constant: the upgrade, the CLI and the
+# gates all read it). Replay recomputes each
+# attempt with the whole ledger already on disk; below the tag it read the
+# attempts recorded AFTER the one it recomputed (the recent-attempt windows:
+# familiarity, event severity, item quality) and the whole-history canonical
+# facet cache (prediction, the variance floor, facet updates). From the tag on
+# it reads the ledger bounded at the replayed attempt's position, so a rebuild
+# reproduces the live state. A live write is unchanged at every version; what
+# moves at activation is the replayed (rebuilt) mastery, surprise and item
+# quality of multi-attempt histories, and the schedules computed from them,
+# toward the live values. That changes the same-version golden projection, so
+# it is a successor (playbook item 6), not an in-place amendment. Kill switch:
+# ``replay.ledger_bounded`` (off: replay reads exactly as the predecessor).
+REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -504,6 +523,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
     CLAIM_FIXES_ALGORITHM_VERSION,
+    REPLAY_LEDGER_ALGORITHM_VERSION,
 )
 
 
@@ -649,6 +669,11 @@ READING_PATH_PLAN_VERSIONS: frozenset[str] = successors_from(READING_PATH_PLAN_A
 # (a)). Every later successor keeps them; gates must use this set, never
 # equality.
 CLAIM_FIXES_VERSIONS: frozenset[str] = successors_from(CLAIM_FIXES_ALGORITHM_VERSION)
+# Versions whose replay reads the ledger bounded at the replayed attempt's
+# position, as the live write saw it (behind ``replay.ledger_bounded``;
+# rebuild equivalence). Every later successor keeps it; gates must use this
+# set, never equality.
+REPLAY_LEDGER_VERSIONS: frozenset[str] = successors_from(REPLAY_LEDGER_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

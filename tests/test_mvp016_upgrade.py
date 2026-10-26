@@ -83,10 +83,10 @@ def test_learner_text_gap_successor_keeps_every_predecessor():
     # and Tier 1's Decider judgments (mvp-0.22, the latest successor,
     # tests/test_mvp022_upgrade.py) followed it and keep the sooner check.
     # Router R2a's staged frame (mvp-0.23) is now the latest.
-    assert SUCCESSOR_CHAIN[-17] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.33"
+    assert SUCCESSOR_CHAIN[7] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.34"
     assert LEARNER_TEXT_GAP_VERSIONS == frozenset(
-        {"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33"}
+        {"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"}
     )
     # The chain is linear: mvp-0.16 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties

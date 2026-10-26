@@ -3678,6 +3678,21 @@ class EligibilityConfig(BaseModel):
     enabled: bool = True
 
 
+class ReplayConfig(BaseModel):
+    """How replay reads the attempt ledger (rebuild equivalence, ``mvp-0.34``;
+    ``REPLAY_LEDGER_ALGORITHM_VERSION``, ``docs/reviews/rebuild-equivalence-fix.md``).
+
+    ``ledger_bounded`` is the successor's kill switch. On (at the tag or
+    later), replay recomputes each attempt from the ledger as its live write
+    saw it: the recent-attempt windows and the canonical facet cache stop at
+    the replayed attempt's position, so a rebuild reproduces the live state.
+    Off (or below the tag), replay reads the whole ledger exactly as the
+    predecessor did. A live write never reads it: only rebuilt state moves.
+    """
+
+    ledger_bounded: bool = True
+
+
 #: Adaptive difficulty AD1's outside forecasters (spec_adaptive_difficulty_v1 §8.2, D4).
 AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider")
 
@@ -3887,6 +3902,7 @@ class LearnLoopConfig(BaseModel):
     required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
     eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
+    replay: ReplayConfig = Field(default_factory=ReplayConfig)
     teacher: TeacherConfig = Field(default_factory=TeacherConfig)
 
     @model_validator(mode="before")

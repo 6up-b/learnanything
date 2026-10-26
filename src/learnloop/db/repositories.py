@@ -1082,6 +1082,41 @@ class Repository(
             )
             connection.commit()
 
+    def inactive_practice_item_ids(self, practice_item_ids: Iterable[str]) -> frozenset[str]:
+        """The given items whose scheduling row exists and is inactive."""
+
+        ids = sorted({str(value) for value in practice_item_ids})
+        if not ids:
+            return frozenset()
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT practice_item_id FROM practice_item_state "
+                f"WHERE active = 0 AND practice_item_id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        return frozenset(str(row["practice_item_id"]) for row in rows)
+
+    def keep_practice_items_inactive(self, practice_item_ids: Iterable[str]) -> int:
+        """Close the given items' rows again after replay rewrote them active.
+
+        Only the flag moves: the replayed scheduling columns and the row's
+        stamp stay as replay wrote them. Returns the rows changed.
+        """
+
+        ids = sorted({str(value) for value in practice_item_ids})
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"UPDATE practice_item_state SET active = 0 "
+                f"WHERE active = 1 AND practice_item_id IN ({placeholders})",
+                ids,
+            )
+            connection.commit()
+        return int(cursor.rowcount)
+
     def set_practice_item_active(
         self, practice_item_id: str, *, active: bool, clock: Clock | None = None
     ) -> None:
@@ -1385,12 +1420,37 @@ class Repository(
         return [dict(row) for row in rows]
 
     def list_recent_attempts_by_practice_item(
-        self, practice_item_id: str, limit: int = 10, *, until: str | None = None
+        self,
+        practice_item_id: str,
+        limit: int = 10,
+        *,
+        until: str | None = None,
+        before: tuple[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         """The item's latest attempts, newest first. ``until`` (inclusive)
         bounds them at a historical writer's instant (``serve_eligibility``,
-        Q33); without it the query is unchanged."""
+        Q33); without it the query is unchanged.
 
+        ``before`` is a ledger position ``(created_at, id)``: only attempts
+        strictly earlier in the ledger's ``(created_at, id)`` order are read.
+        Replay passes the attempt it is recomputing, so it sees the ledger the
+        live write saw (that attempt's row did not exist yet, and no later
+        one did), never the attempts recorded after it."""
+
+        if before is not None:
+            created_at, attempt_id = before
+            with self.connection() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM practice_attempts
+                    WHERE practice_item_id = ?
+                      AND (created_at < ? OR (created_at = ? AND id < ?))
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (practice_item_id, created_at, created_at, attempt_id, limit),
+                ).fetchall()
+            return [_decode_attempt(row) for row in rows]
         with self.connection() as connection:
             if until is None:
                 rows = connection.execute(
@@ -1415,10 +1475,14 @@ class Repository(
         return [_decode_attempt(row) for row in rows]
 
     def list_recent_attempts_by_learning_object(
-        self, learning_object_id: str, limit: int = 10
+        self,
+        learning_object_id: str,
+        limit: int = 10,
+        *,
+        before: tuple[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         return self.list_recent_attempts_by_learning_objects(
-            (learning_object_id,), limit=limit
+            (learning_object_id,), limit=limit, before=before
         ).get(learning_object_id, [])
 
     def list_recent_attempts_by_learning_objects(
@@ -1426,6 +1490,7 @@ class Repository(
         learning_object_ids: Iterable[str],
         *,
         limit: int = 10,
+        before: tuple[str, str] | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         """Load the latest ``limit`` attempts for each requested LO at once.
 
@@ -1433,6 +1498,11 @@ class Repository(
         partitioned rank keeps that pass to one database query instead of one
         query per learning object, while the ``id`` tie-break makes replay
         order deterministic for attempts sharing a timestamp.
+
+        ``before`` (a ledger position ``(created_at, id)``) keeps only the
+        attempts strictly earlier in that order: what the ledger held when the
+        attempt at that position was recorded (see
+        :meth:`list_recent_attempts_by_practice_item`).
         """
 
         ids = sorted(
@@ -1448,6 +1518,11 @@ class Repository(
         if not ids or limit <= 0:
             return grouped
         placeholders = ",".join("?" for _ in ids)
+        bound = ""
+        bound_args: tuple[str, ...] = ()
+        if before is not None:
+            bound = "\n                      AND (created_at < ? OR (created_at = ? AND id < ?))"
+            bound_args = (before[0], before[0], before[1])
         with self.connection() as connection:
             rows = connection.execute(
                 f"""
@@ -1458,13 +1533,13 @@ class Repository(
                                ORDER BY created_at DESC, id DESC
                            ) AS recency_rank
                     FROM practice_attempts AS attempts
-                    WHERE learning_object_id IN ({placeholders})
+                    WHERE learning_object_id IN ({placeholders}){bound}
                 )
                 SELECT * FROM ranked
                 WHERE recency_rank <= ?
                 ORDER BY learning_object_id, recency_rank
                 """,
-                (*ids, int(limit)),
+                (*ids, *bound_args, int(limit)),
             ).fetchall()
         for row in rows:
             attempt = _decode_attempt(row)
@@ -7065,6 +7140,20 @@ class Repository(
                 """
             ).fetchone()
         return _decode_derived_state_rebuild(row) if row is not None else None
+
+    def has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool:
+        """Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
+
+        An activation that rebuilds the whole vault commits this receipt in
+        its own transaction, so it marks the activation complete whatever
+        startup, per-LO or recovery receipts are written after it."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM derived_state_rebuilds WHERE scope = 'all' AND algorithm_version = ? LIMIT 1",
+                (algorithm_version,),
+            ).fetchone()
+        return row is not None
 
     def latest_canonical_projection_rebuild(self) -> dict[str, Any] | None:
         """Latest rebuild that explicitly names its projection semantics.
@@ -17300,6 +17389,18 @@ class Repository(
                 """
             ).fetchall()
         return {str(row["observation_id"]) for row in rows}
+
+    def open_unresolved_cause_factor_attempts(self) -> dict[str, str]:
+        """Each open observation-keyed factor's attempt id, by observation id."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT observation_id, attempt_id FROM unresolved_cause_factors
+                WHERE status = 'open' AND observation_id IS NOT NULL
+                """
+            ).fetchall()
+        return {str(row["observation_id"]): str(row["attempt_id"]) for row in rows}
 
     def unresolved_cause_observation_ids(self) -> set[str]:
         """Observation ids the projection sync must NOT (re-)insert a factor for.

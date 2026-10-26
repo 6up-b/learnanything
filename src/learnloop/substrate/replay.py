@@ -266,8 +266,37 @@ def replay_learning_object(
     ``grader_identity_overrides`` maps an attempt a regrade just re-graded to
     the calibration identity of its new grade; every other attempt replays
     under the identity its ledgers record.
+
+    The whole replay is ONE transaction (``Repository.atomic``; a savepoint
+    inside a caller's own, such as the umbrella rebuild's or a regrade's), from
+    its first read to its closing projection (rebuild-equivalence Codex review
+    F1). Each replayed attempt leaves the vault-wide canonical cache folded
+    only through its own ledger position, and the reset LO is empty until its
+    attempts are back, so nothing of that is ever visible to another
+    connection; an interruption rolls back to the state before the replay,
+    lifecycle flags included, so a retry starts from it.
     """
 
+    with repository.atomic():
+        return _replay_learning_object(
+            vault,
+            repository,
+            learning_object_id,
+            error_attribution_overrides=error_attribution_overrides,
+            grader_identity_overrides=grader_identity_overrides,
+            project_canonical_state=project_canonical_state,
+        )
+
+
+def _replay_learning_object(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    error_attribution_overrides: dict[str, list[GradeAttribution]] | None,
+    grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
+    project_canonical_state: bool,
+) -> ReplayResult:
     attempts = repository.list_attempts_by_learning_object(learning_object_id)
     existing_error_events = {
         attempt["id"]: repository.raw_error_events_for_attempt(attempt["id"])
@@ -277,6 +306,16 @@ def replay_learning_object(
         attempt["id"]: repository.attempt_debug_payload(attempt["id"])
         for attempt in attempts
     }
+    # Rebuild equivalence (2026-10-25): ``practice_item_state.active`` is the
+    # item's serving lifecycle, which the reset below deletes with the row.
+    # The attempt path re-derives only its own part of it (a diagnostic probe
+    # closes after its administration); a deactivation by the lifecycle's
+    # owners (state sync from the YAML status, retirement, review parking,
+    # superseded measurement, probe lifecycle) is not in the attempt ledger,
+    # so replay keeps it rather than reopening a retired item.
+    inactive_item_ids = repository.inactive_practice_item_ids(
+        {str(attempt["practice_item_id"]) for attempt in attempts}
+    )
     repository.reset_learning_object_derived_state(learning_object_id)
     # LP-min (a), the claim-fixes successor: claims enter the attempt stream at
     # their own time. Off, or below the tag: None, and the first attempt seeds
@@ -314,6 +353,7 @@ def replay_learning_object(
         # A re-anchoring claim made after the last attempt merges too, as it
         # did live at its own time.
         claim_stream.finish()
+    repository.keep_practice_items_inactive(inactive_item_ids)
     # spec §7: registry links survive replay (persisted misconception_id on the
     # error events is re-threaded through GradeAttribution). Replay never
     # re-normalizes, but it re-derives resolution status deterministically from
@@ -323,6 +363,11 @@ def replay_learning_object(
     update_misconception_posteriors_and_resolve(
         vault, repository, learning_object_id=learning_object_id
     )
+    # Each replayed attempt left the canonical cache folded through its own
+    # ledger position (the cache its live write left), so a replay always
+    # ends with a whole-ledger projection: here, or (the R2 umbrella) once
+    # after every LO has replayed, inside the same transaction (no other
+    # connection sees a bounded fold).
     # KM2 §7.1: canonical shared belief is vault-level, so it is recomputed as a
     # whole-ledger projection (no-op under mvp-0.6). Idempotent and deterministic,
     # so replaying any subset of LOs reproduces byte-identical canonical state.

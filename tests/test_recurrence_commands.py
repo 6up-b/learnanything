@@ -121,6 +121,7 @@ def test_successor_vocabulary():
         READING_PATH_PLAN_ALGORITHM_VERSION,
         VOI_STOPPING_ALGORITHM_VERSION,
         WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
+        REPLAY_LEDGER_ALGORITHM_VERSION,
     )
 
     assert RECURRENCE_GROUP_ALGORITHM_VERSION == "mvp-0.12"
@@ -142,7 +143,7 @@ def test_successor_vocabulary():
         ROUTER_MIXTURE_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION,
         ELIGIBILITY_DECISION_ALGORITHM_VERSION, INTENT_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
         WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION, READING_PATH_PLAN_ALGORITHM_VERSION,
-        CLAIM_FIXES_ALGORITHM_VERSION,
+        CLAIM_FIXES_ALGORITHM_VERSION, REPLAY_LEDGER_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -159,8 +160,9 @@ def test_successor_vocabulary():
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION == "mvp-0.31"
     assert READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
-    # LP-min (a)'s claim fixes (mvp-0.33) follow it as the latest.
-    assert LATEST_ALGORITHM_VERSION == CLAIM_FIXES_ALGORITHM_VERSION == "mvp-0.33"
+    assert CLAIM_FIXES_ALGORITHM_VERSION == "mvp-0.33"
+    # Rebuild equivalence (mvp-0.34) follows them all as the latest.
+    assert LATEST_ALGORITHM_VERSION == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
