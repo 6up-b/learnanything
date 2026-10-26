@@ -218,9 +218,11 @@ is unchanged.** `main` and `reader/ca1-problem-as-printed` are both ancestors of
   every row identical after the primary load, which syncs). The transcription notice's collector resolves on a
   prompt-hash change, which is the same signal a synced reword gives.
 - **C0a (source sets fail closed).** C0a's fail-closed rule guards what is *sent to a model*. CA1 makes no model
-  call. Its crop shows only the item's own blocks. Its original page opens through `get_span_view`, which already
-  applies the Reader's exam protection. The multi-block `reader.block_original_region` form has the same reach as the
-  single-block form it sits beside. So nothing in C0a needed composing.
+  call. Its crop shows only the item's own blocks. Its original page opens through `get_span_view`, the
+  open-in-source path items already had (that handler applies no exam rule of its own). The multi-block
+  `reader.block_original_region` form has the same reach as the single-block form it sits beside. So nothing in
+  C0a needed composing. Whether the original page of an exam-role item should be offered is a question for the
+  owner (open items).
 - **LP claim fixes and RW7b.** CA1 reads no claim, mastery or plan. The plan, Today and certification are
   byte-identical between main and the merge (parity (a)).
 - No break was found, so no fail-first test was needed.
@@ -308,6 +310,10 @@ start and no socket connection happened. **Spend: $0.** Nothing under `~/learnlo
   the copies the header reads "From your book · p.10" / "as printed (your book p.38)". The Reader and the source
   cards use `content.pipeline.add_source.learner_title` (the display title, else the file name in words). Switching
   to `learner_title` would name the book. It is not changed here: it is CA1's own behaviour, not a landing interaction.
+- **Question (not a landing break):** `practice.as_printed` and `get_span_view` read no exam-material rule. For an
+  item imported from an exam-role source, the original page would show that page's other problems. This is the
+  open-in-source behaviour from before CA1, and CA1 now offers it before Submit too. If held-out pages must stay
+  closed, `item_as_printed` could refuse the page when `exam_material.spans_withheld` names the item's spans.
 - The exercise label is empty on those imports (`exerciseLabel: null`), so the header has no "Exercise N".
 - `test_reader_rw1c_review.py` leaks about 9 threads per case, and they keep polling. When one worker gets both that
   file and `test_reading_request_sweep.py`, the sweep tests slow to about 40 minutes each. This is the second landing
