@@ -5,6 +5,9 @@ import sys
 from pathlib import Path
 import pytest
 
+# Fails a test that leaves a thread running (tests/thread_guard.py).
+pytest_plugins = ["tests.thread_guard"]
+
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
 # --basetemp is not supplied, while still allowing CI to override it.
