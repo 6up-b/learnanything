@@ -94,3 +94,30 @@ Test files run in this step (for the landing gate): `test_query_student.py`, `te
 * Alternatives count only when measured on the same comparison: take the fingerprint from `student evaluate --dry-run` and put it in each `--arm` file. Without measured alternatives the answer is `unmeasured`; you may still adopt.
 * After correcting bank labels, re-run `student targets` with the corrected bank, then `student evaluate`: the serving checkpoint is re-evaluated without retraining.
 * The student base is the 0.6B `pplx-embed-v1-0.6b` (primary, with `Qwen3-Embedding-0.6B` second), as you asked; a locally downloaded copy can be adopted in place with `student setup --adopt-base NAME=DIR` (verified against its pins, never moved).
+
+## Final verify (codex-job `20261026-145931-QN0ZzS`): F19
+
+**Fix base** `c4d6cdf5e`. Reproduced first: the new test on the pre-fix code (a pinned checkpoint trained on family A, re-evaluated against a campaign whose candidates hold no A row) reported all 4 family-A bank questions under `unseen_family`; the trainer-job test failed on the missing `training_families` argument.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F19 | Medium | Reevaluation misreports trained families as unseen | **fixed**: each run's training families (`candidates_families(camp)`: its permitted candidates' train and dev families, no held-out family) go into the trainer job as `training_families`; the trainer writes them into `student.json`, and `checkpoint_digest` covers them when present (a manifest made before F19 keeps its digest, so existing pins still verify). `evaluate` builds its strata from `checkpoint_training_families(run, camp)`: the manifest's list when the manifest still matches the pin (`checkpoint_manifest`), else the current campaign's families when the run was trained on this very dataset (its fingerprint names every row's split and family: `current_dataset`), else no provenance (`unknown`). With no provenance the questions with a family form `unknown_family` and no `unseen_family` stratum is reported. The evaluation result and its ledger record carry `training_families: {basis, families}` | 9b4cd98cf | `test_reevaluation_strata_come_from_the_checkpoint_training_families` (trained on A: no `unseen_family`; trained on another family: A's questions unseen; legacy manifest on another dataset: `unknown_family`; a manifest edited after pinning: `unknown`; legacy checkpoint on the current dataset: `current_dataset`); `test_the_trainer_job_and_manifest_pin_the_training_families` (job sorts them; legacy digest unchanged; the digest changes with the families); torch tests: the trained manifest holds them and `run_next`'s checkpoint evaluates with basis `checkpoint_manifest` |
+
+No new parameter (no constant introduced), no migration, no successor, no CLI change (the help snapshot is unchanged). The reference regeneration moved one consumer anchor (`embedding.local.student` → `query_student.py:1454`) and the commit stamps.
+
+### Gate (F19)
+
+Every pytest inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, one run at a time, `-n 6`.
+
+| Step | Result |
+|---|---|
+| Pre-fix reproduction (the 2 new tests against `c4d6cdf5e`'s code) | **2 failed** (`unseen_family` held all 4 family-A questions; `trainer_job` had no `training_families`) |
+| `tests/test_query_student.py` with torch (`uv sync ... --extra pdf`) | **46 passed** |
+| Gate env (re-synced `--extra dev --extra mobile` + `pypdfium2`): `test_query_student.py`, `test_query_student_gpu.py`, `test_registry_audit.py`, `test_architecture.py`, `test_cli_help_snapshot.py`, `test_local_index.py`, `test_source_space_resolver.py` | **112 passed, 9 skipped** (8 trainer tests skip without torch; the GPU smoke is opt-in) |
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| `db_validate_reference.py` (under `env -i`, empty HOME / CODEX_HOME / LEARNLOOP_CONFIG_DIR) | first 1 error (the moved `query_student.py` anchor); after `db_generate_reference.py`: **0 errors** |
+| `-m durability`, frontend / Tauri | not run: no migration, no DB code, nothing under `apps/` |
+
+### For the owner (F19)
+
+* An evaluation now says where its seen/unseen split came from (`training_families.basis`). Checkpoints trained before this fix on another dataset report `unknown_family` instead of `unseen_family`; retraining (or evaluating on the dataset they were trained on) restores the unseen stratum.
