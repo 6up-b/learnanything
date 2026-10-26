@@ -10,6 +10,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, tables_for_role
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
+from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
@@ -44,10 +45,11 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [222, 224]
+    assert [migration.version for migration in applied] == [222, 223, 224]
     after = _schema(database)
-    # Reader RW5d P1's 224 follows on the way to head (its table, and interactive_figures rebuilt).
-    assert {name for name in before if before[name] != after.get(name)} == RW5D_ALTERED_TABLES
+    # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
+    # interactive_figures rebuilt) follow on the way to head.
+    assert {name for name in before if before[name] != after.get(name)} == CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES
     assert set(after) - set(before) - RW5D_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 
@@ -116,7 +118,7 @@ def test_222_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [222, 224]
+        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

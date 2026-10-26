@@ -1622,7 +1622,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # "show me" in the learner's words, content and display only, at every version (no successor);
     # every snapshot moves only because the effective config gains the key; all of them were
     # recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "da79f474e353d92a1ed26c890402187b1c7ecdf0bc092c531a247c6b65a024e7",
+    "mvp-0.9": "bccb7ac9abea538e9cdf938dbca50bb7eb82783c28e4b87cc71ab09cf4c80979",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1693,7 +1693,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.10": "5e1fa757d720ab19a9b1a928a8ccf6f1234acb2d6eea87a36208ac889729a349",
+    "mvp-0.10": "0938b1698b590dbf69b8a91d5678f5393de783d0dc0c6cb22f5c34ac9209348b",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1772,7 +1772,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.11": "ef4641e4a069624f0487a1be00a333bdee9a254d766b540a5ebaf5be764e4211",
+    "mvp-0.11": "0d65813f6850f1ea2648642d45b5951d80ad1f27ca04aa3e0b1fa2f799f655d3",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1845,7 +1845,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.12": "f8c5cf27a5e00d72ab86d178bc1e0ca9a0f2409c8b2119079397ecba7c65d7e9",
+    "mvp-0.12": "8582f3be1ade391e708464afc8c77e6ff850468f29a8d7d3ff64a95b4ae95311",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1913,7 +1913,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.13": "cb15b3b52bb997d61cef360effd357e45242a56e14f44ebaa4cb435b247d0f5b",
+    "mvp-0.13": "02ec70aac6cf36d6fa5895a47dfd0b77ffeed23053a951fe5d3eedd466653e34",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1980,7 +1980,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.14": "f52f7c5ce8637aa81ea90f0e64e6ad729a83e4af3f11ba2b081ca809f6d4d028",
+    "mvp-0.14": "17e917f0c52ff9b71c496ae8b6f9a54319a2d1d56ed6abee9cdcce7c91e36550",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2045,7 +2045,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.15": "225a023aad5a3c9c5e16bd358daf9f0d8709e742c0cf1f5c1c611b620cae1591",
+    "mvp-0.15": "4b3478b1f78f1d7cbbb3c817638a42d0abc2f7993396f40b4c694145aeee91bf",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2117,7 +2117,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.16": "966b939da7595b8baf914909c80ed5326aa3eb639d1f927363f4059a46524139",
+    "mvp-0.16": "99a97293aabf07db744eeaffc31e284bf6fe94758d3b9f1fd018ba36cfda3d3e",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2185,7 +2185,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.17": "373881df78878feea7c11e20f6a8ffa54d016fa56f35e148c4ef0d80783ad8fd",
+    "mvp-0.17": "f1a0638ae1142e3c0cdd20ca76fd5e43d0256d817bb57626168845d4a734c395",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2246,7 +2246,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.18": "a2d77df142d96f9b451b7c8e7fb7c9c40b5996071bf843b2fa4f6d36e83ffccc",
+    "mvp-0.18": "eaceffe4c32bd541ee2a4ebbcfc1c6530f815da478c403a553c85475a57a8566",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2307,7 +2307,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.19": "8335f0530b1cd303904888056fca07c70ff19c7bcab8e964dd34e29ce187b143",
+    "mvp-0.19": "d6cc61ab24d184ee2e60e790194327bbfd1f31588e41f2c036f62ad1703c2d37",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2364,7 +2364,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.20": "65d9c2de440d92b4c8eaeddd399eb4fa53ccdb93d102f1a17fba77d0f5ae8e80",
+    "mvp-0.20": "905b9877d49f3c0fd6ece0a0e52a466ec1ea60bd010d115abc41d49c07f222a0",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2430,7 +2430,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.21": "d421ca359afe71de384350b145cfb07f161230d809aa2365b405ea4cc595f273",
+    "mvp-0.21": "6c2b4b29d173433a3de9970d84b947a0e972d15c1bb179aeb642de89ac4bb233",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2488,7 +2488,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.22": "1dfc052069ed844471fc46b20bbe051a10c7aa39d8971d81f8d58e9d2f710f1f",
+    "mvp-0.22": "8a850725f94ef418a08189879e5c90b819149ea93bf92ba6e3bf59ae3a0853ba",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2541,7 +2541,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.23": "e945132ad7832e066bf6918b987de40a790f41daa3d790393c8193c39ee9b5d8",
+    "mvp-0.23": "13fdbb28aae8a24764e70f14da1cd9f85069de47e6be293b5da181df8591a927",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2591,7 +2591,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.24": "dd6c80debc4ea803127acf3a84a201fdd0a395ceb15132bf26f74e9ba84d436c",
+    "mvp-0.24": "50005ee997bce2c6c4372cb167ff5cc1c76b0d856ccff19d0cb510e657e1fe0a",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2639,7 +2639,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.25": "76eea12c1f10a7fd8acee5d2de3e94da21ff199495d5aaeaba27f75785844c17",
+    "mvp-0.25": "8629abfb4c1c476e027b27e2f0bc7573ccda52079039bb4c5a1af0be0eed1996",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2686,7 +2686,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.26": "ea10eb68aceb4d101a322e6b28dee2cdb0ddeaec329f3620df385eab74f4967c",
+    "mvp-0.26": "15f17f8f2a35df926214d6828ce90ddebfa145d1c7527954490395df4cd979a7",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2733,7 +2733,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.27": "aa8284fd5c2ba278e3fcbb262c4cbb7a8fabe470c3bf5582c66929c3af9557b2",
+    "mvp-0.27": "5553e129a676e519c93d2ea62eb49e56eb7e74968849eb10cad765c28c7c6902",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2769,7 +2769,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.29": "fa0b6b840a9194ad6bfbad1bd6f0bcc6c1e4b9c6eb0e107859b4e024883fbdde",
+    "mvp-0.29": "40148fbf2e561a368b891a87b175ef964d25af282132300613aae9701def7572",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2799,7 +2799,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.30": "03d7c0a54fdf9fc8fd93a3606e126abbcde143ebfb33e784ec3b82ee0979d456",
+    "mvp-0.30": "782793dad94a1abe6b35005510d03a139b32c68a4253ceed8f4a79bd4d9a26eb",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2823,7 +2823,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.31": "1038c4412e829a6651745229ac98ea2d41bd44e59348f2e07780302d57a418ad",
+    "mvp-0.31": "dbef1b0eb4c6df1075efb5f94a29635a30d06b59b905418ead4f7eeeae742319",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -2844,7 +2844,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.32": "7b182feb568b3baa01de9c8e2cb0c564480992ffbe12a163ce268354e3c21053",
+    "mvp-0.32": "56b77502dc9d6f8b9c90579a3b9e11da409a24bd1b239fb7846920ec030f1bde",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -2863,7 +2863,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.33": "a7d6801d936a257e9de194a52156f60a195bb8be56e8b64481009abc88a0ede3",
+    "mvp-0.33": "c8764f85c5e65b3d22e158811f3806592eda2cc065c0bf14809ecb1b3cc8b6d1",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -2881,7 +2881,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.34": "dff1750e6a5f4a5637fb98ae26ab98b9e230c7eb8c5e6eaf9a4b14a9a7e22c6a",
+    "mvp-0.34": "7f9c122bf569964d8a0e8d00e483685dee447baf8bffe70e4086234a61feaee3",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -2898,7 +2898,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # through the chain. New vaults start here (the template's
     # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.35": "0000000000000000000000000000000000000000000000000000000000000000",
+    "mvp-0.35": "0951477a3ed4acec17430133e15a880fb308432ed8841ed42f6ed476a29d4694",
 }
 
 

@@ -57,7 +57,7 @@ def test_218_adds_the_batch_origin_column_and_nothing_else(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # RW2d's 219 (its receipt table, and a workbench_sessions column) and local retrieval P1's 220 (its three tables) follow on the way to head.
-    assert [migration.version for migration in applied] == [218, 219, 220, 221, 222, 224]
+    assert [migration.version for migration in applied] == [218, 219, 220, 221, 222, 223, 224]
     after = _schema(database)
     assert set(after) - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES)

@@ -43,10 +43,10 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
     # Reader workbench RW2d's mvp-0.31, RW7b's mvp-0.32 and LP-min (a)'s mvp-0.33 landed after it and keep
     # it, and rebuild equivalence's mvp-0.34 follows as the latest.
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[20]
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.34"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
     # DL2 landed first: mvp-0.29 is the predecessor and mvp-0.28 is never used (the compose round).
     assert SUCCESSOR_CHAIN[19] == "mvp-0.29" and "mvp-0.28" not in SUCCESSOR_CHAIN
-    assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"})
+    assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.30"] == defaults_fingerprint_for_version("mvp-0.30")
 
 
@@ -143,7 +143,7 @@ def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
     # The latest successor (rebuild equivalence's mvp-0.34 since its landing) keeps AD's switches.
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.34"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.35"
     assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES if name != "learned_coupling")
     assert not SC.switch_on(fresh.config, "learned_coupling") and SC.dose_offers_on(fresh.config)
 

@@ -221,10 +221,10 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     # signals (mvp-0.31), RW7b's reading path (mvp-0.32), LP-min (a)'s claim fixes (mvp-0.33) and rebuild
     # equivalence (mvp-0.34, the latest) follow that; all keep it.
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[19]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.35"
     assert SUCCESSOR_CHAIN[20] == "mvp-0.30"
     assert SUCCESSOR_CHAIN[18] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"})
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -286,7 +286,7 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
-    # The latest successor (rebuild equivalence's mvp-0.34, after LP-min (a)'s, RW7b's, RW2d's and adaptive
-    # difficulty's) keeps intent live.
-    assert config.algorithms.algorithm_version == "mvp-0.34"
+    # The latest successor (Reader CA2's mvp-0.35, after rebuild equivalence's, LP-min (a)'s, RW7b's, RW2d's
+    # and adaptive difficulty's) keeps intent live.
+    assert config.algorithms.algorithm_version == "mvp-0.35"
     assert intent_enabled(config)

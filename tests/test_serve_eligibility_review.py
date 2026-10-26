@@ -287,9 +287,9 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[18]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.34"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.35"
     assert SUCCESSOR_CHAIN[17] == REGRADE_CONTRACT_ALGORITHM_VERSION
-    assert ELIGIBILITY_DECISION_VERSIONS == frozenset({"mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"})
+    assert ELIGIBILITY_DECISION_VERSIONS == frozenset({"mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35"})
     for versions in (REGRADE_CONTRACT_VERSIONS, METHOD_EXPLICIT_VERSIONS, ROUTER_MIXTURE_VERSIONS,
                      P0_PROJECTION_VERSIONS):
         assert "mvp-0.27" in versions
@@ -348,7 +348,7 @@ def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
     # A new vault starts at the latest successor (mvp-0.34 since rebuild equivalence, after LP-min (a)'s
     # mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
     # which keeps this one.
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.34"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.35"
     assert fresh.config.eligibility.enabled
     assert se.decision_active(fresh)
 

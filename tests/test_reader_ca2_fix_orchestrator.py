@@ -182,19 +182,26 @@ def test_f12_a_stored_withheld_answer_reaches_the_queue_only_as_its_take_step(si
         assert rows and rows[0]["answerMd"] == WITHHELD_ANSWER_MD
 
 
-# -- Migration 221: the opening's own column -------------------------------------------------------
+# -- Migration 223 (221 on the branch): the opening's own column ----------------------------------
+
+#: The table 223 alters: the earlier migrations' "nothing else changed" diffs on the way to head read it.
+CA2_ALTERED_TABLES = frozenset({"workbench_sessions"})
 
 
-def test_221_adds_only_the_earlier_opening_column(tmp_path):
+def test_223_adds_only_the_earlier_opening_column(tmp_path):
+    # Numbered 221 on reader/ca2-one-ask; the batch landing renumbered it 223
+    # after main's 221 (LP claim fixes) and 222 (curriculum C0a). Reader
+    # RW5d P1's 224 follows on the way to head.
     from pathlib import Path
 
     from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations
     from learnloop.db.migrate import upgrade_allowance
+    from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-    through = tmp_path / "through_220"
+    through = tmp_path / "through_222"
     through.mkdir()
     for migration in discover_migrations():
-        if migration.version <= 220:
+        if migration.version <= 222:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     database = tmp_path / "state.sqlite"
     apply_migrations(database, migrations_dir=through)
@@ -210,15 +217,16 @@ def test_221_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [221]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224]
     after = schema()
-    assert set(after) == set(before)
-    assert {name for name in before if before[name] != after[name]} == {"workbench_sessions"}
+    assert set(after) - RW5D_ADDED_OBJECTS == set(before)
+    assert {name for name in before if before[name] != after[name]} == CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
-        # A problem from before 221 reads as no opening carried.
+        # A problem from before 223 reads as no opening carried.
         assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221" / "state.sqlite"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 221
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 224
+    assert 223 in applied_versions(head)
     assert head.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")}

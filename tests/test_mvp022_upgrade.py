@@ -76,8 +76,8 @@ def test_the_decider_successor_follows_voi_stopping_and_keeps_every_predecessor(
         ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION,
     )
     # Router R2a's staged frame (mvp-0.23) followed it as the latest successor.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.34"
-    assert DECIDER_TIER1_VERSIONS == frozenset({"mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert DECIDER_TIER1_VERSIONS == frozenset({"mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35"})
     # The chain is linear: mvp-0.22 means everything mvp-0.21 means PLUS the
     # Decider's judgments (main's own mvp-0.20 is the route rules, never the
     # Decider).
@@ -215,7 +215,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.21 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.34"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.35"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.18")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.22"])
     assert result.exit_code == 0, result.output
@@ -235,7 +235,7 @@ def test_new_vaults_start_at_a_successor_with_the_deciders_judgments(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.34"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.35"
     assert LATEST_ALGORITHM_VERSION in DECIDER_TIER1_VERSIONS
     assert all(enabled(fresh.config, task) for task in SERVING_TASKS)
 
