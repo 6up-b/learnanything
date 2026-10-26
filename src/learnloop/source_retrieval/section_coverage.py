@@ -254,8 +254,22 @@ class Protection:
 
 
 def read_protection(vault: Any, repository: Repository) -> Protection:
-    """The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed)."""
+    """The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed).
 
+    A vault whose source sets did not load is never a protection snapshot
+    (landing F1): the loader turns a nonempty source-sets file it cannot parse
+    or validate into a ``yaml:invalid`` issue and *no* source sets, and such a
+    load still settles, so exam material would silently become readable. The
+    shared ``learner_protection.protection_issues`` names that (and an empty
+    file caught mid-rewrite); any of it refuses here, so every library, batch
+    refresh, guard check and admission built on this predicate refuses too."""
+
+    from learnloop.learner_protection import protection_issues
+
+    problems = protection_issues(vault)
+    if problems:
+        raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material: "
+                                        + "; ".join(problems) + ". Fix the file (learnloop doctor) and try again.")
     try:
         material = EM.exam_material(vault, repository)
         exclusions = teaching_exclusions(vault, repository)

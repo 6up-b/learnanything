@@ -201,6 +201,10 @@ def _run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning
                         if result.status in SC.STOPPING:
                             failure = {"reason": result.reason, "message": result.message}
                             break
+            except SC.CoverageError as exc:
+                # Protection could not be read before an LO (landing F1: e.g. a
+                # reload whose source sets did not load): the rest is refused.
+                failure = {"reason": "protection_unreadable", "message": str(exc)}
             except BaseException as exc:  # noqa: BLE001 - a failed job answers its read, never the loop
                 LOG.warning("coverage job failed: %s", type(exc).__name__, exc_info=exc)
                 failure = {"reason": "judge_failed",
