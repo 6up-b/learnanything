@@ -428,12 +428,16 @@
     "sha256": "68d78d4b74eb90c74946e0e2871a9a69b11d73c73968834c40b7767f35ba45df"
   },
   "embeddings local student": {
-    "bytes": 2778,
-    "sha256": "8380f2566e06aacab918647f0c6ce75eea062649cfdbc1211324b5933602c114"
+    "bytes": 3033,
+    "sha256": "49710b0baed5e9a376c3aef0684e17b317d63cf2c3347ff61afa88a5993e6666"
+  },
+  "embeddings local student adopt": {
+    "bytes": 1461,
+    "sha256": "7b317837c2fc67ad167ef152c5c0346795b20a235659c8a1c3911baa87227055"
   },
   "embeddings local student evaluate": {
-    "bytes": 1632,
-    "sha256": "2e878f314ffb6e8a1271f9eba656fb71a6b1b9c941132ec0a01946673e6bfbac"
+    "bytes": 1956,
+    "sha256": "bc5da1016b35d9653c07603b75bc15753f1ce50d82c9cdd9c7dd28cbb331da10"
   },
   "embeddings local student generate": {
     "bytes": 2376,
@@ -442,6 +446,10 @@
   "embeddings local student plan": {
     "bytes": 1461,
     "sha256": "94ca46a37a7fb15925a7d77978cd4f9493abbd0a3ad9f1910e7fd628a1ddc468"
+  },
+  "embeddings local student reject": {
+    "bytes": 1380,
+    "sha256": "4cd79c329553646683396f52cbcfcb3785069d1900f2eddf5d0476f9a8530a1e"
   },
   "embeddings local student revoke": {
     "bytes": 1291,
