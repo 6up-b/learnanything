@@ -260,7 +260,7 @@ def call_prompt(batch: Sequence[Mapping[str, Any]]) -> tuple[str, dict[str, dict
         payload_passages.append({"passage_ref": passage_ref, "section": " / ".join(passage["section"]),
                                  "blocks": [{"ref": ref, "text": block["text"]} for ref, block in blocks.items()]})
     prompt = render_structured_prompt("Retrieval training questions", PROMPT_VERSION,
-                                      {"instructions": INSTRUCTIONS, "passages": payload_passages})
+                                      {"instructions": INSTRUCTIONS, "context": {"passages": payload_passages}})
     return prompt, refs
 
 
@@ -351,8 +351,8 @@ def nested(rows: Sequence[Mapping[str, Any]], budget: int) -> list[Mapping[str, 
 
 
 # -- the run --------------------------------------------------------------------------------------------
-def _caps(calls: int, *, subscription: bool, cap: float) -> SpendCaps:
-    return SpendCaps(max_candidates=max(calls, 1), max_pairs=0, max_retries=max(calls, 1) * MAX_RETRIES_PER_CALL,
+def _caps(calls: int, *, subscription: bool, cap: float, passages: int = 0) -> SpendCaps:
+    return SpendCaps(max_candidates=max(calls, passages, 1), max_pairs=0, max_retries=max(calls, 1) * MAX_RETRIES_PER_CALL,
                      max_calls=max(calls, 1) * (1 + MAX_RETRIES_PER_CALL), max_total_tokens=10 ** 12,
                      max_estimated_usd=None if subscription else cap)
 
@@ -394,7 +394,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
                      if split_of(passage, held_out) != "train" or passage["key"] in keep_train]
     batches = [plan_passages[index:index + SP.PASSAGES_PER_CALL]
                for index in range(0, len(plan_passages), SP.PASSAGES_PER_CALL)]
-    planner = PaidCalls(route=route, budget=SpendBudget(_caps(len(batches), subscription=subscription, cap=cap),
+    planner = PaidCalls(route=route, budget=SpendBudget(_caps(len(batches), subscription=subscription, cap=cap, passages=len(plan_passages)),
                                                         subscription=subscription),
                         price_per_million=price, repository=None, owner_kind=OWNER_KIND, owner_id="plan")
     tokens = [estimated_call_tokens(call_prompt(batch)[0], GeneratedQuestionsV1, OUTPUT_TOKENS) for batch in batches]
@@ -429,7 +429,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
                     "LEARNLOOP_AI_FALLBACK=openrouter to use OpenRouter instead (metered, capped at "
                     f"${cap:.2f} by {CAP_SETTING}, and {PRICE_SETTING} must be set).")
             return {**out, "status": "unavailable", "reason": f"{reason}.{hint}"}
-        budget_obj = SpendBudget(_caps(len(batches), subscription=subscription, cap=cap), subscription=subscription)
+        budget_obj = SpendBudget(_caps(len(batches), subscription=subscription, cap=cap, passages=len(plan_passages)), subscription=subscription)
         calls = PaidCalls(route=route, budget=budget_obj, price_per_million=price, repository=repository,
                           owner_kind=OWNER_KIND, owner_id=space_id)
         counts = {"calls_done": 0, "questions_written": 0, "ngram_dropped": 0, "invalid_dropped": 0,

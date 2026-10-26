@@ -465,6 +465,201 @@ def local_status(
     _emit(report, json_output, frozenset({"ok"}))
 
 
+# -- Local retrieval P2: the query student (owner-run; nothing here runs by itself) ---------
+student_app = typer.Typer(no_args_is_help=True, help="P2: the 0.6B query student (owner-run, dry run first).")
+local_app.add_typer(student_app, name="student")
+_BANK_HELP = "The frozen E0/E1 bank (private JSON/JSONL): the leakage guard; never in a prompt or a loss."
+
+
+@student_app.command("setup")
+def student_setup(
+    adopt_base: Annotated[list[str] | None, typer.Option(
+        "--adopt-base", help="NAME=DIR: record a downloaded base in place (verified; nothing moved). Repeatable.")] = None,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the pinned bases and paths; start nothing.")] = False,
+    skip_weight_digests: Annotated[bool, typer.Option(
+        "--skip-weight-digests", help="Check weight sizes only (code and small files are always hashed).")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Record the two pinned 0.6B bases (pplx-embed-v1-0.6b primary, Qwen3-Embedding-0.6B second).
+
+    Run after `embeddings local setup`. Without --adopt-base a missing base is
+    downloaded at its pinned revision (about 1.2 and 2.4 GB) into the data root."""
+
+    from learnloop.source_retrieval.query_student import setup_bases
+
+    try:
+        adopt = {}
+        for item in adopt_base or []:
+            name, _sep, directory = item.partition("=")
+            if not directory:
+                raise ValueError("--adopt-base takes NAME=DIR")
+            adopt[name.strip()] = Path(directory).expanduser()
+        unknown = sorted(set(adopt) - {"pplx-embed-v1-0.6b", "qwen3-embedding-0.6b"})
+        if unknown:
+            raise ValueError("unknown base(s): " + ", ".join(unknown))
+        report = setup_bases(root=data_root, adopt=adopt, verify_weights=not skip_weight_digests, dry_run=dry_run)
+    except (ValueError, OSError) as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "ready"}))
+
+
+@student_app.command("plan")
+def student_plan(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    bank: Annotated[Path | None, typer.Option("--bank", help=_BANK_HELP)] = None,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """The whole P2 dry run: questions, plan calls, teacher targets, the run schedule, GPU-hours."""
+
+    from learnloop.source_retrieval.query_student import plan
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = plan(loaded, repository, bank_path=bank, root=data_root)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run"}))
+
+
+@student_app.command("generate")
+def student_generate(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    bank: Annotated[Path | None, typer.Option("--bank", help=_BANK_HELP)] = None,
+    budget: Annotated[int, typer.Option("--budget", help="Training questions wanted at most (nested 2k/10k/50k).")] = 50_000,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Passages, calls, tokens and cost; send nothing.")] = False,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Synthetic questions from permitted passages (route ai.routing.retrieval_query_generator).
+
+    Background-quiet on the ChatGPT plan (GPT-6 Luna by default): a plan that
+    is down is reported; LEARNLOOP_AI_FALLBACK=openrouter for this command asks
+    for OpenRouter instead (metered, capped at
+    embedding.local.student_generator_max_cost_usd)."""
+
+    from learnloop.source_retrieval.query_student import context
+    from learnloop.source_retrieval.student_data import generate
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=not dry_run)
+        manifest, space, reason = context(loaded, data_root)
+        if manifest is None:
+            report = {"status": "disabled", "reason": reason}
+        else:
+            with _cancellation() as stop:
+                report = generate(loaded, repository, space_id=space, bank_path=bank, data_root=data_root,
+                                  budget=budget, dry_run=dry_run, cancelled=stop.is_set)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "complete"}))
+
+
+@student_app.command("targets")
+def student_targets(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root (its index's canaries are checked).")],
+    bank: Annotated[Path | None, typer.Option("--bank", help=_BANK_HELP)] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Count owed questions; launch nothing.")] = False,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """The teacher's targets: ONE 9B worker batch in query mode (12G scope, GPU lock, P2 meter)."""
+
+    from learnloop.source_retrieval.query_student import run_targets
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = run_targets(loaded, repository, bank_path=bank, root=data_root, dry_run=dry_run)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "complete", "waiting_for_gpu"}))
+
+
+@student_app.command("train")
+def student_train(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    bank: Annotated[Path | None, typer.Option("--bank", help=_BANK_HELP)] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the next run of the schedule; launch nothing.")] = False,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the schedule's NEXT training run (screen, recipes, learning curve, seeds); rerun until it says evaluate."""
+
+    from learnloop.source_retrieval.query_student import run_next
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = run_next(loaded, repository, bank_path=bank, root=data_root, dry_run=dry_run)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "trained", "evaluate", "waiting_for_gpu"}))
+
+
+@student_app.command("evaluate")
+def student_evaluate(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    bank: Annotated[Path | None, typer.Option("--bank", help="The labelled bank (private JSON/JSONL).")] = None,
+    arm: Annotated[list[str] | None, typer.Option(
+        "--arm", help="NAME=FILE: per-question outcomes of an alternative (qwen, voyage, keyword). Repeatable.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Check the inputs; start nothing.")] = False,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """The candidate on the bank beside the teacher; ADOPTED when E[U(student)] >= each alternative (spec §9.3)."""
+
+    from learnloop.source_retrieval.query_student import evaluate
+
+    try:
+        arms = {}
+        for item in arm or []:
+            name, _sep, path = item.partition("=")
+            if not path:
+                raise ValueError("--arm takes NAME=FILE")
+            arms[name.strip()] = Path(path).expanduser()
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = evaluate(loaded, repository, bank_path=bank, root=data_root, arms=arms, dry_run=dry_run)
+    except (ValueError, RuntimeError, TimeoutError) as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "adopted", "not_adopted"}))
+
+
+@student_app.command("revoke")
+def student_revoke(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Withdraw the adopted checkpoint (embedding.local.student = false is the switch for every vault)."""
+
+    from learnloop.source_retrieval.query_student import revoke
+
+    try:
+        loaded, _repository = _vault_and_repository(vault, write=False)
+        report = revoke(loaded, root=data_root)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"revoked", "none"}))
+
+
+@student_app.command("status")
+def student_status(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Bases, questions, targets, runs, the P2 meter, the adoption and the teacher replay."""
+
+    from learnloop.source_retrieval.query_student import status
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = {"status": "ok", **status(loaded, repository, root=data_root)}
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"ok"}))
+
+
 @fallback_app.command("backfill")
 def fallback_backfill(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy.")],

@@ -191,7 +191,7 @@ class StudentEncoder:
 
     def __init__(self, vault: LoadedVault, *, space_id: str, checkpoint_sha: str, checkpoint: Path, base_name: str,
                  base_dir: Path, env_python: Path, data_root: Path,
-                 spawn: Callable[..., Any] = _spawn, clock: Callable[[], float] = time.time,
+                 spawn: Callable[..., Any] | None = None, clock: Callable[[], float] = time.time,
                  sleep: Callable[[float], None] = time.sleep) -> None:
         self.vault = vault
         self.space_id = space_id
@@ -287,7 +287,9 @@ class StudentEncoder:
         self.home.mkdir(parents=True, exist_ok=True)
         os.chmod(self.home, 0o700)
         status = self.status()
-        if status.get("status") == "starting" and self._alive(status):
+        if status.get("status") == "starting" and (self._alive(status) or (
+                status.get("pid") is None and self.clock() - float(status.get("requested_unix") or 0.0)
+                < SP.SOCKET_TIMEOUT_S)):
             return False
         with open(self.home / "start.lock", "a+") as handle:
             try:
@@ -299,17 +301,24 @@ class StudentEncoder:
                 job_path.write_text(json.dumps(self.job()), encoding="utf-8")
                 os.chmod(job_path, 0o600)
                 self._requested_at = self.clock()
+                # "starting" is written before the spawn, so a fast process's "ready" is never overwritten.
+                self._write_status({"status": "starting", "pid": None, "checkpoint_sha256": self.sha,
+                                    "requested_unix": self._requested_at})
                 unit = f"learnloop-student-{self.sha[:12]}-{uuid.uuid4().hex[:8]}"
-                process = self.spawn(server_command(self.env_python, job_path, unit=unit),
-                                     env=launch_environment(self.home / "home"), log=self.home / "server.log")
-                pid = getattr(process, "pid", None)
-                temporary = self.status_path.with_name(".status.json.tmp")
-                temporary.write_text(json.dumps({"status": "starting", "pid": pid, "checkpoint_sha256": self.sha,
-                                                 "requested_unix": self._requested_at}), encoding="utf-8")
-                os.replace(temporary, self.status_path)
+                process = (self.spawn or _spawn)(server_command(self.env_python, job_path, unit=unit),
+                                                 env=launch_environment(self.home / "home"),
+                                                 log=self.home / "server.log")
+                if self.status().get("status") == "starting":
+                    self._write_status({"status": "starting", "pid": getattr(process, "pid", None),
+                                        "checkpoint_sha256": self.sha, "requested_unix": self._requested_at})
             finally:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         return True
+
+    def _write_status(self, value: Mapping[str, Any]) -> None:
+        temporary = self.status_path.with_name(f".status.json.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(dict(value)), encoding="utf-8")
+        os.replace(temporary, self.status_path)
 
     def wait_decision(self, remaining_s: float, weight_share: float) -> tuple[bool, float]:
         return SD.should_wait(self.start_times(), remaining_s, weight_share)
