@@ -785,6 +785,57 @@ def encode_all(model: LoadedModel, job: Mapping[str, Any], output: dict[str, Any
                      else {"vector": [int(value) for value in row[0]], "tokens": tokens, "latency_s": latency})
         with lock:
             output["queries"][query["id"]] = entry
+    encode_query_shards(model, job, output, sampler, lock)
+
+
+def encode_query_shards(model: LoadedModel, job: Mapping[str, Any], output: dict[str, Any], sampler: Sampler | None,
+                        lock: threading.Lock) -> None:
+    """P2's teacher targets: large query sets written as int8 ``.npy`` shards, never as JSON.
+
+    ``job["query_shards"]`` is a list of ``{"name", "path", "queries": [{"id", "text"}]}``. Each
+    shard is encoded in order into ``<path>.partial`` (a memory-mapped int8 array, one row per
+    query; a refused or invalid query keeps a zero row and is listed), flushed and renamed to
+    ``path`` when complete, so an aborted run leaves every finished shard and the app re-sends
+    only the rest. The output records per shard its rows, errors and timings only."""
+
+    dims = int(job["dimensions"])
+    output.setdefault("query_shards", {})
+    for shard in job.get("query_shards") or []:
+        if sampler is not None and sampler.abort_reason:
+            raise Aborted(sampler.abort_reason)
+        path = Path(shard["path"])
+        partial = path.with_name(path.name + ".partial")
+        queries = list(shard.get("queries") or [])
+        array = np.lib.format.open_memmap(partial, mode="w+", dtype=np.int8, shape=(len(queries), dims))
+        errors: dict[str, str] = {}
+        latencies: list[float] = []
+        tokens_max = 0
+        for row, query in enumerate(queries):
+            if sampler is not None and sampler.abort_reason:
+                del array
+                raise Aborted(sampler.abort_reason)
+            tokens = model.count_tokens([query["text"]], task="query")
+            tokens_max = max(tokens_max, tokens)
+            if over_limit(tokens, job) is not None:
+                errors[str(query["id"])] = "over_limit"
+                continue
+            started = time.monotonic()
+            [vectors] = model.encode_queries([query["text"]], batch_size=int(job["query_batch_size"]))
+            latencies.append(time.monotonic() - started)
+            vector = vectors[0]
+            if check_vector(vector, dims):
+                errors[str(query["id"])] = "invalid_output"
+                continue
+            array[row] = np.asarray(vector, dtype=np.int8)
+        array.flush()
+        del array
+        os.replace(partial, path)
+        ordered = sorted(latencies)
+        with lock:
+            output["query_shards"][str(shard["name"])] = {
+                "path": str(path), "rows": len(queries), "errors": errors, "tokens_max": tokens_max,
+                "latency_p50_s": round(ordered[len(ordered) // 2], 5) if ordered else None,
+                "latency_p95_s": round(ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))], 5) if ordered else None}
 
 
 def run_job(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[str, Any]], LoadedModel] = load_model,

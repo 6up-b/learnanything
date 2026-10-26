@@ -76,6 +76,7 @@ addopts = ["--strict-markers"]
 markers = [
   "durability: use production SQLite durability and fresh vault construction for the test and every fixture it first builds",
   "owner_vaults: reads backup-API copies of the owner's vaults that S0 removed from fixtures/; skipped unless LEARNLOOP_OWNER_VAULTS names their directory (tests/owner_vaults.py)",
+  "gpu_smoke: trains a tiny random-initialised query student on the GPU under the GPU lock and the memory floors; skipped unless LEARNLOOP_GPU_SMOKE=1 (tests/test_query_student_gpu.py)",
 ]
 
 [dependency-groups]

@@ -231,6 +231,24 @@ def preflight_problems(*, meminfo: Callable[[], Mapping[str, int]] = worker_modu
     return worker_module.start_problems(pins.limits(), meminfo=meminfo(), scope={}, gpu=state, require_scope=False)
 
 
+def exclusive_gpu_yield(yielder: Callable[[], Any] | None, preflight: Callable[[], list[str]] | None) -> Any:
+    """Codex review F11: before an exclusive GPU job's start checks, a GPU-resident query
+    student is asked to exit (it is a python GPU process the workload rule refuses, and its
+    queries would otherwise keep it resident). The real yield runs with the real start checks;
+    a caller that injects its own checks (a test) injects its own yield or none."""
+
+    if yielder is None:
+        if preflight is not None:
+            return None
+        from learnloop.source_retrieval.student_encoder import yield_gpu_students
+
+        yielder = yield_gpu_students
+    try:
+        return yielder()
+    except Exception:  # noqa: BLE001 - the start checks below refuse whatever stayed
+        return None
+
+
 def _completed_at(repository: Repository, extraction_id: str) -> datetime | None:
     run = repository.get_extraction_run(extraction_id) or {}
     value = run.get("completed_at") or run.get("created_at")
@@ -245,7 +263,8 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
                     launcher: Callable[..., dict[str, Any]] | None = None, meter: GpuMeter | None = None,
                     preflight: Callable[[], list[str]] | None = None, locks: Callable[[], Any] = gpu_locks,
                     now: datetime | None = None, force: bool = False,
-                    extraction_ids: Sequence[str] | None = None, dry_run: bool = False) -> dict[str, Any]:
+                    extraction_ids: Sequence[str] | None = None, dry_run: bool = False,
+                    yielder: Callable[[], Any] | None = None) -> dict[str, Any]:
     """Index every owed window of the vault in one worker batch (aggregate report only)."""
 
     report: dict[str, Any] = {"job": INDEX_JOB}
@@ -264,11 +283,13 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
     items = owed(vault, repository, local, extraction_ids)
     report.update(owed_extractions=len({item["extraction_id"] for item in items}),
                   owed_windows=sum(len(item["missing"]) for item in items))
-    if not items:
+    moment = now or datetime.now(timezone.utc)
+    replay = replay_sample(vault, root, items_owed=bool(items), now=moment)
+    report["replay_queries"] = len(replay)
+    if not items and not replay:
         return {**report, "status": "complete", "windows_stored": 0}
     if dry_run:
         return {**report, "status": "dry_run"}
-    moment = now or datetime.now(timezone.utc)
     stamps = [stamp for item in items if (stamp := _completed_at(repository, item["extraction_id"])) is not None]
     minutes = float(vault.config.embedding.local.index_batch_minutes)
     # Codex review F4: every deferral names when to try again, and the ingest
@@ -276,16 +297,18 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
     # next batch then; a GPU that is busy is checked again at the batch pace.
     recheck = (moment + timedelta(minutes=minutes)).isoformat()
     report["retry_at"] = recheck
-    if not force and stamps and (moment - min(stamps)).total_seconds() < minutes * 60:
+    if not force and items and stamps and (moment - min(stamps)).total_seconds() < minutes * 60:
         return {**report, "status": "waiting_for_batch", "retry_at": (min(stamps) + timedelta(minutes=minutes)).isoformat(),
                 "reason": f"the batch waits until its oldest owed extraction is {minutes:g} minutes old "
                           "(embedding.local.index_batch_minutes; `--now` forces it)"}
+    report["students_yielded"] = exclusive_gpu_yield(yielder, preflight)
     problems = (preflight or preflight_problems)()
     if problems:
         return {**report, "status": "waiting_for_gpu", "reason": "; ".join(problems)}
     data = root or pins.data_root()
     job_id = uuid4().hex
     job, targets = build_job(items, manifest=manifest, plan_id=f"local_{job_id[:16]}")
+    job["queries"] = [{"id": f"replay{index}", "text": row["text"]} for index, row in enumerate(replay)]
     meter = meter or GpuMeter(data / "gpu-meter")
     run = launcher or ScopedLauncher(Path(manifest["env_python"]))
     try:
@@ -326,11 +349,62 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
             for space, _p in local.values():
                 set_space_canaries(connection, space, output["canaries"], now=stamp)
     counts = store_output(vault, output, targets, job_id=job_id)
+    if replay:
+        report["replay"] = store_replay(vault, repository, local["grouped"][0], output, replay)
     # Codex review F15: a window the worker rejected (over its limit, or an
     # invalid vector) is not stored, so it stays owed; the run is partial.
     rejected = counts["windows_missing"] + counts["windows_invalid"] + counts["windows_over_limit"]
     status = "complete" if output.get("status") == "complete" and not rejected else "partial"
     return {**report, "status": status, **counts}
+
+
+def replay_sample(vault: LoadedVault, root: Path | None, *, items_owed: bool,
+                  now: datetime | None = None) -> list[dict[str, Any]]:
+    """Spec §9.3's nightly teacher replay: the logged queries the adopted student answered, re-encoded
+    by the teacher in the batch that loads the 9B anyway (a replay-only batch at most once per
+    REPLAY_EVERY_HOURS, keep). Every waiting query up to REPLAY_MAX_QUERIES (keep: GPU budget) is
+    taken: at E1's 18 ms a query on a loaded model, the marginal cost is below any value of
+    information the VOI rule could weigh against it."""
+
+    settings = vault.config.embedding.local
+    if not (settings.student and settings.teacher_replay):
+        return []
+    from learnloop.local_embeddings import student_pins
+    from learnloop.source_retrieval.student_encoder import pending_replay, replay_due
+
+    if not items_owed and not replay_due(vault.root, now=now):
+        return []
+    return pending_replay(vault.root, limit=student_pins.REPLAY_MAX_QUERIES)
+
+
+def store_replay(vault: LoadedVault, repository: Repository, space: str, output: Mapping[str, Any],
+                 replay: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Rank each replayed query by the teacher and by its stored student vector over the grouped space."""
+
+    from learnloop.local_embeddings import student_pins
+    from learnloop.source_retrieval.query_student import documents
+    from learnloop.source_retrieval.student_encoder import record_replay
+
+    record_ids, matrix = documents(vault, repository, space)
+    if not record_ids:
+        return {"replayed": 0, "reason": "no covered block"}
+    depth = student_pins.AGREEMENT_K
+    results = []
+    for index, row in enumerate(replay):
+        entry = (output.get("queries") or {}).get(f"replay{index}") or {}
+        if "vector" not in entry:
+            continue
+        teacher = np.asarray(entry["vector"], dtype=np.float32)
+        student = np.asarray(row["vector"], dtype=np.float32)
+        if student.size != matrix.shape[1] or not np.linalg.norm(teacher) or not np.linalg.norm(student):
+            continue
+        teacher_top = [record_ids[i] for i in np.argsort(-(matrix @ (teacher / np.linalg.norm(teacher))))[:depth]]
+        student_top = [record_ids[i] for i in np.argsort(-(matrix @ (student / np.linalg.norm(student))))[:depth]]
+        results.append({"receipt_id": row["receipt_id"], "text_key": row["text_key"], "teacher_top": teacher_top,
+                        "student_top": student_top})
+    record_replay(vault.root, results)
+    agreements = [len(set(r["teacher_top"]) & set(r["student_top"])) / depth for r in results]
+    return {"replayed": len(results), "agreement_mean": round(float(np.mean(agreements)), 4) if agreements else None}
 
 
 #: The profile pool's ESTIMATED size per target: E1 measured 0.68 model tokens

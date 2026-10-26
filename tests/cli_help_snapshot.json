@@ -408,8 +408,8 @@
     "sha256": "66f43132a9fd731b8bbdbe64b858021e084046337740dc7835a2bbb827039763"
   },
   "embeddings local": {
-    "bytes": 2097,
-    "sha256": "07f5de3c160c81424f4012fdcf8b7f4e8a0ad6e098cffdad08fc3ae1ac741273"
+    "bytes": 2182,
+    "sha256": "45c8ca7682dd0210faa7ac73e3c48d97b9a33fc2f7118f6ff735d71e0e551932"
   },
   "embeddings local index": {
     "bytes": 1789,
@@ -426,6 +426,50 @@
   "embeddings local status": {
     "bytes": 1210,
     "sha256": "68d78d4b74eb90c74946e0e2871a9a69b11d73c73968834c40b7767f35ba45df"
+  },
+  "embeddings local student": {
+    "bytes": 3033,
+    "sha256": "9f24034f63e96d620834972499c1b31aefa9af93099fa265c2049d7fbdcf57a2"
+  },
+  "embeddings local student adopt": {
+    "bytes": 1461,
+    "sha256": "7b317837c2fc67ad167ef152c5c0346795b20a235659c8a1c3911baa87227055"
+  },
+  "embeddings local student evaluate": {
+    "bytes": 2462,
+    "sha256": "141f947c525c8f84b9f5026d64f8208fc3d387494cfa96420f58d08afac68f7a"
+  },
+  "embeddings local student generate": {
+    "bytes": 2376,
+    "sha256": "ddfaa9056852d3b219cea3800ff00010873b468096bf1164770ffe899ed4ee8f"
+  },
+  "embeddings local student plan": {
+    "bytes": 1461,
+    "sha256": "94ca46a37a7fb15925a7d77978cd4f9493abbd0a3ad9f1910e7fd628a1ddc468"
+  },
+  "embeddings local student reject": {
+    "bytes": 1380,
+    "sha256": "4cd79c329553646683396f52cbcfcb3785069d1900f2eddf5d0476f9a8530a1e"
+  },
+  "embeddings local student revoke": {
+    "bytes": 1291,
+    "sha256": "f934e453e5588bb02310c6298b78d628ca429250d961359ca67e89caa48c18f8"
+  },
+  "embeddings local student setup": {
+    "bytes": 2044,
+    "sha256": "aa8e9cc76c5b206b74a4632ec83f7a05f18e9e35c1484525ae7e4b0e9e8a5223"
+  },
+  "embeddings local student status": {
+    "bytes": 1291,
+    "sha256": "ef876211216a1f06dfdb26ed38f9ecfd936ee3ffff32d12b29d38ab289d81a74"
+  },
+  "embeddings local student targets": {
+    "bytes": 1716,
+    "sha256": "83c189a17565ec7f14c01b446d1d51c2bdd1105de3f2738af8e6ed89c6bd5c6e"
+  },
+  "embeddings local student train": {
+    "bytes": 1631,
+    "sha256": "ae7f29f7f0f9af6b6f989e4ba43d5d074aa784d44e38852477f9829ceb729197"
   },
   "embeddings nomination-report": {
     "bytes": 3651,

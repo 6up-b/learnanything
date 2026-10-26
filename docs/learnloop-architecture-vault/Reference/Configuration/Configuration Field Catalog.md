@@ -70,8 +70,8 @@ Every one of the 1056 effective leaves has a semantic Function, a runtime/refact
 | [[Config - rung_variants|`rung_variants`]] | 8 | Runtime configuration |
 | [[Config - animation|`animation`]] | 16 | Runtime configuration |
 | [[Config - ingest|`ingest`]] | 52 | Runtime configuration |
-| [[Config - ai|`ai`]] | 285 | AI provider profile and task routing; see [[AI Architecture]] |
-| [[Config - embedding|`embedding`]] | 20 | Runtime configuration |
+| [[Config - ai|`ai`]] | 286 | AI provider profile and task routing; see [[AI Architecture]] |
+| [[Config - embedding|`embedding`]] | 24 | Runtime configuration |
 | [[Config - graph_nomination|`graph_nomination`]] | 7 | Runtime configuration |
 | [[Config - source_retrieval|`source_retrieval`]] | 19 | Runtime configuration |
 | [[Config - facet_identity|`facet_identity`]] | 14 | Runtime configuration |

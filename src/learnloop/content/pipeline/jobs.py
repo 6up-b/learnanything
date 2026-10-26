@@ -2389,6 +2389,44 @@ _LOCAL_INDEX_DONE = frozenset({"complete", "partial", "disabled", "waiting_for_g
                                "epoch_drift", "epoch_changed"})
 
 
+def _queue_due_replay(host: Any, runner: Any, newest: Mapping[str, Any] | None,
+                      now: datetime | None) -> str | None:
+    """Local retrieval P2 (spec §9.3; Codex review F10): the nightly teacher replay for a
+    library that is fully indexed. Queries the adopted student answered wait in the vault's
+    replay queue; when no index batch has run for ``REPLAY_EVERY_HOURS`` (keep) and the
+    queue is due, one replay-only ``local_source_index`` batch is queued (the job takes the
+    queue; ``run_local_index`` loads the 9B for it alone). Idempotent: the batch id names the
+    index job it follows, and a batch that ran within the cadence (it took the queue with
+    it) wakes nothing. The newest job's age is checked first, the replay file and the config
+    only when it is old enough."""
+
+    from learnloop.config.loader import load_config
+    from learnloop.local_embeddings.student_pins import REPLAY_EVERY_HOURS
+    from learnloop.source_retrieval.local_index import INDEX_JOB
+    from learnloop.source_retrieval.student_encoder import replay_due
+
+    moment = now or host.reading_now()
+    if newest is not None:
+        stamp = newest.get("finished_at") or newest.get("started_at") or newest.get("created_at")
+        try:
+            finished = parse_utc(str(stamp))
+        except Exception:  # noqa: BLE001 - an unreadable time counts as old
+            finished = None
+        if finished is not None and (moment - finished).total_seconds() < REPLAY_EVERY_HOURS * 3600:
+            return None
+    if not replay_due(Path(runner.vault_root), now=moment):
+        return None
+    config = load_config(Path(runner.vault_root) / "learnloop.toml", load_environment=False)
+    local = config.embedding.local
+    if not (local.enabled and local.student and local.teacher_replay and config.source_retrieval.dense):
+        return None
+    after = newest["id"] if newest is not None else "none"
+    batch = runner.enqueue_batch(INDEX_JOB, [JobSpec(INDEX_JOB, {"replay": True, "after": after})],
+                                 batch_id=f"{INDEX_JOB}_replay_after_{after}")
+    host._ensure_worker()
+    return batch
+
+
 def handle_local_source_index(ctx: JobContext) -> dict[str, Any]:
     """local_source_index: index every owed window in one 9B worker batch.
 
@@ -4161,7 +4199,10 @@ class DurableIngestJobs:
         obligation was queued but starting the worker failed, or the process
         ended first) gets the worker started, pass after pass until one runs
         (Codex re-review F4; ``resume_book_preparation`` covers only a book's
-        preparation workflows). A foreground host drains on its own."""
+        preparation workflows). A foreground host drains on its own.
+
+        With nothing deferred, a due nightly teacher replay (P2, Codex review
+        F10) is queued as a replay-only batch (:func:`_queue_due_replay`)."""
 
         from learnloop.config.loader import load_config
         from learnloop.source_retrieval.local_index import DEFERRED_STATUSES, INDEX_JOB
@@ -4178,11 +4219,13 @@ class DurableIngestJobs:
                 return None
         newest = runner.repo.ingest_jobs_by_types((INDEX_JOB,), limit=1)
         if not newest:
-            return None
+            return _queue_due_replay(self, runner, None, now)
         job = newest[0]
         result = job.get("result") or {}
-        if job.get("status") != "completed" or result.get("status") not in DEFERRED_STATUSES:
+        if job.get("status") != "completed":
             return None
+        if result.get("status") not in DEFERRED_STATUSES:
+            return _queue_due_replay(self, runner, job, now)
         try:
             due = parse_utc(str(result.get("retry_at"))) if result.get("retry_at") else None
         except Exception:  # noqa: BLE001 - an unreadable time is due now

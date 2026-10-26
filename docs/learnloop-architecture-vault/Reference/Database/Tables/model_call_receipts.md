@@ -129,6 +129,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/source_retrieval/passage_cues.py`
+- `src/learnloop/source_retrieval/query_student.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`

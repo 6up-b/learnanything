@@ -62,12 +62,13 @@ def gpu_locks(paths: tuple[Path, ...] | None = None) -> Iterator[None]:
                 handle.close()
 
 
-def scope_command(env_python: Path, job: Path, out: Path, heartbeat: Path, *, unit: str) -> list[str]:
-    """The worker inside its own transient scope with the memory caps (keep)."""
+def scope_command(env_python: Path, job: Path, out: Path, heartbeat: Path, *, unit: str,
+                  script: Path | None = None, memory_max: str = pins.SCOPE_MEMORY_MAX) -> list[str]:
+    """The worker (or P2's trainer, ``script``) inside its own transient scope with the memory caps (keep)."""
 
     return ["systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}",
-            "-p", f"MemoryMax={pins.SCOPE_MEMORY_MAX}", "-p", f"MemorySwapMax={pins.SCOPE_SWAP_MAX}", "--",
-            str(env_python), "-I", str(Path(worker_module.__file__).resolve()),
+            "-p", f"MemoryMax={memory_max}", "-p", f"MemorySwapMax={pins.SCOPE_SWAP_MAX}", "--",
+            str(env_python), "-I", str(Path(script or worker_module.__file__).resolve()),
             "--job", str(job), "--out", str(out), "--heartbeat", str(heartbeat)]
 
 
@@ -83,9 +84,13 @@ def launch_environment(home: Path) -> dict[str, str]:
 class ScopedLauncher:
     """The real launcher: the private job file, the scoped worker under the meter, its output."""
 
-    def __init__(self, env_python: Path, *, popen: Callable[..., Any] | None = None) -> None:
+    def __init__(self, env_python: Path, *, popen: Callable[..., Any] | None = None, script: Path | None = None,
+                 memory_max: str = pins.SCOPE_MEMORY_MAX, unit_prefix: str = "learnloop-local-index") -> None:
         self.env_python = Path(env_python)
         self.popen = popen
+        self.script = script
+        self.memory_max = memory_max
+        self.unit_prefix = unit_prefix
 
     def __call__(self, job: dict[str, Any], workdir: Path, *, meter: GpuMeter, plan_id: str) -> dict[str, Any]:
         workdir.mkdir(parents=True, exist_ok=True)
@@ -98,9 +103,11 @@ class ScopedLauncher:
             job_path.write_text(json.dumps(job), encoding="utf-8")
             os.chmod(job_path, 0o600)
 
-        unit = f"learnloop-local-index-{workdir.name}".replace("_", "-")
+        unit = f"{self.unit_prefix}-{workdir.name}".replace("_", "-")
         kwargs: dict[str, Any] = {} if self.popen is None else {"popen": self.popen}
-        supervised = supervise(scope_command(self.env_python, job_path, out_path, heartbeat, unit=unit),
+        command = scope_command(self.env_python, job_path, out_path, heartbeat, unit=unit, script=self.script,
+                                memory_max=self.memory_max)
+        supervised = supervise(command,
                                meter=meter, plan_id=plan_id, label=workdir.name, heartbeat=heartbeat,
                                env=launch_environment(workdir / "home"), on_open=write_job,
                                log=workdir / "worker.stderr.log", **kwargs)

@@ -94,6 +94,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/query_student_fakes.py`
 - `tests/recap_fixtures.py`
 - `tests/test_architecture.py`
 - `tests/test_compare_methods.py`

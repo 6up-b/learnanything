@@ -1622,7 +1622,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # "show me" in the learner's words, content and display only, at every version (no successor);
     # every snapshot moves only because the effective config gains the key; all of them were
     # recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "bccb7ac9abea538e9cdf938dbca50bb7eb82783c28e4b87cc71ab09cf4c80979",
+    # Local contextual retrieval P2 (the 0.6B query student; spec_local_contextual_retrieval_v1
+    # §7.1, Q9 amended 2026-10-26; docs/reviews/retrieval-local-p2-query-student.md) adds to
+    # [embedding.local] student (true: the student's kill switch, acting only once a checkpoint was
+    # adopted by the expected-utility rule), teacher_replay (true), student_idle_minutes = 20 (keep)
+    # and student_generator_max_cost_usd = 5.0 (keep), and the route
+    # ai.routing.retrieval_query_generator (unset: the plan's chatgpt_luna under T1): modelled
+    # defaults, left out of the decision-only template. Retrieval lookups only, at every version
+    # (no successor); every snapshot moves only because the effective config gains the keys and
+    # the route; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "aaddde507b0be3486ce6bfc980dbac1cf7d271c6b4cd22a9f460aa4fe232dca2",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1693,7 +1703,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.10": "0938b1698b590dbf69b8a91d5678f5393de783d0dc0c6cb22f5c34ac9209348b",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.10": "4dfb17b5f9368cf496895612adf81120862b05146a73ed49af5963931c944a92",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1772,7 +1783,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.11": "0d65813f6850f1ea2648642d45b5951d80ad1f27ca04aa3e0b1fa2f799f655d3",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.11": "f8d09d2e8f527e5e1af0752d8f4109a7c19c4f8b2f955eb372c99e955ae7b661",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1845,7 +1857,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.12": "8582f3be1ade391e708464afc8c77e6ff850468f29a8d7d3ff64a95b4ae95311",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.12": "698f00927e17f20653dbeb57587e39f33e7672501e72d21806dfe75af96f1727",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1913,7 +1926,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.13": "02ec70aac6cf36d6fa5895a47dfd0b77ffeed23053a951fe5d3eedd466653e34",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.13": "30be3dc5d532fa80ffb27f59f09dcb49ba092035dc06cb524241156659b3457c",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1980,7 +1994,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.14": "17e917f0c52ff9b71c496ae8b6f9a54319a2d1d56ed6abee9cdcce7c91e36550",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.14": "d2f9bce2739693e84e43a44717520692b5c6b4bd115e3e3ef8325a41a0b1a49b",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2045,7 +2060,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.15": "4b3478b1f78f1d7cbbb3c817638a42d0abc2f7993396f40b4c694145aeee91bf",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.15": "42cd7d35b5a982f1d5c49a99f69eacc272ef6aa80462e0abdfd5cd71a0d5a064",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2117,7 +2133,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.16": "99a97293aabf07db744eeaffc31e284bf6fe94758d3b9f1fd018ba36cfda3d3e",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.16": "9efc425098d06f3470af6d925a7bf32f4f1519611a1a4f181310e8d69a4e9eba",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2185,7 +2202,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.17": "f1a0638ae1142e3c0cdd20ca76fd5e43d0256d817bb57626168845d4a734c395",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.17": "0c883c48d2e9b55451fca5d44fb514b99944c41b7a4a85d93579db8584cee282",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2246,7 +2264,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.18": "eaceffe4c32bd541ee2a4ebbcfc1c6530f815da478c403a553c85475a57a8566",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.18": "ce2c2d4041c04f06eae348abde59bcf03b6dd743d2456386e00f2f847142ca6c",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2307,7 +2326,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.19": "d6cc61ab24d184ee2e60e790194327bbfd1f31588e41f2c036f62ad1703c2d37",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.19": "77266b9b393032410197be352db11a3cd6101f1491cc8f3cf7f02d5343ff97f0",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2364,7 +2384,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.20": "905b9877d49f3c0fd6ece0a0e52a466ec1ea60bd010d115abc41d49c07f222a0",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.20": "5e3c16e5f2a3e60a3a7b8d71bdb006f7af7e01d68bf57a0809ff2b2c2a2fbd72",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2430,7 +2451,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.21": "6c2b4b29d173433a3de9970d84b947a0e972d15c1bb179aeb642de89ac4bb233",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.21": "8bb6824573f849191f88f9ac984a83b61957676c84c29ea4179aaaebefd9acd6",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2488,7 +2510,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.22": "8a850725f94ef418a08189879e5c90b819149ea93bf92ba6e3bf59ae3a0853ba",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.22": "3003f9f5856639dab25fe804a186235dbdc5b2a79ccc2dca26c7e8d19cc8d8d9",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2541,7 +2564,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.23": "13fdbb28aae8a24764e70f14da1cd9f85069de47e6be293b5da181df8591a927",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.23": "bb567f18cf5524edf1c75e23a570aeff9988abebf7e1bc8cd4d84707bb734768",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2591,7 +2615,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.24": "50005ee997bce2c6c4372cb167ff5cc1c76b0d856ccff19d0cb510e657e1fe0a",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.24": "732e0758bfefe5396645628f32fd45b053be4412343c90bf60e00e22bf436a89",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2639,7 +2664,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.25": "8629abfb4c1c476e027b27e2f0bc7573ccda52079039bb4c5a1af0be0eed1996",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.25": "11d3aed9b7a3774e3a908885d134627b21cd5618bd2df74be1521dc9a8845bed",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2686,7 +2712,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.26": "15f17f8f2a35df926214d6828ce90ddebfa145d1c7527954490395df4cd979a7",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.26": "c95cbb79e0d3382ba0f3a992f1ffc69c7e97c95293307ad92136a008cfb274d5",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2733,7 +2760,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.27": "5553e129a676e519c93d2ea62eb49e56eb7e74968849eb10cad765c28c7c6902",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.27": "00fafc6ff53678012d1d2db93cd3d17147a5be5dc2714371b3e87876d9927365",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2769,7 +2797,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.29": "40148fbf2e561a368b891a87b175ef964d25af282132300613aae9701def7572",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.29": "1113452d89d390f537fa700f46c21d4b6d0f210c8795dc6a0387b321eae9ef3e",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2799,7 +2828,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.30": "782793dad94a1abe6b35005510d03a139b32c68a4253ceed8f4a79bd4d9a26eb",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.30": "b3f0650f266990363a6064bd1f850def04adc8c129f5327ede8b7c598d5f5cf9",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2823,7 +2853,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.31": "dbef1b0eb4c6df1075efb5f94a29635a30d06b59b905418ead4f7eeeae742319",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.31": "58af61c94f49fec44b33e0c43413c2db8b1a8c40b773ea651eb7164ed36e9801",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -2844,7 +2875,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.32": "56b77502dc9d6f8b9c90579a3b9e11da409a24bd1b239fb7846920ec030f1bde",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.32": "9fbd17076953a550e203611438b585fd2aced000fdd550967b99b2ea701da83a",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -2863,7 +2895,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.33": "c8764f85c5e65b3d22e158811f3806592eda2cc065c0bf14809ecb1b3cc8b6d1",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.33": "8f351e0906b766700fc058b51d5b556bc603582a508bc44bc0bdcad9948f1dbf",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -2881,7 +2914,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA1's [practice.as_printed] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA2's [ask] panel_enabled and cold_help_converts move it too (see mvp-0.9; inert below mvp-0.35).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.34": "7f9c122bf569964d8a0e8d00e483685dee447baf8bffe70e4086234a61feaee3",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.34": "99f499fc3132216b666aa6b7cfc39fabed44b432a80944f69d31fc72f534e0c8",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -2898,7 +2932,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # through the chain. New vaults start here (the template's
     # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.35": "0951477a3ed4acec17430133e15a880fb308432ed8841ed42f6ed476a29d4694",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.35": "2d0f2bb94b88f01d35cfd375721c4bf87ade8d9aba1c21a5a4695410258e159a",
 }
 
 

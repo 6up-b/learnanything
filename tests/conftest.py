@@ -69,6 +69,9 @@ os.environ["LEARNLOOP_COVERAGE_MODELS"] = "off"
 # client unless the test injected a fake (ctx.figure_author_client, or the
 # service's author_client argument).
 os.environ["LEARNLOOP_FIGURE_MODELS"] = "off"
+# Local retrieval P2: no query-student generator model is reached and no query
+# process is started unless the test injected a fake (a client, or a spawn).
+os.environ["LEARNLOOP_QUERY_STUDENT_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus
