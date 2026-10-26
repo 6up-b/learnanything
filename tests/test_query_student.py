@@ -330,6 +330,7 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     assert manifest["frozen_base"] is (recipe == "projection_only") and "cpu" in manifest["canaries"]
     assert manifest["dataset_fingerprint"] == camp["fingerprint"]
     assert manifest["training_families"] == Q.run_training_families(camp, 50_000)  # F19: pinned with the checkpoint
+    assert manifest["training_families_provenance"] == Q.TRAINING_FAMILIES_PROVENANCE
     sha = Q.install_checkpoint(output, root=root, space=space)
     assert (E.checkpoint_dir(root, space, sha) / "student.safetensors").is_file()
     assert sha == student_trainer.checkpoint_digest(manifest)
@@ -1191,11 +1192,15 @@ def test_dry_runs_never_write_the_family_mapping(tmp_path):
 
 
 # -- Codex final verify (F19): evaluation strata from the checkpoint's own training families ------------------
-def _pinned_run(root, space, *, families, dataset, run_id):
+def _pinned_run(root, space, *, families, dataset, run_id, provenance="current"):
     """A completed run whose checkpoint manifest is pinned (its SHA is the manifest's digest) and,
-    unless ``families`` is None, records the families it trained on (no trainer: no torch)."""
+    unless ``families`` is None, records the families it trained on (no trainer: no torch), under
+    the current producer's provenance version unless ``provenance`` names another (None: none)."""
 
     from learnloop.local_embeddings import student_trainer
+
+    if provenance == "current":
+        provenance = getattr(Q, "TRAINING_FAMILIES_PROVENANCE", None)
 
     manifest = {"format": SP.CHECKPOINT_FORMAT, "space_id": space, "base_name": SP.PRIMARY_BASE, "base": {},
                 "recipe": "align", "seed": 0, "budget": 100, "dims": SP.STUDENT_DIMENSIONS,
@@ -1203,6 +1208,8 @@ def _pinned_run(root, space, *, families, dataset, run_id):
                 "files": {}, "canaries": {}, "dataset_fingerprint": dataset}
     if families is not None:
         manifest["training_families"] = sorted(families)
+        if provenance is not None:
+            manifest["training_families_provenance"] = provenance
     sha = student_trainer.checkpoint_digest(manifest)
     _fake_run(root, space, sha=sha, dataset=dataset, run_id=run_id)
     (E.checkpoint_dir(root, space, sha) / "student.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -1361,3 +1368,63 @@ def test_the_pinned_families_are_every_family_the_run_consumed(tmp_path):
     run = {"checkpoint_sha256": "d" * 64, "spec": {"dataset": camp["fingerprint"], "budget": int(job["budget"])}}
     fallback, basis = Q.checkpoint_training_families(run, camp, root=root, space=space)
     assert basis == "current_dataset" and fallback == set(job["training_families"])
+
+
+# -- F19 residual and F20 (scoped verify 20261026-153448-dFvUTA) -------------------------------------------------
+def test_only_the_current_producers_pinned_families_are_provenance(tmp_path):
+    """F19 residual: a pinned list without the current producer's provenance version (the first
+    F19 round pinned candidate families only, which could omit consumed ones) is not trusted: the
+    evaluation falls back to the current dataset, else to ``unknown_family``."""
+
+    from learnloop.local_embeddings import student_trainer
+
+    paths, repository, root, model, space, bank, _sha = _evaluable(tmp_path)
+    vault = loaded(paths)
+    factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    first_round = _pinned_run(root, space, families={"another-family"}, dataset="old-dataset", run_id="run_r1",
+                              provenance=None)
+    out = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=first_round)
+    assert out["training_families"]["basis"] == "unknown" and "unseen_family" not in out["strata"], out["strata"]
+    older = _pinned_run(root, space, families={"another-family"}, dataset="old-dataset", run_id="run_r0",
+                        provenance="candidate-families-v0")
+    assert Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory,
+                      checkpoint=older)["training_families"]["basis"] == "unknown"
+    here = _pinned_run(root, space, families={"another-family"}, dataset=camp["fingerprint"], run_id="run_here",
+                       provenance=None)
+    assert Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory,
+                      checkpoint=here)["training_families"]["basis"] == "current_dataset"
+    # The version is pinned with the list: changing it breaks the pin.
+    job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": "align", "budget": 100, "seed": 0}, space="s",
+                        base_dir=Path("/b"), data_dir=Path("/d"), out_dir=Path("/o"), temperature=0.1, plan_id="p",
+                        training_families=["a"])
+    assert job["training_families_provenance"] == Q.TRAINING_FAMILIES_PROVENANCE
+    manifest = json.loads((E.checkpoint_dir(root, space, here) / "student.json").read_text())
+    pinned = {**manifest, "training_families_provenance": Q.TRAINING_FAMILIES_PROVENANCE}
+    assert student_trainer.checkpoint_digest(pinned) != student_trainer.checkpoint_digest(
+        {**pinned, "training_families_provenance": "other"})
+
+
+def test_generation_counts_its_budget_by_the_current_splits(tmp_path):
+    """F20: generation's progress and remaining budget count the rows' CURRENT splits (the same
+    hold-out every dataset build uses): a family's stale training rows, held out since, never fill
+    the budget, so owed training passages of the other families are still planned."""
+
+    paths, repository, root, _model, space, bank = _generated(tmp_path)
+    vault = loaded(paths)
+    directory = D.data_dir(root, space, vault)
+    rows = D.stored_queries(directory)
+    held = {row["family"] for row in rows if row["split"] == "heldout"}
+    assert len(held) == 1
+    owed = next(row["passage"] for row in rows if row["split"] == "train")
+    stale = [{**row, "split": "train"} if row["family"] in held else row for row in rows if row["passage"] != owed]
+    (directory / "queries.jsonl").write_text("".join(json.dumps(row) + "\n" for row in stale), encoding="utf-8")
+    done = [json.loads(line) for line in (directory / "passages.jsonl").read_text().splitlines() if line.strip()]
+    (directory / "passages.jsonl").write_text("".join(json.dumps(row) + "\n" for row in done if row["key"] != owed),
+                                              encoding="utf-8")
+    current_train = sum(1 for row in stale if row["split"] == "train" and row["family"] not in held)
+    budget = sum(1 for row in stale if row["split"] == "train")  # what the stale labels claim
+    assert budget > current_train
+    out = D.generate(vault, repository, space_id=space, bank_path=bank, budget=budget, dry_run=True)
+    assert out["questions"]["train"] == current_train
+    assert out["passages"]["owed"] == 1 and out["passages"]["planned"] == 1 and out["calls"] == 1, out

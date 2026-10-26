@@ -354,6 +354,8 @@ def run_training(job: Mapping[str, Any], *, model_factory: Callable[..., tuple[A
         # Codex final verify F19: the families it trained on, pinned with it, so a re-evaluation on
         # another campaign builds its seen/unseen strata from this snapshot, not the current one.
         manifest["training_families"] = sorted(str(family) for family in job["training_families"])
+        if job.get("training_families_provenance"):  # which producer listed them (F19 residual)
+            manifest["training_families_provenance"] = str(job["training_families_provenance"])
     (checkpoint / "student.json").write_text(json.dumps(manifest, sort_keys=True, indent=1) + "\n", encoding="utf-8")
     return {"status": "complete", "version": TRAINER_VERSION, "recipe": recipe, "seed": int(job["seed"]),
             "budget": int(job["budget"]), "base_name": job["base_name"], "load_s": round(load_s, 3),
@@ -403,8 +405,9 @@ def checkpoint_digest(manifest: Mapping[str, Any]) -> str:
     core = {key: manifest[key] for key in ("format", "space_id", "base_name", "base", "recipe", "seed", "budget",
                                            "dims", "precision", "frozen_base", "max_query_tokens", "files")}
     core["dataset_fingerprint"] = str(manifest.get("dataset_fingerprint") or "")
-    if "training_families" in manifest:  # F19; a manifest made before it keeps its digest
-        core["training_families"] = manifest["training_families"]
+    for key in ("training_families", "training_families_provenance"):  # F19; older manifests keep their digest
+        if key in manifest:
+            core[key] = manifest[key]
     return hashlib.sha256(json.dumps(core, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 

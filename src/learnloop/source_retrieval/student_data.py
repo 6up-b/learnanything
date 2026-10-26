@@ -341,6 +341,19 @@ def current_split(row: Mapping[str, Any], held_out: str | None) -> str:
     return str(row.get("split") or "")
 
 
+def current_rows(rows: Iterable[Mapping[str, Any]], by_extraction: Mapping[str, str]) -> list[dict[str, Any]]:
+    """Stored rows under the CURRENT family mapping and hold-out (F19, F20): each row's family from
+    its extraction, its split by :func:`current_split`. Generation's progress, every dataset build
+    and the doctor's view all count these, never the labels stored with the rows."""
+
+    held_out = vault_held_out(by_extraction)
+    out = []
+    for row in rows:
+        row = {**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
+        out.append({**row, "split": current_split(row, held_out)})
+    return out
+
+
 # -- the generator's contract -----------------------------------------------------------------------
 class GeneratedQuestionV1(WireModel):
     text: str = Field(description="The question as a learner would type it (never quoting the passage)")
@@ -498,9 +511,11 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
     families = family_map(directory, repository, persist=not dry_run)
     found = [{**passage, "family": families.get(passage["source_id"], f"fam_{passage['source_id']}")}
              for passage in passages(vault, repository, excluded=excluded)]
-    held_out = vault_held_out(extraction_families(repository, families))
+    by_extraction = extraction_families(repository, families)
+    held_out = vault_held_out(by_extraction)
     done = done_passages(directory)
-    stored = stored_queries(directory)
+    # F20: progress and the remaining budget count the CURRENT splits, never the stored labels.
+    stored = current_rows(stored_queries(directory), by_extraction)
     owed = [passage for passage in found if passage["key"] not in done]
     route = plan_route(vault, TASK, client)
     price = vault.config.source_retrieval.llm_price_per_million
@@ -594,13 +609,13 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
                 counts["questions_written"] += len(rows)
                 counts["passages_written"] += 1
         out["usage"] = calls.report()
-    rows = stored_queries(directory)
+    rows = current_rows(stored_queries(directory), by_extraction)
     return {**out, "status": status, **counts, "budgets": budgets_of(rows)}
 
 
 __all__ = ["CAP_SETTING", "GeneratedQuestionsV1", "INTENTS", "MODELS_ENV", "OWNER_KIND", "PROMPT_VERSION", "SHAPES",
            "TASK", "bank_supports", "budgets_of", "call_prompt", "data_dir", "extraction_families", "family_map",
-           "current_split", "family_of", "generate", "held_out_among", "held_out_family", "question_families",
+           "current_rows", "current_split", "family_of", "generate", "held_out_among", "held_out_family", "question_families",
            "vault_held_out",
            "load_bank", "nested", "ngram_overlap", "ngrams", "passages", "query_rows", "retrieval_text", "split_of",
            "stored_queries", "validated", "vault_key"]

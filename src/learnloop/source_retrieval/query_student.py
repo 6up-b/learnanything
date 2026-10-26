@@ -718,10 +718,8 @@ def campaign(vault: LoadedVault, repository: Repository, *, root: Path, space: s
     families = D.family_map(D.data_dir(root, space, vault), repository, persist=persist)
     by_extraction = D.extraction_families(repository, families)
     held_out = D.vault_held_out(by_extraction)
-    rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
-            for row in eligible_rows(_vault_rows(root, space, vault), index, bank)]
-    # Spec §7, F19: each row's split under the CURRENT hold-out, never the one stored with it.
-    rows = [{**row, "split": D.current_split(row, held_out)} for row in rows]
+    # Spec §7, F19: each row's family and split under the CURRENT mapping and hold-out.
+    rows = D.current_rows(eligible_rows(_vault_rows(root, space, vault), index, bank), by_extraction)
     candidates = (training_candidates(vault, repository, space, bank=bank, rows=rows, by_extraction=by_extraction)
                   if rows else {"ids": [], "matrix": np.zeros((0, SP.STUDENT_DIMENSIONS), np.float32), "sources": [],
                                 "families": [], "held_out": [], "extractions": [], "bank_tainted_blocks": 0,
@@ -798,7 +796,8 @@ def trainer_job(spec: Mapping[str, Any], *, space: str, base_dir: Path, data_dir
                 temperature: float, plan_id: str, dataset_fingerprint: str = "",
                 training_families: Sequence[str] | None = None) -> dict[str, Any]:
     base = SP.STUDENT_BASES[spec["base"]]
-    families = {} if training_families is None else {"training_families": sorted(map(str, training_families))}
+    families = {} if training_families is None else {"training_families": sorted(map(str, training_families)),
+                                                     "training_families_provenance": TRAINING_FAMILIES_PROVENANCE}
     return {**families, "version": SP.TRAINER_VERSION, "plan_id": plan_id, "space_id": space, "base_name": spec["base"],
             "base": {key: base[key] for key in ("repo", "revision", "pooling", "query_prefix", "hidden_size",
                                                 "trust_remote_code", "files", "remote_code", "inert_python")},
@@ -989,6 +988,12 @@ def _evaluation_candidate(ledger: Mapping[str, Any], step: Mapping[str, Any], ad
     return None, "", None
 
 
+#: The producer of a pinned ``training_families`` list (F19 residual): a manifest pinned by any
+#: other producer (the first F19 round pinned candidate families only, which could omit consumed
+#: ones) is not provenance. Bump it whenever :func:`run_training_families` changes what it lists.
+TRAINING_FAMILIES_PROVENANCE = "consumed-queries-and-candidates-v1"
+
+
 def _consumed_queries(camp: Mapping[str, Any], budget: int) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """``(train, dev)``: the queries a run at ``budget`` gives the trainer (the nested budget, the
     development split's first ``DEV_MAX`` by rank)."""
@@ -1016,7 +1021,8 @@ def run_training_families(camp: Mapping[str, Any], budget: int) -> list[str]:
 def checkpoint_training_families(run: Mapping[str, Any], camp: Mapping[str, Any], *, root: Path, space: str
                                  ) -> tuple[set[str] | None, str]:
     """``(families, basis)``: the families the checkpoint actually trained on (F19). The pinned
-    manifest's record when its digest still matches the pin (``checkpoint_manifest``), else the
+    manifest's record when its digest still matches the pin and the current producer made it
+    (``TRAINING_FAMILIES_PROVENANCE``: ``checkpoint_manifest``), else the
     families :func:`run_training_families` derives from the current campaign at the run's budget
     when the run was trained on this very dataset (its fingerprint names the rows' splits and
     families: ``current_dataset``), else ``(None, "unknown")``: no stratum then calls its
@@ -1026,7 +1032,8 @@ def checkpoint_training_families(run: Mapping[str, Any], camp: Mapping[str, Any]
 
     sha = str(run["checkpoint_sha256"])
     manifest = _read_json(checkpoint_dir(root, space, sha) / "student.json", None)
-    if isinstance(manifest, dict) and isinstance(manifest.get("training_families"), list):
+    if isinstance(manifest, dict) and isinstance(manifest.get("training_families"), list) and \
+            manifest.get("training_families_provenance") == TRAINING_FAMILIES_PROVENANCE:
         try:
             pinned = checkpoint_digest(manifest) == sha
         except (KeyError, TypeError):
@@ -1471,11 +1478,8 @@ def status(vault: LoadedVault, repository: Repository, *, root: Path | None = No
     space_home = home(root, space)
     by_extraction = D.extraction_families(repository, D.family_map(D.data_dir(root, space, vault), repository,
                                                                    persist=False))
-    held_out = D.vault_held_out(by_extraction)
     # The splits a dataset would use now (F19, spec §7), not the ones stored with the rows.
-    rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
-            for row in _vault_rows(root, space, vault)]
-    rows = [{**row, "split": D.current_split(row, held_out)} for row in rows]
+    rows = D.current_rows(_vault_rows(root, space, vault), by_extraction)
     index = targets_index(space_home)
     ledger = read_ledger(space_home)
     adoption = read_adoption(root, space)
