@@ -1012,9 +1012,10 @@ class Repository(
         practice_item_id: str,
         *,
         content_hash: str | None = None,
+        active: bool = True,
         clock: Clock | None = None,
     ) -> bool:
-        """Insert a fresh, active scheduling row only when none exists.
+        """Insert a fresh scheduling row only when none exists.
 
         Never touches an existing row (practice already recorded for the item),
         so a retried publication cannot erase scheduling state. Returns whether
@@ -1028,10 +1029,38 @@ class Repository(
                   practice_item_id, difficulty, stability, retrievability, due_at,
                   active, content_hash, last_attempt_at, updated_at
                 )
-                VALUES (?, NULL, NULL, NULL, NULL, 1, ?, NULL, ?)
+                VALUES (?, NULL, NULL, NULL, NULL, ?, ?, NULL, ?)
                 ON CONFLICT(practice_item_id) DO NOTHING
                 """,
-                (practice_item_id, content_hash, now),
+                (practice_item_id, 1 if active else 0, content_hash, now),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def update_practice_item_content_state(
+        self,
+        practice_item_id: str,
+        *,
+        active: bool,
+        content_hash: str | None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Set only ``active`` and ``content_hash`` on an existing row.
+
+        Mobile PR-2: content sync owns these two columns and nothing else, so it
+        can never write back a difficulty, stability, retrievability, due date or
+        last-attempt time it read before an attempt committed in another process.
+        The caller decides ``active`` and calls this inside the same
+        ``atomic()`` transaction (``reconcile_practice_item_state``). Returns
+        whether a row was updated.
+        """
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE practice_item_state SET active = ?, content_hash = ?, updated_at = ? "
+                "WHERE practice_item_id = ?",
+                (1 if active else 0, content_hash, now, practice_item_id),
             )
             connection.commit()
         return cursor.rowcount > 0

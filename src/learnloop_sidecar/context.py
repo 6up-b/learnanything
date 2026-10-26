@@ -542,7 +542,7 @@ class SidecarContext:
         from learnloop.diagnosis.probe_instance_generation import (
             pending_review_instance_ids,
         )
-        from learnloop.substrate.state_sync import practice_item_activatable
+        from learnloop.substrate.state_sync import reconcile_practice_item_state
 
         review_parked = pending_review_instance_ids(repository)
         measurement_superseded = repository.superseded_measurement_item_ids()
@@ -592,31 +592,18 @@ class SidecarContext:
                     if existing == item:
                         continue
                     vault.practice_items[item.id] = item
-                    state = repository.practice_item_state(item.id)
-                    active = practice_item_activatable(
+                    # Mobile PR-2: the same targeted write as a full sync, so an
+                    # attempt committed by another process between this read
+                    # and the write keeps its scheduling fields.
+                    _outcome, active = reconcile_practice_item_state(
+                        repository,
                         item.id,
                         item,
+                        state=repository.practice_item_state(item.id),
                         review_parked=review_parked,
                         measurement_superseded=measurement_superseded,
-                        state=state,
+                        content_hash=practice_item_hash(item),
                     )
-                    if state is None:
-                        repository.upsert_practice_item_state(
-                            item.id,
-                            active=active,
-                            content_hash=practice_item_hash(item),
-                        )
-                    else:
-                        repository.upsert_practice_item_state(
-                            item.id,
-                            difficulty=state.difficulty,
-                            stability=state.stability,
-                            retrievability=state.retrievability,
-                            due_at=state.due_at,
-                            active=active,
-                            content_hash=practice_item_hash(item),
-                            last_attempt_at=state.last_attempt_at,
-                        )
                     if not active:
                         repository.deactivate_practice_item_serving(item.id)
                     changed.append(item.id)
