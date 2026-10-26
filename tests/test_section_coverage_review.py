@@ -412,3 +412,162 @@ def test_rr_f10_a_crash_after_the_proposals_is_recovered_from_the_ledger(vault_p
     result = SC.judge(load_vault(paths.root), repository, "lo_eigen", client=judge)
     assert judge.calls == 1 and result.status in ("ready", "fresh")
     assert _rows(repository) and {entry["judge"] for entry in _proposals(repository)} == {"section_coverage_judge"}
+
+
+# -- Landing F1 (final verify, reopened): a nonempty but invalid source_sets.yaml ------------------
+#
+# The loader turns a source-sets file it cannot parse or validate into a `yaml:invalid` issue and NO
+# source sets; such a load still "settles" (its files did not change under it). Exam protection lives
+# in the source sets, so that snapshot must never be used for protection: every batch refresh, guard
+# check and admission refuses instead (fail closed).
+
+#: A file a reader cannot parse, and one that parses but fails SourceSetsFile's validation.
+CORRUPT_SOURCE_SETS = {
+    "unparseable": "source_sets:\n  - id: sset_la\n    members: [{source_id: src_exam, default_role: exam\n",
+    "schema_invalid": "source_sets:\n  - id: sset_la\n    subject_id: linear-algebra\n    members: not-a-list\n",
+}
+CORRUPTIONS = sorted(CORRUPT_SOURCE_SETS)
+
+
+def _corrupt_source_sets(paths, kind):
+    path = paths.source_sets_path
+    path.write_text(CORRUPT_SOURCE_SETS[kind], encoding="utf-8")
+    assert path.read_bytes().strip()  # nonempty: the "caught empty mid-rewrite" check never sees it
+
+
+def _no_exam_text(judge):
+    from tests.source_retrieval_fakes import EXAM_QUESTION
+
+    return all(EXAM_QUESTION not in prompt for prompt in judge.prompts)
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_the_corrupt_file_loads_as_no_source_sets(vault_paths, kind):
+    # The premise: the loader keeps going with no source sets (so no exam source) and one issue.
+    from learnloop.vault.loader import settled_load_vault
+
+    paths, _repository = vault_paths
+    _corrupt_source_sets(paths, kind)
+    loaded = settled_load_vault(paths.root)
+    assert loaded.settled and loaded.vault.source_sets == []
+    assert [issue.code for issue in loaded.vault.issues if issue.path == paths.source_sets_path] == ["yaml:invalid"]
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_the_cli_batch_refuses_when_source_sets_turn_invalid_mid_batch(tmp_path, kind):
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    _add_lo(paths, "lo_char", "Characteristic equation",
+            "The eigenvalues of A are the roots of the characteristic equation.")
+    vault = load_vault(paths.root)
+    asked = {"n": 0}
+
+    def between() -> bool:
+        asked["n"] += 1
+        if asked["n"] == 2:  # after the first LO's judgment, before the next
+            _corrupt_source_sets(paths, kind)
+        return False
+
+    judge = CoverageJudgeFake()
+    out = SC.cover_source(vault, repository, "ext_book", client=judge, cancelled=between)
+    assert judge.calls == 1 and _no_exam_text(judge)
+    assert out["status"] == "stale"
+    later = [entry for entry in out["learning_objects"][1:]]
+    assert later and all(entry["status"] == "stale" for entry in later)
+    assert later[0].get("reason") == "protection_unreadable"
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_cover_refuses_when_source_sets_turn_invalid_mid_batch(tmp_path, kind):
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    _add_lo(paths, "lo_char", "Characteristic equation",
+            "The eigenvalues of A are the roots of the characteristic equation.")
+    vault = load_vault(paths.root)
+    asked = {"n": 0}
+
+    def between() -> bool:
+        asked["n"] += 1
+        if asked["n"] == 2:
+            _corrupt_source_sets(paths, kind)
+        return False
+
+    judge = CoverageJudgeFake()
+    with pytest.raises(SC.CoverageError) as caught:
+        SC.cover(vault, repository, ["lo_eigen", "lo_char"], client=judge, cancelled=between)
+    assert caught.value.code == "withheld"
+    assert judge.calls == 1 and _no_exam_text(judge) and _rows(repository, "lo_char") == []
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_source_sets_turning_invalid_during_a_cli_judgment_keep_nothing(vault_paths, kind):
+    paths, repository = vault_paths
+    vault = load_vault(paths.root)
+    judge = HookedJudge(lambda fake: _corrupt_source_sets(paths, kind))
+    result = SC.judge(vault, repository, "lo_eigen", client=judge)
+    assert judge.calls == 1 and result.status == "stale" and result.reason == "protection_changed"
+    assert _rows(repository) == [] and _proposals(repository) == []
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_a_reload_with_invalid_source_sets_is_never_admitted(vault_paths, kind):
+    # The sidecar: its provider publishes a reload whose source sets did not load.
+    paths, repository = vault_paths
+    vault = load_vault(paths.root)
+    _corrupt_source_sets(paths, kind)
+    provider = ReloadingProvider(vault)
+    provider.reload = load_vault(paths.root)
+    provider.snapshot()  # published: every later check reads the corrupt load
+    judge = CoverageJudgeFake()
+    result = SC.judge(vault, repository, "lo_eigen", client=judge, live_vault=provider)
+    assert result.status == "stale" and judge.calls == 0
+    assert _rows(repository) == [] and _proposals(repository) == []
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_admission_refuses_a_vault_whose_source_sets_did_not_load(vault_paths, kind):
+    paths, repository = vault_paths
+    _corrupt_source_sets(paths, kind)
+    vault = load_vault(paths.root)
+    judge = CoverageJudgeFake()
+    with pytest.raises(SC.CoverageError) as judged:
+        SC.judge(vault, repository, "lo_eigen", client=judge)
+    with pytest.raises(SC.CoverageError) as batch:
+        SC.cover_source(vault, repository, "ext_book", client=judge)
+    with pytest.raises(SC.CoverageError) as dry:
+        SC.cover_source(vault, repository, "ext_book", dry_run=True)
+    assert {judged.value.code, batch.value.code, dry.value.code} == {"withheld"}
+    # The read API answers withheld for the exam's own section (it is not known to be exam material now).
+    assert SC.correspondents(vault, repository, "ext_exam", "exam_q")["status"] == "withheld"
+    assert "source sets" in str(judged.value)
+    assert judge.calls == 0 and _rows(repository) == []
+
+
+@pytest.mark.parametrize("kind", CORRUPTIONS)
+def test_landing_f1_the_pressed_check_and_the_read_api_refuse(tmp_path, kind):
+    from learnloop_sidecar.errors import SidecarError
+    from tests.reading_path_fixtures import call, context
+
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    _corrupt_source_sets(paths, kind)
+    judge = CoverageJudgeFake()
+    ctx = context(paths.root, coverage_inline=True, coverage_judge_client=judge)
+    before = table_counts(repository)
+    with pytest.raises(SidecarError) as pressed:
+        call(ctx, "curriculum.cover", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
+    assert pressed.value.code == "withheld"
+    view = call(ctx, "reader.correspondents", {"extraction_id": "ext_book", "section_id": BOOK_EIGEN})
+    assert view["status"] == "withheld"
+    assert judge.calls == 0 and table_counts(repository) == before
+
+
+def test_landing_f1_the_cli_command_refuses_with_a_clear_message(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, _repository = build_coverage_vault(tmp_path / "vault")
+    _corrupt_source_sets(paths, "schema_invalid")
+    result = CliRunner().invoke(app, ["curriculum", "cover", "--vault", str(paths.root), "--source", "src_book",
+                                      "--dry-run", "--json"])
+    assert result.exit_code == 1
+    out = json.loads(result.output.strip().splitlines()[-1])
+    assert out["status"] == "invalid" and "source sets" in out["reason"]
