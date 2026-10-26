@@ -67,8 +67,10 @@ export interface FiguresCtl {
   contract: FiguresContract | null;
   figures: FigureViewDto[];
   pending: FigurePending[];
-  expandedId: string | null;
-  setExpanded: (figureId: string | null) => void;
+  /** The one open placement (Codex re-review F10: a figure reused under
+   * several paragraphs opens at the one pressed), as {@link figurePlacementKey}. */
+  expandedKey: string | null;
+  setExpanded: (figure: FigureViewDto | null) => void;
   /** Resolves once the build has ended (never rejects). */
   request: (input: FigureRequestInput) => Promise<FigureRequestOutcome>;
   revise: (figure: FigureViewDto, note: string) => void;
@@ -76,6 +78,12 @@ export interface FiguresCtl {
   explain: (figure: FigureViewDto, predictionId: string, text: string) => Promise<FigurePredictionResultDto | null>;
   /** The figures and pending lines under one passage. */
   under: (spanId: string | null | undefined) => { figures: FigureViewDto[]; pending: FigurePending[] };
+}
+
+/** One placement of a figure: the figure and the paragraph it is listed under
+ * (a goal-only figure may be placed under several; RW5d Codex review F3). */
+export function figurePlacementKey(figure: Pick<FigureViewDto, "figureId" | "anchorSpanId">): string {
+  return `${figure.figureId}@${figure.anchorSpanId ?? ""}`;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -94,7 +102,8 @@ export function useFigures({
   const enabled = Boolean(contract && extractionId);
   const [figures, setFigures] = useState<FigureViewDto[]>([]);
   const [pending, setPending] = useState<FigurePending[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const setExpanded = useCallback((figure: FigureViewDto | null) => setExpandedKey(figure ? figurePlacementKey(figure) : null), []);
   // A build that lands after the source changed never shows on the new one.
   const generation = useRef(0);
   const runs = useRef(new Map<string, object>());
@@ -105,7 +114,7 @@ export function useFigures({
     generation.current += 1;
     setFigures([]);
     setPending([]);
-    setExpandedId(null);
+    setExpandedKey(null);
     if (!enabled || !extractionId) return;
     const mine = generation.current;
     void Promise.resolve(api.readerFigures({ extractionId }))
@@ -278,14 +287,14 @@ export function useFigures({
       contract: contract ?? null,
       figures,
       pending,
-      expandedId,
-      setExpanded: setExpandedId,
+      expandedKey,
+      setExpanded,
       request,
       revise,
       predict,
       explain,
       under,
     }),
-    [enabled, contract, figures, pending, expandedId, request, revise, predict, explain, under],
+    [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under],
   );
 }

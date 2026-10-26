@@ -95,6 +95,57 @@ it("opens one figure at a time", async () => {
   expect(document.querySelectorAll("[data-figure-body]")).toHaveLength(1);
 });
 
+it("RW5d re-review F10: a figure placed under two paragraphs opens at one placement, and its prediction is that placement's", async () => {
+  // A goal-only figure reused at p3 and p5: one figure id, two placements.
+  const placed = (anchorSpanId: string) => figureView({ spanIds: [], anchorSpanId, goalText: "show how the mass moves" } as Partial<FigureViewDto>);
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [placed("p3"), placed("p5")] });
+  api.readerFigurePredict.mockResolvedValue({
+    predictionId: "fpr_1", figureId: "fig_1", extractionId: "ext_prob", predictionIndex: 0, learnerAnswer: "falls",
+    matched: false, before: 0.3, after: 0.3, answer: "same", explanationText: null,
+  } satisfies FigurePredictionResultDto);
+  render(<Harness spans={["p3", "p5"]} />);
+  const lines = await screen.findAllByRole("button", { name: /interactive version/ });
+  expect(lines).toHaveLength(2);
+  fireEvent.click(lines[0]);
+  // Only the pressed placement opens.
+  expect(lines[0].getAttribute("aria-expanded")).toBe("true");
+  expect(lines[1].getAttribute("aria-expanded")).toBe("false");
+  expect(document.querySelectorAll("[data-figure-body]")).toHaveLength(1);
+  const atA = document.querySelector("[data-span='p3'] [data-figure-body]");
+  expect(atA).not.toBeNull();
+  fireEvent.click(screen.getByLabelText("it rises"));
+  // Then the other placement: it opens alone, and what it shows selected is what it sends.
+  fireEvent.click(lines[1]);
+  expect(lines[0].getAttribute("aria-expanded")).toBe("false");
+  expect(lines[1].getAttribute("aria-expanded")).toBe("true");
+  expect(document.querySelector("[data-span='p5'] [data-figure-body]")).not.toBeNull();
+  const falls = screen.getByLabelText("it falls") as HTMLInputElement;
+  fireEvent.click(falls);
+  expect(falls.checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.answer }));
+  await waitFor(() => expect(api.readerFigurePredict).toHaveBeenCalledWith({ figureId: "fig_1", predictionIndex: 0, answer: "falls" }));
+  // The result is the figure's, shared by both placements.
+  await waitFor(() => expect(document.querySelector("[data-span='p5'] [data-figure-before-after]")).not.toBeNull());
+  fireEvent.click(lines[0]);
+  expect(document.querySelector("[data-span='p3'] [data-figure-before-after]")).not.toBeNull();
+});
+
+it("RW5d re-review F10: two mounted prediction controls for one figure never share a radio group", async () => {
+  // The same figure open in two hosts at once (two controllers): each radio
+  // group is its own, so choosing in one leaves the other's choice alone.
+  render(<><Harness spans={["p3"]} /><Harness spans={["p3"]} /></>);
+  const lines = await screen.findAllByRole("button", { name: /interactive version/ });
+  fireEvent.click(lines[0]);
+  fireEvent.click(lines[1]);
+  const [rises] = screen.getAllByLabelText("it rises") as HTMLInputElement[];
+  const [, falls] = screen.getAllByLabelText("it falls") as HTMLInputElement[];
+  expect(rises.name).not.toBe(falls.name);
+  fireEvent.click(rises);
+  fireEvent.click(falls);
+  expect(rises.checked).toBe(true);
+  expect(falls.checked).toBe(true);
+});
+
 it("asks the prediction before the first change, then shows the readout before and after (Moment 9)", async () => {
   const result: FigurePredictionResultDto = {
     predictionId: "fpr_1", figureId: "fig_1", extractionId: "ext_prob", predictionIndex: 0, learnerAnswer: "rises",

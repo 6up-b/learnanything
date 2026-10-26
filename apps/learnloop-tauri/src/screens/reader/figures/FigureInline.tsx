@@ -9,7 +9,7 @@
 // slider; step buttons under reduced motion; nothing moves until pressed,
 // D39), the values table (`t`) and "not right?". Nothing here takes focus,
 // animates by itself or opens a modal (W12, G54).
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { FigurePredictionDto, FigureViewDto } from "../../../api/dto";
 import { COLOR, FONT_MONO } from "../../../components/term";
 import { errorMessage } from "../../../errors";
@@ -91,7 +91,7 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
     .map((key) => PROPERTY_CHECK_COPY[key]);
 }
 
-import type { FigurePending, FiguresCtl } from "./useFigures";
+import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFigures";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -190,6 +190,10 @@ function PredictionBlock({
   const [choice, setChoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Each mounted control is its own radio group (Codex re-review F10): two
+  // placements of one figure never share a native group, so what shows
+  // selected is what is sent. The answer itself is the figure's.
+  const group = `prediction-${figure.figureId}-${prediction.index}-${useId()}`;
   const submit = async () => {
     if (!choice || busy) return;
     setBusy(true);
@@ -211,7 +215,7 @@ function PredictionBlock({
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: FONT_MONO, fontSize: 11 }}>
         {prediction.choices.map((option) => (
           <label key={option.value} style={{ display: "flex", gap: 4, alignItems: "center", color: COLOR.text }}>
-            <input type="radio" name={`prediction-${figure.figureId}-${prediction.index}`} value={option.value}
+            <input type="radio" name={group} value={option.value}
               checked={choice === option.value} onChange={() => setChoice(option.value)}
               onKeyDown={(event) => { if (event.key === "Enter") void submit(); }} />
             {option.label}
@@ -462,7 +466,7 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
 /** One figure under its passage: the collapsed line and, when expanded, the figure. */
 export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: FiguresCtl }) {
   const shown = figure.verification === "verified" || figure.verification === "illustrative";
-  const expanded = shown && ctl.expandedId === figure.figureId;
+  const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
   const compiled = useMemo(() => {
     if (!shown || !figure.specJson) return null;
     try {
@@ -496,7 +500,7 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
   const checks = frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
-    ctl.setExpanded(expanded ? null : figure.figureId);
+    ctl.setExpanded(expanded ? null : figure);
   };
   return (
     <div data-figure={figure.figureId} data-figure-verification={figure.verification} style={{ margin: "4px 0 8px 0", display: "flex", flexDirection: "column", gap: 4 }}>

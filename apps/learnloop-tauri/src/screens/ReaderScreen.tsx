@@ -3387,7 +3387,7 @@ export function ReaderScreen({
               lines: showMeLines,
               onShowMe: () => showMeFromAsk(),
               onOpen: (figure: FigureViewDto) => {
-                figuresCtl.setExpanded(figure.figureId);
+                figuresCtl.setExpanded(figure);
                 // The learner pressed, so the jump is theirs, with a crumb
                 // ("back to where I was") when they had scrolled away (spec
                 // §6.2; Codex review F8): the return stack's peek.

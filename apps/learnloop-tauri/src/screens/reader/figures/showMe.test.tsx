@@ -194,7 +194,7 @@ it("the routed line says what show me uses, and only for show me", () => {
 });
 
 it("the figure line quotes the goal in its author's voice and the badge is code-owned", () => {
-  const ctl = { enabled: true, contract: null, figures: [], pending: [], expandedId: null, setExpanded: vi.fn(),
+  const ctl = { enabled: true, contract: null, figures: [], pending: [], expandedKey: null, setExpanded: vi.fn(),
     request: vi.fn(), revise: vi.fn(), predict: vi.fn(), explain: vi.fn(), under: vi.fn() } as unknown as FiguresCtl;
   const { container, rerender } = render(<FigureInline figure={figure()} ctl={ctl} />);
   expect(container.querySelector("[data-figure-goal='learner']")?.textContent).toContain("show how the mass moves");
