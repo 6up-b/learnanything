@@ -85,7 +85,8 @@ def test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else(tmp_
     assert role_for_table("field_signal_receipts") is TableRole.RECEIPT
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")]
-        assert columns[-1] == "contract_subject_id"
+        # Reader CA2's 221 adds earlier_opened_at after it on the way to head.
+        assert columns[-2:] == ["contract_subject_id", "earlier_opened_at"]
         # A session from before 219 has no subject on record: the field says so.
         assert connection.execute(
             "SELECT contract_subject_id FROM workbench_sessions WHERE id = 'wb_old'").fetchone() == (None,)

@@ -80,6 +80,28 @@ def _question_hints(vault, repository, session: dict[str, Any]) -> int:
         return 0
 
 
+def _earlier_hints(vault, repository, session: dict[str, Any]) -> int:
+    """Reader CA2 (Codex review F1; orchestrator fix F1/F15): the earlier
+    attempt's opened help the submit's server side will add, its own
+    component in the record line: carried onto an open problem of the item
+    (``earlier_opened_at``), or still on the answer box's draft. One per
+    attempt, the same read the submit makes (``practice._earlier_opened_hint``)."""
+
+    item_id = session.get("practice_item_id")
+    if not item_id or session.get("status") != "open" or item_id not in vault.practice_items:
+        return WB.earlier_hints(session)
+    practice_session = session.get("practice_session_id")
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    from learnloop_sidecar.handlers.practice import _earlier_opened_hint
+
+    try:
+        return _earlier_opened_hint(repository, practice_session, str(item_id))
+    except Exception:  # noqa: BLE001 - a display line never fails a read
+        return WB.earlier_hints(session)
+
+
 def record_line(vault, repository, session_id: str) -> dict[str, Any]:
     """A problem's record line and save time, with no statement (a step's
     save, the help ladder's record): not a statement-bearing response, so a
@@ -87,7 +109,8 @@ def record_line(vault, repository, session_id: str) -> dict[str, Any]:
 
     row = _run(WB.session_row, repository, session_id)
     view = _run(WB.session_view, repository, session_id, question_hints=_question_hints(vault, repository, row),
-                server_hints=_carried_server_hints(repository, row))
+                server_hints=_carried_server_hints(repository, row),
+                earlier=_earlier_hints(vault, repository, row))
     return {"updated_at": view.get("updated_at"), "record": to_camel(view.get("record"))}
 
 
@@ -249,6 +272,7 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
         server_hints=_carried_server_hints(repository, row),
+        earlier=_earlier_hints(vault, repository, row),
         extra=extra,
     )
     return to_camel(view)
@@ -411,6 +435,10 @@ class WorkbenchOpenInput(ParamsModel):
     session_id: str | None = None
     #: The answer box's hints the learner saw before working in steps.
     carried_hints: int = 0
+    #: The practice screen's open practice session, whose draft the steps
+    #: take over (re-review F1: an earlier attempt's help it opened is
+    #: carried onto the problem by the server, never by the client's count).
+    practice_session_id: str | None = None
     #: A book a problem the learner left for the answer box counted (review F2).
     carried_book: bool = False
     #: The serve the problem answers ("check me", the practice screen's
@@ -521,11 +549,13 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             raise SidecarError("validation_error", "That problem is in another book.",
                                details={"sessionId": params.session_id})
         _refuse_withheld_exercise(vault, repository, named)
+        draft_session, earlier = _draft_earlier(repository, params, named.get("practice_item_id"))
         row = _run(
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
             extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
-            carried_book=params.carried_book, serve=serve,
+            carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
         )
+        _carry_earlier(repository, draft_session, earlier, row)
         _ensure_contract(vault, repository, row["id"])
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
@@ -563,6 +593,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         ):
             batch_id, error = _start_import(ctx, vault, repository, request)
             import_status = "pending" if batch_id else "failed"
+    draft_session, earlier = _draft_earlier(repository, params, params.practice_item_id)
     row, resumed = _run(
         WB.open_session, repository,
         origin=params.origin, entry=entry, stem_md=stem,
@@ -571,12 +602,66 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
         import_status=import_status, import_batch_id=batch_id,
         import_request=request, import_error=error, carried=carried,
-        carried_book=params.carried_book, serve=serve,
+        carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
     )
+    _carry_earlier(repository, draft_session, earlier, row)
     _ensure_contract(vault, repository, row["id"])
     if resumed:
         _refuse_withheld_exercise(vault, repository, _run(WB.session_row, repository, row["id"]))
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
+
+
+#: The origins whose open hands the practice screen's answer-box draft to the steps.
+_DRAFT_HANDOFF_ORIGINS = frozenset({"practice", "plan"})
+
+
+def _draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> tuple[str | None, int]:
+    """Codex re-review F1: ``(practice session, 1)`` when the practice
+    screen's draft of the item, handed to the steps now, opened an earlier
+    attempt's help under its current key (``sessions.draft_earlier_opened``),
+    else ``(None, 0)``. Carried again onto any problem the draft moves into
+    (a problem set aside before keeps its own mark): the problem holds it as
+    a set-once component and every count ORs it with the draft's, so it is
+    never counted twice. The practice session is the one the screen names
+    while open, else the most recent open one. Read from the server's
+    checkpoint, never from the client's count."""
+
+    if params.origin not in _DRAFT_HANDOFF_ORIGINS or not practice_item_id:
+        return None, 0
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+
+    try:
+        session_id = params.practice_session_id if _session_open(repository, params.practice_session_id) else None
+        if session_id is None:
+            recent = repository.most_recent_open_session()
+            session_id = str(recent["id"]) if recent else None
+        if session_id is None:
+            return None, 0
+        checkpoint = repository.fetch_session_checkpoint(session_id)
+    except Exception:  # noqa: BLE001 - no readable draft carries nothing
+        return None, 0
+    if not draft_earlier_opened(checkpoint, practice_item_id=str(practice_item_id)):
+        return None, 0
+    return session_id, 1
+
+
+def _carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None:
+    """Record on the draft that its opening now lives on the problem (its
+    own component, ``earlier_opened_at``: never the authored reveals'
+    ``carried_hints``, orchestrator fix F15), so the checkpoint never
+    counts it again."""
+
+    if not earlier or not draft_session:
+        return
+    from learnloop_sidecar.handlers.sessions import carry_earlier_opened
+    from learnloop_sidecar.logging import log_event
+
+    try:
+        carry_earlier_opened(repository, draft_session, practice_item_id=str(row.get("practice_item_id")),
+                             workbench_session_id=str(row["id"]))
+    except Exception as exc:  # noqa: BLE001 - the problem holds the hint: an unmarked draft
+        # reads as the same opening (the submit ORs the two), never lost.
+        log_event("workbench_earlier_opened_not_marked", error=type(exc).__name__)
 
 
 def _picked_exercise(vault, repository, params: WorkbenchOpenInput, request: dict[str, Any],

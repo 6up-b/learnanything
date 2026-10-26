@@ -51,6 +51,19 @@ export interface AlgoDisplayConfig {
    *  says so, and null leaves the workbench exactly as RW2a drew it. The
    *  ladder's hints need the hint service too (`adaptiveHints`). */
   workbenchHelp: WorkbenchHelpConfig | null;
+  /** Reader CA2's kill switch (`ask.panel_enabled`): the sidecar sends an
+   *  `ask` key only while it is on, so null until it says so, and null leaves
+   *  every Ask host exactly as before CA2 (the overlay, the Reader's mode). */
+  ask: AskPanelConfig | null;
+}
+
+export interface AskPanelConfig {
+  /** The one stored help-style preference Ask's mode follows (§7.4). */
+  helpStyle: HelpStyleValue;
+  /** The successor's one help rule is live (`ask.cold_help_converts` at
+   *  mvp-0.34): on a check on your own only a question about the maths
+   *  converts, and the box and the labels say so. */
+  coldHelpConverts: boolean;
 }
 
 export interface WorkbenchHelpConfig {
@@ -87,7 +100,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   adaptiveHints: null,
   ratingTap: false,
   firstHintProgress: false,
-  workbenchHelp: null
+  workbenchHelp: null,
+  ask: null
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -104,6 +118,7 @@ export function setAlgoConfig(config: unknown): void {
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
+    ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -132,6 +147,9 @@ export function setAlgoConfig(config: unknown): void {
           ...(root.workbench.help.compareMethods === true ? { compareMethods: true as const } : {}),
           ...(root.workbench.help.passageDraw === true ? { passageDraw: true as const } : {})
         }
+      : null,
+    ask: root.ask?.panelEnabled === true
+      ? { helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true }
       : null
   };
   // A new snapshot names the shell again; the App mirrors what it draws next.
@@ -157,6 +175,15 @@ function asHelpStyle(value: unknown): HelpStyleValue {
 /** The help style the sidecar saved (the panel's "⋯" menu or Settings). */
 export function setAdaptiveHelpStyle(style: HelpStyleValue): void {
   if (current.adaptiveHints) current = { ...current, adaptiveHints: { ...current.adaptiveHints, helpStyle: style } };
+  // Reader CA2: one stored preference, so the Ask panel follows it too.
+  if (current.ask) current = { ...current, ask: { ...current.ask, helpStyle: style } };
+  for (const listener of listeners) listener();
+}
+
+/** The help style every help surface shows (§7.4): the Ask panel's copy of
+ *  the stored preference, else the hint panel's, else balanced. */
+export function storedHelpStyle(): HelpStyleValue {
+  return current.ask?.helpStyle ?? current.adaptiveHints?.helpStyle ?? "balanced";
 }
 
 /** The one prompt "I'm stuck" opens the answer box with (mirrors

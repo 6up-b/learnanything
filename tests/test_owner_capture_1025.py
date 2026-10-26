@@ -172,7 +172,12 @@ def test_b3_a_reattempt_starts_a_fresh_ask_thread(tmp_path, grader):
     fresh = _call(ctx, "get_tutor_transcript", transcript)
     vault, repository = ctx.require_vault()
     assert fresh["events"] == []
-    assert fresh["remaining"] == vault.config.tutor_qa.max_questions_practice
+    # The budget is the attempt's (owner 2026-10-26, B3's rule), so the reattempt
+    # has used none of it. Codex review F8 (kept by the owner 2026-10-26): the
+    # default route is the subscription's, which has no request bound at all
+    # (remaining None); a metered route keeps the per-attempt cap
+    # (tests/test_reader_ca2_codex_review.py).
+    assert fresh["remaining"] is None
     used, _limit = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=session)
     assert used == 0
     _question(ctx, session, "q_second")

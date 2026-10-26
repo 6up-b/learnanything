@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_open_world_gate.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_plan_follows_path.py`
+- `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_rw2b_review.py`
 - `tests/test_reading_paths.py`
 - `tests/test_rebuild_equivalence_review.py`

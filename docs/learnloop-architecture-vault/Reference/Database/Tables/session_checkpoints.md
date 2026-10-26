@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 - `src/learnloop_sidecar/handlers/teach_back.py`
+- `src/learnloop_sidecar/handlers/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/workbench.py`
 
 > [!note] Static-reference boundary

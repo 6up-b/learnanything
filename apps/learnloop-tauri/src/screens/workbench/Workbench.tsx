@@ -16,7 +16,7 @@
 // second Esc is Leave for now. LiveMarkdownEditor binds none of these
 // chords itself, so none clash (Ctrl+K stays free for RW2b's check).
 // Nothing a save, a poll or a result does moves focus or opens a dialog.
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { PassageTarget, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ItemPresentation } from "../../components/ItemPresentation";
@@ -76,6 +76,24 @@ export interface WorkbenchProps {
   /** The live steps as the learner's work (B1): numbered, stuck steps
    *  marked, reported as they change, so an Ask from anywhere sees them. */
   onWorkChange?: (workMd: string) => void;
+  /** Reader CA2 (§7.6): the host's Ask panel, rendered inline under the
+   *  focused step (``stepNumber``) or, for the whole problem, at the foot of
+   *  the steps (null). With it, ``?`` and "ask · ?" open it here instead of
+   *  calling ``onAsk``. */
+  renderAsk?: (about: {
+    stepNumber: number | null;
+    stepsCount: number;
+    onClose: () => void;
+    /** Codex review F2 (K9): the help ladder's take step for worked help
+     *  (rung 4 or 5) after an Ask answer was withheld; absent without help. */
+    onTakeWorked?: (level: 4 | 5) => void;
+  }) => ReactNode;
+  /** Reader CA2: the host asked to open the inline Ask (its ``?`` with no
+   *  focus, the palette); each increment opens it on the focused step. */
+  askSignal?: number;
+  /** Reader CA2 (K8): the attempt's questions, in the help record's words,
+   *  appended to the footer so the record is one line. */
+  askRecordLine?: string;
   /** RW2b: peek a passage of the book ("compare with the book"). */
   /** ``target``: where the passage is, when the workbench knows (RW2c review
    *  F1: a worked example may be in another book). */
@@ -195,6 +213,9 @@ export function Workbench(props: WorkbenchProps) {
   });
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
+  // Reader CA2 (§7.6): where the inline Ask is open (a step's chain, or null
+  // for the whole problem), or not open.
+  const [askAt, setAskAt] = useState<{ chain: string | null } | null>(null);
   const helpOn = helpConfig !== null;
   const canHelp = helpOn && open && !readOnly && bound && !leaving;
   const focusedChain = (() => {
@@ -216,6 +237,22 @@ export function Workbench(props: WorkbenchProps) {
   const pendingLoose = Boolean(helpOn && help.hintPending && !onAStep(help.hintPending.stepId ?? focusedChain));
   const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain));
   const looseHints = helpOn ? help.hints.filter((hint) => !onAStep(hint.aboutStepId)) : [];
+
+  // Codex review F2 (K9): worked help from an Ask answer's take step goes
+  // through this ladder, recorded as the rung taken.
+  const takeWorked = canHelp ? (level: 4 | 5) => { void help.take(level); } : undefined;
+  function openAskInline() {
+    if (leaving) return;
+    setAskAt({ chain: focusedChain });
+  }
+  const askSignal = props.askSignal ?? 0;
+  const askSignalSeen = useRef(askSignal);
+  useEffect(() => {
+    if (askSignal === askSignalSeen.current) return;
+    askSignalSeen.current = askSignal;
+    if (props.renderAsk) openAskInline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askSignal]);
 
   function runCheck() {
     if (canHelp) void help.runCheck();
@@ -357,11 +394,13 @@ export function Workbench(props: WorkbenchProps) {
     } else if (helpOn && ctrl && event.shiftKey && key.toLowerCase() === "h") {
       handled();
       smallerStep();
-    } else if (props.onAsk && key === "?" && !ctrl && !event.altKey && !isTyping(event.target)) {
+    } else if ((props.onAsk || props.renderAsk) && key === "?" && !ctrl && !event.altKey && !isTyping(event.target)) {
       // B1: the practice screen's Ask key, here too (the screen's own key
-      // handler stands down while the workbench owns the keys).
+      // handler stands down while the workbench owns the keys). Reader CA2:
+      // with the inline panel, it asks about the focused step, under it.
       handled();
-      props.onAsk();
+      if (props.renderAsk) openAskInline();
+      else props.onAsk?.();
     } else if (event.altKey && (key === "ArrowUp" || key === "ArrowDown")) {
       handled();
       const current = steps.find((step) => (event.target as HTMLElement).closest?.(`[data-step-key="${step.key}"]`));
@@ -622,6 +661,14 @@ export function Workbench(props: WorkbenchProps) {
                       requestFocus(step.key);
                     }} />
                 ) : null}
+                {props.renderAsk && askAt && chain !== null && askAt.chain === chain ? (
+                  <div data-testid="workbench-step-ask">
+                    {props.renderAsk({ stepNumber: number, stepsCount: live.length, onTakeWorked: takeWorked, onClose: () => {
+                      setAskAt(null);
+                      requestFocus(step.key);
+                    } })}
+                  </div>
+                ) : null}
                 {step.versions.length > 0 ? (
                   <div style={{ marginTop: 2 }}>
                     <button type="button" style={{ ...linkStyle, fontSize: 10 }} onClick={() => setShowVersions((key) => (key === step.key ? null : step.key))}>
@@ -675,6 +722,12 @@ export function Workbench(props: WorkbenchProps) {
           ) : null}
         </div>
       ) : null}
+      {props.renderAsk && askAt && !onAStep(askAt.chain) ? (
+        // §7.6: a question about the whole problem, at the foot of the steps.
+        <div data-testid="workbench-problem-ask" style={{ marginLeft: 36 }}>
+          {props.renderAsk({ stepNumber: null, stepsCount: live.length, onTakeWorked: takeWorked, onClose: () => setAskAt(null) })}
+        </div>
+      ) : null}
       {helpOn && rw2c.available && !readOnly && open && fromBook ? (
         <ShowMeExample rw2c={rw2c} focusedStepId={focusedChain} disabled={!canHelp}
           onPeek={props.onPeekPassage ? peek : undefined} />
@@ -724,9 +777,13 @@ export function Workbench(props: WorkbenchProps) {
           </button>
         ) : null}
         <button type="button" style={actionStyle} aria-disabled={leaving} onClick={stuck}>I'm stuck · ctrl+d</button>
-        {props.onAsk ? (
+        {props.onAsk || props.renderAsk ? (
           <button type="button" style={actionStyle} aria-disabled={leaving}
-            onClick={() => { if (!leaving) props.onAsk?.(); }}>ask · ?</button>
+            onClick={() => {
+              if (leaving) return;
+              if (props.renderAsk) openAskInline();
+              else props.onAsk?.();
+            }}>{props.renderAsk ? "ask about this step · ?" : "ask · ?"}</button>
         ) : null}
         <button
           type="button"
@@ -793,7 +850,7 @@ export function Workbench(props: WorkbenchProps) {
       {actions}
       {reopenLine}
       <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 6, display: "flex", gap: 10, alignItems: "baseline" }}>
-        <MeaningLabel>{record.footer}</MeaningLabel>
+        <MeaningLabel>{record.footer}{props.askRecordLine ? ` · ${props.askRecordLine}` : ""}</MeaningLabel>
         {readOnly ? (
           <button type="button" style={{ ...linkStyle, marginLeft: "auto" }} onClick={() => props.onLeave(session)}>esc · back to reading</button>
         ) : null}

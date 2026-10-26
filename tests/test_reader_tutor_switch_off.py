@@ -57,6 +57,10 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # RW7a (landed after this golden was recorded): off, so its contract key
         # and Orient's "what matters here?" are absent; these pins are RW1c's.
         set_config(paths, "reading_paths", enabled=False)
+        # Reader CA2 (landed after this golden was recorded): the one Ask
+        # panel makes the help style the Reader's answer mode (Q5); off, the
+        # launch default answers as the golden recorded.
+        set_config(paths, "ask", panel_enabled=False)
     ctx = context(paths.root)
     tutor = tool_tutor(answer_md="The determinant vanishes there, so t is a root.")
 
@@ -97,6 +101,12 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
                                        "answer_mode", "source_context", "facets", "hint_equivalent")}
         for row in repository.question_events(context="reader")
     ]
+    for row in questions:
+        # Reader CA2 (§7.5) adds the question type's receipt (model, prompt
+        # version, run) to every answer's source context; RW1c's pins are
+        # unchanged otherwise.
+        receipt = (row.get("source_context") or {}).pop("receipt", None)
+        assert receipt is None or {"model", "prompt_version", "agent_run_id"} <= set(receipt)
     return _normalized(_without({
         "prompts": tutor.prompts, "result_models": tutor.result_models,
         "root": root, "follow": follow, "history": history, "contract": contract,

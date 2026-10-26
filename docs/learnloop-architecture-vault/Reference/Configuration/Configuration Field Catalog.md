@@ -123,6 +123,7 @@ Every one of the 1056 effective leaves has a semantic Function, a runtime/refact
 | [[Config - eligibility|`eligibility`]] | 1 | Runtime configuration |
 | [[Config - replay|`replay`]] | 1 | Runtime configuration |
 | [[Config - teacher|`teacher`]] | 1 | Runtime configuration |
+| [[Config - ask|`ask`]] | 2 | Runtime configuration |
 
 ## Search recipes
 

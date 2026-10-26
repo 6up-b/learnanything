@@ -1296,6 +1296,24 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
+    # presentation switch and the kill switch of its successor's one help
+    # rule. Booleans (classified so every new key has a rule); the rules are
+    # structural: the tutor model's typed question_type decides what counts
+    # (HINT_EQUIVALENT_TYPES, the existing mapping) and taking help converts
+    # a cold attempt by construction; no weight, margin or threshold to learn.
+    _ConfigRule(_exact(
+        "ask.panel_enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA2's one Ask panel (docked in practice, inline per step, the help style as "
+        "Ask's mode, the attempt's own thread, earlier on this question); off, the overlay and the Reader's "
+        "per-source answer mode exactly as before."),
+    _ConfigRule(_exact(
+        "ask.cold_help_converts",
+    ), "structural", "operational",
+        "kill switch for Reader CA2's successor: on a check on your own only a substantive question (the "
+        "tutor's question_type) counts as help on every path, and help taken on a cold follow-up makes the "
+        "attempt practice with help instead of a refused submit; off, the predecessor's rules exactly."),
     # Reader workbench RW5a: explorable figures. The kill switches (booleans,
     # so Inventory A's numeric walk never reaches them; classified so every
     # new key has a rule) and the two routes' metered spend a UTC day and the

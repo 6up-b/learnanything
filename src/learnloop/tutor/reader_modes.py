@@ -95,6 +95,11 @@ class BoundAsk:
     context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
     answer_guard: Callable[[str], bool] | None = None
     answer_overlap: Callable[[str], float] | None = None
+    #: Reader CA2 (mvp-0.34, K10, ``ask.cold_help_converts``): False when the
+    #: one help rule is live, so a cold Ask counts only when substantive, as
+    #: a practice Ask does. True (the default, the predecessor's L6 rule): a
+    #: cold Ask counts whatever its type.
+    cold_counts_every_question: bool = True
 
     def hint_equivalent(self, substantive: bool) -> bool:
         """The bound row's hint flag, the one value stored and returned (R1).
@@ -104,8 +109,12 @@ class BoundAsk:
         only deduplicates: ``reader_dialogue._record_cold_hint_equivalent``
         leaves its flag off when this row carries the hint). A bound Ask
         outside a cold administration uses the ordinary classification
-        (``substantive``: its type is in ``tutor_qa.HINT_EQUIVALENT_TYPES``)."""
+        (``substantive``: its type is in ``tutor_qa.HINT_EQUIVALENT_TYPES``).
+        Under Reader CA2's one help rule (``cold_counts_every_question`` False)
+        the cold Ask uses the ordinary classification too."""
 
+        if self.cold and not self.cold_counts_every_question:
+            return bool(substantive)
         return bool(self.cold or substantive)
 
 

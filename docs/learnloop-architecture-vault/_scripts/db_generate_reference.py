@@ -847,6 +847,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "exam_seeding": "reliability assigned to imported exam evidence",
     "tutor_qa": "tutor question budgets and question-derived diagnostic signals",
     "tutor_promotion": "promotion of learner questions into claims, needs, and practice",
+    "ask": "Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help",
     "teach_back": "teach-back dialogue and evidence limits",
     "rung_variants": "learner-requested easier and harder activity variants",
     "animation": "consented concept-animation generation and sandboxed rendering",

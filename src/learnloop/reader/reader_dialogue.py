@@ -59,6 +59,7 @@ from learnloop.substrate.activities import (
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
+from learnloop.serve_eligibility import help_converts_active
 
 # P3 slice 2 reading modes (§5.1). Modes gate owner-placed questions + influence
 # proposal priority only; they NEVER alter evidence eligibility (salience-only).
@@ -274,7 +275,9 @@ def build_reader_manifest(
         # to the connection fields only; never the learner posterior.
         "goal_invariants": dict(goal_invariants) if goal_invariants is not None else None,
         "prior_exchanges": [
-            {"question_md": e["question_md"], "answer_md": e["answer_md"]}
+            # Orchestrator fix F12: what the learner was shown (a withheld
+            # worked answer is its take step), never a stored raw answer.
+            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e)}
             for e in prior
         ],
         # Explicit negative space -- asserted by tests; the ability estimate and any
@@ -603,7 +606,7 @@ def ask(
             selection_quote_md = parent["selection_quote_md"]
             selection_source_quote_md = parent.get("selection_source_quote_md")
         thread = [
-            {"question_md": e["question_md"], "answer_md": e["answer_md"], "question_type": "other"}
+            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e), "question_type": "other"}
             for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
         ]
 
@@ -704,7 +707,14 @@ def ask(
     # One source of truth (R1): bound, the exchange's and the response's
     # flag is the question row's stored flag; unbound, the base's (the
     # client's cold flag, which the cold path's practice row carries).
-    hint_equivalent = bool(result["hint_equivalent"]) if reader_binding is not None else bool(cold_active)
+    # Reader CA2 (mvp-0.34, K10, ``ask.cold_help_converts``): under the one
+    # help rule an unbound cold Ask counts only when the tutor read it as
+    # substantive (``tutor_qa.HINT_EQUIVALENT_TYPES``), as a practice Ask
+    # does; the predecessor's L6 counted every cold question.
+    one_rule = help_converts_active(vault)
+    substantive = str(result.get("question_type") or "") in tutor_qa.HINT_EQUIVALENT_TYPES
+    hint_equivalent = (bool(result["hint_equivalent"]) if reader_binding is not None
+                       else bool(cold_active) and (substantive or not one_rule))
 
     # L3 server-side reveal detection: an answer can leak a reserved surface even when
     # the caller forgets to declare it. Derive candidate revealed reserves from the
@@ -802,6 +812,8 @@ def ask(
             answer_md=result["answer_md"],
             span_key=span_key,
             clock=clock,
+            counts=substantive or not one_rule,
+            question_type=result.get("question_type") if one_rule else None,
         )
 
     response: dict[str, Any] = {
@@ -916,6 +928,8 @@ def _record_cold_hint_equivalent(
     span_key: str,
     clock: Clock | None,
     question_event_id: str | None = None,
+    counts: bool = True,
+    question_type: str | None = None,
 ) -> str | None:
     """Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to
     the cold attempt's (item, session), so the practice evidence path counts it (L6).
@@ -925,7 +939,12 @@ def _record_cold_hint_equivalent(
     a hint on the same item (a workbench session bound it: its row carries
     the hint in the item's window, whatever the practice session), this row
     is still written, as the link to the cold attempt, with its flag off, so
-    the hint counts once and is not lost when the session changes."""
+    the hint counts once and is not lost when the session changes.
+
+    Reader CA2 (mvp-0.34, K10): ``counts`` False (the one help rule, and the
+    tutor read the question as a clarification, verification or other) writes
+    the link with its flag off, and ``question_type`` carries the tutor's
+    reading; True (the predecessor's L6) counts it whatever its type."""
 
     attempt = repository.fetch_practice_attempt(cold_attempt_id)
     if attempt is None:
@@ -941,8 +960,8 @@ def _record_cold_hint_equivalent(
             "session_id": attempt.get("session_id"),
             "question_md": question_md,
             "answer_md": answer_md,
-            "question_type": "other",
-            "hint_equivalent": not carried,
+            "question_type": question_type or "other",
+            "hint_equivalent": counts and not carried,
             "answer_status": "answered",
             "signal_channel": "interaction_preference",
             "provider": "reader",

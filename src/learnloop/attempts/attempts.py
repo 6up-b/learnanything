@@ -2740,6 +2740,7 @@ def submit_decision(
     learning_object_id: str | None = None,
     retimed: Mapping[str, str | None] | None = None,
     window_bounded: bool = False,
+    help_converts: bool = False,
 ) -> serve_eligibility.EligibilityDecision:
     """Submit's admissibility, asked of the one eligibility decision: a cold
     check (the first due task on the item is a cold one) must be unassisted
@@ -2765,6 +2766,14 @@ def submit_decision(
         attempt_type=draft.attempt_type,
     )
     inputs = serve_eligibility.with_pending_writes(inputs, retimed)
+    if help_converts:
+        # Reader CA2 (mvp-0.34, ``ask.cold_help_converts``): help taken on a
+        # cold follow-up makes the attempt practice with help. Codex review
+        # F4: worked help taken first (a shown level 4-5 rung, which primes
+        # without a hint) is help taken too, read from the persisted fold.
+        fold = draft.server_hint_fold
+        worked = fold is not None and bool(fold.folded_primed or fold.held_primed or fold.held_worked)
+        inputs = replace(inputs, help_converts=True, worked_help_taken=worked)
     return serve_eligibility.decide(inputs, serve_eligibility.SUBMIT)
 
 
@@ -2896,7 +2905,7 @@ def _resolve_attempt_target(
             # the refusal names the change.
             decision = submit_decision(
                 repository, draft, clock=clock, learning_object_id=learning_object.id, retimed=retimed_tasks,
-                window_bounded=window_bounded,
+                window_bounded=window_bounded, help_converts=serve_eligibility.help_converts_active(vault),
             )
             if decision.verdict == serve_eligibility.REFUSE:
                 serve_eligibility.log_decision(decision, path="submit")

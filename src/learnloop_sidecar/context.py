@@ -669,15 +669,16 @@ class SidecarContext:
 
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 too).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 and mvp-0.35 too).
 
     Installed for the desktop sidecar (``learnloop.activation_journal``): the
     opener in :meth:`SidecarContext.load` completes it before anything serves
     or re-projects the vault, or raises and nothing of the vault is bound."""
 
     # The chain's latest upgrade completes its own journal and hands an
-    # earlier link's to that link (rebuild equivalence's landing).
-    from learnloop.replay_ledger_upgrade import complete_interrupted_activation
+    # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
+    # mvp-0.35 at the batch landing).
+    from learnloop.one_ask_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 
@@ -775,6 +776,12 @@ def _adaptive_difficulty_dto(config: Any) -> dict[str, Any]:
     return {"adaptive_difficulty": {"rating_tap": rating, "first_hint_progress": marker}}
 
 
+def _cold_help_converts(vault: LoadedVault) -> bool:
+    from learnloop.serve_eligibility import help_converts_active
+
+    return help_converts_active(vault)
+
+
 def config_dto(vault: LoadedVault) -> dict[str, Any]:
     config = vault.config
     return versioned(
@@ -827,6 +834,15 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                           "authored_offer_after_seconds": config.hints.authored_offer_after_seconds,
                           "help_style": config.hints.help_style}}
                if config.hints.adaptive_enabled and config.hints.telemetry_enabled else {}),
+            # Reader CA2 (ux_reader_compare_ask_v1 §7): the one Ask panel.
+            # Present only while ask.panel_enabled is on, so with it off the
+            # snapshot is exactly what it was and every host is the overlay's.
+            # ``help_style`` is the stored preference Ask's mode follows;
+            # ``cold_help_converts`` says the successor's one help rule is live
+            # (the placeholder and labels on a check on your own say it).
+            **({"ask": {"panel_enabled": True, "help_style": config.hints.help_style,
+                        "cold_help_converts": _cold_help_converts(vault)}}
+               if config.ask.panel_enabled else {}),
             # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's
             # rating tap and first-hint progress marker. Present only while
             # one of them is on, so with both off the snapshot is exactly
@@ -1096,8 +1112,15 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     )
     hint_seen = draft_hint_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
     page_seen = draft_page_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+
+    current_item = row.get("current_practice_item_id")
+    earlier_opened = bool(current_item) and draft_earlier_opened(row, practice_item_id=str(current_item))
     return to_camel(
         {
+            # Reader CA2 (Codex review F1): *earlier on this question* was
+            # opened on this draft (its one hint is the submit's, server-side).
+            **({"earlier_opened": True} if earlier_opened else {}),
             # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
             # marker, present only when one was kept for this retry key.
             **({"first_hint_progress": marker} if marker is not None else {}),

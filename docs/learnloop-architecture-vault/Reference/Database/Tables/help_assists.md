@@ -156,8 +156,10 @@ None found by exact static reference scan.
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop/workbench/check.py`
 - `src/learnloop/workbench/help_outcomes.py`
+- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 ### Direct SQL writers
 

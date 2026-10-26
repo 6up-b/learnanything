@@ -5,7 +5,10 @@
 // stacked below the 1,040 px breakpoint). The workbench itself (steps,
 // checks, the help ladder) is the shared Workbench component the practice
 // screen's "Work in steps" uses too.
+import { useEffect, useState } from "react";
 import type { PassageTarget, WorkbenchSessionDto } from "../../api/dto";
+import { algoConfig } from "../../app/algoConfig";
+import { AskOverlay } from "../../components/AskOverlay";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { Workbench } from "../workbench/Workbench";
 import { WORKBENCH_COPY } from "../workbench/stepModel";
@@ -46,6 +49,21 @@ export function ReaderWorkingPosture({
    *  a line says how to get there; leaving is the learner's call. */
   askWaiting?: { onDismiss: () => void } | null;
 }) {
+  // Reader CA2 (§7.1, §7.6): asking about a step no longer means leaving the
+  // problem. With the panel on and the problem bound to an item, Ask opens
+  // inline under the focused step; the palette's Ask opens it too, instead of
+  // the "leave for now" line. Codex review F10: no practice session is needed
+  // from here; the server binds the question to the workbench, its attempt
+  // key and the practice session its submit will use.
+  const itemId = active.session.practiceItemId;
+  const inlineAsk = algoConfig().ask !== null && itemId !== null && !active.readOnly;
+  const [askSignal, setAskSignal] = useState(0);
+  const [workMd, setWorkMd] = useState("");
+  useEffect(() => {
+    if (!askWaiting || !inlineAsk) return;
+    setAskSignal((value) => value + 1);
+    askWaiting.onDismiss();
+  }, [askWaiting, inlineAsk]);
   return (
     <>
       {bookHidden && sourceShown ? (
@@ -104,7 +122,7 @@ export function ReaderWorkingPosture({
           ...(stacked ? { flex: sourceShown ? "0 0 50%" : "1 1 auto" } : { height: "100%" }),
         }}
       >
-        {askWaiting ? (
+        {askWaiting && !inlineAsk ? (
           <div
             role="status"
             data-testid="workbench-ask-waiting"
@@ -135,6 +153,32 @@ export function ReaderWorkingPosture({
           onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
           onPeekPassage={onPeekPassage}
           onError={onError}
+          {...(inlineAsk && itemId !== null ? {
+            askSignal,
+            onWorkChange: setWorkMd,
+            renderAsk: ({ stepNumber, stepsCount, onClose, onTakeWorked }: { stepNumber: number | null; stepsCount: number; onClose: () => void; onTakeWorked?: (level: 4 | 5) => void }) => (
+              <AskOverlay
+                variant="inline"
+                target={{
+                  context: "practice",
+                  practiceItemId: itemId,
+                  ...(practiceSessionId !== null ? { sessionId: practiceSessionId } : {}),
+                  // The open problem is one attempt until it is submitted:
+                  // resuming it is not a reattempt (§7.3). Codex review F6:
+                  // its key is the server's (the same in every host).
+                  workbenchSessionId: active.session.sessionId,
+                  ...(stepNumber !== null ? { aboutStep: stepNumber } : {}),
+                  stepsCount,
+                  workMd,
+                  readDraft: () => workMd,
+                  attemptProgress: workMd.trim() ? "draft_started" : "no_draft"
+                }}
+                onClose={onClose}
+                onToast={onError}
+                onTakeWorked={onTakeWorked}
+              />
+            )
+          } : {})}
         />
       </div>
     </>

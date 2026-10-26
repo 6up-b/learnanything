@@ -91,7 +91,9 @@ class ReaderAskInput(ParamsModel):
     extraction_id: str
     span_id: str
     question: str
-    answer_mode: str = RD.READER_ANSWER_MODE_DEFAULT
+    # Reader CA2 (§7.4, Q5): omitted, the help style's mode while
+    # ``ask.panel_enabled`` (one vocabulary), else the Reader's launch default.
+    answer_mode: str | None = None
     target_key: str | None = None
     revealed_surface_ids: list[str] = []
     # Full capture selection: span_id stays the primary grounding block; these
@@ -113,6 +115,20 @@ class ReaderAskInput(ParamsModel):
     retrieval_intent: Literal["explain", "alternative", "remediate"] = "explain"
     personalized: bool | None = None
     workbench_session_id: str | None = None
+
+
+def _reader_answer_mode(vault: Any, requested: str | None) -> str:
+    """The Reader Ask's mode: the learner's one-question change, else (Reader
+    CA2, Q5: the per-source select retires into the help style) the help
+    style's while ``ask.panel_enabled``, else the launch default."""
+
+    if requested is not None:
+        return requested
+    from learnloop.tutor.tutor_qa import ask_panel_enabled, help_style_answer_mode
+
+    if ask_panel_enabled(vault):
+        return help_style_answer_mode(vault.config.hints.help_style)
+    return RD.READER_ANSWER_MODE_DEFAULT
 
 
 @method("reader.ask", ReaderAskInput)
@@ -151,7 +167,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             extraction_id=params.extraction_id,
             span_id=params.span_id,
             question_md=params.question,
-            answer_mode=params.answer_mode,
+            answer_mode=_reader_answer_mode(vault, params.answer_mode),
             target_key=params.target_key,
             revealed_surface_ids=params.revealed_surface_ids,
             selection_span_ids=params.selection_span_ids,

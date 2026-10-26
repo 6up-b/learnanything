@@ -150,8 +150,8 @@ Database triggers:
 - `tests/test_hint_telemetry.py`
 - `tests/test_intent_orchestrator_rulings.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_rw1c_review.py`
-- `tests/test_reader_tutor_offers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

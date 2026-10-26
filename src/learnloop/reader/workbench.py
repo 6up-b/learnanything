@@ -234,15 +234,29 @@ def book_hints(session: Mapping[str, Any]) -> int:
 
 
 def carried_hints(session: Mapping[str, Any]) -> int:
-    """The answer box's hints the learner saw before working in steps."""
+    """The answer box's authored hints the learner revealed before working in
+    steps: the answer box's reveal index on the way back, so nothing else
+    is ever added to it (orchestrator fix F15)."""
 
     return max(0, int(session.get("carried_hints") or 0))
+
+
+def earlier_opened(session: Mapping[str, Any]) -> bool:
+    """Whether the answer box's draft carried an earlier attempt's opened help
+    onto this problem (migration 221; Reader CA2 §7.3, Q2): its own
+    component, one hint-equivalent like the book, never an authored reveal."""
+
+    return bool(session.get("earlier_opened_at"))
+
+
+def earlier_hints(session: Mapping[str, Any]) -> int:
+    return 1 if earlier_opened(session) else 0
 
 
 def session_hints(session: Mapping[str, Any]) -> int:
     """Every hint-equivalent the session itself holds (the submit's ``hints_used``)."""
 
-    return book_hints(session) + carried_hints(session)
+    return book_hints(session) + carried_hints(session) + earlier_hints(session)
 
 
 def _help_parts(fold: WorkbenchFold) -> list[str]:
@@ -262,7 +276,7 @@ def _help_parts(fold: WorkbenchFold) -> list[str]:
 
 def record_line(
     *, counted: bool, visible: bool, question_hints: int, composed: ComposedAnswer, carried: int = 0,
-    help_fold: WorkbenchFold | None = None,
+    help_fold: WorkbenchFold | None = None, earlier: int = 0,
 ) -> dict[str, Any]:
     """What the attempt will record, stated before Submit (spec §5.1, G62).
 
@@ -276,12 +290,16 @@ def record_line(
 
     question_hints = max(0, int(question_hints or 0))
     carried = max(0, int(carried or 0))
+    # Orchestrator fix F1/F15: an earlier attempt's help opened before
+    # Submit is its own component (one per attempt), named as itself.
+    earlier = 1 if earlier else 0
     fold = help_fold if help_fold is not None and not help_fold.empty else None
     helped = fold.hints if fold is not None else 0
-    hints = (1 if counted else 0) + carried + question_hints + helped
+    hints = (1 if counted else 0) + carried + earlier + question_hints + helped
     parts = (
         (["the book"] if counted else [])
         + ([f"{carried} shown on the answer box"] if carried else [])
+        + (["an earlier attempt's help"] if earlier else [])
         + ([f"{question_hints} tutor question{'s' if question_hints != 1 else ''}"] if question_hints else [])
         + ([part for part in _help_parts(fold) if "◌" not in part] if fold is not None else [])
     )
@@ -297,13 +315,14 @@ def record_line(
             what = f" ({', '.join(parts)})" if parts and (len(parts) > 1 or not counted) else ""
         line = f"{lead}{noun}{what} → practice with help ◌ (not yet checked on your own)"
     used = ([f"{carried} hint{'s' if carried != 1 else ''}"] if carried else []) + (
-        _help_parts(fold) if fold is not None else [])
+        ["an earlier attempt's help"] if earlier else []) + (_help_parts(fold) if fold is not None else [])
     help_used = ", ".join(used) if used else "none"
     footer = ("book open = 1 hint" if counted else "book hidden" if not visible else "book open") + f" · help used: {help_used}"
     if fold is not None:
         return {
             "book_counted": counted, "book_visible": visible, "hints": hints, "question_hints": question_hints,
-            "carried_hints": carried, "own_attempt": False, "line": line, "footer": footer,
+            "carried_hints": carried, "earlier_hints": earlier, "own_attempt": False, "line": line,
+            "footer": footer,
             "stuck_note": STUCK_NOTE if composed.empty_stuck else None,
             # RW2b: the problem's own assists (only when it has any).
             "help": {"checks": fold.checks, "by_level": list(fold.by_level), "worked": fold.worked,
@@ -315,6 +334,7 @@ def record_line(
         "hints": hints,
         "question_hints": question_hints,
         "carried_hints": carried,
+        "earlier_hints": earlier,
         "own_attempt": hints == 0,
         "line": line,
         "footer": footer,
@@ -504,6 +524,18 @@ def held_hints(repository: Any, practice_item_id: str) -> int:
         return held_on(connection, practice_item_id)[0]
 
 
+def held_earlier(repository: Any, practice_item_id: str) -> bool:
+    """Whether an open problem of the item carries an earlier attempt's
+    opened help (:func:`earlier_opened`): every submit for the item counts
+    it once, as it counts a book an open problem counted."""
+
+    with repository.connection() as connection:
+        sessions = store.sessions_where(
+            connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
+        )
+    return any(earlier_opened(session) for session in sessions)
+
+
 def held_primed(repository: Any, practice_item_id: str) -> bool:
     """Whether an open problem of the item showed worked help (a level 4-5
     hint): every submit for the item is then primed (RW2b, §5.4)."""
@@ -527,6 +559,7 @@ def _resume_existing(
     clock: Clock | None,
     carried_book: bool = False,
     serve: Mapping[str, str | None] | None = None,
+    carried_earlier: bool = False,
 ) -> dict[str, Any]:
     """Resume an existing session on the surface asking for it.
 
@@ -548,6 +581,10 @@ def _resume_existing(
         changes["carried_hints"] = carried
     if carried_book and not existing.get("source_shown_at"):
         changes["source_shown_at"] = now
+    if carried_earlier and not existing.get("earlier_opened_at"):
+        # Its own component (F1): a resume never folds it into the
+        # authored reveals' maximum above.
+        changes["earlier_opened_at"] = now
     changes.update(_serve_changes(serve))
     moved_from = None
     becomes_visible = False
@@ -602,6 +639,7 @@ def open_session(
     carried_book: bool = False,
     serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
+    carried_earlier: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     """Open a session (or resume the open one for the same item or selection).
 
@@ -611,7 +649,9 @@ def open_session(
     shown before steps, kept at the highest count seen; ``carried_book`` a
     book a session the learner left for the answer box counted, which this
     session counts too. ``serve`` names the scheduler offer and the plan
-    presentation the problem answers.
+    presentation the problem answers. ``carried_earlier``: the answer box's
+    draft opened an earlier attempt's help, carried as its own component
+    (``earlier_opened_at``), never into ``carried``.
     """
 
     if origin not in ORIGINS:
@@ -647,7 +687,7 @@ def open_session(
             row = _resume_existing(
                 repository, connection, existing, origin=origin, entry=entry, extraction_id=extraction_id,
                 span_ids=spans, source_visible=source_visible, carried=carried, now=now, clock=clock,
-                carried_book=carried_book, serve=serve,
+                carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
             )
             return row, True
         if parent_session_id is not None:
@@ -669,6 +709,7 @@ def open_session(
             "source_visible": 1 if visible and origin == "reader" else 0,
             "carried_hints": max(0, int(carried or 0)),
             "source_shown_at": now if carried_book else None,
+            "earlier_opened_at": now if carried_earlier else None,
             **_serve_changes(serve),
             "status": "open",
             "client_idempotency_key": client_idempotency_key,
@@ -696,6 +737,7 @@ def resume_session(
     carried_book: bool = False,
     serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
+    carried_earlier: bool = False,
 ) -> dict[str, Any]:
     """Resume a named session on the surface asking ("resume your steps", the
     ``✎`` mark, the rail): an abandoned one is reopened, and a move to another
@@ -720,7 +762,7 @@ def resume_session(
         return _resume_existing(
             repository, connection, session, origin=origin, entry=entry, extraction_id=extraction_id,
             span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
-            carried_book=carried_book, serve=serve,
+            carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
         )
 
 
@@ -1113,6 +1155,10 @@ class SubmissionPlan:
     composed: ComposedAnswer
     book_hints: int
     carried_hints: int = 0
+    #: An earlier attempt's help the answer box's draft opened and carried
+    #: here (migration 221): its own component. The submit's server side
+    #: counts it (``practice._earlier_opened_hint``), never the client's count.
+    earlier_hints: int = 0
     assessment_contract_version_id: str | None = None
     #: The serve the session was opened from (review F13).
     scheduler_candidate_id: str | None = None
@@ -1123,10 +1169,11 @@ class SubmissionPlan:
 
     @property
     def hints_used(self) -> int:
-        """The session's hint-equivalents: the book's, the carried hints, and
-        each shown check and level 1-3 hint (§5.4)."""
+        """The session's hint-equivalents: the book's, the carried hints, an
+        earlier attempt's opened help, and each shown check and level 1-3
+        hint (§5.4)."""
 
-        return self.book_hints + self.carried_hints + self.help.hints
+        return self.book_hints + self.carried_hints + self.earlier_hints + self.help.hints
 
     @property
     def client_hints(self) -> int:
@@ -1174,6 +1221,7 @@ def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
         composed=compose_answer(live_steps(rows)),
         book_hints=book_hints(session),
         carried_hints=carried_hints(session),
+        earlier_hints=earlier_hints(session),
         assessment_contract_version_id=session.get("assessment_contract_version_id"),
         scheduler_candidate_id=session.get("scheduler_candidate_id"),
         plan_presentation_id=session.get("plan_presentation_id"),
@@ -1255,6 +1303,7 @@ def session_view(
     *,
     question_hints: int = 0,
     server_hints: int = 0,
+    earlier: int | None = None,
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Everything the workbench shows for one session (snake_case; the
@@ -1263,7 +1312,11 @@ def session_view(
     3, ruling R1: its practice session and item, since the item's last
     attempt there), named in the record line with the client's; ``carried_hints`` stays the client's
     own count, which the answer box restores on the way back (the answer
-    box folds the service's rows itself, so neither is counted twice)."""
+    box folds the service's rows itself, so neither is counted twice).
+    ``earlier``: the earlier attempt's opened help the submit will add
+    (the caller's server-side read; default: this problem's own), named in
+    the record line as itself; ``earlier_opened`` tells the answer box the
+    opening is counted, apart from its authored reveals (fix F15)."""
 
     with repository.connection() as connection:
         session = _require(connection, session_id)
@@ -1291,6 +1344,7 @@ def session_view(
         "practice_session_id": session["practice_session_id"],
         "assessment_contract_version_id": session["assessment_contract_version_id"],
         "carried_hints": carried_hints(session),
+        "earlier_opened": earlier_opened(session),
         "scheduler_candidate_id": session["scheduler_candidate_id"],
         "plan_presentation_id": session["plan_presentation_id"],
         "help_style": session["help_style"],
@@ -1306,6 +1360,7 @@ def session_view(
             question_hints=question_hints, composed=composed,
             carried=carried_hints(session) + max(0, int(server_hints or 0)),
             help_fold=fold,
+            earlier=earlier_hints(session) if earlier is None else int(earlier),
         ),
         "parts": None,
         **_print_region(session),
@@ -1426,10 +1481,13 @@ __all__ = [
     "book_hints",
     "carried_hints",
     "compose_answer",
+    "earlier_hints",
+    "earlier_opened",
     "default_book_visible",
     "ensure_contract",
     "exercise_pick",
     "exercise_pick_due",
+    "held_earlier",
     "held_hints",
     "held_on",
     "held_parts_on",

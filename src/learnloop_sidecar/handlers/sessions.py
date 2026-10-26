@@ -213,6 +213,7 @@ _KEEP: Any = object()
 #: Adaptive difficulty AD1: the practice draft RPC's "leave the marker as it is".
 KEEP_MARKER: Any = _KEEP
 KEEP_HINT_SEEN: Any = _KEEP
+KEEP_EARLIER_OPENED: Any = _KEEP
 
 
 def patch_checkpoint(
@@ -224,6 +225,7 @@ def patch_checkpoint(
     first_hint_progress: Any = _KEEP,
     hint_seen: Any = _KEEP,
     page_seen: Any = _KEEP,
+    earlier_opened: Any = _KEEP,
 ) -> None:
     """Merge ``params`` into the session's checkpoint.
 
@@ -270,6 +272,8 @@ def patch_checkpoint(
 
     if page_seen is not _KEEP:
         focus = _with_keyed_flag(focus, "pageSeen", page_seen)
+    if earlier_opened is not _KEEP:
+        focus = _with_earlier_opened(focus, earlier_opened)
 
     current_item = _merged_value(existing, params, fields, "current_practice_item_id")
     if self_grade_disclosure is not _KEEP:
@@ -408,6 +412,28 @@ def _with_keyed_flag(focus: dict[str, Any] | None, name: str, value: Any) -> dic
     return payload
 
 
+def _with_earlier_opened(focus: dict[str, Any] | None, opened: Any) -> dict[str, Any]:
+    """Reader CA2 (K6, Q2; Codex review F1): *earlier on this question* was
+    opened before Submit on this draft, kept in the practice envelope with
+    the retry key it was opened under (no schema change), so the one
+    hint-equivalent it costs survives a restart and a move into steps: the
+    submit folds it from here (:func:`draft_earlier_opened`), never from the
+    client's count. Only True sets it; nothing but a new draft clears it."""
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    key = practice.get("submissionId") or practice.get("submission_id")
+    stored = practice.get("earlierOpened")
+    if opened is True and isinstance(key, str) and key.strip() and not (
+            isinstance(stored, dict) and stored.get("submissionId") == key.strip()):
+        # A marker already kept for this key stays as it is (re-review F1:
+        # one carried into steps keeps ``carriedTo``, so it counts once).
+        practice["earlierOpened"] = {"submissionId": key.strip()}
+    payload["practice"] = practice
+    return payload
+
+
 def draft_page_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:
     """Reader CA1: whether a saved draft records the original page opened
     before Submit under ``submission_id``."""
@@ -416,6 +442,68 @@ def draft_page_seen(practice: dict[str, Any] | None, submission_id: str | None) 
         return False
     stored = practice.get("pageSeen")
     return isinstance(stored, dict) and stored.get("submissionId") == submission_id
+
+
+def _draft_earlier_marker(checkpoint: dict[str, Any] | None, practice_item_id: str) -> dict[str, Any] | None:
+    if not checkpoint or checkpoint.get("current_practice_item_id") != practice_item_id:
+        return None
+    focus = checkpoint.get("focus_block_state")
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    if not isinstance(practice, dict):
+        return None
+    key = practice.get("submissionId") or practice.get("submission_id")
+    stored = practice.get("earlierOpened")
+    if isinstance(stored, dict) and isinstance(key, str) and bool(key) and stored.get("submissionId") == key:
+        return stored
+    return None
+
+
+def draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
+    """Whether the session's saved draft on ``practice_item_id`` opened an
+    earlier attempt's help under its current retry key (Codex review F1).
+    The panel reads it to say the opening is already counted."""
+
+    return _draft_earlier_marker(checkpoint, practice_item_id) is not None
+
+
+def draft_earlier_uncarried(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
+    """Whether the draft's opening is not marked carried yet (opened, and
+    :func:`carry_earlier_opened` has not recorded the first problem it moved
+    onto). Counting no longer reads it (orchestrator fix F15/F1): the draft's
+    marker and the problem's ``earlier_opened_at`` are ORed, one per attempt."""
+
+    marker = _draft_earlier_marker(checkpoint, practice_item_id)
+    return marker is not None and not marker.get("carriedTo")
+
+
+def carry_earlier_opened(repository, session_id: str | None, *, practice_item_id: str,
+                         workbench_session_id: str) -> bool:
+    """Codex re-review F1: the practice screen hands its draft to the steps,
+    so the opening's one hint moves onto the unfinished workbench, where it
+    lives as a carried answer-box hint (``workbench_sessions.carried_hints``,
+    durable whatever the session's later drafts or sessions). The draft's
+    marker records where it went (``carriedTo``), so the checkpoint never
+    counts it again and the panel still says it is counted. Returns whether
+    it was carried now (the caller added it to the carried count)."""
+
+    if not session_id:
+        return False
+    checkpoint = repository.fetch_session_checkpoint(session_id)
+    if not draft_earlier_uncarried(checkpoint, practice_item_id=practice_item_id):
+        return False
+    focus = _copy_mapping(checkpoint.get("focus_block_state"))
+    practice = dict(focus.get("practice") or {})
+    practice["earlierOpened"] = {**practice["earlierOpened"], "carriedTo": workbench_session_id}
+    focus["practice"] = practice
+    repository.update_session_checkpoint(
+        session_id,
+        current_practice_item_id=checkpoint.get("current_practice_item_id"),
+        current_answer=checkpoint.get("current_answer"),
+        focus_block_state=focus,
+        pending_grading_proposal=checkpoint.get("pending_grading_proposal"),
+        readiness=checkpoint.get("readiness"),
+    )
+    return True
 
 
 def draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:

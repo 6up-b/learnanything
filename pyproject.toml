@@ -494,6 +494,7 @@ source_modules = [
     "learnloop.method_explicit_upgrade",
     "learnloop.migration_coordinator",
     "learnloop.numeric",
+    "learnloop.one_ask_upgrade",
     "learnloop.ops",
     "learnloop.outcome_contract",
     "learnloop.params",

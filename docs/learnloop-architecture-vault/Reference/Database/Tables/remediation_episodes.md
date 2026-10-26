@@ -142,6 +142,7 @@ Indexes and uniqueness:
 - `tests/test_causal_orchestrator.py`
 - `tests/test_guided_redo.py`
 - `tests/test_prescription_passages.py`
+- `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_sidecar_remediation_surfaces.py`
 

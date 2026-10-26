@@ -29,6 +29,7 @@ const { api, contract } = vi.hoisted(() => ({
     workbenchSetBook: vi.fn(), workbenchLeave: vi.fn(), workbenchAbandon: vi.fn(), workbenchReopen: vi.fn(),
     workbenchRefreshImport: vi.fn(), workbenchBind: vi.fn(), workbenchRetryImport: vi.fn(), workbenchSubmit: vi.fn(),
     workbenchSessionForAttempt: vi.fn(),
+    getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), setHelpStyle: vi.fn(), getLearnerTextGap: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
 }));
@@ -167,5 +168,37 @@ describe("the palette's ask, from each Reader posture", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
     await waitFor(() => expect(askShown()).toBe(true));
     expect(api.readerAsk).not.toHaveBeenCalled();
+  });
+
+  it("working on an item-bound problem with the Ask panel on and no practice session: Ask opens inline (Codex F10)", async () => {
+    setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 },
+                    ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+    const bound = wbSession({ practiceItemId: "pi_1", importStatus: "none", practiceSessionId: null });
+    api.workbenchOpen.mockResolvedValue({ session: bound, resumed: false });
+    api.workbenchRefreshImport.mockResolvedValue({ session: bound });
+    api.getTutorTranscript.mockResolvedValue({ events: [], remaining: null, earlier: [], earlierCountsAsHint: true, cold: false });
+    const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={0} />);
+    const block = await screen.findByText(PROSE);
+    const range = document.createRange();
+    range.selectNodeContents(block);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    fireEvent.mouseUp(block);
+    await screen.findByText(/^selected ·/);
+    fireEvent.click(screen.getByRole("button", { name: "notes" }));
+    fireEvent.click(await screen.findByRole("button", { name: /work through this/ }));
+    await screen.findByRole("region", { name: "workbench" });
+    await act(async () => {
+      rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={1} />);
+    });
+    expect(screen.queryByTestId("workbench-ask-waiting")).toBeNull();
+    expect(await screen.findByTestId("ask-panel-inline")).toBeTruthy();
+    await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalled());
+    const read = api.getTutorTranscript.mock.calls[0][0];
+    // The server binds it: the workbench, no client key, no practice session.
+    expect(read).toMatchObject({ context: "practice", practiceItemId: "pi_1", workbenchSessionId: "wb1" });
+    expect(read.submissionId).toBeUndefined();
+    expect(read.sessionId).toBeUndefined();
+    expect(api.workbenchLeave).not.toHaveBeenCalled();
   });
 });

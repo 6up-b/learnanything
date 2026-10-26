@@ -470,6 +470,29 @@ _TUTOR_QA_READER_MODE_TASKS = {
     ),
 }
 
+#: Reader CA2 (ux_reader_compare_ask_v1 §7.4): the help style's answer mode
+#: during an attempt. Every mode stays inside the practice context's leak
+#: control (never the answer, never the derivation, never a verdict on the
+#: learner's work); the mode decides how much of the idea comes first.
+_TUTOR_QA_PRACTICE_MODE_TASKS = {
+    "ask_me_first": (
+        " Answer mode: ASK ME FIRST (the learner chose \"let me struggle\") -- reply with one focused "
+        "question back, or the smallest pointer that lets them take the next step themselves."
+    ),
+    "help_me_reason": (
+        " Answer mode: HELP ME REASON (the learner chose \"balanced\") -- give the idea their question "
+        "turns on, then one question that moves their own reasoning on."
+    ),
+    "answer_directly": (
+        " Answer mode: ANSWER DIRECTLY (the learner chose \"guide me\") -- answer what they asked plainly "
+        "and fully, still without the item's answer or its derivation."
+    ),
+}
+
+#: Reader CA2: the prompt-version suffix of a practice or feedback question
+#: answered in a help-style mode (absent: today's prompt and version).
+TUTOR_QA_ANSWER_MODE_SUFFIX = "+answer-mode-v1"
+
 _TEACH_BACK_TASK = (
     "You are a curious NAIVE STUDENT being taught by the learner. The learner "
     "just explained the concept to you (see context.transcript, oldest first). "
@@ -611,6 +634,13 @@ def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
     if context.context == "reader" and context.answer_mode:
         task = task + _TUTOR_QA_READER_MODE_TASKS.get(context.answer_mode, "")
+    # Reader CA2: the help style's mode during an attempt and after it (the
+    # feedback context may explain fully, so it takes the Reader's wording).
+    moded = context.context in ("practice", "feedback") and bool(context.answer_mode)
+    if moded and context.context == "practice":
+        task = task + _TUTOR_QA_PRACTICE_MODE_TASKS.get(str(context.answer_mode), "")
+    elif moded:
+        task = task + _TUTOR_QA_READER_MODE_TASKS.get(str(context.answer_mode), "")
     if context.diagnostic_decision is not None:
         task = task + " " + _TUTOR_QA_DIAGNOSTIC_DECISION_TASK
     shared = _TUTOR_QA_OPENING_SHARED if opening else _TUTOR_QA_SHARED
@@ -626,6 +656,8 @@ def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
         task = task + _TUTOR_QA_READER_LOOKUP_TASK
     else:
         version = TUTOR_QA_TOOLS_PROMPT_VERSION if with_tools else TUTOR_QA_PROMPT_VERSION
+    if moded:
+        version = version + TUTOR_QA_ANSWER_MODE_SUFFIX
     return render_structured_prompt(
         "learnloop tutor qa",
         version,

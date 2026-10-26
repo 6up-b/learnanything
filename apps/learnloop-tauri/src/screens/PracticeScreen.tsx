@@ -39,10 +39,13 @@ import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
 import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
-import type { DifficultyRating, FirstHintProgress } from "../api/dto";
+import type { DifficultyRating, FirstHintProgress, HelpRecordDto } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
 import { AS_PRINTED_COPY, AsPrinted, OriginalPageLink, printedPageLabel, useAsPrinted } from "../components/AsPrinted";
 import { OpenInSource } from "../components/OpenInSource";
+import { AskOverlay, type AskTarget } from "../components/AskOverlay";
+import { ASK_COPY } from "../components/askPanel";
+import { DockedAsk } from "../components/DockedAsk";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -152,6 +155,7 @@ export function PracticeScreen({
   onInspect,
   onAsk,
   onAskState,
+  onAskOpener,
   onError,
   primed = false,
   redo = null
@@ -234,6 +238,10 @@ export function PracticeScreen({
    *  whether an answer was started) so App's command-palette ask carries the
    *  same state the in-screen ask does; null when the screen unmounts. */
   onAskState?: (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string }) | null) => void;
+  /** Reader CA2: registers this screen's own Ask opener, so App's palette
+   *  Ask opens the docked panel (or the inline one in steps) instead of the
+   *  overlay while the panel is on; null when the screen unmounts. */
+  onAskOpener?: (open: (() => void) | null) => void;
   onError: (message: string) => void;
 }) {
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
@@ -347,7 +355,9 @@ export function PracticeScreen({
     planPresentationId,
     ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
     ...(hintSeen ? { hintSeen: true } : {}),
-    ...(pageSeen ? { pageSeen: true } : {})
+    ...(pageSeen ? { pageSeen: true } : {}),
+    // Codex review F1: set once an earlier attempt's help is opened.
+    ...({} as { earlierOpened?: boolean })
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -414,7 +424,35 @@ export function PracticeScreen({
     onAskState(() => askStateRef.current());
     return () => onAskState(null);
   }, [onAskState]);
-  const openAsk = (options?: { proactiveOpen?: boolean }) =>
+  // Reader CA2 (ux_reader_compare_ask_v1 §7): the one Ask panel, while the
+  // sidecar sends `ask` (ask.panel_enabled). Docked beside the question on the
+  // answer box; inline under the focused step in Work in Steps. Off (null),
+  // every path below is the overlay's, exactly as before.
+  const panelOn = algoConfig().ask !== null;
+  const [dockedAsk, setDockedAsk] = useState<AskTarget | null>(null);
+  const [stepAskSignal, setStepAskSignal] = useState(0);
+  // §7.7: a substantive question made this check practice with help.
+  const [askConverted, setAskConverted] = useState(false);
+  // K8: the questions this attempt asked, in order, with what they counted as.
+  const [askRecord, setAskRecord] = useState<Array<{ eventId: string; hintEquivalent: boolean }>>([]);
+  // K6, Q2: *earlier on this question* opened before Submit, counted once per
+  // attempt (its submission key). Codex review F1: recorded on the draft's
+  // checkpoint and counted by the submit's server side (any surface, after a
+  // restart too); the screen only shows it.
+  const [earlierCountedFor, setEarlierCountedFor] = useState<string | null>(null);
+  // Codex review F7 (K8): the help record as Submit will fold it, read from
+  // the server (stored state), so the footer never says less than Submit.
+  const [serverRecord, setServerRecord] = useState<HelpRecordDto | null>(null);
+  const openAsk = (options?: { proactiveOpen?: boolean }) => {
+    if (panelOn && !options?.proactiveOpen) {
+      if (stepsShown.current) {
+        // §7.6: Ask about the focused step, under it.
+        setStepAskSignal((value) => value + 1);
+        return;
+      }
+      setDockedAsk(practiceAskTarget());
+      return;
+    }
     onAsk({
       context: "practice",
       practiceItemId,
@@ -428,6 +466,14 @@ export function PracticeScreen({
       ...(stepsWorkRef.current === null && answer.trim() ? { draftMd: answer } : {}),
       ...options
     });
+  };
+  const openAskRef = useRef(openAsk);
+  openAskRef.current = openAsk;
+  useEffect(() => {
+    if (!onAskOpener || !panelOn) return undefined;
+    onAskOpener(() => openAskRef.current());
+    return () => onAskOpener(null);
+  }, [onAskOpener, panelOn]);
   // The editor grows with its content but is capped so the answer card never
   // pushes the Submit button (or anything below the editor) off-screen — once it
   // hits the cap it scrolls internally instead. The cap is "viewport below the
@@ -460,10 +506,12 @@ export function PracticeScreen({
       planPresentationId,
       ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
       ...(hintSeen ? { hintSeen: true } : {}),
-      ...(pageSeen ? { pageSeen: true } : {})
+      ...(pageSeen ? { pageSeen: true } : {}),
+      // Codex review F1: kept with the draft's retry key, server-side.
+      ...(earlierCountedFor !== null && earlierCountedFor === submissionId.current ? { earlierOpened: true } : {})
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen, pageSeen]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen, pageSeen, earlierCountedFor]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -778,6 +826,7 @@ export function PracticeScreen({
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        practiceSessionId: session.sessionId ?? null,
       });
       showSteps(result.session);
     } catch (error) {
@@ -786,7 +835,7 @@ export function PracticeScreen({
     } finally {
       endTransition(token);
     }
-  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, showSteps, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, session.sessionId, showSteps, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     const token = beginTransition();
     if (token === null) return;
@@ -798,6 +847,7 @@ export function PracticeScreen({
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        practiceSessionId: session.sessionId ?? null,
       });
       showSteps(result.session);
     } catch (error) {
@@ -806,15 +856,21 @@ export function PracticeScreen({
     } finally {
       endTransition(token);
     }
-  }, [beginTransition, endTransition, handOff, handOffFailed, onError, showSteps, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, onError, session.sessionId, showSteps, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
+    // The authored hints revealed, and only those: the answer box's reveal
+    // index (fix F15: an earlier attempt's help is never one of them).
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
     // authored hints changed since): never clamped to the list (final F2).
     if (carried > 0) setHintsUsed((value) => Math.max(value, carried));
     // Every assist the problem held comes back: its hints and its book (F2).
     if (closing?.record.bookCounted) setBookLeft(true);
-    if (carried > 0 || closing?.record.bookCounted) {
+    // Fix F15: an earlier attempt's help the problem carries comes back as
+    // itself (the panel says it is counted; the server's submit counts it).
+    const earlier = closing?.earlierOpened === true;
+    if (earlier) setEarlierCountedFor(submissionId.current);
+    if (carried > 0 || closing?.record.bookCounted || earlier) {
       // AD1 fix round 5 (V4): carried hints arrive untimed; with no marker
       // yet, this attempt's first hint is behind it, timing unknown.
       firstHint.noteUntimedHint();
@@ -867,6 +923,10 @@ export function PracticeScreen({
   // book, so it joins the book component (one hint-equivalent however many
   // ways the book was seen); it goes into steps as a carried book too.
   const bookCounts = bookCarried || pageSeen;
+  // Reader CA2 (K6, Q2): an earlier attempt's help opened before Submit is
+  // one hint-equivalent. Codex review F1: the submit counts it server-side,
+  // from the draft's checkpoint, so it is never in the client's count.
+  const earlierCounted = earlierCountedFor !== null && earlierCountedFor === submissionId.current;
   const answerHints = hintsUsed + (bookCounts ? 1 : 0);
   carriedRef.current = { hints: hintsUsed, book: bookCounts };
   // A carried book is a hint the marker never timed (fix round 4, V4).
@@ -1011,10 +1071,91 @@ export function PracticeScreen({
   }
   const [checkHelpOpen, setCheckHelpOpen] = useState(false);
   useEffect(() => setCheckHelpOpen(false), [item?.id]);
+  // Reader CA2 (§15 Q4): a cold follow-up the server serves with the take
+  // step (its view carries the ladder header) offers help like any check on
+  // your own; without it, the predecessor's "no hints on this one" stands.
+  const coldTakeStep = onYourOwnCheck && Boolean(intentCheck?.helpHeader);
+  const coldCheck = Boolean(intentCheck?.cold) || onYourOwnCheck;
+
+  /** Reader CA2: the practice Ask's target, the attempt's key and the live
+   *  draft read at send (§7.2), never the draft as it was when it opened. */
+  function practiceAskTarget(extra?: Partial<AskTarget>): AskTarget {
+    return {
+      context: "practice",
+      practiceItemId,
+      sessionId: session.sessionId,
+      ...askState(),
+      submissionId: submissionId.current,
+      readDraft: () => stepsWorkRef.current ?? answerRef.current,
+      // The context line names the exercise, never during a check on your
+      // own (D46: nothing that locates it).
+      itemLabel: item?.canonicalExercise && !intentCheck?.locatorsHidden ? item.canonicalExercise.label : undefined,
+      coldCheck,
+      ...extra
+    };
+  }
+
+  function onAskAnswered(answered: { eventId: string; hintEquivalent: boolean }) {
+    setAskRecord((record) => (record.some((entry) => entry.eventId === answered.eventId) ? record : [...record, answered]));
+    // §7.7: only a question about the maths changes the banner.
+    if (coldCheck && answered.hintEquivalent) setAskConverted(true);
+    refreshHelpRecord();
+  }
+
+  /** Codex review F7: read the attempt's help record (the server's fold). */
+  const refreshHelpRecord = useCallback(() => {
+    if (!panelOn || !session.sessionId || !practiceItemId) return;
+    const key = submissionId.current;
+    Promise.resolve(api.getTutorTranscript?.({ context: "practice", practiceItemId, sessionId: session.sessionId, submissionId: key }))
+      .then((snapshot) => {
+        if (!mountedRef.current || key !== submissionId.current || !snapshot?.helpRecord) return;
+        setServerRecord(snapshot.helpRecord);
+        if (snapshot.helpRecord.earlierOpened) setEarlierCountedFor(key);
+      })
+      .catch(() => undefined);
+  }, [panelOn, practiceItemId, session.sessionId]);
+  useEffect(() => {
+    setServerRecord(null);
+    setEarlierCountedFor(null);
+    refreshHelpRecord();
+  }, [refreshHelpRecord, restoredSubmissionId]);
+  const shownHintCount = adaptiveHints.entries.length;
+  useEffect(() => {
+    if (shownHintCount > 0) refreshHelpRecord();
+  }, [shownHintCount, refreshHelpRecord]);
+
+  /** Codex review F2 (K9): take worked help from the ladder after an Ask
+   *  answer was withheld (recorded as that rung only if taken). */
+  const takeWorkedFromAsk = adaptive && !probeActive && !isTeachBack
+    ? (level: 4 | 5) => { void adaptiveHints.takeWorked(level); }
+    : undefined;
+
+  // Esc returns focus to where it was when the panel opened (§7.1).
+  const askReturnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (dockedAsk) askReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, [dockedAsk]);
+  function closeDockedAsk() {
+    setDockedAsk(null);
+    const back = askReturnFocus.current;
+    askReturnFocus.current = null;
+    window.setTimeout(() => back?.focus(), 0);
+  }
+
+  function onEarlierOpened() {
+    if (earlierCountedFor === submissionId.current) return;
+    const key = submissionId.current;
+    setEarlierCountedFor(key);
+    seeHint();
+    // Codex review F1: recorded on the draft at once (its checkpoint is what
+    // the submit counts), then the record is read back.
+    latestDraft.current = { ...latestDraft.current, submissionId: key, earlierOpened: true };
+    void saveDraft().catch(() => undefined).then(() => refreshHelpRecord());
+  }
 
   function revealHint() {
     if (!practiceReady) return;
-    if (simple && onYourOwnCheck) {
+    if (simple && onYourOwnCheck && !coldTakeStep) {
       onError("No hints on this one: it's a check on your own.");
       return;
     }
@@ -1458,8 +1599,21 @@ export function PracticeScreen({
     );
   }
 
+  const dockedPanel = dockedAsk && panelOn && !stepsMode ? (
+    <AskOverlay
+      variant="docked"
+      target={dockedAsk}
+      onClose={closeDockedAsk}
+      onToast={onError}
+      onAnswered={onAskAnswered}
+      onEarlierOpened={onEarlierOpened}
+      onTakeWorked={takeWorkedFromAsk}
+    />
+  ) : null;
+
   return (
     <div className="screen">
+      <DockedAsk panel={dockedPanel}>
       <div className="screen-scroll">
         {simple ? null : <SectionHeader>Practice item</SectionHeader>}
         <Card focused>
@@ -1559,11 +1713,13 @@ export function PracticeScreen({
               What it verifies is said afterwards, in the feedback banner. */}
           {intentCheck?.banner ? (
             // DL2: the cold banner (Reader §9.3 item 10), provenance-free.
+            // Reader CA2 (§7.7): it changes only after a question about the
+            // maths; a clarification leaves it as it was.
             <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}>
-              {intentCheck.banner}
+              {askConverted ? ASK_COPY.convertedBanner : intentCheck.banner}
             </div>
           ) : null}
-          {simple && onYourOwnCheck ? (
+          {coldTakeStep ? null : simple && onYourOwnCheck ? (
             // The quiet line (§7.4, Reader doc U11), provenance-free: naming
             // what it checks would hand over the material it measures.
             <div style={{ ...quietLine, marginTop: 8 }}>
@@ -1862,6 +2018,27 @@ export function PracticeScreen({
                   onFeedback(result.attempt.attemptId);
                 }}
                 onAsk={() => openAsk()}
+                // Reader CA2 (§7.6): Ask about the focused step, inline under
+                // it; a whole-problem question at the foot of the steps.
+                {...(panelOn ? {
+                  askSignal: stepAskSignal,
+                  askRecordLine: askRecord.length ? helpRecordLine({ hints: 0, book: false, earlier: false, questions: askRecord })
+                    .replace(/^help used: /, "") : undefined,
+                  renderAsk: ({ stepNumber, stepsCount, onClose, onTakeWorked }: { stepNumber: number | null; stepsCount: number; onClose: () => void; onTakeWorked?: (level: 4 | 5) => void }) => (
+                    <AskOverlay
+                      variant="inline"
+                      target={practiceAskTarget({
+                        workbenchSessionId: wbSession.sessionId,
+                        ...(stepNumber !== null ? { aboutStep: stepNumber } : {}),
+                        stepsCount
+                      })}
+                      onClose={onClose}
+                      onToast={onError}
+                      onAnswered={onAskAnswered}
+                      onTakeWorked={onTakeWorked}
+                    />
+                  )
+                } : {})}
                 onWorkChange={onStepsWork}
                 onError={onError}
               />
@@ -2011,6 +2188,22 @@ export function PracticeScreen({
               </div>
             ) : null}
             {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
+            {panelOn && !isTeachBack && !probeActive ? (
+              // Reader CA2 (§7.5, K8): one help record for the attempt, in
+              // order, each with its cost; Submit counts the same things.
+              <div data-testid="help-record" style={{ ...quietLine, marginTop: 8 }}>
+                {helpRecordLine({
+                  hints: adaptive ? adaptiveHints.entries.length : hintsUsed,
+                  entries: adaptive
+                    ? adaptiveHints.entries.map((entry) => ({ assistId: entry.result.assistId ?? null, level: entry.result.level ?? null }))
+                    : undefined,
+                  book: bookCarried,
+                  earlier: earlierCounted,
+                  questions: askRecord,
+                  server: serverRecord
+                })}
+              </div>
+            ) : null}
             {hintsUsed > item.hints.length ? (
               // Hints seen in steps that the item no longer shows still count (final F2).
               <div className="hint-banner" data-testid="hints-carried">
@@ -2097,7 +2290,7 @@ export function PracticeScreen({
                   <DifficultyRatingTap sessionId={session.sessionId} value={difficultyRating}
                                        onChange={setDifficultyRating} locked={submitting || selfGradeVisible} />
                 ) : null}
-                {!probeActive && !onYourOwnCheck && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
+                {!probeActive && (!onYourOwnCheck || coldTakeStep) && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
                   <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
                     {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
                   </QuietAction>
@@ -2163,6 +2356,7 @@ export function PracticeScreen({
           )}
         </Card>
       </div>
+      </DockedAsk>
       {originalPage && item ? (
         // Reader CA1: the whole page, the problem's blocks outlined; the view
         // records its exposure (get_span_view), and it counted as the book above.
@@ -2178,11 +2372,12 @@ export function PracticeScreen({
       ) : null}
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
-        ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []
+        ...(probeActive || (onYourOwnCheck && !coldTakeStep) || (item.hints.length === 0 && !adaptive) ? []
           : [adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
-        ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
+        // Reader CA2 (§7.6): in steps the key asks about the focused step.
+        ...(probeActive ? [] : [{ key: "?", label: panelOn && stepsMode ? "ask about this step" : "ask" }]),
         { key: "esc", label: "back" }
       ] : isTeachBack ? [
         { key: "^enter", label: "send" },
@@ -2788,6 +2983,84 @@ function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): vo
 
 // Prefer hinted_attempt when hints were used and the item allows it; otherwise
 // fall back to the item's default recording attempt type.
+/** Reader CA2 (§7.5, K8): the attempt's help record in one line, in the
+ *  learner's words, each part with its cost ("help used: nothing yet"). */
+export function helpRecordLine({ hints, entries, book, earlier, questions, server }: {
+  hints: number;
+  /** Codex re-review F14: the screen's hint entries (adaptive hints), by
+   *  identity and level, so worked help is never also counted as a hint and
+   *  an entry the server lists is never counted twice. */
+  entries?: ReadonlyArray<{ assistId: string | null; level: number | null }>;
+  book: boolean;
+  earlier: boolean;
+  questions: ReadonlyArray<{ hintEquivalent: boolean; eventId?: string }>;
+  /** Codex review F7: the server's record, in order (what Submit folds);
+   *  absent until read, then the screen's own items fill only what the
+   *  server does not hold (the authored hints it counts, the book). */
+  server?: HelpRecordDto | null;
+}): string {
+  const parts: string[] = [];
+  if (!server) {
+    // Fix round F14: with no record read (the transcript is unavailable),
+    // the screen's entries are still classified by level: L4-L5 is worked
+    // help (it primes, never a hint), the rest are hints.
+    const worked = (entries ?? []).filter((entry) => (entry.level ?? 0) >= 4).map((entry) => entry.level as number);
+    const plain = Math.max(0, hints - worked.length);
+    if (plain > 0) parts.push(plain === 1 ? "a hint" : `${plain} hints`);
+    for (const level of worked) parts.push(`worked help (L${level}) · practice with help`);
+    if (book) parts.push("the book left open (counts as a hint)");
+    if (earlier) parts.push("an earlier attempt's help (counts as a hint)");
+    for (const question of questions) {
+      parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
+    }
+    return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;
+  }
+  // The hints the server holds rows for (the hint service's, and authored
+  // reveals' telemetry) are listed in order; the client's own count covers
+  // the authored hints the server has no row for.
+  let clientOnly: number;
+  let clientWorked: number[] = [];
+  if (entries) {
+    // By identity (re-review F14): an entry the server lists is the
+    // server's; of the rest, worked help (levels 4-5) primes and is listed
+    // as worked help, never as a hint.
+    const listedIds = new Set(server.items.map((entry) => entry.assistId).filter((id): id is string => Boolean(id)));
+    const unlisted = entries.filter((entry) => !(entry.assistId && listedIds.has(entry.assistId)));
+    clientWorked = unlisted.filter((entry) => (entry.level ?? 0) >= 4).map((entry) => entry.level as number);
+    clientOnly = unlisted.length - clientWorked.length;
+  } else {
+    const serverHints = server.items.filter((entry) => entry.kind === "hint" || entry.kind === "check").length;
+    clientOnly = Math.max(0, hints - serverHints);
+  }
+  if (clientOnly > 0) parts.push(clientOnly === 1 ? "a hint" : `${clientOnly} hints`);
+  const listed = new Set<string>();
+  for (const entry of server.items) {
+    if (entry.kind === "question") {
+      if (entry.eventId) listed.add(entry.eventId);
+      if (!entry.counts) parts.push("a clarification (free)");
+      else parts.push(entry.thisAttempt === false ? "a question from before this serve (counts as a hint)" : "a question (counts as a hint)");
+    } else if (entry.kind === "hint") {
+      parts.push(entry.level ? `a hint (L${entry.level})` : "a hint");
+    } else if (entry.kind === "check") {
+      parts.push("a check");
+    } else if (entry.kind === "worked") {
+      parts.push(`worked help${entry.level ? ` (L${entry.level})` : ""} · practice with help`);
+    } else if (entry.kind === "earlier") {
+      listed.add("earlier");
+      parts.push("an earlier attempt's help (counts as a hint)");
+    }
+  }
+  // Answers this visit has that the record has not read back yet.
+  for (const question of questions) {
+    if (question.eventId && listed.has(question.eventId)) continue;
+    parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
+  }
+  for (const level of clientWorked) parts.push(`worked help (L${level}) · practice with help`);
+  if (earlier && !listed.has("earlier")) parts.push("an earlier attempt's help (counts as a hint)");
+  if (book) parts.push("the book left open (counts as a hint)");
+  return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;
+}
+
 function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType {
   const allows = (type: AttemptType) => allowed.length === 0 || allowed.includes(type);
   if (hintsUsed > 0 && allows("hinted_attempt")) return "hinted_attempt";

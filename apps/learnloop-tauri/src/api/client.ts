@@ -579,6 +579,9 @@ export const api = {
     hintSeen?: boolean;
     /** Reader CA1 (Q12): the original page was opened before Submit. */
     pageSeen?: boolean;
+    /** Reader CA2 (Codex review F1): *earlier on this question* was opened
+     *  on this draft; the submit counts its one hint from the checkpoint. */
+    earlierOpened?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   /** Adaptive hints H0: telemetry for one authored hint the screen revealed
    *  (fire and forget; never awaited by the screen, and never invalidates). */

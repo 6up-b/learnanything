@@ -148,6 +148,12 @@ COLD_CHECK_PRIMED = "cold_check_primed"
 #: answer was still shown when its grading began), though the ledger no longer
 #: primes it now: refused like any primed draft (Codex review F1).
 COLD_CHECK_AUTO_PRIMED = "cold_check_auto_primed"
+#: Submit (Reader CA2's successor, ``mvp-0.34``, behind
+#: ``ask.cold_help_converts``): help was taken on a cold follow-up, so the
+#: attempt is practice with help (admitted, never the cold measurement: the
+#: decision claims no task, and the next serve withdraws it as practised since
+#: scheduled). The predecessor refused it (:data:`COLD_CHECK_ASSISTED`).
+COLD_CHECK_HELP_TAKEN = "cold_check_help_taken"
 #: A probe or placement presentation of an item whose answer was shown
 #: (``probe_episodes.PROBE_ITEM_ANSWER_SHOWN``, unchanged code).
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
@@ -392,6 +398,15 @@ class EligibilityInputs:
     #: creation). Reveals before it were visible to the learner's choice, as
     #: reveals before a cold task were visible to the decision that set it.
     check_created_at: str | None = None
+    #: Submit only (Reader CA2, :func:`help_converts_active`): help taken on a
+    #: cold follow-up makes the attempt practice with help instead of a refusal.
+    help_converts: bool = False
+    #: Submit only (Codex review F4): worked help (a level 4-5 rung) the hint
+    #: service showed on this attempt, read from its persisted rows (the
+    #: submit's server fold, or an open problem's held help), never from the
+    #: client's ``primed``. It primes without adding to ``hints_used``, and
+    #: it is help taken all the same.
+    worked_help_taken: bool = False
 
 
 # -- the decision record --------------------------------------------------------------------------
@@ -671,6 +686,17 @@ def _decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: di
     task = active_task(inputs)
     if task is None or not task.cold:
         return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE, task_ids=(task.id,) if task else ())
+    if inputs.help_converts and (inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt"
+                                 or inputs.worked_help_taken):
+        # Reader CA2 (mvp-0.34, §15 Q4): help is never withheld on a check on
+        # your own; taking it converts the attempt. Admitted as practice with
+        # help, primed or not (the help may have shown the answer), and it
+        # claims no task: the cold measurement is not answered by an assisted
+        # attempt (the consumers skip it) and the next serve withdraws it.
+        return EligibilityDecision(
+            **base, verdict=SERVE, reason=COLD_CHECK_HELP_TAKEN,
+            message="Practice with help: help was taken, so this attempt is not the check on your own.",
+        )
     if inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt":
         why = "hints were used" if inputs.hints_used > 0 else "it is a hinted attempt"
         return EligibilityDecision(
@@ -927,6 +953,24 @@ def check_once_at_attempt(
     return decide(inputs, CHECK_ONCE)
 
 
+def help_converts_active(vault: Any) -> bool:
+    """Reader CA2's one help rule (``ONE_ASK_ALGORITHM_VERSION``, ``mvp-0.34``):
+    at that tag or later with ``ask.cold_help_converts`` on. A question during
+    a cold administration counts as help only when it is substantive (every
+    cold path), and help taken on a cold follow-up makes the attempt practice
+    with help (submit admits it; it never answers the cold measurement).
+    Below the tag, switched off, or no vault: the predecessor's rules."""
+
+    from learnloop.algorithm_versions import ONE_ASK_VERSIONS
+
+    config = getattr(vault, "config", None)
+    if config is None:
+        return False
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    switch = getattr(config, "ask", None)
+    return version in ONE_ASK_VERSIONS and bool(getattr(switch, "cold_help_converts", False))
+
+
 def decision_active(vault: Any) -> bool:
     """Is the one eligibility decision live for ``vault`` (a ``LoadedVault``,
     duck-typed)? At the successor (``mvp-0.27``) or later with
@@ -996,6 +1040,7 @@ __all__ = [
     "COLD_CHECK",
     "COLD_CHECK_ANSWER_SHOWN",
     "COLD_CHECK_AUTO_PRIMED",
+    "COLD_CHECK_HELP_TAKEN",
     "COLD_CHECK_PRACTISED_SINCE_SCHEDULED",
     "COLD_FOLLOWUP_TASK_KINDS",
     "COLD_RETRIEVAL_DELAY",
@@ -1020,6 +1065,7 @@ __all__ = [
     "cold_task_holds",
     "decide",
     "decision_active",
+    "help_converts_active",
     "disclosure_identity",
     "gather",
     "is_own_disclosure",

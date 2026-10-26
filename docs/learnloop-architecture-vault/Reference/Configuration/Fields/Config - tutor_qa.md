@@ -34,8 +34,8 @@ source_paths:
   - "tests/test_e0_delivery.py"
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_library_ask_review.py"
-  - "tests/test_owner_capture_1025.py"
   - "tests/test_project_capture.py"
+  - "tests/test_question_signal.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -89,8 +89,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_e0_delivery.py`
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_library_ask_review.py`
-- `tests/test_owner_capture_1025.py`
 - `tests/test_project_capture.py`
+- `tests/test_question_signal.py`
 
 ## Extension and modification guidance
 

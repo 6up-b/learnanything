@@ -8,6 +8,7 @@ import { ReaderScreen } from "./ReaderScreen";
 import { readerRenderViewFixture as view } from "../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "./reader/activity";
+import { setAlgoConfig } from "../app/algoConfig";
 
 const api = vi.hoisted(() => ({
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
@@ -277,4 +278,22 @@ it("the reconnect line and the walked-back strip survive the jump home, and go a
   // Ignored, it recorded nothing.
   expect(api.readerReconnectAnswer).not.toHaveBeenCalled();
   now.mockRestore();
+});
+
+
+it("Reader CA2 (Codex review F11): with the Ask panel on, Enter sends from the rail and Shift+Enter is a new line", async () => {
+  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+  try {
+    render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "ask" }));
+    const box = await screen.findByPlaceholderText("ask about this passage…");
+    fireEvent.change(box, { target: { value: "Why weighted?" } });
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    expect(api.readerAsk).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(api.readerAsk).toHaveBeenCalledOnce());
+    expect(screen.getAllByRole("button", { name: /ask( follow-up)? · ↵$/ }).length).toBeGreaterThan(0);
+  } finally {
+    setAlgoConfig(undefined);
+  }
 });
