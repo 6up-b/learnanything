@@ -874,6 +874,13 @@ The names this document uses: *section correspondence index* for the `section_co
 
 **Successor ruling.** None of these changes scoring, scheduling or projections, with two places to check. K6's "opening an earlier thread counts as a hint" maps onto the existing `hints_used` field with its existing meaning (spec §5.4). K10 keeps practice's existing rule, but it changes the Reader's bound cold Ask, which counts every question today, to count only substantive ones (`tutor_qa.py:855-867`). If the CA2 agent finds that either changes an existing attempt's classification in a way the field doesn't already express, it stops and makes it a successor (the next free `mvp-0.N`), following `docs/algorithm-change-playbook.md`.
 
+*As built (CA2, branch `reader/ca2-one-ask`, `docs/reviews/reader-ca2-one-ask.md`):* the ruling found two changes of
+classification, so they ship as one successor, `mvp-0.34` (one constant after RW7b's `mvp-0.32`), behind
+`ask.cold_help_converts`: K10's Reader cold Ask (a clarification no longer converts a check on your own) and Q4's take
+step on a cold follow-up (submit admits a hinted attempt as practice with help, which never answers the cold
+measurement). K6 maps onto `hints_used` with its existing meaning and needs none. K9 (a request for the answer through
+the take step) and H4's strategy routing are not built yet.
+
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---
