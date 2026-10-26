@@ -275,7 +275,9 @@ def build_reader_manifest(
         # to the connection fields only; never the learner posterior.
         "goal_invariants": dict(goal_invariants) if goal_invariants is not None else None,
         "prior_exchanges": [
-            {"question_md": e["question_md"], "answer_md": e["answer_md"]}
+            # Orchestrator fix F12: what the learner was shown (a withheld
+            # worked answer is its take step), never a stored raw answer.
+            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e)}
             for e in prior
         ],
         # Explicit negative space -- asserted by tests; the ability estimate and any
@@ -604,7 +606,7 @@ def ask(
             selection_quote_md = parent["selection_quote_md"]
             selection_source_quote_md = parent.get("selection_source_quote_md")
         thread = [
-            {"question_md": e["question_md"], "answer_md": e["answer_md"], "question_type": "other"}
+            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e), "question_type": "other"}
             for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
         ]
 

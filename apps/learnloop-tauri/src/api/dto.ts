@@ -8399,6 +8399,8 @@ export interface WorkbenchRecordDto {
   questionHints: number;
   /** The answer box's hints shown before working in steps (review F2). */
   carriedHints?: number;
+  /** Reader CA2 fix F1/F15: an earlier attempt's help opened before Submit, its own component (0 or 1). */
+  earlierHints?: number;
   ownAttempt: boolean;
   line: string;
   footer: string;
@@ -8431,8 +8433,12 @@ export interface WorkbenchSessionDto {
   practiceSessionId: string | null;
   /** The assessment contract the session shows (review F1). */
   assessmentContractVersionId?: string | null;
-  /** The answer box's hints shown before working in steps (review F2). */
+  /** The answer box's authored hints revealed before working in steps
+   *  (review F2): the answer box's reveal index on the way back, nothing else. */
   carriedHints?: number;
+  /** Reader CA2 fix F15: the answer box's draft opened an earlier attempt's
+   *  help and the problem carries it as its own component (never an authored reveal). */
+  earlierOpened?: boolean;
   /** The serve the problem answers, kept across a resume (review F13). */
   schedulerCandidateId?: string | null;
   planPresentationId?: string | null;

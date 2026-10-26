@@ -48,9 +48,14 @@ def _attempt(paths, attempt_id: str) -> dict:
 
 
 def _carried(paths, workbench_id: str) -> int:
+    """The problem's carried help: its authored reveals plus the earlier
+    opening, which the orchestrator's fix round (F15, F1) keeps as its own
+    component (``earlier_opened_at``, migration 221)."""
+
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        return int(connection.execute("SELECT carried_hints FROM workbench_sessions WHERE id = ?",
-                                      (workbench_id,)).fetchone()[0])
+        carried, earlier = connection.execute(
+            "SELECT carried_hints, earlier_opened_at FROM workbench_sessions WHERE id = ?", (workbench_id,)).fetchone()
+        return int(carried) + (1 if earlier else 0)
 
 
 def _steps_sidecar(tmp_path):
@@ -125,11 +130,12 @@ def test_f1_after_steps_the_answer_box_submit_counts_the_carried_opening_once(tm
     paths, ctx, session = _steps_sidecar(tmp_path)
     _draft(ctx, session, CDF_ITEM, "kA", earlierOpened=True)
     _into_steps(ctx, session)
-    # Back on the answer box the screen's count gets the carried hint back
-    # (``backToAnswerBox``); the draft no longer adds it.
+    # Back on the answer box the screen's count gets only its authored
+    # reveals back (none; orchestrator fix F15); the open problem's opening is
+    # the server's to add, once, and the draft no longer adds it.
     attempt = _call(ctx, "submit_attempt", {
         "sessionId": session, "practiceItemId": CDF_ITEM, "answerMd": WORK, "attemptType": "independent_attempt",
-        "hintsUsed": 1, "selfGrade": {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3},
+        "hintsUsed": 0, "selfGrade": {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3},
         "submissionId": "kA"})
     assert _attempt(paths, attempt["attemptId"])["hints_used"] == 1
 

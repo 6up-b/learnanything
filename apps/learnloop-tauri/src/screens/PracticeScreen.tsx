@@ -840,13 +840,19 @@ export function PracticeScreen({
     }
   }, [beginTransition, endTransition, handOff, handOffFailed, onError, session.sessionId, showSteps, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
+    // The authored hints revealed, and only those: the answer box's reveal
+    // index (fix F15: an earlier attempt's help is never one of them).
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
     // authored hints changed since): never clamped to the list (final F2).
     if (carried > 0) setHintsUsed((value) => Math.max(value, carried));
     // Every assist the problem held comes back: its hints and its book (F2).
     if (closing?.record.bookCounted) setBookLeft(true);
-    if (carried > 0 || closing?.record.bookCounted) {
+    // Fix F15: an earlier attempt's help the problem carries comes back as
+    // itself (the panel says it is counted; the server's submit counts it).
+    const earlier = closing?.earlierOpened === true;
+    if (earlier) setEarlierCountedFor(submissionId.current);
+    if (carried > 0 || closing?.record.bookCounted || earlier) {
       // AD1 fix round 5 (V4): carried hints arrive untimed; with no marker
       // yet, this attempt's first hint is behind it, timing unknown.
       firstHint.noteUntimedHint();
@@ -2916,7 +2922,13 @@ export function helpRecordLine({ hints, entries, book, earlier, questions, serve
 }): string {
   const parts: string[] = [];
   if (!server) {
-    if (hints > 0) parts.push(hints === 1 ? "a hint" : `${hints} hints`);
+    // Fix round F14: with no record read (the transcript is unavailable),
+    // the screen's entries are still classified by level: L4-L5 is worked
+    // help (it primes, never a hint), the rest are hints.
+    const worked = (entries ?? []).filter((entry) => (entry.level ?? 0) >= 4).map((entry) => entry.level as number);
+    const plain = Math.max(0, hints - worked.length);
+    if (plain > 0) parts.push(plain === 1 ? "a hint" : `${plain} hints`);
+    for (const level of worked) parts.push(`worked help (L${level}) · practice with help`);
     if (book) parts.push("the book left open (counts as a hint)");
     if (earlier) parts.push("an earlier attempt's help (counts as a hint)");
     for (const question of questions) {

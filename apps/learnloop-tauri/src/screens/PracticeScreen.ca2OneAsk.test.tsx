@@ -308,7 +308,6 @@ it("fix round F15: an earlier opening carried into steps comes back as itself, n
   expect(screen.queryByText(/Start from A\^T A\./)).toBeNull();
   await waitFor(() => expect(screen.getByTestId("help-record").textContent).toBe(
     "help used: an earlier attempt's help (counts as a hint)"));
-  fireEvent.click(screen.getByRole("button", { name: /^ask$/i }));
-  const foot = await screen.findByTestId("ask-earlier");
-  await waitFor(() => expect(foot.textContent).toContain("opened · counted as a hint"));
+  // The submit sends only the authored reveals (none); the server adds the opening.
+  expect(screen.queryByText(/hint you saw earlier on this problem/)).toBeNull();
 });

@@ -778,7 +778,7 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
     attempt's free clarifications, the hints the hint service showed under
     the attempt's key (worked help, levels 4-5, primes rather than counts),
     and an earlier attempt's help opened before Submit (its one hint, from the
-    draft's checkpoint). ``counted`` is their hint-equivalents; the screen
+    draft's checkpoint or the open problem it moved onto). ``counted`` is their hint-equivalents; the screen
     adds only what the client alone counts (its authored hints, the book)."""
 
     from learnloop.hint_window import counts_in_session, workbench_bound
@@ -804,12 +804,13 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
         items.append({"kind": "question", "at": event["created_at"], "counts": counted,
                       "event_id": event["id"], "this_attempt": str(event["id"]) in in_thread})
     items.extend(_shown_assists(repository, item_id, session_id, panel_ask.submission_id))
-    earlier = _earlier_opened_hint(repository, session_id, item_id) if session_id else 0
+    # Orchestrator fix F1/F15: once the draft moved into steps an open
+    # problem of the item carries the opening as its own component (never in
+    # the authored count the screen gets back), so it is still the server's
+    # to add, whatever session or draft the record is read for.
+    earlier = _earlier_opened_hint(repository, session_id, item_id)
     if earlier:
         items.append({"kind": "earlier", "at": None, "counts": True})
-    # Re-review F1: once the draft moved into steps the problem carries the
-    # opening (its carried hints, which the screen's count gets back), so it
-    # is no longer the checkpoint's to add; the panel still says it counted.
     opened = bool(earlier) or _draft_opened(repository, session_id, item_id)
     items.sort(key=lambda entry: (entry["at"] is None, str(entry["at"] or "")))
     question_hints = hint_equivalents_for_submission(repository, item_id, session_id) if session_id else 0

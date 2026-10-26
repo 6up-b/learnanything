@@ -39,6 +39,8 @@ def list_question_queue(
     ledger); the default lists only the open queue.
     """
 
+    from learnloop.tutor.tutor_qa import delivered_answer_md
+
     if resolution is not None and resolution not in RESOLUTIONS:
         raise QuestionQueueError(f"unknown resolution {resolution!r}")
     events = repository.question_events(resolution=resolution)
@@ -63,7 +65,10 @@ def list_question_queue(
             "id": event["id"],
             "context": event["context"],
             "question_md": event["question_md"],
-            "answer_md": event["answer_md"],
+            # Reader CA2 (orchestrator fix F12): what the learner was shown,
+            # so a withheld worked answer stored before its take step was
+            # (a row from an earlier build) reads as the take step here too.
+            "answer_md": delivered_answer_md(event),
             "answer_status": event["answer_status"],
             "resolution": event["resolution"],
             "question_type": event.get("question_type"),

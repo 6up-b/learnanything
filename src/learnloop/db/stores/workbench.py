@@ -20,7 +20,8 @@ SESSION_COLUMNS = (
     "id", "practice_item_id", "stem_md", "import_status", "import_batch_id", "import_request_json",
     "import_error", "origin", "entry", "parent_session_id", "extraction_id", "span_ids_json",
     "source_visible", "source_hidden_at", "source_shown_at", "practice_session_id",
-    "assessment_contract_version_id", "contract_subject_id", "carried_hints", "scheduler_candidate_id", "plan_presentation_id",
+    "assessment_contract_version_id", "contract_subject_id", "carried_hints", "earlier_opened_at",
+    "scheduler_candidate_id", "plan_presentation_id",
     "help_style", "status",
     "attempt_id", "client_idempotency_key", "created_at", "updated_at", "closed_at",
 )

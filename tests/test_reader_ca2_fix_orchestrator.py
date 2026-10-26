@@ -82,6 +82,18 @@ def test_f15_an_earlier_opening_carried_into_steps_is_not_an_authored_hint(tmp_p
     assert _attempt(paths, attempt["attemptId"])["hints_used"] == 1
 
 
+def test_f15_the_help_record_still_counts_a_carried_opening_after_another_items_draft(tmp_path, grader):
+    _paths, ctx, session = _steps_sidecar(tmp_path)
+    _draft(ctx, session, CDF_ITEM, "kA", earlierOpened=True)
+    _open(ctx, session)
+    _draft(ctx, session, "pi_svd_define_001", "kB")
+    _draft(ctx, session, CDF_ITEM, "kA")
+    record = _call(ctx, "get_tutor_transcript", {"context": "practice", "practiceItemId": CDF_ITEM,
+                                                 "sessionId": session, "submissionId": "kA"})["helpRecord"]
+    assert record["earlierOpened"] is True and record["counted"] == 1
+    assert [entry["kind"] for entry in record["items"]] == ["earlier"]
+
+
 def test_f15_authored_reveals_and_the_opening_are_carried_apart(tmp_path, grader):
     paths, ctx, session = _steps_sidecar(tmp_path)
     _draft(ctx, session, CDF_ITEM, "kA", earlierOpened=True)

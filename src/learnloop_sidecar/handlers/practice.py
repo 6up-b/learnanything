@@ -747,12 +747,22 @@ def _in_diagnostic_block(repository, item) -> bool:
 
 def _earlier_opened_hint(repository, session_id: str | None, practice_item_id: str) -> int:
     """Reader CA2 (K6, Q2; Codex review F1): one hint-equivalent when the
-    session's draft on the item opened an earlier attempt's help before
-    Submit (``sessions.draft_earlier_uncarried``), counted by the server
-    whichever surface submits the draft; 0 otherwise, and 0 once the draft
-    moved into steps (re-review F1: the workbench carries it durably, and
-    every submit of the item folds the open problem's carried hints)."""
+    attempt opened an earlier attempt's help before Submit, counted by the
+    server whichever surface submits; 0 otherwise. Either the session's
+    draft on the item still holds the opening (``sessions.draft_earlier_uncarried``),
+    or the draft moved into steps and an open workbench problem of the item
+    carries it as its own component (orchestrator fix F1/F15:
+    ``workbench_sessions.earlier_opened_at``, durable whatever later drafts
+    or sessions do; never inside the authored reveals' ``carried_hints``).
+    One opening per attempt, so the two are ORed, never added."""
 
+    from learnloop.reader.workbench import held_earlier
+
+    try:
+        if held_earlier(repository, practice_item_id):
+            return 1
+    except Exception:  # noqa: BLE001 - a vault without the column holds no carried opening
+        pass
     if not session_id:
         return 0
     from learnloop_sidecar.handlers.sessions import draft_earlier_uncarried

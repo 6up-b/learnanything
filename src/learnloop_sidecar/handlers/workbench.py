@@ -74,15 +74,32 @@ def _question_hints(vault, repository, session: dict[str, Any]) -> int:
         # No practice session open yet: the submit opens one, so only the
         # questions that count in the item's window whatever the session (a
         # bound Reader question, RW1c fix round 4, F1) will be added.
-        from learnloop_sidecar.handlers.practice import _earlier_opened_hint
-
-        # Reader CA2 (Codex review F1): the answer box's draft opened an
-        # earlier attempt's help; its submit (this problem's) counts it.
         return int(hint_equivalents_for_submission(repository, item_id, practice_session,
-                                                   item_window_only=not practice_session)) + (
-            _earlier_opened_hint(repository, practice_session, str(item_id)) if practice_session else 0)
+                                                   item_window_only=not practice_session))
     except Exception:  # noqa: BLE001 - a display line never fails a read
         return 0
+
+
+def _earlier_hints(vault, repository, session: dict[str, Any]) -> int:
+    """Reader CA2 (Codex review F1; orchestrator fix F1/F15): the earlier
+    attempt's opened help the submit's server side will add, its own
+    component in the record line: carried onto an open problem of the item
+    (``earlier_opened_at``), or still on the answer box's draft. One per
+    attempt, the same read the submit makes (``practice._earlier_opened_hint``)."""
+
+    item_id = session.get("practice_item_id")
+    if not item_id or session.get("status") != "open" or item_id not in vault.practice_items:
+        return WB.earlier_hints(session)
+    practice_session = session.get("practice_session_id")
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    from learnloop_sidecar.handlers.practice import _earlier_opened_hint
+
+    try:
+        return _earlier_opened_hint(repository, practice_session, str(item_id))
+    except Exception:  # noqa: BLE001 - a display line never fails a read
+        return WB.earlier_hints(session)
 
 
 def record_line(vault, repository, session_id: str) -> dict[str, Any]:
@@ -92,7 +109,8 @@ def record_line(vault, repository, session_id: str) -> dict[str, Any]:
 
     row = _run(WB.session_row, repository, session_id)
     view = _run(WB.session_view, repository, session_id, question_hints=_question_hints(vault, repository, row),
-                server_hints=_carried_server_hints(repository, row))
+                server_hints=_carried_server_hints(repository, row),
+                earlier_hints=_earlier_hints(vault, repository, row))
     return {"updated_at": view.get("updated_at"), "record": to_camel(view.get("record"))}
 
 
@@ -254,6 +272,7 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
         server_hints=_carried_server_hints(repository, row),
+        earlier_hints=_earlier_hints(vault, repository, row),
         extra=extra,
     )
     return to_camel(view)
@@ -533,8 +552,8 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         draft_session, earlier = _draft_earlier(repository, params, named.get("practice_item_id"))
         row = _run(
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
-            extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried + earlier,
-            carried_book=params.carried_book, serve=serve,
+            extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
+            carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
         )
         _carry_earlier(repository, draft_session, earlier, row)
         _ensure_contract(vault, repository, row["id"])
@@ -582,8 +601,8 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         span_ids=params.span_ids, parent_session_id=params.parent_session_id,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
         import_status=import_status, import_batch_id=batch_id,
-        import_request=request, import_error=error, carried=carried + earlier,
-        carried_book=params.carried_book, serve=serve,
+        import_request=request, import_error=error, carried=carried,
+        carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
     )
     _carry_earlier(repository, draft_session, earlier, row)
     _ensure_contract(vault, repository, row["id"])
@@ -625,7 +644,9 @@ def _draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str
 
 def _carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None:
     """Record on the draft that its opening now lives on the problem (its
-    ``carried_hints`` holds it), so the checkpoint never counts it again."""
+    own component, ``earlier_opened_at``: never the authored reveals'
+    ``carried_hints``, orchestrator fix F15), so the checkpoint never
+    counts it again."""
 
     if not earlier or not draft_session:
         return
@@ -635,8 +656,8 @@ def _carry_earlier(repository, draft_session: str | None, earlier: int, row: dic
     try:
         carry_earlier_opened(repository, draft_session, practice_item_id=str(row.get("practice_item_id")),
                              workbench_session_id=str(row["id"]))
-    except Exception as exc:  # noqa: BLE001 - the problem holds the hint: an unmarked draft may count it
-        # once more (an over-count, the side the evidence errs on), never lose it.
+    except Exception as exc:  # noqa: BLE001 - the problem holds the hint: an unmarked draft
+        # reads as the same opening (the submit ORs the two), never lost.
         log_event("workbench_earlier_opened_not_marked", error=type(exc).__name__)
 
 

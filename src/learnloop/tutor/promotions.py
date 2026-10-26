@@ -37,7 +37,7 @@ from learnloop.content.authoring.practice_generation import (
 )
 from learnloop.content.authoring.authoring_gates import build_instrument_gates
 from learnloop.content.proposals.proposals import generate_authoring_proposal
-from learnloop.tutor.tutor_qa import _thread, build_tutor_qa_note
+from learnloop.tutor.tutor_qa import _thread, build_tutor_qa_note, delivered_answer_md
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LearningObject, LoadedVault
 from learnloop.vault.models import learning_object_facet_union
@@ -843,7 +843,7 @@ def _thread_from_event(event: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "question_md": event.get("question_md"),
-            "answer_md": event.get("answer_md"),
+            "answer_md": delivered_answer_md(event),
             "question_type": event.get("question_type"),
         }
     ]

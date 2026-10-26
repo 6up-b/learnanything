@@ -1,0 +1,20 @@
+-- Reader CA2, one Ask (docs/specs/ux_reader_compare_ask_v1.md §7.3, §15 Q2;
+-- docs/reviews/reader-ca2-one-ask-codex-review.md, "Fix round (orchestrator)",
+-- F15 and F1): an earlier attempt's help opened on the answer box before
+-- Submit is one hint-equivalent, the same rule as the book left open. When
+-- the practice screen hands that draft to the steps, the opening moves onto
+-- the unfinished problem as its own component, beside the answer box's
+-- authored reveals (carried_hints) and the book (source_shown_at):
+--
+-- earlier_opened_at: when the opening was carried onto this problem (NULL:
+-- none was). Set once, never cleared while the problem is open. Before this
+-- column the opening was added into carried_hints, which the answer box reads
+-- back as its authored-hint reveal index (so the way back showed an authored
+-- hint never revealed, F15) and which a resume reconciles by its maximum (so a
+-- second distinct event was swallowed, F1). Every submit of the item counts
+-- it once, as it counts the book: one per attempt, whichever surface submits.
+--
+-- LIFECYCLE state on a WORKFLOW table, as carried_hints and source_shown_at
+-- are: never evidence itself (the submitted attempt's hints_used is), never
+-- read by replay or rebuild. Rows from before it read as no opening carried.
+ALTER TABLE workbench_sessions ADD COLUMN earlier_opened_at TEXT;
