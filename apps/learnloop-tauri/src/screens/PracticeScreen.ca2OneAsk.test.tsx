@@ -275,3 +275,40 @@ it("re-review F14: worked help is never also a phantom hint; entries reconcile w
                           questions: [], server: { items: [hint], counted: 1, earlierOpened: false } }))
     .toBe("help used: a hint (L2)");
 });
+
+it("fix round F14: without the record, the screen's entries are classified by level too", () => {
+  // The transcript could not be read: L4-L5 entries are worked help, never "a hint".
+  expect(helpRecordLine({ hints: 1, entries: [{ assistId: "h4", level: 4 }], book: false, earlier: false,
+                          questions: [], server: null }))
+    .toBe("help used: worked help (L4) · practice with help");
+  expect(helpRecordLine({ hints: 2, entries: [{ assistId: "h4", level: 4 }, { assistId: "h2", level: 2 }], book: false,
+                          earlier: false, questions: [], server: null }))
+    .toBe("help used: a hint · worked help (L4) · practice with help");
+  // Without adaptive hints (no entries) the line is today's.
+  expect(helpRecordLine({ hints: 1, book: false, earlier: false, questions: [], server: null }))
+    .toBe("help used: a hint");
+});
+
+it("fix round F15: an earlier opening carried into steps comes back as itself, never as an authored hint", async () => {
+  api.recoverPracticeSubmission.mockResolvedValue({ version: 1, status: "pending", result: null });
+  api.getTutorTranscript.mockResolvedValue({ events: [], remaining: 3, earlier: EARLIER, earlierCountsAsHint: true, cold: false });
+  const base = await api.getPracticeItem.getMockImplementation()?.();
+  api.getPracticeItem.mockResolvedValue({ ...(base ?? {}), id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic",
+    practiceMode: "open_text", prompt: PROMPT, attemptTypesAllowed: ["independent_attempt", "hinted_attempt"],
+    evidenceFacets: [], evidenceWeights: {}, hints: ["Start from A^T A."], hintPolicy: { maxUsefulHints: 2 },
+    candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null });
+  // The server holds the opening on the problem (a draft from before a
+  // restart opened it); no authored hint was revealed.
+  api.workbenchOpen.mockResolvedValue({ session: wb({ carriedHints: 0, earlierOpened: true }), resumed: true });
+  render(<PracticeScreen {...props({ restoredSubmissionId: "serve-3" })} />);
+  fireEvent.click(await screen.findByRole("button", { name: /work in steps/i }));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(screen.queryByText(/Start from A\^T A\./)).toBeNull();
+  await waitFor(() => expect(screen.getByTestId("help-record").textContent).toBe(
+    "help used: an earlier attempt's help (counts as a hint)"));
+  fireEvent.click(screen.getByRole("button", { name: /^ask$/i }));
+  const foot = await screen.findByTestId("ask-earlier");
+  await waitFor(() => expect(foot.textContent).toContain("opened · counted as a hint"));
+});
