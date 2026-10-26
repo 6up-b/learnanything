@@ -37,20 +37,36 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Reader RW5d P1 (migration 224, stage branch 2026-10-26)
+## Batch landing: Reader CA2 (223) + Reader RW5d P1 (224), 2026-10-26
 
-Renamed from `migration_head_222` on the `reader/rw5d-p1-show-me` stage branch.
-A backup-API copy of the sanitized head at 222 with only
-`224_figure_requests.sql` applied (`UPGRADE_SCRATCH_COPY`; 223 is reserved for
-Reader CA2, and the runner is set-based, so the gap is fine; both numbers are
-confirmed at landing), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+Renamed from `migration_head_222` at the batch landing onto main (Reader CA2,
+RW5d P1 and local retrieval P2). Rebuilt from main's tracked, sanitized
+`migration_head_222/state.sqlite` (git `1335df0c0`): a backup-API copy with
+`223_workbench_earlier_opened.sql` then `224_figure_requests.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
-`foreign_key_check` empty, and copied into place with the backup API. It adds
-exactly 224's objects (`figure_requests`, its autoindex, two indexes and two
-triggers, and `idx_interactive_figures_request`) and rebuilds
-`interactive_figures` (its CHECKs widened, its new columns; it had no row);
-no other object changed and only `schema_migrations` gained a row. The
-sanitized content is unchanged (it was built from the tracked copy).
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 223 (Reader CA2, one Ask; numbered 221 on `reader/ca2-one-ask`,
+  docs/reviews/reader-ca2-one-ask-codex-review.md, "Fix round (orchestrator)",
+  F15 and F1) adds `workbench_sessions.earlier_opened_at` (LIFECYCLE state on a
+  WORKFLOW table: when an earlier attempt's help the answer box's draft opened
+  was carried onto the problem; NULL on every row, and this fixture has no
+  workbench row).
+* 224 (Reader RW5d P1, "Show me") adds exactly its objects (`figure_requests`,
+  its autoindex, two indexes and two triggers, and
+  `idx_interactive_figures_request`) and rebuilds `interactive_figures` (its
+  CHECKs widened, its new columns; it had no row).
+
+No other object changed: against main's 222 only `workbench_sessions` and
+`interactive_figures` changed definition, and only `schema_migrations` gained
+rows (223, 224); every other table's rows are identical, so the sanitized
+content carries over. Against the RW5d branch's own head (224 on 222, without
+223) only `workbench_sessions` differs. Both stage branches' own heads (CA2's
+`migration_head_221`, 221 on 220; RW5d's 224 on 222) were dropped at the
+landing.
 
 ## Curriculum C0a (migration 222, landed 2026-10-25)
 
@@ -72,7 +88,8 @@ This is a copy of the small conic-sections vault upgraded through migration
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
 landing, 220 on that one at local contextual retrieval P1's landing, 221 on
 that one on the LP-min (a) claim-fixes branch, 222 on that one at
-curriculum C0a's landing, and 224 on that one on Reader RW5d P1's stage branch). Migration 167 adds the learner-field F1 read model
+curriculum C0a's landing, and 223 then 224 on that one at the batch landing of
+Reader CA2 and RW5d P1). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
