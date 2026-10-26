@@ -176,3 +176,141 @@ vitest: src/app/classicIsBase.test.ts src/app/practiceDraft.test.ts src/app/shel
    which this stage avoided.
 6. The image drop-in path is still only specced; *your photo* covers the capture-inbox
    card route.
+
+## Landing onto main (2026-10-26)
+
+The branch is `merge/ca1-onto-main` in `learnanything-merge2`, cut from `main` at `497169069`. At that point main held
+`mvp-0.34` (rebuild equivalence, after the LP claim fixes' `mvp-0.33`), mobile PR-2, RW7b, C0a (migrations through
+222, head fixture `fixtures/migration_head_222`), T1 and S0. Main was neither fast-forwarded nor pushed. **CA1 has no
+migration and no successor; the latest algorithm stays `mvp-0.34`.**
+
+### Commits and conflicts
+
+- `c35ba8d9b`: the `--no-ff` merge of `reader/ca1-problem-as-printed` (`aef4ba12f`). Three files conflicted, each
+  composed so that both sides survive:
+  - `config/template.py` (22 hunks, the defaults snapshots): every entry keeps main's notes (RW7b, LP-min (a), C0a,
+    rebuild equivalence) and gains CA1's `[practice.as_printed]` note. CA1 was built when `mvp-0.31` was the latest,
+    so `mvp-0.31`, `mvp-0.32`, `mvp-0.33` and `mvp-0.34` got the note by hand (git had put CA1's `mvp-0.31` hunk on
+    `mvp-0.34`). **All 25 fingerprints were recomputed** with `defaults_fingerprint_for_version` (the config `.pyc`
+    cleared first). Every one moves only because the effective config gains `practice.as_printed.enabled`.
+  - `FeedbackScreen.tsx` (3 hunks): LP's `ClaimCheckFeedback` import and both uses, then CA1's `PrintedAfterFeedback`.
+  - `tests/test_mobile_allowlist.py`: the desktop-only list names both `CURRICULUM_C0A_RPCS` and `READER_CA1_RPCS`.
+  - `schema.py`, `parameter_registry.py`, `repositories.py`, `context.py`, `handlers/practice.py`, `dto.ts`,
+    `App.tsx`, `PracticeScreen.tsx` and `Workbench.tsx` merged cleanly.
+- `510a3336b`: the references (below). Then this record.
+
+Against main, the diff adds `src/learnloop/reader/as_printed.py`, `src/learnloop_sidecar/handlers/as_printed.py`, two
+test files, five frontend files (`AsPrinted.tsx` and four test files), one generated reference note
+(`Config - practice.md`) and the two review records. **It adds no database or binary file, and the root `.gitignore`
+is unchanged.** `main` and `reader/ca1-problem-as-printed` are both ancestors of the tip.
+
+### Interactions
+
+- **The defaults-snapshot hashes and the field arms.** The arm version hashes in `field/predictors.py` and
+  `field/success_head.py` read only `[mastery]` (with LP's inert key left out), and CA1's key is a new top-level
+  `[practice]` section, so no arm hash moves. `test_eval_harness.py`, `test_success_head*.py` and the config tests
+  pass as merged (465 passed in the first targeted run), and no pinned digest changed.
+- **Rebuild equivalence (`mvp-0.34`).** CA1 touches no replay, projection or scheduling code. Its one write is a
+  `maintenance_notices` row (`transcription_mismatch`), and that table is `WORKFLOW` in `table_roles.py`, so a
+  rebuild neither replays nor drops it. Parity (a) below shows the shadow rebuild at **0/0/0** on both sides.
+- **PR-2 content sync.** New imports write two extra keys on `provenance.source_refs` (`owned`, and `region` for a
+  region selection). Existing items are not rewritten, so a sync of the owner's vaults sees no change (parity (a):
+  every row identical after the primary load, which syncs). The transcription notice's collector resolves on a
+  prompt-hash change, which is the same signal a synced reword gives.
+- **C0a (source sets fail closed).** C0a's fail-closed rule guards what is *sent to a model*. CA1 makes no model
+  call. Its crop shows only the item's own blocks. Its original page opens through `get_span_view`, which already
+  applies the Reader's exam protection. The multi-block `reader.block_original_region` form has the same reach as the
+  single-block form it sits beside. So nothing in C0a needed composing.
+- **LP claim fixes and RW7b.** CA1 reads no claim, mastery or plan. The plan, Today and certification are
+  byte-identical between main and the merge (parity (a)).
+- No break was found, so no fail-first test was needed.
+
+### Regeneration
+
+- `db_generate_reference.py` first refused the new section (`KeyError: 'practice'` in `CONFIG_SECTION_FUNCTIONS`). The
+  script gained a `practice` description. The reference now holds **1,056 leaves in 73 sections**, with the new
+  `Config - practice.md`. The prose counts in `Configuration.md` and `Database.md` were updated by hand.
+  `db_validate_reference.py` reports **errors: []**. The other ~425 note changes are `source_commit` stamps.
+- `validate_vault.py`: passed (1,159 notes).
+- `module_validate.py` and `desktop_validate.py` still fail as they do on main: stale module notes (1,115 missing
+  now against main's 1,111, the difference being CA1's new modules) and the unclassified `syntheticBook.ts`. That is
+  left to the queued docs workflow.
+- `tests/cli_help_snapshot.json`, the RPC contract and the serializer snapshot needed nothing; their tests pass as
+  merged.
+
+### Gate
+
+Setup ran in 5G scopes: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`. The pytest lanes ran at
+`510a3336b` under `flock /tmp/learnloop-fullsuite.lock` in 10G / 2G-swap scopes. Each ran with `env -i` and empty,
+existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, which were still empty afterwards. Logs are in
+`fixtures-local/landing-ca1/logs/`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`pytest -n 8 -p no:cacheprovider --dist worksteal`, 1 h 38 min, load average 100-450 from other stages) | **21,710 passed, 15 failed**, 80 skipped, 41 xfailed (21,846 items). **10 are the installed Codex CLI 0.164.0** ("does not report feature realtime_conversation, worktrees off"): `test_codex_isolation_mcp_check` ×3, `test_codex_lockdown_round2` ×3, `test_codex_lockdown_round3` ×3 and `test_diagnosis_isolation::test_configured_mcp_servers_are_listed_and_disabled`. **The same 10 fail on main's tree** (`git archive main`, run alone: 10 failed, 85 passed, the same message). The other 5 are known load flakes, each **3/3 passed alone**: `test_plan_first_transport_offer_grants::test_p1_…`, `test_reading_hardening_2_fixes::test_f1_…` and `test_reading_request_sweep::test_b_…`/`test_d_…`/`test_e_…`. The worker that ran `test_reader_rw1c_review.py`'s 84 cases then held `test_reading_request_sweep.py`. It had ~800 leaked threads and was taking about 40 minutes per test. So it was killed (`SIGKILL`) during `test_e_…`, and xdist replaced it and ran the rest. `test_e_…` is one of the 5 rerun alone |
+| an earlier, accidental full run at `c35ba8d9b` (`-n 6`, 5G scope; a targeted file list that the shell did not split) | 21,712 passed, the same 13 classes failed (10 Codex, `test_p1_…`, `test_f1_…`, `test_b_…`) |
+| durability (`-m durability`) | **137 passed**, 1 skipped |
+| owner lane (`-m owner_vaults`, backup-API copies of the three mvp030 backups in `fixtures-local/owner-lane-ca1/`) | 83 passed, 6 failed. These are exactly the 6 known, pre-existing failures: `test_doctor` pre-044, `test_migrate_fresh` 153, `test_goal_decay_projection`, `test_sidecar_contract` recent ingests, `test_activity_backfill` and `test_placement_fixture_copies[arxiv_v2]` |
+| `npm install`; `npm run typecheck` (at `c35ba8d9b`; `510a3336b` changes only docs) | ok (esbuild's postinstall blocked, as before); clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **218 files, 1,873 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree | `git status` clean apart from `fixtures-local/` |
+
+### Parity (backup-API copies of the mvp030 backups; no real model call)
+
+**Setup** (`fixtures-local/landing-ca1/scripts/`: the rbeq landing's kit, re-pathed, plus `setup.sh`, `a34.sh`, `p34.sh`
+and `ca1_probe.py`):
+- `orig/` holds backup-API copies of `learnanything/fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}`.
+- `u34/` is `orig` brought to **mvp-0.34 with main's code**: routes sent to a `127.0.0.1:9` blackhole (all 64
+  tasks), `upgrade --to mvp-0.34` (mvp-0.30 → mvp-0.34), then `rebuild-derived-state` twice.
+- `code_main` and `code_merge` are `git archive` exports of `497169069` and `510a3336b`.
+- Every run went through `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. `run.py`'s audit hook
+  refuses any Codex process start and any non-loopback socket.
+
+**(a) Main vs merge at mvp-0.34** (`a34.sh`, with a second main copy as the noise control):
+- **Whole databases** after the normal primary sidecar load: **every row of 357 tables is identical**: 18,806 rows
+  on linear_algebra and 8,195 on probability. There are no schema diffs, `schema_migrations` is identical (head 222),
+  integrity is ok, `foreign_key_check` is 0 and `model_call_receipts` is 0.
+- **Certification, Today and the plan: byte-identical** main vs merge, and main vs main, on both vaults.
+- **`rebuild --shadow`: 0/0/0** on both sides and both vaults, with live state unchanged.
+- **`doctor`: identical**: 57 issues / 1 error on LA, and 101 / 48 on probability, which predate the stage.
+
+**(b) CA1 used on every item changes no row** (`p34.sh`). Two copies of u34 had the merge's primary load. On one,
+`practice.as_printed` then answered every practice item twice, as the header read and with `render: true`:
+- linear_algebra: 99 items. 96 are `none` / `no_print` (generated or tutor items, with no print and no photo). 3 are
+  `page` / `no_geometry`: their extraction keeps a page but no box, so no crop is made, and the original page is
+  offered with its notice "the crop isn't available for this problem · the original page is".
+- probability: 77 items, 69 `none` / `no_print` and 8 `page` / `no_geometry`.
+- There were no errors and no crop images (none of these imports has block boxes).
+- The two copies stay **row-identical** (357 tables, `model_call_receipts` 0). The view writes nothing: its exposure
+  is recorded only where the page opens.
+
+**Receipts and calls.** All 19 `state.sqlite` files under `fixtures-local/landing-ca1/` and
+`fixtures-local/owner-lane-ca1/` have **0 `model_call_receipts`**. `run.py`'s audit log was never created, so no process
+start and no socket connection happened. **Spend: $0.** Nothing under `~/learnloop-vaults` was opened or listed.
+
+### Owner notes
+
+- **No upgrade step.** CA1 has no migration and no successor, and vaults at `mvp-0.34` need nothing.
+- On your current vaults, the *as printed* fold shows nothing for generated items. For the 3 (linear algebra) and 8
+  (probability) imported exercises it offers the **original page** (one hint-equivalent before Submit, free after
+  feedback) with "the crop isn't available for this problem". Those imports kept a page but no box, and they predate
+  the `owned` mark. New Reader imports from a Marker/GLM extraction (block boxes) get the crop.
+- **The kill switch** is `[practice.as_printed] enabled = false`. Every screen is then as before CA1, and the report
+  refuses.
+
+### Open items
+
+- **Finding (Low, learner-visible): the header names "your book" for the owner's textbooks.** `_source_title` in
+  `handlers/as_printed.py` reads only `source_artifacts.display_title`, which is NULL for both owner textbooks. On
+  the copies the header reads "From your book · p.10" / "as printed (your book p.38)". The Reader and the source
+  cards use `content.pipeline.add_source.learner_title` (the display title, else the file name in words). Switching
+  to `learner_title` would name the book. It is not changed here: it is CA1's own behaviour, not a landing interaction.
+- The exercise label is empty on those imports (`exerciseLabel: null`), so the header has no "Exercise N".
+- `test_reader_rw1c_review.py` leaks about 9 threads per case, and they keep polling. When one worker gets both that
+  file and `test_reading_request_sweep.py`, the sweep tests slow to about 40 minutes each. This is the second landing
+  where it cost a full-suite run; fixing the test file's teardown would end it.
+- Carried from the stage (§5): "this question is wrong" does not exist; page labels fall back to the file position;
+  the page's hint is counted by the client's book component.
