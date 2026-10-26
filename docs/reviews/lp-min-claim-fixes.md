@@ -568,7 +568,7 @@ unchanged.
 
 **Receipts and calls.** Over all 42 databases under `fixtures-local/landing-lp/`, `model_call_receipts` has **no rows
 at all**. `run.py`'s audit log was never created, so no process start or socket connection happened in any parity run.
-Spend: $0. `~/learnloop-vaults` was not opened.
+Spend: $0. No vault or file under `~/learnloop-vaults` was opened (one stray `ls` of the directory, with its output discarded, was the only access).
 
 ### Owner notes: what changes for the learner
 
