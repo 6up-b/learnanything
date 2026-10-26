@@ -3,8 +3,8 @@ title: "Config - exam_seeding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "f8fbf80b9810bdf766c7749b7c35b7ee0dd5fb9b"
+source_commit_timestamp: "2026-10-26T12:18:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml exam_seeding"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `exam_seeding.grader_confidence` | `0.7` | number | modeled default or validator seed | Controls grader confidence in reliability assigned to imported exam evidence, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:551`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/goals/exam_seeding.py:403` |
-| `exam_seeding.default_learner_confidence` | `3` | integer | modeled default or validator seed | Controls default learner confidence in reliability assigned to imported exam evidence, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:552`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/goals/exam_seeding.py:378` |
+| `exam_seeding.grader_confidence` | `0.7` | number | modeled default or validator seed | Controls grader confidence in reliability assigned to imported exam evidence, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:551`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/goals/exam_seeding.py:403` |
+| `exam_seeding.default_learner_confidence` | `3` | integer | modeled default or validator seed | Controls default learner confidence in reliability assigned to imported exam evidence, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:552`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/goals/exam_seeding.py:378` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

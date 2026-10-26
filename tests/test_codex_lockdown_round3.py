@@ -501,6 +501,11 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/local_embeddings/gpu_meter.py", "supervise", "subprocess.Popen"),
     ("src/learnloop/local_embeddings/setup.py", "run_setup", "subprocess.run"),
     ("src/learnloop/local_embeddings/worker.py", "run_nvidia_smi", "subprocess.run"),
+    # Local retrieval P2 (reviewed): the base download through the separate environment's own
+    # interpreter (an argv list, no shell, nothing that can start Codex), and the query student's
+    # process in its own capped systemd scope (an argv list, no shell, start_new_session).
+    ("src/learnloop/source_retrieval/query_student.py", "setup_bases", "subprocess.run"),
+    ("src/learnloop/source_retrieval/student_encoder.py", "_spawn", "subprocess.Popen"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_equivalence_checks", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_generator_tests", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_sandboxed_python", "subprocess.run"),
