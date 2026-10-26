@@ -387,6 +387,8 @@ _reg_const("student_pins:STUDENT_CANARY_MIN_COS", "version", kind="structural", 
            rationale="keep: the student canary identity check (as the 9B's, E1 measured invariance at 0.99991).")
 _reg_const("student_pins:SOCKET_TIMEOUT_S", "operational", kind="structural", owner="student_pins",
            rationale="keep: the query process's socket timeout (operational).")
+_reg_const("student_pins:YIELD_WAIT_S", "operational", kind="structural", owner="student_pins",
+           rationale="keep (operational, Codex review F11): the wait for a GPU-resident query process to exit before an exclusive GPU job's start checks.")
 _reg_const("student_decision:DRAWS", "numerical", kind="structural", owner="student_decision",
            rationale='keep (computation budget): posterior draws behind every expected utility (MC s.e. of P(best) < 0.008).')
 _reg_const("student_decision:RATE_GRID_POINTS", "numerical", kind="structural", owner="student_decision",

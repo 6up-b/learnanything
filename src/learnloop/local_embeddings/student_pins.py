@@ -166,6 +166,10 @@ STUDENT_CANARY_QUERIES = ("When is a matrix invertible?", "What does the power r
                           "Explain the law of total probability with an example.")
 #: keep (operational): the query process's socket accept and read timeout.
 SOCKET_TIMEOUT_S = 30.0
+#: keep (operational, Codex review F11): how long an exclusive GPU job waits for a GPU-resident
+#: query process to exit after asking it to (its shutdown is immediate; this bounds a stuck one,
+#: which the job's own start checks then refuse as a concurrent workload).
+YIELD_WAIT_S = 10.0
 
 #: The query-process idle exit is ``embedding.local.student_idle_minutes`` and the generator's money cap
 #: ``embedding.local.student_generator_max_cost_usd`` (config, keep, §9.6).

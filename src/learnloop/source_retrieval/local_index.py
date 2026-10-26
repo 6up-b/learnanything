@@ -231,6 +231,24 @@ def preflight_problems(*, meminfo: Callable[[], Mapping[str, int]] = worker_modu
     return worker_module.start_problems(pins.limits(), meminfo=meminfo(), scope={}, gpu=state, require_scope=False)
 
 
+def exclusive_gpu_yield(yielder: Callable[[], Any] | None, preflight: Callable[[], list[str]] | None) -> Any:
+    """Codex review F11: before an exclusive GPU job's start checks, a GPU-resident query
+    student is asked to exit (it is a python GPU process the workload rule refuses, and its
+    queries would otherwise keep it resident). The real yield runs with the real start checks;
+    a caller that injects its own checks (a test) injects its own yield or none."""
+
+    if yielder is None:
+        if preflight is not None:
+            return None
+        from learnloop.source_retrieval.student_encoder import yield_gpu_students
+
+        yielder = yield_gpu_students
+    try:
+        return yielder()
+    except Exception:  # noqa: BLE001 - the start checks below refuse whatever stayed
+        return None
+
+
 def _completed_at(repository: Repository, extraction_id: str) -> datetime | None:
     run = repository.get_extraction_run(extraction_id) or {}
     value = run.get("completed_at") or run.get("created_at")
@@ -245,7 +263,8 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
                     launcher: Callable[..., dict[str, Any]] | None = None, meter: GpuMeter | None = None,
                     preflight: Callable[[], list[str]] | None = None, locks: Callable[[], Any] = gpu_locks,
                     now: datetime | None = None, force: bool = False,
-                    extraction_ids: Sequence[str] | None = None, dry_run: bool = False) -> dict[str, Any]:
+                    extraction_ids: Sequence[str] | None = None, dry_run: bool = False,
+                    yielder: Callable[[], Any] | None = None) -> dict[str, Any]:
     """Index every owed window of the vault in one worker batch (aggregate report only)."""
 
     report: dict[str, Any] = {"job": INDEX_JOB}
@@ -282,6 +301,7 @@ def run_local_index(vault: LoadedVault, repository: Repository, *, root: Path | 
         return {**report, "status": "waiting_for_batch", "retry_at": (min(stamps) + timedelta(minutes=minutes)).isoformat(),
                 "reason": f"the batch waits until its oldest owed extraction is {minutes:g} minutes old "
                           "(embedding.local.index_batch_minutes; `--now` forces it)"}
+    report["students_yielded"] = exclusive_gpu_yield(yielder, preflight)
     problems = (preflight or preflight_problems)()
     if problems:
         return {**report, "status": "waiting_for_gpu", "reason": "; ".join(problems)}

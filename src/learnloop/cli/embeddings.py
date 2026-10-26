@@ -606,7 +606,11 @@ def student_evaluate(
     data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """The candidate on the bank beside the teacher; ADOPTED when E[U(student)] >= each alternative (spec §9.3)."""
+    """The candidate on the bank beside the teacher: RECOMMENDED when E[U(student)] >= each alternative (spec §9.3).
+
+    Every arm is scored on the bank questions whose evidence lies in this vault.
+    A checkpoint that loses its re-evaluation is withdrawn; adopting one is
+    `student adopt` (the owner's choice, recorded in judgment_ledger)."""
 
     from learnloop.source_retrieval.query_student import evaluate
 
@@ -617,11 +621,49 @@ def student_evaluate(
             if not path:
                 raise ValueError("--arm takes NAME=FILE")
             arms[name.strip()] = Path(path).expanduser()
-        loaded, repository = _vault_and_repository(vault, write=False)
+        loaded, repository = _vault_and_repository(vault, write=not dry_run)
         report = evaluate(loaded, repository, bank_path=bank, root=data_root, arms=arms, dry_run=dry_run)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         report = {"status": "invalid", "reason": str(exc)}
-    _emit(report, json_output, frozenset({"dry_run", "adopted", "not_adopted"}))
+    _emit(report, json_output, frozenset({"dry_run", "recommended", "kept", "not_recommended", "withdrawn"}))
+
+
+def _owner_choice(vault: Path, checkpoint: str | None, data_root: Path | None, json_output: bool, *,
+                  accept: bool) -> None:
+    from learnloop.source_retrieval.query_student import owner_choice
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=True)
+        report = owner_choice(loaded, repository, accept=accept, root=data_root, checkpoint=checkpoint)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"adopted" if accept else "rejected"}))
+
+
+@student_app.command("adopt")
+def student_adopt(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    checkpoint: Annotated[str | None, typer.Option(
+        "--checkpoint", help="The evaluated checkpoint's SHA-256 (default: the latest evaluation's).")] = None,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Adopt the evaluated student (the owner's verdict in judgment_ledger; it then serves)."""
+
+    _owner_choice(vault, checkpoint, data_root, json_output, accept=True)
+
+
+@student_app.command("reject")
+def student_reject(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    checkpoint: Annotated[str | None, typer.Option(
+        "--checkpoint", help="The evaluated checkpoint's SHA-256 (default: the latest evaluation's).")] = None,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Decline the evaluated student (recorded; withdrawn if it serves)."""
+
+    _owner_choice(vault, checkpoint, data_root, json_output, accept=False)
 
 
 @student_app.command("revoke")
@@ -635,8 +677,8 @@ def student_revoke(
     from learnloop.source_retrieval.query_student import revoke
 
     try:
-        loaded, _repository = _vault_and_repository(vault, write=False)
-        report = revoke(loaded, root=data_root)
+        loaded, repository = _vault_and_repository(vault, write=True)
+        report = revoke(loaded, repository, root=data_root)
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     _emit(report, json_output, frozenset({"revoked", "none"}))

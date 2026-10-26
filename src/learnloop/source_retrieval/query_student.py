@@ -15,31 +15,45 @@ run that starts nothing:
    question and every bank question (``encode_queries``, ``[Q]``, mean pool) into int8 shards,
    under the GPU lock and the full-suite lock, in the worker's 12G scope, charged to the capped
    P2 meter (6 GPU-hours, keep). Canaries and the software epoch are checked before anything is
-   kept. The teacher-cosine leakage guard (>= 0.90 to any bank question) runs here. The teacher
-   and the student are never resident together: each is its own process, one at a time, by the
-   lock.
+   kept. The teacher-cosine leakage guard (>= 0.90 to any bank question) runs here, only against
+   the COMPLETE bank, and records that bank's fingerprint: a question is eligible for training or
+   evaluation only when that bank's screen passed it (:func:`eligible_rows`). The teacher and the
+   student are never resident together: each is its own process, one at a time, by the lock, and a
+   GPU-resident query process is asked to exit before any exclusive GPU job starts.
 4. ``train`` (:func:`run_next`): the next run of the schedule (:func:`next_step`): the screen
    (``projection_only`` and ``align`` on the primary base, ``align`` on the second base, at the
    screen budget), then the recipes on the chosen base (``align_kd``, ``align_kd_mp``), then the
    learning curve (the small budget, then the large one only when its expected gain beats its
    GPU-hours: ``student_decision.continue_training``), then the remaining seeds of the chosen
    recipe. Every choice is ``argmax E[U]`` on development (``student_decision.decide``); none is
-   a margin. The teacher's top-50 for the ranking losses is computed here from the vault's own
-   vector cache, the bank's gold supports left out (never a hard negative).
+   a margin. The teacher's top-50 for the ranking losses is computed here over the permitted
+   training candidates (:func:`training_candidates`: the training families only, every
+   contextual window holding a bank support left out), and the multi-positive term's hard
+   negatives are that top-50's same-source blocks. A run is named by its dataset fingerprint
+   (vault, bank, splits, candidates, families: :func:`campaign`), so nothing is reused across
+   datasets.
 5. ``evaluate`` (:func:`evaluate`): the candidate checkpoint through the real query process on
-   the bank, beside the teacher's bank vectors, per stratum (deictic, logged, unseen family);
-   the student is ADOPTED when ``E[U(student)] >= E[U(each alternative)]`` (§9.3), and the
-   adoption is recorded under the space with its decision. Its weight in the fusion is then
-   learned (§9.2) like every list.
+   the bank questions whose evidence lies in this vault (every arm on the same questions,
+   corpus and labels; unjudged retrieved material latent), beside the teacher's bank vectors and
+   any adopted incumbent, per stratum (deictic, logged, unseen family); §9.3's expected utility
+   RECOMMENDS, with its posterior draws kept. A checkpoint that loses its re-evaluation is
+   withdrawn at once. Adoption is the owner's (``student adopt`` / ``reject``: :func:`owner_choice`)
+   until P0's §9.1 label-noise posterior holds that authority; every verdict (the rule's, the
+   owner's) is appended to ``judgment_ledger``, and the owner's answer is an observation of
+   lambda. ``adoption.json`` is only the serving pointer. Its weight in the fusion is then learned
+   (§9.2) like every list.
 
-No book text, synthetic question or checkpoint is ever written to a vault's ``state.sqlite`` or
-the repository: everything lives under ``<data root>/students/<space id>/`` (§11).
+Book text, teacher vectors and checkpoints live under ``<data root>/students/<space id>/`` (§11),
+never in the repository. A vault's ``state.sqlite`` holds the generator's paid-call receipts and
+checkpoints (``PaidCalls``: the prompt and output receipts the paid-output invariant needs) and
+the adoption verdicts in ``judgment_ledger``; no training data or vector is written there.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence, Set
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import math
 import os
@@ -63,7 +77,14 @@ from learnloop.local_embeddings.launcher import LocksBusy, ScopedLauncher, gpu_l
 from learnloop.local_embeddings.setup import load_manifest
 from learnloop.source_retrieval import student_data as D
 from learnloop.source_retrieval.corpus import current_extractions
-from learnloop.source_retrieval.local_index import build_job, canary_check, epoch_of, measured_epoch, preflight_problems
+from learnloop.source_retrieval.local_index import (
+    build_job,
+    canary_check,
+    epoch_of,
+    exclusive_gpu_yield,
+    measured_epoch,
+    preflight_problems,
+)
 from learnloop.source_retrieval.recipes import block_record_id
 from learnloop.source_retrieval.student_encoder import adoption_path, bases_manifest, checkpoint_dir, student_space
 from learnloop.source_retrieval.windows import expected_keys, mean_vector, windows_by_extraction
@@ -175,29 +196,29 @@ def setup_bases(*, root: Path | None = None, run: Callable[..., Any] = subproces
     return {**out, "status": "ready", "recorded": recorded}
 
 
-# -- 3. teacher targets ------------------------------------------------------------------------------------
+# -- 3. teacher targets and the leakage screen ---------------------------------------------------------------
+def _sha(*parts: Any) -> str:
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+
+
+def bank_fingerprint(bank: Sequence[Mapping[str, Any]]) -> str:
+    """The bank's identity: every question's id, retrieval text, evidence and answer spans."""
+
+    return _sha([[str(q["query_id"]), q["text"], [[list(ref) for ref in required] for required in q["evidence_sets"]],
+                  [list(ref) for ref in q.get("answer_spans") or []]] for q in sorted(bank, key=lambda q: q["query_id"])])
+
+
 def targets_index(space_home: Path) -> dict[str, Any]:
-    return _read_json(space_home / "targets" / "index.json", {"queries": {}, "bank": {}, "dropped": {}, "shards": {}})
+    value = _read_json(space_home / "targets" / "index.json", {})
+    for key in ("queries", "bank", "bank_text", "dropped", "shards", "screen"):
+        value.setdefault(key, {})
+    return value
 
 
 def teacher_vectors(space_home: Path, ids: Sequence[str], *, kind: str = "queries") -> dict[str, np.ndarray]:
     """``{id: unit float32 vector}`` from the int8 shards (rows that never arrived are absent)."""
 
-    index = targets_index(space_home)
-    wanted = [(str(identity), index[kind].get(str(identity))) for identity in ids]
-    by_shard: dict[str, list[tuple[str, int]]] = {}
-    for identity, place in wanted:
-        if place:
-            by_shard.setdefault(str(place[0]), []).append((identity, int(place[1])))
-    out: dict[str, np.ndarray] = {}
-    for shard, rows in by_shard.items():
-        array = np.load(space_home / "targets" / f"{shard}.npy", mmap_mode="r")
-        for identity, row in rows:
-            vector = np.asarray(array[row], dtype=np.float32)
-            norm = float(np.linalg.norm(vector))
-            if norm:
-                out[identity] = vector / norm
-    return out
+    return teacher_vectors_from(targets_index(space_home), space_home / "targets", [str(i) for i in ids], kind)
 
 
 def all_rows(root: Path, space: str) -> list[dict[str, Any]]:
@@ -209,10 +230,62 @@ def all_rows(root: Path, space: str) -> list[dict[str, Any]]:
     return rows
 
 
+def missing_bank_targets(index: Mapping[str, Any], bank: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Bank questions with no teacher vector for their CURRENT text."""
+
+    return [str(q["query_id"]) for q in bank
+            if str(q["query_id"]) not in index["bank"] or index["bank_text"].get(str(q["query_id"])) != _sha(q["text"])]
+
+
+def screen_current(index: Mapping[str, Any], bank: Sequence[Mapping[str, Any]]) -> bool:
+    return (index["screen"].get("bank_fingerprint") == bank_fingerprint(bank)
+            and not missing_bank_targets(index, bank))
+
+
+def screen_leakage(index: dict[str, Any], targets_dir: Path, rows: Sequence[Mapping[str, Any]],
+                   bank: Sequence[Mapping[str, Any]]) -> bool:
+    """The teacher-cosine leakage guard (keep, may only tighten), bound to ONE complete bank
+    (Codex review F2): it runs only when every question of this bank has its teacher vector,
+    screens every synthetic question that has a target against all of them, and records the
+    bank's fingerprint with the screened ids. A question is admitted to training only when this
+    bank screened it (:func:`eligible_rows`); a partial run screens nothing."""
+
+    if missing_bank_targets(index, bank):
+        return False
+    bank_vectors = teacher_vectors_from(index, targets_dir, [str(q["query_id"]) for q in bank], "bank")
+    if len(bank_vectors) < len(bank):
+        return False
+    matrix = np.stack(list(bank_vectors.values()))
+    fresh = teacher_vectors_from(index, targets_dir, [str(row["id"]) for row in rows if row["id"] in index["queries"]],
+                                 "queries")
+    dropped: dict[str, float] = {}
+    for identity, vector in fresh.items():
+        highest = float(np.max(matrix @ vector))
+        if highest >= SP.LEAKAGE_MAX_TEACHER_COS:
+            dropped[identity] = round(highest, 4)
+    index["dropped"] = dropped
+    index["screen"] = {"bank_fingerprint": bank_fingerprint(bank), "bank_questions": len(bank),
+                       "screened": sorted(fresh), "at": datetime.now(timezone.utc).isoformat()}
+    return True
+
+
+def eligible_rows(rows: Sequence[Mapping[str, Any]], index: Mapping[str, Any],
+                  bank: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """THE admission rule, shared by training and evaluation (Codex review F2, F7): a question
+    with a teacher target that this bank's complete leakage screen passed. Nothing is eligible
+    while the bank's targets or its screen are incomplete."""
+
+    if not screen_current(index, bank):
+        return []
+    screened = set(index["screen"].get("screened") or ())
+    return [dict(row) for row in rows
+            if row["id"] in index["queries"] and row["id"] in screened and row["id"] not in index["dropped"]]
+
+
 def run_targets(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, root: Path | None = None,
                 launcher: Callable[..., dict[str, Any]] | None = None, meter: GpuMeter | None = None,
                 preflight: Callable[[], list[str]] | None = None, locks: Callable[[], Any] = gpu_locks,
-                dry_run: bool = False) -> dict[str, Any]:
+                dry_run: bool = False, yielder: Callable[[], Any] | None = None) -> dict[str, Any]:
     """One 9B batch in query mode for every question and bank question still owed a target."""
 
     root = root or pins.data_root()
@@ -224,19 +297,28 @@ def run_targets(vault: LoadedVault, repository: Repository, *, bank_path: Path |
         return {**out, "status": "refused", "reason": "the bank is required (--bank): its questions are the "
                                                       "teacher-cosine leakage guard"}
     space_home = home(root, space)
+    targets_dir = space_home / "targets"
     bank = D.load_bank(bank_path)
     index = targets_index(space_home)
     rows = all_rows(root, space)
     owed = [row for row in rows if row["id"] not in index["queries"]]
-    bank_owed = [question for question in bank if question["query_id"] not in index["bank"]]
+    missing = set(missing_bank_targets(index, bank))
+    bank_owed = [question for question in bank if str(question["query_id"]) in missing]
     meter = meter or p2_meter(root, space)
     seconds = (len(owed) + len(bank_owed)) * 0.018 + 25.0
     out.update(space_id=space, questions=len(rows), owed=len(owed), bank_owed=len(bank_owed),
+               bank_fingerprint=bank_fingerprint(bank),
                estimate={"gpu_minutes": round(seconds / 60, 1),
                          "basis": "E1: 18 ms per query (batch one, BF16, resident) plus the 25 s load"},
                meter=meter.report())
     if not owed and not bank_owed:
-        return {**out, "status": "complete"}
+        if dry_run:
+            return {**out, "status": "dry_run" if not screen_current(index, bank) else "complete"}
+        if not screen_current(index, bank):
+            screen_leakage(index, targets_dir, rows, bank)
+            _write_json(targets_dir / "index.json", index)
+        return {**out, "status": "complete", "leakage_dropped_by_teacher_cos": len(index["dropped"]),
+                "screened": len(index["screen"].get("screened") or ())}
     if dry_run:
         return {**out, "status": "dry_run"}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -245,12 +327,12 @@ def run_targets(vault: LoadedVault, repository: Repository, *, bank_path: Path |
         return {**out, "status": "refused", "reason": "index this vault's local space first (`learnloop embeddings "
                                                       "local index`): the targets' canaries are checked against "
                                                       "the space's stored ones"}
+    out["students_yielded"] = exclusive_gpu_yield(yielder, preflight)
     problems = (preflight or preflight_problems)()
     if problems:
         return {**out, "status": "waiting_for_gpu", "reason": "; ".join(problems)}
     run_id = uuid4().hex
     job, _targets = build_job([], manifest=manifest, plan_id=f"p2targets_{run_id[:16]}")
-    targets_dir = space_home / "targets"
     targets_dir.mkdir(parents=True, exist_ok=True)
     shards = []
     taken = set(index["shards"])
@@ -263,11 +345,13 @@ def run_targets(vault: LoadedVault, repository: Repository, *, bank_path: Path |
         return f"{prefix}{number:04d}"
 
     plan: dict[str, tuple[str, list[str]]] = {}
+    texts: dict[str, str] = {}
     for kind, items, key in (("queries", owed, "id"), ("bank", bank_owed, "query_id")):
         for start in range(0, len(items), SHARD_SIZE):
             chunk = items[start:start + SHARD_SIZE]
             name = shard_name("q" if kind == "queries" else "b")
             plan[name] = (kind, [str(item[key]) for item in chunk])
+            texts.update({str(item[key]): item["text"] for item in chunk})
             shards.append({"name": name, "path": str(targets_dir / f"{name}.npy"),
                            "queries": [{"id": str(item[key]), "text": item["text"]} for item in chunk]})
     job["query_shards"] = shards
@@ -298,21 +382,17 @@ def run_targets(vault: LoadedVault, repository: Repository, *, bank_path: Path |
                 kept["errors"] += 1
                 continue
             index[kind][identity] = [name, row]
+            if kind == "bank":
+                index["bank_text"][identity] = _sha(texts[identity])
             kept[kind] += 1
         index["shards"][name] = {"kind": kind, "rows": len(ids), "latency_p50_s": result.get("latency_p50_s")}
-    # The teacher-cosine leakage guard (keep, may only tighten).
-    bank_vectors = teacher_vectors_from(index, targets_dir, list(index["bank"]), "bank")
-    if bank_vectors:
-        matrix = np.stack(list(bank_vectors.values()))
-        fresh = teacher_vectors_from(index, targets_dir, [row["id"] for row in rows], "queries")
-        for identity, vector in fresh.items():
-            highest = float(np.max(matrix @ vector))
-            if highest >= SP.LEAKAGE_MAX_TEACHER_COS:
-                index["dropped"][identity] = round(highest, 4)
+    screened = screen_leakage(index, targets_dir, rows, bank)
     _write_json(targets_dir / "index.json", index)
-    complete = output.get("status") == "complete" and not kept["errors"]
+    complete = output.get("status") == "complete" and not kept["errors"] and screened
     return {**out, "status": "complete" if complete else "partial", "kept": kept,
-            "leakage_dropped_by_teacher_cos": len(index["dropped"]), "meter": meter.report()}
+            "leakage_screen": {"complete": screened, "bank_fingerprint": bank_fingerprint(bank),
+                               "bank_targets_missing": len(missing_bank_targets(index, bank))},
+            "leakage_dropped_by_teacher_cos": len(index["dropped"]) if screened else None, "meter": meter.report()}
 
 
 def teacher_vectors_from(index: Mapping[str, Any], targets_dir: Path, ids: Sequence[str], kind: str) -> dict[str, np.ndarray]:
@@ -333,22 +413,34 @@ def teacher_vectors_from(index: Mapping[str, Any], targets_dir: Path, ids: Seque
 
 
 # -- documents (the vault's own local index) ---------------------------------------------------------------
-def documents(vault: LoadedVault, repository: Repository, space: str, *,
-              exclude: set[tuple[str, str]] = frozenset()) -> tuple[list[str], np.ndarray]:
-    """The grouped space's current covered blocks: ``(record ids, unit float32 matrix)``."""
+def _documents(vault: LoadedVault, repository: Repository, space: str, *, exclude: Set[tuple[str, str]] = frozenset(),
+               extraction_ids: Sequence[str] | None = None) -> tuple[list[str], np.ndarray, list[str], int]:
+    """``(record ids, unit float32 matrix, each row's extraction, blocks left out as bank-tainted)``.
 
-    extraction_ids = sorted(current_extractions(repository))
-    windows = windows_by_extraction(vault, repository, extraction_ids, ("grouped",))
+    A grouped (contextual) window that holds an ``exclude`` span taints EVERY member's vector: each
+    was encoded with that span in its context (Codex review F3), so all of them are left out, not
+    only the span's own row."""
+
+    current = sorted(current_extractions(repository))
+    wanted = current if extraction_ids is None else [e for e in current if e in set(extraction_ids)]
+    windows = windows_by_extraction(vault, repository, wanted, ("grouped",))
     cache = VectorCache(cache_path(vault.root, space))
-    ids, rows = [], []
+    ids, rows, sources = [], [], []
+    tainted_count = 0
     for (extraction_id, _variant), found in sorted(windows.items()):
+        tainted = {member.span_id for window in found
+                   if any((extraction_id, other.span_id) in exclude for other in window.members)
+                   for member in window.members}
         keys = expected_keys(space, found)
         try:
             vectors = cache.vectors(key for parts in keys.values() for key, _w in parts)
         except CacheUnreadable:
             continue
         for span_id, parts in sorted(keys.items()):
-            if (extraction_id, span_id) in exclude or not all(key in vectors for key, _w in parts):
+            if span_id in tainted or (extraction_id, span_id) in exclude:
+                tainted_count += 1
+                continue
+            if not all(key in vectors for key, _w in parts):
                 continue
             vector = (vectors[parts[0][0]] if len(parts) == 1 else
                       np.asarray(mean_vector([vectors[key] for key, _w in parts], [w for _k, w in parts])))
@@ -356,8 +448,35 @@ def documents(vault: LoadedVault, repository: Repository, space: str, *,
             if norm:
                 ids.append(block_record_id(extraction_id, span_id))
                 rows.append(np.asarray(vector, dtype=np.float32) / norm)
+                sources.append(extraction_id)
     matrix = np.stack(rows) if rows else np.zeros((0, SP.STUDENT_DIMENSIONS), dtype=np.float32)
+    return ids, matrix, sources, tainted_count
+
+
+def documents(vault: LoadedVault, repository: Repository, space: str, *,
+              exclude: Set[tuple[str, str]] = frozenset(),
+              extraction_ids: Sequence[str] | None = None) -> tuple[list[str], np.ndarray]:
+    """The grouped space's current covered blocks: ``(record ids, unit float32 matrix)``."""
+
+    ids, matrix, _sources, _tainted = _documents(vault, repository, space, exclude=exclude,
+                                                 extraction_ids=extraction_ids)
     return ids, matrix
+
+
+def training_candidates(vault: LoadedVault, repository: Repository, space: str, *, bank: Sequence[Mapping[str, Any]],
+                        rows: Sequence[Mapping[str, Any]], by_extraction: Mapping[str, str]) -> dict[str, Any]:
+    """The permitted training candidate manifest (Codex review F3): the covered blocks of the
+    TRAINING families only (no held-out family, no source without training questions), with every
+    contextual window that holds a bank support left out. The KD top-k and the multi-positive
+    term's hard negatives are mined from it alone."""
+
+    held = {str(row["family"]) for row in rows if row["split"] == "heldout"}
+    trained = {str(row["family"]) for row in rows if row["split"] in ("train", "dev")} - held
+    extraction_ids = sorted(e for e, family in by_extraction.items() if family in trained)
+    ids, matrix, sources, tainted = _documents(vault, repository, space, exclude=D.bank_supports(bank),
+                                               extraction_ids=extraction_ids)
+    return {"ids": ids, "matrix": matrix, "sources": sources, "families": sorted(trained), "held_out": sorted(held),
+            "extractions": extraction_ids, "bank_tainted_blocks": tainted, "fingerprint": _sha(ids)}
 
 
 def complete_evidence(ranked: Sequence[str], sets: Sequence[Sequence[tuple[str, str]]], k: int = 10) -> float | None:
@@ -367,6 +486,23 @@ def complete_evidence(ranked: Sequence[str], sets: Sequence[Sequence[tuple[str, 
         return None
     top = set(ranked[:k])
     return 1.0 if any(all(block_record_id(e, s) in top for e, s in required) for required in sets if required) else 0.0
+
+
+def judged_outcome(ranked: Sequence[str], question: Mapping[str, Any], k: int = 10) -> float | None:
+    """Complete evidence, with unjudged material latent (Codex review F5, spec §9.1): when no set
+    completes but the top ``k`` holds a block the label protocol never judged for this question
+    (the bank's ``judged`` list), that block may be another complete set: the outcome is unknown
+    (None, imputed by the posterior), never a miss. Without a ``judged`` list every arm is scored
+    the same way, a miss counting 0."""
+
+    value = complete_evidence(ranked, question["evidence_sets"], k)
+    judged = question.get("judged")
+    if value == 0.0 and judged is not None:
+        known = {block_record_id(e, s) for e, s in judged} | {
+            block_record_id(e, s) for required in question["evidence_sets"] for e, s in required}
+        if any(record not in known for record in ranked[:k]):
+            return None
+    return value
 
 
 # -- 4. datasets and the schedule ---------------------------------------------------------------------------
@@ -385,7 +521,8 @@ def effective_budgets(n_train: int) -> list[int]:
 
 
 def _spec_key(spec: Mapping[str, Any]) -> str:
-    return f"{spec['base']}|{spec['recipe']}|{spec['budget']}|{spec['seed']}"
+    # Codex review F9: a run is reused only on the dataset it learned (vault, bank, splits, candidates).
+    return f"{spec['base']}|{spec['recipe']}|{spec['budget']}|{spec['seed']}|{spec.get('dataset') or ''}"
 
 
 def _completed(ledger: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -407,6 +544,40 @@ def teacher_quality(space_home: Path, *, seed: int = 0) -> tuple[np.ndarray, str
         "legacy: E1's committed V2_grouped aggregates"
 
 
+# -- the owner's exchange rates (lambda, nu), learned from every costed owner choice ------------------------
+def _rates_path(space_home: Path) -> Path:
+    return space_home / "rates.json"
+
+
+def exchange_rates(space_home: Path, mu: float) -> tuple[SD.ExchangeRate, SD.ExchangeRate]:
+    """``(lambda, nu)``: the seeded priors (``student_decision.PRIOR_BASIS``) updated by every
+    recorded owner choice (Codex review F14). The SAME posteriors serve the screen, the
+    continuation rule and the adoption recommendation."""
+
+    stored = _read_json(_rates_path(space_home), {})
+    lam = SD.seeded_lambda()
+    lam.observations = [dict(item) for item in stored.get("lambda") or []]
+    nu = SD.seeded_nu(mu, SP.P2_GPU_HOURS_CAP, lam)
+    nu.observations = [dict(item) for item in stored.get("nu") or []]
+    return lam, nu
+
+
+def record_owner_choice(space_home: Path, *, rate: str, dq: float, cost: float, s: float, accepted: bool,
+                        what: str, judgment_id: str | None = None) -> dict[str, Any]:
+    """One costed owner choice, an observation of ``rate`` (``lambda``: quality per dollar;
+    ``nu``: quality per GPU-hour) in the logistic choice model ``P(accept) = sigma((dq - rate *
+    cost) / s)`` (spec §9.1: "every owner decision between costed options is an observation")."""
+
+    if rate not in ("lambda", "nu"):
+        raise ValueError("rate is lambda or nu")
+    stored = _read_json(_rates_path(space_home), {})
+    item = {"dq": float(dq), "cost": float(cost), "s": float(s), "accepted": bool(accepted), "what": what,
+            "judgment_id": judgment_id, "at": datetime.now(timezone.utc).isoformat()}
+    stored.setdefault(rate, []).append(item)
+    _write_json(_rates_path(space_home), stored)
+    return item
+
+
 def _late_counts(run: Mapping[str, Any], box_s: float) -> tuple[int, int]:
     samples = [value for device in (run.get("latency") or {}).values() for value in device.get("seconds") or []]
     samples.append(float(run.get("load_s") or 0.0))  # the cold-start proxy until real starts are measured
@@ -423,13 +594,15 @@ def run_actions(runs: Sequence[Mapping[str, Any]], *, teacher_q: np.ndarray, box
     return actions
 
 
-def choose(runs: Sequence[Mapping[str, Any]], *, teacher_q: np.ndarray, box_s: float, mu: float) -> dict[str, Any]:
-    lam = SD.seeded_lambda()
+def choose(runs: Sequence[Mapping[str, Any]], *, teacher_q: np.ndarray, box_s: float, mu: float,
+           lam: SD.ExchangeRate | None = None) -> dict[str, Any]:
+    lam = lam or SD.seeded_lambda()
     return SD.decide(run_actions(runs, teacher_q=teacher_q, box_s=box_s), lam=lam.draws(len(teacher_q)), mu=mu)
 
 
 def next_step(ledger: Mapping[str, Any], *, n_train: int, has_positives: bool, teacher_q: np.ndarray, box_s: float,
-              hours_left: float) -> dict[str, Any]:
+              hours_left: float, dataset: str = "", lam: SD.ExchangeRate | None = None,
+              nu: SD.ExchangeRate | None = None) -> dict[str, Any]:
     """The schedule's next run, or ``{"step": "evaluate", ...}`` when the chosen recipe has its seeds."""
 
     budgets = effective_budgets(n_train)
@@ -438,49 +611,50 @@ def next_step(ledger: Mapping[str, Any], *, n_train: int, has_positives: bool, t
     screen_budget = budgets[1] if len(budgets) > 1 else budgets[0]
     done, tried = _completed(ledger), _tried(ledger)
     mu = float(np.mean(teacher_q))
-    lam = SD.seeded_lambda()
-    nu = SD.seeded_nu(mu, SP.P2_GPU_HOURS_CAP, lam).mean()
+    lam = lam or SD.seeded_lambda()
+    nu_mean = (nu or SD.seeded_nu(mu, SP.P2_GPU_HOURS_CAP, lam)).mean()
+
+    def spec(base: str, recipe: str, budget: int, seed: int) -> dict[str, Any]:
+        return {"base": base, "recipe": recipe, "budget": budget, "seed": seed, "dataset": dataset}
 
     def pending(specs: Sequence[dict[str, Any]], stage: str) -> dict[str, Any] | None:
-        for spec in specs:
-            key = _spec_key(spec)
+        for item in specs:
+            key = _spec_key(item)
             if key in done:
                 continue
             if key in tried:
-                return {"step": "blocked", "stage": stage, "spec": spec,
+                return {"step": "blocked", "stage": stage, "spec": item,
                         "reason": f"run {tried[key]['run_id']} ended {tried[key].get('status')}: "
                                   f"{tried[key].get('reason') or ''}"[:300]}
-            return {"step": "train", "stage": stage, "spec": spec}
+            return {"step": "train", "stage": stage, "spec": item}
         return None
 
-    screen = [{"base": SP.PRIMARY_BASE, "recipe": "projection_only", "budget": screen_budget, "seed": 0},
-              {"base": SP.PRIMARY_BASE, "recipe": "align", "budget": screen_budget, "seed": 0}] + \
-             [{"base": base, "recipe": "align", "budget": screen_budget, "seed": 0}
-              for base in SP.SCREEN_BASES if base != SP.PRIMARY_BASE]
+    screen = [spec(SP.PRIMARY_BASE, "projection_only", screen_budget, 0), spec(SP.PRIMARY_BASE, "align", screen_budget, 0)] + \
+             [spec(base, "align", screen_budget, 0) for base in SP.SCREEN_BASES if base != SP.PRIMARY_BASE]
     step = pending(screen, "screen")
     if step:
         return step
-    screen_runs = [done[_spec_key(spec)] for spec in screen]
-    decision = choose(screen_runs, teacher_q=teacher_q, box_s=box_s, mu=mu)
+    screen_runs = [done[_spec_key(item)] for item in screen]
+    decision = choose(screen_runs, teacher_q=teacher_q, box_s=box_s, mu=mu, lam=lam)
     chosen_base = next(run["spec"]["base"] for run in screen_runs if run["run_id"] == decision["chosen"])
-    recipes = [{"base": chosen_base, "recipe": "align_kd", "budget": screen_budget, "seed": 0}]
+    recipes = [spec(chosen_base, "align_kd", screen_budget, 0)]
     if has_positives:
-        recipes.append({"base": chosen_base, "recipe": "align_kd_mp", "budget": screen_budget, "seed": 0})
+        recipes.append(spec(chosen_base, "align_kd_mp", screen_budget, 0))
     step = pending(recipes, "recipes")
     if step:
         return {**step, "screen_decision": decision}
     candidates = [run for run in screen_runs if run["spec"]["base"] == chosen_base] + \
-                 [done[_spec_key(spec)] for spec in recipes]
-    recipe_decision = choose(candidates, teacher_q=teacher_q, box_s=box_s, mu=mu)
+                 [done[_spec_key(item)] for item in recipes]
+    recipe_decision = choose(candidates, teacher_q=teacher_q, box_s=box_s, mu=mu, lam=lam)
     chosen_recipe = next(run["spec"]["recipe"] for run in candidates if run["run_id"] == recipe_decision["chosen"])
     final_budget = screen_budget
     if budgets[0] < screen_budget:
-        curve = [{"base": chosen_base, "recipe": chosen_recipe, "budget": budgets[0], "seed": 0}]
+        curve = [spec(chosen_base, chosen_recipe, budgets[0], 0)]
         step = pending(curve, "learning_curve")
         if step:
             return {**step, "recipe_decision": recipe_decision}
     if budgets[-1] > screen_budget:
-        large = {"base": chosen_base, "recipe": chosen_recipe, "budget": budgets[-1], "seed": 0}
+        large = spec(chosen_base, chosen_recipe, budgets[-1], 0)
         if _spec_key(large) not in done:
             points = []
             for budget in budgets:
@@ -492,21 +666,20 @@ def next_step(ledger: Mapping[str, Any], *, n_train: int, has_positives: bool, t
             measured = done[_spec_key({**large, "budget": screen_budget})]
             hours = (float(measured.get("charged_s") or 0.0) / 3600.0) * budgets[-1] / screen_budget
             rule = SD.continue_training(points, budgets[-1], hours=hours, hours_left=hours_left,
-                                        teacher_quality=mu, nu=nu)
+                                        teacher_quality=mu, nu=nu_mean)
             if rule["continue"]:
                 return {"step": "train", "stage": "learning_curve", "spec": large, "continue_rule": rule}
             final_budget = screen_budget
         else:
             same = [done[_spec_key({**large, "budget": budget})] for budget in (screen_budget, budgets[-1])]
-            budget_decision = choose(same, teacher_q=teacher_q, box_s=box_s, mu=mu)
+            budget_decision = choose(same, teacher_q=teacher_q, box_s=box_s, mu=mu, lam=lam)
             final_budget = next(run["spec"]["budget"] for run in same if run["run_id"] == budget_decision["chosen"])
-    seeds = [{"base": chosen_base, "recipe": chosen_recipe, "budget": final_budget, "seed": seed}
-             for seed in range(SP.FINAL_SEEDS)]
+    seeds = [spec(chosen_base, chosen_recipe, final_budget, seed) for seed in range(SP.FINAL_SEEDS)]
     step = pending(seeds, "seeds")
     if step:
         return step
-    final = [done[_spec_key(spec)] for spec in seeds]
-    seed_decision = choose(final, teacher_q=teacher_q, box_s=box_s, mu=mu)
+    final = [done[_spec_key(item)] for item in seeds]
+    seed_decision = choose(final, teacher_q=teacher_q, box_s=box_s, mu=mu, lam=lam)
     candidate = next(run for run in final if run["run_id"] == seed_decision["chosen"])
     spread = [float(np.mean(run["dev"]["agreements"])) for run in final]
     return {"step": "evaluate", "candidate": candidate["run_id"], "checkpoint_sha256": candidate["checkpoint_sha256"],
@@ -518,25 +691,65 @@ def _vault_rows(root: Path, space: str, vault: LoadedVault) -> list[dict[str, An
     return D.stored_queries(D.data_dir(root, space, vault))
 
 
-def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, space: str, budget: int,
-                  bank_path: Path, out_dir: Path) -> dict[str, Any]:
-    """The run's files: the nested training budget, the development split, the documents and the
-    teacher's top-k over them (gold supports never a candidate), the temperature."""
+def campaign(vault: LoadedVault, repository: Repository, *, root: Path, space: str,
+             bank: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """One vault's training campaign against one bank (Codex review F7, F8, F9): the eligible
+    questions (:func:`eligible_rows`), their families in the vault's persisted family mapping,
+    the permitted training candidates, and the dataset fingerprint that names every run and
+    checkpoint made from them. A campaign belongs to ONE vault: another vault, another bank,
+    other splits or other candidates are another dataset, and no run is reused across them."""
 
     space_home = home(root, space)
     index = targets_index(space_home)
-    excluded = D.bank_supports(D.load_bank(bank_path))
-    record_ids, matrix = documents(vault, repository, space, exclude=excluded)
+    families = D.family_map(D.data_dir(root, space, vault), repository)
+    by_extraction = D.extraction_families(repository, families)
+    rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
+            for row in eligible_rows(_vault_rows(root, space, vault), index, bank)]
+    candidates = (training_candidates(vault, repository, space, bank=bank, rows=rows, by_extraction=by_extraction)
+                  if rows else {"ids": [], "matrix": np.zeros((0, SP.STUDENT_DIMENSIONS), np.float32), "sources": [],
+                                "families": [], "held_out": [], "extractions": [], "bank_tainted_blocks": 0,
+                                "fingerprint": _sha([])})
+    fingerprint = _sha({"vault": D.vault_key(vault), "space": space, "bank": bank_fingerprint(bank),
+                        "rows": sorted([row["id"], row["split"], row["rank"], row["family"]] for row in rows),
+                        "candidates": candidates["fingerprint"], "families": sorted(families.items())})
+    return {"index": index, "rows": rows, "by_extraction": by_extraction, "candidates": candidates,
+            "fingerprint": fingerprint, "bank_fingerprint": bank_fingerprint(bank),
+            "bank_missing": missing_bank_targets(index, bank), "screen_current": screen_current(index, bank),
+            "n_train": sum(1 for row in rows if row["split"] == "train"),
+            "has_positives": any(row["supports"] for row in rows if row["split"] == "train")}
+
+
+def _incomplete_bank(camp: Mapping[str, Any]) -> str | None:
+    if camp["bank_missing"]:
+        return (f"{len(camp['bank_missing'])} bank question(s) have no teacher target: run `student targets` with "
+                "this bank first (nothing trains or is evaluated until its leakage screen is complete)")
+    if not camp["screen_current"]:
+        return "the leakage screen is for another bank: run `student targets` with this bank first"
+    return None
+
+
+def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, space: str, budget: int,
+                  bank_path: Path, out_dir: Path, camp: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The run's files: the nested training budget, the development split, the permitted training
+    candidates and the teacher's top-k over them (no held-out family, no bank-tainted window,
+    Codex review F3), each query's same-source hard negatives, the temperature."""
+
+    space_home = home(root, space)
+    camp = camp or campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank_path))
+    candidates = camp["candidates"]
+    record_ids, matrix, sources = candidates["ids"], candidates["matrix"], candidates["sources"]
     if not record_ids:
-        raise ValueError("the vault's local space has no covered block: index it first")
+        raise ValueError("no permitted training candidate: index the vault's training families first")
     position = {record_id: row for row, record_id in enumerate(record_ids)}
-    rows = [row for row in _vault_rows(root, space, vault)
-            if row["id"] in index["queries"] and row["id"] not in index["dropped"]]
+    rows = camp["rows"]
     train = D.nested(rows, budget)
     dev = sorted((row for row in rows if row["split"] == "dev"), key=lambda row: row["rank"])[:DEV_MAX]
     out_dir.mkdir(parents=True, exist_ok=True)
     stats: dict[str, Any] = {"documents": len(record_ids), "train": len(train), "dev": len(dev),
-                             "bank_supports_excluded": len(excluded)}
+                             "candidate_families": len(candidates["families"]),
+                             "held_out_families_excluded": len(candidates["held_out"]),
+                             "bank_tainted_blocks_excluded": candidates["bank_tainted_blocks"],
+                             "dataset_fingerprint": camp["fingerprint"]}
     k = min(SP.TEACHER_TOP_K, len(record_ids))
     spreads = []
     for split, items in (("train", train), ("dev", dev)):
@@ -549,10 +762,14 @@ def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, spa
             spreads.extend(np.take_along_axis(scores, topk.astype(np.int64), axis=1).std(axis=1).tolist())
         positives = [[position[block_record_id(row["extraction_id"], span)] for span in row["supports"]
                       if block_record_id(row["extraction_id"], span) in position] for row in items]
+        # Spec §7.1: in-sequence SAME-SOURCE hard negatives, from the training candidates only.
+        negatives = [[int(index) for index in topk[number] if sources[int(index)] == row["extraction_id"]]
+                     for number, row in enumerate(items)]
         (out_dir / f"{split}_texts.json").write_text(json.dumps([row["text"] for row in items]), encoding="utf-8")
         np.save(out_dir / f"{split}_targets.npy", targets.astype(np.float16))
         np.save(out_dir / f"{split}_topk.npy", topk)
         (out_dir / f"{split}_positives.json").write_text(json.dumps(positives), encoding="utf-8")
+        (out_dir / f"{split}_negatives.json").write_text(json.dumps(negatives), encoding="utf-8")
         stats[f"{split}_with_positives"] = sum(1 for item in positives if item)
     np.save(out_dir / "documents.npy", matrix.astype(np.float16))
     # Structural: a softmax temperature on the scale of the teacher's own top-k score spread.
@@ -561,13 +778,14 @@ def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, spa
 
 
 def trainer_job(spec: Mapping[str, Any], *, space: str, base_dir: Path, data_dir: Path, out_dir: Path,
-                temperature: float, plan_id: str) -> dict[str, Any]:
+                temperature: float, plan_id: str, dataset_fingerprint: str = "") -> dict[str, Any]:
     base = SP.STUDENT_BASES[spec["base"]]
     return {"version": SP.TRAINER_VERSION, "plan_id": plan_id, "space_id": space, "base_name": spec["base"],
             "base": {key: base[key] for key in ("repo", "revision", "pooling", "query_prefix", "hidden_size",
                                                 "trust_remote_code", "files", "remote_code", "inert_python")},
             "base_dir": str(base_dir), "data_dir": str(data_dir), "out_dir": str(out_dir),
             "recipe": spec["recipe"], "seed": int(spec["seed"]), "budget": int(spec["budget"]),
+            "dataset_fingerprint": str(dataset_fingerprint or spec.get("dataset") or ""),
             "dimensions": SP.STUDENT_DIMENSIONS, "precision": SP.STUDENT_PRECISION,
             "max_query_tokens": SP.MAX_QUERY_TOKENS, "epochs": SP.EPOCHS, "batch_size": SP.TRAIN_BATCH_SIZE,
             "learning_rate_full": SP.LEARNING_RATE_FULL, "learning_rate_head": SP.LEARNING_RATE_HEAD,
@@ -601,7 +819,7 @@ def install_checkpoint(output: Mapping[str, Any], *, root: Path, space: str) -> 
 def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, root: Path | None = None,
              launcher: Callable[..., dict[str, Any]] | None = None, meter: GpuMeter | None = None,
              preflight: Callable[[], list[str]] | None = None, locks: Callable[[], Any] = gpu_locks,
-             dry_run: bool = False) -> dict[str, Any]:
+             dry_run: bool = False, yielder: Callable[[], Any] | None = None) -> dict[str, Any]:
     """Plan (and unless ``dry_run``, run) the schedule's next training run."""
 
     root = root or pins.data_root()
@@ -616,24 +834,27 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     if bases is None:
         return {**out, "status": "not_set_up", "reason": "run `learnloop embeddings local student setup` first"}
     space_home = home(root, space)
+    camp = campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank_path))
+    incomplete = _incomplete_bank(camp)
+    if incomplete:
+        return {**out, "status": "refused", "space_id": space, "reason": incomplete}
     ledger = read_ledger(space_home)
-    index = targets_index(space_home)
-    rows = [row for row in _vault_rows(root, space, vault)
-            if row["id"] in index["queries"] and row["id"] not in index["dropped"]]
-    n_train = sum(1 for row in rows if row["split"] == "train")
     meter = meter or p2_meter(root, space)
     teacher_q, basis = teacher_quality(space_home)
+    lam, nu = exchange_rates(space_home, float(np.mean(teacher_q)))
     box = float(vault.config.source_retrieval.retrieval_timeout_seconds)
-    step = next_step(ledger, n_train=n_train, has_positives=any(row["supports"] for row in rows), teacher_q=teacher_q,
-                     box_s=box, hours_left=(meter.remaining_s() or 0.0) / 3600.0)
+    step = next_step(ledger, n_train=camp["n_train"], has_positives=camp["has_positives"], teacher_q=teacher_q,
+                     box_s=box, hours_left=(meter.remaining_s() or 0.0) / 3600.0, dataset=camp["fingerprint"],
+                     lam=lam, nu=nu)
     out.update(space_id=space, step=step, teacher_quality_basis=basis, meter=meter.report(),
-               budgets=effective_budgets(n_train))
+               budgets=effective_budgets(camp["n_train"]), dataset_fingerprint=camp["fingerprint"])
     if step["step"] != "train" or dry_run:
         return {**out, "status": "dry_run" if dry_run else step["step"]}
     spec = step["spec"]
     record = (bases.get("bases") or {}).get(spec["base"])
     if record is None:
         return {**out, "status": "not_set_up", "reason": f"the base {spec['base']} is not recorded (rerun setup)"}
+    out["students_yielded"] = exclusive_gpu_yield(yielder, preflight)
     problems = (preflight or preflight_problems)()
     if problems:
         return {**out, "status": "waiting_for_gpu", "reason": "; ".join(problems)}
@@ -641,16 +862,16 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     work = root / "runs" / run_id
     data = space_home / "runs" / run_id / "data"
     stats = build_dataset(vault, repository, root=root, space=space, budget=int(spec["budget"]), bank_path=bank_path,
-                          out_dir=data)
+                          out_dir=data, camp=camp)
     job = trainer_job(spec, space=space, base_dir=Path(record["dir"]), data_dir=data,
                       out_dir=space_home / "runs" / run_id, temperature=stats["temperature"],
-                      plan_id=f"p2train_{run_id[:16]}")
+                      plan_id=f"p2train_{run_id[:16]}", dataset_fingerprint=camp["fingerprint"])
     from learnloop.local_embeddings import student_trainer
 
     run = launcher or ScopedLauncher(Path(manifest["env_python"]), script=Path(student_trainer.__file__),
                                      memory_max=SP.TRAIN_SCOPE_MEMORY_MAX, unit_prefix="learnloop-student-train")
     entry: dict[str, Any] = {"run_id": run_id, "spec": dict(spec), "stage": step["stage"], "dataset": stats,
-                             "started_at": datetime.now(timezone.utc).isoformat()}
+                             "vault": D.vault_key(vault), "started_at": datetime.now(timezone.utc).isoformat()}
     try:
         with locks():
             output = run(job, work, meter=meter, plan_id=job["plan_id"])
@@ -674,7 +895,18 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
             "meter": meter.report()}
 
 
-# -- 5. evaluation and adoption -------------------------------------------------------------------------------
+# -- 5. evaluation, the recommendation, and the owner's adoption ----------------------------------------------
+#: The label model behind the bank outcomes (Codex review F5). P0's §9.1 posterior (Dawid-Skene
+#: label noise from the blinded passes and the adjudications) is not built; until a stage
+#: supplies it, an evaluation RECOMMENDS and the owner adopts (``student adopt``), so this
+#: simplified posterior never holds the adoption authority alone.
+LABEL_MODEL = ("simplified: per-arm family-pooled Beta posteriors, unknown and unjudged outcomes latent; "
+               "no label-noise model (spec §9.1's Dawid-Skene posterior is owed by P0)")
+PRIOR_ALTERNATIVE = ("prior: E1's committed aggregates (another corpus, other candidate units, the primary "
+                     "development slice's denominator): not an outcome measured on these questions")
+JUDGMENT_TASK = "query_student_adoption"
+
+
 def _outcomes(bank: Sequence[Mapping[str, Any]], vectors: Mapping[str, np.ndarray], record_ids: Sequence[str],
               matrix: np.ndarray) -> dict[str, float | None]:
     out: dict[str, float | None] = {}
@@ -684,15 +916,35 @@ def _outcomes(bank: Sequence[Mapping[str, Any]], vectors: Mapping[str, np.ndarra
             out[question["query_id"]] = None
             continue
         order = np.argsort(-(matrix @ np.asarray(vector, dtype=np.float32)))[:10]
-        out[question["query_id"]] = complete_evidence([record_ids[i] for i in order], question["evidence_sets"])
+        out[question["query_id"]] = judged_outcome([record_ids[i] for i in order], question)
     return out
 
 
-def _strata(bank: Sequence[Mapping[str, Any]], trained_families: set[str]) -> dict[str, set[str]]:
+def _strata(bank: Sequence[Mapping[str, Any]], question_families: Mapping[str, set[str]],
+            trained_families: set[str]) -> dict[str, set[str]]:
     return {"all": {q["query_id"] for q in bank},
             "deictic": {q["query_id"] for q in bank if q["deictic"]},
             "logged": {q["query_id"] for q in bank if q["origin"] == "logged"},
-            "unseen_family": {q["query_id"] for q in bank if q["family"] and q["family"] not in trained_families}}
+            "unseen_family": {q["query_id"] for q in bank if question_families.get(q["query_id"])
+                              and question_families[q["query_id"]].isdisjoint(trained_families)}}
+
+
+def bank_scope(bank: Sequence[Mapping[str, Any]], repository: Repository) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """The questions every arm is scored on (Codex review F4): those whose every evidence and
+    answer span lies in THIS vault's current corpus. A question about another vault's books is
+    out of scope for every arm alike, never a miss for one of them."""
+
+    current = set(current_extractions(repository))
+    scoped, outside = [], {"no_evidence_set": 0, "another_corpus": 0}
+    for question in bank:
+        refs = [ref for required in question["evidence_sets"] for ref in required] + list(question["answer_spans"])
+        if not question["evidence_sets"] or not refs:
+            outside["no_evidence_set"] += 1
+        elif all(str(ref[0]) in current for ref in refs):
+            scoped.append(dict(question))
+        else:
+            outside["another_corpus"] += 1
+    return scoped, outside
 
 
 def _monthly_query_usd(repository: Repository) -> float:
@@ -706,12 +958,43 @@ def _monthly_query_usd(repository: Repository) -> float:
     return float(value or 0.0)
 
 
+def _judge(repository: Repository, *, checkpoint: str, space: str, judge: str, verdict: str,
+           evidence: Mapping[str, Any], score: float | None = None) -> str:
+    """An auditable verdict in ``judgment_ledger`` (handoff §0.6: every verifier or owner verdict;
+    Codex review F15). The local ``adoption.json`` is only the serving pointer it materializes."""
+
+    from learnloop.db.stores.judgments import append_judgment
+
+    rationale = json.dumps(dict(evidence), sort_keys=True, default=str)
+    with closing(connect(repository.sqlite_path)) as connection, connection:
+        return append_judgment(connection, task=JUDGMENT_TASK, left_kind="query_student_checkpoint", left_id=checkpoint,
+                               right_kind="retrieval_space", right_id=space, judge=judge,
+                               input_hash=_sha(rationale), verdict=verdict, score=score,
+                               prompt_version=SD.DECISION_VERSION, rationale=rationale)
+
+
+def _withdraw(repository: Repository, *, root: Path, space: str, adoption: Mapping[str, Any], judge: str,
+              why: str, evaluation_id: str | None = None, verdict: str = "withdrawn") -> str:
+    """Remove the serving pointer (atomic) and record the verdict."""
+
+    path = adoption_path(root, space)
+    sha = str(adoption["checkpoint_sha256"])
+    judgment = _judge(repository, checkpoint=sha, space=space, judge=judge, verdict=verdict,
+                      evidence={"why": why, "evaluation_id": evaluation_id,
+                                "adoption_judgment_id": adoption.get("judgment_id")})
+    path.unlink(missing_ok=True)
+    return judgment
+
+
 def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, root: Path | None = None,
              encoder_factory: Callable[[str], Any] | None = None, arms: Mapping[str, Path] | None = None,
              dry_run: bool = False) -> dict[str, Any]:
-    """The candidate on the bank beside the teacher, per stratum; adopted by §9.3's expected utility."""
+    """The candidate on the bank beside the teacher (and any adopted incumbent), every arm on the
+    same frozen questions, corpus and labels; §9.3's expected utility RECOMMENDS. A checkpoint that
+    loses its re-evaluation is withdrawn at once (Codex review F13); adopting one is the owner's
+    (``student adopt``) until P0's label-noise posterior holds that authority (F5)."""
 
-    from learnloop.source_retrieval.student_encoder import StudentEncoder
+    from learnloop.source_retrieval.student_encoder import StudentEncoder, read_adoption
 
     root = root or pins.data_root()
     manifest, space, reason = context(vault, root)
@@ -722,50 +1005,90 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
         return {**out, "status": "refused", "reason": "the labelled bank is required (--bank)"}
     space_home = home(root, space)
     ledger = read_ledger(space_home)
-    index = targets_index(space_home)
-    rows = [row for row in _vault_rows(root, space, vault) if row["id"] in index["queries"]]
+    bank = D.load_bank(bank_path)
+    camp = campaign(vault, repository, root=root, space=space, bank=bank)
+    incomplete = _incomplete_bank(camp)
+    if incomplete:
+        return {**out, "status": "refused", "reason": incomplete}
     teacher_q, _basis = teacher_quality(space_home)
+    lam, nu = exchange_rates(space_home, float(np.mean(teacher_q)))
     box = float(vault.config.source_retrieval.retrieval_timeout_seconds)
     meter = p2_meter(root, space)
-    step = next_step(ledger, n_train=sum(1 for row in rows if row["split"] == "train"),
-                     has_positives=any(row["supports"] for row in rows), teacher_q=teacher_q, box_s=box,
-                     hours_left=(meter.remaining_s() or 0.0) / 3600.0)
+    step = next_step(ledger, n_train=camp["n_train"], has_positives=camp["has_positives"], teacher_q=teacher_q,
+                     box_s=box, hours_left=(meter.remaining_s() or 0.0) / 3600.0, dataset=camp["fingerprint"],
+                     lam=lam, nu=nu)
     if step["step"] != "evaluate":
         return {**out, "status": "not_ready", "step": step}
     sha = step["checkpoint_sha256"]
     out.update(space_id=space, candidate=step["candidate"], checkpoint_sha256=sha, spec=step["spec"])
-    bank = D.load_bank(bank_path)
-    teacher = teacher_vectors_from(index, space_home / "targets", [q["query_id"] for q in bank], "bank")
-    if len(teacher) < len(bank):
-        return {**out, "status": "refused", "reason": f"{len(bank) - len(teacher)} bank question(s) have no teacher "
-                                                      "vector: run `student targets` with this bank"}
+    scoped, outside = bank_scope(bank, repository)
+    out["scope"] = {"questions": len(scoped), "outside": outside,
+                    "splits": {s: sum(1 for q in scoped if q["split"] == s) for s in sorted({q["split"] for q in scoped})},
+                    "strata": {s: sum(1 for q in scoped if q["stratum"] == s)
+                               for s in sorted({q["stratum"] for q in scoped})}}
+    if not scoped:
+        return {**out, "status": "refused", "reason": "no bank question's evidence lies in this vault's corpus"}
+    scoped_ids = [q["query_id"] for q in scoped]
+    teacher = teacher_vectors_from(camp["index"], space_home / "targets", scoped_ids, "bank")
+    question_families = {q["query_id"]: D.question_families(q, camp["by_extraction"]) for q in scoped}
+    families = {qid: "|".join(sorted(found)) or "bank" for qid, found in question_families.items()}
+    alternatives: dict[str, SD.ArmOutcomes] = {}
+    sources: dict[str, str] = {}
+    for name, path in (arms or {}).items():
+        values = _read_json(Path(path), {})
+        values = values.get("outcomes", values) if isinstance(values, dict) else {}
+        missing = [qid for qid in scoped_ids if qid not in values]
+        if missing:
+            return {**out, "status": "refused",
+                    "reason": f"--arm {name}: {len(missing)} of the {len(scoped_ids)} in-scope question(s) have no "
+                              "outcome (null for unknown): an alternative is compared only on the same questions"}
+        alternatives[name] = SD.ArmOutcomes(name, {qid: values[qid] for qid in scoped_ids}, families)
+        sources[name] = "measured: supplied per-question outcomes on the same in-scope questions"
+    for name in ("qwen", "voyage"):
+        if name not in alternatives:
+            alternatives[name] = SD.aggregate_arm(name, E1_AGGREGATES[name])
+            sources[name] = PRIOR_ALTERNATIVE
+    adoption = read_adoption(root, space)
+    incumbent = None
+    if adoption is not None and adoption["checkpoint_sha256"] != sha and \
+            (checkpoint_dir(root, space, str(adoption["checkpoint_sha256"])) / "student.json").is_file():
+        incumbent = str(adoption["checkpoint_sha256"])
     if dry_run:
-        return {**out, "status": "dry_run", "bank_questions": len(bank)}
+        return {**out, "status": "dry_run", "bank_questions": len(bank), "alternatives": sources,
+                "incumbent": incumbent}
     bases = bases_manifest(root) or {"bases": {}}
-    record = bases["bases"].get(step["spec"]["base"])
-    if encoder_factory is None and record is None:
-        return {**out, "status": "not_set_up", "reason": f"the base {step['spec']['base']} is not recorded (rerun setup)"}
+    base_of = {sha: step["spec"]["base"]}
+    if incumbent:
+        base_of[incumbent] = str(adoption.get("base_name") or "")
     if encoder_factory is None:
+        missing_bases = sorted({name for name in base_of.values() if name not in bases["bases"]})
+        if missing_bases:
+            return {**out, "status": "not_set_up", "reason": f"the base(s) {', '.join(missing_bases)} are not recorded "
+                                                            "(rerun setup)"}
+
         def encoder_factory(digest: str) -> Any:
             return StudentEncoder(vault, space_id=space, checkpoint_sha=digest,
-                                  checkpoint=checkpoint_dir(root, space, digest), base_name=step["spec"]["base"],
-                                  base_dir=Path(record["dir"]), env_python=Path(manifest["env_python"]),
-                                  data_root=root)
-    encoder = encoder_factory(sha)
-    texts = [question["text"] for question in bank]
+                                  checkpoint=checkpoint_dir(root, space, digest), base_name=base_of[digest],
+                                  base_dir=Path(bases["bases"][base_of[digest]]["dir"]),
+                                  env_python=Path(manifest["env_python"]), data_root=root)
     started = datetime.now(timezone.utc)
-    encoded = encoder.encode(texts, deadline=None)
-    student = {question["query_id"]: np.asarray(vector, dtype=np.float32)
-               for question, vector in zip(bank, encoded, strict=True)}
+    texts = [question["text"] for question in scoped]
+
+    def encoded(digest: str) -> dict[str, np.ndarray]:
+        vectors = encoder_factory(digest).encode(texts, deadline=None)
+        return {question["query_id"]: np.asarray(vector, dtype=np.float32)
+                for question, vector in zip(scoped, vectors, strict=True)}
+
     record_ids, matrix = documents(vault, repository, space)
-    families = {q["query_id"]: q["family"] or q["vault"] or "bank" for q in bank}
-    outcomes = {"student": _outcomes(bank, student, record_ids, matrix),
-                "teacher": _outcomes(bank, teacher, record_ids, matrix)}
+    outcomes = {"student": _outcomes(scoped, encoded(sha), record_ids, matrix),
+                "teacher": _outcomes(scoped, teacher, record_ids, matrix)}
+    if incumbent:
+        outcomes["incumbent"] = _outcomes(scoped, encoded(incumbent), record_ids, matrix)
     _write_json(space_home / "evaluation" / "teacher_outcomes.json",
-                {"outcomes": outcomes["teacher"], "families": families})
-    trained = {row["family"] for row in rows if row["split"] == "train"}
+                {"outcomes": outcomes["teacher"], "families": families, "bank_fingerprint": camp["bank_fingerprint"]})
+    trained = set(camp["candidates"]["families"])
     strata = {}
-    for name, members in _strata(bank, trained).items():
+    for name, members in _strata(scoped, question_families, trained).items():
         if not members:
             continue
         draws = {arm: SD.bank_quality_draws(SD.ArmOutcomes(arm, {q: v for q, v in values.items() if q in members},
@@ -778,63 +1101,169 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
                             "difference_mean": round(float(difference.mean()), 4),
                             "difference_90": [round(float(np.quantile(difference, 0.05)), 4),
                                               round(float(np.quantile(difference, 0.95)), 4)]}
-    # The alternatives: what serves without the student (supplied per-question outcomes, else E1's aggregates).
-    alternatives: dict[str, SD.ArmOutcomes] = {}
-    for name, path in (arms or {}).items():
-        values = _read_json(Path(path), {})
-        alternatives[name] = SD.ArmOutcomes(name, {str(k): v for k, v in values.items()}, families)
-    sources = {name: "supplied" for name in alternatives}
-    for name in ("qwen", "voyage"):
-        if name not in alternatives:
-            alternatives[name] = SD.aggregate_arm(name, E1_AGGREGATES[name])
-            sources[name] = "legacy: E1's committed aggregates (unpaired)"
     student_q = SD.bank_quality_draws(SD.ArmOutcomes("student", outcomes["student"], families), seed=11)
     keyword = alternatives.pop("keyword", None)
     sources.pop("keyword", None)
     dense_q = SD.bank_quality_draws(SD.ArmOutcomes("teacher", outcomes["teacher"], families), seed=12)
     mu = (dense_q - SD.bank_quality_draws(keyword, seed=13)) if keyword is not None else dense_q
     mu_basis = "bank: teacher minus keyword" if keyword is not None else "upper bound: the teacher's whole quality"
-    run = ledger["runs"][step["candidate"]]
     starts = [float(value) for value in _read_json(checkpoint_dir(root, space, sha) / "start_times.json", [])]
-    late, total = _late_counts(run, box)
+    late, total = _late_counts(ledger["runs"][step["candidate"]], box)
     late += sum(1 for value in starts if value > box)
     total += len(starts)
-    lam = SD.ExchangeRate.from_dict(_read_json(space_home / "lambda.json", SD.seeded_lambda().as_dict()))
     monthly = _monthly_query_usd(repository)
     actions = [SD.Action("student", student_q, monthly_usd=0.0, late=SD.late_draws(late, total, seed=21))]
+    if incumbent:
+        run = next((r for r in ledger["runs"].values() if r.get("checkpoint_sha256") == incumbent), {})
+        i_late, i_total = _late_counts(run, box) if run else (0, 0)
+        i_starts = [float(v) for v in _read_json(checkpoint_dir(root, space, incumbent) / "start_times.json", [])]
+        actions.append(SD.Action("incumbent", SD.bank_quality_draws(
+            SD.ArmOutcomes("incumbent", outcomes["incumbent"], families), seed=14), monthly_usd=0.0,
+            late=SD.late_draws(i_late + sum(1 for v in i_starts if v > box), i_total + len(i_starts), seed=22)))
     for i, (name, arm) in enumerate(sorted(alternatives.items())):
         actions.append(SD.Action(name, SD.bank_quality_draws(arm, seed=31 + i), monthly_usd=monthly))
-    decision = SD.decide(actions, lam=lam.draws(seed=41), mu=mu)
-    adopted = decision["chosen"] == "student"
-    record_out = {"checkpoint_sha256": sha, "space_id": space, "base_name": step["spec"]["base"],
-                  "recipe": step["spec"]["recipe"], "budget": step["spec"]["budget"], "seed": step["spec"]["seed"],
-                  "decision": decision, "strata": strata, "alternatives": sources, "mu_basis": mu_basis,
-                  "decided_at": started.isoformat(), "rule": "spec §9.3: adopted when E[U(student)] >= each alternative"}
-    ledger["decisions"].append({**record_out, "adopted": adopted})
+    lam_draws = lam.draws(seed=41)
+    decision = SD.decide(actions, lam=lam_draws, mu=mu)
+    chosen = decision["chosen"]
+    rivals = [action for action in actions if action.name != "student"]
+    best = max(rivals, key=lambda action: decision["expected_utility"][action.name])
+    choice = {"against": best.name, "dq": round(float(np.mean(student_q) - np.mean(best.quality)), 6),
+              "cost": round(0.0 - float(best.monthly_usd), 6), "s": round(SD.difference_sd(student_q, best.quality), 6)}
+    recommendation = "adopt" if chosen == "student" else ("keep_incumbent" if chosen == "incumbent"
+                                                          else "keep_alternatives")
+    comparable = all(not value.startswith("prior") for value in sources.values())
+    authority = {"automatic": False, "comparable_alternatives": comparable, "label_model": LABEL_MODEL,
+                 "rule": "spec §9.3 recommends (argmax E[U]); the owner adopts with `student adopt` until P0's "
+                         "§9.1 label-noise posterior and alternatives measured on these questions hold the "
+                         "authority; a checkpoint that loses its re-evaluation is withdrawn at once"}
+    evaluation_id = f"ev_{started.strftime('%Y%m%dT%H%M%S')}_{uuid4().hex[:8]}"
+    evaluation_dir = space_home / "evaluation"
+    evaluation_dir.mkdir(parents=True, exist_ok=True)
+    # The posterior draws, kept for audit (spec §9.1), with the seeds that made them.
+    np.savez_compressed(evaluation_dir / f"{evaluation_id}.npz", lam=lam_draws, mu=np.asarray(mu, dtype=float),
+                        **{f"quality_{action.name}": np.asarray(action.quality, dtype=float) for action in actions})
+    record_out = {"evaluation_id": evaluation_id, "checkpoint_sha256": sha, "space_id": space,
+                  "base_name": step["spec"]["base"], "recipe": step["spec"]["recipe"], "budget": step["spec"]["budget"],
+                  "seed": step["spec"]["seed"], "dataset_fingerprint": camp["fingerprint"],
+                  "bank_fingerprint": camp["bank_fingerprint"], "scope": out["scope"], "decision": decision,
+                  "strata": strata, "alternatives": sources, "mu_basis": mu_basis, "recommendation": recommendation,
+                  "choice": choice, "authority": authority, "incumbent": incumbent, "vault": D.vault_key(vault),
+                  "draws": {"file": f"{evaluation_id}.npz", "seeds": {"student": 11, "teacher": 12, "keyword": 13,
+                                                                      "incumbent": 14, "alternatives_from": 31,
+                                                                      "lambda": 41}},
+                  "lambda_observations": len(lam.observations), "decided_at": started.isoformat(),
+                  "rule": "spec §9.3: recommended when E[U(student)] >= each alternative"}
+    _write_json(evaluation_dir / f"{evaluation_id}.json", record_out)
+    record_out["judgment_id"] = _judge(
+        repository, checkpoint=sha, space=space, judge="verifier", verdict=f"recommend_{recommendation}",
+        evidence={"evaluation_id": evaluation_id, "decision": decision["expected_utility"], "choice": choice,
+                  "alternatives": sources, "label_model": LABEL_MODEL, "dataset": camp["fingerprint"]},
+        score=float(decision["expected_utility"]["student"] - decision["expected_utility"][best.name]))
+    withdrawn = []
+    if adoption is not None:
+        adopted_sha = str(adoption["checkpoint_sha256"])
+        if adopted_sha == sha and recommendation != "adopt":
+            withdrawn.append(_withdraw(repository, root=root, space=space, adoption=adoption, judge="verifier",
+                                       why="the adopted checkpoint lost its re-evaluation", evaluation_id=evaluation_id))
+        elif incumbent and chosen not in ("student", "incumbent"):
+            withdrawn.append(_withdraw(repository, root=root, space=space, adoption=adoption, judge="verifier",
+                                       why="the adopted incumbent lost to the alternatives on the same questions",
+                                       evaluation_id=evaluation_id))
+    ledger["decisions"].append({**record_out, "withdrawn": withdrawn})
     _write_json(_ledger_path(space_home), ledger)
-    if adopted:
-        _write_json(adoption_path(root, space), record_out)
-    return {**out, "status": "adopted" if adopted else "not_adopted", "decision": decision, "strata": strata,
-            "alternatives": sources, "mu_basis": mu_basis}
+    adopted_now = read_adoption(root, space)
+    status_ = ("withdrawn" if withdrawn else
+               "kept" if recommendation == "adopt" and adopted_now and adopted_now["checkpoint_sha256"] == sha else
+               "recommended" if recommendation == "adopt" else "not_recommended")
+    return {**out, "status": status_, "evaluation_id": evaluation_id, "recommendation": recommendation,
+            "decision": decision, "strata": strata, "alternatives": sources, "mu_basis": mu_basis, "choice": choice,
+            "authority": authority, "judgment_id": record_out["judgment_id"], "withdrawn": withdrawn,
+            "next": ("`learnloop embeddings local student adopt` (or `student reject`) records the owner's choice"
+                     if status_ == "recommended" else None)}
 
 
-def revoke(vault: LoadedVault, *, root: Path | None = None) -> dict[str, Any]:
-    """The owner's per-checkpoint kill switch: the adoption is removed (recorded in the ledger)."""
+def _latest_evaluation(space_home: Path, checkpoint: str | None) -> dict[str, Any] | None:
+    for record in reversed(read_ledger(space_home)["decisions"]):
+        if record.get("evaluation_id") and (checkpoint is None or record.get("checkpoint_sha256") == checkpoint):
+            return record
+    return None
+
+
+def owner_choice(vault: LoadedVault, repository: Repository, *, accept: bool, root: Path | None = None,
+                 checkpoint: str | None = None) -> dict[str, Any]:
+    """The owner's answer to an evaluation's recommendation (``student adopt`` / ``student reject``).
+
+    Adopting writes the serving pointer (``adoption.json``) from a ``judgment_ledger`` owner
+    verdict; rejecting withdraws the checkpoint if it serves. Either answer is a costed owner
+    choice between the student and its strongest alternative, so it is an observation of lambda
+    (quality per dollar, spec §9.1; Codex review F14)."""
+
+    from learnloop.source_retrieval.student_encoder import read_adoption
+
+    root = root or pins.data_root()
+    manifest, space, reason = context(vault, root)
+    job = "query_student_adopt" if accept else "query_student_reject"
+    if manifest is None:
+        return {"job": job, "status": "disabled", "reason": reason}
+    space_home = home(root, space)
+    record = _latest_evaluation(space_home, checkpoint)
+    if record is None:
+        return {"job": job, "status": "refused", "reason": "no evaluation of this checkpoint: run `student evaluate` first"}
+    sha = str(record["checkpoint_sha256"])
+    if accept and not (checkpoint_dir(root, space, sha) / "student.json").is_file():
+        return {"job": job, "status": "refused", "reason": "the evaluated checkpoint is not present under the space"}
+    judgment = _judge(repository, checkpoint=sha, space=space, judge="owner", verdict="adopt" if accept else "reject",
+                      evidence={"evaluation_id": record["evaluation_id"], "recommendation": record["recommendation"],
+                                "choice": record["choice"], "verifier_judgment_id": record.get("judgment_id")})
+    choice = record["choice"]
+    observation = record_owner_choice(space_home, rate="lambda", dq=choice["dq"], cost=choice["cost"],
+                                      s=max(float(choice["s"]), 1e-6), accepted=accept,
+                                      what=f"{'adopt' if accept else 'reject'} student {sha[:12]} against "
+                                           f"{choice['against']}", judgment_id=judgment)
+    previous = read_adoption(root, space)
+    withdrawn = None
+    if accept:
+        _write_json(adoption_path(root, space), {
+            key: record.get(key) for key in ("checkpoint_sha256", "space_id", "base_name", "recipe", "budget", "seed",
+                                             "dataset_fingerprint", "evaluation_id", "recommendation")} | {
+            "judgment_id": judgment, "adopted_by": "owner", "decided_at": datetime.now(timezone.utc).isoformat()})
+    elif previous is not None and previous["checkpoint_sha256"] == sha:
+        withdrawn = _withdraw(repository, root=root, space=space, adoption=previous, judge="owner",
+                              why="the owner rejected it", evaluation_id=record["evaluation_id"])
+    ledger = read_ledger(space_home)
+    ledger["decisions"].append({"owner": "adopt" if accept else "reject", "checkpoint_sha256": sha,
+                                "evaluation_id": record["evaluation_id"], "judgment_id": judgment,
+                                "replaced": previous.get("checkpoint_sha256") if accept and previous else None,
+                                "withdrawn": withdrawn, "at": datetime.now(timezone.utc).isoformat(), "by": "owner"})
+    _write_json(_ledger_path(space_home), ledger)
+    return {"job": job, "status": "adopted" if accept else "rejected", "checkpoint_sha256": sha,
+            "judgment_id": judgment, "lambda_observation": observation, "withdrawn": withdrawn}
+
+
+def revoke(vault: LoadedVault, repository: Repository | None = None, *, root: Path | None = None) -> dict[str, Any]:
+    """The owner's per-checkpoint kill switch: the serving pointer is removed, the owner's verdict
+    appended to ``judgment_ledger`` (when the vault's repository is given) and the ledger."""
+
+    from learnloop.source_retrieval.student_encoder import read_adoption
 
     root = root or pins.data_root()
     manifest, space, reason = context(vault, root)
     if manifest is None:
         return {"status": "disabled", "reason": reason}
-    path = adoption_path(root, space)
-    previous = _read_json(path, None)
+    previous = read_adoption(root, space)
     if previous is None:
         return {"status": "none"}
-    path.unlink()
+    judgment = None
+    if repository is not None:
+        judgment = _withdraw(repository, root=root, space=space, adoption=previous, judge="owner",
+                             why="the owner revoked it", verdict="revoked")
+    else:
+        adoption_path(root, space).unlink(missing_ok=True)
     ledger = read_ledger(home(root, space))
-    ledger["decisions"].append({"revoked": previous.get("checkpoint_sha256"),
+    ledger["decisions"].append({"revoked": previous.get("checkpoint_sha256"), "judgment_id": judgment,
                                 "at": datetime.now(timezone.utc).isoformat(), "by": "owner"})
     _write_json(_ledger_path(home(root, space)), ledger)
-    return {"status": "revoked", "checkpoint_sha256": previous.get("checkpoint_sha256")}
+    return {"status": "revoked", "checkpoint_sha256": previous.get("checkpoint_sha256"), "judgment_id": judgment}
 
 
 def status(vault: LoadedVault, repository: Repository, *, root: Path | None = None) -> dict[str, Any]:
@@ -914,7 +1343,10 @@ def plan(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, 
             "meter": p2_meter(root, space).report()}
 
 
-__all__ = ["E1_AGGREGATES", "SHARD_SIZE", "all_rows", "build_dataset", "choose", "complete_evidence", "context",
-           "documents", "effective_budgets", "evaluate", "install_checkpoint", "next_step", "p2_meter", "plan",
-           "read_ledger", "revoke", "run_next", "run_targets", "setup_bases", "status", "targets_index",
-           "teacher_quality", "teacher_vectors", "trainer_job"]
+__all__ = ["E1_AGGREGATES", "JUDGMENT_TASK", "LABEL_MODEL", "SHARD_SIZE", "all_rows", "bank_fingerprint", "bank_scope",
+           "build_dataset", "campaign", "choose", "complete_evidence", "context", "documents", "effective_budgets",
+           "eligible_rows", "evaluate", "exchange_rates", "install_checkpoint", "judged_outcome",
+           "missing_bank_targets", "next_step", "owner_choice", "p2_meter", "plan", "read_ledger",
+           "record_owner_choice", "revoke", "run_next", "run_targets", "screen_current", "screen_leakage",
+           "setup_bases", "status", "targets_index", "teacher_quality", "teacher_vectors", "trainer_job",
+           "training_candidates"]

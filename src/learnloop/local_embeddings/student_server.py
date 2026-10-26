@@ -13,11 +13,21 @@ environment's interpreter::
   free and no exclusive GPU job holds the lock (it never takes the lock itself; it is counted
   by the big jobs' VRAM checks), else the CPU. BF16 on either.
 * **Health.** The checkpoint's files are checked against their SHA-256 pins and the
-  checkpoint's own digest before anything loads; the canary queries are encoded at start and
+  checkpoint's own digest, and the BASE's files against theirs (sizes always; the remote code
+  and every small file by SHA-256; an unreviewed Python file refused: Codex review F6), before
+  anything loads, so a changed ``modeling.py`` never runs; the canary queries are encoded at start and
   must match the checkpoint's stored vectors for this device class (cos >= 0.999, an identity
   check), else the process exits ``canary_failed`` and the app reports the student unavailable.
 * **Idle exit** after ``idle_minutes`` without a request, or at once when host MemAvailable falls
   below the 9B worker's runtime floor.
+* **Yields the GPU** (Codex review F11): every exclusive GPU job (9B indexing, teacher targets,
+  training) first sends a GPU-resident query process a ``shutdown`` request and waits for it to
+  exit (``source_retrieval.student_encoder.yield_gpu_students``), so the job's start checks never
+  see it; the next query starts it again (on the CPU while the job holds the lock). The process
+  itself never probes the lock while serving: a probe would hold it for an instant, and the big
+  jobs take it non-blocking.
+* **One request's failure is that request's** (Codex review F12): a client that times out and
+  closes its socket, a reset or a read timeout ends that connection only; the process keeps serving.
 
 The status file (``ready``, the device, the pid, the measured start) is written atomically next
 to the socket; the app reads it to know the process is up and to measure cold starts.
@@ -146,6 +156,20 @@ def checkpoint_problems(job: Mapping[str, Any]) -> list[str]:
     return problems
 
 
+def base_check(job: Mapping[str, Any]) -> list[str]:
+    """The adopted base's pinned files, checked before ``load_base`` runs any of its code
+    (``trust_remote_code``): Codex review F6."""
+
+    return [f"base {problem}" for problem in _trainer().base_problems(Path(job["base_dir"]), job["base"])]
+
+
+def startup_problems(job: Mapping[str, Any], *, meminfo: Mapping[str, int], scope: Mapping[str, Any]) -> list[str]:
+    """Everything checked before any model code is loaded: the scope and floor, the checkpoint
+    pins and the base pins."""
+
+    return start_problems(job, meminfo=meminfo, scope=scope) + checkpoint_problems(job) + base_check(job)
+
+
 def _cos(a: Sequence[float], b: Sequence[float]) -> float:
     x, y = np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)
     denominator = float(np.linalg.norm(x) * np.linalg.norm(y))
@@ -222,10 +246,17 @@ def serve_forever(service: Any, socket_path: Path, *, idle_s: float, timeout_s: 
             except TimeoutError:
                 continue
             last = clock()
-            with connection:
-                connection.settimeout(timeout_s)
-                reply, stop = _answer(service, _read_line(connection))
-                connection.sendall((json.dumps(reply) + "\n").encode("utf-8"))
+            stop = False
+            try:
+                with connection:
+                    connection.settimeout(timeout_s)
+                    reply, stop = _answer(service, _read_line(connection))
+                    connection.sendall((json.dumps(reply) + "\n").encode("utf-8"))
+            except OSError:
+                # Codex review F12: the client gave up (its time box ran out and it closed the
+                # socket), reset, or stalled past the read timeout. That request is lost; the
+                # process and every later request are not.
+                pass
             if stop:
                 return "shutdown"
     finally:
@@ -281,7 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         W._atomic_json(status_path, {"version": SERVER_VERSION, "pid": os.getpid(), "started_unix": started_wall,
                                      "checkpoint_sha256": job["checkpoint_sha256"], **value})
 
-    problems = start_problems(job, meminfo=W.read_meminfo(), scope=W.scope_limits()) + checkpoint_problems(job)
+    problems = startup_problems(job, meminfo=W.read_meminfo(), scope=W.scope_limits())
     if problems:
         status({"status": "refused", "reason": "; ".join(problems)})
         return 3

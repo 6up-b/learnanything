@@ -25,8 +25,11 @@ intended supporting blocks, under the data root (never in the vault or the repos
   compare), deictic Reader questions about a selected block (the query then carries the
   selection exactly as the Reader sends it), definition and theorem lookups, and paraphrases
   sharing no vocabulary with the passage.
-* **Splits and budgets.** Family = source. One family per vault (by a stable hash) is held out:
-  never trained on, the unseen-source test. Of the rest, a passage-disjoint tenth is the
+* **Splits and budgets.** Families group a vault's sources by the bank's own rule (Codex review
+  F8): alternate editions and overlapping copies (the same source bytes or the same title stem)
+  share a family, recorded once in the data directory's ``families.json`` and read by
+  generation, the splits, training and evaluation alike. One family per vault (by a stable hash)
+  is held out: never trained on, the unseen-source test. Of the rest, a passage-disjoint tenth is the
   development split. Every question has a stable rank, so the 2k/10k/50k budgets are nested by
   construction (the first 2,000 are inside the first 10,000).
 * **Resumable.** A passage whose questions are stored is never asked again.
@@ -133,7 +136,14 @@ def load_bank(path: Path) -> list[dict[str, Any]]:
                      "origin": str(row.get("origin") or ""), "deictic": bool(row.get("selected_passage")),
                      "answerable": bool(row.get("answerable", True)), "evidence_sets": sets,
                      "answer_spans": [(str(ref[0]), str(ref[1])) for ref in row.get("answer_spans") or []
-                                      if len(ref) >= 2]})
+                                      if len(ref) >= 2],
+                     # Codex review F4: the bank's own slice and stratum (its denominators), kept.
+                     "split": str(row.get("split") or ""), "stratum": str(row.get("stratum") or ""),
+                     # Codex review F5: the blocks the label protocol judged for this question, when the
+                     # bank records them; a retrieved block outside them is unjudged, never a miss.
+                     "judged": (None if row.get("judged") is None else
+                                sorted({(str(ref[0]), str(ref[1])) for ref in row.get("judged") or []
+                                        if len(ref) >= 2}))})
     if not bank:
         raise ValueError(f"{path} holds no bank question")
     return bank
@@ -209,16 +219,93 @@ def passages(vault: LoadedVault, repository: Repository, *, excluded: set[tuple[
     return found
 
 
+# -- source families (one mapping for generation, splits, training and evaluation) -------------------
+def _title_stem(title: str) -> str:
+    """The bank's edition rule (``experiments.contextual_embeddings.corpus``, restated: production
+    never imports experiments): lowercased words, edition and ordinal words dropped, the first six."""
+
+    value = re.sub(r"[^a-z0-9]+", " ", str(title).lower()).strip()
+    value = re.sub(r"\b(edition|ed|v\d+|\d+(st|nd|rd|th))\b", " ", value)
+    return " ".join(value.split()[:6])
+
+
+def _family_keys(repository: Repository, extraction_id: str, title: str) -> list[str]:
+    run = repository.get_extraction_run(extraction_id) or {}
+    revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+    keys = []
+    if revision.get("asset_hash"):
+        keys.append(f"bytes:{revision['asset_hash']}")
+    if _title_stem(title):
+        keys.append(f"title:{_title_stem(title)}")
+    return keys
+
+
+def family_map(directory: Path | None, repository: Repository) -> dict[str, str]:
+    """``{source_id: family}``: sources sharing source bytes or a title stem share a family.
+    With ``directory``, the mapping is persisted there (``families.json``) and a source keeps the
+    family it was first given, so a later book never moves a trained question's family."""
+
+    path = None if directory is None else Path(directory) / "families.json"
+    stored: dict[str, Any] = {"sources": {}, "keys": {}}
+    if path is not None and path.is_file():
+        try:
+            stored = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            stored = {"sources": {}, "keys": {}}
+    sources: dict[str, str] = dict(stored.get("sources") or {})
+    by_key: dict[str, str] = dict(stored.get("keys") or {})
+    changed = False
+    for extraction_id, extraction in sorted(current_extractions(repository).items(),
+                                            key=lambda item: item[1].source_id):
+        keys = _family_keys(repository, extraction_id, extraction.title)
+        family = sources.get(extraction.source_id) or next((by_key[key] for key in keys if key in by_key), None) \
+            or f"fam_{extraction.source_id}"
+        if sources.get(extraction.source_id) != family:
+            sources[extraction.source_id] = family
+            changed = True
+        for key in keys:
+            if key not in by_key:
+                by_key[key] = family
+                changed = True
+    if path is not None and changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps({"sources": sources, "keys": by_key}, sort_keys=True, indent=1) + "\n",
+                             encoding="utf-8")
+        os.replace(temporary, path)
+    return sources
+
+
+def extraction_families(repository: Repository, families: Mapping[str, str]) -> dict[str, str]:
+    """``{extraction_id: family}`` for the vault's current extractions."""
+
+    return {extraction_id: families.get(extraction.source_id, f"fam_{extraction.source_id}")
+            for extraction_id, extraction in current_extractions(repository).items()}
+
+
+def question_families(question: Mapping[str, Any], by_extraction: Mapping[str, str]) -> set[str]:
+    """A bank question's families in THIS mapping: those of its evidence's sources (the bank's own
+    family labels are aliases of another tool and never compared, Codex review F8)."""
+
+    refs = [ref for required in question.get("evidence_sets") or [] for ref in required] + \
+        list(question.get("answer_spans") or [])
+    return {by_extraction[str(ref[0])] for ref in refs if str(ref[0]) in by_extraction}
+
+
+def family_of(passage: Mapping[str, Any]) -> str:
+    return str(passage.get("family") or passage["source_id"])
+
+
 def split_of(passage: Mapping[str, Any], held_out: str | None) -> str:
-    if passage["source_id"] == held_out:
+    if family_of(passage) == held_out:
         return "heldout"
     return "dev" if int(_sha("dev", passage["key"])[:8], 16) % DEV_SHARE_DENOMINATOR == 0 else "train"
 
 
 def held_out_family(found: Sequence[Mapping[str, Any]]) -> str | None:
-    """One source per vault is never trained on (the unseen-source test), when it has two or more."""
+    """One family per vault is never trained on (the unseen-source test), when it has two or more."""
 
-    families = sorted({str(passage["source_id"]) for passage in found})
+    families = sorted({family_of(passage) for passage in found})
     if len(families) < 2:
         return None
     return min(families, key=lambda family: _sha("heldout", family))
@@ -335,7 +422,7 @@ def query_rows(passage: Mapping[str, Any], questions: Sequence[Mapping[str, Any]
                      "question": question["question"], "intent": question["intent"], "shape": question["shape"],
                      "supports": list(question["supports"]), "selection": question["selection"],
                      "passage": passage["key"], "extraction_id": passage["extraction_id"],
-                     "family": passage["source_id"], "split": split, "vault": vault, "origin": "synthetic",
+                     "family": family_of(passage), "split": split, "vault": vault, "origin": "synthetic",
                      "prompt_version": PROMPT_VERSION})
     return rows, dropped
 
@@ -378,7 +465,9 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
     excluded = bank_supports(bank)
     bank_grams = [ngrams(question["text"]) for question in bank]
     directory = data_dir(root, space_id, vault)
-    found = passages(vault, repository, excluded=excluded)
+    families = family_map(None if dry_run else directory, repository)
+    found = [{**passage, "family": families.get(passage["source_id"], f"fam_{passage['source_id']}")}
+             for passage in passages(vault, repository, excluded=excluded)]
     held_out = held_out_family(found)
     done = done_passages(directory)
     stored = stored_queries(directory)
@@ -480,6 +569,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
 
 
 __all__ = ["CAP_SETTING", "GeneratedQuestionsV1", "INTENTS", "MODELS_ENV", "OWNER_KIND", "PROMPT_VERSION", "SHAPES",
-           "TASK", "bank_supports", "budgets_of", "call_prompt", "data_dir", "generate", "held_out_family",
+           "TASK", "bank_supports", "budgets_of", "call_prompt", "data_dir", "extraction_families", "family_map",
+           "family_of", "generate", "held_out_family", "question_families",
            "load_bank", "nested", "ngram_overlap", "ngrams", "passages", "query_rows", "retrieval_text", "split_of",
            "stored_queries", "validated", "vault_key"]

@@ -165,8 +165,13 @@ def tokenize(tokenizer: Any, texts: Sequence[str], *, prefix: str, max_tokens: i
 
 def recipe_loss(student_vectors: Any, teacher_vectors: Any, *, recipe: str, documents: Any | None = None,
                 topk: Any | None = None, positives: Sequence[Sequence[int]] | None = None,
-                temperature: float = 0.05) -> tuple[Any, dict[str, float]]:
-    """Spec §7.1's losses (all terms per-query means, summed unweighted)."""
+                temperature: float = 0.05,
+                negatives: Sequence[Sequence[int]] | None = None) -> tuple[Any, dict[str, float]]:
+    """Spec §7.1's losses (all terms per-query means, summed unweighted).
+
+    The multi-positive term's hard negatives are ``negatives[row]`` when given: the app's
+    permitted manifest (Codex review F3), the teacher's top-k restricted to the query's own
+    source, every candidate already from a training family; otherwise the teacher's top-k."""
 
     import torch
 
@@ -185,9 +190,10 @@ def recipe_loss(student_vectors: Any, teacher_vectors: Any, *, recipe: str, docu
                 raise ValueError("align_kd_mp needs each query's required supports")
             losses = []
             for row, wanted in enumerate(positives):
-                pool = sorted(set(int(index) for index in topk[row].tolist()) | {int(index) for index in wanted})
                 if not wanted:
                     continue
+                mined = negatives[row] if negatives is not None else topk[row].tolist()
+                pool = sorted({int(index) for index in mined} | {int(index) for index in wanted})
                 pool_tensor = torch.tensor(pool, device=student_vectors.device)
                 scores = documents[pool_tensor] @ student_vectors[row] / temperature
                 is_positive = torch.tensor([index in set(int(w) for w in wanted) for index in pool],
@@ -232,13 +238,15 @@ def _load_split(directory: Path, split: str) -> dict[str, Any]:
     targets /= np.clip(np.linalg.norm(targets, axis=1, keepdims=True), 1e-12, None)
     topk_path = directory / f"{split}_topk.npy"
     positives_path = directory / f"{split}_positives.json"
+    negatives_path = directory / f"{split}_negatives.json"
     return {"texts": list(texts), "targets": targets,
             "topk": np.load(topk_path).astype(np.int64) if topk_path.exists() else None,
-            "positives": json.loads(positives_path.read_text(encoding="utf-8")) if positives_path.exists() else None}
+            "positives": json.loads(positives_path.read_text(encoding="utf-8")) if positives_path.exists() else None,
+            "negatives": json.loads(negatives_path.read_text(encoding="utf-8")) if negatives_path.exists() else None}
 
 
-def run_training(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[str, Any], str], tuple[Any, Any]]
-                 = load_base, device: str | None = None, sampler: Any = None,
+def run_training(job: Mapping[str, Any], *, model_factory: Callable[..., tuple[Any, Any]] = load_base,
+                 device: str | None = None, sampler: Any = None,
                  base_check: Callable[[Mapping[str, Any]], list[str]] | None = None) -> dict[str, Any]:
     """One run: train, measure, save the checkpoint files; returns the output record."""
 
@@ -259,7 +267,8 @@ def run_training(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mappi
     documents_np /= np.clip(np.linalg.norm(documents_np, axis=1, keepdims=True), 1e-12, None)
     recipe = str(job["recipe"])
     started = time.monotonic()
-    base_model, tokenizer = model_factory(Path(job["base_dir"]), base, device)
+    # Codex review F1: ``load_base``'s device is keyword-only (a positional call raised TypeError).
+    base_model, tokenizer = model_factory(Path(job["base_dir"]), base, device=device)
     load_s = time.monotonic() - started
     frozen = recipe == "projection_only"
     student = build_student(base_model, hidden=hidden_size(base_model, base), dims=int(job["dimensions"]),
@@ -302,8 +311,9 @@ def run_training(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mappi
                 vectors = student(ids, mask)
             topk = torch.tensor(train["topk"][rows], device=device) if train["topk"] is not None else None
             positives = [train["positives"][i] for i in rows] if train["positives"] is not None else None
+            negatives = [train["negatives"][i] for i in rows] if train["negatives"] is not None else None
             loss, terms = recipe_loss(vectors.float(), teacher[rows], recipe=recipe, documents=documents, topk=topk,
-                                      positives=positives, temperature=temperature)
+                                      positives=positives, temperature=temperature, negatives=negatives)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(trainable, float(job["grad_clip_norm"]))
@@ -337,7 +347,9 @@ def run_training(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mappi
                                                                                  "query_prefix", "hidden_size")},
                 "recipe": recipe, "seed": int(job["seed"]), "budget": int(job["budget"]), "dims": int(job["dimensions"]),
                 "precision": job["precision"], "frozen_base": frozen, "max_query_tokens": max_tokens,
-                "files": files, "canaries": canaries, "temperature": temperature}
+                "files": files, "canaries": canaries, "temperature": temperature,
+                # Codex review F9: the checkpoint names the dataset (vault, bank, splits, candidates) it learned.
+                "dataset_fingerprint": str(job.get("dataset_fingerprint") or "")}
     (checkpoint / "student.json").write_text(json.dumps(manifest, sort_keys=True, indent=1) + "\n", encoding="utf-8")
     return {"status": "complete", "version": TRAINER_VERSION, "recipe": recipe, "seed": int(job["seed"]),
             "budget": int(job["budget"]), "base_name": job["base_name"], "load_s": round(load_s, 3),
@@ -386,6 +398,7 @@ def checkpoint_digest(manifest: Mapping[str, Any]) -> str:
 
     core = {key: manifest[key] for key in ("format", "space_id", "base_name", "base", "recipe", "seed", "budget",
                                            "dims", "precision", "frozen_base", "max_query_tokens", "files")}
+    core["dataset_fingerprint"] = str(manifest.get("dataset_fingerprint") or "")
     return hashlib.sha256(json.dumps(core, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 

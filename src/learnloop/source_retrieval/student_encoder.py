@@ -365,6 +365,54 @@ class StudentEncoder:
         return vectors
 
 
+def _pid_alive(pid: Any) -> bool:
+    if not isinstance(pid, int):
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def yield_gpu_students(*, wait_s: float = SP.YIELD_WAIT_S, sleep: Callable[[float], None] = time.sleep,
+                       clock: Callable[[], float] = time.monotonic) -> dict[str, Any]:
+    """Before an exclusive GPU job's start checks (Codex review F11): every query process serving
+    on the GPU is asked to shut down and waited for (at most ``wait_s``, keep), so the 9B
+    worker, the teacher targets and the trainer never find it resident. The next query starts it
+    again, on the CPU while the job holds the lock (``student_server.choose_device``). A CPU
+    process is left alone: it is not a GPU workload. Never raises."""
+
+    asked, exited, still = 0, 0, 0
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    try:
+        homes = sorted((Path(runtime) / "learnloop-student").glob("*"))
+    except OSError:
+        homes = []
+    for home in homes:
+        try:
+            status = json.loads((home / "status.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if status.get("status") != "ready" or status.get("device") == "cpu" or not _pid_alive(status.get("pid")):
+            continue
+        asked += 1
+        try:
+            request(home / "student.sock", {"op": "shutdown"}, timeout_s=min(wait_s, SP.SOCKET_TIMEOUT_S))
+        except (OSError, ValueError):
+            pass
+        deadline = clock() + wait_s
+        while _pid_alive(status.get("pid")) and clock() < deadline:
+            sleep(0.05)
+        if _pid_alive(status.get("pid")):
+            still += 1
+        else:
+            exited += 1
+    return {"asked": asked, "exited": exited, "still_running": still}
+
+
 # -- the replay queue (learner text, local) -----------------------------------------------------------
 def replay_path(vault_root: Path) -> Path:
     return Path(vault_root).joinpath(*REPLAY_FILE)
@@ -490,4 +538,5 @@ def replay_report(vault: LoadedVault, repository: Any) -> dict[str, Any]:
 
 __all__ = ["REPLAY_FILE", "StudentEncoder", "StudentUnavailable", "adopted_encoder", "adoption_path",
            "bases_manifest", "checkpoint_dir", "pending_replay", "queue_replay", "read_adoption", "record_replay",
-           "replay_due", "replay_path", "replay_report", "request", "runtime_dir", "server_command", "student_space"]
+           "replay_due", "replay_path", "replay_report", "request", "runtime_dir", "server_command", "student_space",
+           "yield_gpu_students"]
