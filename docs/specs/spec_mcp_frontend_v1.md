@@ -1065,7 +1065,7 @@ For a visual that will be reused, instrumented or part of a formal item, adopt a
 
 A prediction-before-reveal activity freezes the figure and question version, saves the learner's response, then changes the display. Ordinary exploration and slider movement remain instructional events. A scored observation requires an admitted item, rubric and ordinary attempt path. Keep the source's statement, the generated model's assumptions, and the learner's prediction visually distinct.
 
-Existing Manim/video jobs can deliver their immutable outputs over the media gateway. Generated executable HTML/SVG imported from the host must be sanitized or isolated without LearnLoop credentials; never execute arbitrary model code in the learning service. A saved source/static representation is the fallback when safe interactive import is unavailable. The broader generated-code figure platform remains a separately gated extension of RW5.
+Existing Manim/video jobs can deliver their immutable outputs over the media gateway. Generated executable HTML/SVG imported from the host must be sanitized or isolated without LearnLoop credentials; never execute arbitrary model code in the learning service. (Amended 2026-10-25, owner decision RW5d Q13: the sealed sketch verifier of `spec_reader_show_me_figures_v1.md` — an interpreter with no imports and fuel and memory caps — is the sandbox running it, not arbitrary execution.) A saved source/static representation is the fallback when safe interactive import is unavailable. The broader generated-code figure platform remains a separately gated extension of RW5.
 
 ### 9.4 Reader fidelity
 
