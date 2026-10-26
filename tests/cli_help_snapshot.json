@@ -429,15 +429,15 @@
   },
   "embeddings local student": {
     "bytes": 3033,
-    "sha256": "49710b0baed5e9a376c3aef0684e17b317d63cf2c3347ff61afa88a5993e6666"
+    "sha256": "9f24034f63e96d620834972499c1b31aefa9af93099fa265c2049d7fbdcf57a2"
   },
   "embeddings local student adopt": {
     "bytes": 1461,
     "sha256": "7b317837c2fc67ad167ef152c5c0346795b20a235659c8a1c3911baa87227055"
   },
   "embeddings local student evaluate": {
-    "bytes": 1956,
-    "sha256": "bc5da1016b35d9653c07603b75bc15753f1ce50d82c9cdd9c7dd28cbb331da10"
+    "bytes": 2462,
+    "sha256": "141f947c525c8f84b9f5026d64f8208fc3d387494cfa96420f58d08afac68f7a"
   },
   "embeddings local student generate": {
     "bytes": 2376,
