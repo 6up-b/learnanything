@@ -132,9 +132,16 @@ def build_student(base_model: Any, *, hidden: int, dims: int, pooling: str, froz
                 pooled = states[torch.arange(states.shape[0], device=states.device), last.clamp(min=0)]
             else:
                 raise ValueError(f"unknown pooling {self.pooling!r}")
-            return torch.nn.functional.normalize(self.head(pooled.float()), dim=-1)
+            # The head runs in its own dtype (FP32 in training, BF16 when served); the output is FP32.
+            return torch.nn.functional.normalize(self.head(pooled.to(self.head.weight.dtype)).float(), dim=-1)
 
     return Student()
+
+
+def hidden_size(model: Any, base: Mapping[str, Any]) -> int:
+    """The loaded model's own width (the pinned base's is 1024; a test's tiny model is smaller)."""
+
+    return int(getattr(getattr(model, "config", None), "hidden_size", None) or base["hidden_size"])
 
 
 def load_base(base_dir: Path, base: Mapping[str, Any], *, device: str) -> tuple[Any, Any]:
@@ -255,7 +262,7 @@ def run_training(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mappi
     base_model, tokenizer = model_factory(Path(job["base_dir"]), base, device)
     load_s = time.monotonic() - started
     frozen = recipe == "projection_only"
-    student = build_student(base_model, hidden=int(base["hidden_size"]), dims=int(job["dimensions"]),
+    student = build_student(base_model, hidden=hidden_size(base_model, base), dims=int(job["dimensions"]),
                             pooling=str(base["pooling"]), frozen_base=frozen).to(device)
     if bool(job.get("gradient_checkpointing")) and not frozen and hasattr(base_model, "gradient_checkpointing_enable"):
         base_model.gradient_checkpointing_enable()

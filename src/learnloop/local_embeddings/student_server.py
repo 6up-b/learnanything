@@ -174,7 +174,7 @@ class TorchService:
         manifest = json.loads((Path(job["checkpoint_dir"]) / "student.json").read_text(encoding="utf-8"))
         base = job["base"]
         model, self.tokenizer = trainer.load_base(Path(job["base_dir"]), base, device="cpu")
-        self.student = trainer.build_student(model, hidden=int(base["hidden_size"]), dims=int(manifest["dims"]),
+        self.student = trainer.build_student(model, hidden=trainer.hidden_size(model, base), dims=int(manifest["dims"]),
                                              pooling=str(base["pooling"]), frozen_base=True)
         state = load_file(str(Path(job["checkpoint_dir"]) / "student.safetensors"))
         self.student.head.load_state_dict({key[5:]: value for key, value in state.items() if key.startswith("head.")})
