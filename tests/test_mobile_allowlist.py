@@ -399,10 +399,17 @@ READER_RW5A_RPCS = (
 )
 
 
+# Reader RW5d P1 (spec_reader_show_me_figures_v1 §7.1): "show me", the one
+# figure request for every host (FigureRequestV1). Desktop only (§6.7).
+READER_RW5D_RPCS = (
+    "figure.request",
+)
+
+
 def test_the_pinned_rw5a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.figures import FIGURE_RPCS
 
-    assert set(READER_RW5A_RPCS) - {"reader.prompt_contract"} == set(FIGURE_RPCS)
+    assert set(READER_RW5A_RPCS + READER_RW5D_RPCS) - {"reader.prompt_contract"} == set(FIGURE_RPCS)
 
 
 # Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's
@@ -692,7 +699,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_RW5D_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

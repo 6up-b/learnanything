@@ -11,7 +11,10 @@ import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { TutorAnswer, type TutorRailProps } from "./TutorAnswer";
 import { ANSWER_MODE_OPTIONS, answerModeLabel, clip, type ReaderSelection } from "./readerShared";
-import { LearnerVoice, MeaningLabel } from "./voices";
+import { LearnerQuote, LearnerVoice, MeaningLabel } from "./voices";
+import type { FigureViewDto } from "../../api/dto";
+import { isShowMeKey, SHOW_ME_COPY, showMeSourceLine, type ShowMeLine } from "./figures/showMe";
+import { frameBadge } from "./figures/FigureInline";
 
 export { ANSWER_MODE_OPTIONS, answerModeLabel };
 
@@ -67,6 +70,14 @@ export interface AskRailProps {
   /** RW1c (Codex review F8): the visible personalized chip while the tutor
    *  looks things up; absent: no chip (retrieval off). */
   personalized?: { on: boolean; onToggle: (on: boolean) => void } | null;
+  /** RW5d P1: "show me ▸" (Alt+↵) sends the box's words as a figure goal, and
+   *  the thread's show-me lines; absent while figures.show_me_enabled is off. */
+  showMe?: {
+    lines: ShowMeLine[];
+    onShowMe: () => void;
+    onOpen: (figure: FigureViewDto) => void;
+    onDismiss: (key: string) => void;
+  } | null;
 }
 
 export const PERSONALIZED_COPY = {
@@ -74,6 +85,30 @@ export const PERSONALIZED_COPY = {
   off: "personalized ○",
   why: "On: the tutor may connect its answer to your open questions and recent work on this passage. Off: nothing about you is sent.",
 } as const;
+
+function ShowMeThreadLine({ line, showMe }: { line: ShowMeLine; showMe: NonNullable<AskRailProps["showMe"]> }) {
+  const link = { border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, padding: 0,
+    cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 } as const;
+  return (
+    <div data-show-me-line={line.state} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
+      <span>› <LearnerQuote>{clip(line.goal, 120)}</LearnerQuote></span>
+      {line.state === "pending" ? <span>{SHOW_ME_COPY.pending}</span> : null}
+      {line.state === "landed" && line.figure && !["verified", "illustrative"].includes(line.figure.verification) ? (
+        <span>{frameBadge(line.figure.verification)} ·</span>
+      ) : null}
+      {line.state === "landed" && line.figure ? (
+        <>
+          <span>{SHOW_ME_COPY.landed} · {showMeSourceLine(line.figure)} ·</span>
+          <button type="button" style={link} onClick={() => line.figure && showMe.onOpen(line.figure)}>{SHOW_ME_COPY.open}</button>
+        </>
+      ) : null}
+      {line.state === "failed" ? <MeaningLabel style={{ fontSize: 11 }}>{SHOW_ME_COPY.failed} (its line under the passage says why)</MeaningLabel> : null}
+      {line.state !== "pending" ? (
+        <button type="button" aria-label="dismiss" style={{ ...link, textDecoration: "none" }} onClick={() => showMe.onDismiss(line.key)}>{SHOW_ME_COPY.dismiss}</button>
+      ) : null}
+    </div>
+  );
+}
 
 export function AskRail({
   visible,
@@ -117,6 +152,7 @@ export function AskRail({
   lookingUp = false,
   tutor,
   personalized = null,
+  showMe = null,
 }: AskRailProps) {
   const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
@@ -197,12 +233,30 @@ export function AskRail({
                   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                     e.preventDefault();
                     void ask();
+                  } else if (showMe && isShowMeKey(e)) {
+                    // RW5d P1: the words go as a figure goal instead of a question.
+                    e.preventDefault();
+                    if (question.trim()) showMe.onShowMe();
                   }
                 }}
                 placeholder="ask about this passage…"
                 style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
               />
               <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up · ctrl+↵" : "ask · ctrl+↵"}</PrimaryButton>
+              {showMe ? (
+                <div data-show-me="" style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <SecondaryButton onClick={showMe.onShowMe} disabled={offline || !question.trim()}>{SHOW_ME_COPY.send}</SecondaryButton>
+                  <Faint style={{ fontSize: 10 }}>{SHOW_ME_COPY.keys}</Faint>
+                  <span title={SHOW_ME_COPY.where} style={{ marginLeft: "auto" }}>
+                    <MeaningLabel style={{ fontSize: 10 }}>{SHOW_ME_COPY.whereLabel}</MeaningLabel>
+                  </span>
+                </div>
+              ) : null}
+              {showMe && showMe.lines.length ? (
+                <div data-show-me-lines="" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {showMe.lines.map((line) => <ShowMeThreadLine key={line.key} line={line} showMe={showMe} />)}
+                </div>
+              ) : null}
               {inquiry ? (
                 <ModelActionState
                   phase={askPhase}

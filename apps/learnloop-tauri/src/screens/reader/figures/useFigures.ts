@@ -19,9 +19,16 @@ export const FIGURE_POLL_MS = 1500;
 export interface FigureRequestInput {
   spanIds: string[];
   region?: { spanId: string; bbox: number[] } | null;
-  /** RW5b: an offered figure (the organizer's or the tutor's judgment named in `offerRef`). */
-  origin?: "selection" | "library" | "tutor";
+  /** RW5b: an offered figure (the organizer's or the tutor's judgment named in `offerRef`);
+   *  RW5d P1: "show_me" (the intent box with words, the Ask rail). */
+  origin?: "selection" | "library" | "tutor" | "show_me";
   offerRef?: string | null;
+  /** RW5d P1: what the figure should show, in the learner's words (or the tutor's goal). */
+  goalText?: string | null;
+  /** RW5d P1: where the learner was reading (the home of a figure with no passage). */
+  readingAt?: { spanId: string } | null;
+  /** RW5d P1: hears the figure once it lands (the Ask rail's thread line). */
+  onLanded?: (figure: FigureViewDto) => void;
 }
 
 /** How a request ended (fix round 2, F9: an offer's press settles on this, not
@@ -51,6 +58,8 @@ export interface FiguresContract {
   revisions: boolean;
   /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
   offers?: boolean;
+  /** RW5d P1: "show me" in the learner's words (present only while figures.show_me_enabled is on). */
+  showMe?: boolean;
 }
 
 export interface FiguresCtl {
@@ -108,7 +117,8 @@ export function useFigures({
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")
-      && JSON.stringify(item.region) === JSON.stringify(figure.region);
+      && JSON.stringify(item.region) === JSON.stringify(figure.region)
+      && (item.goalText ?? null) === (figure.goalText ?? null) && item.anchorSpanId === figure.anchorSpanId;
     setFigures((list) => [
       // A new version replaces the one it supersedes; a new build replaces an
       // earlier failed or unsupported line for the same request.
@@ -119,13 +129,14 @@ export function useFigures({
   }, []);
 
   const run = useCallback(
-    (key: string, anchorSpanId: string, start: () => Promise<LibraryJobDto<FigureBuildResultDto>>): Promise<FigureRequestOutcome> => {
+    (key: string, anchorSpanId: string, start: () => Promise<LibraryJobDto<FigureBuildResultDto>>,
+     onLanded?: (figure: FigureViewDto) => void): Promise<FigureRequestOutcome> => {
       const mine = generation.current;
       const token = {};
       runs.current.set(key, token);
       const live = () => generation.current === mine && runs.current.get(key) === token;
       let jobId: string | null = null;
-      const retry = () => { void run(key, anchorSpanId, start); };
+      const retry = () => { void run(key, anchorSpanId, start, onLanded); };
       const cancel = () => {
         runs.current.delete(key);
         setPending((list) => list.filter((item) => item.key !== key));
@@ -151,6 +162,7 @@ export function useFigures({
           } else if (figure) {
             land(figure);
             onBuiltRef.current?.(figure);
+            onLanded?.(figure);
           }
           return shown ? "shown" : "not_shown";
         } catch (error) {
@@ -170,16 +182,33 @@ export function useFigures({
     (input: FigureRequestInput): Promise<FigureRequestOutcome> => {
       if (!enabled || !extractionId) return Promise.resolve("skipped");
       const spanIds = [...new Set(input.spanIds)];
-      const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? "";
+      const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? "";
       const region = input.region && contract?.region ? input.region : null;
-      const key = `req:${anchor}:${spanIds.join(",")}:${region ? region.bbox.join(",") : ""}`;
-      const origin = input.origin ?? "selection";
+      const goal = input.goalText?.trim() ? input.goalText.trim() : null;
+      const key = `req:${anchor}:${spanIds.join(",")}:${region ? region.bbox.join(",") : ""}${goal ? `:goal:${goal}` : ""}`;
+      const origin = input.origin ?? (goal ? "show_me" : "selection");
+      if (goal) {
+        // RW5d P1: "show me" in the learner's words (or a tutor's goal), with
+        // or without a passage, through figure.request (the server derives who
+        // wrote it and the policy; held-out material is refused there).
+        if (!contract?.showMe) return Promise.resolve("skipped");
+        if (origin === "tutor" && !contract?.offers) return Promise.resolve("skipped");
+        const anchored = spanIds.length > 0 || region !== null;
+        const readingAt = input.readingAt?.spanId ? { extractionId, spanId: input.readingAt.spanId } : null;
+        if (!anchored && !readingAt) return Promise.resolve("skipped");
+        return run(key, anchor, () => api.figureRequest({
+          goalText: goal, origin,
+          anchor: anchored ? { extractionId, spanIds, region } : null,
+          readingAt, offerRef: input.offerRef ?? null,
+        }), input.onLanded);
+      }
+      if (origin === "show_me") return Promise.resolve("skipped"); // show me needs words
       if (origin !== "selection") {
         // RW5b: an offer builds only while offers are on (the server checks the offer too).
         if (!contract?.offers) return Promise.resolve("skipped");
-        return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin, offerRef: input.offerRef ?? null }));
+        return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin: origin as "library" | "tutor", offerRef: input.offerRef ?? null }), input.onLanded);
       }
-      return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }));
+      return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }), input.onLanded);
     },
     [enabled, extractionId, contract, run],
   );
