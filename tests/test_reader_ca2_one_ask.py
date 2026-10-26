@@ -1,7 +1,7 @@
 """Reader CA2, one Ask (docs/specs/ux_reader_compare_ask_v1.md §7, K5-K10, §15 Q2-Q5;
 docs/reviews/reader-ca2-one-ask.md), backend.
 
-* **The successor (mvp-0.34, ``ask.cold_help_converts``).** One help rule on a
+* **The successor (mvp-0.35; mvp-0.34 on the branch, ``ask.cold_help_converts``).** One help rule on a
   check on your own: a cold question counts as help only when the tutor's
   ``question_type`` is substantive, on the Reader's cold paths too (K10); help
   taken on a cold follow-up makes the attempt practice with help, admitted and

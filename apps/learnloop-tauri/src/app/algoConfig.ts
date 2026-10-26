@@ -61,7 +61,7 @@ export interface AskPanelConfig {
   /** The one stored help-style preference Ask's mode follows (§7.4). */
   helpStyle: HelpStyleValue;
   /** The successor's one help rule is live (`ask.cold_help_converts` at
-   *  mvp-0.34): on a check on your own only a question about the maths
+   *  mvp-0.35 or later): on a check on your own only a question about the maths
    *  converts, and the box and the labels say so. */
   coldHelpConverts: boolean;
 }

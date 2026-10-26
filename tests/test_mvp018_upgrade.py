@@ -190,7 +190,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.17 -> mvp-0.34" in result.output
+    assert "mvp-0.17 -> mvp-0.35" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output

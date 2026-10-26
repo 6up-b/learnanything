@@ -345,8 +345,8 @@ def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
-    # A new vault starts at the latest successor (mvp-0.34 since rebuild equivalence, after LP-min (a)'s
-    # mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
+    # A new vault starts at the latest successor (mvp-0.35 since Reader CA2, after rebuild equivalence's
+    # mvp-0.34, LP-min (a)'s mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
     # which keeps this one.
     assert fresh.config.algorithms.algorithm_version == "mvp-0.35"
     assert fresh.config.eligibility.enabled

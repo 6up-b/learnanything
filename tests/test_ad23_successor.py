@@ -41,7 +41,7 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
     # Reader workbench RW2d's mvp-0.31, RW7b's mvp-0.32 and LP-min (a)'s mvp-0.33 landed after it and keep
-    # it, and rebuild equivalence's mvp-0.34 follows as the latest.
+    # it, and rebuild equivalence's mvp-0.34 and Reader CA2's mvp-0.35 (the latest) follow.
     assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[20]
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
     # DL2 landed first: mvp-0.29 is the predecessor and mvp-0.28 is never used (the compose round).
@@ -142,7 +142,7 @@ def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
-    # The latest successor (rebuild equivalence's mvp-0.34 since its landing) keeps AD's switches.
+    # The latest successor (Reader CA2's mvp-0.35 since the batch landing) keeps AD's switches.
     assert fresh.config.algorithms.algorithm_version == "mvp-0.35"
     assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES if name != "learned_coupling")
     assert not SC.switch_on(fresh.config, "learned_coupling") and SC.dose_offers_on(fresh.config)

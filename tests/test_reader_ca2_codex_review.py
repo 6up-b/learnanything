@@ -136,7 +136,7 @@ def test_a_workbench_question_on_a_cold_item_grounds_nothing_and_follows_the_wor
     assert tutor.contexts[-1].source_spans == []
     assert (event["source_context"].get("source_retrieval") or {}).get("policy") == "cold_attempt"
     # The predecessor's workbench cold rule counts every question; the one
-    # help rule (mvp-0.34) counts only a substantive one.
+    # help rule (mvp-0.35; mvp-0.34 on the branch) counts only a substantive one.
     assert bool(event["hint_equivalent"]) is (not converts)
     assert answer["hintEquivalent"] is (not converts)
 

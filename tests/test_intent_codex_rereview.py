@@ -219,7 +219,7 @@ def test_f2_the_chain_ends_at_the_intent_successor():
 
     # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it, and the Reader workbench RW2d's field
     # signals (mvp-0.31), RW7b's reading path (mvp-0.32), LP-min (a)'s claim fixes (mvp-0.33) and rebuild
-    # equivalence (mvp-0.34, the latest) follow that; all keep it.
+    # equivalence (mvp-0.34) and Reader CA2 (mvp-0.35, the latest) follow that; all keep it.
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[19]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.35"
     assert SUCCESSOR_CHAIN[20] == "mvp-0.30"
