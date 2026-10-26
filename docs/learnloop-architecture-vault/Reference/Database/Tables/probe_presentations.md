@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `Repository._insert_probe_presentation_row()`
 - `Repository._link_attempt_to_scheduler_candidate()`
 - `Repository.active_probe_presentation()`
+- `Repository.active_probe_presentation_for_item()`
 - `Repository.active_probe_presentation_for_session()`
 - `Repository.consume_probe_presentation()`
 - `Repository.end_probe_presentation()`
@@ -148,6 +149,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
+- `src/learnloop_sidecar/handlers/as_printed.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/practice.py`
@@ -162,6 +164,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
+- `tests/test_reader_ca1_codex_review.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_held_grade_evidence.py`

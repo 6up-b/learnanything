@@ -3,8 +3,8 @@ title: "maintenance_notices"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite maintenance_notices"
@@ -93,12 +93,14 @@ Indexes and uniqueness:
 - `Repository.live_maintenance_notice_keys()`
 - `Repository.maintenance_notice()`
 - `Repository.maintenance_notices()`
+- `Repository.resolve_maintenance_notice_if_detail()`
 - `Repository.set_maintenance_notice_status()`
 - `Repository.upsert_maintenance_notice()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/maintenance_feed.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
@@ -120,6 +122,8 @@ Indexes and uniqueness:
 - `tests/test_maintenance_feed.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probe_pool_empty.py`
+- `tests/test_reader_ca1_as_printed.py`
+- `tests/test_reader_ca1_codex_review.py`
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_sidecar_measurement.py`
 

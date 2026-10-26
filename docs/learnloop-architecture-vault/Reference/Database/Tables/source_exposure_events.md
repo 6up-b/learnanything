@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -140,13 +140,13 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
+- `tests/test_reader_ca1_as_printed.py`
 - `tests/test_reader_restoration.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
-- `tests/test_rw4_kill_switches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

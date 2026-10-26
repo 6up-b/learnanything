@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/substrate/dataset.py`
+- `src/learnloop_sidecar/handlers/as_printed.py`
 
 ### Direct SQL writers
 
@@ -160,11 +161,11 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
+- `tests/test_reader_ca1_as_printed.py`
+- `tests/test_reader_ca1_codex_review.py`
 - `tests/test_reader_pdf_selection.py`
 - `tests/test_reread_safety.py`
 - `tests/test_revision_refresh.py`
-- `tests/test_sidecar_reader_pdf_view.py`
-- `tests/test_source_deletion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

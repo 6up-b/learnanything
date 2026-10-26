@@ -3,8 +3,8 @@ title: "source_exercise_imports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exercise_imports"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_library_exercises.py`
+- `tests/test_reader_ca1_codex_review.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_required_method_round3_rereview.py`
 - `tests/test_source_exercise_rpcs.py`

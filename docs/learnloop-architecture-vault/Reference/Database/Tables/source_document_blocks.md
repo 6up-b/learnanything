@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -101,6 +101,8 @@ Database triggers:
 
 - `Repository.block_content_hashes()`
 - `Repository.delete_source_artifact()`
+- `Repository.document_blocks()`
+- `Repository.document_blocks_on_pages()`
 - `Repository.document_ir_counts()`
 - `Repository.load_document_ir()`
 - `Repository.persist_document_ir()`

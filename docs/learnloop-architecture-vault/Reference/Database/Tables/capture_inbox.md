@@ -3,8 +3,8 @@ title: "capture_inbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bcb26db882f73a9a7dec05384e9c03269f6d2baa"
-source_commit_timestamp: "2026-10-26T10:27:45-04:00"
+source_commit: "c35ba8d9bd82db56a50cf2683c7d2733c277a683"
+source_commit_timestamp: "2026-10-26T15:33:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capture_inbox"
@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/test_capture_domain.py`
 - `tests/test_mobile_host_auth.py`
 - `tests/test_mobile_host_coexistence.py`
+- `tests/test_reader_ca1_as_printed.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
