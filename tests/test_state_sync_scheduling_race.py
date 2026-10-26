@@ -16,6 +16,7 @@ initialized vault, the configuration two processes share in practice.
 from __future__ import annotations
 
 import os
+import sqlite3
 import subprocess
 import sys
 from datetime import timedelta
@@ -199,8 +200,8 @@ def test_a_stale_snapshot_never_reactivates_a_probe_an_attempt_retired(tmp_path)
     """The active decision is taken again from the row the attempt left.
 
     A diagnostic probe is single-use: its attempt writes ``active = 0``. A sync
-    that decided from a pre-attempt snapshot would reactivate it; the guarded
-    update sees the row moved and decides from the fresh row instead.
+    that decided from a pre-attempt snapshot would reactivate it; the write
+    decides again from the row under its write lock instead.
     """
 
     paths, repository = _fresh_vault(tmp_path)
@@ -348,3 +349,279 @@ def test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync(tmp
     assert state.content_hash == practice_item_hash(edited.practice_items[ITEM])
     assert state.content_hash != original_hash
     assert state.active is True
+
+
+# --- Codex review F1/F2: the active decision is taken under the write lock ----
+#
+# A sync that must write decides ``active`` from the row and the lifecycle
+# tables (review parking, measurement corrections) as they stand inside the
+# same ``BEGIN IMMEDIATE`` transaction as its write. Each test below commits a
+# real lifecycle change right after one of the reads the decision depends on.
+# Before the fix the change landed between that read and the write and the
+# sync reactivated the item. With the fix, the read that feeds the decision is
+# taken under the write lock, so the change cannot land there: the hook checks
+# that the lock is held (a second connection's ``BEGIN IMMEDIATE`` is refused
+# at once) and commits the change after the sync instead.
+
+PROBE = "pi_diag_transposed_factor"
+PROBE_LO = "lo_svd_definition"
+
+
+def _write_lock_held(sqlite_path: Path) -> bool:
+    with connect(sqlite_path) as probe:
+        probe.execute("PRAGMA busy_timeout = 0")
+        try:
+            probe.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as error:
+            if "locked" not in str(error) and "busy" not in str(error):
+                raise
+            return True
+        probe.rollback()
+    return False
+
+
+def _add_diagnostic_probe(paths, prompt: str = "Which SVD factor is transposed in the product?") -> None:
+    from learnloop.vault.yaml_io import write_yaml
+
+    from tests.helpers import NOW_ISO
+
+    write_yaml(
+        paths.practice_item_path(SUBJECT, PROBE),
+        {
+            "schema_version": 1,
+            "id": PROBE,
+            "learning_object_id": PROBE_LO,
+            "subjects": None,
+            "practice_mode": "diagnostic_probe",
+            "attempt_types_allowed": ["diagnostic_probe", "dont_know"],
+            "evidence_facets": ["recall"],
+            "evidence_weights": {"recall": 1.0},
+            "prompt": prompt,
+            "expected_answer": "V",
+            "difficulty": 0.5,
+            "tags": [],
+            "hints": [],
+            "hint_policy": {
+                "max_useful_hints": 0,
+                "fsrs_rating_cap_by_hint": {},
+                "mastery_alpha_dampening_by_hint": {},
+            },
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [
+                    {"id": "correctness", "points": 4, "description": "Correct selection."}
+                ],
+                "fatal_errors": [],
+            },
+            "provenance": {"origin": "human", "source_refs": []},
+            "created_at": NOW_ISO,
+            "updated_at": NOW_ISO,
+        },
+    )
+
+
+def _commit_probe_attempt(vault, sqlite_path: Path) -> None:
+    """A real diagnostic administration through its own Repository: it retires the probe."""
+
+    from learnloop.attempts.attempts import ApplyAttemptInput, ResolvedGrade, apply_attempt
+
+    from tests.helpers import NOW_ISO
+
+    apply_attempt(
+        vault,
+        Repository(sqlite_path),
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=PROBE,
+                learner_answer_md="U",
+                attempt_type="diagnostic_probe",
+            ),
+            attempt_id="att_probe_after_decision_read",
+            grade=ResolvedGrade(
+                rubric_score=2,
+                criterion_points={"correctness": 2},
+                evidence_rows=[
+                    {
+                        "id": "ge_att_probe_after_decision_read",
+                        "criterion_id": "correctness",
+                        "points_awarded": 2.0,
+                        "evidence": "Named a factor but not the transposed one.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": NOW_ISO,
+                    }
+                ],
+                error_attributions=[],
+                grader_confidence=0.9,
+                confidence=3,
+                manual_review_reason=None,
+            ),
+        ),
+        clock=ATTEMPT_CLOCK,
+    )
+
+
+def _change_after_read(monkeypatch, repository: Repository, method: str, change, *, when=None) -> dict:
+    """After ``repository``'s first matching ``method`` call, commit ``change``.
+
+    If this repository holds the write lock at that point, ``change`` cannot
+    commit inside the window; it is queued in ``seen["deferred"]`` for the test
+    to run after the sync, and ``seen["blocked"]`` records that the lock held.
+    """
+
+    original = getattr(Repository, method)
+    seen: dict = {"deferred": []}
+
+    def read_then_change(self, *args):
+        result = original(self, *args)
+        if self is repository and "fired" not in seen and (when is None or when(*args)):
+            seen["fired"] = True
+            if _write_lock_held(repository.sqlite_path):
+                seen["blocked"] = True
+                seen["deferred"].append(change)
+            else:
+                change()
+        return result
+
+    monkeypatch.setattr(Repository, method, read_then_change)
+    return seen
+
+
+def test_a_probe_attempt_after_the_fallback_read_stays_retired(tmp_path, monkeypatch):
+    """F1: another sync moves the row, then a real probe attempt lands right
+    after the read the activation decision uses; the probe must stay retired."""
+
+    paths = create_basic_vault(tmp_path / "vault", fresh=True)
+    _add_diagnostic_probe(paths)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(load_vault(paths.root), repository, clock=SYNC_CLOCK)
+    before = repository.practice_item_state(PROBE)
+    assert before.active is True and before.last_attempt_at is None
+    pre_edit_vault = load_vault(paths.root)
+    _add_diagnostic_probe(paths, prompt="Which SVD factor appears transposed in A = U Sigma V^T?")
+    edited = load_vault(paths.root)
+
+    # Another content sync writes its hash between this sync's snapshot and its
+    # write, so a snapshot-guarded update would miss and fall back to a re-read.
+    original_states = Repository.practice_item_states
+    other_sync: dict = {}
+
+    def snapshot_then_other_sync(self):
+        snapshot = original_states(self)
+        if self is repository and "done" not in other_sync:
+            other_sync["done"] = True
+            with connect(paths.sqlite_path) as connection:
+                connection.execute(
+                    "UPDATE practice_item_state SET content_hash = ? WHERE practice_item_id = ?",
+                    ("hash-from-another-sync", PROBE),
+                )
+                connection.commit()
+        return snapshot
+
+    monkeypatch.setattr(Repository, "practice_item_states", snapshot_then_other_sync)
+    seen = _change_after_read(
+        monkeypatch,
+        repository,
+        "practice_item_state",
+        lambda: _commit_probe_attempt(pre_edit_vault, paths.sqlite_path),
+        when=lambda item_id: item_id == PROBE,
+    )
+
+    sync_vault_state(edited, repository, clock=SYNC_CLOCK)
+    monkeypatch.undo()
+    for change in seen["deferred"]:
+        change()
+
+    assert seen.get("fired") is True
+    state = repository.practice_item_state(PROBE)
+    assert state.last_attempt_at is not None
+    assert state.active is False
+    # The decision read was taken under the sync's write lock.
+    assert seen.get("blocked") is True
+    # A later sync leaves the administered probe retired too.
+    sync_vault_state(edited, repository, clock=SYNC_CLOCK)
+    assert repository.practice_item_state(PROBE).active is False
+
+
+def test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired(
+    tmp_path, monkeypatch
+):
+    """F2: a real correction (with its own sync) commits after this sync read
+    ``measurement_superseded``; the superseded original must stay inactive."""
+
+    from learnloop.attempts.measurement_corrections import create_measurement_correction
+
+    paths, repository = _fresh_vault(tmp_path)
+    _commit_attempt(paths.root, paths.sqlite_path)
+    attempted = repository.practice_item_state(ITEM)
+    assert attempted.active is True and attempted.last_attempt_at is not None
+    _edit_prompt(paths.root, "Define the singular value decomposition of a real matrix.")
+    edited = load_vault(paths.root)
+    corrected_id = "pi_svd_define_001_measurement_v2"
+
+    def correct():
+        create_measurement_correction(
+            paths.root,
+            Repository(paths.sqlite_path),
+            source_practice_item_id=ITEM,
+            corrected_practice_item_id=corrected_id,
+            corrected_fields={"expected_answer": "A = U Sigma V^T with orthogonal U, V."},
+            reason="The expected answer omitted the orthogonality of the factors.",
+            consuming_projection_version="mvp-0.7",
+            clock=ATTEMPT_CLOCK,
+        )
+
+    seen = _change_after_read(monkeypatch, repository, "superseded_measurement_item_ids", correct)
+    sync_vault_state(edited, repository, clock=SYNC_CLOCK)
+    monkeypatch.undo()
+    for change in seen["deferred"]:
+        change()
+
+    assert seen.get("fired") is True
+    assert ITEM in repository.superseded_measurement_item_ids()
+    state = repository.practice_item_state(ITEM)
+    assert state.active is False
+    assert _scheduling(state) == _scheduling(attempted)
+    assert repository.practice_item_state(corrected_id).active is True
+
+
+def test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive(tmp_path, monkeypatch):
+    """F2's ``review_parked`` twin: an item parked behind instance review after
+    this sync read the parked set must not be reactivated by it."""
+
+    paths, repository = _fresh_vault(tmp_path)
+    _edit_prompt(paths.root, "Define the singular value decomposition of a real matrix.")
+    edited = load_vault(paths.root)
+
+    def park():
+        with connect(paths.sqlite_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO probe_item_family_links (
+                  practice_item_id, instrument_card_id, instrument_card_version,
+                  instance_metadata_json, created_at
+                ) VALUES (?, 'card_parking_race', 1, '{"review_status": "pending_review"}', ?)
+                """,
+                (ITEM, ATTEMPT_CLOCK.now().isoformat()),
+            )
+            connection.execute(
+                "UPDATE practice_item_state SET active = 0 WHERE practice_item_id = ?", (ITEM,)
+            )
+            connection.commit()
+
+    seen = _change_after_read(
+        monkeypatch,
+        repository,
+        "probe_instance_ids_with_review_status",
+        park,
+        when=lambda status: status == "pending_review",
+    )
+    sync_vault_state(edited, repository, clock=SYNC_CLOCK)
+    monkeypatch.undo()
+    for change in seen["deferred"]:
+        change()
+
+    assert seen.get("fired") is True
+    state = repository.practice_item_state(ITEM)
+    assert state.active is False

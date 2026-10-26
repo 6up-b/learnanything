@@ -73,51 +73,59 @@ def reconcile_practice_item_state(
     or ``"unchanged"``.
 
     Mobile PR-2: content sync writes ``active`` and ``content_hash`` and never
-    the scheduling fields. ``state`` is a snapshot, and an attempt can commit in
-    another process (the desktop sidecar, the phone host, the TUI) between that
-    read and this write; writing the snapshot's difficulty, stability,
-    retrievability, due date and last-attempt time back would erase it. A fresh
-    row is inserted only when none exists, and an existing row is updated only
-    while it still matches the snapshot the decision came from (the decision
-    reads it: an attempted diagnostic probe stays retired). If the row moved,
-    the item is decided once more from a fresh read and that decision is
-    written without the guard; it still touches only the two content columns.
+    the scheduling fields. ``state``, ``review_parked`` and
+    ``measurement_superseded`` are the caller's snapshots, and another process
+    (the desktop sidecar, the phone host, the TUI) can commit an attempt, a
+    measurement correction or a review parking after they were read; writing
+    the snapshot's difficulty, stability, retrievability, due date and
+    last-attempt time back would erase an attempt.
+
+    The snapshots only say whether a write may be needed. When one is, the
+    decision is taken again inside one ``BEGIN IMMEDIATE`` transaction from the
+    row and the lifecycle tables as they stand under the write lock, and
+    written in that same transaction (Codex review F1/F2): nothing can commit
+    between the reads the decision uses and the write, so a probe an attempt
+    retired, a superseded original or a parked instance is never reactivated
+    from stale inputs. A missing row is inserted, an existing one gets only the
+    two content columns.
     """
 
     if content_hash is None:
         content_hash = practice_item_hash(item)
-    active = False
-    # Two decisions at most: one from the caller's snapshot, guarded, and one
-    # from a fresh read. This is the structure of the fix, not a tuned retry
-    # count: the second write cannot overwrite a scheduling field either way.
-    for guarded in (True, False):
+    active = practice_item_activatable(
+        item_id,
+        item,
+        review_parked=review_parked,
+        measurement_superseded=measurement_superseded,
+        state=state,
+    )
+    if state is not None and state.active == active and state.content_hash == content_hash:
+        # Nothing to write by the snapshot. A change committed since then is
+        # its writer's to reconcile; skipping a write cannot reactivate anything.
+        return "unchanged", active
+
+    from learnloop.diagnosis.probe_instance_generation import pending_review_instance_ids
+
+    with repository.atomic():
+        current = repository.practice_item_state(item_id)
         active = practice_item_activatable(
             item_id,
             item,
-            review_parked=review_parked,
-            measurement_superseded=measurement_superseded,
-            state=state,
+            review_parked=pending_review_instance_ids(repository),
+            measurement_superseded=repository.superseded_measurement_item_ids(),
+            state=current,
         )
-        if state is None:
-            if repository.initialize_practice_item_state(
+        if current is None:
+            repository.initialize_practice_item_state(
                 item_id, content_hash=content_hash, active=active, clock=clock
-            ):
-                return "created", active
-        else:
-            if state.active == active and state.content_hash == content_hash:
-                return "unchanged", active
-            if repository.update_practice_item_content_state(
-                item_id,
-                active=active,
-                content_hash=content_hash,
-                expected=state if guarded else None,
-                clock=clock,
-            ):
-                return "updated", active
-        state = repository.practice_item_state(item_id)
-    # The row appeared or vanished again under the fresh read (a concurrent
-    # rebuild): leave it to that writer; the next sync reconciles it.
-    return "unchanged", active
+            )
+            return "created", active
+        if current.active == active and current.content_hash == content_hash:
+            return "unchanged", active
+        repository.update_practice_item_content_state(
+            item_id, active=active, content_hash=content_hash, clock=clock
+        )
+        return "updated", active
 
 
 def sync_vault_state(

@@ -1038,7 +1038,6 @@ class Repository(
         *,
         active: bool,
         content_hash: str | None,
-        expected: PracticeItemState | None = None,
         clock: Clock | None = None,
     ) -> bool:
         """Set only ``active`` and ``content_hash`` on an existing row.
@@ -1046,40 +1045,18 @@ class Repository(
         Mobile PR-2: content sync owns these two columns and nothing else, so it
         can never write back a difficulty, stability, retrievability, due date or
         last-attempt time it read before an attempt committed in another process.
-
-        ``expected`` is the row the caller decided from. When given, the update
-        applies only if the row still holds exactly that state (compare-and-swap),
-        because the caller's ``active`` decision can depend on it (a diagnostic
-        probe retires once attempted). Returns whether a row was updated; False
-        means the row changed or vanished, and the caller re-reads and decides
-        again.
+        The caller decides ``active`` and calls this inside the same
+        ``atomic()`` transaction (``reconcile_practice_item_state``). Returns
+        whether a row was updated.
         """
 
         now = utc_now_iso(clock)
-        query = (
-            "UPDATE practice_item_state SET active = ?, content_hash = ?, updated_at = ? "
-            "WHERE practice_item_id = ?"
-        )
-        params: list[Any] = [1 if active else 0, content_hash, now, practice_item_id]
-        if expected is not None:
-            query += (
-                " AND difficulty IS ? AND stability IS ? AND retrievability IS ?"
-                " AND due_at IS ? AND active = ? AND content_hash IS ?"
-                " AND last_attempt_at IS ?"
-            )
-            params.extend(
-                [
-                    expected.difficulty,
-                    expected.stability,
-                    expected.retrievability,
-                    expected.due_at,
-                    1 if expected.active else 0,
-                    expected.content_hash,
-                    expected.last_attempt_at,
-                ]
-            )
         with self.connection() as connection:
-            cursor = connection.execute(query, params)
+            cursor = connection.execute(
+                "UPDATE practice_item_state SET active = ?, content_hash = ?, updated_at = ? "
+                "WHERE practice_item_id = ?",
+                (1 if active else 0, content_hash, now, practice_item_id),
+            )
             connection.commit()
         return cursor.rowcount > 0
 
