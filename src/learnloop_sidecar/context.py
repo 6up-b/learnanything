@@ -405,6 +405,24 @@ class SidecarContext:
 
         return self.map_builds.close()
 
+    def close(self) -> None:
+        """Stop every background thread this context owns (the ``shutdown``
+        RPC, EOF, and whoever else ends a context: a test's teardown, a host
+        that drops it).
+
+        The ingest drain, its quick checks and the reading sweep, the exam
+        graders, the post-attempt worker's three slots and the approach-map
+        builds are each told to stop and joined for a bounded time (never
+        hangs). A thread that outlived its context kept polling the vault it
+        was started for: in one test process that was hundreds of threads
+        (test-thread-leak). Idempotent; a later ``load`` or submit starts the
+        owners again, as after ``shutdown``."""
+
+        self.exam_grading.shutdown()
+        self.ingest_jobs.shutdown()
+        self.post_attempt_worker.shutdown()
+        self.close_background_builds()
+
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
             return None

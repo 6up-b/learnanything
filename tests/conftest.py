@@ -120,6 +120,21 @@ for _module in list(sys.modules.values()):
         _module.connect = _fast_test_connect
 
 
+# Background owners (sidecar contexts, ingest hosts, post-attempt workers,
+# exam graders) that test code constructs are closed when the test ends
+# (tests/background_owners.py); production-built ones stay their owner's.
+from tests import background_owners as _background_owners  # noqa: E402
+
+_background_owners.install()
+
+
+@pytest.fixture(autouse=True)
+def close_test_background_owners():
+    start = _background_owners.mark()
+    yield
+    _background_owners.close_since(start)
+
+
 def pytest_addoption(parser):
     parser.addoption("--durable-sqlite", action="store_true", help="Use production SQLite durability for every selected test.")
 

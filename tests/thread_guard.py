@@ -85,6 +85,9 @@ _fixture_stack: list[object] = []
 _origins: dict[threading.Thread, _Origin] = {}
 _origins_lock = threading.Lock()
 _pending_failures: list[str] = []
+# Report mode: the leaked threads, so the session's end can say which kept
+# burning CPU after their test (a busy-polling loop) and which only idled.
+_reported: list[tuple[threading.Thread, str, str, float | None]] = []
 
 _real_start = threading.Thread.start
 
@@ -170,8 +173,9 @@ def _check(owned: list[tuple[threading.Thread, _Origin]], owner_label: str, item
     leaked = [(t, o) for t, o in candidates if t in alive]
     if not leaked:
         return
-    for _, origin in leaked:
+    for thread, origin in leaked:
         origin.reported = True
+        _reported.append((thread, item.nodeid, _creation_site(origin.stack), _thread_cpu_seconds(thread)))
     records = [
         {
             "name": thread.name,
@@ -273,3 +277,17 @@ def pytest_runtest_teardown(item, nextitem):
         _pending_failures.clear()
         pytest.fail(message, pytrace=False)
     return result
+
+
+def pytest_sessionfinish(session, exitstatus):
+    report_path = os.environ.get(REPORT_ENV)
+    if not report_path:
+        return
+    rows = []
+    for thread, nodeid, site, cpu_then in _reported:
+        cpu_now = _thread_cpu_seconds(thread) if thread.is_alive() else None
+        rows.append({"name": thread.name, "test": nodeid, "site": site, "alive": thread.is_alive(),
+                     "cpu_at_leak": cpu_then, "cpu_at_end": cpu_now})
+    with open(report_path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"session_end": True, "worker": os.environ.get("PYTEST_XDIST_WORKER"),
+                                 "alive_total": threading.active_count(), "leaked_threads": rows}) + "\n")
