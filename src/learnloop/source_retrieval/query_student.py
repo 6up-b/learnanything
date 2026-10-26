@@ -57,7 +57,6 @@ from learnloop.db.stores.retrieval_spaces import spaces as known_spaces
 from learnloop.local_embeddings import pins
 from learnloop.local_embeddings import student_decision as SD
 from learnloop.local_embeddings import student_pins as SP
-from learnloop.local_embeddings import worker as worker_module
 from learnloop.local_embeddings.cache import CacheUnreadable, VectorCache, cache_path
 from learnloop.local_embeddings.gpu_meter import GpuBudgetExceeded, GpuMeter
 from learnloop.local_embeddings.launcher import LocksBusy, ScopedLauncher, gpu_locks
@@ -744,6 +743,8 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
         return {**out, "status": "dry_run", "bank_questions": len(bank)}
     bases = bases_manifest(root) or {"bases": {}}
     record = bases["bases"].get(step["spec"]["base"])
+    if encoder_factory is None and record is None:
+        return {**out, "status": "not_set_up", "reason": f"the base {step['spec']['base']} is not recorded (rerun setup)"}
     if encoder_factory is None:
         def encoder_factory(digest: str) -> Any:
             return StudentEncoder(vault, space_id=space, checkpoint_sha=digest,
@@ -917,6 +918,3 @@ __all__ = ["E1_AGGREGATES", "SHARD_SIZE", "all_rows", "build_dataset", "choose",
            "documents", "effective_budgets", "evaluate", "install_checkpoint", "next_step", "p2_meter", "plan",
            "read_ledger", "revoke", "run_next", "run_targets", "setup_bases", "status", "targets_index",
            "teacher_quality", "teacher_vectors", "trainer_job"]
-
-# The worker module is the targets job's process; imported for its version pin in build_job.
-_ = worker_module

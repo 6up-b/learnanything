@@ -1,0 +1,132 @@
+# Local contextual retrieval P2: the 0.6B query student (stage `retrieval-lr-p2-query-student`)
+
+**Branch** `retrieval/lr-p2-query-student` (worktree `learnanything-lr1`), base `eaf9859ad`. **Spec** [spec_local_contextual_retrieval_v1](../specs/spec_local_contextual_retrieval_v1.md) §7.1, §7.2, §9.3, §10 P2, Q8, **Q9 as amended by the owner on 2026-10-26**. **No migration, no algorithm successor** (spec §4.5: a lookup is not an exposure; nothing here changes scoring, scheduling, projection, grading or serving of items). No real generation, no plan call, no teacher run and no real training was made in this stage; the only GPU process was the tiny random-initialised smoke test (below).
+
+## The owner decision recorded (Q9, 2026-10-26)
+
+"For P2, I think the distilled model should be 0.6b since that seems to be the small model for perplexity retrieval with a 9B parent model." Recorded in the spec's status line, §3.1, §7.1 (goal, candidate table, training budget, serving size) and the Q9 row:
+
+* **Primary base** `perplexity-ai/pplx-embed-v1-0.6b` (Perplexity v1 lineage, bidirectional, mean pooling, no instruction prefix, MIT), pinned at revision `2c4d510dd4a732063c31a0f70193e35067b51fd8`.
+* **Second (only other) screen arm** `Qwen/Qwen3-Embedding-0.6B` (last-token pooling, its own query instruction, Apache-2.0), pinned at `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`.
+* **Dropped** `Qwen/Qwen3.5-0.8B-Base` (never downloaded, never screened; `student_pins.DROPPED_BASES`).
+* `pplx-embed-v2-late-0.6b` is **not** a drop-in: it shares a space only with `pplx-embed-v2-late-9b`, a ColBERT multi-vector space (128-d per token, MaxSim), not our `context-9b` single-vector space. Successor S-b (a Perplexity small model in the v2 *context* space) stays as written.
+
+**The two bases were downloaded** (allowed by the brief: public, ungated) into the HF cache at their pinned revisions, the ONNX exports and assets excluded: `~/.cache/huggingface/hub/models--perplexity-ai--pplx-embed-v1-0.6b/snapshots/2c4d510d…` (2.38 GB FP32 weights) and `~/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B/snapshots/97b0c614…` (1.19 GB BF16). Every file's size and SHA-256 is pinned in `local_embeddings/student_pins.py`. pplx's two remote-code files were **read**: `configuration.py` subclasses `Qwen3Config`; `modeling.py` subclasses `Qwen3Model` and turns causal masking off (bidirectional), nothing else. Its `st_quantize.py` (a sentence-transformers int8/binary quantizer module) is never imported and is pinned as `inert_python`; any other `.py` in a base directory is refused.
+
+**The 9B teacher** is complete in the HF cache at the pinned revision (`…/models--perplexity-ai--pplx-embed-v2-context-9b-preview/snapshots/e2c06a779d45e8db53066735be1b98ffe3412ca3` = `pins.MODEL_REVISION`). It was not opened or modified; it is reached only through P1a's setup (`--adopt-model-dir`, which verifies without moving) and the worker. *Note on the owner's message:* it says the model was downloaded "to the learnanything directory"; the only copy found is the HF cache one above (the main checkout holds no model directory). The commands below adopt the HF cache path; if the owner put another copy elsewhere, adopt that path instead (setup verifies every file either way).
+
+## What landed
+
+| Piece | What | Where |
+|---|---|---|
+| Pins | The two 0.6B bases (repo, revision, every file's size and SHA-256, reviewed remote code, pooling, query prefix, licence); the student's identity (2048-d FP32 output, BF16 serving, query method); the recipes in spec order; the nested budgets 2k/10k/50k; leakage guards; the P2 GPU budget (6 h) and the memory floors and scopes; optimizer settings labelled numerical with their basis | `local_embeddings/student_pins.py` |
+| Decision core | Functional core, numpy only. `U(a) = q + b − λm − μ·p_late − ν·h` over posterior draws; `argmax E[U]`, `P(best)` and the expected loss of acting now (§9.1). Bank posterior: per-arm family rates partially pooled by empirical Bayes, unknown labels imputed (latent), soft labels accepted (the interface a Dawid–Skene label model feeds). `λ` and `ν` learned from owner choices (Bayesian logistic choice model on a log grid), seeded from recorded owner decisions. The cold-start wait `P(in time) > 1/(1+w)` (no constant of its own). The learning-curve continuation rule | `local_embeddings/student_decision.py` |
+| Synthetic questions (Q8) | Passages of consecutive **teaching**-class blocks (the window rule's policy classes: no exam, held-out, solution or assessment-lane block), the bank's gold supports left out of every passage; 8–12 questions per passage across `find_sources`' five intents and five shapes (plain, deictic with the selection carried as the Reader sends it, definition and theorem lookups, no-shared-vocabulary paraphrases); 5-gram leakage guard; family = source, one held-out family per vault (unseen-source test), a passage-disjoint tenth of the rest is development; stable ranks make the budgets nested; resumable by passage; protection re-read before every call; receipts in the vault (`retrieval_query_generation`) | `source_retrieval/student_data.py` |
+| Generator route | New task `retrieval_query_generator`, code default **`chatgpt_luna`** (GPT-6 Luna on the plan) under T1's tier table (`codex_luna` in the legacy table). Runs under `plan_fallback.quiet()` (no offer, no grant) unless the command itself carries the owner's grant (`LEARNLOOP_AI_FALLBACK=openrouter`); a plan that cannot serve is reported with that instruction. A metered route needs `source_retrieval.llm_price_per_million` (in `METERED_PRICE_SETTINGS`, so no offer is made while it is unset) and is capped at `embedding.local.student_generator_max_cost_usd` ($5, keep) | `ai/routing.py`, `config/schema.py`, `ai/plan_fallback.py` |
+| Teacher targets | ONE 9B worker batch in query mode (`encode_queries`, `[Q]`, mean pool) for every question and every bank question, written as **int8 `.npy` shards** by a new worker path (a 50k × 2048 JSON would be ~0.5 GB of Python ints in the app); finished shards survive an abort and only the rest is re-sent. Under the GPU lock and the full-suite lock, in the worker's 12G scope, on the **capped P2 meter** (6 GPU-hours). Canaries checked against the space's stored ones and the software epoch against setup's before anything is kept. The **teacher-cosine leakage guard** (≥ 0.90 to any bank question drops the synthetic one) runs here. Teacher and student are separate processes, one at a time, by the lock | `source_retrieval/query_student.py` (`run_targets`), `local_embeddings/worker.py` (`encode_query_shards`) |
+| Trainer | One run, one recipe, one seed, then exit; in the separate env by path, the 9B worker's 12G scope and floors, network blocked, sampler and aborts reused. The student: the base with its own pooling and prefix, plus `Linear(hidden → 2048)` in FP32, L2-normalized FP32 output (never int8). Recipes in spec order: `projection_only` (base frozen), `align` (1 − cos), `align_kd` (+ KL over the teacher's top-50), `align_kd_mp` (+ multi-positive contrastive over every required support; negatives are the teacher's top-50 from training families, gold supports never present). Terms summed unweighted (any weight would be a made-up constant; the recipe itself is chosen by EU). The temperature is structural: the median spread of the teacher's own top-k scores on development. Diagnostics (never gates): median cos to the teacher, teacher top-10 agreement over the whole index, latency on the device and on the CPU, canary vectors per device class. The checkpoint (`student.safetensors` + `student.json`) is pinned by SHA-256 and moved under the space | `local_embeddings/student_trainer.py`, `query_student.install_checkpoint` |
+| Schedule | `next_step` (pure): the screen (`projection_only` and `align` on pplx, `align` on Qwen3-Embedding at the screen budget) → base chosen by EU; recipes (`align_kd`, `align_kd_mp`) → recipe chosen by EU; the learning curve (small budget, then the large one only when its expected quality gain beats `ν × GPU-hours` inside the cap); the remaining seeds (≥ 3); then evaluate. A failed run blocks the schedule with its reason (it is charged; nothing retries silently). Every run is resumable and recorded in `p2-ledger.json`; its data files (book text, teacher vectors) are deleted after the run | `query_student.next_step`, `run_next` |
+| Evaluation and adoption (§9.3) | The candidate through the **real query process** on the bank, beside the teacher's bank vectors, per stratum (all, deictic, logged, unseen family): `P(student ≥ teacher)` and the difference's 90% interval. **Adopted** when `E[U(student)] ≥ E[U(each alternative)]`: the alternatives are what serves without a student (per-question outcomes the owner supplies with `--arm`, else E1's committed aggregates for Qwen R1 and Voyage R5, unpaired so wider); `μ` from a supplied keyword arm, else its upper bound; money from the vault's query receipts; lateness from measured latencies and cold starts. The adoption record holds the decision; `revoke` withdraws it | `query_student.evaluate`, `revoke` |
+| Query process | `systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0`, started lazily by the first local query; JSON lines over a 0600 Unix socket in `$XDG_RUNTIME_DIR`; inet blocked; refuses outside a ≤ 4 GiB scope or under MemAvailable 6 GiB; GPU when ≥ 4 GiB VRAM is free and the GPU lock is free (it never takes the lock), else CPU; BF16; checkpoint files and digest verified, canary queries at start (cos ≥ 0.999 to the stored vectors of its device class) or it exits `canary_failed`; idle exit after `embedding.local.student_idle_minutes` (20, keep), immediate exit under the host floor. The app never imports torch | `local_embeddings/student_server.py`, `source_retrieval/student_encoder.py` |
+| The resolver | `spaces.LOCAL_QUERY_ENCODER` is now the **adopted** student (else None: P1's `encoder_unavailable`). A cold student is started in the background; the query waits only when `P(in time) > 1/(1+w)` on the measured start times (`w` the local lists' seed weight share), else the local space is `encoder_late` for this query and the others serve. The list key carries the student's encoder id, so its fusion weight is learned like any list (§9.2) | `source_retrieval/spaces.py` |
+| Nightly teacher replay (§9.3) | Every query the adopted student answers for a logged search is queued in `<vault>/.learnloop/student-replay.sqlite` (learner text stays local, outside `state.sqlite`, like the vector cache). The next index batch, which loads the 9B anyway, re-encodes the waiting queries (≤ 2,000, keep: GPU budget) and stores the teacher's and the student's top 10; a replay-only batch at most once a day. `replay_report` gives the agreement and the signalled spans each list held (biased toward the delivered student list: a lower bound on the teacher's advantage) | `student_encoder` (queue, report), `local_index` (`replay_sample`, `store_replay`) |
+| CLI | `learnloop embeddings local student {setup, plan, generate, targets, train, evaluate, revoke, status}`, every one with a dry run or read-only | `cli/embeddings.py` |
+
+**Config** (`[embedding.local]`, modelled defaults): `student = true` (the kill switch; acts only once a checkpoint is adopted), `teacher_replay = true`, `student_idle_minutes = 20` (keep), `student_generator_max_cost_usd = 5.0` (keep); route `ai.routing.retrieval_query_generator` (unset: `chatgpt_luna`). All 24 defaults snapshots moved only because the effective config gained these keys and the route (recomputed by `defaults_fingerprint_for_version`); the decision-only template is unchanged.
+
+## Kill switches and byte-identity
+
+* `embedding.local.enabled = false` (default): nothing of P2 is reached; retrieval is P1's (and today's).
+* `embedding.local.student = false`: no encoder (P1's `encoder_unavailable`), no process, no replay queue.
+* No adoption record: the same. `learnloop embeddings local student revoke` removes it.
+* `embedding.local.teacher_replay = false`: the student serves but nothing is queued and no replay is added to an index batch.
+* With the default left at Qwen the student's seed weight is 0: a cold student is never waited for (it starts in the background for the next query) and Qwen's list serves exactly as before.
+
+## No made-up constants (owner, 2026-10-24)
+
+Every decision is expected utility over posterior draws; nothing is a margin. Priors and their basis are in `student_decision.PRIOR_BASIS`: family pooling (empirical Bayes), Jeffreys priors on lateness and agreement, the KT estimate of in-time starts, `λ` (log-normal at the rates the owner's recorded budget decisions imply: E0 $25 → $40, E1 $5, each for the 5-point stake it tested), `ν` (μ over the 6-hour P2 budget: the owner allotted at most 6 GPU-hours for all the quality a dense query encoder can bring; weak, by analogy), `μ` (bank R1 − R0 when supplied, else its upper bound), `b_local` = 0 (local was already optimal at an even posterior because it is cheaper), the learning curve (log-linear: errs toward training more), the dev quality (the teacher's bank quality times the agreement). Everything fixed is `keep` (identities, budgets, floors, leakage guards, provider-prompt sizes) or `numerical` (optimizer rates with their published basis, computation budgets) and is classified in `params/parameter_registry.py` (41 module constants, 2 config keys).
+
+## Commands for the owner (none was run here)
+
+Every Python command outside pytest should run under `env -i` with an empty HOME only when testing; the real commands below are the owner's, in a normal shell, on the owner's vaults (outside the checkout since S0) or on backup-API copies. Dry run first, every time.
+
+```bash
+# 0. P1a setup, adopting the teacher already in the HF cache (verified, never moved):
+uv run learnloop embeddings local setup --dry-run
+uv run learnloop embeddings local setup \
+  --adopt-model-dir ~/.cache/huggingface/hub/models--perplexity-ai--pplx-embed-v2-context-9b-preview/snapshots/e2c06a779d45e8db53066735be1b98ffe3412ca3
+#   (without --adopt-env-python this creates the separate env: Python 3.12, torch 2.14.0, transformers 5.18.0)
+# 1. Index each vault (set embedding.local.enabled = true in its learnloop.toml first):
+uv run learnloop embeddings local index --vault <vault> --dry-run
+uv run learnloop embeddings local index --vault <vault> --now
+# 2. The two student bases, adopted from the HF cache (or omit --adopt-base to download them):
+uv run learnloop embeddings local student setup --dry-run
+uv run learnloop embeddings local student setup \
+  --adopt-base pplx-embed-v1-0.6b=$HOME/.cache/huggingface/hub/models--perplexity-ai--pplx-embed-v1-0.6b/snapshots/2c4d510dd4a732063c31a0f70193e35067b51fd8 \
+  --adopt-base qwen3-embedding-0.6b=$HOME/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B/snapshots/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+# 3. The whole plan (no call, no GPU): questions reachable, plan calls, GPU-hours.
+uv run learnloop embeddings local student plan --vault <vault> --bank <private E0/E1 bank JSON or JSONL>
+# 4. Generation on the plan (GPT-6 Luna, quiet). Plan down: it reports; to use OpenRouter instead
+#    (metered, <= $5, needs source_retrieval.llm_price_per_million) rerun with LEARNLOOP_AI_FALLBACK=openrouter.
+uv run learnloop embeddings local student generate --vault <vault> --bank <bank> --dry-run
+uv run learnloop embeddings local student generate --vault <vault> --bank <bank>
+# 5. Teacher targets (one 9B batch per run, on the P2 meter):
+uv run learnloop embeddings local student targets --vault <vault> --bank <bank> --dry-run
+uv run learnloop embeddings local student targets --vault <vault> --bank <bank>
+# 6. Train: rerun until it answers "evaluate" (each call is ONE run; --dry-run shows the next).
+uv run learnloop embeddings local student train --vault <vault> --bank <bank> --dry-run
+uv run learnloop embeddings local student train --vault <vault> --bank <bank>
+# 7. Evaluate and adopt by expected utility (optionally supply per-question outcomes of the alternatives):
+uv run learnloop embeddings local student evaluate --vault <vault> --bank <bank> [--arm qwen=FILE --arm voyage=FILE --arm keyword=FILE]
+uv run learnloop embeddings local student status --vault <vault>
+```
+
+The bank is the private E0/E1 bank file (its `private()` rows: `query_id`, `question`, `selected_passage`, `family`, `vault`, `origin`, `evidence_sets[].required`, `answer_spans`), read by key; it never enters a prompt or a loss. Without it, `generate`, `targets` and `train` refuse.
+
+### Dry-run plan: time, GPU and plan-call estimates
+
+These are estimates (labelled; the first real run's charged time replaces them). `student plan` prints them for the actual library.
+
+| Step | Per 4,000-block book (≈ 1M recipe tokens) | Basis |
+|---|---|---|
+| Passages | ≈ 1,600 (≤ 600 estimated tokens of teaching text each) | the window rule's token estimate |
+| Questions | ≈ 16,000 (8–12 per passage; ≈ 10% development, one source per vault held out) | spec §7.1 |
+| Plan calls | ≈ 400 (4 passages a call), ≈ 7.5k tokens each on the plan's quota ($0 billed; `estimated_only`) | prompt + schema + 4k output budget |
+| Plan wall time | ≈ 1.1–3.3 h a book, serial | 10–30 s a call (to be measured) |
+| Teacher targets | 50k questions + the bank: ≈ 15 min GPU + the 25 s load, one batch | E1: 18 ms a query, BF16, resident |
+| Screen (3 runs at 10k) | ≈ 1.5–2 min GPU each (471 steps) plus load | ≈ 0.15 s a 64-query step for a 0.6B forward+backward (unmeasured) |
+| Recipes (2 runs at 10k) | ≈ 2–3 min each | KD adds the 50-document einsum |
+| Learning curve (2k, then 50k only if worth it) | ≈ 1 min; ≈ 7–9 min | 2,344 steps at 50k |
+| Seeds (2 more at the final budget) | ≈ 15–18 min at 50k | |
+| **P2 total** | **≈ 0.9–1.2 GPU-hours** (cap 6, keep) | the P2 meter refuses a run with < 15 min left |
+
+Memory: training uses the 9B worker's 12G scope and floors (MemAvailable ≥ 14 GiB, free VRAM ≥ 22 GiB, the workload rule); a full 0.6B fine-tune with FP32 master weights and AdamW is ≈ 9.5 GB on the device. The query process is 4G, BF16 ≈ 1.2 GB.
+
+**Reachable budgets depend on the library.** The E0/E1 copies held 3 + 4 sources (≈ 700 blocks); at that size the 10k and 50k budgets collapse to what exists (the schedule uses the effective budgets: a budget above the data is the data), so the learning curve may have one point. More books, or the deferred logged Reader queries (spec §7.1 item 3), raise it.
+
+## Calls and cost
+
+* **Downloads:** the two 0.6B bases (public, ungated; ≈ 3.6 GB in total, ONNX and assets excluded) into the HF cache, at their pinned revisions, by `hf download`. The HF model API (public metadata) was read to find the revisions.
+* **GPU:** one process: `tests/test_query_student_gpu.py`, a tiny random-initialised Qwen3 (2 layers, 32-d) trained 8 steps under the exclusive GPU lock (taken non-blocking), after checking MemAvailable ≥ 6 GiB and free VRAM ≥ 4 GiB: 94 MiB peak reserved, ≈ 16 s.
+* **Paid or model calls:** none. No plan call, no OpenRouter call, no teacher load, no real training. Every Python run outside pytest used `env -i` with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR.
+
+## Deviations from the spec, and why
+
+1. **The bank posterior is a simplified P0.** P0's full model (Dawid–Skene label noise from the two blinded passes and the adjudications, MCMC) is still owed (P1 open question 2). Here: per-arm family-pooled Beta posteriors with latent unknowns and soft labels (the interface a label-noise model feeds); paired structure unused (conservative for differences). The adoption rule itself is the spec's.
+2. **Alternatives default to E1's committed aggregates** when the owner supplies no per-question outcomes (`--arm`); unpaired, so wider. A teacher-session alternative (P1c) is not an action: P1c is not built.
+3. **The cold-start share uses the seed weights**, not a learned draw: with learned fusion on, a cold student whose seed share is 0 is still not waited for (conservative; it starts in the background).
+4. **Real logged queries are not added to training** (spec §7.1 item 3, "can be added"): only the replay queue holds them, for evaluation.
+5. **Replay sample size.** Every waiting query up to the keep cap is replayed: at 18 ms a query on an already loaded model the marginal cost is below any VOI threshold the rule could weigh; the VOI rule itself is P0's.
+6. **No unseen-subject hold-out**: holding out one of two vaults halves the training data (open question 3).
+7. **The trainer's tests need torch**, which the app environment has only with the `pdf` extra: under the gate's `uv sync --extra dev --extra mobile` the seven trainer tests skip and say so; they were run with the `pdf` extra (below).
+
+## Open questions for the owner
+
+1. Your message says the model was downloaded "to the learnanything directory"; the teacher found is in the HF cache (complete, pinned revision). Use that path for `setup --adopt-model-dir`, or name the other copy?
+2. The bank file: which private E0/E1 bank file (under the E0/E1 `fixtures-local/` plan directories) should `--bank` name? It must carry the evidence sets.
+3. Unseen-subject test: hold out a whole vault (halves the data) or keep the per-vault unseen-source hold-out only (built)?
+4. P0's label-noise bank posterior: a separate stage before P2's evaluation, or accept this simplified posterior for the first adoption?
+
+## Gate (this step; the full suite runs once in the landing gate)
+
+GATE_TABLE_PLACEHOLDER

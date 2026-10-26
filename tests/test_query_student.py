@@ -600,3 +600,28 @@ def test_the_whole_p2_dry_run_starts_nothing_and_estimates_time_gpu_and_plan_cal
     assert out["plan_calls"] >= 1 and out["gpu_hours_estimate_total"] < SP.P2_GPU_HOURS_CAP
     assert out["training_runs"][0]["recipe"] == "projection_only" and out["targets"]["gpu_minutes_estimate"] > 0
     assert Q.status(loaded(paths), repository)["adopted"] is None
+
+
+def test_a_student_that_misses_the_time_box_is_late_and_the_others_serve(tmp_path, monkeypatch):
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from learnloop.source_retrieval.recipes import SOURCE_RETRIEVAL_RECIPES
+
+    paths, repository, root, model, report = student_vault(
+        tmp_path, extra='\n[embedding.source_space]\ndefault = "local:grouped"\n')
+    caps = SpendCaps(max_candidates=10_000, max_pairs=0, max_calls=100, max_total_tokens=10**8, max_estimated_usd=10.0)
+    assert backfill_embeddings(loaded(paths), caps=caps, recipes=("source_block",), registry=SOURCE_RETRIEVAL_RECIPES,
+                               client_factory=HashingEmbedder)["status"] == "complete"
+
+    class Late:
+        encoder_id = "qe_late"
+        accepts_receipt = True
+
+        def encode(self, texts, *, deadline=None, receipt_id=None):
+            raise TimeoutError("the query student did not start within the time box")
+
+    monkeypatch.setattr(spaces, "LOCAL_QUERY_ENCODER", lambda _vault: Late())
+    selection = _search(paths, repository).space_selection
+    assert selection["spaces"]["local:grouped"]["status"] == "encoder_late"
+    assert selection["spaces"]["local:grouped"]["query"]["status"] == "encoder_late"
+    assert "qwen" in selection["contributing"]  # the extractions the late student held are reassigned

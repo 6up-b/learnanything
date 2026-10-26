@@ -495,6 +495,11 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
         try:
             encoded = _encode(encoder, [texts[key] for key in keys], deadline=deadline,
                               receipt_id=resolution.receipt_id)
+        except TimeoutError:
+            # A starting student that did not answer within the time box (spec §5.1 item 3).
+            state.query = {"status": "encoder_late", "paid": False}
+            state.status, state.reason = "encoder_late", "the local query encoder did not answer within the time box"
+            return {}
         except Exception as exc:  # noqa: BLE001 - an encoder failure is a reason, never a failed search
             state.query = {"status": "encoder_failed", "error_type": type(exc).__name__, "paid": False}
             return {}

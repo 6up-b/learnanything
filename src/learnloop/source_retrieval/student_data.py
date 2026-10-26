@@ -169,12 +169,17 @@ def ngram_overlap(query: str, bank_grams: Sequence[set[tuple[str, ...]]]) -> flo
 
 
 # -- passages (permitted text only) -------------------------------------------------------------
-def passages(vault: LoadedVault, repository: Repository, *, excluded: set[tuple[str, str]]) -> list[dict[str, Any]]:
+def passages(vault: LoadedVault, repository: Repository, *, excluded: set[tuple[str, str]],
+             extraction_ids: Iterable[str] | None = None) -> list[dict[str, Any]]:
     """Consecutive teaching blocks of one section, at most PASSAGE_TOKENS estimated tokens each,
-    with the bank's gold supports left out (the passage then ends at the gap)."""
+    with the bank's gold supports left out (the passage then ends at the gap). ``extraction_ids``
+    limits the read (the per-call protection check reads only the batch's sources)."""
 
     found = []
+    wanted = None if extraction_ids is None else set(extraction_ids)
     for extraction_id, extraction in sorted(current_extractions(repository).items()):
+        if wanted is not None and extraction_id not in wanted:
+            continue
         windows = extraction_windows(vault, repository, extraction_id, "singleton")
         current: list[dict[str, Any]] = []
         section: tuple[str, ...] | None = None
@@ -440,7 +445,8 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
                 status = "cancelled"
                 break
             # Protection read again: a block held out since the run began never reaches the model.
-            allowed = {passage["key"] for passage in passages(vault, repository, excluded=excluded)}
+            allowed = {passage["key"] for passage in passages(
+                vault, repository, excluded=excluded, extraction_ids={p["extraction_id"] for p in batch})}
             batch = [passage for passage in batch if passage["key"] in allowed]
             if not batch:
                 continue
