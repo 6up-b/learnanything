@@ -20,6 +20,7 @@ that the switch, or a version below the tag, keeps the predecessor exactly.
 from __future__ import annotations
 
 from datetime import timedelta
+import re
 import sqlite3
 
 import pytest
@@ -425,6 +426,18 @@ def test_off_is_the_predecessor_on_a_tracked_fixture_copy(tmp_path):
     assert rows["on"] != rows["base"]  # the fixes move the claimed LOs only
 
 
+def _switch_off_in_place(root):
+    """The kill switch on a real vault's config, whose [mastery] table already exists (the landing's owner lane)."""
+
+    path = root / "learnloop.toml"
+    text = path.read_text(encoding="utf-8")
+    if re.search(r"(?m)^\[mastery\]\s*$", text) is None:
+        append_config_toml(root, OFF)
+        return
+    path.write_text(re.sub(r"(?m)^\[mastery\]\s*$", "[mastery]\nclaim_fixes_enabled = false", text, count=1), encoding="utf-8")
+    assert load_vault(root).config.mastery.claim_fixes_enabled is False
+
+
 @pytest.mark.parametrize("fixture", working_vault_params())
 def test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas(tmp_path, fixture, capsys):
     """Owner lane (backup-API copies only): parity off, and the deltas on, printed for the stage record."""
@@ -437,7 +450,7 @@ def test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas(t
         copy_tree_with_databases(owner_vault(fixture), root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)
         if toml:
-            append_config_toml(root, toml)
+            _switch_off_in_place(root)
         repository = open_vault_repository(root, root / "state.sqlite")
         vault = load_vault(root)
         rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW))
