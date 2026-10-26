@@ -882,6 +882,10 @@ measurement). K6 maps onto `hints_used` with its existing meaning and needs none
 (`docs/reviews/reader-ca2-one-ask-codex-review.md`): K9's leak control and take step are built (an Ask answer that
 would give the answer away is withheld and offers rungs 4/5 through the host's ladder); H4's strategy routing is
 not built yet (H4's checkpoint), nor the separate bridge voice of K11 or a dollar envelope for a metered tutor route.
+After the re-review: a withheld answer's text is never stored (the row keeps its take step and a digest), so no
+read, note, promotion or queue can show it; an earlier attempt's help opened on the answer box moves onto the
+workbench when the draft moves into steps (its carried hints); and a question a workbench binds counts in the
+item's window whatever its practice session, as a bound Reader question does (`hint_window.workbench_bound`).
 
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
