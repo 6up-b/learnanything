@@ -444,3 +444,23 @@ def test_f9_the_grounding_cap_is_registered_and_audited():
     assert "figure_admission:GROUNDING_PASSAGES" in PR.module_numeric_constants()
     spec = PR.REGISTRY["figure_admission:GROUNDING_PASSAGES"]
     assert spec.kind == "structural" and spec.rationale.startswith("keep:")
+
+
+# ---------------------------------------------------------------------------
+# F8 (server side): a cited passage names its source, so its chip can open it
+# ---------------------------------------------------------------------------
+
+def test_f8_every_cited_passage_names_its_source(tmp_path, monkeypatch):
+    from tests.test_figures_show_me import _tutor_ask
+
+    paths, _repository = _vault(tmp_path)
+    ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative")]), find=FindFake([("ext_book", "s2")]))
+    retrieved = show_me(ctx)["figure"]
+    assert [(p["sourceId"], p["sourceTitle"]) for p in retrieved["passages"]] == [("src_book", "Book ext_book")]
+    # A tutor goal's cited passages (fixed keys, no retrieval hit to copy from).
+    goal = "vary p and watch the mass left of zero follow it"
+    _paths, _repo, tutor_ctx, *_rest, answer = _tutor_ask(tmp_path / "tutor", monkeypatch, figure_goal=goal)
+    figure = build(tutor_ctx, {"origin": "tutor", "goalText": goal, "offerRef": answer["eventId"],
+                               "readingAt": {"extractionId": EXTRACTION, "spanId": "p6"}}, rpc="figure.request")["figure"]
+    assert [(p["extractionId"], p["sourceId"], p["sourceTitle"]) for p in figure["passages"]] == [
+        (EXTRACTION, "src_prob", "Introduction to Probability")]

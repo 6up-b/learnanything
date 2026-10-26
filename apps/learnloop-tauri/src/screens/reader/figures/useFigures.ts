@@ -119,13 +119,25 @@ export function useFigures({
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")
       && JSON.stringify(item.region) === JSON.stringify(figure.region)
       && (item.goalText ?? null) === (figure.goalText ?? null) && item.anchorSpanId === figure.anchorSpanId;
-    setFigures((list) => [
-      // A new version replaces the one it supersedes; a new build replaces an
-      // earlier failed or unsupported line for the same request.
-      ...list.filter((item) => item.figureId !== figure.figureId && item.figureId !== figure.supersedesId
-        && !(sameRequest(item) && (item.verification === "failed" || item.verification === "unsupported"))),
-      figure,
-    ]);
+    setFigures((list) => {
+      // RW5d (Codex review F3): a figure with no passage may be placed under
+      // several paragraphs (the same goal asked at each); a placement is the
+      // figure and its anchor. A new version takes every placement of the one
+      // it supersedes; a reuse adds this placement and keeps the others.
+      const goalOnly = figure.spanIds.length === 0 && figure.region === null;
+      const anchors = goalOnly
+        ? [...new Set([figure.anchorSpanId, ...list.filter((item) => item.figureId === figure.supersedesId).map((item) => item.anchorSpanId)])]
+        : [figure.anchorSpanId];
+      const placed = anchors.map((anchorSpanId) => (anchorSpanId === figure.anchorSpanId ? figure : { ...figure, anchorSpanId }));
+      return [
+        // A new version replaces the one it supersedes; a new build replaces an
+        // earlier failed or unsupported line for the same request.
+        ...list.filter((item) => !(item.figureId === figure.figureId && (!goalOnly || anchors.includes(item.anchorSpanId)))
+          && item.figureId !== figure.supersedesId
+          && !(sameRequest(item) && (item.verification === "failed" || item.verification === "unsupported"))),
+        ...placed,
+      ];
+    });
   }, []);
 
   const run = useCallback(

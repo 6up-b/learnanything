@@ -97,7 +97,7 @@ import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard"
 import { FiguresUnder } from "./reader/figures/FigureInline";
 import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
 import type { ShowMeLine } from "./reader/figures/showMe";
-import type { FigureViewDto } from "../api/dto";
+import type { FigurePassageDto, FigureViewDto } from "../api/dto";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
@@ -3388,7 +3388,21 @@ export function ReaderScreen({
               onShowMe: () => showMeFromAsk(),
               onOpen: (figure: FigureViewDto) => {
                 figuresCtl.setExpanded(figure.figureId);
-                if (figure.anchorSpanId) jumpToSpan(figure.anchorSpanId);
+                // The learner pressed, so the jump is theirs, with a crumb
+                // ("back to where I was") when they had scrolled away (spec
+                // §6.2; Codex review F8): the return stack's peek.
+                if (figure.anchorSpanId) peekPassage(figure.anchorSpanId);
+              },
+              // A cited passage peeks in this book, or opens its book as a
+              // detour (RW1c's citations, as the tutor's onOpenPassage does).
+              onPeekPassage: offline ? null : (passage: FigurePassageDto) => {
+                if (render && passage.extractionId === render.extractionId) {
+                  peekPassage(passage.spanId);
+                  return;
+                }
+                if (passage.sourceId) {
+                  void openLibraryHit({ sourceId: passage.sourceId, spanId: passage.spanId, extractionId: passage.extractionId });
+                }
               },
               onDismiss: (key: string) => setShowMeLines((lines) => lines.filter((line) => line.key !== key)),
             } : null}

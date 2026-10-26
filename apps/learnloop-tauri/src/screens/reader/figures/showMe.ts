@@ -6,7 +6,7 @@
 // else the selection, else the reading position); the thread keeps one line
 // per request that says where it came from and opens it there. Nothing here
 // moves focus or starts anything on its own (W12): "open" is the learner's press.
-import type { FigureViewDto } from "../../../api/dto";
+import type { FigurePassageDto, FigureViewDto } from "../../../api/dto";
 
 export const SHOW_ME_COPY = {
   send: "show me ▸",
@@ -31,12 +31,16 @@ export interface ShowMeLine {
   figure: FigureViewDto | null;
 }
 
+/** One cited passage's chip text (`§ title section`, else its span). */
+export function passageChip(passage: FigurePassageDto): string {
+  return `§ ${[passage.sourceTitle, passage.section].filter(Boolean).join(" ") || passage.spanId}`;
+}
+
 /** Where a landed figure's line says it came from (code-written, from the closed grounding value). */
 export function showMeSourceLine(figure: FigureViewDto): string {
   if (figure.grounding === "none") return SHOW_ME_COPY.notFromYourBooks;
   if (figure.grounding === "anchor") return SHOW_ME_COPY.fromYourSelection;
-  const passages = (figure.passages ?? []).map((passage) =>
-    `§ ${[passage.sourceTitle, passage.section].filter(Boolean).join(" ") || passage.spanId}`);
+  const passages = (figure.passages ?? []).map(passageChip);
   return passages.length ? `${SHOW_ME_COPY.fromYourBooks} ${passages.join(" · ")}` : SHOW_ME_COPY.fromYourBooks;
 }
 

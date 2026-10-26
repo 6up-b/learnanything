@@ -37,7 +37,7 @@ const { api, contract } = vi.hoisted(() => ({
 vi.mock("../../../api/client", () => ({ api }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn(), destroy: vi.fn() }) }));
 vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
-vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? contract.value : { sources: [source.card] }, error: null }) }));
+vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? contract.value : { sources: [source.card, OTHER_CARD] }, error: null }) }));
 vi.mock("../readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
 vi.mock("../guidePlan", () => ({ readGuidePlan: () => Promise.resolve({ sections: [] }), useGuideDiagnosisRefresh: () => undefined }));
 vi.mock("../useReaderRequests", () => ({
@@ -46,6 +46,7 @@ vi.mock("../useReaderRequests", () => ({
 }));
 vi.mock("../../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
 
+const OTHER_CARD = { sourceId: "src_other", title: "Axler", canonicalUri: "axler.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
 const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard, spanId: "span_spectral_worked" };
 const TUTOR = { retrieval: true, offers: true, anotherWay: true, personalizedDefault: true, tryNextStep: false, manifestIncludes: [] };
 const FIGURES = { predictions: true, region: true, revisions: true, offers: true, showMe: true };
@@ -208,4 +209,65 @@ it("the figure line quotes the goal in its author's voice and the badge is code-
   expect(container.querySelector("[data-figure-badge]")?.textContent).toBe(frameBadge("illustrative", "anchor"));
   expect(showMeSourceLine(figure({ grounding: "retrieved", passages: [{ extractionId: "e", spanId: "s", sourceTitle: "Axler", section: "§5.C" }] })))
     .toBe(`${SHOW_ME_COPY.fromYourBooks} § Axler §5.C`);
+});
+
+async function landShowMe(landed: FigureViewDto): Promise<void> {
+  api.figureRequest.mockResolvedValue({ jobId: "j1", kind: "figure_build", askId: null, state: "done", result: { figure: landed, reused: false } });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  select(block);
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "show how the mass moves" } });
+  fireEvent.click(screen.getByRole("button", { name: SHOW_ME_COPY.send }));
+  await waitFor(() => expect(document.querySelector("[data-show-me-line]")?.getAttribute("data-show-me-line")).toBe("landed"));
+}
+
+it("F8: open goes to the figure with a back-to-where-I-was crumb, and the crumb restores", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: FIGURES };
+  const away = view.blocks[0].spanId ?? "";
+  await landShowMe(figure({ anchorSpanId: away }));
+  expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: SHOW_ME_COPY.open }));
+  const crumbs = await screen.findByRole("navigation", { name: "Detour" });
+  const back = crumbs.querySelector('button[title="back to where I was"]') as HTMLButtonElement;
+  expect(back).toBeTruthy();
+  await waitFor(() => expect(document.querySelector('[data-figure="fig_1"] [aria-expanded="true"]')).toBeTruthy());
+  fireEvent.click(back);
+  await waitFor(() => expect(back.getAttribute("aria-current")).toBe("location"));
+});
+
+it("F8: the thread's cited passages are chips that peek here and open another book as a detour", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: FIGURES };
+  const here = view.blocks[0].spanId ?? "";
+  await landShowMe(figure({ grounding: "retrieved", passages: [
+    { extractionId: view.extractionId, spanId: here, sourceId: view.sourceId, sourceTitle: "Matrices", section: "§1" },
+    { extractionId: "ext_other", spanId: "o1", sourceId: "src_other", sourceTitle: "Axler", section: "§5.C" },
+  ] }));
+  const line = document.querySelector("[data-show-me-line]") as HTMLElement;
+  const chips = line.querySelectorAll("[data-show-me-passage]");
+  expect([...chips].map((chip) => chip.textContent)).toEqual(["§ Matrices §1", "§ Axler §5.C"]);
+  // This book: a peek, with its crumb back.
+  fireEvent.click(chips[0]);
+  expect(await screen.findByRole("navigation", { name: "Detour" })).toBeTruthy();
+  // Another book: it opens there.
+  api.readerRenderView.mockClear();
+  fireEvent.click(line.querySelector('[data-show-me-passage="ext_other:o1"]') as HTMLElement);
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith(expect.objectContaining({ extractionId: "src_other" })));
+});
+
+it("F3: a reused goal landing at a second paragraph keeps both placements", async () => {
+  const first = figure({ anchorSpanId: "a" });
+  const { result } = renderHook(() => useFigures({ extractionId: "ext", contract: { predictions: true, region: true, revisions: true, showMe: true } }));
+  api.figureRequest.mockResolvedValueOnce({ jobId: "j1", kind: "figure_build", askId: null, state: "done", result: { figure: first, reused: false } });
+  await act(async () => { await result.current.request({ spanIds: [], goalText: "g", origin: "show_me", readingAt: { spanId: "a" } }); });
+  api.figureRequest.mockResolvedValueOnce({ jobId: "j2", kind: "figure_build", askId: null, state: "done", result: { figure: { ...first, anchorSpanId: "b" }, reused: true } });
+  await act(async () => { await result.current.request({ spanIds: [], goalText: "g", origin: "show_me", readingAt: { spanId: "b" } }); });
+  expect(result.current.figures.map((item) => [item.figureId, item.anchorSpanId])).toEqual([["fig_1", "a"], ["fig_1", "b"]]);
+  expect(result.current.under("a").figures).toHaveLength(1);
+  expect(result.current.under("b").figures).toHaveLength(1);
+  // A new version takes every placement of the one it supersedes.
+  api.readerFigureRevise = vi.fn().mockResolvedValue({ jobId: "j3", kind: "figure_build", askId: null, state: "done",
+    result: { figure: { ...first, figureId: "fig_2", supersedesId: "fig_1", anchorSpanId: "a" }, reused: false } });
+  await act(async () => { result.current.revise(result.current.figures[1], "slower"); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  await waitFor(() => expect(result.current.figures.map((item) => [item.figureId, item.anchorSpanId])).toEqual([["fig_2", "a"], ["fig_2", "b"]]));
 });

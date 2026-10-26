@@ -12,8 +12,8 @@ import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "
 import { TutorAnswer, type TutorRailProps } from "./TutorAnswer";
 import { ANSWER_MODE_OPTIONS, answerModeLabel, clip, type ReaderSelection } from "./readerShared";
 import { LearnerQuote, LearnerVoice, MeaningLabel } from "./voices";
-import type { FigureViewDto } from "../../api/dto";
-import { isShowMeKey, SHOW_ME_COPY, showMeSourceLine, type ShowMeLine } from "./figures/showMe";
+import type { FigurePassageDto, FigureViewDto } from "../../api/dto";
+import { isShowMeKey, passageChip, SHOW_ME_COPY, showMeSourceLine, type ShowMeLine } from "./figures/showMe";
 import { frameBadge } from "./figures/FigureInline";
 
 export { ANSWER_MODE_OPTIONS, answerModeLabel };
@@ -75,7 +75,12 @@ export interface AskRailProps {
   showMe?: {
     lines: ShowMeLine[];
     onShowMe: () => void;
+    /** "open": expands the figure under its passage and goes there with a
+     *  "back to where I was" crumb (spec §6.2). */
     onOpen: (figure: FigureViewDto) => void;
+    /** A cited passage's `§` chip: peeks in this book, opens another as a detour
+     *  (RW1c's citations; Codex review F8). Absent: the chips are text. */
+    onPeekPassage?: ((passage: FigurePassageDto) => void) | null;
     onDismiss: (key: string) => void;
   } | null;
 }
@@ -98,7 +103,21 @@ function ShowMeThreadLine({ line, showMe }: { line: ShowMeLine; showMe: NonNulla
       ) : null}
       {line.state === "landed" && line.figure ? (
         <>
-          <span>{SHOW_ME_COPY.landed} · {showMeSourceLine(line.figure)} ·</span>
+          {line.figure.grounding === "retrieved" && (line.figure.passages ?? []).length && showMe.onPeekPassage ? (
+            // The cited passages are § chips that peek, as RW1c's citations do (spec §6.2).
+            <span>
+              {SHOW_ME_COPY.landed} · {SHOW_ME_COPY.fromYourBooks}{" "}
+              {(line.figure.passages ?? []).map((passage, index) => (
+                <span key={`${passage.extractionId}:${passage.spanId}`}>
+                  {index ? " · " : null}
+                  <button type="button" style={link} data-show-me-passage={`${passage.extractionId}:${passage.spanId}`}
+                    onClick={() => showMe.onPeekPassage?.(passage)}>{passageChip(passage)}</button>
+                </span>
+              ))}{" "}·
+            </span>
+          ) : (
+            <span>{SHOW_ME_COPY.landed} · {showMeSourceLine(line.figure)} ·</span>
+          )}
           <button type="button" style={link} onClick={() => line.figure && showMe.onOpen(line.figure)}>{SHOW_ME_COPY.open}</button>
         </>
       ) : null}

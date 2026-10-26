@@ -525,7 +525,34 @@ def _reading_learning_objects(vault: Any, repository: Repository, reading_at: Ma
 
 def _passage_ref(hit: Mapping[str, Any]) -> dict[str, Any]:
     return {"extraction_id": str(hit.get("extraction_id")), "span_id": str(hit.get("span_id")),
-            "source_title": hit.get("source_title"), "section": hit.get("section"), "page": hit.get("page")}
+            "source_id": hit.get("source_id"), "source_title": hit.get("source_title"), "section": hit.get("section"),
+            "page": hit.get("page")}
+
+
+def _with_sources(repository: Repository, passages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Each passage with its source's id and title (Codex review F8: the
+    Reader's citation chips peek in this book and open another as a detour,
+    which needs the source). Read from the stored extraction; a passage whose
+    source cannot be read keeps what it had."""
+
+    found: dict[str, tuple[str | None, str | None]] = {}
+    shown = []
+    for passage in passages:
+        extraction_id = str(passage.get("extraction_id") or "")
+        if extraction_id not in found:
+            source_id, title = None, None
+            try:
+                run = repository.get_extraction_run(extraction_id) or {}
+                revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+                source_id = revision.get("source_id")
+                title = (repository.get_source_artifact(str(source_id)) or {}).get("display_title") if source_id else None
+            except Exception:  # noqa: BLE001 - the chip only loses its detour
+                pass
+            found[extraction_id] = (source_id, title)
+        source_id, title = found[extraction_id]
+        shown.append({**passage, "source_id": passage.get("source_id") or source_id,
+                      "source_title": passage.get("source_title") or title})
+    return shown
 
 
 def ground(vault: Any, repository: Repository, request: FigureRequest, *, find: FindSources | None = None
@@ -550,7 +577,8 @@ def ground(vault: Any, repository: Repository, request: FigureRequest, *, find: 
                     "kept": [list(key) for key in kept] if mode == "retrieved" else []}
         if mode == "none":
             return Grounding("none", manifest=manifest)
-        return Grounding("retrieved", kept, [{"extraction_id": key[0], "span_id": key[1]} for key in kept], manifest)
+        return Grounding("retrieved", kept, _with_sources(repository, [{"extraction_id": key[0], "span_id": key[1]}
+                                                                      for key in kept]), manifest)
     caller = request.caller or CallerContext(kind="reader")
     query = request.goal_text or ""
     try:
@@ -580,7 +608,7 @@ def ground(vault: Any, repository: Repository, request: FigureRequest, *, find: 
     manifest["kept"] = [list(key) for key in kept]
     if not kept:
         return Grounding("none", manifest=manifest)
-    return Grounding("retrieved", kept, passages, manifest)
+    return Grounding("retrieved", kept, _with_sources(repository, passages), manifest)
 
 
 def _decode(render: str | None) -> tuple[str, bytes] | None:

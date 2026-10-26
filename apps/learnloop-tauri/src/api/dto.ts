@@ -9035,6 +9035,8 @@ export type FigureGrounding = "anchor" | "retrieved" | "none";
 export interface FigurePassageDto {
   extractionId: string;
   spanId: string;
+  /** The passage's source (Codex review F8: its chip opens another book as a detour). */
+  sourceId?: string | null;
   sourceTitle?: string | null;
   section?: string | null;
   page?: number | null;
