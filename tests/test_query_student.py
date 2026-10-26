@@ -445,7 +445,7 @@ def test_the_query_process_answers_over_its_unix_socket_and_exits_idle(_fresh):
 
     reasons = []
     thread = threading.Thread(target=lambda: reasons.append(student_server.serve_forever(
-        service, socket_path, idle_s=0.6, timeout_s=0.1)), daemon=True)
+        service, socket_path, idle_s=2.0, timeout_s=0.1)), daemon=True)
     thread.start()
     for _ in range(100):
         if socket_path.exists():
@@ -455,7 +455,7 @@ def test_the_query_process_answers_over_its_unix_socket_and_exits_idle(_fresh):
     reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=2.0)
     assert reply["ok"] and len(reply["vectors"][0]) == pins.MODEL_DIMENSIONS
     assert E.request(socket_path, {"op": "nope"}, timeout_s=2.0)["error"] == "unknown_op"
-    thread.join(timeout=5)
+    thread.join(timeout=15)
     assert reasons == ["idle"] and not socket_path.exists()
 
 

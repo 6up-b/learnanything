@@ -287,10 +287,14 @@ class StudentEncoder:
         self.home.mkdir(parents=True, exist_ok=True)
         os.chmod(self.home, 0o700)
         status = self.status()
-        if status.get("status") == "starting" and (self._alive(status) or (
-                status.get("pid") is None and self.clock() - float(status.get("requested_unix") or 0.0)
-                < SP.SOCKET_TIMEOUT_S)):
-            return False
+        if status.get("status") == "starting":
+            try:
+                starter = json.loads((self.home / "starter.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                starter = {}
+            fresh = self.clock() - float(status.get("requested_unix") or 0.0) < SP.SOCKET_TIMEOUT_S
+            if fresh or self._alive(starter):
+                return False
         with open(self.home / "start.lock", "a+") as handle:
             try:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -308,9 +312,13 @@ class StudentEncoder:
                 process = (self.spawn or _spawn)(server_command(self.env_python, job_path, unit=unit),
                                                  env=launch_environment(self.home / "home"),
                                                  log=self.home / "server.log")
-                if self.status().get("status") == "starting":
-                    self._write_status({"status": "starting", "pid": getattr(process, "pid", None),
-                                        "checkpoint_sha256": self.sha, "requested_unix": self._requested_at})
+                # The starter's pid goes beside the status, never into it: a process that is already
+                # "ready" is never overwritten (no read-then-write race on the status file).
+                starter = self.home / "starter.json"
+                temporary = starter.with_name(f".starter.json.{os.getpid()}.tmp")
+                temporary.write_text(json.dumps({"pid": getattr(process, "pid", None),
+                                                 "requested_unix": self._requested_at}), encoding="utf-8")
+                os.replace(temporary, starter)
             finally:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         return True
