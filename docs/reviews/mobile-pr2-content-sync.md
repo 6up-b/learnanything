@@ -119,7 +119,7 @@ All pytest runs inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p Me
   `test_ad_guard`, `test_probe_dialogue`.
 * Durability lane (`-m durability`, `-n 6`): `test_state_sync_scheduling_race`, `test_mobile_host_coexistence`,
   `test_secondary_attach`: **8 passed.**
-* Every test file that imports `state_sync` or calls `sync_vault_state` (137 files, `-n 6`): RESULT_PLACEHOLDER
+* Every test file that imports `state_sync` or calls `sync_vault_state` (137 files, `-n 6`, list from `git grep -l "sync_vault_state\|state_sync" -- 'tests/test_*.py'`): **2058 passed, 22 skipped, 2 xfailed** in 20 min 25 s, on the final code (only docs changed after it).
 * DB reference: `db_generate_reference.py` then `db_validate_reference.py`: **errors: []** (no schema change; run
   because the generated config notes cite `context.py` lines this change moved).
 * No frontend, Tauri or schema change, so no npm, vitest, cargo or migration fixture work.
