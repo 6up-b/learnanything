@@ -37,6 +37,21 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW5d P1 (migration 224, stage branch 2026-10-26)
+
+Renamed from `migration_head_222` on the `reader/rw5d-p1-show-me` stage branch.
+A backup-API copy of the sanitized head at 222 with only
+`224_figure_requests.sql` applied (`UPGRADE_SCRATCH_COPY`; 223 is reserved for
+Reader CA2, and the runner is set-based, so the gap is fine; both numbers are
+confirmed at landing), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API. It adds
+exactly 224's objects (`figure_requests`, its autoindex, two indexes and two
+triggers, and `idx_interactive_figures_request`) and rebuilds
+`interactive_figures` (its CHECKs widened, its new columns; it had no row);
+no other object changed and only `schema_migrations` gained a row. The
+sanitized content is unchanged (it was built from the tracked copy).
+
 ## Curriculum C0a (migration 222, landed 2026-10-25)
 
 Renamed from `migration_head_221` at C0a's landing onto main. A backup-API
@@ -53,11 +68,11 @@ built from the tracked copy). The C0a branch's own head (222 on 220, without
 ## History
 
 This is a copy of the small conic-sections vault upgraded through migration
-222, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+224, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
 landing, 220 on that one at local contextual retrieval P1's landing, 221 on
-that one on the LP-min (a) claim-fixes branch, and 222 on that one at
-curriculum C0a's landing). Migration 167 adds the learner-field F1 read model
+that one on the LP-min (a) claim-fixes branch, 222 on that one at
+curriculum C0a's landing, and 224 on that one on Reader RW5d P1's stage branch). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,

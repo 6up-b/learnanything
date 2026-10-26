@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "73d7d146740284eca0a5ff26ab53593429e7cc20"
+source_commit_timestamp: "2026-10-26T10:42:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 222
+schema_head: 224
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -62,7 +62,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | Column | SQLite type | Required | Default | Key | Operational reading |
 |---|---|---:|---|---|---|
 | `id` | `TEXT` | no | — | PRIMARY KEY | Stored value |
-| `extraction_id` | `TEXT` | yes | — | — | Application-validated soft reference |
+| `extraction_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `span_ids_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `region_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `asset_id` | `TEXT` | no | — | — | Application-validated soft reference |
@@ -80,15 +80,30 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `prompt_version` | `TEXT` | yes | — | — | Stored value |
 | `input_hash` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `request_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/figure_requests\|figure_requests.id]] | Stored value |
+| `goal_text` | `TEXT` | no | — | — | Stored value |
+| `grounding` | `TEXT` | yes | `'anchor'` | — | Stored value |
+| `input_span_keys_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
+| `tier` | `TEXT` | yes | `'grammar'` | — | Stored value |
+| `program_version` | `TEXT` | no | — | — | Stored value |
+| `engine_sha256` | `TEXT` | no | — | — | Stored value |
+| `runtime_digest` | `TEXT` | no | — | — | Stored value |
+| `instrumented_sha256` | `TEXT` | no | — | — | Stored value |
+| `media_file_name` | `TEXT` | no | — | — | Stored value |
+| `fuller_of_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/interactive_figures\|interactive_figures.id]] | Stored value |
+| `checks_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
 Declared SQLite foreign keys:
 
+- `fuller_of_id` → [[Reference/Database/Tables/interactive_figures|`interactive_figures.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
+- `request_id` → [[Reference/Database/Tables/figure_requests|`figure_requests.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
 - `supersedes_id` → [[Reference/Database/Tables/interactive_figures|`interactive_figures.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
 
 Indexes and uniqueness:
 
+- `idx_interactive_figures_request` on `request_id`.
 - `idx_interactive_figures_reuse` on `input_hash`, `spec_version` (unique).
 - `idx_interactive_figures_supersedes` on `supersedes_id`.
 - `idx_interactive_figures_input` on `input_hash`, `created_at`.
@@ -124,6 +139,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_figure_offers.py`
 - `tests/test_figure_region.py`
+- `tests/test_figure_requests_migration.py`
 - `tests/test_figure_revisions.py`
 - `tests/test_figure_verification.py`
 - `tests/test_figures_codex_review.py`
@@ -133,7 +149,9 @@ None found by exact static reference scan.
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
+- `tests/test_figures_show_me.py`
 - `tests/test_figures_switch_off.py`
+- `tests/test_section_coverage_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -150,20 +168,14 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE interactive_figures (
+CREATE TABLE "interactive_figures" (
   id TEXT PRIMARY KEY,
-  extraction_id TEXT NOT NULL,
+  extraction_id TEXT,
   span_ids_json TEXT NOT NULL DEFAULT '[]',
-  -- {span_id, bbox}: a region of a figure (Ctrl+drag), only its crop was sent.
   region_json TEXT,
-  -- The figure block (span id) whose image or crop was sent, if any.
   asset_id TEXT,
-  -- Every span the author was sent (the selection, the paragraphs around it,
-  -- the region's or figure's block): what listing, delivery, revisions,
-  -- predictions and a formative text's provenance recheck for held-out
-  -- material (Codex review F1).
   input_span_ids_json TEXT NOT NULL DEFAULT '[]',
-  origin TEXT NOT NULL CHECK (origin IN ('selection', 'library', 'tutor')),
+  origin TEXT NOT NULL CHECK (origin IN ('selection', 'library', 'tutor', 'show_me', 'ask', 'teacher', 'prefetch')),
   supersedes_id TEXT REFERENCES interactive_figures(id),
   revision_note TEXT,
   spec_json TEXT,
@@ -176,9 +188,23 @@ CREATE TABLE interactive_figures (
   prompt_version TEXT NOT NULL,
   input_hash TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  request_id TEXT REFERENCES figure_requests(id),
+  goal_text TEXT,
+  grounding TEXT NOT NULL DEFAULT 'anchor' CHECK (grounding IN ('anchor', 'retrieved', 'none')),
+  input_span_keys_json TEXT NOT NULL DEFAULT '[]',
+  tier TEXT NOT NULL DEFAULT 'grammar' CHECK (tier IN ('grammar', 'sketch', 'js_animation', 'manim')),
+  program_version TEXT,
+  engine_sha256 TEXT,
+  runtime_digest TEXT,
+  instrumented_sha256 TEXT,
+  media_file_name TEXT,
+  fuller_of_id TEXT REFERENCES interactive_figures(id),
+  checks_json TEXT NOT NULL DEFAULT '[]',
   CHECK (verification NOT IN ('verified', 'illustrative') OR (spec_json IS NOT NULL AND kind IS NOT NULL)),
   CHECK (verification != 'verified' OR kind = 'reconstructed'),
-  CHECK (supersedes_id IS NULL OR supersedes_id != id)
+  CHECK (supersedes_id IS NULL OR supersedes_id != id),
+  CHECK (extraction_id IS NOT NULL OR request_id IS NOT NULL),
+  CHECK (fuller_of_id IS NULL OR fuller_of_id != id)
 );
 ```
 

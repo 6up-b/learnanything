@@ -3,13 +3,13 @@ title: "false_remediation_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "73d7d146740284eca0a5ff26ab53593429e7cc20"
+source_commit_timestamp: "2026-10-26T10:42:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite false_remediation_adjudications"
   - "table false_remediation_adjudications"
-schema_head: 222
+schema_head: 224
 table_name: "false_remediation_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"

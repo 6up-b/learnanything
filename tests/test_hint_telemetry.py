@@ -912,7 +912,7 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     from learnloop.db.copies import backup_database
     from learnloop.hints.report import build_hints_report
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
     database = tmp_path / "state.sqlite"
     backup_database(head, database)
     with closing(connect(database)) as connection:

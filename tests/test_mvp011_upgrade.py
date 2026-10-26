@@ -41,7 +41,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_222"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 

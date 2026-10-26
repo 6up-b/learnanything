@@ -20,6 +20,14 @@ from learnloop.db.table_roles import TableRole, role_for_table
 from tests.helpers import create_basic_vault
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
+#: Every schema object 224 adds, and the table it rebuilds: the earlier
+#: migrations' "nothing else changed" diffs on the way to head read these.
+RW5D_ADDED_OBJECTS = frozenset({
+    "figure_requests", "sqlite_autoindex_figure_requests_1", "idx_figure_requests_figure",
+    "idx_figure_requests_created", "figure_requests_no_delete", "figure_requests_figure_once",
+    "idx_interactive_figures_request",
+})
+RW5D_ALTERED_TABLES = frozenset({"interactive_figures"})
 RW5A_COLUMNS = ("id", "extraction_id", "span_ids_json", "region_json", "asset_id", "input_span_ids_json", "origin",
                 "supersedes_id", "revision_note", "spec_json", "spec_version", "kind", "verification",
                 "verification_report_json", "unsupported_kind", "model", "prompt_version", "input_hash", "created_at")

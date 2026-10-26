@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
-source_commit_timestamp: "2026-10-25T22:35:56-04:00"
+source_commit: "73d7d146740284eca0a5ff26ab53593429e7cc20"
+source_commit_timestamp: "2026-10-26T10:42:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 222
+schema_head: 224
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_figure_predictions.py`
+- `tests/test_figure_requests_migration.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_switch_off.py`
