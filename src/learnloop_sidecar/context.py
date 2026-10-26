@@ -1101,8 +1101,15 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
         focus.get("practice") if isinstance(focus, dict) else None, submission_id
     )
     hint_seen = draft_hint_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+
+    current_item = row.get("current_practice_item_id")
+    earlier_opened = bool(current_item) and draft_earlier_opened(row, practice_item_id=str(current_item))
     return to_camel(
         {
+            # Reader CA2 (Codex review F1): *earlier on this question* was
+            # opened on this draft (its one hint is the submit's, server-side).
+            **({"earlier_opened": True} if earlier_opened else {}),
             # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
             # marker, present only when one was kept for this retry key.
             **({"first_hint_progress": marker} if marker is not None else {}),

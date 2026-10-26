@@ -74,8 +74,13 @@ def _question_hints(vault, repository, session: dict[str, Any]) -> int:
         # No practice session open yet: the submit opens one, so only the
         # questions that count in the item's window whatever the session (a
         # bound Reader question, RW1c fix round 4, F1) will be added.
+        from learnloop_sidecar.handlers.practice import _earlier_opened_hint
+
+        # Reader CA2 (Codex review F1): the answer box's draft opened an
+        # earlier attempt's help; its submit (this problem's) counts it.
         return int(hint_equivalents_for_submission(repository, item_id, practice_session,
-                                                   item_window_only=not practice_session))
+                                                   item_window_only=not practice_session)) + (
+            _earlier_opened_hint(repository, practice_session, str(item_id)) if practice_session else 0)
     except Exception:  # noqa: BLE001 - a display line never fails a read
         return 0
 

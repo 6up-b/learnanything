@@ -72,6 +72,7 @@ from learnloop_sidecar.handlers.queue import (
 )
 from learnloop_sidecar.handlers.serializers import practice_item_detail
 from learnloop_sidecar.handlers.sessions import (
+    KEEP_EARLIER_OPENED,
     KEEP_HINT_SEEN,
     SessionCheckpointInput,
     clear_checkpoint,
@@ -116,6 +117,10 @@ class PracticeDraftCheckpoint(ParamsModel):
     #: marker knows its first hint's timing is unknown. Never read by
     #: grading, scheduling or the assistance count (``hints_used``).
     hint_seen: bool | None = None
+    #: Reader CA2 (K6, Q2; Codex review F1): the Ask panel's *earlier on this
+    #: question* was opened before Submit on this draft. Kept with the retry
+    #: key; the submit counts it as one hint-equivalent from the checkpoint.
+    earlier_opened: bool | None = None
 
 
 class SelfGradeDisclosureInput(ParamsModel):
@@ -665,6 +670,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
         plan_presentation_id=params.plan_presentation_id,
         first_hint_progress=_draft_marker(vault, params),
         hint_seen=params.hint_seen if "hint_seen" in params.model_fields_set else KEEP_HINT_SEEN,
+        earlier_opened=params.earlier_opened if params.earlier_opened is True else KEEP_EARLIER_OPENED,
     )
     return {"ok": True}
 
@@ -737,6 +743,23 @@ def _in_diagnostic_block(repository, item) -> bool:
         return False
     presentation = repository.active_probe_presentation(episode.id, practice_item_id=item.id)
     return presentation is not None and presentation.status == "served"
+
+
+def _earlier_opened_hint(repository, session_id: str | None, practice_item_id: str) -> int:
+    """Reader CA2 (K6, Q2; Codex review F1): one hint-equivalent when the
+    session's draft on the item opened an earlier attempt's help before
+    Submit (``sessions.draft_earlier_opened``), counted by the server
+    whichever surface submits the draft; 0 otherwise."""
+
+    if not session_id:
+        return 0
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+
+    try:
+        checkpoint = repository.fetch_session_checkpoint(session_id)
+    except Exception:  # noqa: BLE001 - a session with no checkpoint opened nothing
+        return 0
+    return 1 if draft_earlier_opened(checkpoint, practice_item_id=practice_item_id) else 0
 
 
 def _server_hint_fold(
@@ -1256,7 +1279,7 @@ def submit_attempt_on(
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
     question_hints = hint_equivalents_for_submission(
         repository, params.practice_item_id, params.session_id
-    )
+    ) + _earlier_opened_hint(repository, params.session_id, params.practice_item_id)
     # A6: compose the one trace the grader reads, here and nowhere else. The
     # volunteered line arrives as its own field and is joined to the answer by
     # the module that owns the format, so the delimiter never appears in a

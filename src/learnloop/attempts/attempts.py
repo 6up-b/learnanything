@@ -2742,8 +2742,12 @@ def submit_decision(
     inputs = serve_eligibility.with_pending_writes(inputs, retimed)
     if help_converts:
         # Reader CA2 (mvp-0.34, ``ask.cold_help_converts``): help taken on a
-        # cold follow-up makes the attempt practice with help.
-        inputs = replace(inputs, help_converts=True)
+        # cold follow-up makes the attempt practice with help. Codex review
+        # F4: worked help taken first (a shown level 4-5 rung, which primes
+        # without a hint) is help taken too, read from the persisted fold.
+        fold = draft.server_hint_fold
+        worked = fold is not None and bool(fold.folded_primed or fold.held_primed or fold.held_worked)
+        inputs = replace(inputs, help_converts=True, worked_help_taken=worked)
     return serve_eligibility.decide(inputs, serve_eligibility.SUBMIT)
 
 

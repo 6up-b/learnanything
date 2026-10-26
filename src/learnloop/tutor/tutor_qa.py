@@ -82,6 +82,7 @@ from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
+from learnloop.ai.spend import is_subscription_transport
 from learnloop.tutor.context_delivery import (
     MAX_REFERENCES,
     NEIGHBOUR_RADIUS,
@@ -307,7 +308,7 @@ class QuestionLimitReached(Exception):
 
 def practice_thread_events(
     repository: Repository, *, practice_item_id: str | None, session_id: str | None,
-    submission_id: str | None = None,
+    submission_id: str | None = None, workbench_session_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """The practice Ask thread of the attempt being composed: the answered
     practice questions on (item, session) asked since the item's last
@@ -324,7 +325,10 @@ def practice_thread_events(
     events = repository.question_events(
         context="practice",
         practice_item_id=practice_item_id,
-        session_id=session_id,
+        # Codex review F6: an unfinished workbench is one attempt whichever
+        # host (and practice session) it is worked in; its key, not the
+        # session, says which questions are its.
+        session_id=None if workbench_session_id else session_id,
         answer_status="answered",
     )
     if not practice_item_id:
@@ -332,14 +336,34 @@ def practice_thread_events(
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
     windowed = [event for event in events if since is None or str(event["created_at"]) > str(since)]
-    if submission_id is None:
+    if submission_id is None and workbench_session_id is None:
         return windowed
     # Reader CA2 (K5): the thread is the attempt's, keyed by its submission id
     # (the key the hint service counts by). A question asked under another
     # key is another serving's, even in the same window (the item skipped and
     # served again); a question recorded before CA2 carries no key and keeps
-    # the window's rule.
-    return [event for event in windowed if attempt_key_of(event).get("submission_id") in (None, submission_id)]
+    # the window's rule (in its session).
+    return [event for event in windowed
+            if attempt_key_matches(event, submission_id=submission_id, workbench_session_id=workbench_session_id,
+                                   session_id=session_id)]
+
+
+def attempt_key_matches(event: Mapping[str, Any], *, submission_id: str | None,
+                        workbench_session_id: str | None, session_id: str | None = None) -> bool:
+    """Whether a practice question belongs to the attempt in progress that
+    ``submission_id`` (the answer box's key, or a workbench's
+    ``workbench:<id>``) and ``workbench_session_id`` name (Reader CA2, K5;
+    Codex review F6: the server's identity, the same in every host). A
+    question asked under the same key, or in the same unfinished workbench,
+    is the attempt's; one recorded before CA2 has no key and is the window's
+    (in its practice session)."""
+
+    key = attempt_key_of(event)
+    if not key:
+        return session_id is None or event.get("session_id") == session_id
+    if submission_id is not None and key.get("submission_id") == submission_id:
+        return True
+    return workbench_session_id is not None and key.get("workbench_session_id") == workbench_session_id
 
 
 def attempt_key_of(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -398,7 +422,7 @@ def earlier_threads(
                     "event_id": event["id"],
                     "context": event["context"],
                     "question_md": event["question_md"],
-                    "answer_md": event["answer_md"],
+                    "answer_md": delivered_answer_md(event),
                     "question_type": event.get("question_type"),
                     "hint_equivalent": bool(event.get("hint_equivalent")),
                     "created_at": event["created_at"],
@@ -465,11 +489,19 @@ def question_usage(
     note_id: str | None = None,
     session_id: str | None = None,
     clock: Clock | None = None,
-) -> tuple[int, int]:
+    metered: bool = True,
+) -> tuple[int, int | None]:
     """(used, limit) for one Q&A budget window.
 
     practice: per (practice item, session); feedback: per attempt; library:
-    per note per UTC day."""
+    per note per UTC day.
+
+    Reader CA2 (K5; Codex review F8): with the Ask panel on, a practice
+    question on a subscription route (Codex, the ChatGPT plan: ``metered``
+    False) has no request bound at all, so ``limit`` is None (owner,
+    2026-10-12, Slice A plan §5 rule 6: its cost is estimated from the
+    agent run's token usage, ``estimated_only``, never a physical-request
+    cap); on a metered route the per-item, per-UTC-day bound stands."""
 
     config = vault.config.tutor_qa
     # Only answered turns consume budget: a provider failure (answer_status
@@ -484,7 +516,7 @@ def question_usage(
             used = repository.count_question_events(
                 context="practice", practice_item_id=practice_item_id, since=day_start, answer_status="answered"
             )
-            return used, config.max_questions_practice
+            return used, (config.max_questions_practice if metered else None)
         # Owner capture 2026-10-25 (B3): the budget is the current attempt's,
         # as its thread is (:func:`practice_thread_events`).
         used = len(practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id))
@@ -639,6 +671,8 @@ def ask_question(
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
     about_step: int | None = None,
+    count_every_question: bool = False,
+    withhold_worked_help: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -691,7 +725,18 @@ def ask_question(
     Steps about one step, K7) are stored on the question's
     ``source_context.attempt_key``; the thread is the attempt's. Every
     answer's ``source_context.receipt`` names the model, prompt version and
-    agent run its ``question_type`` came from (§7.5's receipt)."""
+    agent run its ``question_type`` came from (§7.5's receipt).
+
+    Reader CA2, Codex review: ``count_every_question`` (F3) is the
+    workbench's cold rule for a practice question the adapter bound to a
+    workbench during a cold administration while the one help rule is off
+    (``serve_eligibility.help_converts_active``): every question is a hint,
+    as ``reader.ask``'s bound cold Ask counts. ``withhold_worked_help`` (F2,
+    K9) puts the answer through the hint service's leak control before it
+    is shown: an answer that would give the item's answer away is never
+    delivered on the spot; the learner gets the ladder's take step
+    (``result["take_offer"]``) instead, nothing is counted or debited for
+    the withheld text, and the row keeps it with ``source_context.withheld``."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -759,8 +804,9 @@ def ask_question(
         note_id=note_id,
         session_id=session_id,
         clock=clock,
+        metered=not is_subscription_transport(client=client),
     )
-    if used >= limit:
+    if limit is not None and used >= limit:
         raise QuestionLimitReached(context=context, limit=limit, used=used)
 
     candidates = _candidate_facets(vault, repository, context, item=item, note=note)
@@ -778,6 +824,7 @@ def ask_question(
             note_id=note_id,
             session_id=session_id,
             submission_id=submission_id,
+            workbench_session_id=workbench_session_id,
         )
     )
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -1052,6 +1099,12 @@ def ask_question(
             question_type=answer.question_type, item=item, note=note,
         ))
     citations = _validated_citations(answer, ai_context.source_spans)
+    if context in ("practice", "feedback") and ask_panel_enabled(vault):
+        # Reader CA2 (K11; Codex review F9): book first. Each kept citation
+        # carries the passage it names, as provided to the tutor (the books'
+        # own text, never the model's), so the panel shows the excerpt
+        # before the explanation, live and restored.
+        citations = _with_excerpts(citations, ai_context.source_spans)
     reader_view: dict[str, Any] | None = None
     if lookup and reader_tutor is not None:
         # RW1c: the three modes, the excerpt quote-verified against its
@@ -1095,7 +1148,8 @@ def ask_question(
         # (``reader_dialogue._record_cold_hint_equivalent``), so it counts once.
         hint_equivalent = binding.hint_equivalent(answer.question_type in HINT_EQUIVALENT_TYPES)
     else:
-        hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
+        hint_equivalent = item is not None and (
+            answer.question_type in HINT_EQUIVALENT_TYPES or count_every_question)
     leak_overlap = (
         # A bound Reader answer shows its bridge too, scored with the
         # explanation; the excerpt is debited once, with the passages it
@@ -1106,6 +1160,22 @@ def ask_question(
         else 0.0
     )
     leak_suspected = leak_overlap >= _LEAK_OVERLAP_THRESHOLD
+    withheld = _worked_help_leaks(answer.answer_md, item) if withhold_worked_help and item is not None else []
+    if leak_suspected and withhold_worked_help and item is not None and "answer_overlap" not in withheld:
+        withheld = [*withheld, "answer_overlap"]
+    if withheld:
+        # Codex review F2 (K9): worked help is the learner's to take, never
+        # served on the spot through the Ask door. Nothing was shown, so the
+        # answer counts as no hint and exposes nothing (its reveal row
+        # debits 0); the stored text stays for the record.
+        hint_equivalent = False
+        leak_overlap = 0.0
+        leak_suspected = False
+        citations = []
+        source_context = {key: value for key, value in (source_context or {}).items() if key != "citations"}
+        source_context["withheld"] = {
+            "reason": "worked_help", "leaks": list(withheld), "take_levels": list(WORKED_HELP_TAKE_LEVELS),
+        }
     episode = reveal_episode_id(repository, practice_item_id) if item is not None else None
     # §13.4 channel: an explicit direct-explanation request is
     # interaction-preference by construction, whatever the classifier said.
@@ -1227,9 +1297,12 @@ def ask_question(
         "remediation_episode_id": episode,
         "citations": citations,
         "learner_gap": learner_gap,
-        "remaining": max(0, limit - used - 1),
+        "remaining": None if limit is None else max(0, limit - used - 1),
         "answer_mode": answer_mode if context in HELP_STYLE_MODE_CONTEXTS else None,
     }
+    if withheld:
+        result.update(answer_md=WITHHELD_ANSWER_MD, citations=[],
+                      take_offer={"levels": list(WORKED_HELP_TAKE_LEVELS), "reason": "worked_help"})
     if tool_request_handler is not None:
         # Canonical sources S4: validated before anything is shown; a failure
         # here never costs the learner their answer.
@@ -1345,6 +1418,27 @@ def _validated_citations(answer: Any, source_spans: list[dict[str, Any]]) -> lis
                 "label": span.get("label") or citation.label,
             }
         )
+    return out
+
+
+#: keep: a display bound on one book excerpt shown above an Ask answer
+#: (characters of the cited passage), a guardrail on the panel's length, not
+#: a model or decision parameter.
+CITATION_EXCERPT_CHARS = 600
+
+
+def _with_excerpts(citations: list[dict[str, Any]], source_spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Codex review F9 (K11): each citation with its passage's text as the
+    tutor was given it (cut to :data:`CITATION_EXCERPT_CHARS`)."""
+
+    texts = {(str(span.get("extraction_id")), str(span.get("span_id"))): str(span.get("text") or "")
+             for span in source_spans}
+    out: list[dict[str, Any]] = []
+    for citation in citations:
+        text = texts.get((str(citation["extraction_id"]), str(citation["span_id"])), "").strip()
+        if len(text) > CITATION_EXCERPT_CHARS:
+            text = text[:CITATION_EXCERPT_CHARS].rstrip() + "…"
+        out.append({**citation, **({"excerpt": text} if text else {})})
     return out
 
 
@@ -1733,12 +1827,13 @@ def _thread(
     note_id: str | None,
     session_id: str | None,
     submission_id: str | None = None,
+    workbench_session_id: str | None = None,
 ) -> list[dict[str, Any]]:
     if context == "practice":
         # B3: only this attempt's turns (an earlier serving's are not this
         # conversation); Reader CA2 (K5, C6): only this submission's.
         events = practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id,
-                                        submission_id=submission_id)
+                                        submission_id=submission_id, workbench_session_id=workbench_session_id)
     elif context == "feedback":
         events = repository.question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"
@@ -1756,11 +1851,46 @@ def _thread(
     return [
         {
             "question_md": event["question_md"],
-            "answer_md": event["answer_md"],
+            # The conversation as the learner had it (a withheld worked answer
+            # is its take step, Codex review F2).
+            "answer_md": delivered_answer_md(event),
             "question_type": event["question_type"],
         }
         for event in events
     ]
+
+
+#: Codex review F2 (K9, §7.5): the ladder's worked-help rungs a withheld
+#: answer offers instead (the hint service's ``WORKED_LEVELS``).
+WORKED_HELP_TAKE_LEVELS = (4, 5)
+#: What the learner reads in the answer's place (§7.5's take step, inline).
+WITHHELD_ANSWER_MD = (
+    "That's worked help ◌ — it would show the answer. Take it from the ladder (work a piece of it for me · "
+    "show me the worked answer), or ask something smaller."
+)
+
+
+def _worked_help_leaks(answer_md: str | None, item: Any) -> list[str]:
+    """The hint service's leak control for an Ask answer at levels 1-3 (hints
+    spec §4.6; ``hints.contracts.leak_flags``): why the text would give the
+    item's answer away, empty when it does not."""
+
+    from learnloop.hints.contracts import leak_flags
+
+    try:
+        return leak_flags([str(answer_md or "")], item=item, current=None, level=3)
+    except Exception:  # noqa: BLE001 - the overlap check (``leak_suspected``) still decides
+        logger.warning("worked-help leak check failed", exc_info=True)
+        return []
+
+
+def delivered_answer_md(event: Mapping[str, Any]) -> str | None:
+    """The answer the learner was shown for a stored question: a withheld
+    worked answer (Codex review F2) reads as its take step, never the text."""
+
+    if ((event.get("source_context") or {}).get("withheld") or {}).get("reason") == "worked_help":
+        return WITHHELD_ANSWER_MD
+    return event.get("answer_md")
 
 
 def _with_step_focus(learner_draft_md: str | None, about_step: int | None) -> str | None:

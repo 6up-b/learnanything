@@ -401,6 +401,12 @@ class EligibilityInputs:
     #: Submit only (Reader CA2, :func:`help_converts_active`): help taken on a
     #: cold follow-up makes the attempt practice with help instead of a refusal.
     help_converts: bool = False
+    #: Submit only (Codex review F4): worked help (a level 4-5 rung) the hint
+    #: service showed on this attempt, read from its persisted rows (the
+    #: submit's server fold, or an open problem's held help), never from the
+    #: client's ``primed``. It primes without adding to ``hints_used``, and
+    #: it is help taken all the same.
+    worked_help_taken: bool = False
 
 
 # -- the decision record --------------------------------------------------------------------------
@@ -680,7 +686,8 @@ def _decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: di
     task = active_task(inputs)
     if task is None or not task.cold:
         return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE, task_ids=(task.id,) if task else ())
-    if inputs.help_converts and (inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt"):
+    if inputs.help_converts and (inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt"
+                                 or inputs.worked_help_taken):
         # Reader CA2 (mvp-0.34, §15 Q4): help is never withheld on a check on
         # your own; taking it converts the attempt. Admitted as practice with
         # help, primed or not (the help may have shown the answer), and it
