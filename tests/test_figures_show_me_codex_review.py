@@ -169,6 +169,30 @@ def test_f2_two_different_answers_named_at_once_are_refused(tmp_path):
     assert caught.value.code in ("not_offered", "validation_error")
 
 
+@pytest.mark.parametrize("restriction", [{"cold": True}, None], ids=["cold host", "open host"])
+def test_f2_rereview_a_valid_goal_offer_with_a_different_host_is_refused(tmp_path, monkeypatch, restriction):
+    """Re-review F2: with a VALID tutor goal offer, a different
+    ``hostRef.questionEventId`` is not overwritten by ``offerRef``: the two
+    references are compared as supplied, before any normalization."""
+
+    from tests.test_figures_show_me import _tutor_ask
+
+    goal = "vary p and watch the mass left of zero follow it"
+    _paths, repository, ctx, _tutor, author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=goal)
+    other = _event(repository, restriction=restriction)
+    press = {"origin": "tutor", "goalText": goal, "offerRef": answer["eventId"],
+             "readingAt": {"extractionId": EXTRACTION, "spanId": "p6"}}
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "figure.request", {**press, "hostRef": {"questionEventId": other}})
+    assert caught.value.code == "validation_error" and "two different answers" in caught.value.message
+    assert author.calls == 0 and _requests(repository) == []
+    # The same reference in both places: the goal is built, under that answer.
+    same = build(ctx, {**press, "hostRef": {"questionEventId": answer["eventId"]}}, rpc="figure.request")
+    assert same["figure"]["goalAuthor"] == "tutor" and author.calls == 1
+    (request,) = _requests(repository)
+    assert json.loads(request["host_ref_json"]) == {"question_event_id": answer["eventId"]}
+
+
 # ---------------------------------------------------------------------------
 # F3: placement follows the request
 # ---------------------------------------------------------------------------

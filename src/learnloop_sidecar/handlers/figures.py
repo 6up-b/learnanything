@@ -330,7 +330,6 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
             raise SidecarError("not_offered", "That figure goal was not offered by the tutor's answer.")
         goal_author = "tutor"
         keys = [(str(key[0]), str(key[1])) for key in stored.get("span_keys") or () if len(key) == 2]
-        host_ref = {**host_ref, "question_event_id": offer_ref}
     elif origin != "selection" and origin != "show_me":
         # RW5b: an offered figure is one block the judgment offered, no region, no goal.
         if not FS.figure_offers_enabled(vault):
@@ -341,7 +340,13 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
             raise SidecarError("not_offered", "That passage was not offered as an explorable figure.")
     elif goal is not None:
         goal_author = "learner"
+    # The references are validated as supplied (re-review F2): a tutor goal's
+    # ``offerRef`` and a different ``hostRef.questionEventId`` are refused
+    # together, never one overwritten by the other first.
     caller = _host_caller(vault, repository, origin=origin, host_ref=host_ref, offer_ref=offer_ref)
+    if goal_author == "tutor":
+        # Only now is the request's host the answer that offered the goal.
+        host_ref = {**host_ref, "question_event_id": offer_ref}
     if caller is None:
         caller = reader_caller(vault, repository, extraction_id=home or None)
     policy, _why = derive_policy(caller)
