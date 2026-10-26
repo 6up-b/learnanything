@@ -255,7 +255,14 @@ def test_ask_question_drops_facets_outside_candidates(tmp_path):
 
 
 def test_ask_question_enforces_practice_limit(tmp_path):
-    _root, vault, repository = _setup(tmp_path)
+    from tests.ux_phase1_support import set_config
+
+    root, _vault, repository = _setup(tmp_path)
+    # The per-(item, session) budget of before Reader CA2: with the Ask panel
+    # on, K5 makes it a per-item, per-UTC-day money bound that a new serve or
+    # session never resets (tests/test_reader_ca2_one_ask.py pins it).
+    set_config(root, {("ask", "panel_enabled"): False})
+    vault = load_vault(root)
     clock = FrozenClock(NOW)
     client = FakeTutorClient()
     for _ in range(3):

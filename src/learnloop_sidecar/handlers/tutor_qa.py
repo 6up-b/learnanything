@@ -171,6 +171,8 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             )
             response = {key: event.get(key) for key in (
                 "note_id", "answer_md", "question_type", "facets", "hint_equivalent", "leak_suspected",
+                # Reader CA2: the mode it was written in, as the first answer said.
+                "answer_mode",
             )}
             response.update(event_id=event_id, remaining=max(0, limit - used),
                             citations=(event.get("source_context") or {}).get("citations", []))

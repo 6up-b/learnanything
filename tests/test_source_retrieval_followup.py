@@ -206,7 +206,12 @@ def test_generated_questions_split_evenly_across_the_four_types():
 
 
 def test_every_logged_learner_question_is_included(tmp_path):
+    from tests.ux_phase1_support import set_config
+
     paths, repository = setup(tmp_path, embed=False)
+    # Twelve questions on one item in one day: past Reader CA2's per-day Ask
+    # budget (K5), so this report test keeps the per-session budget of before.
+    set_config(paths.root, {("ask", "panel_enabled"): False})
     for index in range(12):
         _ask(paths, repository, None, question=f"Why does question number {index} matter here?",
              session=f"s{index}")
