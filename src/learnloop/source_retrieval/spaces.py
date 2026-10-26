@@ -27,9 +27,13 @@ With the default left at Qwen and Qwen covering the scope, the fused meaning
 list is exactly Qwen's ranking (tested byte-identical on ``find_sources``).
 With both new switches off the resolver is never consulted at all.
 
-The local space has no query encoder in P1 (the query student is P2, the
-teacher session P1c): :data:`LOCAL_QUERY_ENCODER` is the hook they plug into;
-until then the local space reports ``encoder_unavailable``.
+The local space's query encoder is :data:`LOCAL_QUERY_ENCODER`: in production the
+ADOPTED query student (P2, ``student_encoder.adopted_encoder``), or None (no student adopted,
+``embedding.local.student`` off): then the local space reports ``encoder_unavailable``. A
+student whose query process is not up is started in the background, and the query waits for it
+only when ``P(in time) > 1 / (1 + w)`` on its measured start times, ``w`` the local lists'
+weight share (§5.1 item 3, ``student_decision.should_wait``); otherwise the local space is
+``encoder_late`` for this query and the others serve.
 """
 from __future__ import annotations
 
@@ -69,8 +73,40 @@ class LocalQueryEncoder:
         raise NotImplementedError
 
 
-#: ``vault -> encoder or None``. P1 ships no encoder (the student is P2).
-LOCAL_QUERY_ENCODER: Callable[[LoadedVault], LocalQueryEncoder | None] = lambda _vault: None
+def _adopted_student(vault: LoadedVault) -> LocalQueryEncoder | None:
+    from learnloop.source_retrieval.student_encoder import adopted_encoder
+
+    return adopted_encoder(vault)  # type: ignore[return-value]
+
+
+#: ``vault -> encoder or None``: the adopted query student (P2), else None.
+LOCAL_QUERY_ENCODER: Callable[[LoadedVault], LocalQueryEncoder | None] = _adopted_student
+
+
+def _encode(encoder: Any, texts: Sequence[str], *, deadline: float | None, receipt_id: str) -> list[Sequence[float]]:
+    """A local encoder's vectors; the receipt goes to an encoder that queues the teacher replay."""
+
+    if getattr(encoder, "accepts_receipt", False):
+        return encoder.encode(list(texts), deadline=deadline, receipt_id=receipt_id or None)
+    return encoder.encode(list(texts), deadline=deadline)
+
+
+def _cold_start(encoder: Any, *, deadline: float | None, box_s: float, share: float) -> tuple[str, str] | None:
+    """``(status, reason)`` when a not-yet-running student should not be waited for, else None."""
+
+    ready = getattr(encoder, "ready", None)
+    if ready is None or ready():
+        return None
+    try:
+        encoder.start()
+    except Exception:  # noqa: BLE001 - a failed start is an unavailable encoder, never a failed search
+        return "encoder_unavailable", "the query student could not be started"
+    remaining = box_s if deadline is None else deadline - time.monotonic()
+    wait, probability = encoder.wait_decision(remaining, share)
+    if wait:
+        return None
+    return "encoder_late", (f"the query student is starting (P(in time) {probability:.2f} for its weight share "
+                            f"{share:.2f}: not waited for)")
 
 
 def resolver_active(config: Any) -> bool:
@@ -213,7 +249,8 @@ def _contextual_vectors(read: Callable[[str, Mapping[str, Sequence[tuple[str, in
 
 
 def _local_states(vault: LoadedVault, repository: Repository, windows: Mapping[tuple[str, str], Sequence[Any]],
-                  known: Mapping[str, Mapping[str, Any]]) -> dict[str, SpaceState]:
+                  known: Mapping[str, Mapping[str, Any]], *, deadline: float | None = None,
+                  share: float = 0.0) -> dict[str, SpaceState]:
     from learnloop.local_embeddings.cache import CacheUnreadable, VectorCache, cache_path
     from learnloop.source_retrieval.local_index import LIST_NAMES, local_reason, local_spaces
     from learnloop.source_retrieval.windows import mean_vector
@@ -250,7 +287,12 @@ def _local_states(vault: LoadedVault, repository: Repository, windows: Mapping[t
         covered, expected = _contextual_vectors(read, space, per_extraction)
         status, why = ("ok", None) if covered else ("incomplete", "no source in scope is fully indexed in this space")
         if covered and encoder is None:
-            status, why = "encoder_unavailable", "no local query encoder yet (the student is P2, the teacher session P1c)"
+            status, why = "encoder_unavailable", "no local query encoder (no query student adopted, or embedding.local.student is off)"
+        elif covered:
+            late = _cold_start(encoder, deadline=deadline, share=share,
+                               box_s=float(vault.config.source_retrieval.retrieval_timeout_seconds))
+            if late is not None:
+                status, why = late
         states[name] = SpaceState(name, "local", status, why, space, 0.0, vectors=covered, covered=set(covered),
                                   expected=expected, encoder_id=getattr(encoder, "encoder_id", None))
     return states
@@ -301,7 +343,11 @@ def resolve_source_spaces(vault: LoadedVault, repository: Repository, scope: Sco
         if posteriors is None:
             posteriors = fusion_posteriors(connection)
     if config.embedding.local.enabled:
-        states.update(_local_states(vault, repository, windows, known))
+        share_lists = list(fusion.SPACE_LISTS)
+        share_seed = fusion.seed_weights(config.embedding.source_space.default, share_lists)
+        total = sum(share_seed.values()) or 1.0
+        local_share = sum(share_seed.get(name, 0.0) for name in (LOCAL_GROUPED, LOCAL_SINGLETON)) / total
+        states.update(_local_states(vault, repository, windows, known, deadline=deadline, share=local_share))
     else:
         states.update({name: SpaceState(name, "local", "disabled", "embedding.local.enabled is false")
                        for name in (LOCAL_GROUPED, LOCAL_SINGLETON)})
@@ -447,7 +493,8 @@ def meaning_lists(vault: LoadedVault, repository: Repository, resolution: Resolu
             return {}
         keys = sorted(texts)
         try:
-            encoded = encoder.encode([texts[key] for key in keys], deadline=deadline)
+            encoded = _encode(encoder, [texts[key] for key in keys], deadline=deadline,
+                              receipt_id=resolution.receipt_id)
         except Exception as exc:  # noqa: BLE001 - an encoder failure is a reason, never a failed search
             state.query = {"status": "encoder_failed", "error_type": type(exc).__name__, "paid": False}
             return {}

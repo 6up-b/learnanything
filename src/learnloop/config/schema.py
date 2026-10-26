@@ -1431,6 +1431,13 @@ class AIRoutingConfig(BaseModel):
     # metered route needs source_retrieval.llm_price_per_million and is held
     # to roles.batch_max_cost_usd per run, checked before each batch.
     role_labeller: str | None = None
+    # Local contextual retrieval P2 (spec_local_contextual_retrieval_v1 §7.1, Q8): the query
+    # student's synthetic-question generator (`learnloop embeddings local student generate`),
+    # one call per batch of permitted passages, owner-run and background-quiet (no OpenRouter
+    # offer; a plan that is down is reported). Empty: the ChatGPT plan's `chatgpt_luna`
+    # (GPT-6 Luna). A metered route needs source_retrieval.llm_price_per_million and is held to
+    # embedding.local.student_generator_max_cost_usd per run.
+    retrieval_query_generator: str | None = None
     # Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the reading-path
     # judge, one structured call per source and depth over the section list
     # (labels, roles, the linked LOs' statuses, the depth and the goal's
@@ -1640,6 +1647,8 @@ DEFAULT_SERVING_TASK_ROUTES = {
     "ad_forecast_llm": CHATGPT_LOW_PROVIDER,
     "ad_feature_audit": CHATGPT_LOW_PROVIDER,
     "ad_relatedness": CHATGPT_MEDIUM_PROVIDER,
+    # Local retrieval P2 (Q8): GPT-6 Luna on the plan, owner-run under ``plan_fallback.quiet()``.
+    "retrieval_query_generator": CHATGPT_LUNA_PROVIDER,
 }
 #: The pre-T1 table: the routes of a vault whose active provider is Codex
 #: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
@@ -1657,6 +1666,7 @@ LEGACY_CODEX_TASK_ROUTES = {
     "ad_forecast_llm": CODEX_LOW_PROVIDER,
     "ad_feature_audit": CODEX_LOW_PROVIDER,
     "ad_relatedness": CODEX_MEDIUM_PROVIDER,
+    "retrieval_query_generator": CODEX_LUNA_PROVIDER,
 }
 #: `learnloop doctor --fix`: the plan profile that replaces each code-default
 #: Codex profile (no silent aliasing at load: receipts key on provider+model).
@@ -2914,6 +2924,18 @@ class LocalEmbeddingConfig(BaseModel):
     enabled: bool = False
     index_on_extract: bool = True
     index_batch_minutes: float = Field(default=15.0, ge=0)
+    # P2 (spec §7.1, §9.3; docs/reviews/retrieval-local-p2-query-student.md). ``student`` is the
+    # query student's kill switch: it acts only once a checkpoint was adopted by the expected-
+    # utility rule (`learnloop embeddings local student evaluate`), and false keeps the local
+    # space without a query encoder (P1's behaviour). ``teacher_replay`` queues the queries the
+    # student answers for the nightly teacher replay (learner text, kept in the vault's
+    # .learnloop/). ``student_idle_minutes`` (keep, §9.6) is when the query process exits;
+    # ``student_generator_max_cost_usd`` (keep: the owner's spending authority, Q8) caps one
+    # generation run on a metered route (the plan's quota costs $0).
+    student: bool = True
+    teacher_replay: bool = True
+    student_idle_minutes: float = Field(default=20.0, gt=0)
+    student_generator_max_cost_usd: float = Field(default=5.0, ge=0)
 
 
 class FallbackEmbeddingConfig(BaseModel):

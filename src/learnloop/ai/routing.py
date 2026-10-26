@@ -128,6 +128,9 @@ AITask = Literal[
     "passage_cue_judge",
     # Reader workbench RW4e: the owner-run batch role labeller (a listwise task).
     "role_labeller",
+    # Local retrieval P2: the query student's synthetic-question generator
+    # (owner-run, background-quiet; default the plan's chatgpt_luna, Q8).
+    "retrieval_query_generator",
     # Reader workbench RW7a: the reading-path judge (a chat task, one call per source and depth).
     "reading_path_judge",
     # Deliverable curriculum C0a: the section coverage judge (a listwise task, one call per LO).
@@ -250,6 +253,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW4e: one listwise call labelling a batch of a source's
     # passages with their instructional roles (owner-run, never on a request path).
     "role_labeller": "role_labeller",
+    # Local retrieval P2: one call writing questions for a batch of permitted passages (owner-run).
+    "retrieval_query_generator": "retrieval_query_generator",
     # Reader workbench RW7a: one structured call labelling a source's sections
     # for the learner's depth (the Guide's path; display only).
     "reading_path_judge": "reading_path_judge",
