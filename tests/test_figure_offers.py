@@ -401,8 +401,9 @@ def test_offers_off_the_contract_has_none_and_the_press_is_refused(tmp_path):
     set_config(paths, "figures", offers_enabled=False)
     author = AuthorFake()
     ctx = context(paths.root, author=author)
+    # RW5d P1's show_me is its own switch (on by default), not the offers'.
     assert call(ctx, "reader.prompt_contract", {})["figures"] == {"predictions": True, "region": True,
-                                                                  "revisions": True}
+                                                                  "revisions": True, "showMe": True}
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"], "origin": "library",
                                             "offerRef": ask_id})

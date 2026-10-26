@@ -442,6 +442,7 @@ def passages_context(vault: Any, repository: Repository, grounding: Grounding) -
     titles = {(str(item.get("extraction_id")), str(item.get("span_id"))): item.get("source_title")
               for item in grounding.passages}
     documents: dict[str, Any] = {}
+    placed: list[tuple[str, list[Any], int]] = []
     for extraction_id, span_id in grounding.keys:
         if extraction_id not in documents:
             documents[extraction_id] = repository.load_document_ir(extraction_id)
@@ -463,7 +464,9 @@ def passages_context(vault: Any, repository: Repository, grounding: Grounding) -
         context.passage.append(entry)
         context.span_texts[key] = block.text or ""
         context.keys.append((extraction_id, span_id))
-        position = index[span_id]
+        placed.append((extraction_id, blocks, index[span_id]))
+    # Then the paragraphs around each (a kept passage is never repeated as a neighbour).
+    for extraction_id, blocks, position in placed:
         for neighbour in blocks[max(0, position - CONTEXT_BLOCKS):position] + blocks[position + 1:position + 1 + CONTEXT_BLOCKS]:
             near = f"{extraction_id}:{neighbour.span_id}"
             if near in context.span_texts or material.covers(extraction_id, neighbour.span_id):

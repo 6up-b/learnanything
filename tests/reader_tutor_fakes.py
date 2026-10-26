@@ -44,6 +44,8 @@ class LookupTutor:
         self.prompts: list[str] = []
         self.contexts: list[dict[str, Any]] = []
         self.result_models: list[str] = []
+        #: RW5d P1: the figure goal a show-me answer writes (None: none).
+        self.figure_goal: str | None = None
 
     def supports(self, capability: str) -> bool:
         return capability in {"structured_completion", "bounded_structured_completion"}
@@ -65,10 +67,14 @@ class LookupTutor:
             "citations": [{"extraction_id": e, "span_id": s, "label": "x"} for e, s in cited],
         }
         model = request.result_model
-        if model in (C.ReaderTutorAnswer, C.ReaderTutorAnswerWithTools):
+        # RW5d P1: the show-me answer is RW1c's with the optional figure goal.
+        if model in (C.ReaderTutorAnswer, C.ReaderTutorAnswerWithTools, C.ReaderTutorShowMeAnswer,
+                     C.ReaderTutorShowMeAnswerWithTools):
             payload.update({"excerpt": excerpt, "bridge_md": self.bridge_md})
-        if model in (C.TutorAnswerWithTools, C.ReaderTutorAnswerWithTools):
+        if model in (C.TutorAnswerWithTools, C.ReaderTutorAnswerWithTools, C.ReaderTutorShowMeAnswerWithTools):
             payload["tool_requests"] = list(self.tool_requests)
+        if self.figure_goal is not None and "figure_goal" in model.model_fields:
+            payload["figure_goal"] = self.figure_goal
         return model.model_validate(payload)
 
 

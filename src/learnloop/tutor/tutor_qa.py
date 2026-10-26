@@ -1845,8 +1845,10 @@ def _reader_lookup_context(
                                                                str(span.get("span_id")))) in kinds else span
                     for span in kept]
     context_type = ReaderTutorExplorableQAContext if explorable else ReaderTutorQAContext
-    if show_me:
-        # RW5d P1: the optional figure goal, whatever is delivered (its own prompt version).
+    if show_me and guard is None and getattr(request, "policy", "reading") == "reading":
+        # RW5d P1: the optional figure goal, whatever is delivered (its own
+        # prompt version); never for a question bound to an item or asked
+        # during a check on your own (SM4: P1 builds nothing in attempts).
         context_type = ReaderTutorExplorableShowMeQAContext if explorable else ReaderTutorShowMeQAContext
     return context_type(
         context="reader",

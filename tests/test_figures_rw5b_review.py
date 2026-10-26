@@ -215,7 +215,8 @@ def test_a_reader_ask_answer_offers_and_its_press_builds_from_its_question_event
     monkeypatch.setattr(reader_handler, "ready_tutor_qa_provider", lambda vault: ("fake", Ready(), tutor))
     answer = call(ctx, "reader.ask", {"extractionId": EXTRACTION, "spanId": "p3", "question": "what is this density?",
                                       "selectionSpanIds": ["p3"], "selectionQuote": "f_X(x)"})
-    assert tutor.result_models[-1].startswith("ReaderTutorExplorableAnswer")
+    # RW5d P1 (show me on by default) widens it with the optional figure goal.
+    assert tutor.result_models[-1].startswith("ReaderTutorExplorable")
     buttons = [(b["kind"], b["spanId"]) for b in (answer.get("tutorOffers") or {}).get("buttons") or []]
     assert ("make_explorable", "p3") in buttons
     verdicts = _ledger(repository, TUTOR_EXPLORABLE_TASK)
