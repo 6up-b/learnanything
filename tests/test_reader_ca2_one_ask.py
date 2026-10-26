@@ -7,7 +7,8 @@ docs/reviews/reader-ca2-one-ask.md), backend.
   taken on a cold follow-up makes the attempt practice with help, admitted and
   never the cold measurement (Q4). Off, or below the tag: the predecessor.
 * **The panel (``ask.panel_enabled``).** The practice thread is the attempt's
-  (K5); so is the budget (owner 2026-10-26: B3's per-attempt rule kept);
+  (K5); so is the budget on a metered route (owner 2026-10-26: B3's
+  per-attempt rule kept; a subscription route has none, F8);
   the help style is Ask's answer mode on every host (§7.4, Q5); a Work-in-Steps
   question names a workbench session the server checks (K7); *earlier on this
   question* lists earlier attempts' help, absent on a cold check (K6, Q2); the
@@ -392,11 +393,10 @@ def test_the_sidecar_asks_in_the_help_styles_mode_unless_changed_for_one_questio
         "What does this symbol mean?", "And this one?"]
     other = _call(ctx, "get_tutor_transcript", {"context": "practice", "practiceItemId": ITEM,
                                                 "sessionId": "sess_1", "submissionId": "k2"})
-    # Each attempt has its own budget (owner 2026-10-26, B3's rule): a new serve starts it fresh.
-    vault, _repository = ctx.require_vault()
-    limit = vault.config.tutor_qa.max_questions_practice
-    assert transcript["remaining"] == limit - 2
-    assert other["events"] == [] and other["remaining"] == limit
+    # The default route is the subscription's: no request bound on either serve
+    # (Codex review F8, kept by the owner 2026-10-26); a metered route's
+    # per-attempt cap is pinned in tests/test_reader_ca2_codex_review.py.
+    assert other["events"] == [] and other["remaining"] is None and transcript["remaining"] is None
     assert other["cold"] is False and other["earlierCountsAsHint"] is True
 
 

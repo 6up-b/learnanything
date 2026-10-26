@@ -311,3 +311,28 @@ read with the thread's keys on ask, transcript and capture recovery. One new Low
   it, so no production path hit it). The parameter is `earlier` now;
   `test_f16_the_session_view_reads_the_problems_own_opening_by_default` failed before (the `TypeError`) and passes;
   the CA2 and workbench files rerun green (153 passed), import contracts 36 kept.
+
+### Owner decision, second part (2026-10-26): the subscription route stays unlimited
+
+The owner refined the budget decision the same day: the subscription (ChatGPT plan) route stays **unlimited** for
+practice Ask, as F8 had it; the per-attempt cap `max_questions_practice` applies only to metered routes. The
+per-attempt thread keying and budget stay everywhere else. Restored: `question_usage(metered=...)` (limit None on a
+subscription route while the panel is on; panel off keeps B3's cap, as F8 did), the ask path's
+`is_subscription_transport(client=...)`, and the transcript's `_tutor_route_subscription`; capture recovery reads it
+the same way. Tests, fail-first against `6693d4d56` (archive of `src/` and `migrations/` first on pytest's
+`pythonpath`):
+
+* `test_a_subscription_route_has_no_request_bound_and_a_metered_route_keeps_the_per_attempt_cap` (replaces
+  `test_each_attempt_gets_its_own_practice_budget_on_every_route`; failed before: `remaining` 1, not None, on the
+  subscription route); the metered half keeps the per-attempt cap and a fresh budget on the next serve.
+* B3's `test_b3_a_reattempt_starts_a_fresh_ask_thread` asserts F8's `remaining is None` again with B3's `used == 0`
+  (failed before: 3).
+* `test_sidecar_tutor_qa.py` restored to F8's version (the count-cap test runs with the panel off;
+  `test_preview_tutor_opening_after_stop_diagnosing` asserts `remaining is None`; failed before: 3).
+* `test_the_sidecar_asks_in_the_help_styles_mode_unless_changed_for_one_question` reads no bound on the default
+  (subscription) route.
+
+The spec's K5 row carries both parts of the decision. Gate: the CA2 and tutor files (`test_reader_ca2_*`,
+`test_owner_capture_1025.py`, `test_sidecar_tutor_qa.py`, `test_tutor_qa.py`, the capture, library, dialogue,
+delivery, practice-request and feedback tutor files: 420 passed, 0 failed), and the sidecar and desktop RPC contracts, serializer snapshot, mobile allowlist, architecture, plan transport, reader tutor and question-queue files (540 passed, 5 skipped); import contracts 36 kept. No new Codex
+verify (orchestrator: a one-rule change).

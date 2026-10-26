@@ -82,6 +82,7 @@ from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
+from learnloop.ai.spend import is_subscription_transport
 from learnloop.tutor.context_delivery import (
     MAX_REFERENCES,
     NEIGHBOUR_RADIUS,
@@ -490,21 +491,25 @@ def question_usage(
     clock: Clock | None = None,
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
+    metered: bool = True,
 ) -> tuple[int, int | None]:
     """(used, limit) for one Q&A budget window.
 
     practice: per attempt (the attempt's thread); feedback: per attempt;
     library: per note per UTC day.
 
-    Practice is PER ATTEMPT on every route (owner decision 2026-10-26,
-    restoring owner capture 2026-10-25 B3's rule over Reader CA2's K5
-    per-item, per-UTC-day bound and Codex review F8's unbounded
-    subscription route): each attempt gets its own ``max_questions_practice``,
-    counted over the same thread its tutor is given
-    (:func:`practice_thread_events`). With the Ask panel on, the thread is
-    keyed by the attempt's ``submission_id`` (or the unfinished workbench the
-    server names), so a new serve of the item starts a fresh budget as it
-    starts a fresh thread."""
+    Practice is PER ATTEMPT (owner decisions 2026-10-26, restoring owner
+    capture 2026-10-25 B3's rule over Reader CA2's K5 per-item, per-UTC-day
+    bound): each attempt gets its own ``max_questions_practice``, counted over
+    the same thread its tutor is given (:func:`practice_thread_events`). With
+    the Ask panel on, the thread is keyed by the attempt's ``submission_id``
+    (or the unfinished workbench the server names), so a new serve of the
+    item starts a fresh budget as it starts a fresh thread, and a question on
+    a subscription route (Codex, the ChatGPT plan: ``metered`` False) has no
+    request bound at all, so ``limit`` is None (Codex review F8, kept by the
+    owner 2026-10-26; Slice A plan §5 rule 6: its cost is estimated from the
+    agent run's token usage, never a physical-request cap). The cap applies
+    on metered routes."""
 
     config = vault.config.tutor_qa
     # Only answered turns consume budget: a provider failure (answer_status
@@ -518,7 +523,7 @@ def question_usage(
             submission_id=submission_id if keyed else None,
             workbench_session_id=workbench_session_id if keyed else None,
         ))
-        return used, config.max_questions_practice
+        return used, (config.max_questions_practice if metered or not keyed else None)
     if context == "feedback":
         used = repository.count_question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"
@@ -805,6 +810,7 @@ def ask_question(
         clock=clock,
         submission_id=submission_id,
         workbench_session_id=workbench_session_id,
+        metered=not is_subscription_transport(client=client),
     )
     if limit is not None and used >= limit:
         raise QuestionLimitReached(context=context, limit=limit, used=used)

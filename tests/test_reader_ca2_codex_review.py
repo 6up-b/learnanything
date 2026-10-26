@@ -17,8 +17,8 @@ never a mocked predicate; every model is a fake.
   a Reader question needs no practice session from the client and still
   counts at the submit.
 * F7 (K8): the transcript's help record is what Submit folds.
-* F8 (K5): superseded by the owner's decision of 2026-10-26: the practice
-  budget is per attempt on every route (B3's rule), subscription included.
+* F8 (K5): no request bound on a subscription route (kept by the owner
+  2026-10-26); a metered route has the per-attempt cap (B3's rule).
 * F9 (K11): citations carry their book excerpt, live and restored.
 """
 from __future__ import annotations
@@ -274,23 +274,29 @@ def test_an_ordinary_answer_is_delivered(sidecar):
     assert answer["hintEquivalent"] is True
 
 
-# -- The practice budget is per attempt on every route (owner 2026-10-26; F8's K5 bound withdrawn) ------
+# -- F8 (K5), kept by the owner 2026-10-26: no request bound on a subscription route; a metered route keeps
+#    the per-attempt cap (B3's rule) ----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("tutor", [PlanTutor, FakeTutor], ids=["subscription", "metered"])
-def test_each_attempt_gets_its_own_practice_budget_on_every_route(tmp_path, tutor):
+def test_a_subscription_route_has_no_request_bound_and_a_metered_route_keeps_the_per_attempt_cap(tmp_path):
     _paths, vault, repository = _vault(tmp_path, {("tutor_qa", "max_questions_practice"): 2})
     clock = FrozenClock(NOW)
-    for index in range(2):
-        result = ask_question(vault, repository, tutor(), context="practice", question_md=f"Why {index}?",
+    # The subscription route (the ChatGPT plan): never capped.
+    for index in range(4):
+        result = ask_question(vault, repository, PlanTutor(), context="practice", question_md=f"Why {index}?",
                               practice_item_id=ITEM, session_id="sess_1", submission_id="k1", clock=clock)
+        assert result["remaining"] is None
+    # A metered route: its own cap per attempt, counted over the attempt's thread.
+    for index in range(2):
+        result = ask_question(vault, repository, FakeTutor(), context="practice", question_md=f"Metered {index}?",
+                              practice_item_id=ITEM, session_id="sess_1", submission_id="m1", clock=clock)
         assert result["remaining"] == 1 - index
     with pytest.raises(QuestionLimitReached):
-        ask_question(vault, repository, tutor(), context="practice", question_md="One more?",
-                     practice_item_id=ITEM, session_id="sess_1", submission_id="k1", clock=clock)
+        ask_question(vault, repository, FakeTutor(), context="practice", question_md="One more?",
+                     practice_item_id=ITEM, session_id="sess_1", submission_id="m1", clock=clock)
     # The next serve of the item (a new attempt, the same UTC day) starts its own budget.
-    result = ask_question(vault, repository, tutor(), context="practice", question_md="Fresh?",
-                          practice_item_id=ITEM, session_id="sess_1", submission_id="k2", clock=clock)
+    result = ask_question(vault, repository, FakeTutor(), context="practice", question_md="Fresh?",
+                          practice_item_id=ITEM, session_id="sess_1", submission_id="m2", clock=clock)
     assert result["remaining"] == 1
 
 
