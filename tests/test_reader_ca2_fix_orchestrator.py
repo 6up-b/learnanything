@@ -169,3 +169,46 @@ def test_f12_a_stored_withheld_answer_reaches_the_queue_only_as_its_take_step(si
         assert secret not in json.dumps(queue, ensure_ascii=False)
         rows = [row for row in queue["questions"] if row["id"] == answer["eventId"]]
         assert rows and rows[0]["answerMd"] == WITHHELD_ANSWER_MD
+
+
+# -- Migration 221: the opening's own column -------------------------------------------------------
+
+
+def test_221_adds_only_the_earlier_opening_column(tmp_path):
+    from pathlib import Path
+
+    from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations
+    from learnloop.db.migrate import upgrade_allowance
+
+    through = tmp_path / "through_220"
+    through.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 220:
+            (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
+    database = tmp_path / "state.sqlite"
+    apply_migrations(database, migrations_dir=through)
+
+    def schema() -> dict[str, str]:
+        with closing(sqlite3.connect(database)) as connection:
+            return {name: sql or "" for name, sql in connection.execute("SELECT name, sql FROM sqlite_master")}
+
+    before = schema()
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("INSERT INTO workbench_sessions(id, stem_md, origin, entry, practice_item_id, "
+                           "created_at, updated_at) VALUES ('wb_old', 'x', 'practice', 'practice_screen', 'pi', "
+                           "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
+        connection.commit()
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        assert [migration.version for migration in apply_migrations(database)] == [221]
+    after = schema()
+    assert set(after) == set(before)
+    assert {name for name in before if before[name] != after[name]} == {"workbench_sessions"}
+    with closing(sqlite3.connect(database)) as connection:
+        # A problem from before 221 reads as no opening carried.
+        assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221" / "state.sqlite"
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 221
+    assert head.read_bytes()[18:20] == b"\x01\x01"
+    with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")}
+    assert "earlier_opened_at" in columns

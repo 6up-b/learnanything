@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ced3f8ea5c1f7080fb666e90e6e88f8d633eb7a6"
-source_commit_timestamp: "2026-10-25T11:47:46-04:00"
+source_commit: "910ecb2dd2d46aa200e447cd8d1d4b212b69a702"
+source_commit_timestamp: "2026-10-25T22:41:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 220
+schema_head: 221
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"

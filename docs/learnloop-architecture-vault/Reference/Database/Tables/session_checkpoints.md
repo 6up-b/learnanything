@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
-source_commit_timestamp: "2026-10-25T15:46:37-04:00"
+source_commit: "910ecb2dd2d46aa200e447cd8d1d4b212b69a702"
+source_commit_timestamp: "2026-10-25T22:41:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 220
+schema_head: 221
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 - `src/learnloop_sidecar/handlers/teach_back.py`
+- `src/learnloop_sidecar/handlers/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/workbench.py`
 
 > [!note] Static-reference boundary

@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
-source_commit_timestamp: "2026-10-25T15:46:37-04:00"
+source_commit: "910ecb2dd2d46aa200e447cd8d1d4b212b69a702"
+source_commit_timestamp: "2026-10-25T22:41:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 220
+schema_head: 221
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -156,8 +156,10 @@ None found by exact static reference scan.
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop/workbench/check.py`
 - `src/learnloop/workbench/help_outcomes.py`
+- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 ### Direct SQL writers
 

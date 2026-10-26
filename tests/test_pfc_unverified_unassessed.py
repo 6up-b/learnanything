@@ -57,7 +57,7 @@ VERIFYING_ANSWER = "A different route.\nFinal answer: U Sigma V^T"
 ITEM = "pi_svd_compute_001"  # setup (2, measures compute) + result (2, measures recall)
 LO = "lo_svd_compute"
 CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
-HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_220"
+HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_221"
 #: Every split version grades blind, so the rule holds at each of them, never
 #: at mvp-0.10 alone (mvp-0.11 = the mvp-0.10 split plus placement).
 SPLIT_VERSIONS = sorted(DIAGNOSIS_SPLIT_VERSIONS)

@@ -42,7 +42,8 @@ as before.
 This is a copy of the small conic-sections vault upgraded through migration
 220, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
-landing, and 220 on that one at local contextual retrieval P1's landing). Migration 167 adds the learner-field F1 read model
+landing, 220 on that one at local contextual retrieval P1's landing, and 221 on
+that one at Reader CA2's orchestrator fix round). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -331,6 +332,23 @@ objects (the table, its two indexes and triggers, and the
 `workbench_sessions` column) are identical to the RW2d branch's head. On the
 branch it had been rebuilt the same way from the 218 database at git
 `bd0bb7267` (no 214), and again at the re-review fix (F3, the added column).
+
+Migration 221 comes from Reader CA2, one Ask (`reader/ca2-one-ask`,
+docs/reviews/reader-ca2-one-ask-codex-review.md, "Fix round (orchestrator)",
+F15 and F1): it adds `workbench_sessions.earlier_opened_at` (LIFECYCLE state
+on a WORKFLOW table: when an earlier attempt's help the answer box's draft
+opened was carried onto the problem, its own component beside the authored
+reveals' `carried_hints`; NULL on every row here). Built on the branch (base
+`eae00d58a`) as a backup-API copy of `migration_head_220` (git `910ecb2dd`)
+with only 221 applied, through `learnloop.db.migrate.apply_migrations` under
+the scratch-copy upgrade allowance (`UPGRADE_SCRATCH_COPY`;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
+1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with
+the backup API, with no companion files; `migration_head_220` was renamed to
+this directory. Only `workbench_sessions`' definition changed and only
+`schema_migrations` gained a row; the sanitized content above is unchanged.
+Main's own 221 (the learner-claim fixes) landed first, so the landing
+renumbers this one and rebuilds the head from main's.
 
 Migration 220 comes from local contextual retrieval P1a/P1b
 (`retrieval/local-p1`, docs/reviews/retrieval-local-p1.md,

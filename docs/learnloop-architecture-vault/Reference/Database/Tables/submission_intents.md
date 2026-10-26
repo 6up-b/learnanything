@@ -3,13 +3,13 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "70b1c60677de092aa1630c5cc88b1c89951ff8ac"
-source_commit_timestamp: "2026-10-25T15:46:37-04:00"
+source_commit: "910ecb2dd2d46aa200e447cd8d1d4b212b69a702"
+source_commit_timestamp: "2026-10-25T22:41:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
   - "table submission_intents"
-schema_head: 220
+schema_head: 221
 table_name: "submission_intents"
 table_role: "raw_ledger"
 functionality_status: "active"
