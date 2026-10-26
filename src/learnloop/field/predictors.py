@@ -38,6 +38,19 @@ def _hash(value: object) -> str:
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+#: Mastery keys an offline arm never reads: LP-min (a)'s claim-fixes kill switch
+#: acts on live claim seeds and replay only, and these arms take their priors
+#: as inputs, so it stays out of their version hashes (arms keep the hashes
+#: recorded before the key existed; tests/test_eval_harness.py pins them).
+_OFFLINE_INERT_MASTERY_KEYS = frozenset({"claim_fixes_enabled"})
+
+
+def _mastery_hash_view(config: MasteryConfig) -> dict:
+    """The mastery config as an offline arm's version hash reads it."""
+
+    return {k: v for k, v in config.model_dump(mode="json").items() if k not in _OFFLINE_INERT_MASTERY_KEYS}
+
+
 def _order(row: ObservationRow) -> tuple[str, str, str]:
     return (row.observed_at, getattr(row, "attempt_id", None) or "",
             row.signal_id if isinstance(row, SignalRow) else getattr(row, "facet_id", ""))
@@ -75,7 +88,7 @@ class LoGeneral:
         self.version_hash = _hash({
             "implementation": "field-ekf-v2-hint-mass-practice-gain",
             "name": name, "extensions": sorted(self.extensions),
-            "constants": asdict(self.constants), "mastery": self.config.model_dump(mode="json"),
+            "constants": asdict(self.constants), "mastery": _mastery_hash_view(self.config),
             "general_means": self.general_means, "lo_priors": self.lo_priors,
         })
         self._reset()

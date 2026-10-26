@@ -26,7 +26,7 @@ from types import MappingProxyType
 import numpy as np
 
 from learnloop.clock import parse_utc
-from learnloop.field.predictors import MasteryEKF, _eligible
+from learnloop.field.predictors import MasteryEKF, _eligible, _mastery_hash_view
 from learnloop.field.types import FacetRow, ItemFeatures, ObservationRow, SignalRow
 
 
@@ -240,7 +240,7 @@ class LogisticHead:
             "moderated": moderated, "difficulty": difficulty, "priors": asdict(self.priors),
             "dimensions": self.content.dimensions if self.views else 0,
             "content": self.content.digest if self.views else None,
-            "mastery": config.model_dump(mode="json") if config is not None else None,
+            "mastery": _mastery_hash_view(config) if config is not None else None,
             "lo_priors": self._lo_priors,
         })
         self._reset()
