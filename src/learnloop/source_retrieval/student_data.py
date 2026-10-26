@@ -28,9 +28,11 @@ intended supporting blocks, under the data root (never in the vault or the repos
 * **Splits and budgets.** Families group a vault's sources by the bank's own rule (Codex review
   F8): alternate editions and overlapping copies (the same source bytes or the same title stem)
   share a family, recorded once in the data directory's ``families.json`` and read by
-  generation, the splits, training and evaluation alike. One family per vault (by a stable hash)
-  is held out: never trained on, the unseen-source test. Of the rest, a passage-disjoint tenth is the
-  development split. Every question has a stable rank, so the 2k/10k/50k budgets are nested by
+  generation, the splits, training and evaluation alike. One family per vault (by a stable hash
+  over the mapping's current families) is held out: never trained on, the unseen-source test. A
+  stored row's split is re-derived from the current hold-out whenever a dataset is built
+  (:func:`current_split`), so a family held out after its rows were generated leaves training.
+  Of the rest, a passage-disjoint tenth is the development split. Every question has a stable rank, so the 2k/10k/50k budgets are nested by
   construction (the first 2,000 are inside the first 10,000).
 * **Resumable.** A passage whose questions are stored is never asked again.
 """
@@ -307,10 +309,36 @@ def split_of(passage: Mapping[str, Any], held_out: str | None) -> str:
 def held_out_family(found: Sequence[Mapping[str, Any]]) -> str | None:
     """One family per vault is never trained on (the unseen-source test), when it has two or more."""
 
-    families = sorted({family_of(passage) for passage in found})
-    if len(families) < 2:
+    return held_out_among(family_of(passage) for passage in found)
+
+
+def held_out_among(families: Iterable[str]) -> str | None:
+    """The held-out family among ``families`` (two or more), by a stable hash."""
+
+    found = sorted({str(family) for family in families})
+    if len(found) < 2:
         return None
-    return min(families, key=lambda family: _sha("heldout", family))
+    return min(found, key=lambda family: _sha("heldout", family))
+
+
+def vault_held_out(by_extraction: Mapping[str, str]) -> str | None:
+    """THE vault's held-out family, read by generation and by every dataset build alike (Codex
+    final verify F19, spec §7): the hold-out among the family mapping's current families."""
+
+    return held_out_among(by_extraction.values())
+
+
+def current_split(row: Mapping[str, Any], held_out: str | None) -> str:
+    """A stored row's split under the CURRENT hold-out (F19, spec §7: a held-out family is never
+    trained on). A row stored before its family was held out is held out now; a row of a family no
+    longer held out takes its passage's split. A row without a passage key keeps its stored split
+    unless its family is the held-out one."""
+
+    if str(row.get("family")) == held_out:
+        return "heldout"
+    if row.get("passage"):
+        return split_of({"key": row["passage"], "family": row.get("family")}, held_out)
+    return str(row.get("split") or "")
 
 
 # -- the generator's contract -----------------------------------------------------------------------
@@ -470,7 +498,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
     families = family_map(directory, repository, persist=not dry_run)
     found = [{**passage, "family": families.get(passage["source_id"], f"fam_{passage['source_id']}")}
              for passage in passages(vault, repository, excluded=excluded)]
-    held_out = held_out_family(found)
+    held_out = vault_held_out(extraction_families(repository, families))
     done = done_passages(directory)
     stored = stored_queries(directory)
     owed = [passage for passage in found if passage["key"] not in done]
@@ -572,6 +600,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
 
 __all__ = ["CAP_SETTING", "GeneratedQuestionsV1", "INTENTS", "MODELS_ENV", "OWNER_KIND", "PROMPT_VERSION", "SHAPES",
            "TASK", "bank_supports", "budgets_of", "call_prompt", "data_dir", "extraction_families", "family_map",
-           "family_of", "generate", "held_out_family", "question_families",
+           "current_split", "family_of", "generate", "held_out_among", "held_out_family", "question_families",
+           "vault_held_out",
            "load_bank", "nested", "ngram_overlap", "ngrams", "passages", "query_rows", "retrieval_text", "split_of",
            "stored_queries", "validated", "vault_key"]

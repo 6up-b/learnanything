@@ -717,8 +717,11 @@ def campaign(vault: LoadedVault, repository: Repository, *, root: Path, space: s
     index = targets_index(space_home)
     families = D.family_map(D.data_dir(root, space, vault), repository, persist=persist)
     by_extraction = D.extraction_families(repository, families)
+    held_out = D.vault_held_out(by_extraction)
     rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
             for row in eligible_rows(_vault_rows(root, space, vault), index, bank)]
+    # Spec §7, F19: each row's split under the CURRENT hold-out, never the one stored with it.
+    rows = [{**row, "split": D.current_split(row, held_out)} for row in rows]
     candidates = (training_candidates(vault, repository, space, bank=bank, rows=rows, by_extraction=by_extraction)
                   if rows else {"ids": [], "matrix": np.zeros((0, SP.STUDENT_DIMENSIONS), np.float32), "sources": [],
                                 "families": [], "held_out": [], "extractions": [], "bank_tainted_blocks": 0,
@@ -727,6 +730,7 @@ def campaign(vault: LoadedVault, repository: Repository, *, root: Path, space: s
                         "rows": sorted([row["id"], row["split"], row["rank"], row["family"]] for row in rows),
                         "candidates": candidates["fingerprint"], "families": sorted(families.items())})
     return {"index": index, "rows": rows, "by_extraction": by_extraction, "candidates": candidates,
+            "held_out_family": held_out,
             "fingerprint": fingerprint, "bank_fingerprint": bank_fingerprint(bank),
             "bank_missing": missing_bank_targets(index, bank), "screen_current": screen_current(index, bank),
             "n_train": sum(1 for row in rows if row["split"] == "train"),
@@ -755,15 +759,14 @@ def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, spa
     if not record_ids:
         raise ValueError("no permitted training candidate: index the vault's training families first")
     position = {record_id: row for row, record_id in enumerate(record_ids)}
-    rows = camp["rows"]
-    train = D.nested(rows, budget)
-    dev = sorted((row for row in rows if row["split"] == "dev"), key=lambda row: row["rank"])[:DEV_MAX]
+    train, dev = _consumed_queries(camp, budget)
     out_dir.mkdir(parents=True, exist_ok=True)
     stats: dict[str, Any] = {"documents": len(record_ids), "train": len(train), "dev": len(dev),
                              "candidate_families": len(candidates["families"]),
                              "held_out_families_excluded": len(candidates["held_out"]),
                              "bank_tainted_blocks_excluded": candidates["bank_tainted_blocks"],
-                             "dataset_fingerprint": camp["fingerprint"]}
+                             "dataset_fingerprint": camp["fingerprint"],
+                             "training_families": run_training_families(camp, budget)}
     k = min(SP.TEACHER_TOP_K, len(record_ids))
     spreads = []
     for split, items in (("train", train), ("dev", dev)):
@@ -882,7 +885,7 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     job = trainer_job(spec, space=space, base_dir=Path(record["dir"]), data_dir=data,
                       out_dir=space_home / "runs" / run_id, temperature=stats["temperature"],
                       plan_id=f"p2train_{run_id[:16]}", dataset_fingerprint=camp["fingerprint"],
-                      training_families=candidates_families(camp))
+                      training_families=stats["training_families"])
     from learnloop.local_embeddings import student_trainer
 
     run = launcher or ScopedLauncher(Path(manifest["env_python"]), script=Path(student_trainer.__file__),
@@ -986,20 +989,38 @@ def _evaluation_candidate(ledger: Mapping[str, Any], step: Mapping[str, Any], ad
     return None, "", None
 
 
-def candidates_families(camp: Mapping[str, Any]) -> list[str]:
-    """The families a run on this campaign trains on: its permitted candidates' (train and dev, no
-    held-out family). The trainer pins them in the checkpoint manifest (Codex final verify F19)."""
+def _consumed_queries(camp: Mapping[str, Any], budget: int) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+    """``(train, dev)``: the queries a run at ``budget`` gives the trainer (the nested budget, the
+    development split's first ``DEV_MAX`` by rank)."""
 
-    return sorted(str(family) for family in camp["candidates"]["families"])
+    rows = camp["rows"]
+    dev = sorted((row for row in rows if row["split"] == "dev"), key=lambda row: row["rank"])[:DEV_MAX]
+    return D.nested(rows, budget), dev
+
+
+def run_training_families(camp: Mapping[str, Any], budget: int) -> list[str]:
+    """Every family a run at ``budget`` on this campaign consumes (Codex final verify F19): its
+    training and development queries' families and the families of the candidate blocks its KD
+    top-k, positives and hard negatives come from (and the candidate manifest's own families).
+    The trainer pins them in the checkpoint manifest; the current-dataset fallback derives the
+    same set, so a family the run saw is never reported unseen."""
+
+    train, dev = _consumed_queries(camp, budget)
+    by_extraction = camp["by_extraction"]
+    candidates = camp["candidates"]
+    found = {str(row["family"]) for row in [*train, *dev]} | {str(family) for family in candidates["families"]}
+    found |= {str(by_extraction[source]) for source in candidates["sources"] if source in by_extraction}
+    return sorted(found)
 
 
 def checkpoint_training_families(run: Mapping[str, Any], camp: Mapping[str, Any], *, root: Path, space: str
                                  ) -> tuple[set[str] | None, str]:
     """``(families, basis)``: the families the checkpoint actually trained on (F19). The pinned
     manifest's record when its digest still matches the pin (``checkpoint_manifest``), else the
-    current campaign's when the run was trained on this very dataset (its fingerprint names the
-    rows' splits and families: ``current_dataset``), else ``(None, "unknown")``: no stratum then
-    calls its questions seen or unseen."""
+    families :func:`run_training_families` derives from the current campaign at the run's budget
+    when the run was trained on this very dataset (its fingerprint names the rows' splits and
+    families: ``current_dataset``), else ``(None, "unknown")``: no stratum then calls its
+    questions seen or unseen."""
 
     from learnloop.local_embeddings.student_trainer import checkpoint_digest
 
@@ -1012,8 +1033,9 @@ def checkpoint_training_families(run: Mapping[str, Any], camp: Mapping[str, Any]
             pinned = False
         if pinned:
             return {str(family) for family in manifest["training_families"]}, "checkpoint_manifest"
-    if (run.get("spec") or {}).get("dataset") == camp["fingerprint"]:
-        return set(candidates_families(camp)), "current_dataset"
+    spec = run.get("spec") or {}
+    if spec.get("dataset") == camp["fingerprint"] and spec.get("budget") is not None:
+        return set(run_training_families(camp, int(spec["budget"]))), "current_dataset"
     return None, "unknown"
 
 
@@ -1447,7 +1469,13 @@ def status(vault: LoadedVault, repository: Repository, *, root: Path | None = No
     if manifest is None:
         return {"enabled": False, "reason": reason}
     space_home = home(root, space)
-    rows = _vault_rows(root, space, vault)
+    by_extraction = D.extraction_families(repository, D.family_map(D.data_dir(root, space, vault), repository,
+                                                                   persist=False))
+    held_out = D.vault_held_out(by_extraction)
+    # The splits a dataset would use now (F19, spec §7), not the ones stored with the rows.
+    rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
+            for row in _vault_rows(root, space, vault)]
+    rows = [{**row, "split": D.current_split(row, held_out)} for row in rows]
     index = targets_index(space_home)
     ledger = read_ledger(space_home)
     adoption = read_adoption(root, space)

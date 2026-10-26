@@ -317,7 +317,7 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": recipe, "budget": 50_000, "seed": 0}, space=space,
                         base_dir=tmp_path, data_dir=data, out_dir=tmp_path / "out", temperature=stats["temperature"],
                         plan_id="t", dataset_fingerprint=camp["fingerprint"],
-                        training_families=Q.candidates_families(camp))
+                        training_families=stats["training_families"])
     job["epochs"] = 1
     output = student_trainer.run_training(job, model_factory=__import__("tests.query_student_fakes",
                                                                          fromlist=["x"]).tiny_factory,
@@ -329,7 +329,7 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     manifest = json.loads((Path(output["checkpoint_dir"]) / "student.json").read_text())
     assert manifest["frozen_base"] is (recipe == "projection_only") and "cpu" in manifest["canaries"]
     assert manifest["dataset_fingerprint"] == camp["fingerprint"]
-    assert manifest["training_families"] == Q.candidates_families(camp)  # F19: pinned with the checkpoint
+    assert manifest["training_families"] == Q.run_training_families(camp, 50_000)  # F19: pinned with the checkpoint
     sha = Q.install_checkpoint(output, root=root, space=space)
     assert (E.checkpoint_dir(root, space, sha) / "student.safetensors").is_file()
     assert sha == student_trainer.checkpoint_digest(manifest)
@@ -1289,3 +1289,75 @@ def test_the_trainer_job_and_manifest_pin_the_training_families():
     assert student_trainer.checkpoint_digest(pinned) != student_trainer.checkpoint_digest(legacy)
     assert student_trainer.checkpoint_digest({**legacy, "training_families": ["a"]}) != \
         student_trainer.checkpoint_digest(pinned)
+
+
+# -- F19 reopened (scoped verify 20261026-151935-zeVlcA): the families a run consumed; the hold-out rule ----------
+def _stale_splits(tmp_path):
+    """Targets for a vault whose stored rows carry splits from before the current hold-out: the
+    held-out family's rows were stored as training rows (generated while it was the only family),
+    and one other family's rows as held-out (an earlier hold-out)."""
+
+    paths, repository, root, model, space, bank = _targets(tmp_path)
+    vault = loaded(paths)
+    directory = D.data_dir(root, space, vault)
+    rows = D.stored_queries(directory)
+    held = {row["family"] for row in rows if row["split"] == "heldout"}
+    assert len(held) == 1
+    (family,) = held
+    other = sorted({row["family"] for row in rows} - held)[0]
+    stale = [{**row, "split": "train"} if row["family"] == family else
+             {**row, "split": "heldout"} if row["family"] == other else row for row in rows]
+    (directory / "queries.jsonl").write_text("".join(json.dumps(row) + "\n" for row in stale), encoding="utf-8")
+    return paths, repository, root, model, space, bank, family, other, rows
+
+
+def test_a_newly_held_out_familys_older_rows_leave_training(tmp_path):
+    """Spec §7 (splits by source family: a held-out family is NEVER trained on): a row's split is
+    re-derived from the vault's current hold-out when a dataset is built, so rows stored as
+    training rows before their family was held out leave training (and the development split),
+    and rows of a family no longer held out take their passage's split."""
+
+    paths, repository, root, _model, space, bank, family, other, original = _stale_splits(tmp_path)
+    vault = loaded(paths)
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    assert camp["rows"] and all(row["split"] == "heldout" for row in camp["rows"] if row["family"] == family)
+    assert family not in camp["candidates"]["families"]
+    expected = {row["id"]: row["split"] for row in original}
+    assert all(row["split"] == expected[row["id"]] for row in camp["rows"] if row["family"] == other)
+    data = tmp_path / "data"
+    Q.build_dataset(vault, repository, root=root, space=space, budget=max(SP.BUDGETS), bank_path=bank, out_dir=data,
+                    camp=camp)
+    held_texts = {row["text"] for row in original if row["family"] == family}
+    for split in ("train", "dev"):
+        assert held_texts.isdisjoint(json.loads((data / f"{split}_texts.json").read_text()))
+    # The doctor's view counts the splits a dataset would use now.
+    by_split = Q.status(vault, repository, root=root)["questions"]["by_split"]
+    assert by_split == {split: sum(1 for row in original if row["split"] == split)
+                        for split in ("train", "dev", "heldout")}
+
+
+def test_the_pinned_families_are_every_family_the_run_consumed(tmp_path):
+    """F19 reopened: the checkpoint pins the families of the queries the trainer consumed (its
+    nested training budget and development split) and of the candidate blocks its top-k, positives
+    and hard negatives come from; the current-dataset fallback derives the same set."""
+
+    paths, repository, root, _model, space, bank, _family, _other, _original = _stale_splits(tmp_path)
+    vault = loaded(paths)
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    budget = max(SP.BUDGETS)
+    data = tmp_path / "data"
+    stats = Q.build_dataset(vault, repository, root=root, space=space, budget=budget, bank_path=bank, out_dir=data,
+                            camp=camp)
+    texts = set(json.loads((data / "train_texts.json").read_text())) | \
+        set(json.loads((data / "dev_texts.json").read_text()))
+    consumed = {row["family"] for row in camp["rows"] if row["text"] in texts} | \
+        {camp["by_extraction"][source] for source in camp["candidates"]["sources"]}
+    assert consumed and consumed <= set(stats["training_families"])
+    assert stats["training_families"] == Q.run_training_families(camp, budget)
+    trainer = InProcessTrainer(fail=True)  # records the job; no torch, no training
+    Q.run_next(vault, repository, bank_path=bank, launcher=trainer, preflight=lambda: [], locks=no_locks)
+    (job,) = trainer.jobs
+    assert job["training_families"] == Q.run_training_families(camp, int(job["budget"]))
+    run = {"checkpoint_sha256": "d" * 64, "spec": {"dataset": camp["fingerprint"], "budget": int(job["budget"])}}
+    fallback, basis = Q.checkpoint_training_families(run, camp, root=root, space=space)
+    assert basis == "current_dataset" and fallback == set(job["training_families"])
