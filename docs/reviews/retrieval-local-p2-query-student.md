@@ -76,10 +76,14 @@ uv run learnloop embeddings local student targets --vault <vault> --bank <bank>
 # 6. Train: rerun until it answers "evaluate" (each call is ONE run; --dry-run shows the next).
 uv run learnloop embeddings local student train --vault <vault> --bank <bank> --dry-run
 uv run learnloop embeddings local student train --vault <vault> --bank <bank>
-# 7. Evaluate with the SAME bank (the recommendation by expected utility; supplied alternatives must cover
-#    the same in-scope questions), then answer it (the owner's verdict, in judgment_ledger):
-uv run learnloop embeddings local student evaluate --vault <vault> --bank <bank> [--arm qwen=FILE --arm voyage=FILE --arm keyword=FILE]
-uv run learnloop embeddings local student adopt --vault <vault>     # or: student reject --vault <vault>
+# 7. Evaluate (the recommendation by expected utility over the MEASURED actions). --dry-run prints the
+#    comparison fingerprint; a supplied alternative is {"comparison": <it>, "outcomes": {id: 1|0|null}} on every
+#    in-scope question (E1's aggregates are reported as priors, never decided on). A corrected bank re-evaluates
+#    the serving checkpoint (or any completed one: --checkpoint SHA) without retraining. Then answer it (the
+#    owner's verdict, in judgment_ledger); no evaluation changes what serves by itself:
+uv run learnloop embeddings local student evaluate --vault <vault> --bank <bank> --dry-run
+uv run learnloop embeddings local student evaluate --vault <vault> --bank <bank> [--arm qwen=FILE --arm voyage=FILE --arm keyword=FILE] [--checkpoint SHA]
+uv run learnloop embeddings local student adopt --vault <vault>     # or: student reject --vault <vault> (withdraws it if it serves)
 uv run learnloop embeddings local student status --vault <vault>
 ```
 
@@ -114,7 +118,7 @@ Memory: training uses the 9B worker's 12G scope and floors (MemAvailable ≥ 14 
 
 ## Deviations from the spec, and why
 
-1. **The bank posterior is a simplified P0.** P0's full model (Dawid–Skene label noise from the two blinded passes and the adjudications, MCMC) is still owed (P1 open question 2). Here: per-arm family-pooled Beta posteriors with latent unknowns, unjudged retrieved material latent, and soft labels (the interface a label-noise model feeds); paired structure unused (conservative for differences). **Because of that, the rule recommends and the owner adopts** (Codex review F5, [retrieval-lr-p2-query-student-codex-review](retrieval-lr-p2-query-student-codex-review.md)): `student evaluate` records the §9.3 recommendation with its posterior draws and a `judgment_ledger` verdict, `student adopt` / `student reject` is the owner's verdict (and an observation of λ), and a checkpoint that loses its re-evaluation is withdrawn at once. P0's posterior, when a stage supplies it, takes the authority back.
+1. **The bank posterior is a simplified P0.** P0's full model (Dawid–Skene label noise from the two blinded passes and the adjudications, MCMC) is still owed (P1 open question 2). Here: per-arm family-pooled Beta posteriors with latent unknowns, unjudged retrieved material latent, and soft labels (the interface a label-noise model feeds); paired structure unused (conservative for differences). **Because of that, the rule recommends and the owner adopts** (Codex review F5, [retrieval-lr-p2-query-student-codex-review](retrieval-lr-p2-query-student-codex-review.md)): `student evaluate` records the §9.3 recommendation with its posterior draws and a `judgment_ledger` verdict, `student adopt` / `student reject` is the owner's verdict (and, when the recommendation was costed against a measured alternative, an observation of λ). No evaluation changes what serves (Codex re-review F4/F5): a checkpoint that loses its re-evaluation gets a verifier `recommend_withdraw` verdict and the command to apply it (`student reject` / `student revoke`); unjudged retrieved blocks stay latent and are listed per question for labelling (`labels_owed`), with the expected loss of acting now, since §9.1's label-buying rule needs a label price P2 does not record. P0's posterior, when a stage supplies it, takes the authority back.
 2. **Alternatives without per-question outcomes are labelled priors** (E1's committed aggregates: another corpus, other candidate units, the primary slice's denominator), never measured outcomes; a supplied `--arm` must cover the same in-scope questions (Codex review F4). A teacher-session alternative (P1c) is not an action: P1c is not built.
 3. **The cold-start share uses the seed weights**, not a learned draw: with learned fusion on, a cold student whose seed share is 0 is still not waited for (conservative; it starts in the background).
 4. **Real logged queries are not added to training** (spec §7.1 item 3, "can be added"): only the replay queue holds them, for evaluation.

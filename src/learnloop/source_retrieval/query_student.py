@@ -32,14 +32,18 @@ run that starts nothing:
    negatives are that top-50's same-source blocks. A run is named by its dataset fingerprint
    (vault, bank, splits, candidates, families: :func:`campaign`), so nothing is reused across
    datasets.
-5. ``evaluate`` (:func:`evaluate`): the candidate checkpoint through the real query process on
+5. ``evaluate`` (:func:`evaluate`): a checkpoint (the schedule's candidate, the serving one, or
+   any completed one by ``--checkpoint``, on any screened bank) through the real query process on
    the bank questions whose evidence lies in this vault (every arm on the same questions,
-   corpus and labels; unjudged retrieved material latent), beside the teacher's bank vectors and
-   any adopted incumbent, per stratum (deictic, logged, unseen family); §9.3's expected utility
-   RECOMMENDS, with its posterior draws kept. A checkpoint that loses its re-evaluation is
-   withdrawn at once. Adoption is the owner's (``student adopt`` / ``reject``: :func:`owner_choice`)
-   until P0's §9.1 label-noise posterior holds that authority; every verdict (the rule's, the
-   owner's) is appended to ``judgment_ledger``, and the owner's answer is an observation of
+   candidate units and labels, a supplied arm proving it by the comparison fingerprint; unjudged
+   retrieved material latent and listed for labelling), beside the teacher's bank vectors and any
+   adopted incumbent, per stratum (deictic, logged, unseen family); §9.3's expected utility over
+   the MEASURED actions RECOMMENDS (E1's aggregates are reported as priors, never decided on),
+   with its posterior draws kept. No evaluation changes the serving state by itself: a losing
+   re-evaluation recommends withdrawal. Adoption and withdrawal are the owner's (``student
+   adopt`` / ``reject`` / ``revoke``: :func:`owner_choice`) until P0's §9.1 label-noise posterior
+   holds that authority; every verdict (the rule's, the owner's) is appended to
+   ``judgment_ledger``, and the owner's answer to a costed recommendation is an observation of
    lambda. ``adoption.json`` is only the serving pointer. Its weight in the fusion is then learned
    (§9.2) like every list.
 
@@ -202,10 +206,13 @@ def _sha(*parts: Any) -> str:
 
 
 def bank_fingerprint(bank: Sequence[Mapping[str, Any]]) -> str:
-    """The bank's identity: every question's id, retrieval text, evidence and answer spans."""
+    """The bank's identity: every question's id, retrieval text and labels (evidence sets, answer
+    spans and the judged blocks, when the bank records them)."""
 
     return _sha([[str(q["query_id"]), q["text"], [[list(ref) for ref in required] for required in q["evidence_sets"]],
-                  [list(ref) for ref in q.get("answer_spans") or []]] for q in sorted(bank, key=lambda q: q["query_id"])])
+                  [list(ref) for ref in q.get("answer_spans") or []],
+                  None if q.get("judged") is None else [list(ref) for ref in q["judged"]]]
+                 for q in sorted(bank, key=lambda q: q["query_id"])])
 
 
 def targets_index(space_home: Path) -> dict[str, Any]:
@@ -488,20 +495,25 @@ def complete_evidence(ranked: Sequence[str], sets: Sequence[Sequence[tuple[str, 
     return 1.0 if any(all(block_record_id(e, s) in top for e, s in required) for required in sets if required) else 0.0
 
 
+def unjudged_blocks(ranked: Sequence[str], question: Mapping[str, Any], k: int = 10) -> list[str]:
+    """The top ``k``'s blocks the label protocol never judged for this question: neither in an
+    evidence set nor in the bank's ``judged`` list (a bank without one judged nothing else)."""
+
+    known = {block_record_id(e, s) for e, s in question.get("judged") or []} | {
+        block_record_id(e, s) for required in question["evidence_sets"] for e, s in required}
+    return [record for record in ranked[:k] if record not in known]
+
+
 def judged_outcome(ranked: Sequence[str], question: Mapping[str, Any], k: int = 10) -> float | None:
-    """Complete evidence, with unjudged material latent (Codex review F5, spec §9.1): when no set
-    completes but the top ``k`` holds a block the label protocol never judged for this question
-    (the bank's ``judged`` list), that block may be another complete set: the outcome is unknown
-    (None, imputed by the posterior), never a miss. Without a ``judged`` list every arm is scored
-    the same way, a miss counting 0."""
+    """Complete evidence, with unjudged material latent (Codex review F5, re-review F5, spec §9.1):
+    when no set completes but the top ``k`` holds a block the label protocol never judged for this
+    question, that block may be another complete set: the outcome is unknown (None, imputed by the
+    posterior and listed for labelling), never a miss. A bank without ``judged`` lists judged only
+    its evidence, so every other retrieved block is unjudged."""
 
     value = complete_evidence(ranked, question["evidence_sets"], k)
-    judged = question.get("judged")
-    if value == 0.0 and judged is not None:
-        known = {block_record_id(e, s) for e, s in judged} | {
-            block_record_id(e, s) for required in question["evidence_sets"] for e, s in required}
-        if any(record not in known for record in ranked[:k]):
-            return None
+    if value == 0.0 and unjudged_blocks(ranked, question, k):
+        return None
     return value
 
 
@@ -692,16 +704,17 @@ def _vault_rows(root: Path, space: str, vault: LoadedVault) -> list[dict[str, An
 
 
 def campaign(vault: LoadedVault, repository: Repository, *, root: Path, space: str,
-             bank: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+             bank: Sequence[Mapping[str, Any]], persist: bool = True) -> dict[str, Any]:
     """One vault's training campaign against one bank (Codex review F7, F8, F9): the eligible
     questions (:func:`eligible_rows`), their families in the vault's persisted family mapping,
     the permitted training candidates, and the dataset fingerprint that names every run and
     checkpoint made from them. A campaign belongs to ONE vault: another vault, another bank,
-    other splits or other candidates are another dataset, and no run is reused across them."""
+    other splits or other candidates are another dataset, and no run is reused across them.
+    ``persist=False`` (the dry runs, re-review F18) reads the family mapping and writes nothing."""
 
     space_home = home(root, space)
     index = targets_index(space_home)
-    families = D.family_map(D.data_dir(root, space, vault), repository)
+    families = D.family_map(D.data_dir(root, space, vault), repository, persist=persist)
     by_extraction = D.extraction_families(repository, families)
     rows = [{**row, "family": by_extraction.get(str(row.get("extraction_id")), row.get("family"))}
             for row in eligible_rows(_vault_rows(root, space, vault), index, bank)]
@@ -834,7 +847,7 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     if bases is None:
         return {**out, "status": "not_set_up", "reason": "run `learnloop embeddings local student setup` first"}
     space_home = home(root, space)
-    camp = campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank_path))
+    camp = campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank_path), persist=not dry_run)
     incomplete = _incomplete_bank(camp)
     if incomplete:
         return {**out, "status": "refused", "space_id": space, "reason": incomplete}
@@ -896,28 +909,77 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
 
 
 # -- 5. evaluation, the recommendation, and the owner's adoption ----------------------------------------------
-#: The label model behind the bank outcomes (Codex review F5). P0's §9.1 posterior (Dawid-Skene
-#: label noise from the blinded passes and the adjudications) is not built; until a stage
-#: supplies it, an evaluation RECOMMENDS and the owner adopts (``student adopt``), so this
-#: simplified posterior never holds the adoption authority alone.
+#: The label model behind the bank outcomes (Codex review F5, re-review F5). P0's §9.1 posterior
+#: (Dawid-Skene label noise from the blinded passes and the adjudications) is not built; until a
+#: stage supplies it, an evaluation RECOMMENDS and never changes the serving state: the owner
+#: adopts, rejects or revokes, so this simplified posterior holds no authority alone.
 LABEL_MODEL = ("simplified: per-arm family-pooled Beta posteriors, unknown and unjudged outcomes latent; "
                "no label-noise model (spec §9.1's Dawid-Skene posterior is owed by P0)")
 PRIOR_ALTERNATIVE = ("prior: E1's committed aggregates (another corpus, other candidate units, the primary "
-                     "development slice's denominator): not an outcome measured on these questions")
+                     "development slice's denominator): reported for context, never an action in the decision")
+#: Spec §9.1's value-of-information rule needs the next label batch's price, which P2 does not
+#: record: the evaluation lists the owed labels and the expected loss, and acts on neither.
+LABEL_ACQUISITION = ("owed by P0: spec §9.1 buys labels first when the expected loss of acting now exceeds "
+                     "lambda x the next label batch's cost; no label price is recorded in P2, so the unjudged "
+                     "retrieved blocks are listed for labelling and nothing acts on this posterior alone")
 JUDGMENT_TASK = "query_student_adoption"
 
 
 def _outcomes(bank: Sequence[Mapping[str, Any]], vectors: Mapping[str, np.ndarray], record_ids: Sequence[str],
-              matrix: np.ndarray) -> dict[str, float | None]:
+              matrix: np.ndarray) -> tuple[dict[str, float | None], dict[str, list[str]]]:
+    """``(outcomes, owed)``: each question's judged outcome, and for each latent one the
+    retrieved blocks its label protocol never judged (what a label batch would judge)."""
+
     out: dict[str, float | None] = {}
+    owed: dict[str, list[str]] = {}
     for question in bank:
         vector = vectors.get(question["query_id"])
         if vector is None:
             out[question["query_id"]] = None
             continue
         order = np.argsort(-(matrix @ np.asarray(vector, dtype=np.float32)))[:10]
-        out[question["query_id"]] = judged_outcome([record_ids[i] for i in order], question)
-    return out
+        ranked = [record_ids[i] for i in order]
+        out[question["query_id"]] = judged_outcome(ranked, question)
+        if out[question["query_id"]] is None:
+            owed[question["query_id"]] = unjudged_blocks(ranked, question)
+    return out, owed
+
+
+def comparison_fingerprint(bank_print: str, record_ids: Sequence[str], question_ids: Sequence[str]) -> str:
+    """What makes two arms' outcomes comparable (re-review F4): the bank's labels (its
+    fingerprint), the candidate units every arm ranks (the space's current block ids) and the
+    in-scope questions. A supplied arm names it; ``student evaluate --dry-run`` prints it."""
+
+    return _sha({"bank": bank_print, "units": _sha(list(record_ids)), "questions": sorted(question_ids)})
+
+
+def _evaluation_candidate(ledger: Mapping[str, Any], step: Mapping[str, Any], adoption: Mapping[str, Any] | None,
+                          checkpoint: str | None, *, root: Path, space: str
+                          ) -> tuple[Mapping[str, Any] | None, str, str | None]:
+    """``(run, basis, refusal)``: the checkpoint to evaluate (re-review F17). An explicit one
+    (any completed run's), else the schedule's candidate on the current dataset, else the serving
+    checkpoint: corrected labels (a new bank, so a new dataset) stop training reuse, never the
+    evaluation of what already exists."""
+
+    complete = {str(run["checkpoint_sha256"]): run for run in ledger["runs"].values()
+                if run.get("status") == "complete" and run.get("checkpoint_sha256")}
+
+    def present(sha: str) -> bool:
+        return (checkpoint_dir(root, space, sha) / "student.json").is_file()
+
+    if checkpoint:
+        run = complete.get(checkpoint)
+        if run is None or not present(checkpoint):
+            return None, "explicit", (f"no completed run made the checkpoint {checkpoint[:12]}, or it is not present "
+                                      "under the space")
+        return run, "explicit", None
+    if step.get("step") == "evaluate":
+        return ledger["runs"][step["candidate"]], "schedule", None
+    if adoption is not None:
+        run = complete.get(str(adoption["checkpoint_sha256"]))
+        if run is not None and present(str(adoption["checkpoint_sha256"])):
+            return run, "serving", None
+    return None, "", None
 
 
 def _strata(bank: Sequence[Mapping[str, Any]], question_families: Mapping[str, set[str]],
@@ -988,11 +1050,15 @@ def _withdraw(repository: Repository, *, root: Path, space: str, adoption: Mappi
 
 def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, root: Path | None = None,
              encoder_factory: Callable[[str], Any] | None = None, arms: Mapping[str, Path] | None = None,
-             dry_run: bool = False) -> dict[str, Any]:
-    """The candidate on the bank beside the teacher (and any adopted incumbent), every arm on the
-    same frozen questions, corpus and labels; §9.3's expected utility RECOMMENDS. A checkpoint that
-    loses its re-evaluation is withdrawn at once (Codex review F13); adopting one is the owner's
-    (``student adopt``) until P0's label-noise posterior holds that authority (F5)."""
+             dry_run: bool = False, checkpoint: str | None = None) -> dict[str, Any]:
+    """A checkpoint on the bank beside the teacher (and any adopted incumbent), every arm on the
+    same frozen questions, candidate units and labels; §9.3's expected utility over the MEASURED
+    actions RECOMMENDS. The checkpoint is ``checkpoint`` (any completed run's), else the
+    schedule's candidate, else the serving one, so a corrected bank re-evaluates what serves
+    (re-review F17). E1's aggregates are priors, reported and never decided on, and a supplied arm
+    must name this comparison's fingerprint (re-review F4). No evaluation changes the serving
+    state: a losing re-evaluation RECOMMENDS withdrawal, and adopting, rejecting and revoking are
+    the owner's until P0's label-noise posterior holds that authority (Codex review F5, re-review F5)."""
 
     from learnloop.source_retrieval.student_encoder import StudentEncoder, read_adoption
 
@@ -1006,7 +1072,7 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     space_home = home(root, space)
     ledger = read_ledger(space_home)
     bank = D.load_bank(bank_path)
-    camp = campaign(vault, repository, root=root, space=space, bank=bank)
+    camp = campaign(vault, repository, root=root, space=space, bank=bank, persist=not dry_run)
     incomplete = _incomplete_bank(camp)
     if incomplete:
         return {**out, "status": "refused", "reason": incomplete}
@@ -1017,10 +1083,17 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     step = next_step(ledger, n_train=camp["n_train"], has_positives=camp["has_positives"], teacher_q=teacher_q,
                      box_s=box, hours_left=(meter.remaining_s() or 0.0) / 3600.0, dataset=camp["fingerprint"],
                      lam=lam, nu=nu)
-    if step["step"] != "evaluate":
+    adoption = read_adoption(root, space)
+    run, candidate_basis, refusal = _evaluation_candidate(ledger, step, adoption, checkpoint, root=root, space=space)
+    if refusal:
+        return {**out, "status": "refused", "reason": refusal}
+    if run is None:
         return {**out, "status": "not_ready", "step": step}
-    sha = step["checkpoint_sha256"]
-    out.update(space_id=space, candidate=step["candidate"], checkpoint_sha256=sha, spec=step["spec"])
+    sha = str(run["checkpoint_sha256"])
+    spec = dict(run["spec"])
+    trained_here = spec.get("dataset") == camp["fingerprint"]
+    out.update(space_id=space, candidate=run["run_id"], checkpoint_sha256=sha, spec=spec,
+               candidate_basis=candidate_basis, trained_on_current_dataset=trained_here)
     scoped, outside = bank_scope(bank, repository)
     out["scope"] = {"questions": len(scoped), "outside": outside,
                     "splits": {s: sum(1 for q in scoped if q["split"] == s) for s in sorted({q["split"] for q in scoped})},
@@ -1029,35 +1102,44 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
     if not scoped:
         return {**out, "status": "refused", "reason": "no bank question's evidence lies in this vault's corpus"}
     scoped_ids = [q["query_id"] for q in scoped]
+    record_ids, matrix = documents(vault, repository, space)
+    comparison = comparison_fingerprint(camp["bank_fingerprint"], record_ids, scoped_ids)
+    out["comparison_fingerprint"] = comparison
     teacher = teacher_vectors_from(camp["index"], space_home / "targets", scoped_ids, "bank")
     question_families = {q["query_id"]: D.question_families(q, camp["by_extraction"]) for q in scoped}
     families = {qid: "|".join(sorted(found)) or "bank" for qid, found in question_families.items()}
     alternatives: dict[str, SD.ArmOutcomes] = {}
     sources: dict[str, str] = {}
     for name, path in (arms or {}).items():
-        values = _read_json(Path(path), {})
-        values = values.get("outcomes", values) if isinstance(values, dict) else {}
+        values = _read_json(Path(path), None)
+        if not isinstance(values, dict) or values.get("comparison") != comparison or \
+                not isinstance(values.get("outcomes"), dict):
+            return {**out, "status": "refused",
+                    "reason": f"--arm {name}: the file does not name this comparison ({comparison}): an alternative "
+                              "is compared only when it was measured on the same bank labels, candidate units and "
+                              "questions (`student evaluate --dry-run` prints the fingerprint; the file is "
+                              "{\"comparison\": ..., \"outcomes\": {question id: 1, 0 or null}})"}
+        values = values["outcomes"]
         missing = [qid for qid in scoped_ids if qid not in values]
         if missing:
             return {**out, "status": "refused",
                     "reason": f"--arm {name}: {len(missing)} of the {len(scoped_ids)} in-scope question(s) have no "
                               "outcome (null for unknown): an alternative is compared only on the same questions"}
         alternatives[name] = SD.ArmOutcomes(name, {qid: values[qid] for qid in scoped_ids}, families)
-        sources[name] = "measured: supplied per-question outcomes on the same in-scope questions"
-    for name in ("qwen", "voyage"):
-        if name not in alternatives:
-            alternatives[name] = SD.aggregate_arm(name, E1_AGGREGATES[name])
-            sources[name] = PRIOR_ALTERNATIVE
-    adoption = read_adoption(root, space)
+        sources[name] = "measured: supplied per-question outcomes on this comparison"
+    priors = {name: {"basis": PRIOR_ALTERNATIVE,
+                     "expected_quality": round(float(np.mean(SD.bank_quality_draws(
+                         SD.aggregate_arm(name, E1_AGGREGATES[name]), seed=31 + i))), 4)}
+              for i, name in enumerate(("qwen", "voyage")) if name not in alternatives}
     incumbent = None
     if adoption is not None and adoption["checkpoint_sha256"] != sha and \
             (checkpoint_dir(root, space, str(adoption["checkpoint_sha256"])) / "student.json").is_file():
         incumbent = str(adoption["checkpoint_sha256"])
     if dry_run:
         return {**out, "status": "dry_run", "bank_questions": len(bank), "alternatives": sources,
-                "incumbent": incumbent}
+                "prior_alternatives": priors, "incumbent": incumbent}
     bases = bases_manifest(root) or {"bases": {}}
-    base_of = {sha: step["spec"]["base"]}
+    base_of = {sha: spec["base"]}
     if incumbent:
         base_of[incumbent] = str(adoption.get("base_name") or "")
     if encoder_factory is None:
@@ -1079,11 +1161,12 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
         return {question["query_id"]: np.asarray(vector, dtype=np.float32)
                 for question, vector in zip(scoped, vectors, strict=True)}
 
-    record_ids, matrix = documents(vault, repository, space)
-    outcomes = {"student": _outcomes(scoped, encoded(sha), record_ids, matrix),
-                "teacher": _outcomes(scoped, teacher, record_ids, matrix)}
+    outcomes: dict[str, dict[str, float | None]] = {}
+    owed: dict[str, dict[str, list[str]]] = {}
+    outcomes["student"], owed["student"] = _outcomes(scoped, encoded(sha), record_ids, matrix)
+    outcomes["teacher"], owed["teacher"] = _outcomes(scoped, teacher, record_ids, matrix)
     if incumbent:
-        outcomes["incumbent"] = _outcomes(scoped, encoded(incumbent), record_ids, matrix)
+        outcomes["incumbent"], owed["incumbent"] = _outcomes(scoped, encoded(incumbent), record_ids, matrix)
     _write_json(space_home / "evaluation" / "teacher_outcomes.json",
                 {"outcomes": outcomes["teacher"], "families": families, "bank_fingerprint": camp["bank_fingerprint"]})
     trained = set(camp["candidates"]["families"])
@@ -1103,88 +1186,126 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
                                               round(float(np.quantile(difference, 0.95)), 4)]}
     student_q = SD.bank_quality_draws(SD.ArmOutcomes("student", outcomes["student"], families), seed=11)
     keyword = alternatives.pop("keyword", None)
-    sources.pop("keyword", None)
+    keyword_basis = sources.pop("keyword", None)
     dense_q = SD.bank_quality_draws(SD.ArmOutcomes("teacher", outcomes["teacher"], families), seed=12)
     mu = (dense_q - SD.bank_quality_draws(keyword, seed=13)) if keyword is not None else dense_q
     mu_basis = "bank: teacher minus keyword" if keyword is not None else "upper bound: the teacher's whole quality"
     starts = [float(value) for value in _read_json(checkpoint_dir(root, space, sha) / "start_times.json", [])]
-    late, total = _late_counts(ledger["runs"][step["candidate"]], box)
+    late, total = _late_counts(run, box)
     late += sum(1 for value in starts if value > box)
     total += len(starts)
     monthly = _monthly_query_usd(repository)
     actions = [SD.Action("student", student_q, monthly_usd=0.0, late=SD.late_draws(late, total, seed=21))]
     if incumbent:
-        run = next((r for r in ledger["runs"].values() if r.get("checkpoint_sha256") == incumbent), {})
-        i_late, i_total = _late_counts(run, box) if run else (0, 0)
+        i_run = next((r for r in ledger["runs"].values() if r.get("checkpoint_sha256") == incumbent), {})
+        i_late, i_total = _late_counts(i_run, box) if i_run else (0, 0)
         i_starts = [float(v) for v in _read_json(checkpoint_dir(root, space, incumbent) / "start_times.json", [])]
         actions.append(SD.Action("incumbent", SD.bank_quality_draws(
             SD.ArmOutcomes("incumbent", outcomes["incumbent"], families), seed=14), monthly_usd=0.0,
             late=SD.late_draws(i_late + sum(1 for v in i_starts if v > box), i_total + len(i_starts), seed=22)))
+    # Only arms measured on THIS comparison are actions (re-review F4); E1's aggregates stay priors.
     for i, (name, arm) in enumerate(sorted(alternatives.items())):
         actions.append(SD.Action(name, SD.bank_quality_draws(arm, seed=31 + i), monthly_usd=monthly))
     lam_draws = lam.draws(seed=41)
     decision = SD.decide(actions, lam=lam_draws, mu=mu)
     chosen = decision["chosen"]
     rivals = [action for action in actions if action.name != "student"]
-    best = max(rivals, key=lambda action: decision["expected_utility"][action.name])
-    choice = {"against": best.name, "dq": round(float(np.mean(student_q) - np.mean(best.quality)), 6),
-              "cost": round(0.0 - float(best.monthly_usd), 6), "s": round(SD.difference_sd(student_q, best.quality), 6)}
-    recommendation = "adopt" if chosen == "student" else ("keep_incumbent" if chosen == "incumbent"
-                                                          else "keep_alternatives")
-    comparable = all(not value.startswith("prior") for value in sources.values())
-    authority = {"automatic": False, "comparable_alternatives": comparable, "label_model": LABEL_MODEL,
-                 "rule": "spec §9.3 recommends (argmax E[U]); the owner adopts with `student adopt` until P0's "
-                         "§9.1 label-noise posterior and alternatives measured on these questions hold the "
-                         "authority; a checkpoint that loses its re-evaluation is withdrawn at once"}
+    choice = None
+    if rivals:
+        best = max(rivals, key=lambda action: decision["expected_utility"][action.name])
+        choice = {"against": best.name, "dq": round(float(np.mean(student_q) - np.mean(best.quality)), 6),
+                  "cost": round(0.0 - float(best.monthly_usd), 6),
+                  "s": round(SD.difference_sd(student_q, best.quality), 6)}
+        recommendation = "adopt" if chosen == "student" else ("keep_incumbent" if chosen == "incumbent"
+                                                              else "keep_alternatives")
+    else:
+        recommendation = "unmeasured"  # nothing measured to compare against: the owner may still adopt
+    latent = {arm: sum(1 for value in values.values() if value is None) for arm, values in outcomes.items()}
+    latent.update({name: sum(1 for value in arm.outcomes.values() if value is None)
+                   for name, arm in alternatives.items()})
+    labels_owed = {qid: sorted({block for arm_owed in owed.values() for block in arm_owed.get(qid, [])})
+                   for qid in sorted({qid for arm_owed in owed.values() for qid in arm_owed})}
+    label_acquisition = {"latent_outcomes": latent, "questions_owed": len(labels_owed),
+                         "expected_loss_now": decision["expected_loss_now"], "lambda_mean": round(lam.mean(), 6),
+                         "decision": LABEL_ACQUISITION}
+    authority = {"automatic": False, "serving_changes": "never by an evaluation: the owner adopts, rejects or revokes",
+                 "comparable_alternatives": not priors, "unmeasured_alternatives": sorted(priors),
+                 "label_model": LABEL_MODEL,
+                 "rule": "spec §9.3 recommends (argmax E[U] over the measured actions); the owner adopts with "
+                         "`student adopt` and withdraws with `student reject` / `student revoke` until P0's §9.1 "
+                         "label-noise posterior and alternatives measured on these questions hold the authority"}
     evaluation_id = f"ev_{started.strftime('%Y%m%dT%H%M%S')}_{uuid4().hex[:8]}"
     evaluation_dir = space_home / "evaluation"
     evaluation_dir.mkdir(parents=True, exist_ok=True)
     # The posterior draws, kept for audit (spec §9.1), with the seeds that made them.
     np.savez_compressed(evaluation_dir / f"{evaluation_id}.npz", lam=lam_draws, mu=np.asarray(mu, dtype=float),
                         **{f"quality_{action.name}": np.asarray(action.quality, dtype=float) for action in actions})
-    record_out = {"evaluation_id": evaluation_id, "checkpoint_sha256": sha, "space_id": space,
-                  "base_name": step["spec"]["base"], "recipe": step["spec"]["recipe"], "budget": step["spec"]["budget"],
-                  "seed": step["spec"]["seed"], "dataset_fingerprint": camp["fingerprint"],
-                  "bank_fingerprint": camp["bank_fingerprint"], "scope": out["scope"], "decision": decision,
-                  "strata": strata, "alternatives": sources, "mu_basis": mu_basis, "recommendation": recommendation,
-                  "choice": choice, "authority": authority, "incumbent": incumbent, "vault": D.vault_key(vault),
+    record_out = {"kind": "evaluation", "evaluation_id": evaluation_id, "checkpoint_sha256": sha, "space_id": space,
+                  "base_name": spec["base"], "recipe": spec["recipe"], "budget": spec["budget"],
+                  "seed": spec["seed"], "dataset_fingerprint": camp["fingerprint"],
+                  "trained_dataset": spec.get("dataset"), "trained_on_current_dataset": trained_here,
+                  "candidate_basis": candidate_basis, "bank_fingerprint": camp["bank_fingerprint"],
+                  "comparison_fingerprint": comparison, "scope": out["scope"], "decision": decision,
+                  "strata": strata, "alternatives": sources, "prior_alternatives": priors,
+                  "keyword": keyword_basis, "mu_basis": mu_basis, "recommendation": recommendation,
+                  "choice": choice, "authority": authority, "label_acquisition": label_acquisition,
+                  "labels_owed": labels_owed, "incumbent": incumbent, "vault": D.vault_key(vault),
                   "draws": {"file": f"{evaluation_id}.npz", "seeds": {"student": 11, "teacher": 12, "keyword": 13,
                                                                       "incumbent": 14, "alternatives_from": 31,
                                                                       "lambda": 41}},
                   "lambda_observations": len(lam.observations), "decided_at": started.isoformat(),
-                  "rule": "spec §9.3: recommended when E[U(student)] >= each alternative"}
+                  "rule": "spec §9.3: recommended when E[U(student)] >= each measured alternative"}
     _write_json(evaluation_dir / f"{evaluation_id}.json", record_out)
     record_out["judgment_id"] = _judge(
         repository, checkpoint=sha, space=space, judge="verifier", verdict=f"recommend_{recommendation}",
         evidence={"evaluation_id": evaluation_id, "decision": decision["expected_utility"], "choice": choice,
-                  "alternatives": sources, "label_model": LABEL_MODEL, "dataset": camp["fingerprint"]},
-        score=float(decision["expected_utility"]["student"] - decision["expected_utility"][best.name]))
-    withdrawn = []
-    if adoption is not None:
+                  "alternatives": sources, "priors": sorted(priors), "label_model": LABEL_MODEL,
+                  "dataset": camp["fingerprint"], "comparison": comparison},
+        score=(float(decision["expected_utility"]["student"] - decision["expected_utility"][choice["against"]])
+               if choice else None))
+    # The serving pointer is reconciled by the owner, never here (re-review F4, F5): a losing
+    # re-evaluation is a verifier's withdrawal RECOMMENDATION in judgment_ledger.
+    withdrawal = None
+    if adoption is not None and recommendation != "unmeasured":
         adopted_sha = str(adoption["checkpoint_sha256"])
         if adopted_sha == sha and recommendation != "adopt":
-            withdrawn.append(_withdraw(repository, root=root, space=space, adoption=adoption, judge="verifier",
-                                       why="the adopted checkpoint lost its re-evaluation", evaluation_id=evaluation_id))
+            withdrawal = {"checkpoint_sha256": sha, "why": "the serving checkpoint lost its re-evaluation",
+                          "command": f"learnloop embeddings local student reject --checkpoint {sha}"}
         elif incumbent and chosen not in ("student", "incumbent"):
-            withdrawn.append(_withdraw(repository, root=root, space=space, adoption=adoption, judge="verifier",
-                                       why="the adopted incumbent lost to the alternatives on the same questions",
-                                       evaluation_id=evaluation_id))
-    ledger["decisions"].append({**record_out, "withdrawn": withdrawn})
+            withdrawal = {"checkpoint_sha256": incumbent,
+                          "why": "the serving incumbent lost to the measured alternatives on the same questions",
+                          "command": "learnloop embeddings local student revoke"}
+    if withdrawal:
+        withdrawal["judgment_id"] = _judge(
+            repository, checkpoint=withdrawal["checkpoint_sha256"], space=space, judge="verifier",
+            verdict="recommend_withdraw", evidence={"why": withdrawal["why"], "evaluation_id": evaluation_id,
+                                                    "adoption_judgment_id": adoption.get("judgment_id")})
+    ledger["decisions"].append({**record_out, "withdrawal": withdrawal})
     _write_json(_ledger_path(space_home), ledger)
-    adopted_now = read_adoption(root, space)
-    status_ = ("withdrawn" if withdrawn else
-               "kept" if recommendation == "adopt" and adopted_now and adopted_now["checkpoint_sha256"] == sha else
+    status_ = ("withdrawal_recommended" if withdrawal else
+               "unmeasured" if recommendation == "unmeasured" else
+               "kept" if recommendation == "adopt" and adoption and adoption["checkpoint_sha256"] == sha else
                "recommended" if recommendation == "adopt" else "not_recommended")
+    following = {"withdrawal_recommended": withdrawal and withdrawal["command"],
+                 "recommended": "`learnloop embeddings local student adopt` (or `student reject`) records the "
+                                "owner's choice",
+                 "unmeasured": "no alternative was measured on this comparison: supply --arm files naming "
+                               f"{comparison}, or adopt (or reject) as the owner"}.get(status_)
     return {**out, "status": status_, "evaluation_id": evaluation_id, "recommendation": recommendation,
-            "decision": decision, "strata": strata, "alternatives": sources, "mu_basis": mu_basis, "choice": choice,
-            "authority": authority, "judgment_id": record_out["judgment_id"], "withdrawn": withdrawn,
-            "next": ("`learnloop embeddings local student adopt` (or `student reject`) records the owner's choice"
-                     if status_ == "recommended" else None)}
+            "decision": decision, "strata": strata, "alternatives": sources, "prior_alternatives": priors,
+            "mu_basis": mu_basis, "choice": choice, "authority": authority, "label_acquisition": label_acquisition,
+            "judgment_id": record_out["judgment_id"], "withdrawal": withdrawal, "next": following}
+
+
+def _is_evaluation(record: Mapping[str, Any]) -> bool:
+    # Re-review F16: owner decisions also name their evaluation_id; only evaluation records qualify.
+    return record.get("kind") == "evaluation" or ("kind" not in record and "recommendation" in record
+                                                  and "owner" not in record)
 
 
 def _latest_evaluation(space_home: Path, checkpoint: str | None) -> dict[str, Any] | None:
     for record in reversed(read_ledger(space_home)["decisions"]):
-        if record.get("evaluation_id") and (checkpoint is None or record.get("checkpoint_sha256") == checkpoint):
+        if _is_evaluation(record) and (checkpoint is None or record.get("checkpoint_sha256") == checkpoint):
             return record
     return None
 
@@ -1194,9 +1315,11 @@ def owner_choice(vault: LoadedVault, repository: Repository, *, accept: bool, ro
     """The owner's answer to an evaluation's recommendation (``student adopt`` / ``student reject``).
 
     Adopting writes the serving pointer (``adoption.json``) from a ``judgment_ledger`` owner
-    verdict; rejecting withdraws the checkpoint if it serves. Either answer is a costed owner
-    choice between the student and its strongest alternative, so it is an observation of lambda
-    (quality per dollar, spec §9.1; Codex review F14)."""
+    verdict; rejecting withdraws the checkpoint if it serves. The answer resolves to the latest
+    EVALUATION of the checkpoint (never an earlier owner decision: re-review F16), so adopt and
+    reject may follow each other. An answer to a costed recommendation (the student against its
+    strongest measured alternative) is an observation of lambda (quality per dollar, spec §9.1;
+    Codex review F14); an answer with nothing measured to compare against is not."""
 
     from learnloop.source_retrieval.student_encoder import read_adoption
 
@@ -1212,26 +1335,29 @@ def owner_choice(vault: LoadedVault, repository: Repository, *, accept: bool, ro
     sha = str(record["checkpoint_sha256"])
     if accept and not (checkpoint_dir(root, space, sha) / "student.json").is_file():
         return {"job": job, "status": "refused", "reason": "the evaluated checkpoint is not present under the space"}
+    choice = record.get("choice")
     judgment = _judge(repository, checkpoint=sha, space=space, judge="owner", verdict="adopt" if accept else "reject",
-                      evidence={"evaluation_id": record["evaluation_id"], "recommendation": record["recommendation"],
-                                "choice": record["choice"], "verifier_judgment_id": record.get("judgment_id")})
-    choice = record["choice"]
-    observation = record_owner_choice(space_home, rate="lambda", dq=choice["dq"], cost=choice["cost"],
-                                      s=max(float(choice["s"]), 1e-6), accepted=accept,
-                                      what=f"{'adopt' if accept else 'reject'} student {sha[:12]} against "
-                                           f"{choice['against']}", judgment_id=judgment)
+                      evidence={"evaluation_id": record["evaluation_id"], "recommendation": record.get("recommendation"),
+                                "choice": choice, "verifier_judgment_id": record.get("judgment_id")})
+    observation = None
+    if choice:
+        observation = record_owner_choice(space_home, rate="lambda", dq=choice["dq"], cost=choice["cost"],
+                                          s=max(float(choice["s"]), 1e-6), accepted=accept,
+                                          what=f"{'adopt' if accept else 'reject'} student {sha[:12]} against "
+                                               f"{choice['against']}", judgment_id=judgment)
     previous = read_adoption(root, space)
     withdrawn = None
     if accept:
         _write_json(adoption_path(root, space), {
             key: record.get(key) for key in ("checkpoint_sha256", "space_id", "base_name", "recipe", "budget", "seed",
-                                             "dataset_fingerprint", "evaluation_id", "recommendation")} | {
+                                             "dataset_fingerprint", "trained_dataset", "evaluation_id",
+                                             "recommendation")} | {
             "judgment_id": judgment, "adopted_by": "owner", "decided_at": datetime.now(timezone.utc).isoformat()})
     elif previous is not None and previous["checkpoint_sha256"] == sha:
         withdrawn = _withdraw(repository, root=root, space=space, adoption=previous, judge="owner",
                               why="the owner rejected it", evaluation_id=record["evaluation_id"])
     ledger = read_ledger(space_home)
-    ledger["decisions"].append({"owner": "adopt" if accept else "reject", "checkpoint_sha256": sha,
+    ledger["decisions"].append({"kind": "owner", "owner": "adopt" if accept else "reject", "checkpoint_sha256": sha,
                                 "evaluation_id": record["evaluation_id"], "judgment_id": judgment,
                                 "replaced": previous.get("checkpoint_sha256") if accept and previous else None,
                                 "withdrawn": withdrawn, "at": datetime.now(timezone.utc).isoformat(), "by": "owner"})
@@ -1344,9 +1470,9 @@ def plan(vault: LoadedVault, repository: Repository, *, bank_path: Path | None, 
 
 
 __all__ = ["E1_AGGREGATES", "JUDGMENT_TASK", "LABEL_MODEL", "SHARD_SIZE", "all_rows", "bank_fingerprint", "bank_scope",
-           "build_dataset", "campaign", "choose", "complete_evidence", "context", "documents", "effective_budgets",
+           "build_dataset", "campaign", "choose", "comparison_fingerprint", "complete_evidence", "context", "documents", "effective_budgets",
            "eligible_rows", "evaluate", "exchange_rates", "install_checkpoint", "judged_outcome",
            "missing_bank_targets", "next_step", "owner_choice", "p2_meter", "plan", "read_ledger",
            "record_owner_choice", "revoke", "run_next", "run_targets", "screen_current", "screen_leakage",
            "setup_bases", "status", "targets_index", "teacher_quality", "teacher_vectors", "trainer_job",
-           "training_candidates"]
+           "training_candidates", "unjudged_blocks"]

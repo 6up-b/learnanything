@@ -601,16 +601,21 @@ def student_evaluate(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
     bank: Annotated[Path | None, typer.Option("--bank", help="The labelled bank (private JSON/JSONL).")] = None,
     arm: Annotated[list[str] | None, typer.Option(
-        "--arm", help="NAME=FILE: per-question outcomes of an alternative (qwen, voyage, keyword). Repeatable.")] = None,
+        "--arm", help="NAME=FILE: an alternative's per-question outcomes (qwen, voyage, keyword), naming the "
+                      "comparison fingerprint --dry-run prints. Repeatable.")] = None,
+    checkpoint: Annotated[str | None, typer.Option(
+        "--checkpoint", help="A completed run's checkpoint SHA-256 (default: the schedule's candidate, else the "
+                             "serving checkpoint).")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Check the inputs; start nothing.")] = False,
     data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """The candidate on the bank beside the teacher: RECOMMENDED when E[U(student)] >= each alternative (spec §9.3).
+    """A checkpoint on the bank beside the teacher: RECOMMENDED when E[U(student)] >= each measured alternative (spec §9.3).
 
     Every arm is scored on the bank questions whose evidence lies in this vault.
-    A checkpoint that loses its re-evaluation is withdrawn; adopting one is
-    `student adopt` (the owner's choice, recorded in judgment_ledger)."""
+    No evaluation changes what serves: a lost re-evaluation recommends
+    withdrawal; `student adopt`, `student reject` and `student revoke` are the
+    owner's choices, recorded in judgment_ledger."""
 
     from learnloop.source_retrieval.query_student import evaluate
 
@@ -622,10 +627,12 @@ def student_evaluate(
                 raise ValueError("--arm takes NAME=FILE")
             arms[name.strip()] = Path(path).expanduser()
         loaded, repository = _vault_and_repository(vault, write=not dry_run)
-        report = evaluate(loaded, repository, bank_path=bank, root=data_root, arms=arms, dry_run=dry_run)
+        report = evaluate(loaded, repository, bank_path=bank, root=data_root, arms=arms, dry_run=dry_run,
+                          checkpoint=checkpoint)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         report = {"status": "invalid", "reason": str(exc)}
-    _emit(report, json_output, frozenset({"dry_run", "recommended", "kept", "not_recommended", "withdrawn"}))
+    _emit(report, json_output, frozenset({"dry_run", "recommended", "kept", "not_recommended", "unmeasured",
+                                          "withdrawal_recommended"}))
 
 
 def _owner_choice(vault: Path, checkpoint: str | None, data_root: Path | None, json_output: bool, *,

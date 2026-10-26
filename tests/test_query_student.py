@@ -445,21 +445,31 @@ def _judgments(paths):
             (Q.JUDGMENT_TASK,))]
 
 
-def test_evaluation_recommends_the_owner_adopts_and_a_failed_reevaluation_withdraws(torch_present, tmp_path):
-    """Codex review F4, F5, F7, F13, F14, F15: every arm on the same in-scope questions; the rule
-    recommends (never adopts alone while the label posterior is the simplified one); the owner's
-    adopt is a judgment_ledger verdict and a lambda observation; re-evaluating the adopted checkpoint
-    against better measured alternatives withdraws it."""
+def test_the_scheduled_candidate_is_recommended_adopted_and_a_lost_reevaluation_recommends_withdrawal(
+        torch_present, tmp_path):
+    """Codex review F4, F5, F7, F13, F14, F15 and the re-review's F4/F5: every arm on the same
+    in-scope questions (measured alternatives naming the comparison); the rule recommends, never
+    changes the serving state; the owner's adopt is a judgment_ledger verdict and a lambda
+    observation; re-evaluating the adopted checkpoint against better measured alternatives
+    recommends its withdrawal, which the owner's reject applies."""
 
     paths, repository, root, model, space, bank, trained = _trained(tmp_path)
     vault = loaded(paths)
     sha = trained["step"]["checkpoint_sha256"]
     factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
-    result = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory)
-    assert result["status"] == "recommended", result  # F7: train's "evaluate" is evaluate's too
+    dry = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, dry_run=True)
+    assert dry["status"] == "dry_run" and dry["candidate_basis"] == "schedule"  # F7: train's "evaluate" is evaluate's
+    comparison = dry["comparison_fingerprint"]
+    scoped = [q["query_id"] for q in D.load_bank(bank) if q["query_id"].startswith("bank_") and
+              q["query_id"] not in ("bank_twin", "bank_elsewhere")]
+    worse = {name: _arm(tmp_path / f"{name}-worse.json", comparison, {qid: 0.0 for qid in scoped})
+             for name in ("qwen", "voyage")}
+    result = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, arms=worse)
+    assert result["status"] == "recommended", result
     assert result["recommendation"] == "adopt" and result["authority"]["automatic"] is False
-    assert result["decision"]["chosen"] == "student" and set(result["decision"]["p_best"]) >= {"student", "qwen"}
-    assert result["alternatives"]["qwen"].startswith("prior:")  # E1's aggregates are labelled priors (F4)
+    assert result["decision"]["chosen"] == "student" and set(result["decision"]["p_best"]) == {"student", "qwen",
+                                                                                                "voyage"}
+    assert result["authority"]["comparable_alternatives"] is True and result["prior_alternatives"] == {}
     assert result["strata"]["all"]["p_student_ge_teacher"] > 0.3
     assert E.read_adoption(root, space) is None  # the rule recommends; the owner adopts (F5)
     record = Q.read_ledger(SP.space_home(root, space))["decisions"][-1]
@@ -477,21 +487,18 @@ def test_evaluation_recommends_the_owner_adopts_and_a_failed_reevaluation_withdr
                           what="declined a $2 option worth 5 points")
     moved, _nu = Q.exchange_rates(SP.space_home(root, space), 0.8)
     assert moved.mean() > SD.seeded_lambda().mean()  # declining it says a dollar costs more quality
-    # Better measured alternatives on the same questions: the adopted checkpoint loses and is withdrawn (F13).
-    scoped = [q["query_id"] for q in D.load_bank(bank) if q["query_id"].startswith("bank_") and
-              q["query_id"] not in ("bank_twin", "bank_elsewhere")]
-    arms = {}
-    for name in ("qwen", "voyage"):
-        arms[name] = tmp_path / f"{name}.json"
-        arms[name].write_text(json.dumps({qid: 1.0 for qid in scoped}), encoding="utf-8")
+    # Better measured alternatives on the same questions: withdrawal is RECOMMENDED (F13, re-review F5).
+    arms = {name: _arm(tmp_path / f"{name}.json", comparison, {qid: 1.0 for qid in scoped})
+            for name in ("qwen", "voyage")}
     again = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, arms=arms)
-    assert again["status"] == "withdrawn" and again["recommendation"] == "keep_alternatives", again
+    assert again["status"] == "withdrawal_recommended" and again["recommendation"] == "keep_alternatives", again
     assert again["alternatives"]["qwen"].startswith("measured")
-    assert E.read_adoption(root, space) is None
+    assert E.read_adoption(root, space)["checkpoint_sha256"] == sha
+    assert Q.owner_choice(vault, repository, accept=False)["withdrawn"] and E.read_adoption(root, space) is None
     assert [verdict for _judge, verdict, _left in _judgments(paths)] == [
-        "recommend_adopt", "adopt", "recommend_keep_alternatives", "withdrawn"]
+        "recommend_adopt", "adopt", "recommend_keep_alternatives", "recommend_withdraw", "reject", "withdrawn"]
     # An alternative that does not cover the same questions is refused, never compared (F4).
-    arms["qwen"].write_text(json.dumps({scoped[0]: 1.0}), encoding="utf-8")
+    arms["qwen"] = _arm(tmp_path / "qwen-partial.json", comparison, {scoped[0]: 1.0})
     partial = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, arms=arms)
     assert partial["status"] == "refused" and "same questions" in partial["reason"]
 
@@ -802,14 +809,23 @@ def test_training_candidates_hold_training_families_only_and_no_bank_tainted_win
 
 
 def test_unjudged_retrieved_material_is_latent_never_a_miss():
-    """F5: a top 10 that completes no evidence set but holds a block the protocol never judged is
-    unknown (imputed by the posterior); with every retrieved block judged it is a miss."""
+    """F5 (and re-review F5): a top 10 that completes no evidence set but holds a block the
+    protocol never judged is unknown (imputed by the posterior, listed for labelling); with every
+    retrieved block judged it is a miss. A bank without judged lists judged only its evidence, so
+    its other retrieved blocks stay latent, never a failure."""
 
     question = {"evidence_sets": [[("ext", "s1"), ("ext", "s2")]], "judged": [("ext", "s3")]}
     assert Q.judged_outcome(["ext/s1", "ext/s2"], question) == 1.0
     assert Q.judged_outcome(["ext/s1", "ext/s3"], question) == 0.0
     assert Q.judged_outcome(["ext/s1", "ext/s9"], question) is None
-    assert Q.judged_outcome(["ext/s1", "ext/s9"], {**question, "judged": None}) == 0.0
+    assert Q.unjudged_blocks(["ext/s1", "ext/s9"], question) == ["ext/s9"]
+    assert Q.judged_outcome(["ext/s1", "ext/s9"], {**question, "judged": None}) is None
+    assert Q.judged_outcome(["ext/s1", "ext/s3"], {**question, "judged": None}) is None
+    assert Q.judged_outcome(["ext/s1", "ext/s2"], {**question, "judged": None}) == 1.0
+    # The judged lists are labels: they are part of the bank's identity.
+    bank = [{"query_id": "q", "text": "t", "evidence_sets": question["evidence_sets"], "answer_spans": [],
+             "judged": question["judged"]}]
+    assert Q.bank_fingerprint(bank) != Q.bank_fingerprint([{**bank[0], "judged": None}])
 
 
 def test_the_query_process_never_runs_a_changed_base(tmp_path, monkeypatch):
@@ -1013,3 +1029,159 @@ def test_a_run_is_reused_only_on_the_dataset_it_learned(tmp_path):
         {"query_id": "bank_extra", "question": "What is a random variable?", "evidence_sets": []}])
     second = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(tmp_path / "bank2.json"))
     assert first["fingerprint"] != second["fingerprint"] and second["rows"] == []  # not screened by bank2 yet
+
+
+# -- Codex re-review (F4, F5, F16, F17, F18): evaluation without the trainer --------------------------------
+def _fake_run(root, space, *, sha="b" * 64, dataset="", run_id="run_fake"):
+    """One completed run's checkpoint in the ledger (no trainer: these tests run without torch)."""
+
+    directory = E.checkpoint_dir(root, space, sha)
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "student.json").write_text(json.dumps({"canaries": {}}), encoding="utf-8")
+    home = SP.space_home(root, space)
+    ledger = Q.read_ledger(home)
+    ledger["runs"][run_id] = {"run_id": run_id, "status": "complete", "checkpoint_sha256": sha, "load_s": 0.1,
+                              "dev": {"agreements": [0.9] * 4}, "latency": {},
+                              "spec": {"base": SP.PRIMARY_BASE, "recipe": "align", "budget": 100, "seed": 0,
+                                       "dataset": dataset}}
+    (home / "p2-ledger.json").write_text(json.dumps(ledger), encoding="utf-8")
+    return sha
+
+
+def _evaluable(tmp_path):
+    """Targets for a bank whose evidence is the teacher's own top blocks, the bases, and one
+    completed checkpoint trained on the current campaign."""
+
+    paths, repository, root, model, space, _default = _generated(tmp_path)
+    vault = loaded(paths)
+    bank = _bank_for(paths, repository, model, space, good=True, tmp_path=tmp_path)
+    _bank_targets(paths, repository, model, bank)
+    set_up_bases(root)
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    sha = _fake_run(root, space, dataset=camp["fingerprint"])
+    return paths, repository, root, model, space, bank, sha
+
+
+def _arm(path, comparison, outcomes):
+    path.write_text(json.dumps({"comparison": comparison, "outcomes": outcomes}), encoding="utf-8")
+    return path
+
+
+def test_priors_never_decide_and_no_evaluation_changes_serving_by_itself(tmp_path):
+    """Re-review F4, F5: E1's aggregates are reported as priors, never actions in the decision; a
+    supplied arm must carry this comparison's fingerprint (bank labels, candidate units,
+    questions); a losing re-evaluation RECOMMENDS withdrawal (a verifier verdict), the owner's
+    reject withdraws."""
+
+    paths, repository, root, model, space, bank, sha = _evaluable(tmp_path)
+    vault = loaded(paths)
+    factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
+    first = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha)
+    assert first["recommendation"] == "unmeasured" and first["status"] == "unmeasured", first
+    assert set(first["decision"]["expected_utility"]) == {"student"}
+    assert set(first["prior_alternatives"]) == {"qwen", "voyage"}
+    assert all(item["basis"].startswith("prior:") for item in first["prior_alternatives"].values())
+    assert first["authority"]["automatic"] is False and first["authority"]["comparable_alternatives"] is False
+    adopted = Q.owner_choice(vault, repository, accept=True)
+    assert adopted["status"] == "adopted" and adopted["lambda_observation"] is None  # no costed choice was offered
+    assert E.read_adoption(root, space)["checkpoint_sha256"] == sha
+    comparison = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha,
+                            dry_run=True)["comparison_fingerprint"]
+    scoped = [q["query_id"] for q in D.load_bank(bank)]
+    # An arm without this comparison's provenance, or with another one, is refused.
+    bare = tmp_path / "bare.json"
+    bare.write_text(json.dumps({qid: 1.0 for qid in scoped}), encoding="utf-8")
+    refused = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha,
+                         arms={"qwen": bare})
+    assert refused["status"] == "refused" and "comparison" in refused["reason"]
+    other = _arm(tmp_path / "other.json", "f" * 64, {qid: 1.0 for qid in scoped})
+    assert Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha,
+                      arms={"qwen": other})["status"] == "refused"
+    partial = _arm(tmp_path / "partial.json", comparison, {scoped[0]: 1.0})
+    partial_out = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha,
+                             arms={"qwen": partial})
+    assert partial_out["status"] == "refused" and "same questions" in partial_out["reason"]
+    # Better measured alternatives: withdrawal is recommended, never applied by the rule.
+    arms = {name: _arm(tmp_path / f"{name}.json", comparison, {qid: 1.0 for qid in scoped})
+            for name in ("qwen", "voyage")}
+    again = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha, arms=arms)
+    assert again["recommendation"] == "keep_alternatives" and again["status"] == "withdrawal_recommended", again
+    assert again["alternatives"]["qwen"].startswith("measured")
+    assert again["withdrawal"]["checkpoint_sha256"] == sha and "student reject" in again["withdrawal"]["command"]
+    assert E.read_adoption(root, space)["checkpoint_sha256"] == sha  # still serving: the owner decides
+    rejected = Q.owner_choice(vault, repository, accept=False)
+    assert rejected["status"] == "rejected" and rejected["withdrawn"] and E.read_adoption(root, space) is None
+    assert [verdict for _judge, verdict, _left in _judgments(paths)] == [
+        "recommend_unmeasured", "adopt", "recommend_keep_alternatives", "recommend_withdraw", "reject", "withdrawn"]
+
+
+def test_consecutive_owner_decisions_resolve_to_their_evaluation(tmp_path):
+    """Re-review F16: adopt then reject (and reject then adopt) the same evaluated checkpoint with
+    no evaluation in between, with and without --checkpoint."""
+
+    paths, repository, root, _model, _report = student_vault(tmp_path)
+    space = _space(paths)
+    vault = loaded(paths)
+    set_up_bases(root)
+    sha = _fake_run(root, space)
+    home = SP.space_home(root, space)
+    ledger = Q.read_ledger(home)
+    ledger["decisions"].append({"kind": "evaluation", "evaluation_id": "ev_1", "checkpoint_sha256": sha,
+                                "space_id": space, "base_name": SP.PRIMARY_BASE, "recommendation": "adopt",
+                                "choice": {"against": "qwen", "dq": 0.01, "cost": 0.0, "s": 0.02},
+                                "judgment_id": None})
+    (home / "p2-ledger.json").write_text(json.dumps(ledger), encoding="utf-8")
+    assert Q.owner_choice(vault, repository, accept=True)["status"] == "adopted"
+    rejected = Q.owner_choice(vault, repository, accept=False)
+    assert rejected["status"] == "rejected" and rejected["withdrawn"] and E.read_adoption(root, space) is None
+    again = Q.owner_choice(vault, repository, accept=True, checkpoint=sha)
+    assert again["status"] == "adopted" and E.read_adoption(root, space)["evaluation_id"] == "ev_1"
+    assert Q.owner_choice(vault, repository, accept=False, checkpoint=sha)["status"] == "rejected"
+
+
+def test_the_serving_checkpoint_is_reevaluated_on_corrected_labels(tmp_path):
+    """Re-review F17: corrected evidence makes a new campaign (training reuse stops), but the
+    serving checkpoint (or any completed one, by --checkpoint) is still evaluated on the new bank."""
+
+    paths, repository, root, model, space, bank, sha = _evaluable(tmp_path)
+    vault = loaded(paths)
+    factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
+    assert Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=sha)["checkpoint_sha256"] == sha
+    Q.owner_choice(vault, repository, accept=True)
+    rows = json.loads(bank.read_text())
+    ids, _matrix = Q.documents(vault, repository, space)
+    extraction, span = split_record_id(ids[-1])
+    rows[0]["evidence_sets"] = [{"set_id": "e", "required": [[extraction, span, 0, 1]]}]  # a corrected label
+    corrected = write_bank(tmp_path / "corrected.json", rows)
+    _bank_targets(paths, repository, model, corrected)
+    out = Q.evaluate(vault, repository, bank_path=corrected, encoder_factory=factory)
+    assert out["status"] != "not_ready" and out["checkpoint_sha256"] == sha, out
+    assert out["candidate_basis"] == "serving" and out["trained_on_current_dataset"] is False
+    record = Q.read_ledger(SP.space_home(root, space))["decisions"][-1]
+    assert record["bank_fingerprint"] == Q.bank_fingerprint(D.load_bank(corrected))
+    explicit = Q.evaluate(vault, repository, bank_path=corrected, encoder_factory=factory, checkpoint=sha)
+    assert explicit["candidate_basis"] == "explicit" and explicit["checkpoint_sha256"] == sha
+    missing = Q.evaluate(vault, repository, bank_path=corrected, encoder_factory=factory, checkpoint="c" * 64)
+    assert missing["status"] == "refused"
+
+
+def test_dry_runs_never_write_the_family_mapping(tmp_path):
+    """Re-review F18: `student train --dry-run` and `student evaluate --dry-run` read the persisted
+    family mapping and compute additions in memory; neither creates nor rewrites families.json."""
+
+    paths, repository, root, model, space, bank, sha = _evaluable(tmp_path)
+    vault = loaded(paths)
+    path = D.data_dir(root, space, vault) / "families.json"
+    stored = json.loads(path.read_text())
+    real = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))["fingerprint"]
+    path.unlink()
+    assert Q.run_next(vault, repository, bank_path=bank, dry_run=True)["status"] == "dry_run"
+    assert Q.evaluate(vault, repository, bank_path=bank, dry_run=True, checkpoint=sha)["status"] == "dry_run"
+    assert not path.exists()
+    outdated = {"sources": {}, "keys": {}}
+    path.write_text(json.dumps(outdated), encoding="utf-8")
+    Q.run_next(vault, repository, bank_path=bank, dry_run=True)
+    assert json.loads(path.read_text()) == outdated
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    dry = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank), persist=False)
+    assert dry["fingerprint"] == real

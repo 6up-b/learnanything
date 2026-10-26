@@ -240,10 +240,12 @@ def _family_keys(repository: Repository, extraction_id: str, title: str) -> list
     return keys
 
 
-def family_map(directory: Path | None, repository: Repository) -> dict[str, str]:
+def family_map(directory: Path | None, repository: Repository, *, persist: bool = True) -> dict[str, str]:
     """``{source_id: family}``: sources sharing source bytes or a title stem share a family.
     With ``directory``, the mapping is persisted there (``families.json``) and a source keeps the
-    family it was first given, so a later book never moves a trained question's family."""
+    family it was first given, so a later book never moves a trained question's family. With
+    ``persist=False`` (every dry run, Codex re-review F18) the stored assignments are read and the
+    additions computed in memory: nothing is created or rewritten."""
 
     path = None if directory is None else Path(directory) / "families.json"
     stored: dict[str, Any] = {"sources": {}, "keys": {}}
@@ -267,7 +269,7 @@ def family_map(directory: Path | None, repository: Repository) -> dict[str, str]
             if key not in by_key:
                 by_key[key] = family
                 changed = True
-    if path is not None and changed:
+    if path is not None and changed and persist:
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
         temporary.write_text(json.dumps({"sources": sources, "keys": by_key}, sort_keys=True, indent=1) + "\n",
@@ -465,7 +467,7 @@ def generate(vault: LoadedVault, repository: Repository, *, space_id: str, bank_
     excluded = bank_supports(bank)
     bank_grams = [ngrams(question["text"]) for question in bank]
     directory = data_dir(root, space_id, vault)
-    families = family_map(None if dry_run else directory, repository)
+    families = family_map(directory, repository, persist=not dry_run)
     found = [{**passage, "family": families.get(passage["source_id"], f"fam_{passage['source_id']}")}
              for passage in passages(vault, repository, excluded=excluded)]
     held_out = held_out_family(found)
