@@ -148,6 +148,8 @@ def test_the_answer_box_on_a_cold_item_grounds_nothing_too_and_counts_as_practic
         "context": "practice", "practiceItemId": ITEM, "sessionId": "sess_1", "submissionId": "k1",
         "question": "What does this symbol mean?"})
     assert tutor.contexts[-1].source_spans == []
+    event = repository.question_event(answer["eventId"])
+    assert (event["source_context"].get("source_retrieval") or {}).get("policy") == "cold_attempt"
     # The answer box keeps practice's own rule (a clarification is free).
     assert repository.question_event(answer["eventId"])["hint_equivalent"] is False
 
@@ -325,17 +327,115 @@ def test_a_free_clarification_is_listed_for_its_own_attempt_only(sidecar):
 # -- F9 (K11): citations carry their excerpt, live and restored ----------------------------------------
 
 
-def test_a_cited_passage_carries_its_excerpt_and_the_restored_thread_keeps_it(sidecar):
-    _paths, ctx, tutor = sidecar(tutor=FakeTutor(question_type="mechanism", cite_first=True))
-    answer = _call(ctx, "ask_tutor_question", {"context": "practice", "practiceItemId": ITEM, "sessionId": "sess_1",
-                                               "submissionId": "k1", "question": "Why orthogonal?",
-                                               "answerMode": "help_me_reason"})
-    if not tutor.contexts[-1].source_spans:
-        pytest.skip("the basic vault gave the tutor no passage to cite")
-    [citation] = answer["citations"]
-    assert citation["excerpt"].strip()
-    transcript = _call(ctx, "get_tutor_transcript", {"context": "practice", "practiceItemId": ITEM,
-                                                     "sessionId": "sess_1", "submissionId": "k1"})
-    [event] = transcript["events"]
-    assert event["sourceContext"]["citations"][0]["excerpt"] == citation["excerpt"]
-    assert event["answerMode"] == "help_me_reason"
+def test_a_cited_passage_carries_its_excerpt_as_provided_and_stores_it(tmp_path):
+    from tests.test_tutor_citations import _CLOCK, _ITEM_ID, _CitingTutorClient, _mapped_vault
+
+    vault, repository = _mapped_vault(tmp_path)
+    assert vault.config.ask.panel_enabled
+    client = _CitingTutorClient([TutorCitation(extraction_id="ext_text", span_id="s1")])
+    result = ask_question(vault, repository, client, context="practice", question_md="Why symmetric?",
+                          practice_item_id=_ITEM_ID, session_id="s1", submission_id="k1", clock=_CLOCK)
+    provided = next(span for span in client.contexts[0].source_spans
+                    if (span["extraction_id"], span["span_id"]) == ("ext_text", "s1"))
+    [citation] = result["citations"]
+    assert citation["excerpt"] and str(provided["text"]).startswith(citation["excerpt"].rstrip("…"))
+    [event] = repository.question_events(context="practice", practice_item_id=_ITEM_ID)
+    assert event["source_context"]["citations"][0]["excerpt"] == citation["excerpt"]
+
+
+# -- F1 (K6, Q2): the earlier attempt's cost is the server's, from the draft ---------------------------
+
+
+def _hint_sidecar(tmp_path, updates: dict | None = None):
+    from tests.hint_fakes import hint_vault, store_map
+
+    paths = hint_vault(tmp_path, config='[hints]\nchoice_policy = "argmax"\n')
+    store_map(paths)
+    set_config(paths.root, {("algorithms", "algorithm_version"): TAG, **(updates or {})})
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    ctx.hints_inline = True
+    ctx.hint_seed = "e"
+    session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    return paths, ctx, session
+
+
+def _submit(ctx, session, *, key: str, hints: int = 0):
+    from tests.hint_fakes import ITEM as HINT_ITEM, WORK
+
+    return _call(ctx, "submit_attempt", {
+        "sessionId": session, "practiceItemId": HINT_ITEM, "answerMd": WORK, "attemptType": "independent_attempt",
+        "hintsUsed": hints, "selfGrade": {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3},
+        "submissionId": key})
+
+
+def _attempt_row(paths, attempt_id: str) -> dict:
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        return dict(connection.execute("SELECT * FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone())
+
+
+def _save_draft(ctx, session, *, key: str, **extra):
+    from tests.hint_fakes import ITEM as HINT_ITEM, WORK
+
+    _call(ctx, "save_practice_draft", {"sessionId": session, "practiceItemId": HINT_ITEM, "answerMd": WORK,
+                                       "hintsUsed": 0, "submissionId": key, **extra})
+
+
+def test_an_earlier_attempt_opened_before_submit_costs_one_hint_across_a_restart(tmp_path):
+    paths, ctx, session = _hint_sidecar(tmp_path)
+    _save_draft(ctx, session, key="k1", earlierOpened=True)
+    # The app restarts: the checkpoint names it, and the client sends no count.
+    restarted = SidecarContext()
+    restarted.load(paths.root)
+    restarted.grading_provider_override = "manual"
+    checkpoint = _call(restarted, "get_session", {"sessionId": session})["checkpoint"]
+    assert checkpoint["earlierOpened"] is True
+    # A later save without the flag keeps it (only a new draft drops it).
+    _save_draft(restarted, session, key="k1")
+    attempt = _attempt_row(paths, _submit(restarted, session, key="k1", hints=0)["attemptId"])
+    assert attempt["hints_used"] == 1
+
+
+def test_the_draft_moved_into_steps_is_counted_once_by_its_submit_whatever_its_key(tmp_path):
+    paths, ctx, session = _hint_sidecar(tmp_path)
+    _save_draft(ctx, session, key="k1", earlierOpened=True)
+    # The steps submit carries the workbench's own key; the draft's opening counts.
+    attempt = _attempt_row(paths, _submit(ctx, session, key="workbench:wb_x", hints=0)["attemptId"])
+    assert attempt["hints_used"] == 1
+
+
+def test_a_new_draft_never_inherits_an_earlier_opening(tmp_path):
+    paths, ctx, session = _hint_sidecar(tmp_path)
+    _save_draft(ctx, session, key="k1", earlierOpened=True)
+    _save_draft(ctx, session, key="k2")
+    attempt = _attempt_row(paths, _submit(ctx, session, key="k2", hints=0)["attemptId"])
+    assert attempt["hints_used"] == 0
+
+
+# -- F4 (Q4): worked help taken first on a cold follow-up converts the attempt -----------------------
+
+
+@pytest.mark.parametrize("level, option", [(4, "worked_chunk@L4"), (5, "walkthrough@L5")])
+@pytest.mark.parametrize("converts", [True, False])
+def test_worked_help_taken_first_on_a_cold_follow_up_is_practice_with_help(tmp_path, level, option, converts):
+    from learnloop_sidecar.errors import SidecarError
+    from tests.hint_fakes import ITEM as HINT_ITEM, WORK, ChooserFake, WriterFake, prefer
+
+    paths, ctx, session = _hint_sidecar(tmp_path, {("ask", "cold_help_converts"): converts})
+    task_id = cold_followup(paths, HINT_ITEM)
+    ctx.hint_writer_client = WriterFake()
+    ctx.hint_chooser_client = ChooserFake(prefer(option, 0.9))
+    job = _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": HINT_ITEM,
+                                              "submissionId": "k1", "answerMd": WORK, "takenLevel": level})
+    assert job["result"]["level"] == level and job["result"]["evidence"]["primed"] is True
+    if not converts:
+        with pytest.raises(SidecarError):
+            _submit(ctx, session, key="k1", hints=0)
+        return
+    attempt = _attempt_row(paths, _submit(ctx, session, key="k1", hints=0)["attemptId"])
+    assert (attempt["hints_used"], attempt["primed"]) == (0, 1)
+    repository = Repository(paths.sqlite_path)
+    # Never the cold measurement: the task is not consumed by this attempt.
+    assert repository.followup_task(task_id)["status"] != "consumed"
