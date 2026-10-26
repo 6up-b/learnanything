@@ -878,8 +878,10 @@ The names this document uses: *section correspondence index* for the `section_co
 classification, so they ship as one successor, `mvp-0.34` (one constant after RW7b's `mvp-0.32`), behind
 `ask.cold_help_converts`: K10's Reader cold Ask (a clarification no longer converts a check on your own) and Q4's take
 step on a cold follow-up (submit admits a hinted attempt as practice with help, which never answers the cold
-measurement). K6 maps onto `hints_used` with its existing meaning and needs none. K9 (a request for the answer through
-the take step) and H4's strategy routing are not built yet.
+measurement). K6 maps onto `hints_used` with its existing meaning and needs none. After the Codex review
+(`docs/reviews/reader-ca2-one-ask-codex-review.md`): K9's leak control and take step are built (an Ask answer that
+would give the answer away is withheld and offers rungs 4/5 through the host's ladder); H4's strategy routing is
+not built yet (H4's checkpoint), nor the separate bridge voice of K11 or a dollar envelope for a metered tutor route.
 
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
