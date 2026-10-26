@@ -175,8 +175,11 @@ def test_b3_a_reattempt_starts_a_fresh_ask_thread(tmp_path, grader):
     # Reader CA2 (K5) supersedes B3's per-attempt budget while the Ask panel
     # is on: the budget is a money bound per item per UTC day, which a new
     # serve never resets (the thread still starts fresh). The panel off keeps
-    # B3's rule (tests/test_reader_ca2_one_ask.py pins both).
-    assert fresh["remaining"] == vault.config.tutor_qa.max_questions_practice - 1
+    # B3's rule (tests/test_reader_ca2_one_ask.py pins both). Codex review F8:
+    # the default route is the subscription's, which has no request bound at
+    # all (remaining None); a metered route keeps it
+    # (tests/test_reader_ca2_codex_review.py).
+    assert fresh["remaining"] is None
     used, _limit = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=session)
     assert used == 1
     _question(ctx, session, "q_second")
