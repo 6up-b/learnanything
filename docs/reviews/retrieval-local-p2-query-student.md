@@ -44,11 +44,11 @@
 
 ## No made-up constants (owner, 2026-10-24)
 
-Every decision is expected utility over posterior draws; nothing is a margin. Priors and their basis are in `student_decision.PRIOR_BASIS`: family pooling (empirical Bayes), Jeffreys priors on lateness and agreement, the KT estimate of in-time starts, `λ` (log-normal at the rates the owner's recorded budget decisions imply: E0 $25 → $40, E1 $5, each for the 5-point stake it tested), `ν` (μ over the 6-hour P2 budget: the owner allotted at most 6 GPU-hours for all the quality a dense query encoder can bring; weak, by analogy), `μ` (bank R1 − R0 when supplied, else its upper bound), `b_local` = 0 (local was already optimal at an even posterior because it is cheaper), the learning curve (log-linear: errs toward training more), the dev quality (the teacher's bank quality times the agreement). Everything fixed is `keep` (identities, budgets, floors, leakage guards, provider-prompt sizes) or `numerical` (optimizer rates with their published basis, computation budgets) and is classified in `params/parameter_registry.py` (41 module constants, 2 config keys).
+Every decision is expected utility over posterior draws; nothing is a margin. Priors and their basis are in `student_decision.PRIOR_BASIS`: family pooling (empirical Bayes), Jeffreys priors on lateness and agreement, the KT estimate of in-time starts, `λ` (log-normal at the rates the owner's recorded budget decisions imply: E0 $25 → $40, E1 $5, each for the 5-point stake it tested), `ν` (μ over the 6-hour P2 budget: the owner allotted at most 6 GPU-hours for all the quality a dense query encoder can bring; weak, by analogy), `μ` (bank R1 − R0 when supplied, else its upper bound), `b_local` = 0 (local was already optimal at an even posterior because it is cheaper), the learning curve (log-linear: errs toward training more), the dev quality (the teacher's bank quality times the agreement). Everything fixed is `keep` (identities, budgets, floors, leakage guards, provider-prompt sizes) or `numerical` (optimizer rates with their published basis, computation budgets) and is classified in `params/parameter_registry.py` (39 module constants, 2 config keys).
 
 ## Commands for the owner (none was run here)
 
-Every Python command outside pytest should run under `env -i` with an empty HOME only when testing; the real commands below are the owner's, in a normal shell, on the owner's vaults (outside the checkout since S0) or on backup-API copies. Dry run first, every time.
+The commands are the owner's, in a normal shell, on the owner's vaults (outside the checkout since S0) or on backup-API copies. Dry run first, every time.
 
 ```bash
 # 0. P1a setup, adopting the teacher already in the HF cache (verified, never moved):
