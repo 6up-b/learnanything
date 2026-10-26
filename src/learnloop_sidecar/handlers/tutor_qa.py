@@ -171,10 +171,15 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                     "No second question was created. Keep the capture for recovery or dismiss it.",
                     details={"event_id": event_id}, retryable=False,
                 )
+            # The remaining count of the attempt the question was asked in
+            # (its stored key; owner 2026-10-26: per attempt).
+            key = (event.get("source_context") or {}).get("attempt_key") or {}
             used, limit = question_usage(
                 vault, repository, context=event["context"],
                 practice_item_id=event.get("practice_item_id"), attempt_id=event.get("attempt_id"),
                 note_id=event.get("note_id"), session_id=event.get("session_id"),
+                submission_id=key.get("submission_id") if isinstance(key, dict) else None,
+                workbench_session_id=key.get("workbench_session_id") if isinstance(key, dict) else None,
             )
             response = {key: event.get(key) for key in (
                 "note_id", "answer_md", "question_type", "facets", "hint_equivalent", "leak_suspected",
@@ -692,7 +697,11 @@ def promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInpu
 def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     panel = ask_panel_enabled(vault)
+    panel_ask = (_ask_panel_inputs(ctx, vault, repository, params, transcript=True)
+                 if panel and params.context == "practice" else PanelAsk())
     try:
+        # The practice budget is the attempt's (owner, 2026-10-26: B3's rule
+        # on every route), read with the keys of the thread shown below.
         used, limit = question_usage(
             vault,
             repository,
@@ -700,14 +709,12 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
             practice_item_id=params.practice_item_id,
             attempt_id=params.attempt_id,
             note_id=params.note_id,
-            session_id=params.session_id,
-            # Codex review F8: no request bound on a subscription route.
-            metered=not (panel and params.context == "practice" and _tutor_route_subscription(vault)),
+            session_id=panel_ask.session_id if panel_ask.bound else params.session_id,
+            submission_id=panel_ask.submission_id if panel else None,
+            workbench_session_id=panel_ask.workbench_session_id,
         )
     except TutorQAError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    panel_ask = (_ask_panel_inputs(ctx, vault, repository, params, transcript=True)
-                 if panel and params.context == "practice" else PanelAsk())
     if params.context == "practice":
         # Owner capture 2026-10-25 (B3): the current attempt's thread; a
         # reattempt starts a fresh one (earlier turns stay on record). Reader
@@ -751,22 +758,6 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
     if panel and params.context == "practice" and params.practice_item_id:
         payload["help_record"] = _help_record(repository, params, panel_ask, events)
     return versioned(payload)
-
-
-def _tutor_route_subscription(vault: Any) -> bool:
-    """Is the tutor's route a subscription transport (Codex, the ChatGPT
-    plan)? Read from the route's profile, building no client (Codex review
-    F8: such a route has no request bound)."""
-
-    from learnloop.ai.routing import provider_for_task
-    from learnloop.ai.spend import is_subscription_transport
-
-    try:
-        name = provider_for_task(vault.config, "tutor_qa").provider_name
-        profile = (getattr(vault.config.ai, "providers", None) or {}).get(name)
-    except Exception:  # noqa: BLE001 - unknown route: keep the bound
-        return False
-    return profile is not None and is_subscription_transport(profile=profile)
 
 
 def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: PanelAsk,

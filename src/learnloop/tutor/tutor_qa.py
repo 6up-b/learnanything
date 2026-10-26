@@ -82,7 +82,6 @@ from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.ai.spend import is_subscription_transport
 from learnloop.tutor.context_delivery import (
     MAX_REFERENCES,
     NEIGHBOUR_RADIUS,
@@ -489,37 +488,36 @@ def question_usage(
     note_id: str | None = None,
     session_id: str | None = None,
     clock: Clock | None = None,
-    metered: bool = True,
+    submission_id: str | None = None,
+    workbench_session_id: str | None = None,
 ) -> tuple[int, int | None]:
     """(used, limit) for one Q&A budget window.
 
-    practice: per (practice item, session); feedback: per attempt; library:
-    per note per UTC day.
+    practice: per attempt (the attempt's thread); feedback: per attempt;
+    library: per note per UTC day.
 
-    Reader CA2 (K5; Codex review F8): with the Ask panel on, a practice
-    question on a subscription route (Codex, the ChatGPT plan: ``metered``
-    False) has no request bound at all, so ``limit`` is None (owner,
-    2026-10-12, Slice A plan §5 rule 6: its cost is estimated from the
-    agent run's token usage, ``estimated_only``, never a physical-request
-    cap); on a metered route the per-item, per-UTC-day bound stands."""
+    Practice is PER ATTEMPT on every route (owner decision 2026-10-26,
+    restoring owner capture 2026-10-25 B3's rule over Reader CA2's K5
+    per-item, per-UTC-day bound and Codex review F8's unbounded
+    subscription route): each attempt gets its own ``max_questions_practice``,
+    counted over the same thread its tutor is given
+    (:func:`practice_thread_events`). With the Ask panel on, the thread is
+    keyed by the attempt's ``submission_id`` (or the unfinished workbench the
+    server names), so a new serve of the item starts a fresh budget as it
+    starts a fresh thread."""
 
     config = vault.config.tutor_qa
     # Only answered turns consume budget: a provider failure (answer_status
     # 'failed'/'pending') keeps the question on record without charging for it.
     if context == "practice":
-        if ask_panel_enabled(vault):
-            # Reader CA2 (K5): the budget is a money bound, per item per UTC
-            # day; a new serve of the item starts a fresh thread, never a
-            # fresh budget.
-            now = parse_utc(utc_now_iso(clock))
-            day_start = now.strftime("%Y-%m-%dT00:00:00Z")
-            used = repository.count_question_events(
-                context="practice", practice_item_id=practice_item_id, since=day_start, answer_status="answered"
-            )
-            return used, (config.max_questions_practice if metered else None)
-        # Owner capture 2026-10-25 (B3): the budget is the current attempt's,
-        # as its thread is (:func:`practice_thread_events`).
-        used = len(practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id))
+        # Owner capture 2026-10-25 (B3), kept by the owner 2026-10-26: the
+        # budget is the current attempt's, as its thread is.
+        keyed = ask_panel_enabled(vault)
+        used = len(practice_thread_events(
+            repository, practice_item_id=practice_item_id, session_id=session_id,
+            submission_id=submission_id if keyed else None,
+            workbench_session_id=workbench_session_id if keyed else None,
+        ))
         return used, config.max_questions_practice
     if context == "feedback":
         used = repository.count_question_events(
@@ -805,7 +803,8 @@ def ask_question(
         note_id=note_id,
         session_id=session_id,
         clock=clock,
-        metered=not is_subscription_transport(client=client),
+        submission_id=submission_id,
+        workbench_session_id=workbench_session_id,
     )
     if limit is not None and used >= limit:
         raise QuestionLimitReached(context=context, limit=limit, used=used)

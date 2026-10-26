@@ -7,7 +7,7 @@ docs/reviews/reader-ca2-one-ask.md), backend.
   taken on a cold follow-up makes the attempt practice with help, admitted and
   never the cold measurement (Q4). Off, or below the tag: the predecessor.
 * **The panel (``ask.panel_enabled``).** The practice thread is the attempt's
-  (K5); the budget is a per-day money bound that a new serve never resets;
+  (K5); so is the budget (owner 2026-10-26: B3's per-attempt rule kept);
   the help style is Ask's answer mode on every host (§7.4, Q5); a Work-in-Steps
   question names a workbench session the server checks (K7); *earlier on this
   question* lists earlier attempts' help, absent on a cold check (K6, Q2); the
@@ -276,10 +276,10 @@ def test_the_readers_cold_paths_count_a_clarification_only_under_the_predecessor
     assert row["question_type"] == (question_type if converts else "other")
 
 
-# -- K5: the practice thread is the attempt's; the budget is the day's ------------------------------
+# -- K5: the practice thread is the attempt's, and so is the budget (owner 2026-10-26: B3's rule) ----
 
 
-def test_the_practice_thread_is_keyed_by_the_attempt_and_the_budget_never_resets(tmp_path):
+def test_the_practice_thread_and_its_budget_are_keyed_by_the_attempt(tmp_path):
     _paths, vault, repository = _vault(tmp_path)
     clock = FrozenClock(NOW)
     for key, question in (("serve-1", "Why orthogonal?"), ("serve-2", "What is a singular value?")):
@@ -292,10 +292,14 @@ def test_the_practice_thread_is_keyed_by_the_attempt_and_the_budget_never_resets
     ask_question(vault, repository, tutor, context="practice", question_md="And then?", practice_item_id=ITEM,
                  session_id="sess_1", submission_id="serve-2", clock=clock)
     assert [turn["question_md"] for turn in tutor.contexts[0].thread] == ["What is a singular value?"]
-    # The budget is a money bound per item per UTC day: a new serve never resets it.
+    # The budget is the attempt's (owner decision 2026-10-26, B3's rule kept):
+    # each serve gets its own max_questions_practice, counted over its thread.
     used, limit = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id="sess_1",
-                                 clock=clock)
-    assert (used, limit) == (3, vault.config.tutor_qa.max_questions_practice)
+                                 submission_id="serve-2", clock=clock)
+    assert (used, limit) == (2, vault.config.tutor_qa.max_questions_practice)
+    used, _limit = question_usage(vault, repository, context="practice", practice_item_id=ITEM,
+                                  session_id="sess_1", submission_id="serve-1", clock=clock)
+    assert used == 1
     stored = repository.question_events(context="practice", practice_item_id=ITEM)
     assert [event["source_context"]["attempt_key"]["submission_id"] for event in stored] == [
         "serve-1", "serve-2", "serve-2"]
@@ -388,7 +392,11 @@ def test_the_sidecar_asks_in_the_help_styles_mode_unless_changed_for_one_questio
         "What does this symbol mean?", "And this one?"]
     other = _call(ctx, "get_tutor_transcript", {"context": "practice", "practiceItemId": ITEM,
                                                 "sessionId": "sess_1", "submissionId": "k2"})
-    assert other["events"] == [] and other["remaining"] == transcript["remaining"]
+    # Each attempt has its own budget (owner 2026-10-26, B3's rule): a new serve starts it fresh.
+    vault, _repository = ctx.require_vault()
+    limit = vault.config.tutor_qa.max_questions_practice
+    assert transcript["remaining"] == limit - 2
+    assert other["events"] == [] and other["remaining"] == limit
     assert other["cold"] is False and other["earlierCountsAsHint"] is True
 
 

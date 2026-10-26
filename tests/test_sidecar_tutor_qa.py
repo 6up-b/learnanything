@@ -165,13 +165,6 @@ def test_sidecar_ask_rate_transcript_and_limit(tmp_path):
     server.start()
     try:
         vault_root, _paths = _tutor_vault(tmp_path, server)
-        # The count cap this test pins is the predecessor's (B3's) rule: with
-        # the Ask panel on, the subscription route (this legacy http Codex
-        # adapter) has no request bound at all (Reader CA2, Codex review F8;
-        # tests/test_reader_ca2_codex_review.py pins both routes).
-        from tests.ux_phase1_support import set_config
-
-        set_config(vault_root, {("ask", "panel_enabled"): False})
         session_id = _rpc(
             [_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "start_session", "params": {"energy": "medium"}}]
         )[1]["result"]["sessionId"]
@@ -550,8 +543,7 @@ def test_preview_tutor_opening_after_stop_diagnosing(tmp_path):
             ]
         )[1]["result"]
         assert transcript["events"] == []
-        # Codex review F8: no request bound on the subscription route.
-        assert transcript["remaining"] is None
+        assert transcript["remaining"] == 3
     finally:
         server.stop()
 

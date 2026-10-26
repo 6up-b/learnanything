@@ -17,7 +17,8 @@ never a mocked predicate; every model is a fake.
   a Reader question needs no practice session from the client and still
   counts at the submit.
 * F7 (K8): the transcript's help record is what Submit folds.
-* F8 (K5): no request bound on a subscription route.
+* F8 (K5): superseded by the owner's decision of 2026-10-26: the practice
+  budget is per attempt on every route (B3's rule), subscription included.
 * F9 (K11): citations carry their book excerpt, live and restored.
 """
 from __future__ import annotations
@@ -273,19 +274,24 @@ def test_an_ordinary_answer_is_delivered(sidecar):
     assert answer["hintEquivalent"] is True
 
 
-# -- F8 (K5): no request bound on a subscription route --------------------------------------------------
+# -- The practice budget is per attempt on every route (owner 2026-10-26; F8's K5 bound withdrawn) ------
 
 
-def test_a_subscription_route_has_no_request_bound_and_a_metered_route_keeps_it(tmp_path):
+@pytest.mark.parametrize("tutor", [PlanTutor, FakeTutor], ids=["subscription", "metered"])
+def test_each_attempt_gets_its_own_practice_budget_on_every_route(tmp_path, tutor):
     _paths, vault, repository = _vault(tmp_path, {("tutor_qa", "max_questions_practice"): 2})
     clock = FrozenClock(NOW)
-    for index in range(4):
-        result = ask_question(vault, repository, PlanTutor(), context="practice", question_md=f"Why {index}?",
+    for index in range(2):
+        result = ask_question(vault, repository, tutor(), context="practice", question_md=f"Why {index}?",
                               practice_item_id=ITEM, session_id="sess_1", submission_id="k1", clock=clock)
-        assert result["remaining"] is None
+        assert result["remaining"] == 1 - index
     with pytest.raises(QuestionLimitReached):
-        ask_question(vault, repository, FakeTutor(), context="practice", question_md="Metered?",
+        ask_question(vault, repository, tutor(), context="practice", question_md="One more?",
                      practice_item_id=ITEM, session_id="sess_1", submission_id="k1", clock=clock)
+    # The next serve of the item (a new attempt, the same UTC day) starts its own budget.
+    result = ask_question(vault, repository, tutor(), context="practice", question_md="Fresh?",
+                          practice_item_id=ITEM, session_id="sess_1", submission_id="k2", clock=clock)
+    assert result["remaining"] == 1
 
 
 # -- F7 (K8): the help record is what Submit folds ------------------------------------------------------
