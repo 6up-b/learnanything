@@ -3,7 +3,7 @@
 Stage `reader-ca2-one-ask`, branch `reader/ca2-one-ask` in `learnanything-dl2`. The review read
 `eae00d58a..cb548afd85` (codex-job `20261025-204600-pjtleU`) and found 3 High, 7 Medium and 1 Low. This round
 reproduced each one as a failing test first (the new tests were run against the pre-fix sources of
-`cb548afd8`: 17 backend and 8 vitest cases failed there and pass now), then fixed it, or rejected the part that
+`cb548afd8`: 15 backend and 8 vitest cases failed there and pass now), then fixed it, or rejected the part that
 conflicts with the owner's queue. Fakes only: no live model call, no paid call, no vault opened.
 
 ## Review
@@ -111,7 +111,7 @@ MemorySwapMax=1G`; pytest at `-n 6`, vitest at `--maxWorkers=4`, one test run at
 |---|---|
 | `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | done |
 | `uv run lint-imports --no-cache` | 36 kept, 0 broken (a first run broke "deferred cycles are frozen": `learnloop.tutor` importing `learnloop.hints`; the leak control is now injected by the adapter, `9b9f7b155`) |
-| reproduction: the new backend tests against `cb548afd8`'s sources | 17 failed, 4 passed (the 4 pin what must stay unchanged) |
+| reproduction: the new backend tests against `cb548afd8`'s sources | 15 failed (two runs: 9 of the first 14 cases, then F1, F4 and F9 added: 8 of 10); the cases that passed there pin what must stay unchanged |
 | reproduction: the new vitest cases against `cb548afd8`'s `AskOverlay.tsx`, `PracticeScreen.tsx`, `ReaderWorkingPosture.tsx` | 8 failed |
 | pytest, the new file `tests/test_reader_ca2_codex_review.py` | 25 passed |
 | pytest, targeted batch (165 files, below) | 9,935 passed, 10 skipped, 2 xfailed, 5 failed: 3 pinned the request bound this round removes on the subscription route (F8; `test_owner_capture_1025.py` B3 transcript, `test_sidecar_tutor_qa.py` x2), updated (the limit test now pins B3's count cap with the panel off); 2 load flakes that pass alone (`test_chatgpt_plan_provider.py::test_the_deadline_shuts_a_stalled_stream`, `test_plan_first_transport_offer_grants.py::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter`). Rerun of those 4 files plus the new file: 61 passed |
