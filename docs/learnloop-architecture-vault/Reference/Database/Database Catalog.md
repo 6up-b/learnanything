@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
-source_commit_timestamp: "2026-10-25T19:37:38-04:00"
+source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
+source_commit_timestamp: "2026-10-25T22:35:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 221
-table_count: 351
+schema_head: 222
+table_count: 352
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_221/state.sqlite"
+  - "fixtures/migration_head_222/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-221"
+  - "learnloop/database/schema-head-222"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 351 user tables at migration head 221. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 352 user tables at migration head 222. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 351 user tables at migration head 221. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 151 |
 | [[Table Roles#Derived|`derived`]] | 23 |
 | [[Table Roles#Receipt|`receipt`]] | 76 |
-| [[Table Roles#Workflow|`workflow`]] | 91 |
+| [[Table Roles#Workflow|`workflow`]] | 92 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 338 |
+| `active` | 339 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -483,6 +483,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/retrieval_fusion_posteriors|retrieval_fusion_posteriors]] — `derived` · `active` · Gives retrieval fusion posterior a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `query_kind`, `fit_version`, `context_key`, making the operational relationship explicit.
 - [[Reference/Database/Tables/retrieval_intervention_outcomes|retrieval_intervention_outcomes]] — `derived` · `active` · Materializes the outcome join for retrieval_interventions (canonical sources S5): R_next within the session or day, R_cold as the decision-value outcome states (pending stays right-censored), the observed bucket beside the predicted one, actual beside predicted minutes and the learner's taps. Rebuilt by its one replayer from persisted rows with no model call; associations, not causes. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `intervention_id`, `next_attempt_id`, `cold_attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/retrieval_interventions|retrieval_interventions]] — `raw_ledger` · `active` · Appends one row when a retrieved asset is shown or served (canonical sources S5): a cited or opened passage, a comparison shown, ranked remediation passages delivered, a proposal picked, a need fulfilled from the sources and served. References only (assets with revisions, targets, the valuation's state hashes, the valued candidate's predicted outcome distribution and minutes, impressions, the independence verdict at valuation and serving time); reports read it, nothing serves from it. It supplies replay-stable input rather than a disposable cache. Rows bind `tool_call_id`, `proposal_id`, `question_event_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/section_coverage|section_coverage]] — `workflow` · `active` · Gives section coverage a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/submission_intents|submission_intents]] — `raw_ledger` · `active` · Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed. It supplies replay-stable input rather than a disposable cache. Rows bind `submission_id`, `session_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/surface_mint_requests|surface_mint_requests]] — `workflow` · `active` · Queues a durable, retryable request for surface mint so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `card_version_id`, `anchor_surface_id`, `candidate_surface_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/task_feature_schema_versions|task_feature_schema_versions]] — `raw_ledger` · `active` · Pins immutable versions of task feature schema so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `schema_slug`, `version`, making the operational relationship explicit.

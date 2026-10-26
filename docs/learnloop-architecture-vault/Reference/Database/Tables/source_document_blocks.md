@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
-source_commit_timestamp: "2026-10-25T19:37:38-04:00"
+source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
+source_commit_timestamp: "2026-10-25T22:35:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 221
+schema_head: 222
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -166,10 +166,10 @@ Database triggers:
 - `tests/test_reader_branches.py`
 - `tests/test_reread_safety.py`
 - `tests/test_rw4d_rw3b_composition.py`
+- `tests/test_section_coverage.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_roles.py`
-- `tests/test_sources_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

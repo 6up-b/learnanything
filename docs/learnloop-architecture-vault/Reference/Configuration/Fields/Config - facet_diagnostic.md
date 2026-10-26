@@ -3,8 +3,8 @@ title: "Config - facet_diagnostic"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
-source_commit_timestamp: "2026-10-25T19:37:38-04:00"
+source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
+source_commit_timestamp: "2026-10-25T22:35:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml facet_diagnostic"
@@ -41,10 +41,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `facet_diagnostic.tau_facet_failed` | `0.4` | number | modeled default or validator seed | Sets the decision cutoff for facet failed in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:536`; `src/learnloop/ai/plan_fallback.py:123` |
-| `facet_diagnostic.tau_facet_uncertain_variance` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for facet uncertain variance in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:537`; `src/learnloop/ai/plan_fallback.py:123` |
-| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:538`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/learner/facet_diagnostics.py:535` |
-| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:539`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/learner/facet_diagnostics.py:538` |
+| `facet_diagnostic.tau_facet_failed` | `0.4` | number | modeled default or validator seed | Sets the decision cutoff for facet failed in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:536`; `src/learnloop/ai/plan_fallback.py:124` |
+| `facet_diagnostic.tau_facet_uncertain_variance` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for facet uncertain variance in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:537`; `src/learnloop/ai/plan_fallback.py:124` |
+| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:538`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/learner/facet_diagnostics.py:535` |
+| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:539`; `src/learnloop/ai/plan_fallback.py:124`; `src/learnloop/learner/facet_diagnostics.py:538` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

@@ -3,13 +3,13 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dc80efaf7d1a5aa88bf201c3e1af95bfe5266968"
-source_commit_timestamp: "2026-10-25T19:37:38-04:00"
+source_commit: "8b04756581a11df6f9d368c9c8bfa191e1d1ea45"
+source_commit_timestamp: "2026-10-25T22:35:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
   - "table post_attempt_jobs"
-schema_head: 221
+schema_head: 222
 table_name: "post_attempt_jobs"
 table_role: "workflow"
 functionality_status: "active"
