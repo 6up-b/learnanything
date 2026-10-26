@@ -288,7 +288,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 # administration counts as the workbench's cold rule says.
                 "count_every_question": panel_ask.count_every_question,
                 # Codex review F2 (K9): worked help is never served on the spot.
-                "withhold_worked_help": True}
+                "worked_help_check": _worked_help_check}
                if params.context == "practice" and ask_panel_enabled(vault) else {}),
         )
     except QuestionLimitReached as exc:
@@ -416,6 +416,15 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
         cold=cold,
         count_every_question=cold and not help_converts_active(vault),
     )
+
+
+def _worked_help_check(answer_md: str, item: Any) -> list[str]:
+    """Codex review F2 (K9): the hint service's leak control at levels 1-3
+    (``hints.contracts.leak_flags``) for an Ask answer before it is shown."""
+
+    from learnloop.hints.contracts import leak_flags
+
+    return leak_flags([answer_md], item=item, current=None, level=3)
 
 
 def _item_cold(vault: Any, repository: Any, practice_item_id: str) -> bool:

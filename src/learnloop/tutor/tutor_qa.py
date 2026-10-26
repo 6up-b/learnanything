@@ -672,7 +672,7 @@ def ask_question(
     workbench_session_id: str | None = None,
     about_step: int | None = None,
     count_every_question: bool = False,
-    withhold_worked_help: bool = False,
+    worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -731,9 +731,10 @@ def ask_question(
     workbench's cold rule for a practice question the adapter bound to a
     workbench during a cold administration while the one help rule is off
     (``serve_eligibility.help_converts_active``): every question is a hint,
-    as ``reader.ask``'s bound cold Ask counts. ``withhold_worked_help`` (F2,
-    K9) puts the answer through the hint service's leak control before it
-    is shown: an answer that would give the item's answer away is never
+    as ``reader.ask``'s bound cold Ask counts. ``worked_help_check`` (F2,
+    K9; injected by the adapter, ``(answer_md, item) -> leak flags``: the hint
+    service's leak control, which this package never imports) runs on the
+    answer before it is shown: an answer that would give the item's answer away is never
     delivered on the spot; the learner gets the ladder's take step
     (``result["take_offer"]``) instead, nothing is counted or debited for
     the withheld text, and the row keeps it with ``source_context.withheld``."""
@@ -1160,8 +1161,9 @@ def ask_question(
         else 0.0
     )
     leak_suspected = leak_overlap >= _LEAK_OVERLAP_THRESHOLD
-    withheld = _worked_help_leaks(answer.answer_md, item) if withhold_worked_help and item is not None else []
-    if leak_suspected and withhold_worked_help and item is not None and "answer_overlap" not in withheld:
+    withhold = worked_help_check is not None and item is not None
+    withheld = _worked_help_leaks(worked_help_check, answer.answer_md, item) if withhold and worked_help_check else []
+    if leak_suspected and withhold and "answer_overlap" not in withheld:
         withheld = [*withheld, "answer_overlap"]
     if withheld:
         # Codex review F2 (K9): worked help is the learner's to take, never
@@ -1870,15 +1872,13 @@ WITHHELD_ANSWER_MD = (
 )
 
 
-def _worked_help_leaks(answer_md: str | None, item: Any) -> list[str]:
+def _worked_help_leaks(check: Callable[[str, Any], Sequence[str]], answer_md: str | None, item: Any) -> list[str]:
     """The hint service's leak control for an Ask answer at levels 1-3 (hints
-    spec §4.6; ``hints.contracts.leak_flags``): why the text would give the
+    spec §4.6, through the adapter's ``check``): why the text would give the
     item's answer away, empty when it does not."""
 
-    from learnloop.hints.contracts import leak_flags
-
     try:
-        return leak_flags([str(answer_md or "")], item=item, current=None, level=3)
+        return list(check(str(answer_md or ""), item))
     except Exception:  # noqa: BLE001 - the overlap check (``leak_suspected``) still decides
         logger.warning("worked-help leak check failed", exc_info=True)
         return []
