@@ -41,6 +41,9 @@ import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
+import { AskOverlay, type AskTarget } from "../components/AskOverlay";
+import { ASK_COPY } from "../components/askPanel";
+import { DockedAsk } from "../components/DockedAsk";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -149,6 +152,7 @@ export function PracticeScreen({
   onInspect,
   onAsk,
   onAskState,
+  onAskOpener,
   onError,
   primed = false,
   redo = null
@@ -227,6 +231,10 @@ export function PracticeScreen({
    *  whether an answer was started) so App's command-palette ask carries the
    *  same state the in-screen ask does; null when the screen unmounts. */
   onAskState?: (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress; workMd?: string }) | null) => void;
+  /** Reader CA2: registers this screen's own Ask opener, so App's palette
+   *  Ask opens the docked panel (or the inline one in steps) instead of the
+   *  overlay while the panel is on; null when the screen unmounts. */
+  onAskOpener?: (open: (() => void) | null) => void;
   onError: (message: string) => void;
 }) {
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
@@ -398,7 +406,30 @@ export function PracticeScreen({
     onAskState(() => askStateRef.current());
     return () => onAskState(null);
   }, [onAskState]);
-  const openAsk = (options?: { proactiveOpen?: boolean }) =>
+  // Reader CA2 (ux_reader_compare_ask_v1 §7): the one Ask panel, while the
+  // sidecar sends `ask` (ask.panel_enabled). Docked beside the question on the
+  // answer box; inline under the focused step in Work in Steps. Off (null),
+  // every path below is the overlay's, exactly as before.
+  const panelOn = algoConfig().ask !== null;
+  const [dockedAsk, setDockedAsk] = useState<AskTarget | null>(null);
+  const [stepAskSignal, setStepAskSignal] = useState(0);
+  // §7.7: a substantive question made this check practice with help.
+  const [askConverted, setAskConverted] = useState(false);
+  // K8: the questions this attempt asked, in order, with what they counted as.
+  const [askRecord, setAskRecord] = useState<Array<{ eventId: string; hintEquivalent: boolean }>>([]);
+  // K6, Q2: *earlier on this question* opened before Submit, counted once per
+  // attempt (its submission key), as the book left open is.
+  const [earlierCountedFor, setEarlierCountedFor] = useState<string | null>(null);
+  const openAsk = (options?: { proactiveOpen?: boolean }) => {
+    if (panelOn && !options?.proactiveOpen) {
+      if (stepsShown.current) {
+        // §7.6: Ask about the focused step, under it.
+        setStepAskSignal((value) => value + 1);
+        return;
+      }
+      setDockedAsk(practiceAskTarget());
+      return;
+    }
     onAsk({
       context: "practice",
       practiceItemId,
@@ -412,6 +443,14 @@ export function PracticeScreen({
       ...(stepsWorkRef.current === null && answer.trim() ? { draftMd: answer } : {}),
       ...options
     });
+  };
+  const openAskRef = useRef(openAsk);
+  openAskRef.current = openAsk;
+  useEffect(() => {
+    if (!onAskOpener || !panelOn) return undefined;
+    onAskOpener(() => openAskRef.current());
+    return () => onAskOpener(null);
+  }, [onAskOpener, panelOn]);
   // The editor grows with its content but is capped so the answer card never
   // pushes the Submit button (or anything below the editor) off-screen — once it
   // hits the cap it scrolls internally instead. The cap is "viewport below the
@@ -845,7 +884,10 @@ export function PracticeScreen({
   // A book counted on this problem, in steps left this visit or on its open
   // problem (after a restart too), counts on the answer box as one hint.
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
-  const answerHints = hintsUsed + (bookCarried ? 1 : 0);
+  // Reader CA2 (K6, Q2): an earlier attempt's help opened before Submit is
+  // one hint-equivalent, like the book left open.
+  const earlierCounted = earlierCountedFor !== null && earlierCountedFor === submissionId.current;
+  const answerHints = hintsUsed + (bookCarried ? 1 : 0) + (earlierCounted ? 1 : 0);
   carriedRef.current = { hints: hintsUsed, book: bookCarried };
   // A carried book is a hint the marker never timed (fix round 4, V4).
   if (bookCarried) firstHint.noteUntimedHint();
@@ -972,10 +1014,45 @@ export function PracticeScreen({
   const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null;
   const [checkHelpOpen, setCheckHelpOpen] = useState(false);
   useEffect(() => setCheckHelpOpen(false), [item?.id]);
+  // Reader CA2 (§15 Q4): a cold follow-up the server serves with the take
+  // step (its view carries the ladder header) offers help like any check on
+  // your own; without it, the predecessor's "no hints on this one" stands.
+  const coldTakeStep = onYourOwnCheck && Boolean(intentCheck?.helpHeader);
+  const coldCheck = Boolean(intentCheck?.cold) || onYourOwnCheck;
+
+  /** Reader CA2: the practice Ask's target, the attempt's key and the live
+   *  draft read at send (§7.2), never the draft as it was when it opened. */
+  function practiceAskTarget(extra?: Partial<AskTarget>): AskTarget {
+    return {
+      context: "practice",
+      practiceItemId,
+      sessionId: session.sessionId,
+      ...askState(),
+      submissionId: submissionId.current,
+      readDraft: () => stepsWorkRef.current ?? answerRef.current,
+      // The context line names the exercise, never during a check on your
+      // own (D46: nothing that locates it).
+      itemLabel: item?.canonicalExercise && !intentCheck?.locatorsHidden ? item.canonicalExercise.label : undefined,
+      coldCheck,
+      ...extra
+    };
+  }
+
+  function onAskAnswered(answered: { eventId: string; hintEquivalent: boolean }) {
+    setAskRecord((record) => (record.some((entry) => entry.eventId === answered.eventId) ? record : [...record, answered]));
+    // §7.7: only a question about the maths changes the banner.
+    if (coldCheck && answered.hintEquivalent) setAskConverted(true);
+  }
+
+  function onEarlierOpened() {
+    if (earlierCountedFor === submissionId.current) return;
+    setEarlierCountedFor(submissionId.current);
+    seeHint();
+  }
 
   function revealHint() {
     if (!practiceReady) return;
-    if (simple && onYourOwnCheck) {
+    if (simple && onYourOwnCheck && !coldTakeStep) {
       onError("No hints on this one: it's a check on your own.");
       return;
     }
@@ -1519,11 +1596,13 @@ export function PracticeScreen({
               What it verifies is said afterwards, in the feedback banner. */}
           {intentCheck?.banner ? (
             // DL2: the cold banner (Reader §9.3 item 10), provenance-free.
+            // Reader CA2 (§7.7): it changes only after a question about the
+            // maths; a clarification leaves it as it was.
             <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}>
-              {intentCheck.banner}
+              {askConverted ? ASK_COPY.convertedBanner : intentCheck.banner}
             </div>
           ) : null}
-          {simple && onYourOwnCheck ? (
+          {coldTakeStep ? null : simple && onYourOwnCheck ? (
             // The quiet line (§7.4, Reader doc U11), provenance-free: naming
             // what it checks would hand over the material it measures.
             <div style={{ ...quietLine, marginTop: 8 }}>

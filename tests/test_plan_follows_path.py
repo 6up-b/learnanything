@@ -509,7 +509,7 @@ def test_upgrade_from_the_predecessor_and_through_the_chain(tmp_path):
     assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
+    invoked = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(cli.root)])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {TAG}" in invoked.output
 

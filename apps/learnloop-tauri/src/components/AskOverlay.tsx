@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type {
+  AnswerMode,
   AskTutorQuestionInput,
   AttemptProgress,
+  EarlierThreadDto,
   CommandError,
   LearnerGapQueuedDto,
   LearnerTextGapReversal,
@@ -24,6 +26,17 @@ import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
 import { SourceOffers } from "./SourceOffers";
 import { screenLeavesKey } from "../app/keymap";
+import { algoConfig } from "../app/algoConfig";
+import {
+  ANSWER_MODE_LABEL,
+  ASK_COPY,
+  ONE_QUESTION_MODES,
+  STYLE_ANSWER_MODE,
+  StoredHelpStyle,
+  answerCountLabel,
+  shortDate,
+  useStoredHelpStyle
+} from "./askPanel";
 
 /**
  * The Reader exchange a continued dialogue attaches to, when the sidecar
@@ -79,7 +92,27 @@ export interface AskTarget {
    *  the steps as the learner's work, sent with every question so the tutor
    *  sees what the answer box would have shown it. */
   workMd?: string;
+  /** Reader CA2 (K5): the attempt's key; the thread is the attempt's. */
+  submissionId?: string;
+  /** Reader CA2 (K7, §7.6): asked from Work in Steps, in this workbench
+   *  session (the server checks it is the item's), about this step. */
+  workbenchSessionId?: string;
+  aboutStep?: number;
+  /** The steps written so far ("your steps 1–N" on the context line). */
+  stepsCount?: number;
+  /** Reader CA2 (§7.2): the learner's live draft at send (the answer box or
+   *  the steps), read when the question goes, never when the panel opened. */
+  readDraft?: () => string;
+  /** The question as the context line names it ("Exercise 6.1.12"), or none. */
+  itemLabel?: string;
+  /** The practice screen serves this as a check on your own (§7.7). */
+  coldCheck?: boolean;
 }
+
+/** Reader CA2: where the one Ask panel sits (§7.1). "modal" is the overlay
+ *  every other context keeps; "docked" sits beside the question on the
+ *  practice and feedback screens; "inline" sits under a workbench step. */
+export type AskVariant = "modal" | "docked" | "inline";
 
 const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> = {
   library: "cyan",
@@ -116,6 +149,8 @@ interface ThreadEntry {
    *  comparison). Ephemeral, like citations. */
   practiceRequest?: PracticeRequestDto | null;
   toolRequests?: SourceToolRequestDto[];
+  /** Reader CA2: the mode the answer was written in (live answers only). */
+  answerMode?: AnswerMode | null;
 }
 
 /** How long the overlay waits for a question's gap reading (polls). */
@@ -167,7 +202,10 @@ export function AskOverlay({
   target,
   onClose,
   onToast,
-  onOpenPractice
+  onOpenPractice,
+  variant = "modal",
+  onAnswered,
+  onEarlierOpened
 }: {
   target: AskTarget | null;
   onClose: () => void;
@@ -175,7 +213,29 @@ export function AskOverlay({
   /** The open-list path for a picked offer while the daily plan is off; the
    *  proposal it came from rides along so opening it records its delivery. */
   onOpenPractice?: (practiceItemId: string, origin?: { proposalId: string; importId: string | null }) => void;
+  /** Reader CA2: where the panel sits (default: the modal, as before). */
+  variant?: AskVariant;
+  /** Reader CA2 (§7.7, K8): an answer landed, with what it counted as (the
+   *  host's help record and the cold banner read it). */
+  onAnswered?: (answer: { eventId: string; questionMd: string; hintEquivalent: boolean; questionType: string | null }) => void;
+  /** Reader CA2 (K6, Q2): the learner opened *earlier on this question*
+   *  before Submit; the host counts it as one hint, once per attempt. */
+  onEarlierOpened?: () => void;
 }) {
+  // Reader CA2: the panel's own parts render only on a panel host while the
+  // sidecar sends `ask` (ask.panel_enabled); off, every host is the modal.
+  const panelOn = algoConfig().ask !== null;
+  const panel = panelOn && variant !== "modal";
+  const helpStyle = useStoredHelpStyle();
+  const [earlier, setEarlier] = useState<EarlierThreadDto[]>([]);
+  const [earlierCountsAsHint, setEarlierCountsAsHint] = useState(false);
+  const [serverCold, setServerCold] = useState(false);
+  const [earlierOpen, setEarlierOpen] = useState(false);
+  const [earlierShown, setEarlierShown] = useState<string | null>(null);
+  const [sentOpen, setSentOpen] = useState(false);
+  const [dropDraft, setDropDraft] = useState(false);
+  const [oneMode, setOneMode] = useState<AnswerMode | null>(null);
+  const [changeOpen, setChangeOpen] = useState(false);
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   // ING M8 (§9.2): the citation span currently open in the source viewer.
   const [openCitation, setOpenCitation] = useState<TutorCitationDto | null>(null);
@@ -298,6 +358,15 @@ export function AskOverlay({
     setPromoteNotice(null);
     clearPromoteNoticeTimer();
     setPromoteChoiceEventId(null);
+    setEarlier([]);
+    setEarlierCountsAsHint(false);
+    setServerCold(false);
+    setEarlierOpen(false);
+    setEarlierShown(null);
+    setSentOpen(false);
+    setDropDraft(false);
+    setOneMode(null);
+    setChangeOpen(false);
     setQuestion(target.initialQuestion ?? "");
     routedCaptureRef.current = null;
     captureNoteRef.current = null;
@@ -311,10 +380,16 @@ export function AskOverlay({
         practiceItemId: target.practiceItemId,
         attemptId: target.attemptId,
         noteId: target.noteId,
-        sessionId: target.sessionId
+        sessionId: target.sessionId,
+        ...(panelOn && target.submissionId ? { submissionId: target.submissionId } : {})
       })
       .then((snapshot) => {
         if (cancelled) return;
+        // Reader CA2 (K6): earlier attempts' help, never current; absent on a
+        // check on your own (the server's word, and the screen's).
+        setEarlier(snapshot.earlier ?? []);
+        setEarlierCountsAsHint(snapshot.earlierCountsAsHint === true);
+        setServerCold(snapshot.cold === true);
         const entries: ThreadEntry[] = snapshot.events.map((event: TutorQuestionEventDto) => ({
           eventId: event.id,
           questionMd: event.questionMd,
@@ -378,14 +453,15 @@ export function AskOverlay({
     target?.sessionId,
     target?.extractionId,
     target?.spanId,
-    target?.proactiveOpen
+    target?.proactiveOpen,
+    target?.submissionId
   ]);
 
   useEffect(() => clearSaveNoticeTimer, []);
   useEffect(() => clearPromoteNoticeTimer, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || variant !== "modal") return;
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Escape") {
@@ -396,11 +472,14 @@ export function AskOverlay({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  }, [open, onClose, variant]);
 
+  // The modal keeps the box focused as answers land; a panel takes focus
+  // only when it opens, never when a result lands (K16, G54).
+  const focusOnLand = variant === "modal" ? thread.length : 0;
   useEffect(() => {
     if (open) inputRef.current?.focus();
-  }, [open, thread.length]);
+  }, [open, focusOnLand, target?.aboutStep]);
 
   useEffect(() => {
     const node = bodyRef.current;
@@ -442,6 +521,7 @@ export function AskOverlay({
         learnerGap?: LearnerGapQueuedDto;
         practiceRequest?: PracticeRequestDto | null;
         toolRequests?: SourceToolRequestDto[];
+        answerMode?: AnswerMode | null;
       };
       if (target.context === "reader") {
         if (!target.extractionId || !target.spanId) {
@@ -499,6 +579,20 @@ export function AskOverlay({
           // B1: in steps the work is the steps, on every question.
           input.learnerDraftMd = target.workMd;
         }
+        if (panel && target.context === "practice") {
+          // Reader CA2 (§7.2, K5, K7): the attempt's key, the workbench the
+          // question comes from and its step, and the live draft read now
+          // (the context line's "your draft ×" leaves it out).
+          if (target.submissionId) input.submissionId = target.submissionId;
+          if (target.workbenchSessionId) input.workbenchSessionId = target.workbenchSessionId;
+          if (target.aboutStep) input.aboutStep = target.aboutStep;
+          const draft = target.readDraft?.() ?? target.workMd ?? "";
+          if (dropDraft) delete input.learnerDraftMd;
+          else if (draft.trim()) input.learnerDraftMd = draft;
+        }
+        if (panel && oneMode && (target.context === "practice" || target.context === "feedback")) {
+          input.answerMode = oneMode;
+        }
         const tutorAnswer = await api.askTutorQuestion(input);
         routedCaptureRef.current = target.captureId ?? null;
         captureNoteRef.current = tutorAnswer.noteId ?? null;
@@ -511,7 +605,8 @@ export function AskOverlay({
           remaining: tutorAnswer.remaining,
           learnerGap: tutorAnswer.learnerGap,
           practiceRequest: tutorAnswer.practiceRequest ?? null,
-          toolRequests: tutorAnswer.toolRequests ?? []
+          toolRequests: tutorAnswer.toolRequests ?? [],
+          answerMode: tutorAnswer.answerMode ?? null
         };
       }
       setThread((prev) =>
@@ -530,11 +625,16 @@ export function AskOverlay({
                 citations: answer.citations,
                 suggestions: answer.suggestions,
                 practiceRequest: answer.practiceRequest ?? null,
-                toolRequests: answer.toolRequests ?? []
+                toolRequests: answer.toolRequests ?? [],
+                answerMode: answer.answerMode ?? null
               }
             : entry
         )
       );
+      // A one-question mode is for this question only (§7.4).
+      setOneMode(null);
+      onAnswered?.({ eventId: answer.eventId, questionMd: text, hintEquivalent: answer.hintEquivalent,
+                     questionType: answer.questionType });
       setRemaining(answer.remaining);
       if (answer.remaining <= 0) setLimitReached(true);
       watchGap(answer.eventId, answer.learnerGap);
@@ -610,11 +710,119 @@ export function AskOverlay({
     }
   }
 
-  return (
+  // §7.7: a check on your own, by the screen's word or the server's.
+  const cold = Boolean(target.coldCheck) || serverCold;
+  // Reader CA2 (§7.1): the context line, what the answer will see, each part
+  // a chip; "your draft ×" leaves the draft out of this question.
+  const hasDraft = target.context === "practice" && Boolean((target.readDraft?.() ?? target.workMd ?? "").trim());
+  const aboutChips: string[] = target.context === "feedback"
+    ? ["your attempt", "its feedback"]
+    : target.aboutStep
+      ? [`step ${target.aboutStep}`, ...(target.stepsCount ? [`your steps 1–${target.stepsCount}`] : [])]
+      : [cold ? "this check" : (target.itemLabel ?? "this question")];
+  const sentList = [
+    target.context === "feedback" ? "the attempt you submitted, its grade and feedback" : "the question",
+    ...(hasDraft && !dropDraft ? [target.workbenchSessionId ? "your steps, as you have them now" : "your draft, as it is now"] : []),
+    ...(target.aboutStep ? [`which step you are asking about (step ${target.aboutStep})`] : []),
+    "this attempt's earlier questions (never an earlier attempt's)",
+    "the passages LearnLoop's books link to this topic"
+  ];
+  const panelHeader = panel ? (
+    <div style={{ padding: variant === "inline" ? "6px 10px" : "10px 14px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+      {variant === "docked" ? (
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ color: COLOR.text, fontSize: 12, letterSpacing: "0.08em" }}>ASK</span>
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} aria-label="close ask"
+            style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 12 }}>
+            esc
+          </button>
+        </div>
+      ) : null}
+      <div data-testid="ask-context-line" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline", fontSize: 11, color: COLOR.textDim }}>
+        <span>about ›</span>
+        {aboutChips.map((chip) => (
+          <span key={chip} style={{ border: `1px solid ${COLOR.border}`, padding: "0 5px", color: COLOR.text }}>{chip}</span>
+        ))}
+        {hasDraft ? (
+          dropDraft ? (
+            <button type="button" onClick={() => setDropDraft(false)}
+              style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+              + {target.workbenchSessionId ? "your steps" : "your draft"}
+            </button>
+          ) : (
+            <span style={{ border: `1px solid ${COLOR.border}`, padding: "0 5px", color: COLOR.text }}>
+              {target.workbenchSessionId ? "your steps" : "your draft"}{" "}
+              <button type="button" aria-label="leave it out of this question" onClick={() => setDropDraft(true)}
+                style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+                ×
+              </button>
+            </span>
+          )
+        ) : null}
+        <button type="button" aria-expanded={sentOpen} onClick={() => setSentOpen((value) => !value)}
+          style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+          {ASK_COPY.whatsSent}
+        </button>
+      </div>
+      {sentOpen ? (
+        <ul data-testid="ask-whats-sent" style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: COLOR.textDim }}>
+          {sentList.map((line) => <li key={line}>{line}</li>)}
+        </ul>
+      ) : null}
+      {variant === "docked" && (target.context === "practice" || target.context === "feedback") ? (
+        <StoredHelpStyle onError={onToast} />
+      ) : null}
+    </div>
+  ) : null;
+
+  const earlierEntry = earlier.find((entry) => entry.attemptId === earlierShown) ?? null;
+  const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? (
+    <div data-testid="ask-earlier" style={{ padding: "6px 14px", borderTop: `1px solid ${COLOR.border}`, fontSize: 11, color: COLOR.textDim, flexShrink: 0 }}>
+      <button type="button" aria-expanded={earlierOpen}
+        onClick={() => {
+          if (!earlierOpen && earlierCountsAsHint) onEarlierOpened?.();
+          setEarlierOpen((value) => !value);
+        }}
+        style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+        {target.context === "feedback" ? ASK_COPY.earlierFree : ASK_COPY.earlier}
+      </button>
+      {earlierCountsAsHint && !earlierOpen ? <span> · {ASK_COPY.earlierCost}</span> : null}
+      {earlierOpen ? (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+          {earlier.map((entry) => (
+            <button type="button" key={entry.attemptId} onClick={() => setEarlierShown(entry.attemptId === earlierShown ? null : entry.attemptId)}
+              aria-expanded={entry.attemptId === earlierShown}
+              style={{ textAlign: "left", border: 0, background: "transparent", color: COLOR.text, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+              {shortDate(entry.at)} · {entry.outcome.label}
+            </button>
+          ))}
+          {earlierEntry ? (
+            <div data-testid="ask-earlier-thread" style={{ borderLeft: `2px solid ${COLOR.border}`, paddingLeft: 8, opacity: 0.85 }}>
+              <div style={{ color: COLOR.textDim, marginBottom: 4 }}>{ASK_COPY.earlierHeader(shortDate(earlierEntry.at))}</div>
+              {earlierEntry.hints.map((hint, index) => (
+                <div key={`hint-${index}`} style={{ marginBottom: 4 }}>
+                  <div style={{ color: COLOR.textDim }}>◇ a hint{hint.level ? ` (L${hint.level})` : ""}</div>
+                  <div className="markdown"><MarkdownMath value={hint.bodyMd} /></div>
+                </div>
+              ))}
+              {earlierEntry.exchanges.map((exchange) => (
+                <div key={exchange.eventId} style={{ marginBottom: 4 }}>
+                  <div style={{ color: COLOR.text }}>› <MarkdownMath value={exchange.questionMd} /></div>
+                  {exchange.answerMd ? <div className="markdown" style={{ color: COLOR.textDim }}><MarkdownMath value={exchange.answerMd} /></div> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const content = (
     <>
-    <div style={backdropStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={(event) => event.stopPropagation()}>
-        {/* ── header ── */}
+        {panel ? panelHeader : (
+        /* ── header ── */
         <div style={headerStyle}>
           <span style={{ color: COLOR.amber, fontWeight: 700 }}>❯</span>
           <span style={{ color: COLOR.text, fontSize: 13 }}>
@@ -636,10 +844,13 @@ export function AskOverlay({
             esc
           </span>
         </div>
+        )}
 
         {/* ── transcript ── */}
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "12px 16px" }}>
-          {thread.length === 0 && !pending ? (
+          {panel && thread.length === 0 && !pending ? (
+            variant === "docked" ? <Faint>{ASK_COPY.empty}</Faint> : null
+          ) : thread.length === 0 && !pending ? (
             <Faint>
               ask the tutor about this{" "}
               {target.context === "library"
@@ -666,15 +877,50 @@ export function AskOverlay({
                 </div>
               ) : (
                 <div style={{ marginTop: entry.opening ? 0 : 6 }}>
+                  {panel && !entry.opening ? (
+                    // Reader CA2 (§7.5, §7.7, K16): one voice label, saying the
+                    // mode it was written in and what it counted as.
+                    <div data-testid="ask-answer-label" style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 4 }}>
+                      {["◇ model",
+                        target.aboutStep ? `about step ${target.aboutStep}` : "your question",
+                        entry.answerMode ? ANSWER_MODE_LABEL[entry.answerMode] : null,
+                        target.context === "practice" || target.context === "feedback"
+                          ? answerCountLabel({ hintEquivalent: entry.hintEquivalent, context: target.context, cold })
+                          : null].filter(Boolean).join(" · ")}
+                    </div>
+                  ) : (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
                     {entry.opening ? <Pill color="amber">tutor</Pill> : null}
                     {entry.questionType ? <Pill color="slate">{entry.questionType}</Pill> : null}
                     {entry.hintEquivalent ? <Pill color="amber">counted as hint</Pill> : null}
                   </div>
+                  )}
+                  {panel && !entry.opening ? (
+                    // K11: book first. The cited passages lead; with none
+                    // kept, the explanation says it is the model's own.
+                    entry.citations && entry.citations.length > 0 ? (
+                      <div data-testid="ask-book-first" style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: COLOR.textDim }}>{ASK_COPY.fromBooks}</span>
+                        {entry.citations.map((citation) => (
+                          <button type="button" key={`${citation.extractionId}:${citation.spanId}`}
+                            onClick={() => setOpenCitation(citation)} title="Open in source"
+                            style={{ cursor: "pointer", fontSize: 11, fontFamily: FONT_MONO, color: COLOR.amberLink,
+                              border: `1px solid ${COLOR.border}`, background: "transparent", padding: "1px 6px" }}>
+                            § {citation.label ?? citation.spanId}
+                          </button>
+                        ))}
+                      </div>
+                    ) : entry.eventId ? (
+                      <div data-testid="ask-no-books" style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 4 }}>{ASK_COPY.noBooks}</div>
+                    ) : null
+                  ) : null}
+                  {panel && !entry.opening && entry.citations && entry.citations.length > 0 ? (
+                    <div style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 2 }}>{ASK_COPY.explanation}</div>
+                  ) : null}
                   <div className="markdown" style={{ fontSize: 13, lineHeight: 1.6 }}>
                     <MarkdownMath value={entry.answerMd} />
                   </div>
-                  {entry.citations && entry.citations.length > 0 ? (
+                  {!panel && entry.citations && entry.citations.length > 0 ? (
                     <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ fontSize: 10, color: COLOR.textFaint, fontFamily: FONT_MONO }}>sources:</span>
                       {entry.citations.map((citation) => (
@@ -857,8 +1103,8 @@ export function AskOverlay({
         </div>
 
         {/* ── input ── */}
-        <div style={{ padding: "10px 16px", borderTop: `1px solid ${COLOR.border}`, flexShrink: 0 }}>
-          {target.context === "practice" ? (
+        <div style={{ padding: panel && variant === "inline" ? "6px 10px" : "10px 16px", borderTop: `1px solid ${COLOR.border}`, flexShrink: 0 }}>
+          {target.context === "practice" && !panel ? (
             <div style={{ marginBottom: 6, fontSize: 11 }}>
               <Faint>substantive questions count as hints</Faint>
             </div>
@@ -875,13 +1121,49 @@ export function AskOverlay({
               }
             }}
             placeholder={
-              limitReached ? "question limit reached" : pending ? "waiting for the tutor …" : "ask a question — enter sends"
+              limitReached
+                ? panel ? "Today's question budget for this one is used" : "question limit reached"
+                : pending
+                  ? panel ? "looking in your books… then writing" : "waiting for the tutor …"
+                  : panel ? (cold ? ASK_COPY.coldPlaceholder : ASK_COPY.placeholder) : "ask a question — enter sends"
             }
+            aria-label={panel ? (target.aboutStep ? `ask about step ${target.aboutStep}` : "ask in your words") : undefined}
             style={{ ...inputStyle, opacity: pending || limitReached ? 0.6 : 1 }}
           />
+          {panel && (target.context === "practice" || target.context === "feedback") ? (
+            // §7.1 item 4: the cost, said before sending; §7.4: "change" picks
+            // another mode for this one question.
+            <div data-testid="ask-cost-line" style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+              <span>{target.context === "feedback" ? ASK_COPY.costFeedback : cold ? "" : ASK_COPY.cost}</span>
+              <span style={{ flex: 1 }} />
+              <span>{ANSWER_MODE_LABEL[oneMode ?? STYLE_ANSWER_MODE[helpStyle]]}</span>
+              <button type="button" aria-expanded={changeOpen} onClick={() => setChangeOpen((value) => !value)}
+                style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+                change
+              </button>
+              {changeOpen ? (
+                <span role="group" aria-label="answer mode for this question" style={{ flexBasis: "100%", display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {ONE_QUESTION_MODES.map((option) => (
+                    <button type="button" key={option.value} aria-pressed={oneMode === option.value}
+                      onClick={() => {
+                        setOneMode(option.value === STYLE_ANSWER_MODE[helpStyle] ? null : option.value);
+                        setChangeOpen(false);
+                      }}
+                      style={{ border: 0, background: "transparent", color: oneMode === option.value ? COLOR.text : COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+                      {option.label}
+                    </button>
+                  ))}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
+        {panelFoot}
 
         {/* ── footer ── */}
+        {panel ? (cold && variant === "docked" ? (
+          <div style={{ ...footerStyle, padding: "4px 14px" }}><span>{ASK_COPY.keepOnMyOwn}</span></div>
+        ) : null) : (
         <div style={footerStyle}>
           <span>
             <span style={{ color: COLOR.text }}>↵</span> send
@@ -894,8 +1176,38 @@ export function AskOverlay({
             tutor answers are logged{target.context === "practice" ? " · never reveals the answer" : ""}
           </span>
         </div>
+        )}
+    </>
+  );
+
+  const shell = !panel ? (
+    <div style={backdropStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(event) => event.stopPropagation()}>
+        {content}
       </div>
     </div>
+  ) : (
+    <section
+      role="region"
+      aria-label={variant === "inline" ? (target.aboutStep ? `ask about step ${target.aboutStep}` : "ask about this problem") : "ask"}
+      data-testid={`ask-panel-${variant}`}
+      onKeyDown={(event) => {
+        // Esc closes the panel and returns focus to where it was (§7.1).
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+      style={variant === "docked" ? dockedStyle : inlineStyle}
+    >
+      {content}
+    </section>
+  );
+
+  return (
+    <>
+    {shell}
     {openCitation ? (
       <OpenInSource
         extractionId={openCitation.extractionId}
@@ -909,6 +1221,28 @@ export function AskOverlay({
     </>
   );
 }
+
+// Reader CA2 (§7.1): docked beside the question, the host sizes the column.
+const dockedStyle: CSSProperties = {
+  height: "100%",
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  fontFamily: FONT_MONO,
+  color: COLOR.text,
+  background: COLOR.bg
+};
+
+// Inline under a workbench step, where a hint would sit (§7.6).
+const inlineStyle: CSSProperties = {
+  border: `1px solid ${COLOR.border}`,
+  margin: "4px 0",
+  display: "flex",
+  flexDirection: "column",
+  fontFamily: FONT_MONO,
+  color: COLOR.text,
+  maxHeight: 420
+};
 
 const backdropStyle: CSSProperties = {
   position: "fixed",

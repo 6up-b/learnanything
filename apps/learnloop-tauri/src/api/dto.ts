@@ -2187,7 +2187,18 @@ export interface AskTutorQuestionInput {
    *  chose ("<extraction>:<span>") and their current draft. */
   pinnedSpanKeys?: string[];
   learnerDraftMd?: string;
+  /** Reader CA2 (ask.panel_enabled, K5/K7): the attempt's key (the thread is
+   *  the attempt's), the workbench session a Work-in-Steps question comes
+   *  from (checked against the item on the server), the step it is about,
+   *  and a one-question answer mode (absent: the help style's). */
+  submissionId?: string;
+  workbenchSessionId?: string;
+  aboutStep?: number;
+  answerMode?: AnswerMode;
 }
+
+/** Reader CA2 (§7.4): the help style is Ask's answer mode, one vocabulary. */
+export type AnswerMode = "ask_me_first" | "help_me_reason" | "answer_directly";
 
 /** ING M8 (§9.2): one source-span citation on a tutor answer; the chip opens
  *  the Open-in-source viewer (context "tutor_citation"). Validated server-side
@@ -2221,6 +2232,9 @@ export interface TutorAnswerDto {
   /** Canonical sources S4: the tutor's typed tool requests, validated
    *  server-side (answer-leak checked, unknown ids dropped). */
   toolRequests?: SourceToolRequestDto[];
+  /** Reader CA2 (§7.4): the mode the answer was written in; null when the
+   *  panel is off (today's answer). */
+  answerMode?: AnswerMode | null;
 }
 
 export interface LearnerGapQueuedDto {
@@ -2581,12 +2595,39 @@ export interface TutorTranscriptInput {
   attemptId?: string;
   noteId?: string;
   sessionId?: string;
+  /** Reader CA2 (K5): the attempt's key; its thread only. */
+  submissionId?: string;
+}
+
+/** Reader CA2 (§7.3, K6): one earlier attempt's help, read-only, never current. */
+export interface EarlierThreadDto {
+  attemptId: string;
+  at: string;
+  outcome: { label: string; assisted: boolean; rubricScore: number | null; maxPoints: number | null };
+  exchanges: Array<{
+    eventId: string;
+    context: string;
+    questionMd: string;
+    answerMd: string | null;
+    questionType: string | null;
+    hintEquivalent: boolean;
+    createdAt: string;
+  }>;
+  hints: Array<{ kind: string | null; level: number | null; bodyMd: string; at: string | null }>;
 }
 
 export interface TutorTranscriptSnapshot {
   version: number;
   events: TutorQuestionEventDto[];
   remaining: number;
+  /** Reader CA2 (§7.3, K6, Q2), practice and feedback while the panel is on:
+   *  earlier attempts' help (empty during a check on your own, ``cold``),
+   *  whether opening one before Submit counts as a hint, and the stored help
+   *  style. Absent with the panel off. */
+  earlier?: EarlierThreadDto[];
+  earlierCountsAsHint?: boolean;
+  cold?: boolean;
+  helpStyle?: HelpStyle;
 }
 
 export interface TutorSaveNoteResult {
