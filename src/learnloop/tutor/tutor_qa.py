@@ -1175,9 +1175,7 @@ def ask_question(
         leak_suspected = False
         citations = []
         source_context = {key: value for key, value in (source_context or {}).items() if key != "citations"}
-        source_context["withheld"] = {
-            "reason": "worked_help", "leaks": list(withheld), "take_levels": list(WORKED_HELP_TAKE_LEVELS),
-        }
+        source_context["withheld"] = withheld_record(answer.answer_md, withheld)
     episode = reveal_episode_id(repository, practice_item_id) if item is not None else None
     # §13.4 channel: an explicit direct-explanation request is
     # interaction-preference by construction, whatever the classifier said.
@@ -1189,7 +1187,9 @@ def ask_question(
 
     repository.update_question_event_answer(
         event_id,
-        answer_md=answer.answer_md,
+        # Codex re-review F12: a withheld worked answer is stored as its take
+        # step, so no read, export or promotion path can deliver its text.
+        answer_md=WITHHELD_ANSWER_MD if withheld else answer.answer_md,
         question_type=answer.question_type,
         facets=facets,
         hint_equivalent=hint_equivalent,
@@ -1673,6 +1673,10 @@ def build_tutor_qa_note(
     existing_note_id = event.get("saved_note_id")
     if existing_note_id:
         return {"note_id": existing_note_id, "path": None, "reused": True}
+    if answer_withheld(event):
+        # Codex re-review F12: a withheld worked answer is never a note; the
+        # worked help is taken from the ladder (its take step), not saved.
+        raise TutorQAError(WITHHELD_NOT_SAVED)
 
     related_los: list[str] = list(related_lo_ids or [])
     subjects: list[str] = []
@@ -1872,6 +1876,10 @@ WITHHELD_ANSWER_MD = (
 )
 
 
+#: Codex re-review F12: why a withheld answer cannot be saved or promoted.
+WITHHELD_NOT_SAVED = "That answer was worked help, so it was not shown: take it from the hints instead."
+
+
 def _worked_help_leaks(check: Callable[[str, Any], Sequence[str]], answer_md: str | None, item: Any) -> list[str]:
     """The hint service's leak control for an Ask answer at levels 1-3 (hints
     spec §4.6, through the adapter's ``check``): why the text would give the
@@ -1884,11 +1892,32 @@ def _worked_help_leaks(check: Callable[[str, Any], Sequence[str]], answer_md: st
         return []
 
 
+def withheld_record(answer_md: str | None, leaks: Sequence[str]) -> dict[str, Any]:
+    """What a question row keeps of a withheld worked answer (Codex re-review
+    F12): why it was withheld and a digest of the text (sha256 and length,
+    as ``help_assists`` keeps the learner's work), never the text itself.
+    Taking the worked help is the ladder's (rung 4 or 5, which writes its own
+    help), so nothing ever needs the withheld text delivered; stored, any
+    read, export or promotion path could expose it without that acceptance."""
+
+    text = str(answer_md or "")
+    return {
+        "reason": "worked_help", "leaks": list(leaks), "take_levels": list(WORKED_HELP_TAKE_LEVELS),
+        "answer_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "answer_chars": len(text),
+    }
+
+
+def answer_withheld(event: Mapping[str, Any]) -> bool:
+    """Whether a stored question's answer was withheld as worked help (F2, F12)."""
+
+    return ((event.get("source_context") or {}).get("withheld") or {}).get("reason") == "worked_help"
+
+
 def delivered_answer_md(event: Mapping[str, Any]) -> str | None:
     """The answer the learner was shown for a stored question: a withheld
     worked answer (Codex review F2) reads as its take step, never the text."""
 
-    if ((event.get("source_context") or {}).get("withheld") or {}).get("reason") == "worked_help":
+    if answer_withheld(event):
         return WITHHELD_ANSWER_MD
     return event.get("answer_md")
 

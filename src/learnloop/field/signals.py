@@ -38,7 +38,7 @@ from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
 from learnloop.field.workbench_signals import is_workbench_signal, load_workbench_signals
-from learnloop.hint_window import ITEM_WINDOW_QUESTION_CONTEXTS, following_attempt
+from learnloop.hint_window import ITEM_WINDOW_QUESTION_CONTEXTS, following_attempt, workbench_bound
 
 #: v2: learner-text gap targets (implementation_handoffs §4) join the
 #: derivation, each available from the gap's own read time (Codex review F6)
@@ -541,6 +541,9 @@ def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -
                 instant(question["created_at"]), context=question.get("context"),
                 question_session_id=question.get("session_id"),
                 attempts=by_item.get(question["practice_item_id"], ()),
+                # Codex re-review F13: a workbench-bound practice question
+                # is the item window's, as the submit counts it.
+                bound=workbench_bound(question.get("source_context_json", question.get("source_context"))),
             )
             if following is not None:
                 key = "attempt_id" if question.get("context") == "practice" else "_window_attempt_id"

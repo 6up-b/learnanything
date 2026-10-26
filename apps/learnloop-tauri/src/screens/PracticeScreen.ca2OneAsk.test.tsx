@@ -8,7 +8,7 @@
 import type { ComponentProps } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PracticeScreen } from "./PracticeScreen";
+import { PracticeScreen, helpRecordLine } from "./PracticeScreen";
 import { setAlgoConfig } from "../app/algoConfig";
 import type { WorkbenchSessionDto } from "../api/dto";
 
@@ -250,4 +250,28 @@ it("§7.7: the banner changes only after a question about the maths", async () =
   await ask("Why are the columns orthogonal?");
   await waitFor(() => expect(screen.getByTestId("intent-check-banner").textContent).toBe(
     "Practice with help ◌ — you asked about the maths"));
+});
+
+it("re-review F14: worked help is never also a phantom hint; entries reconcile with the record by identity", () => {
+  const worked = { kind: "worked" as const, at: "2026-10-25T10:00:00Z", counts: false, level: 4, countedBy: "server" as const,
+                   assistId: "ha_worked" };
+  const server = { items: [worked], counted: 0, earlierOpened: false };
+  // One L4 entry: the server's own row, listed once as worked help.
+  expect(helpRecordLine({ hints: 1, entries: [{ assistId: "ha_worked", level: 4 }], book: false, earlier: false,
+                          questions: [], server }))
+    .toBe("help used: worked help (L4) · practice with help");
+  // An authored hint the server has no row for is the screen's own hint.
+  expect(helpRecordLine({ hints: 2, entries: [{ assistId: "ha_worked", level: 4 }, { assistId: null, level: 3 }],
+                          book: false, earlier: false, questions: [], server }))
+    .toBe("help used: a hint · worked help (L4) · practice with help");
+  // A worked entry the record has not read back yet is still worked help, not a hint.
+  expect(helpRecordLine({ hints: 1, entries: [{ assistId: "ha_new", level: 5 }], book: false, earlier: false,
+                          questions: [], server: { items: [], counted: 0, earlierOpened: false } }))
+    .toBe("help used: worked help (L5) · practice with help");
+  // A server L2 hint the screen also holds counts once.
+  const hint = { kind: "hint" as const, at: "2026-10-25T10:00:00Z", counts: true, level: 2, countedBy: "server" as const,
+                 assistId: "ha_hint" };
+  expect(helpRecordLine({ hints: 1, entries: [{ assistId: "ha_hint", level: 2 }], book: false, earlier: false,
+                          questions: [], server: { items: [hint], counted: 1, earlierOpened: false } }))
+    .toBe("help used: a hint (L2)");
 });

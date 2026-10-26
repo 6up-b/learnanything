@@ -808,6 +808,7 @@ export function PracticeScreen({
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        practiceSessionId: session.sessionId ?? null,
       });
       showSteps(result.session);
     } catch (error) {
@@ -816,7 +817,7 @@ export function PracticeScreen({
     } finally {
       endTransition(token);
     }
-  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, showSteps, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, session.sessionId, showSteps, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     const token = beginTransition();
     if (token === null) return;
@@ -828,6 +829,7 @@ export function PracticeScreen({
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        practiceSessionId: session.sessionId ?? null,
       });
       showSteps(result.session);
     } catch (error) {
@@ -836,7 +838,7 @@ export function PracticeScreen({
     } finally {
       endTransition(token);
     }
-  }, [beginTransition, endTransition, handOff, handOffFailed, onError, showSteps, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, onError, session.sessionId, showSteps, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
@@ -2124,6 +2126,9 @@ export function PracticeScreen({
               <div data-testid="help-record" style={{ ...quietLine, marginTop: 8 }}>
                 {helpRecordLine({
                   hints: adaptive ? adaptiveHints.entries.length : hintsUsed,
+                  entries: adaptive
+                    ? adaptiveHints.entries.map((entry) => ({ assistId: entry.result.assistId ?? null, level: entry.result.level ?? null }))
+                    : undefined,
                   book: bookCarried,
                   earlier: earlierCounted,
                   questions: askRecord,
@@ -2895,8 +2900,12 @@ function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): vo
 // fall back to the item's default recording attempt type.
 /** Reader CA2 (§7.5, K8): the attempt's help record in one line, in the
  *  learner's words, each part with its cost ("help used: nothing yet"). */
-export function helpRecordLine({ hints, book, earlier, questions, server }: {
+export function helpRecordLine({ hints, entries, book, earlier, questions, server }: {
   hints: number;
+  /** Codex re-review F14: the screen's hint entries (adaptive hints), by
+   *  identity and level, so worked help is never also counted as a hint and
+   *  an entry the server lists is never counted twice. */
+  entries?: ReadonlyArray<{ assistId: string | null; level: number | null }>;
   book: boolean;
   earlier: boolean;
   questions: ReadonlyArray<{ hintEquivalent: boolean; eventId?: string }>;
@@ -2918,8 +2927,20 @@ export function helpRecordLine({ hints, book, earlier, questions, server }: {
   // The hints the server holds rows for (the hint service's, and authored
   // reveals' telemetry) are listed in order; the client's own count covers
   // the authored hints the server has no row for.
-  const serverHints = server.items.filter((entry) => entry.kind === "hint" || entry.kind === "check").length;
-  const clientOnly = Math.max(0, hints - serverHints);
+  let clientOnly: number;
+  let clientWorked: number[] = [];
+  if (entries) {
+    // By identity (re-review F14): an entry the server lists is the
+    // server's; of the rest, worked help (levels 4-5) primes and is listed
+    // as worked help, never as a hint.
+    const listedIds = new Set(server.items.map((entry) => entry.assistId).filter((id): id is string => Boolean(id)));
+    const unlisted = entries.filter((entry) => !(entry.assistId && listedIds.has(entry.assistId)));
+    clientWorked = unlisted.filter((entry) => (entry.level ?? 0) >= 4).map((entry) => entry.level as number);
+    clientOnly = unlisted.length - clientWorked.length;
+  } else {
+    const serverHints = server.items.filter((entry) => entry.kind === "hint" || entry.kind === "check").length;
+    clientOnly = Math.max(0, hints - serverHints);
+  }
   if (clientOnly > 0) parts.push(clientOnly === 1 ? "a hint" : `${clientOnly} hints`);
   const listed = new Set<string>();
   for (const entry of server.items) {
@@ -2943,6 +2964,7 @@ export function helpRecordLine({ hints, book, earlier, questions, server }: {
     if (question.eventId && listed.has(question.eventId)) continue;
     parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
   }
+  for (const level of clientWorked) parts.push(`worked help (L${level}) · practice with help`);
   if (earlier && !listed.has("earlier")) parts.push("an earlier attempt's help (counts as a hint)");
   if (book) parts.push("the book left open (counts as a hint)");
   return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;

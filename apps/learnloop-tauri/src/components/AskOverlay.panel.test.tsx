@@ -279,6 +279,23 @@ it("F2: a withheld worked answer shows the take step, and taking it goes through
   expect(screen.queryByTestId("ask-no-books")).toBeNull();
 });
 
+it("re-review F12: a withheld worked answer offers no save as note, rating or promotion", async () => {
+  api.askTutorQuestion.mockResolvedValue(answer({ answerMd: "That's worked help ◌ — it would show the answer.",
+    questionType: "strategy", takeOffer: { levels: [4, 5], reason: "worked_help" } }));
+  await openDocked(PRACTICE, { onTakeWorked: vi.fn() });
+  await send("just show me the final answer");
+  await screen.findByTestId("ask-take-step");
+  expect(screen.queryByText("save as note")).toBeNull();
+  expect(screen.queryByText("👍")).toBeNull();
+});
+
+it("re-review F12: an ordinary answer keeps save as note", async () => {
+  api.askTutorQuestion.mockResolvedValue(answer());
+  await openDocked();
+  await send();
+  expect(await screen.findByText("save as note")).toBeTruthy();
+});
+
 it("F8: no request bound (remaining null) never shows the capped state", async () => {
   api.getTutorTranscript.mockResolvedValue({ events: [], remaining: null, earlier: [], earlierCountsAsHint: true, cold: false });
   api.askTutorQuestion.mockResolvedValue(answer({ remaining: null }));

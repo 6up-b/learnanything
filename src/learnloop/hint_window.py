@@ -13,6 +13,15 @@ for that attempt's practice session depends on the question's context:
   before any session is open, or in one that ends before the next submit,
   and the help is still on the item (fix round 4, F1).
 
+* a practice question a workbench session binds (Reader CA2: its
+  ``source_context.attempt_key`` names the unfinished workbench it was asked
+  from, :func:`workbench_bound`) counts in the item's window whatever its
+  practice session, as a bound Reader question does: the Reader opens a
+  practice session for a question asked with none open, and the workbench may
+  be resumed and submitted in another one after that session ends (Codex
+  re-review F13). The thread restored for the workbench matches it by the
+  same key in every session, so the count and the thread agree.
+
 Two readers apply the rule and must agree: the hint count
 (``Repository.count_hint_equivalent_question_events``, through
 :func:`session_clause`) and the learner field's link from a question to the
@@ -25,7 +34,8 @@ field's pure leaf modules both read it.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
+import json
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -36,34 +46,56 @@ from typing import Any
 ITEM_WINDOW_QUESTION_CONTEXTS: tuple[str, ...] = ("reader",)
 
 
+#: :func:`workbench_bound` as SQL over ``question_events`` (Codex re-review F13).
+WORKBENCH_BOUND_SQL = "json_extract(source_context_json, '$.attempt_key.workbench_session_id') IS NOT NULL"
+
+
+def workbench_bound(source_context: Mapping[str, Any] | str | None) -> bool:
+    """Whether a question's ``source_context`` (parsed, or its stored JSON)
+    names the unfinished workbench it was asked from (Reader CA2's
+    ``attempt_key.workbench_session_id``, written only by the server)."""
+
+    if isinstance(source_context, str):
+        try:
+            source_context = json.loads(source_context)
+        except (TypeError, ValueError):
+            return False
+    if not isinstance(source_context, Mapping):
+        return False
+    key = source_context.get("attempt_key")
+    return isinstance(key, Mapping) and key.get("workbench_session_id") is not None
+
+
 def counts_in_session(*, context: str | None, question_session_id: str | None,
-                      attempt_session_id: str | None) -> bool:
+                      attempt_session_id: str | None, bound: bool = False) -> bool:
     """Whether a question in the item's window counts for an attempt (or a
     submit) in ``attempt_session_id``: the attempt is in no session, the
-    question was asked in the same one, or its context counts in the item's
-    window whatever the session."""
+    question was asked in the same one, its context counts in the item's
+    window whatever the session, or a workbench binds it (``bound``,
+    :func:`workbench_bound`)."""
 
     return (attempt_session_id is None or question_session_id == attempt_session_id
-            or context in ITEM_WINDOW_QUESTION_CONTEXTS)
+            or context in ITEM_WINDOW_QUESTION_CONTEXTS or bound)
 
 
 def session_clause(session_id: str | None, *, item_window_only: bool = False) -> tuple[str, list[Any]]:
     """:func:`counts_in_session` as SQL over ``question_events``: ``(clause, parameters)``.
 
-    ``item_window_only`` keeps only the item-window contexts (a submit that
-    will open its own practice session sees no other session's practice
-    rows)."""
+    ``item_window_only`` keeps only the item-window questions (a submit that
+    will open its own practice session sees no other session's unbound
+    practice rows)."""
 
     marks = ", ".join("?" for _ in ITEM_WINDOW_QUESTION_CONTEXTS)
     if item_window_only:
-        return f" AND context IN ({marks})", list(ITEM_WINDOW_QUESTION_CONTEXTS)
+        return f" AND (context IN ({marks}) OR {WORKBENCH_BOUND_SQL})", list(ITEM_WINDOW_QUESTION_CONTEXTS)
     if session_id is not None:
-        return f" AND (session_id = ? OR context IN ({marks}))", [session_id, *ITEM_WINDOW_QUESTION_CONTEXTS]
+        return (f" AND (session_id = ? OR context IN ({marks}) OR {WORKBENCH_BOUND_SQL})",
+                [session_id, *ITEM_WINDOW_QUESTION_CONTEXTS])
     return "", []
 
 
 def following_attempt(asked: datetime, *, context: str | None, question_session_id: str | None,
-                      attempts: Sequence[tuple[datetime, str, str | None]]) -> str | None:
+                      attempts: Sequence[tuple[datetime, str, str | None]], bound: bool = False) -> str | None:
     """The attempt a question asked at ``asked`` counts toward, or None.
 
     ``attempts`` are the item's ``(created, attempt_id, session_id)`` in
@@ -73,14 +105,16 @@ def following_attempt(asked: datetime, *, context: str | None, question_session_
 
     following = next((attempt for attempt in attempts if attempt[0] >= asked), None)
     if following is None or not counts_in_session(context=context, question_session_id=question_session_id,
-                                                  attempt_session_id=following[2]):
+                                                  attempt_session_id=following[2], bound=bound):
         return None
     return following[1]
 
 
 __all__ = [
     "ITEM_WINDOW_QUESTION_CONTEXTS",
+    "WORKBENCH_BOUND_SQL",
     "counts_in_session",
     "following_attempt",
     "session_clause",
+    "workbench_bound",
 ]

@@ -18,6 +18,8 @@ from learnloop.tutor.tutor_qa import (
     TutorQAError,
     ask_panel_enabled,
     ask_question,
+    WITHHELD_NOT_SAVED,
+    answer_withheld,
     delivered_answer_md,
     earlier_threads,
     help_style_answer_mode,
@@ -597,6 +599,10 @@ def promote_tutor_question(ctx: SidecarContext, params: PromoteTutorQuestionInpu
         raise SidecarError(
             "validation_error", "Only answered tutor turns can be promoted."
         )
+    if answer_withheld(event):
+        # Codex re-review F12: a withheld worked answer is taken from the
+        # ladder, never promoted (nor saved) from Ask.
+        raise SidecarError("validation_error", WITHHELD_NOT_SAVED)
     if params.intent not in {"practice", "gap"}:
         raise SidecarError(
             "validation_error", f"Unknown promotion intent {params.intent!r}"
@@ -775,7 +781,7 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
     draft's checkpoint). ``counted`` is their hint-equivalents; the screen
     adds only what the client alone counts (its authored hints, the book)."""
 
-    from learnloop.hint_window import counts_in_session
+    from learnloop.hint_window import counts_in_session, workbench_bound
     from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
     from learnloop_sidecar.handlers.practice import _earlier_opened_hint
 
@@ -792,7 +798,8 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
         if not counted and str(event["id"]) not in in_thread:
             continue
         if counted and not counts_in_session(context=event.get("context"), question_session_id=event.get("session_id"),
-                                             attempt_session_id=session_id):
+                                             attempt_session_id=session_id,
+                                             bound=workbench_bound(event.get("source_context"))):
             continue
         items.append({"kind": "question", "at": event["created_at"], "counts": counted,
                       "event_id": event["id"], "this_attempt": str(event["id"]) in in_thread})
@@ -800,6 +807,10 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
     earlier = _earlier_opened_hint(repository, session_id, item_id) if session_id else 0
     if earlier:
         items.append({"kind": "earlier", "at": None, "counts": True})
+    # Re-review F1: once the draft moved into steps the problem carries the
+    # opening (its carried hints, which the screen's count gets back), so it
+    # is no longer the checkpoint's to add; the panel still says it counted.
+    opened = bool(earlier) or _draft_opened(repository, session_id, item_id)
     items.sort(key=lambda entry: (entry["at"] is None, str(entry["at"] or "")))
     question_hints = hint_equivalents_for_submission(repository, item_id, session_id) if session_id else 0
     return {
@@ -809,8 +820,19 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
         "counted": question_hints + earlier + sum(
             1 for entry in items if entry["kind"] == "hint" and entry.get("counted_by") == "server"
             and entry["counts"]),
-        "earlier_opened": bool(earlier),
+        "earlier_opened": opened,
     }
+
+
+def _draft_opened(repository: Any, session_id: str | None, item_id: str) -> bool:
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+
+    if not session_id:
+        return False
+    try:
+        return draft_earlier_opened(repository.fetch_session_checkpoint(session_id), practice_item_id=item_id)
+    except Exception:  # noqa: BLE001 - a session with no checkpoint opened nothing
+        return False
 
 
 def _shown_assists(repository: Any, item_id: str, session_id: str | None,
@@ -822,7 +844,7 @@ def _shown_assists(repository: Any, item_id: str, session_id: str | None,
     try:
         with repository.connection() as connection:
             rows = connection.execute(
-                "SELECT assist_kind, level, hint_kind, counted_by, requested_at, shown_at FROM help_assists "
+                "SELECT id, assist_kind, level, hint_kind, counted_by, requested_at, shown_at FROM help_assists "
                 "WHERE practice_item_id = ? AND submission_id = ? AND attempt_id IS NULL AND shown = 1 "
                 "AND assist_kind IN ('hint', 'check') ORDER BY requested_at, id",
                 (item_id, submission_id),
@@ -834,6 +856,9 @@ def _shown_assists(repository: Any, item_id: str, session_id: str | None,
         level = row["level"]
         worked = level is not None and int(level) >= 4
         out.append({
+            # Codex re-review F14: the row's id, so the screen reconciles its
+            # own hint entries with the record by identity.
+            "assist_id": row["id"],
             "kind": "worked" if worked else row["assist_kind"],
             "at": row["shown_at"] or row["requested_at"],
             "level": level,

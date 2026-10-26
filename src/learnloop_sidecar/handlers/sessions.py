@@ -404,28 +404,75 @@ def _with_earlier_opened(focus: dict[str, Any] | None, opened: Any) -> dict[str,
     practice = payload.get("practice")
     practice = dict(practice) if isinstance(practice, dict) else {}
     key = practice.get("submissionId") or practice.get("submission_id")
-    if opened is True and isinstance(key, str) and key.strip():
+    stored = practice.get("earlierOpened")
+    if opened is True and isinstance(key, str) and key.strip() and not (
+            isinstance(stored, dict) and stored.get("submissionId") == key.strip()):
+        # A marker already kept for this key stays as it is (re-review F1:
+        # one carried into steps keeps ``carriedTo``, so it counts once).
         practice["earlierOpened"] = {"submissionId": key.strip()}
     payload["practice"] = practice
     return payload
 
 
-def draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
-    """Whether the session's saved draft on ``practice_item_id`` opened an
-    earlier attempt's help under its current retry key (Codex review F1). The
-    attempt in progress is the draft's, whichever surface submits it (the
-    answer box, or the steps it moved into): each commits once and the
-    checkpoint is released with it, so the hint is counted once."""
-
+def _draft_earlier_marker(checkpoint: dict[str, Any] | None, practice_item_id: str) -> dict[str, Any] | None:
     if not checkpoint or checkpoint.get("current_practice_item_id") != practice_item_id:
-        return False
+        return None
     focus = checkpoint.get("focus_block_state")
     practice = focus.get("practice") if isinstance(focus, dict) else None
     if not isinstance(practice, dict):
-        return False
+        return None
     key = practice.get("submissionId") or practice.get("submission_id")
     stored = practice.get("earlierOpened")
-    return isinstance(stored, dict) and isinstance(key, str) and bool(key) and stored.get("submissionId") == key
+    if isinstance(stored, dict) and isinstance(key, str) and bool(key) and stored.get("submissionId") == key:
+        return stored
+    return None
+
+
+def draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
+    """Whether the session's saved draft on ``practice_item_id`` opened an
+    earlier attempt's help under its current retry key (Codex review F1).
+    The panel reads it to say the opening is already counted."""
+
+    return _draft_earlier_marker(checkpoint, practice_item_id) is not None
+
+
+def draft_earlier_uncarried(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
+    """Whether the draft's opening is still the checkpoint's to count: opened
+    and not carried into steps (:func:`carry_earlier_opened`). The submit
+    counts it from here once; once carried, the workbench holds it."""
+
+    marker = _draft_earlier_marker(checkpoint, practice_item_id)
+    return marker is not None and not marker.get("carriedTo")
+
+
+def carry_earlier_opened(repository, session_id: str | None, *, practice_item_id: str,
+                         workbench_session_id: str) -> bool:
+    """Codex re-review F1: the practice screen hands its draft to the steps,
+    so the opening's one hint moves onto the unfinished workbench, where it
+    lives as a carried answer-box hint (``workbench_sessions.carried_hints``,
+    durable whatever the session's later drafts or sessions). The draft's
+    marker records where it went (``carriedTo``), so the checkpoint never
+    counts it again and the panel still says it is counted. Returns whether
+    it was carried now (the caller added it to the carried count)."""
+
+    if not session_id:
+        return False
+    checkpoint = repository.fetch_session_checkpoint(session_id)
+    if not draft_earlier_uncarried(checkpoint, practice_item_id=practice_item_id):
+        return False
+    focus = _copy_mapping(checkpoint.get("focus_block_state"))
+    practice = dict(focus.get("practice") or {})
+    practice["earlierOpened"] = {**practice["earlierOpened"], "carriedTo": workbench_session_id}
+    focus["practice"] = practice
+    repository.update_session_checkpoint(
+        session_id,
+        current_practice_item_id=checkpoint.get("current_practice_item_id"),
+        current_answer=checkpoint.get("current_answer"),
+        focus_block_state=focus,
+        pending_grading_proposal=checkpoint.get("pending_grading_proposal"),
+        readiness=checkpoint.get("readiness"),
+    )
+    return True
 
 
 def draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:

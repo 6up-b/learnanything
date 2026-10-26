@@ -2625,6 +2625,8 @@ export interface HelpRecordDto {
     eventId?: string;
     /** A hint's counter: the hint service ("server") or the screen ("client"). */
     countedBy?: "server" | "client" | null;
+    /** A hint, check or worked help's ``help_assists`` row (re-review F14). */
+    assistId?: string;
   }>;
   /** The hint-equivalents the submit's server side adds. */
   counted: number;
@@ -8503,6 +8505,10 @@ export interface WorkbenchOpenInput {
   sessionId?: string | null;
   /** The answer box's hints the learner saw before working in steps. */
   carriedHints?: number;
+  /** The practice screen's open practice session, whose draft the steps
+   *  take over (Reader CA2 re-review F1: the server carries an earlier
+   *  attempt's help it opened onto the problem). */
+  practiceSessionId?: string | null;
   /** A book a problem left for the answer box counted (review F2). */
   carriedBook?: boolean;
   /** The serve the problem answers, kept on it for a resume (review F13).

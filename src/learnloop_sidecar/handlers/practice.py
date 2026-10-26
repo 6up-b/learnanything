@@ -748,18 +748,20 @@ def _in_diagnostic_block(repository, item) -> bool:
 def _earlier_opened_hint(repository, session_id: str | None, practice_item_id: str) -> int:
     """Reader CA2 (K6, Q2; Codex review F1): one hint-equivalent when the
     session's draft on the item opened an earlier attempt's help before
-    Submit (``sessions.draft_earlier_opened``), counted by the server
-    whichever surface submits the draft; 0 otherwise."""
+    Submit (``sessions.draft_earlier_uncarried``), counted by the server
+    whichever surface submits the draft; 0 otherwise, and 0 once the draft
+    moved into steps (re-review F1: the workbench carries it durably, and
+    every submit of the item folds the open problem's carried hints)."""
 
     if not session_id:
         return 0
-    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
+    from learnloop_sidecar.handlers.sessions import draft_earlier_uncarried
 
     try:
         checkpoint = repository.fetch_session_checkpoint(session_id)
     except Exception:  # noqa: BLE001 - a session with no checkpoint opened nothing
         return 0
-    return 1 if draft_earlier_opened(checkpoint, practice_item_id=practice_item_id) else 0
+    return 1 if draft_earlier_uncarried(checkpoint, practice_item_id=practice_item_id) else 0
 
 
 def _server_hint_fold(

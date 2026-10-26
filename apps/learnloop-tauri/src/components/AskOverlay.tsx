@@ -1078,7 +1078,9 @@ export function AskOverlay({
                       ))}
                     </div>
                   ) : null}
-                  {entry.eventId ? (
+                  {/* Codex re-review F12: a withheld worked answer is taken from
+                      the ladder only: never rated, saved as a note or promoted. */}
+                  {entry.eventId && !entry.takeOffer ? (
                     <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
                       {/* CSS `color` has no effect on color-emoji glyphs, so the
                           selected state needs a background/opacity cue instead. */}
