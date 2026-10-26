@@ -54,6 +54,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # The local space's per-vault vector cache (a derived file outside
         # state.sqlite, written only by the index job).
         "src/learnloop/local_embeddings/cache.py",
+        # Local retrieval P2: the query student's teacher-replay queue, a derived per-vault file
+        # outside state.sqlite (<vault>/.learnloop/student-replay.sqlite: learner text stays local).
+        "src/learnloop/source_retrieval/student_encoder.py",
         "src/learnloop/db/stores/judgments.py",
         # Exam protection by extraction identity (Codex review F3): exam-qualified
         # copies appended to the held-out signal ledger, never an update.

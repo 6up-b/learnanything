@@ -134,10 +134,9 @@ LEARNING_RATE_HEAD = 1e-3
 WEIGHT_DECAY = 0.01
 WARMUP_FRACTION = 0.05
 GRAD_CLIP_NORM = 1.0
-#: numerical (throughput): queries per optimizer step.
+#: numerical (throughput): queries per optimizer step. Batches are tokenized in-process (no loader
+#: worker at all, inside spec §7.1's "at most two").
 TRAIN_BATCH_SIZE = 64
-#: keep (spec §7.1: data loaders run in-process with at most two workers).
-LOADER_WORKERS = 2
 #: keep (spec §9.3 diagnostics): the depth of the teacher-agreement measure (top-10 recall).
 AGREEMENT_K = 10
 #: keep (measurement): queries timed for the latency diagnostic on each device.
@@ -154,8 +153,6 @@ SERVE_SCOPE_MEMORY_MAX_BYTES = 4 * 1024 ** 3
 SERVE_SCOPE_SWAP_MAX = "0"
 SERVE_MIN_HOST_AVAILABLE_GIB = 6.0
 SERVE_MIN_FREE_VRAM_GIB = 4.0
-#: keep (spec §8, Q8): the generator's money cap on a metered route (the plan's quota costs $0).
-GENERATOR_MAX_COST_USD = 5.0
 #: keep (GPU budget, §9.3): logged queries one nightly batch re-encodes with the teacher at most
 #: (2,000 at E1's 18 ms per query is about 36 s of an already loaded model).
 REPLAY_MAX_QUERIES = 2_000
@@ -170,7 +167,8 @@ STUDENT_CANARY_QUERIES = ("When is a matrix invertible?", "What does the power r
 #: keep (operational): the query process's socket accept and read timeout.
 SOCKET_TIMEOUT_S = 30.0
 
-#: The query-process idle exit is ``embedding.local.student_idle_minutes`` (config, keep, §9.6).
+#: The query-process idle exit is ``embedding.local.student_idle_minutes`` and the generator's money cap
+#: ``embedding.local.student_generator_max_cost_usd`` (config, keep, §9.6).
 
 
 def students_root(data_root: Path) -> Path:

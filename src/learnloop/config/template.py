@@ -1591,7 +1591,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # section coverage and reader.correspondents. Display and retrieval context only, at every version
     # (no successor); every snapshot moves only because the effective config gains the keys and the
     # route; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "b31172ca36917e6327f2b8f22b310230c99874c11bd3027902ca1239a5c79dae",
+    # Local contextual retrieval P2 (the 0.6B query student; spec_local_contextual_retrieval_v1
+    # §7.1, Q9 amended 2026-10-26; docs/reviews/retrieval-local-p2-query-student.md) adds to
+    # [embedding.local] student (true: the student's kill switch, acting only once a checkpoint was
+    # adopted by the expected-utility rule), teacher_replay (true), student_idle_minutes = 20 (keep)
+    # and student_generator_max_cost_usd = 5.0 (keep), and the route
+    # ai.routing.retrieval_query_generator (unset: the plan's chatgpt_luna under T1): modelled
+    # defaults, left out of the decision-only template. Retrieval lookups only, at every version
+    # (no successor); every snapshot moves only because the effective config gains the keys and
+    # the route; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "7eb33df9cd483e8ffba4415e26d393adf59679fa298120bf704ff7ce66c74729",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1658,7 +1668,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.10": "8f0b6720e97cb37a322fe95d33bf971a90fb11900146608017d8e4324afd3f9c",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.10": "c173495828282ddbd279ef458b25cf8e17dfb1c0078e69c790f1cdbed62fa1fb",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1733,7 +1744,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.11": "7d1939a9104586ae427a46cf98e096d3a7e2c39fec8999283f17ea101f2a47ec",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.11": "90c00db64754ed03c7d0332ed8126b4539ea1673c5092133b9bc853cf6d5d4df",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1802,7 +1814,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.12": "70fd9e4af77dd6ad097ecb7507e8e8f085f34de99cebde718d06ea66fe5220e2",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.12": "63bb76ef135ebfdb4ec403c7d0c87cbc6a0ffc6ba64acd3954d2f4b3fa1e3331",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1866,7 +1879,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.13": "933f147fd2eac16bfeb7a3fba081b78e932cb4faa3f8827d1a2c97d3a846006b",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.13": "cdab071ea6674c139b1de0dfab6acf8818a8f6a5b7688fbe416af4d517a83568",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1929,7 +1943,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.14": "14bc82bc13b92f54dde751447f2d3d5ac2a3cf6b931116c722e818eea753f237",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.14": "730cc692fa8ac70f41b1c798b1b386bc0999dea2b1dd758a836fb4e6c8740b93",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1990,7 +2005,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.15": "45c6f9cfa60bd58c4752bd17ac2b7ac60125870b6f5f3ba6b1d3705f18ed6042",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.15": "9e3408ff0dfb7479d80f251f40f5f0932c15f60e6d5be70a5c31240bc7409c08",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2058,7 +2074,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.16": "06497adb0f8125613e345c316ea34acf779551347182a7bd669c8c46cb1dda86",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.16": "1e4f6b41b196c6811f27729fc8e63a5f063a595735a3321ffc32cd9199d77819",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2122,7 +2139,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.17": "5b327108d7acd16607ce1c6bade353ef7fe38d426e86b7f97bbe77ced1c4db73",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.17": "143c87c07a797e7fc8f9790e7965878cc33254d2ba5e47dab215a3b97b6d7d82",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2179,7 +2197,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.18": "e160a8e9507c76114520060e1ae7fe5b1f64a69f8483adb1ec13d63f8a7369ec",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.18": "61c5bca0cf6134e15a39ff47c3dde27022a292662c780bb58f89f171599df12a",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2236,7 +2255,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.19": "97306241a0c8408398ae6cc57bf4e8e931a20a4e6132b8913c83aa824e6ca38f",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.19": "bd53997fcb2412c7bd296b8e2e8cec6de50572b439cab58f9cd7ae5d450352af",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2289,7 +2309,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.20": "cf9a7d72d9a61f2c9676f66b9a86cefeda08613760f48ed194f1c777df3838f0",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.20": "44b516e1c57423c1e6575649632427b98e099d2f35bca6bafb67fd70789f177b",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2351,7 +2372,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.21": "c6489bd7a9bd396162c26c285fba48f495f1181b0785ecbd5cf62a15315b4e33",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.21": "ebdc2a88513ac7a891987638a2739a1b0628fe21d62866d946e42083f06c3c91",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2405,7 +2427,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.22": "fad0155062c16cc4b283f76ca13c19404ef7a38eca656a18ecbf47ada2e9f211",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.22": "4a19c591ca56b9ed418008d79a6a3cf86941788de8ddef539d12ef00072aef37",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2454,7 +2477,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.23": "685bd6b4d83e71944e09d4fb237faa80d5aa85e33c230a9661b80e84a45e0529",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.23": "0284a1210c131535f8e96ee737439ddb7a37ea3eecfd2c38b15ca29b6e0f7d1c",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2500,7 +2524,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.24": "b3e012a8151d4bdb695483c0f31cbad4097feef971491be84857dd9dcfe51de3",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.24": "57a4d8286e107f5a3bab8f980f17d1365e7c85755ff9053c534a0064f93ab155",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2544,7 +2569,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.25": "6b4e1e10bf20fb4a2afd837c27ad7e6f10f68343c04d5eab892686f1bcf07a5f",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.25": "ae523e1c9381bdb9e10ee0b40f3242e5306132a8a9230c3f1eca7ef7e1801f32",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2587,7 +2613,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.26": "3be83217b8eb109de4a6c1368843e62832eb0abd86025fae6310bf73f30c1fa6",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.26": "b1dc665190b7e0f53fb7af86dcf0afb0b25b67e5e4713e0ee5c0fc6a2e64d9f8",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2630,7 +2657,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.27": "6e8a5a38cad53fbdd7623759da9f9323058ef7f22bc4f6641bb0b6ddbd2af66b",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.27": "6f942a2bbcfd91625645eb185e65c156aa30d0e4314fe492ae373310a099cda3",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2662,7 +2690,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.29": "7a25824207b59271932d0b3a2966c74807ed8709f963a9a29c1bf0a41bf4696b",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.29": "9768a2da34423f0810d8ebaed5a8ac499dd3054d18bdc4dab4bc14a53fd51d7d",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2688,7 +2717,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.30": "1853aa26d20cf73cf2e11fb9bd7660e59baa2393d58a16eb49a318e12e4f1c4c",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.30": "3aec0ba94f29244e4cb993a08d26836f7caaeca88f54095f4998ac481dd04aa6",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2708,7 +2738,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW7b's [reading_paths] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.32).
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.31": "13832b3039d83caff8daecf611f65f113da40f636b10ec563ee231ab59c46aa9",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.31": "4860c72460177b6dc820820f99764ecc705eba0212f333db7dee1276f0c5e884",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -2725,7 +2756,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # LP-min (a)'s successor landed.
     # LP-min (a)'s [mastery] claim_fixes_enabled moves it too (see mvp-0.9; inert below mvp-0.33).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.32": "d6dab4c02124831adb483ecdf7dd612ef5dcaa373cb7bdfa181268e0e437db39",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.32": "3d585d3c13b6402400f1849e0860b0582ef5b04e85d61be13dff58550090da47",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -2740,7 +2772,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
     # decision 2026-10-12).
     # Curriculum C0a's [curriculum] and route move it too (see mvp-0.9; display and retrieval context, no successor).
-    "mvp-0.33": "0ad1ff88633eb463a83a18a839c059846c7c834ab83b27ed9b17c5631cd20ccd",
+    # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
+    "mvp-0.33": "ed04552f162c884709e913797b74f60e999d2472b2fde36f9db90579618673b0",
 }
 
 

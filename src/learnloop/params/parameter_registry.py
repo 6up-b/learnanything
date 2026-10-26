@@ -209,6 +209,14 @@ MODULE_INVENTORY: dict[str, str] = {
     "local_index": "src/learnloop/source_retrieval/local_index.py",
     "voyage_contextual": "src/learnloop/ai/providers/voyage_contextual.py",
     "retrieval_feedback": "src/learnloop/source_retrieval/feedback.py",
+    # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
+    # guardrails, the decision core's computation budgets, the data and schedule budgets. No
+    # quality margin or ranking weight is a constant: adoption, the screen's choice and whether
+    # training continues are expected-utility decisions; the student's fusion weight is learned.
+    "student_pins": "src/learnloop/local_embeddings/student_pins.py",
+    "student_decision": "src/learnloop/local_embeddings/student_decision.py",
+    "student_data": "src/learnloop/source_retrieval/student_data.py",
+    "query_student": "src/learnloop/source_retrieval/query_student.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -318,6 +326,87 @@ _reg_const("voyage_contextual:MAX_INPUTS_PER_REQUEST", "constraint", kind="struc
            rationale="keep: Voyage's documented inputs per request (provider limit).")
 _reg_const("voyage_contextual:MAX_CHUNKS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
            rationale="keep: Voyage's documented chunks per request (provider limit).")
+
+# Local contextual retrieval P2 module constants (identities, guardrails, budgets, optimizer settings;
+# no quality margin or ranking weight: those are expected-utility decisions and learned fusion weights).
+_reg_const("student_pins:STUDENT_DIMENSIONS", "version", kind="structural", owner="student_pins",
+           rationale="keep: the student's output width, the teacher space's (identity).")
+_reg_const("student_pins:BUDGETS", "version", kind="structural", owner="student_pins",
+           rationale='keep: the nested learning-curve budgets 2k/10k/50k (spec §7.1): the data points the curve reads, not a decision.')
+_reg_const("student_pins:QUERIES_PER_PASSAGE_MIN", "operational", kind="structural", owner="student_pins",
+           rationale='keep: questions asked per passage (spec §7.1, 8-12): a generation request size.')
+_reg_const("student_pins:QUERIES_PER_PASSAGE_MAX", "operational", kind="structural", owner="student_pins",
+           rationale='keep: questions kept per passage at most (spec §7.1, 8-12).')
+_reg_const("student_pins:PASSAGES_PER_CALL", "operational", kind="structural", owner="student_pins",
+           rationale='keep: passages per generator call (prompt size, operational).')
+_reg_const("student_pins:PASSAGE_TOKENS", "operational", kind="structural", owner="student_pins",
+           rationale='keep: estimated tokens of permitted text one passage carries at most (prompt size).')
+_reg_const("student_pins:TEACHER_TOP_K", "version", kind="structural", owner="student_pins",
+           rationale="keep: the teacher's top-k kept per query for the ranking losses (spec §7.1: top-50).")
+_reg_const("student_pins:MAX_QUERY_TOKENS", "version", kind="structural", owner="student_pins",
+           rationale="keep: the longest training or serving query in the base's tokens (spec §7.1).")
+_reg_const("student_pins:LEAKAGE_MAX_TEACHER_COS", "constraint", kind="structural", owner="student_pins",
+           rationale='keep: leakage guard (spec §9.6: protecting the evaluation is a rule, not a trade-off; may only tighten).')
+_reg_const("student_pins:LEAKAGE_MAX_5GRAM_OVERLAP", "constraint", kind="structural", owner="student_pins",
+           rationale='keep: leakage guard (spec §9.6; may only tighten).')
+_reg_const("student_pins:LEAKAGE_NGRAM", "constraint", kind="structural", owner="student_pins",
+           rationale='keep: the n of the n-gram leakage guard (spec §7.1: 5-grams).')
+_reg_const("student_pins:EPOCHS", "numerical", kind="structural", owner="student_pins",
+           rationale='keep: epochs per run (spec §7.1: 3); how a run descends, not what it decides.')
+_reg_const("student_pins:FINAL_SEEDS", "version", kind="structural", owner="student_pins",
+           rationale='keep: the chosen recipe runs on at least three seeds (spec §7.1).')
+_reg_const("student_pins:LEARNING_RATE_FULL", "numerical", kind="structural", owner="student_pins",
+           rationale='numerical (optimizer): published BERT-scale fine-tuning rate (Devlin et al. 2019); how a run descends, never a decision.')
+_reg_const("student_pins:LEARNING_RATE_HEAD", "numerical", kind="structural", owner="student_pins",
+           rationale='numerical (optimizer): the usual Adam rate for a linear map (Kingma and Ba 2015).')
+_reg_const("student_pins:WEIGHT_DECAY", "numerical", kind="structural", owner="student_pins",
+           rationale="numerical (optimizer): AdamW's customary decoupled decay.")
+_reg_const("student_pins:WARMUP_FRACTION", "numerical", kind="structural", owner="student_pins",
+           rationale='numerical (optimizer): linear warm-up share of the steps.')
+_reg_const("student_pins:GRAD_CLIP_NORM", "numerical", kind="structural", owner="student_pins",
+           rationale='numerical (optimizer): gradient-norm clip, a stability bound.')
+_reg_const("student_pins:TRAIN_BATCH_SIZE", "numerical", kind="structural", owner="student_pins",
+           rationale='numerical (throughput): queries per optimizer step.')
+_reg_const("student_pins:AGREEMENT_K", "version", kind="structural", owner="student_pins",
+           rationale='keep: the depth of the teacher-agreement diagnostic (spec §9.3: top-10 recall).')
+_reg_const("student_pins:LATENCY_PROBES", "operational", kind="structural", owner="student_pins",
+           rationale='keep (measurement): queries timed per device for the latency diagnostic.')
+_reg_const("student_pins:P2_GPU_HOURS_CAP", "constraint", kind="structural", owner="student_pins",
+           rationale="keep: P2's whole GPU budget (spec §7.1, §9.6: <= 6 GPU-hours); a budget, not a quality trade-off.")
+_reg_const("student_pins:SERVE_MIN_HOST_AVAILABLE_GIB", "operational", kind="structural", owner="student_pins",
+           rationale="keep: the query process's host memory floor (spec §7.2: MemAvailable >= 6 GiB).")
+_reg_const("student_pins:SERVE_MIN_FREE_VRAM_GIB", "operational", kind="structural", owner="student_pins",
+           rationale='keep: the free VRAM the query process needs to choose the GPU (spec §7.1, Q10: >= 4 GiB).')
+_reg_const("student_pins:REPLAY_MAX_QUERIES", "constraint", kind="structural", owner="student_pins",
+           rationale="keep: the GPU budget of one nightly teacher replay (2,000 at E1's 18 ms is ~36 s of a loaded model).")
+_reg_const("student_pins:REPLAY_EVERY_HOURS", "operational", kind="structural", owner="student_pins",
+           rationale='keep: a replay-only 9B batch at most nightly (spec §9.2-§9.3 cadence).')
+_reg_const("student_pins:START_TIMES_KEPT", "operational", kind="structural", owner="student_pins",
+           rationale='keep: the measured cold starts the start-time distribution keeps (recency window).')
+_reg_const("student_pins:STUDENT_CANARY_MIN_COS", "version", kind="structural", owner="student_pins",
+           rationale="keep: the student canary identity check (as the 9B's, E1 measured invariance at 0.99991).")
+_reg_const("student_pins:SOCKET_TIMEOUT_S", "operational", kind="structural", owner="student_pins",
+           rationale="keep: the query process's socket timeout (operational).")
+_reg_const("student_decision:DRAWS", "numerical", kind="structural", owner="student_decision",
+           rationale='keep (computation budget): posterior draws behind every expected utility (MC s.e. of P(best) < 0.008).')
+_reg_const("student_decision:RATE_GRID_POINTS", "numerical", kind="structural", owner="student_decision",
+           rationale="keep (numerical): resolution of an exchange-rate posterior's log grid.")
+_reg_const("student_decision:RATE_GRID_SPAN_SD", "numerical", kind="structural", owner="student_decision",
+           rationale='structural: the log grid spans six prior sds each side (resolution of the search, not a weight).')
+_reg_const("student_data:DEV_SHARE_DENOMINATOR", "operational", kind="structural", owner="student_data",
+           rationale='keep (measurement split): one passage in ten of the training families is development.')
+_reg_const("student_data:MAX_QUESTION_CHARS", "constraint", kind="structural", owner="student_data",
+           rationale='keep: the longest generated question accepted (a validation bound).')
+_reg_const("student_data:MAX_RETRIES_PER_CALL", "operational", kind="structural", owner="student_data",
+           rationale='keep: retries one generator call may use (a failed answer is a new admitted attempt).')
+_reg_const("student_data:OUTPUT_TOKENS", "operational", kind="structural", owner="student_data",
+           rationale="keep: the generator answer's output budget (prompt size).")
+_reg_const("query_student:SHARD_SIZE", "operational", kind="structural", owner="query_student",
+           rationale='keep: teacher target rows per int8 shard (an aborted run keeps every finished shard).')
+_reg_const("query_student:DEV_MAX", "operational", kind="structural", owner="query_student",
+           rationale='keep (measurement): development questions one run is measured on at most.')
+_reg_const("query_student:MIN_TEMPERATURE", "numerical", kind="structural", owner="query_student",
+           rationale='keep (numerical): the smallest temperature a degenerate development set may yield.')
 _reg_const("voyage_contextual:MAX_TOKENS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
            rationale="keep: Voyage's documented tokens per request (provider limit).")
 _reg_const("voyage_contextual:MAX_TOKENS_PER_DOCUMENT", "constraint", kind="structural", owner="voyage_contextual",
@@ -1400,6 +1489,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # the local index batch wait, the fallback's per-run spend cap and its
     # published price. All keep: an operational default the owner tunes, the
     # owner's spending authority and a measured provider rate; none ranks.
+    # Local contextual retrieval P2 (spec §7.1, §9.6): the query process's idle exit (how long the
+    # student stays loaded, never ranking) and the generator's per-run money cap on a metered route
+    # (the owner's spending authority, Q8). Both keep.
+    _ConfigRule(_exact(
+        "embedding.local.student_idle_minutes",
+        "embedding.local.student_generator_max_cost_usd",
+    ), "structural", "operational",
+        "keep: the query student's idle exit (operational: how long the 4G query process stays loaded, never "
+        "what it ranks) / the synthetic-question generator's dollar cap per run on a metered route (the "
+        "owner's spending authority; the plan's quota costs $0); no measurement or serving authority."),
     _ConfigRule(_exact(
         "embedding.local.index_batch_minutes",
         "embedding.fallback.max_cost_usd_per_run",
