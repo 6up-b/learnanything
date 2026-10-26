@@ -170,29 +170,43 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
     return None if found is None else selection_text[found[0] : found[1]]
 
 
-def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None, found: tuple[int, int] | None) -> set[str]:
-    """Reader CA1 (Codex re-review F9): the blocks one item of a split
-    selection is printed from, the parts its statement's slice overlaps.
-    Empty when that can't be read (a selection-level edit replaced the text)."""
+def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
+                 ranges: Sequence[tuple[int, int] | None], index: int) -> set[str]:
+    """Reader CA1 (Codex re-review F9, final verify F9): the blocks one item
+    of a split selection is printed from, when they are its alone.
 
-    if part_ranges is None or found is None:
+    An item's blocks are the parts its statement's slice overlaps. They are
+    its own only when no other item of the split overlaps any of them: a
+    block holding two exercises belongs to neither, and an item with one
+    such block owns none (its crop would show the other exercise, or only
+    part of its own). Empty when ownership can't be read: a selection-level
+    edit replaced the text, or a sibling's statement could not be anchored
+    (it may sit in any block)."""
+
+    if part_ranges is None or any(found is None for found in ranges):
         return set()
-    start, end = found
-    return {span for span, part_start, part_end in part_ranges if part_start < end and start < part_end}
+
+    def blocks(found: tuple[int, int]) -> set[str]:
+        start, end = found
+        return {span for span, part_start, part_end in part_ranges if part_start < end and start < part_end}
+
+    mine = blocks(ranges[index])
+    others = set().union(*(blocks(found) for other, found in enumerate(ranges) if other != index))
+    return set() if mine & others else mine
 
 
-def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *, split: bool,
+def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *,
                owned: set[str]) -> list[dict[str, Any]]:
     """One item's copy of the selection's refs. Every block stays a ref (the
-    selection is the item's provenance); when the selection was split into
-    several exercises, each ref says whether that block is this item's own
-    (``owned``), so its print never crops another item's exercise (Codex
-    re-review F9)."""
+    selection is the item's provenance), and each ref says whether that block
+    is this item's own (``owned``), so its print never crops another item's
+    exercise (Codex re-review F9). Every import records it, split or not: a
+    Reader import without it was written before ownership was kept, and its
+    crop is not shown as its own (final verify F9)."""
 
     refs = [json.loads(json.dumps(ref)) for ref in source_refs]
-    if split:
-        for ref, span_id in zip(refs, span_ids):
-            ref["owned"] = span_id in owned
+    for ref, span_id in zip(refs, span_ids):
+        ref["owned"] = span_id in owned
     return refs
 
 
@@ -531,10 +545,13 @@ def author_exercises(
     skipped = batch.skipped
 
     split = len(result.items) > 1
+    # Every item's slice, skipped ones too: a sibling's place decides which
+    # blocks are an item's alone (final verify F9).
+    anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
-        found = _anchor_range(exercise_text, entry.statement_md)
+        found = anchored[ordinal - 1]
         statement = None if found is None else exercise_text[found[0] : found[1]]
         if statement is None:
             if len(result.items) == 1:
@@ -676,7 +693,8 @@ def author_exercises(
             ),
             "hints": hints,
             "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
-                source_refs, span_ids, split=split, owned=_owned_spans(part_ranges, found) if split else set())},
+                source_refs, span_ids,
+                owned=_owned_spans(part_ranges, anchored, ordinal - 1) if split else set(span_ids))},
             "created_at": now,
             "updated_at": now,
         }

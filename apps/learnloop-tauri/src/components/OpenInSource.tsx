@@ -91,12 +91,14 @@ export function OpenInSource({
           </span>
           {view ? <Pill color={view.viewerMode.startsWith("pdf_") ? "amber" : "cyan"}>{view.viewerMode}</Pill> : null}
           {onOpenInReader ? (
-            <button type="button" data-testid="open-in-reader"
-              onClick={() => onOpenInReader({
-                extractionId: view && view.spanId === currentSpanId ? view.extractionId : extractionId,
-                spanId: currentSpanId,
-              })}
-              style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer",
+            // The passage on screen is the last view that loaded: prev/next
+            // toward one that fails, or is still loading, leaves it there, so
+            // the Reader opens that one, and nothing before any has loaded
+            // (final verify F11).
+            <button type="button" data-testid="open-in-reader" disabled={!view}
+              onClick={() => { if (view) onOpenInReader({ extractionId: view.extractionId, spanId: view.spanId }); }}
+              style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0,
+                       cursor: view ? "pointer" : "default", opacity: view ? 1 : 0.4,
                        color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, textDecoration: "underline" }}>
               open in the Reader ↗
             </button>

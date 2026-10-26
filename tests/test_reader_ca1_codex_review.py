@@ -500,3 +500,183 @@ def test_a_split_written_before_ownership_was_kept_withholds_the_free_crop(book,
         view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
         assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
         assert view["originalPage"]["spanId"] == "e1"
+
+
+# -- Final verify F9: a free crop only where its geometry is the item's alone ---------------------
+
+SHARED = "ext_ca1_shared"
+#: One block holding two exercises (page 0), and a third on page 1.
+SHARED_LAYOUT = (
+    ("s1", 0, [0.0, 0.0, 200.0, 80.0], RED, "1. Compute 2+2. 2. Compute 3+3."),
+    ("s2", 1, [72.0, 50.0, 540.0, 80.0], BLUE, "3. Compute 4+4."),
+)
+
+
+def _seed_shared_book(root, repository) -> None:
+    """A two-page PDF drawn here, its first block holding two exercises."""
+
+    import hashlib
+    import io
+
+    from PIL import Image, ImageDraw
+
+    from learnloop.ingest.ir import DocumentUnit
+    from learnloop.ingest.originals import store_original_bytes
+
+    pages = []
+    for page in (0, 1):
+        image = Image.new("RGB", (612, 792), "white")
+        draw = ImageDraw.Draw(image)
+        for _span, block_page, bbox, colour, _text in SHARED_LAYOUT:
+            if block_page == page:
+                draw.rectangle(bbox, fill=colour)
+        pages.append(image)
+    out = io.BytesIO()
+    pages[0].save(out, format="PDF", resolution=72.0, save_all=True, append_images=pages[1:])
+    raw = out.getvalue()
+    digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+    store_original_bytes(root, digest, raw)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, display_title, current_revision_id, "
+            "reader_enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+            ("src_shared", "pdf", "file:///nowhere/src_shared.pdf", "Strang", "rev_shared", 1, NOW_ISO, NOW_ISO))
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
+            ("rev_shared", "src_shared", digest, None, NOW_ISO))
+        connection.commit()
+    blocks = [DocumentBlock.build(span_id=span, block_type="Text", text=text, ordinal=index, page=page, bbox=bbox,
+                                  section_path=["6.1"])
+              for index, (span, page, bbox, _colour, text) in enumerate(SHARED_LAYOUT, start=1)]
+    unit = DocumentUnit(unit_id="u61s", label="6.1 Eigenvalues", ordinal=0, semantic_hash="sha256:u61s",
+                        page_start=0, page_end=1, span_ids=[block.span_id for block in blocks])
+    ir = DocumentIR(extractor="marker", extractor_version="1", units=[unit], blocks=blocks, assets=[],
+                    health=ExtractionHealth())
+    _persist(repository, ir, revision_id="rev_shared", extraction_id=SHARED)
+
+
+def test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page(book, warm):
+    """The final verify's first reproduction: both items' statements sit in
+    one block, so neither owns its geometry; each offers the original page
+    only (charged before Submit), never a crop showing the other exercise."""
+
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    paths, ctx, repository = book
+    _seed_shared_book(paths.root, repository)
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": "s1", "quote": "1. Compute 2+2. 2. Compute 3+3."}]}
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="Compute 2+2.", title="Exercise 1"),
+                                                 _item(statement_md="Compute 3+3.", title="Exercise 2")]))
+    result = EX.import_exercises(paths.root, repository, client, extraction_id=SHARED, raw_selection=raw,
+                                 source_id="src_shared")
+    ids = [summary["practice_item_id"] for summary in result["items"]]
+    assert len(ids) == 2
+    ctx.reload(maintenance=False)
+    vault, _ = ctx.require_vault()
+    for item_id in ids:
+        assert [ref.model_extra.get("owned") for ref in vault.practice_items[item_id].provenance.source_refs] == [False]
+        view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
+        assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+        assert view["originalPage"]["extractionId"] == SHARED and view["originalPage"]["spanId"] == "s1"
+
+
+def test_a_split_over_disjoint_and_shared_blocks_withholds_only_the_sharing_items_crop(book, warm):
+    """An item whose blocks are all its own keeps its crop; one that shares a
+    block with another item gets none (never a partial print)."""
+
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    paths, ctx, repository = book
+    _seed_shared_book(paths.root, repository)
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": "s1", "quote": "1. Compute 2+2. 2. Compute 3+3."},
+                     {"spanId": "s2", "quote": "3. Compute 4+4."}]}
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="Compute 2+2.", title="Exercise 1"),
+                                                 _item(statement_md="Compute 3+3.", title="Exercise 2"),
+                                                 _item(statement_md="Compute 4+4.", title="Exercise 3")]))
+    result = EX.import_exercises(paths.root, repository, client, extraction_id=SHARED, raw_selection=raw,
+                                 source_id="src_shared")
+    first, second, third = (summary["practice_item_id"] for summary in result["items"])
+    ctx.reload(maintenance=False)
+    for item_id in (first, second):
+        view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
+        assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+    view = _call(ctx, "practice.as_printed", {"practiceItemId": third, "render": True})
+    assert [crop["spanIds"] for crop in view["crops"]] == [["s2"]]
+    image = _image(view["crops"][0]["image"])
+    assert _share(image, BLUE) > 0.9 and _share(image, RED) == 0
+
+
+def test_a_split_with_an_unanchored_sibling_owns_nothing(book, warm):
+    """A sibling the code could not anchor (a paraphrase, skipped) may sit in
+    any block: no item of that split has a free crop."""
+
+    paths, ctx, repository = book
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": "e1", "quote": "block e1"}, {"spanId": "e2", "quote": "block e2"}]}
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="block e1", title="Exercise 1"),
+                                                 _item(statement_md="a paraphrase of e2", title="Exercise 2")]))
+    result = EX.import_exercises(paths.root, repository, client, extraction_id=EXTRACTION, raw_selection=raw,
+                                 source_id="src_ca1")
+    (summary,) = result["items"]
+    ctx.reload(maintenance=False)
+    view = _call(ctx, "practice.as_printed", {"practiceItemId": summary["practice_item_id"], "render": True})
+    assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+
+
+def _strip_ownership(paths, *item_ids: str) -> None:
+    for item_id in item_ids:
+        path = next(paths.root.rglob(f"{item_id}.yaml"))
+        payload = read_yaml(path)
+        for ref in payload["provenance"]["source_refs"]:
+            ref.pop("owned", None)
+        write_yaml(path, payload)
+
+
+def test_a_split_written_with_no_import_rows_withholds_the_free_crop(book, warm):
+    """The final verify's second reproduction: a split import made with
+    ``source_service.enabled = false`` has its events and the selection's
+    refs but no ``source_exercise_imports`` rows. Ownership can't be read, so
+    neither item's crop is free; the original page still is offered."""
+
+    paths, ctx, repository = book
+    append_config_toml(paths.root, "[source_service]\nenabled = false\n")
+    first, second = _split_selection(paths, repository)
+    _strip_ownership(paths, first, second)
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM source_exercise_imports").fetchone()[0] == 0
+    ctx.reload(maintenance=False)
+    for item_id in (first, second):
+        view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
+        assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+        assert view["originalPage"]["spanId"] == "e1" and view["originalPage"]["outlineSpanIds"] == ["e1", "e2", "f1"]
+
+
+def test_an_import_written_before_ownership_was_kept_shows_only_the_page(book, warm):
+    """A Reader import from before ownership was recorded can't show that its
+    crop is its own (a sibling the import skipped leaves no row), so its crop
+    is withheld whatever rows it has; the original page is still offered."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+
+    paths, ctx, repository = book
+    item_id = _import_selection(paths, repository)
+    vault = load_vault(paths.root)
+    assert all(ref.model_extra.get("owned") is True for ref in vault.practice_items[item_id].provenance.source_refs)
+    _strip_ownership(paths, item_id)
+    SEI.record_reader_import(paths.root, repository, {"items": [{"practice_item_id": item_id}]},
+                             extraction_id=EXTRACTION, span_ids=["e1", "e2", "f1"], source_id="src_ca1",
+                             revision_id="rev_ca1")
+    ctx.reload(maintenance=False)
+    view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
+    assert view["kind"] == "page" and view["crops"] == [] and view["notice"] == NO_CROP
+    assert view["originalPage"]["spanId"] == "e1"

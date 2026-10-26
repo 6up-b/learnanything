@@ -189,3 +189,42 @@ it("after next in the original page, the Reader opens the passage shown now", as
   fireEvent.click(screen.getByTestId("open-in-reader"));
   expect(onOpenInReader).toHaveBeenCalledWith({ extractionId: "ext", spanId: "e9", outlineSpanIds: ["e1"], sourceId: "src" });
 });
+
+// Final verify F11: when next toward a passage fails, or is still loading,
+// *open in the Reader ↗* opens the passage still on screen, never the one
+// the viewer could not show.
+it("after next fails in the original page, the Reader opens the passage still shown", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ ...PAGE, originalPage: { ...PAGE.originalPage!, sourceId: "src" } });
+  const spanView = (spanId: string, next: string[]) => ({ spanView: {
+    extractionId: "ext", spanId, viewerMode: "pdf_page", blockType: "Text", sectionPath: [], text: `text ${spanId}`,
+    locator: `span:ext/${spanId}`, locatorScheme: "block_span_v1", pageRender: "data:image/png;base64,P",
+    pageRenderSize: [612, 792], bbox: [1, 2, 3, 4], pageSpans: [], previousSpans: [],
+    nextSpans: next.map((id) => ({ spanId: id, text: id, truncated: false })) } });
+  api.getSpanView.mockImplementation(({ spanId }: { spanId: string }) =>
+    spanId === "e1" ? Promise.resolve(spanView("e1", ["e9"])) : Promise.reject(new Error("span not found")));
+  const onOpenInReader = vi.fn();
+  render(<PrintedAfterFeedback practiceItemId="pi" altText="Find λ." onOpenInReader={onOpenInReader} />);
+  fireEvent.click(await screen.findByTestId("original-page"));
+  fireEvent.click(await screen.findByRole("button", { name: "next →" }));
+  await screen.findByText("span not found");
+  fireEvent.click(screen.getByTestId("open-in-reader"));
+  expect(onOpenInReader).toHaveBeenCalledWith({ extractionId: "ext", spanId: "e1", outlineSpanIds: ["e1"], sourceId: "src" });
+});
+
+it("while next is still loading, the Reader opens the passage still shown", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ ...PAGE, originalPage: { ...PAGE.originalPage!, sourceId: "src" } });
+  const first = { spanView: {
+    extractionId: "ext", spanId: "e1", viewerMode: "pdf_page", blockType: "Text", sectionPath: [], text: "text e1",
+    locator: "span:ext/e1", locatorScheme: "block_span_v1", pageRender: "data:image/png;base64,P",
+    pageRenderSize: [612, 792], bbox: [1, 2, 3, 4], pageSpans: [], previousSpans: [],
+    nextSpans: [{ spanId: "e9", text: "e9", truncated: false }] } };
+  api.getSpanView.mockImplementation(({ spanId }: { spanId: string }) =>
+    spanId === "e1" ? Promise.resolve(first) : new Promise(() => {}));
+  const onOpenInReader = vi.fn();
+  render(<PrintedAfterFeedback practiceItemId="pi" altText="Find λ." onOpenInReader={onOpenInReader} />);
+  fireEvent.click(await screen.findByTestId("original-page"));
+  fireEvent.click(await screen.findByRole("button", { name: "next →" }));
+  await screen.findByText("loading span…");
+  fireEvent.click(screen.getByTestId("open-in-reader"));
+  expect(onOpenInReader).toHaveBeenCalledWith({ extractionId: "ext", spanId: "e1", outlineSpanIds: ["e1"], sourceId: "src" });
+});

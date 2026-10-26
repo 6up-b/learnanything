@@ -257,7 +257,7 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         rows = [row for row in imports_for_item(connection, item.id) if row.get("caller") == "reader"]
     extraction_id: str | None = None
     spans: list[str] = []
-    #: Re-review F9: ``owned`` per block of a split selection (absent: unsplit).
+    #: Re-review F9: ``owned`` per block (absent: written before ownership was kept).
     ownership: dict[str, bool] = {}
     regions: dict[str, tuple[int, Box]] = {}
     source_id: str | None = None
@@ -289,43 +289,17 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         return None
     if source_id is None and rows:
         source_id = rows[-1].get("source_id")
-    if ownership:
-        own = tuple(span for span in spans if ownership.get(span, False))
-    elif _split_import(repository, item.id, rows):
-        own = ()                                       # split before ownership was kept: no free crop
-    else:
-        return PrintedOrigin(extraction_id=extraction_id, span_ids=tuple(spans), source_id=source_id,
-                             regions=regions)
+    # Final verify F9: a free crop needs evidence that its blocks are this
+    # item's alone. The import records it per block (``owned``); a Reader
+    # import without it was written before that, and nothing durable says
+    # whether the selection also held other exercises (a split's skipped or
+    # deduplicated sibling leaves no item and no row; an import made with
+    # source_service off leaves no row at all). Unknown is not unsplit: no
+    # free crop, the original page (charged before Submit) still offered.
+    own = tuple(span for span in spans if ownership.get(span, False))
     return PrintedOrigin(extraction_id=extraction_id, span_ids=own, source_id=source_id,
                          regions={span: box for span, box in regions.items() if span in own},
                          page_span_ids=tuple(spans))
-
-
-def _split_import(repository: Any, item_id: str, rows: Sequence[Mapping[str, Any]]) -> bool:
-    """Whether the selection this item was imported from also became other
-    items (Codex re-review F9): the Reader's import writes one row per item,
-    in one write, with the selection's blocks; another item's row from that
-    same write means the selection was split, and which blocks are whose is
-    not recorded."""
-
-    if not rows:
-        return False
-    import json
-
-    last = rows[-1]
-    with repository.connection() as connection:
-        siblings = connection.execute(
-            "SELECT span_ids_json FROM source_exercise_imports WHERE caller = 'reader' AND extraction_id = ? "
-            "AND created_at = ? AND practice_item_id IS NOT NULL AND practice_item_id != ?",
-            (str(last["extraction_id"]), last["created_at"], item_id)).fetchall()
-    own = list(last.get("span_ids") or [])
-    for (raw,) in siblings:
-        try:
-            if json.loads(raw or "[]") == own:
-                return True
-        except (TypeError, ValueError):
-            return True                                # unreadable: treated as split (fails closed)
-    return False
 
 
 def printed_origin(repository: Any, item: Any) -> PrintedOrigin | None:
