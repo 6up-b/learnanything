@@ -347,8 +347,9 @@ the scratch-copy upgrade allowance (`UPGRADE_SCRATCH_COPY`;
 the backup API, with no companion files; `migration_head_220` was renamed to
 this directory. Only `workbench_sessions`' definition changed and only
 `schema_migrations` gained a row; the sanitized content above is unchanged.
-Main's own 221 (the learner-claim fixes) landed first, so the landing
-renumbers this one and rebuilds the head from main's.
+Main's own 221 (the learner-claim fixes) and curriculum C0a's 222 land first,
+so the landing renumbers this one (223 or later) and rebuilds the head from
+main's.
 
 Migration 220 comes from local contextual retrieval P1a/P1b
 (`retrieval/local-p1`, docs/reviews/retrieval-local-p1.md,

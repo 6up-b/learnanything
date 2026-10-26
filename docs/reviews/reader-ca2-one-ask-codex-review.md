@@ -214,3 +214,87 @@ learner-field tests, and the contracts):
 test_ad1_attempt_columns.py test_ad1_codex_review_fixes.py test_ad1_fix_round4.py test_ad1_reading_opportunities.py test_ad23_contract.py test_ad23_fix_r8.py test_ad23_fix_review.py test_ad23_owner_decisions.py test_ad3_dose_arm.py test_ai_config.py test_answer_signal_arms.py test_approach_map_replay.py test_approach_maps.py test_architecture.py test_assumed_known.py test_capture_desktop.py test_capture_route_recovery.py test_chatgpt_plan_provider.py test_chatgpt_plan_workspace.py test_cli_help_snapshot.py test_codex_lockdown_round2.py test_codex_lockdown_round3.py test_codex_output_schema.py test_codex_tool_lockdown.py test_compare_methods.py test_compare_sources_keep.py test_config_refactor.py test_constraint_engine.py test_coordinated_migrations.py test_daily_loop_reader_authored_practice.py test_daily_loop_reader_retire.py test_daily_loop_reference_adoption.py test_daily_plan_composition.py test_daily_plan_owner_decisions.py test_desktop_rpc_contract.py test_diagnosis_async_router.py test_diagnosis_card.py test_diagnosis_input_provenance_landing.py test_diagnosis_input_provenance.py test_dialogue_causal_join.py test_dl2_rw4b_keyed_pick_check.py test_e0_delivery.py test_embedding_route_isolation.py test_eval_harness.py test_exam_protection.py test_exam_protection_review.py test_facet_outcome_view.py test_family_evaluation.py test_family_memory_projection.py test_field_boundaries.py test_field_cli.py test_field_priors.py test_field_signal_production_paths.py test_field_split_outcomes.py test_field_workbench_signals.py test_figure_offers.py test_figures_rw5b_fix_round2.py test_figures_rw5b_review.py test_held_grade_composition.py test_hint_authored_reveal_ruling.py test_hint_blind.py test_hint_evidence.py test_hint_h2a_review.py test_hint_h2a_review_round2.py test_hint_h2a_review_round3.py test_hint_h2b_fix3.py test_hint_h2b_fix4.py test_hint_h2b_rereview.py test_hint_h2b_review.py test_hint_kill_switch.py test_hint_outcome.py test_hint_report.py test_hint_service.py test_hint_telemetry.py test_integration_daily_loop_field.py test_intent_checks.py test_intent_codex_rereview.py test_intent_codex_review.py test_intent_fix_round4.py test_intent_fix_round5.py test_intent_orchestrator_rulings.py test_intent_plan.py test_interaction_signals.py test_item_authoring.py test_judge_routes.py test_learner_text_gaps_composition.py test_learner_text_gaps_flow.py test_learner_text_gaps.py test_learner_text_gaps_rereview.py test_learner_text_gaps_review.py test_library_ask.py test_library_ask_review.py test_library_exercises.py test_lo_general.py test_mobile_allowlist.py test_model_usage_report.py test_output_budget.py test_owner_capture_1025.py test_pfc_unassessed_readers.py test_pfc_unverified_unassessed.py test_pf_generation.py test_pinned_span_bridge.py test_placement_opening_probes.py test_placement_sidecar.py test_placement_signals.py test_placement_split_grades.py test_plan_first_transport_grant_scope.py test_plan_first_transport_offer_grants.py test_plan_first_transport.py test_predictor_interface.py test_probability_arms.py test_probability_prep.py test_public_tip_guards.py test_question_context.py test_question_promotions.py test_question_queue.py test_question_signal.py test_quick_check.py test_reader_branches.py test_reader_ca2_codex_rereview.py test_reader_ca2_codex_review.py test_reader_ca2_one_ask.py test_reader_dialogue.py test_reader_find_sources_callers.py test_reader_inquiry_kill_switch.py test_reader_inquiry_status.py test_reader_intent.py test_reader_observation_records.py test_reader_reconnect.py test_reader_report.py test_reader_rw1b_review.py test_reader_rw1c_review.py test_reader_rw2b_fix10.py test_reader_rw2b_fix11.py test_reader_rw2b_fix12.py test_reader_rw2b_fix13.py test_reader_rw2b_fix14.py test_reader_rw2b_fix15.py test_reader_rw2b_fix4.py test_reader_rw2b_fix5.py test_reader_rw2b_review.py test_reader_rw3a_landing.py test_reader_tutor_offers.py test_reader_tutor_retrieval.py test_reader_tutor_switch_off.py test_reader_workbench_rw2a.py test_rebuild_orchestrator.py test_recurrence_merge_composition.py test_registry_audit.py test_repositories.py test_reveal_ledger.py test_router_offer_log.py test_router_r2a_serving.py test_router_r2bc_landing.py test_rw4_kill_switches.py test_salience_firewall.py test_serve_eligibility.py test_serve_eligibility_review.py test_sidecar_contract.py test_sidecar_item_authoring.py test_sidecar_reader_p3.py test_sidecar_reader.py test_sidecar_registry.py test_sidecar_serializer_snapshot.py test_sidecar_source_retrieval.py test_sidecar_teach_back.py test_sidecar_trace_and_clarification.py test_sidecar_tutor_qa.py test_source_retrieval_followup.py test_source_retrieval_guards.py test_source_retrieval_rereview_cost.py test_source_retrieval_rereview.py test_source_retrieval_search.py test_source_retrieval_tutor.py test_source_space_resolver.py test_structured_transport_parity.py test_stuck_prompt.py test_stuck_prompt_replay.py test_success_head_cli.py test_success_head.py test_table_roles.py test_teacher_te0_confidence_events.py test_tier1_decider.py test_tool_dispatch_policy.py test_tracked_fixture_databases.py test_tutor_citations.py test_tutor_delivery_fixes.py test_tutor_practice_request.py test_tutor_promotion_service.py test_tutor_promotion_w2.py test_tutor_qa.py test_tutor_tool_requests.py test_ux_phase1_connect_ai.py test_ux_phase1_landing.py test_ux_phase1_usability_round1.py test_ux_phase3_today.py test_ux_phase4_feedback.py test_workbench_assistance.py test_workbench_check.py test_workbench_help_kill_switch.py test_workbench_in_session_gaps.py test_workbench_trace.py 
 
 No paid or live call was made: every model is a fake, no vault was opened, no provider was routed.
+
+## Fix round (orchestrator)
+
+The final verify (codex-job `20261025-222152-BNsrcW`, `113bcadbe..4e9b92d4f`) confirmed F3 and F13 fixed and
+reopened F1, F2, F12 and F14, with one new finding, F15 (High). The orchestrator's rulings (the owner's
+proportionate bar): fix F15, F1, F12 and F14; F2's strategy routing is ruled Low and out of scope (H4's, adaptive
+hints §4.1), recorded as open. One owner decision was applied in the same round (2026-10-26): the practice Ask budget
+stays per attempt. Every fix is fail-first: the new backend tests (`tests/test_reader_ca2_fix_orchestrator.py`) and
+vitest cases failed on the previous tip's sources (`4e9b92d4f`, and for the two later items the tip before them, run
+from an archive of `src/` and `migrations/` put first on pytest's `pythonpath`), then passed. Fakes only: no live or
+paid call, no vault opened.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F15 | High | Carrying an earlier opening into steps reveals an authored hint on the way back | fixed | `test_f15_an_earlier_opening_carried_into_steps_is_not_an_authored_hint` (failed before: `carriedHints` 1), `test_f15_authored_reveals_and_the_opening_are_carried_apart`, `test_f15_after_steps_the_answer_box_submit_counts_the_reveals_and_the_opening` (failed before: 2, not 3), `test_f15_the_help_record_still_counts_a_carried_opening_after_another_items_draft`, `test_f15_an_abandoned_problem_never_takes_the_opening_with_it` (a regression of this round's first cut, caught before the verify: failed with 0); vitest `PracticeScreen.ca2OneAsk.test.tsx` "fix round F15" (failed before: *help used: nothing yet*, the opening lost on the way back) |
+| F1 | Medium | A resume swallows a second distinct event | fixed | `test_f1_a_resume_after_carried_reveals_counts_a_new_opening_too` (failed before: 1, not 2), `test_f1_the_opening_counts_once_however_often_the_problem_resumes`; the re-review's F1 tests now read the two components |
+| F12 | Low | The question queue returns a stored withheld answer's text | fixed | `test_f12_a_stored_withheld_answer_reaches_the_queue_only_as_its_take_step` (failed before: the raw text in the queue) |
+| F14 | Low | The no-record footer calls worked help "a hint" | fixed | vitest "fix round F14: without the record, the screen's entries are classified by level too" (failed before: `help used: a hint`) |
+| F2 | Low (ruled) | Strategy routing | open, out of scope | H4's (hints §4.1); the bypass half stays fixed (F12) |
+| owner 2026-10-26 | n/a | The practice Ask budget is per attempt | applied | `test_each_attempt_gets_its_own_practice_budget_on_every_route[subscription, metered]` (failed before: unbounded on the subscription route, the day's count on the metered one), `test_the_practice_thread_and_its_budget_are_keyed_by_the_attempt` (failed before), B3's `test_b3_a_reattempt_starts_a_fresh_ask_thread` restored as at `eae00d58a` (failed on the previous tip: `remaining` None), and `test_tutor_qa.py`'s and `test_sidecar_tutor_qa.py`'s limit tests restored as at `eae00d58a` |
+
+### What changed
+
+* **One component model (F15, F1).** An attempt's help has four components, each counted once: the answer box's
+  authored reveals (the client's `hintsUsed`, carried into steps as `workbench_sessions.carried_hints`, which is the
+  answer box's reveal index on the way back and nothing else), the book left open (`source_shown_at`), an earlier
+  attempt's help opened before Submit, and the questions the server folds. The earlier opening now has its own column,
+  **migration 221** `workbench_sessions.earlier_opened_at` (LIFECYCLE state on a WORKFLOW table, set once; NULL on
+  every older row). `workbench.open` from the practice screen sets it when the draft's checkpoint holds the opening,
+  and never adds it into `carried_hints` (so a resume's max over the authored reveals cannot swallow it, and the
+  answer box never reveals an authored hint for it). The server counts it with one read,
+  `practice._earlier_opened_hint`: 1 when the draft's checkpoint holds the opening under its current key **or** an
+  open problem of the item carries it, ORed (one opening per attempt), read by the answer-box submit, the workbench
+  submit, the help record and the workbench record line (which names it, *an earlier attempt's help*). The view sends
+  `earlierOpened`; the answer box, back from steps, marks the opening counted (`earlierCountedFor`) without touching
+  `hintsUsed`, so its footer says it and its submit sends only the authored reveals.
+* **F12.** `list_question_queue`, the Reader dialogue's prior exchanges and branch thread, and a promotion's
+  steering thread read `delivered_answer_md`, so a withheld row stored before the take step was (an earlier build's
+  raw text beside the `withheld` marker) reads as its take step on every learner-facing and model-facing read.
+* **F14.** `helpRecordLine`'s no-record branch classifies the screen's entries by level, as the record branch does.
+* **The practice Ask budget (owner, 2026-10-26).** `question_usage` counts the attempt's thread
+  (`practice_thread_events`, keyed by the attempt's submission id or the unfinished workbench the server names while
+  the panel is on, B3's window when it is off) against `max_questions_practice` on every route. K5's per-item,
+  per-UTC-day bound and F8's unbounded subscription route are withdrawn (`_tutor_route_subscription` removed); the
+  transcript reads the budget with the same keys as the thread it shows, and a capture's recovered question with its
+  stored attempt key. The spec's K5 row carries the decision.
+* **Head fixture and pins.** `fixtures/migration_head_221/` is a backup-API copy of `migration_head_220` with only
+  221 applied (`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+  `foreign_key_check` empty, no companion files; its README says so). The head pins in the migration tests, the two
+  reference scripts (`SCHEMA_HEAD = 221`) and the successor pin in `test_regrade_contract_upgrade.py` (stale on the
+  branch since CA2's own `mvp-0.34`; it now reads `ONE_ASK_ALGORITHM_VERSION`) moved. The reference generator now
+  names CA2's `ask` config section (it failed with `KeyError: 'ask'` before, a gap since CA2's config), and the
+  prose leaf counts read 1,050 leaves in 71 sections. References regenerated; the validator reports no error.
+
+### Numbers for the landing
+
+* **Migration**: 221 on this branch. Main already holds 221 (the learner-claim fixes) and curriculum C0a's 222 lands
+  first, so the landing renumbers this one (223 or later) and rebuilds the head fixture from main's.
+* **Successor**: `mvp-0.34` on this branch, unchanged. fix/rebuild-equivalence also claims `mvp-0.34` and lands
+  before this stage, so the landing renumbers CA2's successor too.
+
+### Fix-round gate (targeted; the full suite runs once in the landing gate)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G`; pytest at `-n 6`, vitest at `--maxWorkers=4`, one test run at a time. Scripts outside pytest ran
+under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| pytest, every test file naming the migration runner or the head fixture (84 files) | 1,289 passed, 7 skipped; 4 failed, each a head pin this round moved (two migration diffs, the 219 column order, and the stale successor pin), fixed and rerun green, durability lane included |
+| pytest, the re-review's 202-file batch plus this round's files (205 files) | 11,033 passed, 13 skipped, 2 xfailed, 0 failed (794 s) |
+| pytest, the CA2 and workbench files after the abandon fix (8 files) | 182 passed |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated; `errors: []` |
+| `npm run typecheck`, `npm run frontend:build` | clean, built |
+| vitest: `src/components/AskOverlay*`, `src/components/DockedAsk*`, `src/screens/PracticeScreen*`, `src/screens/workbench`, `src/screens/practice`, `src/screens/reader`, `src/screens/ReaderScreen*`, `src/screens/FeedbackScreen*`, `src/app` | 148 files, 1,359 passed |
+| cargo check | not run: nothing under `src-tauri` changed |
+
+### Open
+
+* F2's strategy routing (H4's).
+* An earlier opening carried onto a problem stays held while that problem is open, so a later attempt of the item
+  submitted from the answer box while the problem is still open counts it too: the same held rule the problem's
+  carried authored hints and book already follow (RW2a review F2), not a new one.

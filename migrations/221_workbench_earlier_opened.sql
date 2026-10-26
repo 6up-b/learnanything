@@ -1,3 +1,6 @@
+-- Numbered 221 on reader/ca2-one-ask; main's 221 (LP claim fixes) and C0a's
+-- 222 land first, so the landing renumbers it (223 or later).
+--
 -- Reader CA2, one Ask (docs/specs/ux_reader_compare_ask_v1.md §7.3, §15 Q2;
 -- docs/reviews/reader-ca2-one-ask-codex-review.md, "Fix round (orchestrator)",
 -- F15 and F1): an earlier attempt's help opened on the answer box before

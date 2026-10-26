@@ -437,9 +437,10 @@ def draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id:
 
 
 def draft_earlier_uncarried(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool:
-    """Whether the draft's opening is still the checkpoint's to count: opened
-    and not carried into steps (:func:`carry_earlier_opened`). The submit
-    counts it from here once; once carried, the workbench holds it."""
+    """Whether the draft's opening is not marked carried yet (opened, and
+    :func:`carry_earlier_opened` has not recorded the first problem it moved
+    onto). Counting no longer reads it (orchestrator fix F15/F1): the draft's
+    marker and the problem's ``earlier_opened_at`` are ORed, one per attempt."""
 
     marker = _draft_earlier_marker(checkpoint, practice_item_id)
     return marker is not None and not marker.get("carriedTo")

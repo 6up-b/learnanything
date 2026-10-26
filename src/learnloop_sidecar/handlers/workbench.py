@@ -618,14 +618,17 @@ _DRAFT_HANDOFF_ORIGINS = frozenset({"practice", "plan"})
 def _draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> tuple[str | None, int]:
     """Codex re-review F1: ``(practice session, 1)`` when the practice
     screen's draft of the item, handed to the steps now, opened an earlier
-    attempt's help that is not carried yet (``sessions.draft_earlier_uncarried``),
-    else ``(None, 0)``. The practice session is the one the screen names
+    attempt's help under its current key (``sessions.draft_earlier_opened``),
+    else ``(None, 0)``. Carried again onto any problem the draft moves into
+    (a problem set aside before keeps its own mark): the problem holds it as
+    a set-once component and every count ORs it with the draft's, so it is
+    never counted twice. The practice session is the one the screen names
     while open, else the most recent open one. Read from the server's
     checkpoint, never from the client's count."""
 
     if params.origin not in _DRAFT_HANDOFF_ORIGINS or not practice_item_id:
         return None, 0
-    from learnloop_sidecar.handlers.sessions import draft_earlier_uncarried
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
 
     try:
         session_id = params.practice_session_id if _session_open(repository, params.practice_session_id) else None
@@ -637,7 +640,7 @@ def _draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str
         checkpoint = repository.fetch_session_checkpoint(session_id)
     except Exception:  # noqa: BLE001 - no readable draft carries nothing
         return None, 0
-    if not draft_earlier_uncarried(checkpoint, practice_item_id=str(practice_item_id)):
+    if not draft_earlier_opened(checkpoint, practice_item_id=str(practice_item_id)):
         return None, 0
     return session_id, 1
 

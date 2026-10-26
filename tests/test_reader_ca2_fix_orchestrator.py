@@ -115,6 +115,17 @@ def test_f15_after_steps_the_answer_box_submit_counts_the_reveals_and_the_openin
     assert view["carriedHints"] == 1
 
 
+def test_f15_an_abandoned_problem_never_takes_the_opening_with_it(tmp_path, grader):
+    paths, ctx, session = _steps_sidecar(tmp_path)
+    _draft(ctx, session, CDF_ITEM, "kA", earlierOpened=True)
+    view = _open(ctx, session)
+    # The learner sets the steps aside and submits from the answer box: the
+    # draft's opening still counts once (the problem no longer holds it).
+    _call(ctx, "workbench.abandon", {"sessionId": view["sessionId"]})
+    attempt = _answer_box_submit(ctx, session, hints=0, key="kA")
+    assert _attempt(paths, attempt)["hints_used"] == 1
+
+
 # -- F1: a resume keeps a new opening as its own event ------------------------------------------------
 
 

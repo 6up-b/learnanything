@@ -749,12 +749,14 @@ def _earlier_opened_hint(repository, session_id: str | None, practice_item_id: s
     """Reader CA2 (K6, Q2; Codex review F1): one hint-equivalent when the
     attempt opened an earlier attempt's help before Submit, counted by the
     server whichever surface submits; 0 otherwise. Either the session's
-    draft on the item still holds the opening (``sessions.draft_earlier_uncarried``),
-    or the draft moved into steps and an open workbench problem of the item
-    carries it as its own component (orchestrator fix F1/F15:
-    ``workbench_sessions.earlier_opened_at``, durable whatever later drafts
-    or sessions do; never inside the authored reveals' ``carried_hints``).
-    One opening per attempt, so the two are ORed, never added."""
+    draft on the item holds the opening under its current key
+    (``sessions.draft_earlier_opened``, carried into steps or not: a problem
+    set aside never takes it with it), or the draft moved into steps and an
+    open workbench problem of the item carries it as its own component
+    (orchestrator fix F1/F15: ``workbench_sessions.earlier_opened_at``,
+    durable whatever later drafts or sessions do; never inside the authored
+    reveals' ``carried_hints``). One opening per attempt, so the two are
+    ORed, never added."""
 
     from learnloop.reader.workbench import held_earlier
 
@@ -765,13 +767,13 @@ def _earlier_opened_hint(repository, session_id: str | None, practice_item_id: s
         pass
     if not session_id:
         return 0
-    from learnloop_sidecar.handlers.sessions import draft_earlier_uncarried
+    from learnloop_sidecar.handlers.sessions import draft_earlier_opened
 
     try:
         checkpoint = repository.fetch_session_checkpoint(session_id)
     except Exception:  # noqa: BLE001 - a session with no checkpoint opened nothing
         return 0
-    return 1 if draft_earlier_uncarried(checkpoint, practice_item_id=practice_item_id) else 0
+    return 1 if draft_earlier_opened(checkpoint, practice_item_id=practice_item_id) else 0
 
 
 def _server_hint_fold(
