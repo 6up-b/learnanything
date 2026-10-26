@@ -37,7 +37,8 @@ run that starts nothing:
    the bank questions whose evidence lies in this vault (every arm on the same questions,
    candidate units and labels, a supplied arm proving it by the comparison fingerprint; unjudged
    retrieved material latent and listed for labelling), beside the teacher's bank vectors and any
-   adopted incumbent, per stratum (deictic, logged, unseen family); §9.3's expected utility over
+   adopted incumbent, per stratum (deictic, logged, unseen family: unseen by the families pinned in
+   the checkpoint's manifest, or ``unknown_family`` without that provenance); §9.3's expected utility over
    the MEASURED actions RECOMMENDS (E1's aggregates are reported as priors, never decided on),
    with its posterior draws kept. No evaluation changes the serving state by itself: a losing
    re-evaluation recommends withdrawal. Adoption and withdrawal are the owner's (``student
@@ -791,9 +792,11 @@ def build_dataset(vault: LoadedVault, repository: Repository, *, root: Path, spa
 
 
 def trainer_job(spec: Mapping[str, Any], *, space: str, base_dir: Path, data_dir: Path, out_dir: Path,
-                temperature: float, plan_id: str, dataset_fingerprint: str = "") -> dict[str, Any]:
+                temperature: float, plan_id: str, dataset_fingerprint: str = "",
+                training_families: Sequence[str] | None = None) -> dict[str, Any]:
     base = SP.STUDENT_BASES[spec["base"]]
-    return {"version": SP.TRAINER_VERSION, "plan_id": plan_id, "space_id": space, "base_name": spec["base"],
+    families = {} if training_families is None else {"training_families": sorted(map(str, training_families))}
+    return {**families, "version": SP.TRAINER_VERSION, "plan_id": plan_id, "space_id": space, "base_name": spec["base"],
             "base": {key: base[key] for key in ("repo", "revision", "pooling", "query_prefix", "hidden_size",
                                                 "trust_remote_code", "files", "remote_code", "inert_python")},
             "base_dir": str(base_dir), "data_dir": str(data_dir), "out_dir": str(out_dir),
@@ -878,7 +881,8 @@ def run_next(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
                           out_dir=data, camp=camp)
     job = trainer_job(spec, space=space, base_dir=Path(record["dir"]), data_dir=data,
                       out_dir=space_home / "runs" / run_id, temperature=stats["temperature"],
-                      plan_id=f"p2train_{run_id[:16]}", dataset_fingerprint=camp["fingerprint"])
+                      plan_id=f"p2train_{run_id[:16]}", dataset_fingerprint=camp["fingerprint"],
+                      training_families=candidates_families(camp))
     from learnloop.local_embeddings import student_trainer
 
     run = launcher or ScopedLauncher(Path(manifest["env_python"]), script=Path(student_trainer.__file__),
@@ -982,13 +986,51 @@ def _evaluation_candidate(ledger: Mapping[str, Any], step: Mapping[str, Any], ad
     return None, "", None
 
 
+def candidates_families(camp: Mapping[str, Any]) -> list[str]:
+    """The families a run on this campaign trains on: its permitted candidates' (train and dev, no
+    held-out family). The trainer pins them in the checkpoint manifest (Codex final verify F19)."""
+
+    return sorted(str(family) for family in camp["candidates"]["families"])
+
+
+def checkpoint_training_families(run: Mapping[str, Any], camp: Mapping[str, Any], *, root: Path, space: str
+                                 ) -> tuple[set[str] | None, str]:
+    """``(families, basis)``: the families the checkpoint actually trained on (F19). The pinned
+    manifest's record when its digest still matches the pin (``checkpoint_manifest``), else the
+    current campaign's when the run was trained on this very dataset (its fingerprint names the
+    rows' splits and families: ``current_dataset``), else ``(None, "unknown")``: no stratum then
+    calls its questions seen or unseen."""
+
+    from learnloop.local_embeddings.student_trainer import checkpoint_digest
+
+    sha = str(run["checkpoint_sha256"])
+    manifest = _read_json(checkpoint_dir(root, space, sha) / "student.json", None)
+    if isinstance(manifest, dict) and isinstance(manifest.get("training_families"), list):
+        try:
+            pinned = checkpoint_digest(manifest) == sha
+        except (KeyError, TypeError):
+            pinned = False
+        if pinned:
+            return {str(family) for family in manifest["training_families"]}, "checkpoint_manifest"
+    if (run.get("spec") or {}).get("dataset") == camp["fingerprint"]:
+        return set(candidates_families(camp)), "current_dataset"
+    return None, "unknown"
+
+
 def _strata(bank: Sequence[Mapping[str, Any]], question_families: Mapping[str, set[str]],
-            trained_families: set[str]) -> dict[str, set[str]]:
-    return {"all": {q["query_id"] for q in bank},
-            "deictic": {q["query_id"] for q in bank if q["deictic"]},
-            "logged": {q["query_id"] for q in bank if q["origin"] == "logged"},
-            "unseen_family": {q["query_id"] for q in bank if question_families.get(q["query_id"])
-                              and question_families[q["query_id"]].isdisjoint(trained_families)}}
+            trained_families: set[str] | None) -> dict[str, set[str]]:
+    """The reported strata. ``trained_families`` is the checkpoint's own snapshot (F19); None (no
+    recoverable provenance) puts every question with a family under ``unknown_family``."""
+
+    out = {"all": {q["query_id"] for q in bank},
+           "deictic": {q["query_id"] for q in bank if q["deictic"]},
+           "logged": {q["query_id"] for q in bank if q["origin"] == "logged"}}
+    with_family = {q["query_id"] for q in bank if question_families.get(q["query_id"])}
+    if trained_families is None:
+        out["unknown_family"] = with_family
+    else:
+        out["unseen_family"] = {qid for qid in with_family if question_families[qid].isdisjoint(trained_families)}
+    return out
 
 
 def bank_scope(bank: Sequence[Mapping[str, Any]], repository: Repository) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -1169,7 +1211,8 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
         outcomes["incumbent"], owed["incumbent"] = _outcomes(scoped, encoded(incumbent), record_ids, matrix)
     _write_json(space_home / "evaluation" / "teacher_outcomes.json",
                 {"outcomes": outcomes["teacher"], "families": families, "bank_fingerprint": camp["bank_fingerprint"]})
-    trained = set(camp["candidates"]["families"])
+    trained, trained_basis = checkpoint_training_families(run, camp, root=root, space=space)
+    training_families = {"basis": trained_basis, "families": None if trained is None else len(trained)}
     strata = {}
     for name, members in _strata(scoped, question_families, trained).items():
         if not members:
@@ -1246,7 +1289,8 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
                   "trained_dataset": spec.get("dataset"), "trained_on_current_dataset": trained_here,
                   "candidate_basis": candidate_basis, "bank_fingerprint": camp["bank_fingerprint"],
                   "comparison_fingerprint": comparison, "scope": out["scope"], "decision": decision,
-                  "strata": strata, "alternatives": sources, "prior_alternatives": priors,
+                  "strata": strata, "training_families": training_families, "alternatives": sources,
+                  "prior_alternatives": priors,
                   "keyword": keyword_basis, "mu_basis": mu_basis, "recommendation": recommendation,
                   "choice": choice, "authority": authority, "label_acquisition": label_acquisition,
                   "labels_owed": labels_owed, "incumbent": incumbent, "vault": D.vault_key(vault),
@@ -1292,7 +1336,8 @@ def evaluate(vault: LoadedVault, repository: Repository, *, bank_path: Path | No
                  "unmeasured": "no alternative was measured on this comparison: supply --arm files naming "
                                f"{comparison}, or adopt (or reject) as the owner"}.get(status_)
     return {**out, "status": status_, "evaluation_id": evaluation_id, "recommendation": recommendation,
-            "decision": decision, "strata": strata, "alternatives": sources, "prior_alternatives": priors,
+            "decision": decision, "strata": strata, "training_families": training_families,
+            "alternatives": sources, "prior_alternatives": priors,
             "mu_basis": mu_basis, "choice": choice, "authority": authority, "label_acquisition": label_acquisition,
             "judgment_id": record_out["judgment_id"], "withdrawal": withdrawal, "next": following}
 

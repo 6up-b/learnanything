@@ -316,7 +316,8 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     assert stats["dataset_fingerprint"] == camp["fingerprint"]
     job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": recipe, "budget": 50_000, "seed": 0}, space=space,
                         base_dir=tmp_path, data_dir=data, out_dir=tmp_path / "out", temperature=stats["temperature"],
-                        plan_id="t", dataset_fingerprint=camp["fingerprint"])
+                        plan_id="t", dataset_fingerprint=camp["fingerprint"],
+                        training_families=Q.candidates_families(camp))
     job["epochs"] = 1
     output = student_trainer.run_training(job, model_factory=__import__("tests.query_student_fakes",
                                                                          fromlist=["x"]).tiny_factory,
@@ -328,6 +329,7 @@ def test_every_recipe_trains_measures_and_writes_a_pinned_checkpoint(torch_prese
     manifest = json.loads((Path(output["checkpoint_dir"]) / "student.json").read_text())
     assert manifest["frozen_base"] is (recipe == "projection_only") and "cpu" in manifest["canaries"]
     assert manifest["dataset_fingerprint"] == camp["fingerprint"]
+    assert manifest["training_families"] == Q.candidates_families(camp)  # F19: pinned with the checkpoint
     sha = Q.install_checkpoint(output, root=root, space=space)
     assert (E.checkpoint_dir(root, space, sha) / "student.safetensors").is_file()
     assert sha == student_trainer.checkpoint_digest(manifest)
@@ -471,6 +473,7 @@ def test_the_scheduled_candidate_is_recommended_adopted_and_a_lost_reevaluation_
                                                                                                 "voyage"}
     assert result["authority"]["comparable_alternatives"] is True and result["prior_alternatives"] == {}
     assert result["strata"]["all"]["p_student_ge_teacher"] > 0.3
+    assert result["training_families"]["basis"] == "checkpoint_manifest"  # F19: run_next pinned them
     assert E.read_adoption(root, space) is None  # the rule recommends; the owner adopts (F5)
     record = Q.read_ledger(SP.space_home(root, space))["decisions"][-1]
     assert record["scope"]["questions"] == 4 and record["scope"]["outside"] == {"no_evidence_set": 1,
@@ -1185,3 +1188,104 @@ def test_dry_runs_never_write_the_family_mapping(tmp_path):
     path.write_text(json.dumps(stored), encoding="utf-8")
     dry = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank), persist=False)
     assert dry["fingerprint"] == real
+
+
+# -- Codex final verify (F19): evaluation strata from the checkpoint's own training families ------------------
+def _pinned_run(root, space, *, families, dataset, run_id):
+    """A completed run whose checkpoint manifest is pinned (its SHA is the manifest's digest) and,
+    unless ``families`` is None, records the families it trained on (no trainer: no torch)."""
+
+    from learnloop.local_embeddings import student_trainer
+
+    manifest = {"format": SP.CHECKPOINT_FORMAT, "space_id": space, "base_name": SP.PRIMARY_BASE, "base": {},
+                "recipe": "align", "seed": 0, "budget": 100, "dims": SP.STUDENT_DIMENSIONS,
+                "precision": SP.STUDENT_PRECISION, "frozen_base": False, "max_query_tokens": SP.MAX_QUERY_TOKENS,
+                "files": {}, "canaries": {}, "dataset_fingerprint": dataset}
+    if families is not None:
+        manifest["training_families"] = sorted(families)
+    sha = student_trainer.checkpoint_digest(manifest)
+    _fake_run(root, space, sha=sha, dataset=dataset, run_id=run_id)
+    (E.checkpoint_dir(root, space, sha) / "student.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return sha
+
+
+def test_reevaluation_strata_come_from_the_checkpoint_training_families(tmp_path, monkeypatch):
+    """F19: a checkpoint trained on family A, re-evaluated against a newly screened campaign with
+    no eligible A row, never reports A's bank questions as an unseen family: the strata come from
+    the families pinned in the checkpoint's manifest. A checkpoint without recoverable provenance
+    puts those questions under ``unknown_family``, never seen or unseen."""
+
+    from learnloop.local_embeddings import student_trainer
+
+    paths, repository, root, model, space, bank, current_sha = _evaluable(tmp_path)
+    vault = loaded(paths)
+    factory = lambda _sha: _TeacherEncoder(model)  # noqa: E731
+    real_campaign = Q.campaign
+
+    def rescreened(*args, **kwargs):  # the new campaign holds no eligible row of the old families
+        camp = real_campaign(*args, **kwargs)
+        return {**camp, "candidates": {**camp["candidates"], "families": []}}
+
+    monkeypatch.setattr(Q, "campaign", rescreened)
+    camp = Q.campaign(vault, repository, root=root, space=space, bank=D.load_bank(bank))
+    scoped, _outside = Q.bank_scope(D.load_bank(bank), repository)
+    question_families = {q["query_id"]: D.question_families(q, camp["by_extraction"]) for q in scoped}
+    with_family = {qid for qid, found in question_families.items() if found}
+    assert with_family  # the bank's questions are supported by indexed families
+    family_a = set().union(*question_families.values())
+
+    trained = _pinned_run(root, space, families=family_a, dataset="old-dataset", run_id="run_a")
+    out = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=trained)
+    assert out["trained_on_current_dataset"] is False
+    assert "unseen_family" not in out["strata"], out["strata"]  # pre-fix: every family-A question was "unseen"
+    assert "unknown_family" not in out["strata"]
+    assert out["training_families"] == {"basis": "checkpoint_manifest", "families": len(family_a)}
+    record = Q.read_ledger(SP.space_home(root, space))["decisions"][-1]
+    assert record["training_families"]["basis"] == "checkpoint_manifest"
+
+    # The same checkpoint trained on another family: A's questions ARE unseen.
+    other = _pinned_run(root, space, families={"another-family"}, dataset="old-dataset", run_id="run_b")
+    unseen = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=other)
+    assert unseen["strata"]["unseen_family"]["questions"] == len(with_family)
+
+    # No recoverable provenance (a legacy manifest, another dataset): unknown, never seen or unseen.
+    legacy = _pinned_run(root, space, families=None, dataset="older-dataset", run_id="run_c")
+    unknown = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=legacy)
+    assert "unseen_family" not in unknown["strata"]
+    assert unknown["strata"]["unknown_family"]["questions"] == len(with_family)
+    assert unknown["training_families"] == {"basis": "unknown", "families": None}
+
+    # A manifest that no longer matches its pin is not provenance either.
+    path = E.checkpoint_dir(root, space, trained) / "student.json"
+    tampered = {**json.loads(path.read_text()), "training_families": ["another-family"]}
+    path.write_text(json.dumps(tampered), encoding="utf-8")
+    assert student_trainer.checkpoint_digest(tampered) != trained
+    forged = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=trained)
+    assert forged["training_families"]["basis"] == "unknown" and "unseen_family" not in forged["strata"]
+
+    # A legacy checkpoint trained on the CURRENT dataset: that dataset names its families.
+    current = Q.evaluate(vault, repository, bank_path=bank, encoder_factory=factory, checkpoint=current_sha)
+    assert current["trained_on_current_dataset"] is True
+    assert current["training_families"]["basis"] == "current_dataset"
+
+
+def test_the_trainer_job_and_manifest_pin_the_training_families():
+    """F19: the job carries the run's training families, and the checkpoint digest covers them when
+    recorded (a manifest without them, made before F19, keeps its digest)."""
+
+    from learnloop.local_embeddings import student_trainer
+
+    job = Q.trainer_job({"base": SP.PRIMARY_BASE, "recipe": "align", "budget": 100, "seed": 0}, space="s",
+                        base_dir=Path("/b"), data_dir=Path("/d"), out_dir=Path("/o"), temperature=0.1, plan_id="p",
+                        dataset_fingerprint="ds", training_families=["b", "a"])
+    assert job["training_families"] == ["a", "b"]
+    legacy = {"format": SP.CHECKPOINT_FORMAT, "space_id": "s", "base_name": SP.PRIMARY_BASE, "base": {},
+              "recipe": "align", "seed": 0, "budget": 100, "dims": 1, "precision": "p", "frozen_base": False,
+              "max_query_tokens": 1, "files": {}, "dataset_fingerprint": "ds"}
+    core = {key: legacy[key] for key in legacy}
+    assert student_trainer.checkpoint_digest(legacy) == __import__("hashlib").sha256(
+        json.dumps(core, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    pinned = {**legacy, "training_families": ["a", "b"]}
+    assert student_trainer.checkpoint_digest(pinned) != student_trainer.checkpoint_digest(legacy)
+    assert student_trainer.checkpoint_digest({**legacy, "training_families": ["a"]}) != \
+        student_trainer.checkpoint_digest(pinned)
