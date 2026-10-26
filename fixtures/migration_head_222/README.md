@@ -37,26 +37,27 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Curriculum C0a (migration 222, 2026-10-25)
+## Curriculum C0a (migration 222, landed 2026-10-25)
 
-Renamed from `migration_head_220`. A backup-API copy of the sanitized head
-at 220 with only `222_section_coverage.sql` applied (`UPGRADE_SCRATCH_COPY`),
-then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes
-1/1), `integrity_check` ok and `foreign_key_check` empty, and copied into
-place with the backup API. It adds exactly 222's objects (`section_coverage`,
-its autoindex, three indexes and two triggers), with no row; no other object
-changed and only `schema_migrations` gained a row. 221 (the LP claim fixes,
-on their own branch) is not in it: the runner is set-based, so a landing that
-brings 221 applies it to this head as earlier landings did. The sanitized
-content is unchanged.
+Renamed from `migration_head_221` at C0a's landing onto main. A backup-API
+copy of the sanitized head at 221 with only `222_section_coverage.sql`
+applied (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API. It adds
+exactly 222's objects (`section_coverage`, its autoindex, three indexes and
+two triggers), with no row; no other object changed and only
+`schema_migrations` gained a row. The sanitized content is unchanged (it was
+built from the tracked copy). The C0a branch's own head (222 on 220, without
+221) was dropped at the landing.
 
 ## History
 
 This is a copy of the small conic-sections vault upgraded through migration
 222, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
-landing, 220 on that one at local contextual retrieval P1's landing, and 222
-on that one at curriculum C0a's stage). Migration 167 adds the learner-field F1 read model
+landing, 220 on that one at local contextual retrieval P1's landing, 221 on
+that one on the LP-min (a) claim-fixes branch, and 222 on that one at
+curriculum C0a's landing). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -371,6 +372,30 @@ indexes and two triggers) are identical to the branch's head; no other
 object changed and only `schema_migrations` gained a row. On the branch it
 had been rebuilt the same way from the 218 database at git `5cefbd3c1` (no
 214, no RW2d 219).
+
+Migration 221 comes from learned parameters LP-min (a), the claim fixes
+(`lp/claim-fixes`, docs/reviews/lp-claim-fixes-codex-review.md, re-review
+F7): it adds one nullable column, `learner_claims.applied_after_attempts`
+(the number of the claim's learning object's attempts already applied when
+the claim-fixes successor's re-anchor applied it, recorded in the claim's own
+transaction; replay applies the claim after that many attempts). Numbered
+221 on its branch and kept at landing (reader workbench RW7b, which landed
+first, added no migration). The fixture has no claims, so the column is
+empty.
+
+Rebuilt on the branch from the sanitized `migration_head_220` (main
+`fa2eb72f8`) as a backup-API copy with only 221 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_220` was renamed to this directory. Only
+`learner_claims`'s definition changed, and `schema_migrations` gained a row;
+the sanitized content is unchanged. At the landing onto main (`eae00d58a`,
+whose `migration_head_220` is byte-identical to `fa2eb72f8`'s) the head was
+rebuilt the same way from main's `migration_head_220`: the rebuilt database
+dumps identically to this one apart from 221's `applied_at` stamp, so this
+file was kept (docs/reviews/lp-min-claim-fixes.md, "Landing onto main").
 
 Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
 in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds

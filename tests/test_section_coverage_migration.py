@@ -38,7 +38,8 @@ def _schema(database: Path) -> dict[str, str]:
 
 
 def test_222_adds_one_table_and_alters_nothing(tmp_path):
-    database = _database_at(tmp_path, 220)
+    # Built on LP-min (a)'s 221 at the landing (the branch had 222 on 220; the runner is set-based).
+    database = _database_at(tmp_path, 221)
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
@@ -51,7 +52,7 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
 def test_the_head_fixture_is_at_222_in_rollback_mode():
     versions = applied_versions(HEAD)
     assert max(versions) == max(m.version for m in discover_migrations()) == 222
-    assert 221 not in versions  # the LP claim fixes' 221 lands on its own branch (set-based runner)
+    assert 221 in versions  # rebuilt at the landing on main's head 221 (LP-min (a)'s claim fixes)
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
@@ -111,7 +112,7 @@ def test_the_constraints(tmp_path):
 def test_222_on_the_durability_lane(tmp_path):
     from learnloop.db.connection import connect
 
-    database = _database_at(tmp_path, 220)
+    database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         assert [migration.version for migration in apply_migrations(database)] == [222]
     with closing(sqlite3.connect(database)) as connection:
