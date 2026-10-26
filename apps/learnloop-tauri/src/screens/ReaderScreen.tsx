@@ -104,6 +104,7 @@ import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
+import { STYLE_ANSWER_MODE, StoredHelpStyle, useStoredHelpStyle } from "../components/askPanel";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
@@ -307,7 +308,13 @@ export function ReaderScreen({
   const [pathFocus, setPathFocus] = useState(0);
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
   const [note, setNote] = useState("");
-  const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
+  const [answerModeChosen, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
+  // Reader CA2 (§7.4, §15 Q5): while the Ask panel is on, the help style is
+  // the answer mode (one vocabulary, one stored preference); the per-source
+  // select retires. Off: the per-source mode, exactly as before.
+  const askPanelOn = algoConfig().ask !== null;
+  const storedStyle = useStoredHelpStyle();
+  const answerMode: ReaderAnswerMode = askPanelOn ? STYLE_ANSWER_MODE[storedStyle] : answerModeChosen;
   const [disposition, setDisposition] = useState<ReaderDisposition | null>(null);
   const [boundarySkipped, setBoundarySkipped] = useState(false);
   const [boundaryAnswered, setBoundaryAnswered] = useState(false);
@@ -3324,6 +3331,7 @@ export function ReaderScreen({
             setParentExchange={setParentExchange}
             answerMode={answerMode}
             changeAnswerMode={changeAnswerMode}
+            helpStyleControl={askPanelOn ? <StoredHelpStyle onError={onError} /> : undefined}
             question={question}
             setQuestion={setQuestion}
             askComposerVersion={askComposerVersion}

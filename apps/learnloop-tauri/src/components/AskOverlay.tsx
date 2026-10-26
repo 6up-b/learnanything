@@ -151,6 +151,10 @@ interface ThreadEntry {
   toolRequests?: SourceToolRequestDto[];
   /** Reader CA2: the mode the answer was written in (live answers only). */
   answerMode?: AnswerMode | null;
+  /** Reader CA2 (§7.6): asked from this panel (an inline panel under a step
+   *  shows only its own exchanges; the attempt's whole thread is the docked
+   *  panel's and the help column's). */
+  local?: boolean;
 }
 
 /** How long the overlay waits for a question's gap reading (polls). */
@@ -505,7 +509,8 @@ export function AskOverlay({
         rating: null,
         savedNoteId: null,
         promotion: null,
-        promotionRequest: null
+        promotionRequest: null,
+        local: true
       }
     ]);
     if (!pinned) setQuestion("");
@@ -626,7 +631,8 @@ export function AskOverlay({
                 suggestions: answer.suggestions,
                 practiceRequest: answer.practiceRequest ?? null,
                 toolRequests: answer.toolRequests ?? [],
-                answerMode: answer.answerMode ?? null
+                answerMode: answer.answerMode ?? null,
+                local: true
               }
             : entry
         )
@@ -861,7 +867,7 @@ export function AskOverlay({
               …
             </Faint>
           ) : null}
-          {thread.map((entry, index) => (
+          {(variant === "inline" && panel ? thread.filter((entry) => entry.local) : thread).map((entry, index) => (
             <div key={entry.eventId ?? `pending-${index}`} style={{ marginBottom: 16 }}>
               {!entry.opening ? (
                 <div style={{ color: COLOR.text, fontSize: 13, display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -1117,6 +1123,9 @@ export function AskOverlay({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
+                // On a panel host, ↵ (or ^↵) sends the question and never
+                // reaches the screen's own ^↵ (Submit).
+                if (panel) event.stopPropagation();
                 void send();
               }
             }}

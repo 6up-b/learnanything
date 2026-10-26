@@ -10,6 +10,7 @@
 import { useState, type KeyboardEvent } from "react";
 import type { HelpStyle, HintShortcut } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { algoConfig } from "../../app/algoConfig";
 import { quietLine, quietLink } from "../../components/PlainParts";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { HELP_STYLE_COPY, HINT_COPY, SHORTCUT_COPY } from "./hintCopy";
@@ -231,7 +232,14 @@ export function HintPanel({
   if (!hints.entries.length && !hints.pending && !hints.notice) return null;
   return (
     <div data-testid="hint-panel" aria-label={HINT_COPY.panelLabel} style={{ display: "grid", gap: 6, marginTop: 8 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "baseline" }}>
+        {algoConfig().ask ? (
+          // Reader CA2 (§7.4, C7): the help style is visible on the panel,
+          // not only in the menu and Settings.
+          <span style={quietLine} data-testid="hint-help-style">
+            help style: {HELP_STYLE_COPY.find((style) => style.value === helpStyle)?.label ?? helpStyle}
+          </span>
+        ) : null}
         <button
           type="button"
           style={quietLink}

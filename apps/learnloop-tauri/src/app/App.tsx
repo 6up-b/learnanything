@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
+import { DockedAsk } from "../components/DockedAsk";
 import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
@@ -317,6 +318,12 @@ export function App() {
     },
     []
   );
+  // Reader CA2: the practice screen's own Ask (the docked panel, or inline
+  // in steps) while the panel is on; the palette opens it instead of the overlay.
+  const practiceAskOpenRef = useRef<(() => void) | null>(null);
+  const onPracticeAskOpener = useCallback((open: (() => void) | null) => {
+    practiceAskOpenRef.current = open;
+  }, []);
 
   // UX Phase 2's switch, read from the snapshot. Until the current library's
   // snapshot has named it, the app is the base shell exactly (classic): its
@@ -1431,6 +1438,10 @@ export function App() {
         notify("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
         return false;
       }
+      if (practiceAskOpenRef.current) {
+        practiceAskOpenRef.current();
+        return true;
+      }
       setAskTarget({
         context: "practice",
         practiceItemId,
@@ -1914,6 +1925,7 @@ export function App() {
             onInspect={setInspectorId}
             onAsk={setAskTarget}
             onAskState={onPracticeAskState}
+            onAskOpener={onPracticeAskOpener}
             onError={onError}
           />
         );
@@ -1945,7 +1957,14 @@ export function App() {
         // keeps Next on the plan or the queue, as before.
         const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId);
         const planNext = Boolean(session && !calibrationSessionId && planServing);
+        // Reader CA2 (§7.1): feedback's Ask docks beside it, so the attempt
+        // and its feedback stay in view (it covers nothing).
+        const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null;
         return (
+          <DockedAsk panel={feedbackDock ? (
+            <AskOverlay variant="docked" target={feedbackDock} onClose={() => setAskTarget(null)} onToast={notify}
+              onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)} />
+          ) : null}>
           <FeedbackScreen
             attemptId={attemptId}
             sessionId={session?.sessionId ?? null}
@@ -1973,8 +1992,9 @@ export function App() {
             keysSuspended={repairMisconceptionId !== null}
             // The overlays that cover feedback hide its full answer; its
             // return is a new exposure (UX Phase 4, final verification F1).
-            answerCovered={repairMisconceptionId !== null || inspectorId !== null || askTarget !== null}
+            answerCovered={repairMisconceptionId !== null || inspectorId !== null || (askTarget !== null && feedbackDock === null)}
           />
+          </DockedAsk>
         );
       }
       if (simple) return todayPlace();
@@ -2258,7 +2278,9 @@ export function App() {
         onQuickCheck={(ids) => void startQuickCheck(ids)}
       />
       <AskOverlay
-        target={askTarget}
+        // Reader CA2: a feedback Ask docks beside feedback instead (above).
+        target={algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback"
+          ? null : askTarget}
         onClose={() => setAskTarget(null)}
         onToast={notify}
         onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}

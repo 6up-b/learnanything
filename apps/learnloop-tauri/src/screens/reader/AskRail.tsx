@@ -29,6 +29,10 @@ export interface AskRailProps {
   setParentExchange: Dispatch<SetStateAction<ReaderExchange | null>>;
   answerMode: ReaderAnswerMode;
   changeAnswerMode: (next: string) => void | Promise<void>;
+  /** Reader CA2 (§7.4, §15 Q5): the per-source mode select retires into the
+   *  help style (one vocabulary, one stored preference) while the panel is
+   *  on; this control replaces it. Absent: the mode select, as before. */
+  helpStyleControl?: ReactNode;
   question: string;
   setQuestion: Dispatch<SetStateAction<string>>;
   askComposerVersion: number;
@@ -89,6 +93,7 @@ export function AskRail({
   setParentExchange,
   answerMode,
   changeAnswerMode,
+  helpStyleControl,
   question,
   setQuestion,
   askComposerVersion,
@@ -166,13 +171,17 @@ export function AskRail({
               ) : (
               <>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Faint style={{ fontSize: 11 }}>mode</Faint>
-                <TermSelect
-                  value={answerMode}
-                  options={ANSWER_MODE_OPTIONS}
-                  onChange={changeAnswerMode}
-                  width={160}
-                />
+                {helpStyleControl ?? (
+                  <>
+                    <Faint style={{ fontSize: 11 }}>mode</Faint>
+                    <TermSelect
+                      value={answerMode}
+                      options={ANSWER_MODE_OPTIONS}
+                      onChange={changeAnswerMode}
+                      width={160}
+                    />
+                  </>
+                )}
                 {personalized ? (
                   <button
                     type="button"

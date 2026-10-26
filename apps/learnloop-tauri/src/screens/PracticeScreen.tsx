@@ -1044,6 +1044,18 @@ export function PracticeScreen({
     if (coldCheck && answered.hintEquivalent) setAskConverted(true);
   }
 
+  // Esc returns focus to where it was when the panel opened (§7.1).
+  const askReturnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (dockedAsk) askReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, [dockedAsk]);
+  function closeDockedAsk() {
+    setDockedAsk(null);
+    const back = askReturnFocus.current;
+    askReturnFocus.current = null;
+    window.setTimeout(() => back?.focus(), 0);
+  }
+
   function onEarlierOpened() {
     if (earlierCountedFor === submissionId.current) return;
     setEarlierCountedFor(submissionId.current);
@@ -1495,8 +1507,20 @@ export function PracticeScreen({
     );
   }
 
+  const dockedPanel = dockedAsk && panelOn && !stepsMode ? (
+    <AskOverlay
+      variant="docked"
+      target={dockedAsk}
+      onClose={closeDockedAsk}
+      onToast={onError}
+      onAnswered={onAskAnswered}
+      onEarlierOpened={onEarlierOpened}
+    />
+  ) : null;
+
   return (
     <div className="screen">
+      <DockedAsk panel={dockedPanel}>
       <div className="screen-scroll">
         {simple ? null : <SectionHeader>Practice item</SectionHeader>}
         <Card focused>
@@ -1879,6 +1903,26 @@ export function PracticeScreen({
                   onFeedback(result.attempt.attemptId);
                 }}
                 onAsk={() => openAsk()}
+                // Reader CA2 (§7.6): Ask about the focused step, inline under
+                // it; a whole-problem question at the foot of the steps.
+                {...(panelOn ? {
+                  askSignal: stepAskSignal,
+                  askRecordLine: askRecord.length ? helpRecordLine({ hints: 0, book: false, earlier: false, questions: askRecord })
+                    .replace(/^help used: /, "") : undefined,
+                  renderAsk: ({ stepNumber, stepsCount, onClose }: { stepNumber: number | null; stepsCount: number; onClose: () => void }) => (
+                    <AskOverlay
+                      variant="inline"
+                      target={practiceAskTarget({
+                        workbenchSessionId: wbSession.sessionId,
+                        ...(stepNumber !== null ? { aboutStep: stepNumber } : {}),
+                        stepsCount
+                      })}
+                      onClose={onClose}
+                      onToast={onError}
+                      onAnswered={onAskAnswered}
+                    />
+                  )
+                } : {})}
                 onWorkChange={onStepsWork}
                 onError={onError}
               />
@@ -2028,6 +2072,18 @@ export function PracticeScreen({
               </div>
             ) : null}
             {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
+            {panelOn && !isTeachBack && !probeActive ? (
+              // Reader CA2 (§7.5, K8): one help record for the attempt, in
+              // order, each with its cost; Submit counts the same things.
+              <div data-testid="help-record" style={{ ...quietLine, marginTop: 8 }}>
+                {helpRecordLine({
+                  hints: adaptive ? adaptiveHints.entries.length : hintsUsed,
+                  book: bookCarried,
+                  earlier: earlierCounted,
+                  questions: askRecord
+                })}
+              </div>
+            ) : null}
             {hintsUsed > item.hints.length ? (
               // Hints seen in steps that the item no longer shows still count (final F2).
               <div className="hint-banner" data-testid="hints-carried">
@@ -2110,7 +2166,7 @@ export function PracticeScreen({
                   <DifficultyRatingTap sessionId={session.sessionId} value={difficultyRating}
                                        onChange={setDifficultyRating} locked={submitting || selfGradeVisible} />
                 ) : null}
-                {!probeActive && !onYourOwnCheck && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
+                {!probeActive && (!onYourOwnCheck || coldTakeStep) && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
                   <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
                     {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
                   </QuietAction>
@@ -2176,13 +2232,15 @@ export function PracticeScreen({
           )}
         </Card>
       </div>
+      </DockedAsk>
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
-        ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []
+        ...(probeActive || (onYourOwnCheck && !coldTakeStep) || (item.hints.length === 0 && !adaptive) ? []
           : [adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
-        ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
+        // Reader CA2 (§7.6): in steps the key asks about the focused step.
+        ...(probeActive ? [] : [{ key: "?", label: panelOn && stepsMode ? "ask about this step" : "ask" }]),
         { key: "esc", label: "back" }
       ] : isTeachBack ? [
         { key: "^enter", label: "send" },
@@ -2788,6 +2846,24 @@ function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): vo
 
 // Prefer hinted_attempt when hints were used and the item allows it; otherwise
 // fall back to the item's default recording attempt type.
+/** Reader CA2 (§7.5, K8): the attempt's help record in one line, in the
+ *  learner's words, each part with its cost ("help used: nothing yet"). */
+export function helpRecordLine({ hints, book, earlier, questions }: {
+  hints: number;
+  book: boolean;
+  earlier: boolean;
+  questions: ReadonlyArray<{ hintEquivalent: boolean }>;
+}): string {
+  const parts: string[] = [];
+  if (hints > 0) parts.push(hints === 1 ? "a hint" : `${hints} hints`);
+  if (book) parts.push("the book left open (counts as a hint)");
+  if (earlier) parts.push("an earlier attempt's help (counts as a hint)");
+  for (const question of questions) {
+    parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
+  }
+  return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;
+}
+
 function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType {
   const allows = (type: AttemptType) => allowed.length === 0 || allowed.includes(type);
   if (hintsUsed > 0 && allows("hinted_attempt")) return "hinted_attempt";
