@@ -1,6 +1,6 @@
 # Local contextual source retrieval: pplx v2 9B documents, a distilled query student, a hosted Voyage fallback (v1)
 
-**Status:** draft, revised 2026-10-24 with the owner's decisions: Q1 and Q3–Q15 decided (§15), and every fixed margin or weight replaced by a learned rule (§9). Queue placement: P0, P1a and P1b in Track P right after T1 lands; P2 as GPU time allows (§10). Branch `experiments/e1-local-v2`, base `eec2dd88d` (migration head 217). This is a specification only. No code changed, no model was loaded, no paid or model call was made and nothing was downloaded to write it. Public web pages were read for §3; each claim cites its URL and says what the page did not settle.
+**Status:** draft, revised 2026-10-24 with the owner's decisions: Q1 and Q3–Q15 decided (§15), and every fixed margin or weight replaced by a learned rule (§9). Queue placement: P0, P1a and P1b in Track P right after T1 lands; P2 as GPU time allows (§10). Branch `experiments/e1-local-v2`, base `eec2dd88d` (migration head 217). This is a specification only. No code changed, no model was loaded, no paid or model call was made and nothing was downloaded to write it. Public web pages were read for §3; each claim cites its URL and says what the page did not settle. **Amended 2026-10-26 (owner, Q9):** the query student is 0.6B, primary base `perplexity-ai/pplx-embed-v1-0.6b`, second screen arm `Qwen/Qwen3-Embedding-0.6B`; `Qwen3.5-0.8B-Base` is dropped (§3.1, §7.1, Q9). P2 is built on branch `retrieval/lr-p2-query-student` ([review](../reviews/retrieval-local-p2-query-student.md)).
 
 **Basis:** [the experiment spec](spec_contextual_source_embeddings_experiments_v1.md) (§7 adoption, §8 E1, §9 deferred work, D6); [the E1 harness review](../reviews/experiments-e1-local-v2.md) (model facts, the worker, the GPU runs); [the E1 report](../reviews/experiments-e1-report.md) (plan `e1_eaa8d20e4af40e3f`, aggregates only); [the embedding consumers spec](spec_embedding_consumers_v1.md); [the storage/sync spec](spec_storage_sync_v1.md) (the hub model); [the algorithm-change playbook](../algorithm-change-playbook.md).
 
@@ -80,6 +80,7 @@ extraction ──► local_index job ──► 9B worker (own scope,          se
 - **What Voyage does not publish.** None of these pages describes how the shared space was trained (distillation, alignment or otherwise). None gives asymmetric-versus-symmetric numbers in text: the blog's are in charts and a linked spreadsheet.
 - **`voyage-context-4` is not documented as part of the shared space.** The contextual-chunk docs ([docs](https://docs.voyageai.com/docs/contextualized-chunk-embeddings)) and MongoDB's release post ([post](https://mongodb.com/company/blog/product-release-announcements/voyage-context-4-stop-worrying-about-chunking-with-our-best-performing-model)) only call it "a drop-in replacement for voyage-context-3". So the fallback (§8) queries `voyage-context-4` with itself (`input_type="query"`), exactly as E0 did. It does not query with `voyage-4-lite` or nano.
 - **What "0.9" maps to.** Voyage's pattern is a large document model plus a smaller query model in the same space. For us that is a sub-1B query student trained into the 9B's space. The nearest size is **`Qwen/Qwen3.5-0.8B`, 873,438,784 parameters (≈ 0.9B)**, Apache-2.0, with a `-Base` variant ([HF API](https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B)). It is the same Qwen3.5 family and 248,320-token vocabulary as the teacher (E1 review §1). This spec reads "0.9" as that size class (Q9 confirms).
+- **Amended 2026-10-26 (owner, Q9): the student is 0.6B.** The owner's reading: 0.6B is the small model Perplexity itself pairs with a 9B parent for retrieval (the v2-late pair, §3.2). The primary base is `perplexity-ai/pplx-embed-v1-0.6b` (Perplexity lineage, already bidirectional, MIT); `Qwen/Qwen3-Embedding-0.6B` is the only second screen arm; `Qwen3.5-0.8B-Base` is dropped. `pplx-embed-v2-late-0.6b` is **not** a drop-in: it shares a space only with `pplx-embed-v2-late-9b`, a ColBERT multi-vector space (128-d per token, MaxSim), not our `context-9b` single-vector space, so successor S-b (a Perplexity small model in the v2 *context* space) stands as written.
 
 ### 3.2 Does Perplexity publish a small pplx-embed v2 model in the same space?
 
@@ -237,16 +238,17 @@ Every consumer reaches the resolver through `search_spans`, so none needs its ow
 
 ### 7.1 The student (Phase 2)
 
-**Goal.** A query encoder of ≈ 0.6–0.9B parameters whose vectors land in the 9B's 2048-d space. The teacher's documents stay frozen. It is judged by §9.3's learned rule, not a fixed gate.
+**Goal.** A query encoder of ≈ 0.6B parameters (owner, 2026-10-26, amending Q9) whose vectors land in the 9B's 2048-d space. The teacher's documents stay frozen. It is judged by §9.3's learned rule, not a fixed gate.
 
 **Candidates.** The screen trains one seed each, cosine alignment only, then picks on development by §9.3's expected utility:
 
 | Base | Size | Why |
 |---|---|---|
-| `Qwen/Qwen3.5-0.8B-Base` | 873M | The "0.9" ([HF](https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B)): same family and tokenizer as the teacher; Apache-2.0. Causal and multimodal: load text-only, turn off causal masking (the teacher has `is_causal: false`), and test both mask settings |
-| `perplexity-ai/pplx-embed-v1-0.6b` | 596M | Already a bidirectional embedding model from Perplexity's v1 lineage; MIT ([HF](https://huggingface.co/api/models/perplexity-ai/pplx-embed-v1-0.6b)) |
-| `Qwen/Qwen3-Embedding-0.6B` | 596M | A strong general embedding start; Apache-2.0 ([HF](https://huggingface.co/api/models/Qwen/Qwen3-Embedding-0.6B)) |
-| Projection-only baseline | the base plus a `Linear(d→2048)` | Experiment spec §9's first rung: base frozen, only the map trained |
+| **`perplexity-ai/pplx-embed-v1-0.6b`** (primary) | 596M | Already a bidirectional embedding model from Perplexity's v1 lineage (mean pooling, no instruction prefix); MIT ([HF](https://huggingface.co/api/models/perplexity-ai/pplx-embed-v1-0.6b)). Pinned at revision `2c4d510dd4a732063c31a0f70193e35067b51fd8`; its two remote-code files (`configuration.py`, `modeling.py`: a `Qwen3Model` with causal masking turned off) are pinned by SHA-256 and were read |
+| `Qwen/Qwen3-Embedding-0.6B` (second arm) | 596M | A strong general embedding start (last-token pooling, its own query instruction); Apache-2.0 ([HF](https://huggingface.co/api/models/Qwen/Qwen3-Embedding-0.6B)). Pinned at revision `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`; no remote code |
+| Projection-only baseline | the primary base plus a `Linear(1024→2048)` | Experiment spec §9's first rung: base frozen, only the map trained |
+
+`Qwen/Qwen3.5-0.8B-Base` (873M, the first draft's "0.9") is **dropped** (owner, 2026-10-26). `pplx-embed-v2-late-0.6b` is not a candidate: its space is the v2-late ColBERT multi-vector space, not this one (§3.1).
 
 Every student ends in a `Linear(hidden→2048)` and is compared after L2 normalization. Its output is FP32 and is not rounded to int8. The teacher's int8-valued query vector, normalized, is the target.
 
@@ -279,7 +281,7 @@ The chosen recipe is then run on ≥ 3 seeds.
 
 **Training budget (5090, within the memory caps).**
 
-- A full fine-tune of 0.87B in BF16 with FP32 AdamW states is ≈ 14 GB, plus small activations for queries of ≤ 512 tokens. That fits the 20 GiB device target.
+- A full fine-tune of 0.6B with FP32 master weights and FP32 AdamW states (BF16 autocast) is ≈ 9.5 GB (596M × 16 bytes), plus small activations for queries of ≤ 512 tokens. That fits the 20 GiB device target.
 - Gradient checkpointing, or freezing the lower half, is the fallback if a measurement needs it.
 - Host side: the same 12G scope and floors as the worker (§7.2); data loaders run in-process with ≤ 2 workers.
 - Wall-time estimate: minutes per run at 50k queries × 3 epochs. The cap is **≤ 6 GPU-hours in total for Phase 2**: teacher target jobs, the screen, recipes, seeds and failed runs, all metered by a production copy of E1's GPU meter.
@@ -291,7 +293,7 @@ The chosen recipe is then run on ≥ 3 seeds.
   - JSON over a Unix socket in `$XDG_RUNTIME_DIR`;
   - offline flags and a socket block, so it has no network;
   - it exits after 20 idle minutes.
-- **Device:** the GPU when ≥ 4 GiB is free and no exclusive GPU job holds the lock, else the CPU. BF16 is ≈ 1.75 GB on either.
+- **Device:** the GPU when ≥ 4 GiB is free and no exclusive GPU job holds the lock, else the CPU. BF16 is ≈ 1.2 GB on either (0.6B).
 - **Health:** a canary query at start (cosine ≥ 0.999 to its stored vector) and a refusal under the host floor.
 - **The app process never imports torch.** An ONNX/CPU export for a GPU-less host is deferred (§12).
 
@@ -607,7 +609,7 @@ Q1 and Q3–Q14 are **DECIDED 2026-10-24** as recommended. Q2's fixed margin, an
 | Q6 | Voyage index: in parallel or on demand? | **DECIDED 2026-10-24.** In parallel, capped at $1 a run (`keep`), on vaults outside the checkout (after S1) |
 | Q7 | Opt the Voyage organization out of training use? | **DECIDED 2026-10-24.** Yes, before P1b is enabled |
 | Q8 | Synthetic query generator? | **DECIDED 2026-10-24.** GPT-6 Luna on `chatgpt_plan`. If the plan is down, report and ask before using OpenRouter (cap $5, `keep`). The owner's local books, personal use, artifacts local |
-| Q9 | Student base and size? | **DECIDED 2026-10-24.** Screen `Qwen3.5-0.8B-Base` (873M, the "0.9"), `pplx-embed-v1-0.6b` and `Qwen3-Embedding-0.6B`; choose by §9.3's expected utility, in which latency counts through `p_late` |
+| Q9 | Student base and size? | **DECIDED 2026-10-24, AMENDED 2026-10-26 (owner).** The student is **0.6B** ("the small model for perplexity retrieval with a 9B parent model"). Primary base `perplexity-ai/pplx-embed-v1-0.6b` (Perplexity lineage, bidirectional, MIT); `Qwen/Qwen3-Embedding-0.6B` is the only second screen arm; `Qwen3.5-0.8B-Base` is **dropped**. `pplx-embed-v2-late-0.6b` shares a space only with `v2-late-9b` (a ColBERT multi-vector space, not our context-9b space), so it is not a drop-in and S-b stays. The screen still chooses by §9.3's expected utility, in which latency counts through `p_late`. (Earlier answer: screen `Qwen3.5-0.8B-Base`, `pplx-embed-v1-0.6b` and `Qwen3-Embedding-0.6B`.) |
 | Q10 | Where does the student run? | **DECIDED 2026-10-24.** The GPU when ≥ 4 GiB is free and no exclusive job runs, else the CPU; its own 4G scope (`keep`) |
 | Q11 | Where do vectors, models and env live? | **DECIDED 2026-10-24.** Vectors in `<vault>/.learnloop/vector-cache/`; models and env under `~/.local/share/learnloop/` |
 | Q12 | Do the practice index and other consumers move? | **DECIDED 2026-10-24.** No. They stay on Qwen; revisit after P4 |
@@ -619,6 +621,6 @@ Q1 and Q3–Q14 are **DECIDED 2026-10-24** as recommended. Q2's fixed margin, an
 
 - Voyage: [Voyage 4 blog](https://blog.voyageai.com/2026/01/15/voyage-4/) · [embeddings docs](https://docs.voyageai.com/docs/embeddings) · [contextualized chunk embeddings](https://docs.voyageai.com/docs/contextualized-chunk-embeddings) · [FAQ (training opt-out)](https://docs.voyageai.com/docs/faq) · [voyage-4-nano card](https://huggingface.co/voyageai/voyage-4-nano) · [voyage-context-4 release](https://mongodb.com/company/blog/product-release-announcements/voyage-context-4-stop-worrying-about-chunking-with-our-best-performing-model) · [Vespa on asymmetric retrieval](https://blog.vespa.ai/asymmetric-retrieval-spend-on-docs-queries-for-free/)
 - Perplexity: [model listing](https://huggingface.co/api/models?author=perplexity-ai&limit=100) · [collections](https://huggingface.co/api/collections?owner=perplexity-ai) · [v2 context 9B preview card](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview) · [v2 late 0.6B card](https://huggingface.co/perplexity-ai/pplx-embed-v2-late-0.6b) · [pplx-embed-v1-0.6b](https://huggingface.co/api/models/perplexity-ai/pplx-embed-v1-0.6b)
-- Student bases: [Qwen3.5-0.8B](https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B) · [Qwen3-Embedding-0.6B](https://huggingface.co/api/models/Qwen/Qwen3-Embedding-0.6B)
+- Student bases: [pplx-embed-v1-0.6b](https://huggingface.co/api/models/perplexity-ai/pplx-embed-v1-0.6b) (primary, 2026-10-26) · [Qwen3-Embedding-0.6B](https://huggingface.co/api/models/Qwen/Qwen3-Embedding-0.6B) · [Qwen3.5-0.8B](https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B) (dropped 2026-10-26)
 - Learning to rank from implicit feedback: [Joachims, Swaminathan and Schnabel 2017, Unbiased Learning-to-Rank with Biased Feedback](https://arxiv.org/abs/1608.04468) (not re-read)
 - Distillation: [NanoVDR](https://arxiv.org/abs/2603.12824) · [Query Encoder Distillation via Embedding Alignment](https://aclanthology.org/2023.sustainlp-1.23/) · [EmbedDistill](https://arxiv.org/abs/2301.12005) and [Learning Query Encoders Can Be Hard](https://arxiv.org/abs/2610.02749) (from the experiment spec §3, not re-read) · [vec2text](https://arxiv.org/abs/2310.06816) (not re-read)
