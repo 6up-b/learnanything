@@ -50,11 +50,13 @@ export function ReaderWorkingPosture({
   askWaiting?: { onDismiss: () => void } | null;
 }) {
   // Reader CA2 (§7.1, §7.6): asking about a step no longer means leaving the
-  // problem. With the panel on and the problem bound to an item in a practice
-  // session, Ask opens inline under the focused step; the palette's Ask opens
-  // it too, instead of the "leave for now" line.
+  // problem. With the panel on and the problem bound to an item, Ask opens
+  // inline under the focused step; the palette's Ask opens it too, instead of
+  // the "leave for now" line. Codex review F10: no practice session is needed
+  // from here; the server binds the question to the workbench, its attempt
+  // key and the practice session its submit will use.
   const itemId = active.session.practiceItemId;
-  const inlineAsk = algoConfig().ask !== null && itemId !== null && practiceSessionId !== null && !active.readOnly;
+  const inlineAsk = algoConfig().ask !== null && itemId !== null && !active.readOnly;
   const [askSignal, setAskSignal] = useState(0);
   const [workMd, setWorkMd] = useState("");
   useEffect(() => {
@@ -151,19 +153,19 @@ export function ReaderWorkingPosture({
           onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
           onPeekPassage={onPeekPassage}
           onError={onError}
-          {...(inlineAsk && itemId !== null && practiceSessionId !== null ? {
+          {...(inlineAsk && itemId !== null ? {
             askSignal,
             onWorkChange: setWorkMd,
-            renderAsk: ({ stepNumber, stepsCount, onClose }: { stepNumber: number | null; stepsCount: number; onClose: () => void }) => (
+            renderAsk: ({ stepNumber, stepsCount, onClose, onTakeWorked }: { stepNumber: number | null; stepsCount: number; onClose: () => void; onTakeWorked?: (level: 4 | 5) => void }) => (
               <AskOverlay
                 variant="inline"
                 target={{
                   context: "practice",
                   practiceItemId: itemId,
-                  sessionId: practiceSessionId,
+                  ...(practiceSessionId !== null ? { sessionId: practiceSessionId } : {}),
                   // The open problem is one attempt until it is submitted:
-                  // resuming it is not a reattempt (§7.3), so its key is the session's.
-                  submissionId: `workbench:${active.session.sessionId}`,
+                  // resuming it is not a reattempt (§7.3). Codex review F6:
+                  // its key is the server's (the same in every host).
                   workbenchSessionId: active.session.sessionId,
                   ...(stepNumber !== null ? { aboutStep: stepNumber } : {}),
                   stepsCount,
@@ -173,6 +175,7 @@ export function ReaderWorkingPosture({
                 }}
                 onClose={onClose}
                 onToast={onError}
+                onTakeWorked={onTakeWorked}
               />
             )
           } : {})}

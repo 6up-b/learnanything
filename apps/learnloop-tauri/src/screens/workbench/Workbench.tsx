@@ -78,7 +78,14 @@ export interface WorkbenchProps {
    *  focused step (``stepNumber``) or, for the whole problem, at the foot of
    *  the steps (null). With it, ``?`` and "ask · ?" open it here instead of
    *  calling ``onAsk``. */
-  renderAsk?: (about: { stepNumber: number | null; stepsCount: number; onClose: () => void }) => ReactNode;
+  renderAsk?: (about: {
+    stepNumber: number | null;
+    stepsCount: number;
+    onClose: () => void;
+    /** Codex review F2 (K9): the help ladder's take step for worked help
+     *  (rung 4 or 5) after an Ask answer was withheld; absent without help. */
+    onTakeWorked?: (level: 4 | 5) => void;
+  }) => ReactNode;
   /** Reader CA2: the host asked to open the inline Ask (its ``?`` with no
    *  focus, the palette); each increment opens it on the focused step. */
   askSignal?: number;
@@ -211,6 +218,9 @@ export function Workbench(props: WorkbenchProps) {
   const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain));
   const looseHints = helpOn ? help.hints.filter((hint) => !onAStep(hint.aboutStepId)) : [];
 
+  // Codex review F2 (K9): worked help from an Ask answer's take step goes
+  // through this ladder, recorded as the rung taken.
+  const takeWorked = canHelp ? (level: 4 | 5) => { void help.take(level); } : undefined;
   function openAskInline() {
     if (leaving) return;
     setAskAt({ chain: focusedChain });
@@ -604,7 +614,7 @@ export function Workbench(props: WorkbenchProps) {
                 ) : null}
                 {props.renderAsk && askAt && chain !== null && askAt.chain === chain ? (
                   <div data-testid="workbench-step-ask">
-                    {props.renderAsk({ stepNumber: number, stepsCount: live.length, onClose: () => {
+                    {props.renderAsk({ stepNumber: number, stepsCount: live.length, onTakeWorked: takeWorked, onClose: () => {
                       setAskAt(null);
                       requestFocus(step.key);
                     } })}
@@ -666,7 +676,7 @@ export function Workbench(props: WorkbenchProps) {
       {props.renderAsk && askAt && !onAStep(askAt.chain) ? (
         // §7.6: a question about the whole problem, at the foot of the steps.
         <div data-testid="workbench-problem-ask" style={{ marginLeft: 36 }}>
-          {props.renderAsk({ stepNumber: null, stepsCount: live.length, onClose: () => setAskAt(null) })}
+          {props.renderAsk({ stepNumber: null, stepsCount: live.length, onTakeWorked: takeWorked, onClose: () => setAskAt(null) })}
         </div>
       ) : null}
       {helpOn && rw2c.available && !readOnly && open && fromBook ? (

@@ -33,6 +33,10 @@ export interface AskRailProps {
    *  help style (one vocabulary, one stored preference) while the panel is
    *  on; this control replaces it. Absent: the mode select, as before. */
   helpStyleControl?: ReactNode;
+  /** Reader CA2 (§7.1; Codex review F11): the one Ask panel's keys while it
+   *  is on: ↵ sends, ⇧↵ a new line, ^↵ sends too. Off: ↵ is a new line and
+   *  ^↵ sends, as before. */
+  enterSends?: boolean;
   question: string;
   setQuestion: Dispatch<SetStateAction<string>>;
   askComposerVersion: number;
@@ -94,6 +98,7 @@ export function AskRail({
   answerMode,
   changeAnswerMode,
   helpStyleControl,
+  enterSends = false,
   question,
   setQuestion,
   askComposerVersion,
@@ -206,12 +211,15 @@ export function AskRail({
                   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                     e.preventDefault();
                     void ask();
+                  } else if (enterSends && e.key === "Enter" && !e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    void ask();
                   }
                 }}
                 placeholder="ask about this passage…"
                 style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
               />
-              <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up · ctrl+↵" : "ask · ctrl+↵"}</PrimaryButton>
+              <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? `ask follow-up · ${enterSends ? "↵" : "ctrl+↵"}` : `ask · ${enterSends ? "↵" : "ctrl+↵"}`}</PrimaryButton>
               {inquiry ? (
                 <ModelActionState
                   phase={askPhase}

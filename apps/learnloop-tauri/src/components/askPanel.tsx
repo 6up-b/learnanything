@@ -56,6 +56,14 @@ export const ASK_COPY = {
   earlierFree: "your earlier attempts ▸",
   earlierHeader: (date: string) => `from your attempt on ${date} — not part of this one`,
   whatsSent: "ⓘ what's sent",
+  /** Codex review F2 (K9, §7.5): a request for the answer gets the take step. */
+  takeStep: "That's worked help ◌",
+  takePiece: "↵ work a piece of it for me",
+  takeWorked: "show me the worked answer",
+  takeSmaller: "or ask something smaller",
+  takeFromLadder: "take it from the hint ladder (Hint), or ask something smaller",
+  /** Codex review F1: an earlier attempt's help already opened on this attempt. */
+  earlierCounted: "opened · counted as a hint",
   convertedBanner: "Practice with help ◌ — you asked about the maths"
 } as const;
 

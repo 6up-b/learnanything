@@ -573,6 +573,9 @@ export const api = {
     firstHintProgress?: FirstHintProgress | null;
     /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
     hintSeen?: boolean;
+    /** Reader CA2 (Codex review F1): *earlier on this question* was opened
+     *  on this draft; the submit counts its one hint from the checkpoint. */
+    earlierOpened?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   /** Adaptive hints H0: telemetry for one authored hint the screen revealed
    *  (fire and forget; never awaited by the screen, and never invalidates). */

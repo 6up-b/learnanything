@@ -111,7 +111,7 @@ async function ask(text: string) {
   fireEvent.change(input, { target: { value: text } });
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalled());
-  return api.askTutorQuestion.mock.calls.at(-1)![0];
+  return api.askTutorQuestion.mock.calls[api.askTutorQuestion.mock.calls.length - 1][0];
 }
 
 it("Ask docks beside the question with the attempt's key and the live draft, never the overlay", async () => {
@@ -139,7 +139,7 @@ it("the palette's Ask opens the panel through the screen's opener", async () => 
   expect(await screen.findByTestId("ask-panel-docked")).toBeTruthy();
 });
 
-it("an earlier attempt's help opened before Submit counts once, as the book left open does", async () => {
+it("an earlier attempt's help opened before Submit counts once, on the draft, never in the client's count (Codex F1)", async () => {
   api.submitAttempt.mockResolvedValue({ version: 1, attemptId: "att_1" });
   api.recoverPracticeSubmission.mockResolvedValue({ version: 1, status: "pending", result: null });
   render(<PracticeScreen {...props()} />);
@@ -153,9 +153,32 @@ it("an earlier attempt's help opened before Submit counts once, as the book left
     "help used: an earlier attempt's help (counts as a hint)"));
   fireEvent.click(screen.getByRole("button", { name: /submit/i }));
   await waitFor(() => expect(api.submitAttempt).toHaveBeenCalled());
+  // Codex review F1: recorded on the draft (its checkpoint), counted by the
+  // submit's server side whatever surface submits and after a restart.
+  expect(api.savePracticeDraft.mock.calls.some(([draft]) => draft.earlierOpened === true)).toBe(true);
   const submitted = api.submitAttempt.mock.calls[0][0];
-  expect(submitted.hintsUsed).toBe(1);
+  expect(submitted.hintsUsed).toBe(0);
   expect(submitted.authoredHints).toBe(0);
+});
+
+it("the help record is the server's after a remount, and an earlier opening is restored (Codex F1, F7)", async () => {
+  api.recoverPracticeSubmission.mockResolvedValue({ version: 1, status: "pending", result: null });
+  api.getTutorTranscript.mockResolvedValue({
+    events: [], remaining: null, earlier: EARLIER, earlierCountsAsHint: true, cold: false,
+    helpRecord: { counted: 2, earlierOpened: true, items: [
+      { kind: "question", at: "2026-10-25T10:00:00Z", counts: true, thisAttempt: false, eventId: "q_prev" },
+      { kind: "earlier", at: null, counts: true },
+    ] },
+  });
+  render(<PracticeScreen {...props({ restoredSubmissionId: "serve-2" })} />);
+  await waitFor(() => expect(screen.getByTestId("help-record").textContent).toBe(
+    "help used: a question from before this serve (counts as a hint) · an earlier attempt's help (counts as a hint)"));
+  fireEvent.click(screen.getByRole("button", { name: /^ask$/i }));
+  const foot = await screen.findByTestId("ask-earlier");
+  await waitFor(() => expect(foot.textContent).toContain("opened · counted as a hint"));
+  fireEvent.click(within(foot).getByRole("button", { name: /earlier on this question/ }));
+  // Already counted: opening it again saves nothing new.
+  expect(api.savePracticeDraft.mock.calls.some(([draft]) => draft.earlierOpened === true)).toBe(false);
 });
 
 it("in steps, Ask opens inline under the focused step, about that step", async () => {

@@ -2209,6 +2209,9 @@ export interface TutorCitationDto {
   label: string | null;
   /** RW1c: a retrieved passage's source, so the Reader can open it there. */
   sourceId?: string | null;
+  /** Reader CA2 (K11, Codex review F9): the cited passage's own text, as the
+   *  tutor was given it (practice and feedback, the Ask panel on). */
+  excerpt?: string;
 }
 
 export interface TutorAnswerDto {
@@ -2221,7 +2224,8 @@ export interface TutorAnswerDto {
   hintEquivalent: boolean;
   leakSuspected: boolean;
   citations: TutorCitationDto[];
-  remaining: number;
+  /** Null: no request bound (a subscription route, Codex review F8). */
+  remaining: number | null;
   /** Learner-text gaps: the question is read for a named gap off the request
    *  path ("queued"); the overlay polls getLearnerTextGap for the result. */
   learnerGap?: LearnerGapQueuedDto;
@@ -2235,6 +2239,9 @@ export interface TutorAnswerDto {
   /** Reader CA2 (§7.4): the mode the answer was written in; null when the
    *  panel is off (today's answer). */
   answerMode?: AnswerMode | null;
+  /** Codex review F2 (K9): the answer was worked help, withheld; the ladder's
+   *  take step (rungs 4 and 5) instead. */
+  takeOffer?: { levels: number[]; reason: string } | null;
 }
 
 export interface LearnerGapQueuedDto {
@@ -2466,6 +2473,11 @@ export interface TutorQuestionEventDto {
   promotion: QuestionPromotionDto | null;
   /** Durable analysis/authoring request, including retryable failures. */
   promotionRequest: QuestionPromotionRequestDto | null;
+  /** Reader CA2: the mode the answer was written in (Codex review F9). */
+  answerMode?: string | null;
+  /** The stored context: the attempt key and step (F5), the citations with
+   *  their excerpts (F9), a withheld answer's take step (F2). */
+  sourceContext?: Record<string, unknown> | null;
 }
 
 // ── Tutor question promotion (spec_tutor_promotion.md) ─────────────────────
@@ -2597,6 +2609,26 @@ export interface TutorTranscriptInput {
   sessionId?: string;
   /** Reader CA2 (K5): the attempt's key; its thread only. */
   submissionId?: string;
+  /** Codex review F6: the unfinished workbench the thread is asked from. */
+  workbenchSessionId?: string;
+}
+
+/** Reader CA2 (§7.5, K8; Codex review F7): the attempt's help record as
+ *  Submit will fold it, in order, from stored state. */
+export interface HelpRecordDto {
+  items: Array<{
+    kind: "question" | "hint" | "check" | "worked" | "earlier";
+    at: string | null;
+    counts: boolean;
+    level?: number | null;
+    thisAttempt?: boolean;
+    eventId?: string;
+    /** A hint's counter: the hint service ("server") or the screen ("client"). */
+    countedBy?: "server" | "client" | null;
+  }>;
+  /** The hint-equivalents the submit's server side adds. */
+  counted: number;
+  earlierOpened: boolean;
 }
 
 /** Reader CA2 (§7.3, K6): one earlier attempt's help, read-only, never current. */
@@ -2619,7 +2651,10 @@ export interface EarlierThreadDto {
 export interface TutorTranscriptSnapshot {
   version: number;
   events: TutorQuestionEventDto[];
-  remaining: number;
+  /** Null: no request bound (a subscription route, Codex review F8). */
+  remaining: number | null;
+  /** Codex review F7: practice, the panel on. */
+  helpRecord?: HelpRecordDto;
   /** Reader CA2 (§7.3, K6, Q2), practice and feedback while the panel is on:
    *  earlier attempts' help (empty during a check on your own, ``cold``),
    *  whether opening one before Submit counts as a hint, and the stored help

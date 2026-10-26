@@ -3332,6 +3332,7 @@ export function ReaderScreen({
             answerMode={answerMode}
             changeAnswerMode={changeAnswerMode}
             helpStyleControl={askPanelOn ? <StoredHelpStyle onError={onError} /> : undefined}
+            enterSends={askPanelOn}
             question={question}
             setQuestion={setQuestion}
             askComposerVersion={askComposerVersion}

@@ -151,10 +151,32 @@ interface ThreadEntry {
   toolRequests?: SourceToolRequestDto[];
   /** Reader CA2: the mode the answer was written in (live answers only). */
   answerMode?: AnswerMode | null;
-  /** Reader CA2 (§7.6): asked from this panel (an inline panel under a step
-   *  shows only its own exchanges; the attempt's whole thread is the docked
-   *  panel's and the help column's). */
+  /** Reader CA2 (§7.6): asked from this panel. */
   local?: boolean;
+  /** Codex review F5: the workbench and step the question was asked about,
+   *  as stored (``sourceContext.attemptKey``), so an inline panel under a
+   *  step shows that step's exchanges after a close, a remount or a restart. */
+  workbenchSessionId?: string | null;
+  aboutStep?: number | null;
+  /** Codex review F2 (K9): the answer was worked help, withheld; the take step. */
+  takeOffer?: { levels: number[] } | null;
+}
+
+/** Codex review F5, F9: what a stored question event restores (its step,
+ *  its citations with their excerpts, its mode, a withheld answer's take step). */
+function restoredEntryFields(event: TutorQuestionEventDto): Partial<ThreadEntry> {
+  const context = (event.sourceContext ?? {}) as {
+    attemptKey?: { workbenchSessionId?: string; aboutStep?: number };
+    citations?: TutorCitationDto[];
+    withheld?: { reason?: string; takeLevels?: number[] };
+  };
+  return {
+    workbenchSessionId: context.attemptKey?.workbenchSessionId ?? null,
+    aboutStep: context.attemptKey?.aboutStep ?? null,
+    citations: context.citations ?? [],
+    answerMode: (event.answerMode ?? null) as AnswerMode | null,
+    takeOffer: context.withheld?.reason === "worked_help" ? { levels: context.withheld.takeLevels ?? [4, 5] } : null
+  };
 }
 
 /** How long the overlay waits for a question's gap reading (polls). */
@@ -209,7 +231,8 @@ export function AskOverlay({
   onOpenPractice,
   variant = "modal",
   onAnswered,
-  onEarlierOpened
+  onEarlierOpened,
+  onTakeWorked
 }: {
   target: AskTarget | null;
   onClose: () => void;
@@ -225,6 +248,10 @@ export function AskOverlay({
   /** Reader CA2 (K6, Q2): the learner opened *earlier on this question*
    *  before Submit; the host counts it as one hint, once per attempt. */
   onEarlierOpened?: () => void;
+  /** Codex review F2 (K9, §7.5): the host's ladder, to take worked help at
+   *  rung 4 or 5 when an answer was withheld (recorded as that rung only if
+   *  taken). Absent: the take step points at the host's Hint. */
+  onTakeWorked?: (level: 4 | 5) => void;
 }) {
   // Reader CA2: the panel's own parts render only on a panel host while the
   // sidecar sends `ask` (ask.panel_enabled); off, every host is the modal.
@@ -233,6 +260,8 @@ export function AskOverlay({
   const helpStyle = useStoredHelpStyle();
   const [earlier, setEarlier] = useState<EarlierThreadDto[]>([]);
   const [earlierCountsAsHint, setEarlierCountsAsHint] = useState(false);
+  // Codex review F1: the server's word that this attempt already opened one.
+  const [earlierAlreadyOpened, setEarlierAlreadyOpened] = useState(false);
   const [serverCold, setServerCold] = useState(false);
   const [earlierOpen, setEarlierOpen] = useState(false);
   const [earlierShown, setEarlierShown] = useState<string | null>(null);
@@ -255,6 +284,7 @@ export function AskOverlay({
   const [promoteNotice, setPromoteNotice] = useState<SaveNotice | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const boxRef = useRef<HTMLTextAreaElement | null>(null);
   const saveNoticeTimerRef = useRef<number | null>(null);
   const promoteNoticeTimerRef = useRef<number | null>(null);
   const routedCaptureRef = useRef<string | null>(null);
@@ -364,6 +394,7 @@ export function AskOverlay({
     setPromoteChoiceEventId(null);
     setEarlier([]);
     setEarlierCountsAsHint(false);
+    setEarlierAlreadyOpened(false);
     setServerCold(false);
     setEarlierOpen(false);
     setEarlierShown(null);
@@ -385,7 +416,10 @@ export function AskOverlay({
         attemptId: target.attemptId,
         noteId: target.noteId,
         sessionId: target.sessionId,
-        ...(panelOn && target.submissionId ? { submissionId: target.submissionId } : {})
+        ...(panelOn && target.submissionId ? { submissionId: target.submissionId } : {}),
+        // Codex review F6: the unfinished workbench the thread belongs to.
+        ...(panelOn && target.context === "practice" && target.workbenchSessionId
+          ? { workbenchSessionId: target.workbenchSessionId } : {})
       })
       .then((snapshot) => {
         if (cancelled) return;
@@ -394,6 +428,7 @@ export function AskOverlay({
         setEarlier(snapshot.earlier ?? []);
         setEarlierCountsAsHint(snapshot.earlierCountsAsHint === true);
         setServerCold(snapshot.cold === true);
+        setEarlierAlreadyOpened(snapshot.helpRecord?.earlierOpened === true);
         const entries: ThreadEntry[] = snapshot.events.map((event: TutorQuestionEventDto) => ({
           eventId: event.id,
           questionMd: event.questionMd,
@@ -403,11 +438,13 @@ export function AskOverlay({
           rating: event.rating,
           savedNoteId: event.savedNoteId,
           promotion: event.promotion,
-          promotionRequest: event.promotionRequest ?? null
+          promotionRequest: event.promotionRequest ?? null,
+          ...(panelOn ? restoredEntryFields(event) : {})
         }));
         setThread(entries);
         setRemaining(snapshot.remaining);
-        setLimitReached(snapshot.remaining <= 0);
+        // Codex review F8: no bound (null) on a subscription route.
+        setLimitReached(snapshot.remaining !== null && snapshot.remaining <= 0);
         // §12.1 proactive handoff: greet with the persisted typed transition
         // move before the learner has to type anything. Ephemeral — never
         // merged into the persisted thread's budget/hint accounting.
@@ -458,7 +495,8 @@ export function AskOverlay({
     target?.extractionId,
     target?.spanId,
     target?.proactiveOpen,
-    target?.submissionId
+    target?.submissionId,
+    target?.workbenchSessionId
   ]);
 
   useEffect(() => clearSaveNoticeTimer, []);
@@ -482,7 +520,7 @@ export function AskOverlay({
   // only when it opens, never when a result lands (K16, G54).
   const focusOnLand = variant === "modal" ? thread.length : 0;
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (open) (boxRef.current ?? inputRef.current)?.focus();
   }, [open, focusOnLand, target?.aboutStep]);
 
   useEffect(() => {
@@ -510,7 +548,9 @@ export function AskOverlay({
         savedNoteId: null,
         promotion: null,
         promotionRequest: null,
-        local: true
+        local: true,
+        workbenchSessionId: target.workbenchSessionId ?? null,
+        aboutStep: target.aboutStep ?? null
       }
     ]);
     if (!pinned) setQuestion("");
@@ -522,11 +562,12 @@ export function AskOverlay({
         hintEquivalent: boolean;
         citations: TutorCitationDto[];
         suggestions?: SuggestedLearningObjectDto[];
-        remaining: number;
+        remaining: number | null;
         learnerGap?: LearnerGapQueuedDto;
         practiceRequest?: PracticeRequestDto | null;
         toolRequests?: SourceToolRequestDto[];
         answerMode?: AnswerMode | null;
+        takeOffer?: { levels: number[] } | null;
       };
       if (target.context === "reader") {
         if (!target.extractionId || !target.spanId) {
@@ -611,7 +652,8 @@ export function AskOverlay({
           learnerGap: tutorAnswer.learnerGap,
           practiceRequest: tutorAnswer.practiceRequest ?? null,
           toolRequests: tutorAnswer.toolRequests ?? [],
-          answerMode: tutorAnswer.answerMode ?? null
+          answerMode: tutorAnswer.answerMode ?? null,
+          takeOffer: tutorAnswer.takeOffer ?? null
         };
       }
       setThread((prev) =>
@@ -632,7 +674,10 @@ export function AskOverlay({
                 practiceRequest: answer.practiceRequest ?? null,
                 toolRequests: answer.toolRequests ?? [],
                 answerMode: answer.answerMode ?? null,
-                local: true
+                takeOffer: answer.takeOffer ?? null,
+                local: true,
+                workbenchSessionId: target.workbenchSessionId ?? null,
+                aboutStep: target.aboutStep ?? null
               }
             : entry
         )
@@ -642,7 +687,7 @@ export function AskOverlay({
       onAnswered?.({ eventId: answer.eventId, questionMd: text, hintEquivalent: answer.hintEquivalent,
                      questionType: answer.questionType });
       setRemaining(answer.remaining);
-      if (answer.remaining <= 0) setLimitReached(true);
+      if (answer.remaining !== null && answer.remaining <= 0) setLimitReached(true);
       watchGap(answer.eventId, answer.learnerGap);
     } catch (error) {
       const commandError = error as CommandError;
@@ -718,6 +763,14 @@ export function AskOverlay({
 
   // §7.7: a check on your own, by the screen's word or the server's.
   const cold = Boolean(target.coldCheck) || serverCold;
+  /** Codex review F5 (§7.6): an inline panel under a step shows that step's
+   *  exchanges, by their stored step (asked here or restored); the panel at
+   *  the foot of the steps is the whole problem's, the attempt's thread. */
+  function inlineShows(entry: ThreadEntry): boolean {
+    if (!target?.aboutStep) return true;
+    return entry.aboutStep === target.aboutStep
+      && (!entry.workbenchSessionId || !target.workbenchSessionId || entry.workbenchSessionId === target.workbenchSessionId);
+  }
   // Reader CA2 (§7.1): the context line, what the answer will see, each part
   // a chip; "your draft ×" leaves the draft out of this question.
   const hasDraft = target.context === "practice" && Boolean((target.readDraft?.() ?? target.workMd ?? "").trim());
@@ -787,13 +840,16 @@ export function AskOverlay({
     <div data-testid="ask-earlier" style={{ padding: "6px 14px", borderTop: `1px solid ${COLOR.border}`, fontSize: 11, color: COLOR.textDim, flexShrink: 0 }}>
       <button type="button" aria-expanded={earlierOpen}
         onClick={() => {
-          if (!earlierOpen && earlierCountsAsHint) onEarlierOpened?.();
+          if (!earlierOpen && earlierCountsAsHint && !earlierAlreadyOpened) {
+            onEarlierOpened?.();
+            setEarlierAlreadyOpened(true);
+          }
           setEarlierOpen((value) => !value);
         }}
         style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
         {target.context === "feedback" ? ASK_COPY.earlierFree : ASK_COPY.earlier}
       </button>
-      {earlierCountsAsHint && !earlierOpen ? <span> · {ASK_COPY.earlierCost}</span> : null}
+      {earlierCountsAsHint && !earlierOpen ? <span> · {earlierAlreadyOpened ? ASK_COPY.earlierCounted : ASK_COPY.earlierCost}</span> : null}
       {earlierOpen ? (
         <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           {earlier.map((entry) => (
@@ -867,7 +923,7 @@ export function AskOverlay({
               …
             </Faint>
           ) : null}
-          {(variant === "inline" && panel ? thread.filter((entry) => entry.local) : thread).map((entry, index) => (
+          {(variant === "inline" && panel ? thread.filter((entry) => inlineShows(entry)) : thread).map((entry, index) => (
             <div key={entry.eventId ?? `pending-${index}`} style={{ marginBottom: 16 }}>
               {!entry.opening ? (
                 <div style={{ color: COLOR.text, fontSize: 13, display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -888,7 +944,7 @@ export function AskOverlay({
                     // mode it was written in and what it counted as.
                     <div data-testid="ask-answer-label" style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 4 }}>
                       {["◇ model",
-                        target.aboutStep ? `about step ${target.aboutStep}` : "your question",
+                        (entry.aboutStep ?? target.aboutStep) ? `about step ${entry.aboutStep ?? target.aboutStep}` : "your question",
                         entry.answerMode ? ANSWER_MODE_LABEL[entry.answerMode] : null,
                         target.context === "practice" || target.context === "feedback"
                           ? answerCountLabel({ hintEquivalent: entry.hintEquivalent, context: target.context, cold })
@@ -904,8 +960,16 @@ export function AskOverlay({
                   {panel && !entry.opening ? (
                     // K11: book first. The cited passages lead; with none
                     // kept, the explanation says it is the model's own.
-                    entry.citations && entry.citations.length > 0 ? (
-                      <div data-testid="ask-book-first" style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    entry.takeOffer ? null : entry.citations && entry.citations.length > 0 ? (
+                      <div data-testid="ask-book-first" style={{ marginBottom: 6 }}>
+                      {/* K11 (Codex review F9): the verified excerpt first, the
+                          books' own words, then the chips that open it. */}
+                      {entry.citations.find((citation) => citation.excerpt) ? (
+                        <blockquote data-testid="ask-book-excerpt" style={{ margin: "0 0 4px", paddingLeft: 8, borderLeft: `2px solid ${COLOR.border}`, fontSize: 12, color: COLOR.text }}>
+                          <MarkdownMath value={entry.citations.find((citation) => citation.excerpt)?.excerpt ?? ""} />
+                        </blockquote>
+                      ) : null}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <span style={{ fontSize: 11, color: COLOR.textDim }}>{ASK_COPY.fromBooks}</span>
                         {entry.citations.map((citation) => (
                           <button type="button" key={`${citation.extractionId}:${citation.spanId}`}
@@ -916,6 +980,7 @@ export function AskOverlay({
                           </button>
                         ))}
                       </div>
+                      </div>
                     ) : entry.eventId ? (
                       <div data-testid="ask-no-books" style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 4 }}>{ASK_COPY.noBooks}</div>
                     ) : null
@@ -923,9 +988,35 @@ export function AskOverlay({
                   {panel && !entry.opening && entry.citations && entry.citations.length > 0 ? (
                     <div style={{ fontSize: 11, color: COLOR.textDim, marginBottom: 2 }}>{ASK_COPY.explanation}</div>
                   ) : null}
+                  {panel && entry.takeOffer ? (
+                    // Codex review F2 (K9, §7.5): worked help is never served
+                    // on the spot; the ladder's take step, inline in the thread.
+                    <div data-testid="ask-take-step" style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <span style={{ color: COLOR.text }}>{ASK_COPY.takeStep}</span>
+                      {onTakeWorked ? (
+                        <span style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 12 }}>
+                          <button type="button" onClick={() => onTakeWorked(4)}
+                            style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, padding: 0 }}>
+                            {ASK_COPY.takePiece}
+                          </button>
+                          <button type="button" onClick={() => onTakeWorked(5)}
+                            style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, padding: 0 }}>
+                            {ASK_COPY.takeWorked}
+                          </button>
+                          <button type="button" onClick={() => (boxRef.current ?? inputRef.current)?.focus()}
+                            style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO, padding: 0 }}>
+                            {ASK_COPY.takeSmaller}
+                          </button>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 12, color: COLOR.textDim }}>{ASK_COPY.takeFromLadder}</span>
+                      )}
+                    </div>
+                  ) : (
                   <div className="markdown" style={{ fontSize: 13, lineHeight: 1.6 }}>
                     <MarkdownMath value={entry.answerMd} />
                   </div>
+                  )}
                   {!panel && entry.citations && entry.citations.length > 0 ? (
                     <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ fontSize: 10, color: COLOR.textFaint, fontFamily: FONT_MONO }}>sources:</span>
@@ -1115,6 +1206,34 @@ export function AskOverlay({
               <Faint>substantive questions count as hints</Faint>
             </div>
           ) : null}
+          {panel ? (
+          // Codex review F11 (§7.1): one multiline box on every panel host:
+          // ↵ sends, ⇧↵ a new line, ^↵ sends too; a send never reaches the
+          // screen's own ^↵ (Submit).
+          <textarea
+            ref={boxRef}
+            value={question}
+            rows={Math.min(6, Math.max(1, question.split("\n").length))}
+            disabled={pending || limitReached}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.stopPropagation();
+              if (event.shiftKey && !event.ctrlKey && !event.metaKey) return;
+              event.preventDefault();
+              void send();
+            }}
+            placeholder={
+              limitReached
+                ? "Today's question budget for this one is used"
+                : pending
+                  ? "looking in your books… then writing"
+                  : cold ? ASK_COPY.coldPlaceholder : ASK_COPY.placeholder
+            }
+            aria-label={target.aboutStep ? `ask about step ${target.aboutStep}` : "ask in your words"}
+            style={{ ...inputStyle, resize: "none", opacity: pending || limitReached ? 0.6 : 1 }}
+          />
+          ) : (
           <input
             ref={inputRef}
             value={question}
@@ -1123,9 +1242,6 @@ export function AskOverlay({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                // On a panel host, ↵ (or ^↵) sends the question and never
-                // reaches the screen's own ^↵ (Submit).
-                if (panel) event.stopPropagation();
                 void send();
               }
             }}
@@ -1139,6 +1255,7 @@ export function AskOverlay({
             aria-label={panel ? (target.aboutStep ? `ask about step ${target.aboutStep}` : "ask in your words") : undefined}
             style={{ ...inputStyle, opacity: pending || limitReached ? 0.6 : 1 }}
           />
+          )}
           {panel && (target.context === "practice" || target.context === "feedback") ? (
             // §7.1 item 4: the cost, said before sending; §7.4: "change" picks
             // another mode for this one question.

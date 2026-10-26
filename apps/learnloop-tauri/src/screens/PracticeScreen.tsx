@@ -39,7 +39,7 @@ import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
 import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
-import type { DifficultyRating, FirstHintProgress } from "../api/dto";
+import type { DifficultyRating, FirstHintProgress, HelpRecordDto } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { ASK_COPY } from "../components/askPanel";
@@ -339,7 +339,9 @@ export function PracticeScreen({
     // restart still submits bound to its plan presentation.
     planPresentationId,
     ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
-    ...(hintSeen ? { hintSeen: true } : {})
+    ...(hintSeen ? { hintSeen: true } : {}),
+    // Codex review F1: set once an earlier attempt's help is opened.
+    ...({} as { earlierOpened?: boolean })
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -418,8 +420,13 @@ export function PracticeScreen({
   // K8: the questions this attempt asked, in order, with what they counted as.
   const [askRecord, setAskRecord] = useState<Array<{ eventId: string; hintEquivalent: boolean }>>([]);
   // K6, Q2: *earlier on this question* opened before Submit, counted once per
-  // attempt (its submission key), as the book left open is.
+  // attempt (its submission key). Codex review F1: recorded on the draft's
+  // checkpoint and counted by the submit's server side (any surface, after a
+  // restart too); the screen only shows it.
   const [earlierCountedFor, setEarlierCountedFor] = useState<string | null>(null);
+  // Codex review F7 (K8): the help record as Submit will fold it, read from
+  // the server (stored state), so the footer never says less than Submit.
+  const [serverRecord, setServerRecord] = useState<HelpRecordDto | null>(null);
   const openAsk = (options?: { proactiveOpen?: boolean }) => {
     if (panelOn && !options?.proactiveOpen) {
       if (stepsShown.current) {
@@ -482,10 +489,12 @@ export function PracticeScreen({
       declaredStuck: stuck,
       planPresentationId,
       ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
-      ...(hintSeen ? { hintSeen: true } : {})
+      ...(hintSeen ? { hintSeen: true } : {}),
+      // Codex review F1: kept with the draft's retry key, server-side.
+      ...(earlierCountedFor !== null && earlierCountedFor === submissionId.current ? { earlierOpened: true } : {})
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen, earlierCountedFor]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -885,9 +894,10 @@ export function PracticeScreen({
   // problem (after a restart too), counts on the answer box as one hint.
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
   // Reader CA2 (K6, Q2): an earlier attempt's help opened before Submit is
-  // one hint-equivalent, like the book left open.
+  // one hint-equivalent. Codex review F1: the submit counts it server-side,
+  // from the draft's checkpoint, so it is never in the client's count.
   const earlierCounted = earlierCountedFor !== null && earlierCountedFor === submissionId.current;
-  const answerHints = hintsUsed + (bookCarried ? 1 : 0) + (earlierCounted ? 1 : 0);
+  const answerHints = hintsUsed + (bookCarried ? 1 : 0);
   carriedRef.current = { hints: hintsUsed, book: bookCarried };
   // A carried book is a hint the marker never timed (fix round 4, V4).
   if (bookCarried) firstHint.noteUntimedHint();
@@ -1042,7 +1052,36 @@ export function PracticeScreen({
     setAskRecord((record) => (record.some((entry) => entry.eventId === answered.eventId) ? record : [...record, answered]));
     // §7.7: only a question about the maths changes the banner.
     if (coldCheck && answered.hintEquivalent) setAskConverted(true);
+    refreshHelpRecord();
   }
+
+  /** Codex review F7: read the attempt's help record (the server's fold). */
+  const refreshHelpRecord = useCallback(() => {
+    if (!panelOn || !session.sessionId || !practiceItemId) return;
+    const key = submissionId.current;
+    Promise.resolve(api.getTutorTranscript?.({ context: "practice", practiceItemId, sessionId: session.sessionId, submissionId: key }))
+      .then((snapshot) => {
+        if (!mountedRef.current || key !== submissionId.current || !snapshot?.helpRecord) return;
+        setServerRecord(snapshot.helpRecord);
+        if (snapshot.helpRecord.earlierOpened) setEarlierCountedFor(key);
+      })
+      .catch(() => undefined);
+  }, [panelOn, practiceItemId, session.sessionId]);
+  useEffect(() => {
+    setServerRecord(null);
+    setEarlierCountedFor(null);
+    refreshHelpRecord();
+  }, [refreshHelpRecord, restoredSubmissionId]);
+  const shownHintCount = adaptiveHints.entries.length;
+  useEffect(() => {
+    if (shownHintCount > 0) refreshHelpRecord();
+  }, [shownHintCount, refreshHelpRecord]);
+
+  /** Codex review F2 (K9): take worked help from the ladder after an Ask
+   *  answer was withheld (recorded as that rung only if taken). */
+  const takeWorkedFromAsk = adaptive && !probeActive && !isTeachBack
+    ? (level: 4 | 5) => { void adaptiveHints.takeWorked(level); }
+    : undefined;
 
   // Esc returns focus to where it was when the panel opened (§7.1).
   const askReturnFocus = useRef<HTMLElement | null>(null);
@@ -1058,8 +1097,13 @@ export function PracticeScreen({
 
   function onEarlierOpened() {
     if (earlierCountedFor === submissionId.current) return;
-    setEarlierCountedFor(submissionId.current);
+    const key = submissionId.current;
+    setEarlierCountedFor(key);
     seeHint();
+    // Codex review F1: recorded on the draft at once (its checkpoint is what
+    // the submit counts), then the record is read back.
+    latestDraft.current = { ...latestDraft.current, submissionId: key, earlierOpened: true };
+    void saveDraft().catch(() => undefined).then(() => refreshHelpRecord());
   }
 
   function revealHint() {
@@ -1515,6 +1559,7 @@ export function PracticeScreen({
       onToast={onError}
       onAnswered={onAskAnswered}
       onEarlierOpened={onEarlierOpened}
+      onTakeWorked={takeWorkedFromAsk}
     />
   ) : null;
 
@@ -1909,7 +1954,7 @@ export function PracticeScreen({
                   askSignal: stepAskSignal,
                   askRecordLine: askRecord.length ? helpRecordLine({ hints: 0, book: false, earlier: false, questions: askRecord })
                     .replace(/^help used: /, "") : undefined,
-                  renderAsk: ({ stepNumber, stepsCount, onClose }: { stepNumber: number | null; stepsCount: number; onClose: () => void }) => (
+                  renderAsk: ({ stepNumber, stepsCount, onClose, onTakeWorked }: { stepNumber: number | null; stepsCount: number; onClose: () => void; onTakeWorked?: (level: 4 | 5) => void }) => (
                     <AskOverlay
                       variant="inline"
                       target={practiceAskTarget({
@@ -1920,6 +1965,7 @@ export function PracticeScreen({
                       onClose={onClose}
                       onToast={onError}
                       onAnswered={onAskAnswered}
+                      onTakeWorked={onTakeWorked}
                     />
                   )
                 } : {})}
@@ -2080,7 +2126,8 @@ export function PracticeScreen({
                   hints: adaptive ? adaptiveHints.entries.length : hintsUsed,
                   book: bookCarried,
                   earlier: earlierCounted,
-                  questions: askRecord
+                  questions: askRecord,
+                  server: serverRecord
                 })}
               </div>
             ) : null}
@@ -2848,19 +2895,56 @@ function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): vo
 // fall back to the item's default recording attempt type.
 /** Reader CA2 (§7.5, K8): the attempt's help record in one line, in the
  *  learner's words, each part with its cost ("help used: nothing yet"). */
-export function helpRecordLine({ hints, book, earlier, questions }: {
+export function helpRecordLine({ hints, book, earlier, questions, server }: {
   hints: number;
   book: boolean;
   earlier: boolean;
-  questions: ReadonlyArray<{ hintEquivalent: boolean }>;
+  questions: ReadonlyArray<{ hintEquivalent: boolean; eventId?: string }>;
+  /** Codex review F7: the server's record, in order (what Submit folds);
+   *  absent until read, then the screen's own items fill only what the
+   *  server does not hold (the authored hints it counts, the book). */
+  server?: HelpRecordDto | null;
 }): string {
   const parts: string[] = [];
-  if (hints > 0) parts.push(hints === 1 ? "a hint" : `${hints} hints`);
-  if (book) parts.push("the book left open (counts as a hint)");
-  if (earlier) parts.push("an earlier attempt's help (counts as a hint)");
+  if (!server) {
+    if (hints > 0) parts.push(hints === 1 ? "a hint" : `${hints} hints`);
+    if (book) parts.push("the book left open (counts as a hint)");
+    if (earlier) parts.push("an earlier attempt's help (counts as a hint)");
+    for (const question of questions) {
+      parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
+    }
+    return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;
+  }
+  // The hints the server holds rows for (the hint service's, and authored
+  // reveals' telemetry) are listed in order; the client's own count covers
+  // the authored hints the server has no row for.
+  const serverHints = server.items.filter((entry) => entry.kind === "hint" || entry.kind === "check").length;
+  const clientOnly = Math.max(0, hints - serverHints);
+  if (clientOnly > 0) parts.push(clientOnly === 1 ? "a hint" : `${clientOnly} hints`);
+  const listed = new Set<string>();
+  for (const entry of server.items) {
+    if (entry.kind === "question") {
+      if (entry.eventId) listed.add(entry.eventId);
+      if (!entry.counts) parts.push("a clarification (free)");
+      else parts.push(entry.thisAttempt === false ? "a question from before this serve (counts as a hint)" : "a question (counts as a hint)");
+    } else if (entry.kind === "hint") {
+      parts.push(entry.level ? `a hint (L${entry.level})` : "a hint");
+    } else if (entry.kind === "check") {
+      parts.push("a check");
+    } else if (entry.kind === "worked") {
+      parts.push(`worked help${entry.level ? ` (L${entry.level})` : ""} · practice with help`);
+    } else if (entry.kind === "earlier") {
+      listed.add("earlier");
+      parts.push("an earlier attempt's help (counts as a hint)");
+    }
+  }
+  // Answers this visit has that the record has not read back yet.
   for (const question of questions) {
+    if (question.eventId && listed.has(question.eventId)) continue;
     parts.push(question.hintEquivalent ? "a question (counts as a hint)" : "a clarification (free)");
   }
+  if (earlier && !listed.has("earlier")) parts.push("an earlier attempt's help (counts as a hint)");
+  if (book) parts.push("the book left open (counts as a hint)");
   return `help used: ${parts.length ? parts.join(" · ") : "nothing yet"}`;
 }
 

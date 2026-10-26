@@ -61,7 +61,7 @@ async function send(text = "What does V mean?") {
   fireEvent.change(input, { target: { value: text } });
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalled());
-  return api.askTutorQuestion.mock.calls.at(-1)![0];
+  return api.askTutorQuestion.mock.calls[api.askTutorQuestion.mock.calls.length - 1][0];
 }
 
 it("docks beside the question, not as a modal, with the context line, the style and the cost", async () => {
@@ -207,4 +207,84 @@ it("panel off: a docked request is the modal, exactly as before", async () => {
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalledOnce());
   expect(api.askTutorQuestion.mock.calls[0][0]).not.toHaveProperty("submissionId");
+});
+
+
+// -- The Codex review (docs/reviews/reader-ca2-one-ask-codex-review.md) ------------------------------
+
+const STEP_EVENTS = [
+  { id: "q_s3", context: "practice", questionMd: "why step 3?", answerMd: "Because 3.", questionType: "mechanism",
+    hintEquivalent: true, rating: null, savedNoteId: null, promotion: null, promotionRequest: null, answerMode: "help_me_reason",
+    sourceContext: { attemptKey: { workbenchSessionId: "wb_1", aboutStep: 3 },
+                     citations: [{ extractionId: "ext", spanId: "s1", label: "Strang §6.4", excerpt: "Every root is real." }] } },
+  { id: "q_s2", context: "practice", questionMd: "why step 2?", answerMd: "Because 2.", questionType: "clarification",
+    hintEquivalent: false, rating: null, savedNoteId: null, promotion: null, promotionRequest: null, answerMode: null,
+    sourceContext: { attemptKey: { workbenchSessionId: "wb_1", aboutStep: 2 } } },
+];
+
+it("F5: an inline panel restores its step's exchanges after it is closed and reopened", async () => {
+  api.getTutorTranscript.mockResolvedValue({ events: STEP_EVENTS, remaining: 3, earlier: [], earlierCountsAsHint: true, cold: false });
+  const target: AskTarget = { ...PRACTICE, workbenchSessionId: "wb_1", aboutStep: 3, stepsCount: 4 };
+  render(<AskOverlay variant="inline" target={target} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(screen.getByText("why step 3?")).toBeTruthy());
+  expect(screen.queryByText("why step 2?")).toBeNull();
+  expect(api.getTutorTranscript.mock.calls[0][0]).toMatchObject({ workbenchSessionId: "wb_1" });
+  cleanup();
+  // The whole problem's panel at the foot of the steps is the attempt's thread.
+  render(<AskOverlay variant="inline" target={{ ...PRACTICE, workbenchSessionId: "wb_1", stepsCount: 4 }} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(screen.getByText("why step 2?")).toBeTruthy());
+  expect(screen.getByText("why step 3?")).toBeTruthy();
+});
+
+it("F9: a restored answer keeps its excerpt, its citations and its mode (book first)", async () => {
+  api.getTutorTranscript.mockResolvedValue({ events: [STEP_EVENTS[0]], remaining: 3, earlier: [], earlierCountsAsHint: true, cold: false });
+  await openDocked();
+  await waitFor(() => expect(screen.getByTestId("ask-book-excerpt").textContent).toBe("Every root is real."));
+  const bookFirst = screen.getByTestId("ask-book-first");
+  expect(bookFirst.textContent).toContain(ASK_COPY.fromBooks);
+  expect(bookFirst.textContent).toContain("§ Strang §6.4");
+  expect(screen.queryByTestId("ask-no-books")).toBeNull();
+  expect(screen.getByTestId("ask-answer-label").textContent).toContain("about step 3 · helping you reason");
+  // The excerpt comes before the explanation.
+  const text = screen.getByTestId("ask-panel-docked").textContent ?? "";
+  expect(text.indexOf("Every root is real.")).toBeLessThan(text.indexOf("Because 3."));
+});
+
+it("F11: in the panel, Shift+Enter is a new line; Enter and Ctrl+Enter send", async () => {
+  await openDocked();
+  const box = screen.getByLabelText("ask in your words") as HTMLTextAreaElement;
+  expect(box.tagName).toBe("TEXTAREA");
+  fireEvent.change(box, { target: { value: "first line" } });
+  fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+  expect(api.askTutorQuestion).not.toHaveBeenCalled();
+  fireEvent.keyDown(box, { key: "Enter" });
+  await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalledOnce());
+  fireEvent.change(box, { target: { value: "again" } });
+  fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalledTimes(2));
+});
+
+it("F2: a withheld worked answer shows the take step, and taking it goes through the ladder", async () => {
+  const onTakeWorked = vi.fn();
+  api.askTutorQuestion.mockResolvedValue(answer({ answerMd: "That's worked help ◌ — it would show the answer.",
+    questionType: "strategy", takeOffer: { levels: [4, 5], reason: "worked_help" } }));
+  await openDocked(PRACTICE, { onTakeWorked });
+  await send("just show me the final answer");
+  const take = await screen.findByTestId("ask-take-step");
+  expect(take.textContent).toContain(ASK_COPY.takeStep);
+  fireEvent.click(within(take).getByText(ASK_COPY.takeWorked));
+  expect(onTakeWorked).toHaveBeenCalledWith(5);
+  fireEvent.click(within(take).getByText(ASK_COPY.takePiece));
+  expect(onTakeWorked).toHaveBeenCalledWith(4);
+  expect(screen.queryByTestId("ask-no-books")).toBeNull();
+});
+
+it("F8: no request bound (remaining null) never shows the capped state", async () => {
+  api.getTutorTranscript.mockResolvedValue({ events: [], remaining: null, earlier: [], earlierCountsAsHint: true, cold: false });
+  api.askTutorQuestion.mockResolvedValue(answer({ remaining: null }));
+  await openDocked();
+  await send();
+  const box = screen.getByLabelText("ask in your words") as HTMLTextAreaElement;
+  await waitFor(() => expect(box.disabled).toBe(false));
+  expect(box.placeholder).toBe(ASK_COPY.placeholder);
 });
