@@ -314,3 +314,10 @@ only, no live or paid calls.
 - vitest set 1 (21 files, the re-review's set 1): **189 passed**. vitest set 2 (11 files: every
   other test file that renders `OpenInSource`, plus `FeedbackScreen*` and `feedback/`):
   **137 passed**.
+
+### Fix-round verify (codex-job 20261026-021855-REIOEs, VERDICT: CLEAN)
+
+Scoped to `git diff 3dd930d25..HEAD`, read-only, under the proportionate bar. F9 confirmed fixed
+on both paths (shared blocks and unanchored siblings withhold ownership; imports without
+`owned` get no crop whatever their rows, keeping the original page); F11 confirmed fixed (the
+link uses the displayed view and is disabled before one loads). New findings: none.
