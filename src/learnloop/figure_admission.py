@@ -61,6 +61,23 @@ def offers_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "offers_enabled", False))
 
 
+#: Reader RW5d P1: at most this many passages ground a figure goal (retrieved,
+#: or a tutor answer's cited ones). keep: prompt size (more passages dilute
+#: the author's context; spec_reader_show_me_figures_v1 §8.3, §15).
+GROUNDING_PASSAGES = 3
+
+
+def show_me_enabled(vault: Any) -> bool:
+    """Reader RW5d P1: ``figures.show_me_enabled`` under ``figures.enabled``:
+    "show me" takes the learner's words (and the Reader tutor may write an
+    optional figure goal). The one predicate the figure service and the
+    tutor read (this module stays a leaf: the tutor never imports the figure
+    service)."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "show_me_enabled", False))
+
+
 #: The block types an offer may name: an equation, or a figure the figure
 #: author may crop (the figure service's own figure block types).
 OFFER_BLOCK_TYPES = frozenset({"Equation", "Figure", "FigureGroup", "Picture", "PictureGroup"})

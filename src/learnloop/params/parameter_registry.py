@@ -1296,6 +1296,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "kill switches for RW5b's figure panels / \"make this explorable\" offers on organizer and tutor "
         "citations; on-off availability of content, no measurement, scheduling or serving authority."),
+    # Reader RW5d P1: "show me" (the learner's words, with or without a
+    # passage; the tutor's optional figure goal). A kill switch over content.
+    _ConfigRule(_exact(
+        "figures.show_me_enabled",
+    ), "structural", "operational",
+        "kill switch for RW5d's \"show me\" (figure goals in the learner's words, grounding in their books, "
+        "the tutor's figure_goal button); on-off availability of content, no measurement, scheduling or "
+        "serving authority."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",

@@ -77,6 +77,9 @@ TASK = "reader_intent"
 RECEIPT_OWNER = "reader_intent"
 #: The question set every routing row is produced by.
 QUESTION_SET_VERSION = "reader-intent-qs-v1"
+#: Reader RW5d P1 (``figures.show_me_enabled``): the figure action's option text
+#: gains the clause about the learner's words, under its own question-set version.
+SHOW_ME_QUESTION_SET_VERSION = "reader-intent-qs-v2-show-me"
 QUESTION_NAME = "action"
 #: Speculation stops once this share of the day's calls is used (spec §4.2).
 SPECULATION_SHARE = 0.8
@@ -265,6 +268,9 @@ class Availability:
     notes: bool = False
     #: RW5a's explorable figures (``figures.enabled``): "make this explorable".
     figures: bool = False
+    #: RW5d's "show me" (``figures.show_me_enabled``): the figure action takes
+    #: the learner's words, labelled "show me…".
+    show_me: bool = False
 
     @classmethod
     def from_config(cls, config: Any, *, model: bool = True, notes: bool = False) -> "Availability":
@@ -281,6 +287,8 @@ class Availability:
             model=model,
             notes=notes,
             figures=bool(getattr(getattr(config, "figures", None), "enabled", False)),
+            show_me=bool(getattr(getattr(config, "figures", None), "enabled", False)
+                         and getattr(getattr(config, "figures", None), "show_me_enabled", False)),
         )
 
     def allows(self, action: IntentAction) -> bool:
@@ -291,8 +299,28 @@ class Availability:
         return all(bool(getattr(self, need)) for need in action.needs)
 
 
+#: RW5d P1: the figure action while show me is on (one action, relabelled; Q15).
+SHOW_ME_LABEL = "show me…"
+SHOW_ME_CLAUSE = " The learner's words, if any, say what the figure should show or vary."
+
+
+def _show_me(action: IntentAction) -> IntentAction:
+    return IntentAction(action.id, action.group, SHOW_ME_LABEL, action.describe + SHOW_ME_CLAUSE, action.effect,
+                        needs=action.needs, model=action.model)
+
+
 def available_actions(available: Availability) -> list[IntentAction]:
-    return [action for action in ACTIONS if available.allows(action)]
+    actions = [action for action in ACTIONS if available.allows(action)]
+    if available.show_me:
+        actions = [_show_me(action) if action.id == "make_explorable" else action for action in actions]
+    return actions
+
+
+def question_set_version(available: Availability) -> str:
+    """The routing's question-set version: RW5d's while show me is on (the figure
+    option's text differs), else RW1b's, so every other routing hashes as before."""
+
+    return SHOW_ME_QUESTION_SET_VERSION if available.show_me and available.figures else QUESTION_SET_VERSION
 
 
 def palette(available: Availability) -> list[dict[str, Any]]:
@@ -343,6 +371,8 @@ class Routing:
     latency_ms: int | None = None
     input_hash: str | None = None
     options: tuple[str, ...] = ()
+    #: The question set the Decider was asked (RW5d: its own while show me is on).
+    question_set: str = QUESTION_SET_VERSION
 
     @property
     def intention(self) -> str | None:
@@ -436,9 +466,9 @@ def speculation_room(config: Any, repository: Any, *, clock: Clock | None = None
     return calls_today(repository, clock=clock) < speculation_limit(config)
 
 
-def input_hash(text: str, quote: str, options: Sequence[str]) -> str:
+def input_hash(text: str, quote: str, options: Sequence[str], *, question_set: str = QUESTION_SET_VERSION) -> str:
     return content_key({"state": decider_state(text, quote), "options": list(options),
-                        "question_set": QUESTION_SET_VERSION})
+                        "question_set": question_set})
 
 
 def selection_key(extraction_id: str, span_ids: Sequence[str]) -> str:
@@ -463,7 +493,7 @@ def _append(repository: Any, routing: Routing, *, verdict: str, model: str, rati
             repository.connection(), task=TASK, left_kind=LEFT_KIND, left_id=str(left_id or routing.routing_id),
             right_kind=RIGHT_KIND, right_id=right_id, judge=judge,
             judge_model=model if judge == "decider" else None,
-            prompt_version=QUESTION_SET_VERSION if judge == "decider" else None,
+            prompt_version=routing.question_set if judge == "decider" else None,
             input_hash=str(routing.input_hash), verdict=verdict,
             score=routing.probabilities.get(verdict) if judge == "decider" else None,
             rationale=json.dumps(dict(rationale), sort_keys=True), supersedes_id=supersedes_id,
@@ -501,8 +531,10 @@ def route(
     if speculative and not speculation_room(config, repository, clock=clock):
         reason = "speculation_off" if not settings.speculative_enabled else "speculation_stopped"
         return Routing(routing_id, DEFAULT_ACTION, NOT_MADE, speculative, reason=reason, options=options)
+    question_set = question_set_version(available)
     routing = Routing(routing_id, DEFAULT_ACTION, FALLBACK, speculative, options=options,
-                      input_hash=input_hash(words, quote, options))
+                      input_hash=input_hash(words, quote, options, question_set=question_set),
+                      question_set=question_set)
     right_id = selection_key(extraction_id, span_ids)
     question = choice_question(actions)
     started = time.monotonic()
@@ -764,6 +796,7 @@ __all__ = [
     "SPECULATION_SHARE",
     "TASK",
     "available_actions",
+    "question_set_version",
     "calls_today",
     "choice_question",
     "decider_state",

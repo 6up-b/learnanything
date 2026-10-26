@@ -2551,6 +2551,15 @@ class FiguresConfig(BaseModel):
     pipeline, origin ``library`` | ``tutor``); off, their prompts, outputs and
     what the Reader shows are as before RW5b.
 
+    RW5d P1 (spec_reader_show_me_figures_v1): ``show_me_enabled``: "show me"
+    takes the learner's words, with or without a passage (the intent box's
+    "show me…", *show me* in the Reader's Ask rail, and the Reader tutor's
+    optional ``figure_goal``, a button the learner presses). A request with
+    no passage is grounded in the learner's books (verified retrieval, at
+    most three passages) and, when nothing is found, built anyway and
+    labelled "not from your books". Off: figures are exactly RW5a/b's, and
+    the tutor's prompt and output are RW5b's.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2565,6 +2574,7 @@ class FiguresConfig(BaseModel):
     revisions_enabled: bool = True
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
+    show_me_enabled: bool = True
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 

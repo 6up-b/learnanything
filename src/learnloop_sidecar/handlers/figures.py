@@ -20,6 +20,20 @@
 * ``reader.figure_predict`` / ``reader.figure_explain``: the prediction before
   the first change and its optional "what changed?" (formative only).
 
+* ``figure.request`` (Reader RW5d P1, spec_reader_show_me_figures_v1 §7.1):
+  the one request for every host, ``FigureRequestV1``: a goal in the
+  learner's words (``goalText``), an optional anchor (today's request), where
+  the learner was reading (``readingAt``, the home of a figure with no
+  passage), the host references (each verified here; P1's hosts are the
+  Reader's) and ``offerRef`` (RW5b's, and the tutor answer whose stored
+  ``figure_goal`` a tutor goal must equal). ``goal_author`` is never taken
+  from the client, and a client never states its policy: the caller is
+  derived here, and a check on your own (``coldActive``, or a cold caller)
+  or an attempt host refuses (P3 owns figures in attempts).
+  ``reader.figure_request`` stays as a thin wrapper for anchor-only requests.
+  The build job is read with ``reader.figure_job`` as before; its origin (T1
+  redesign D: the offer is the grant) is the RPC method that started it.
+
 Desktop only (pinned in tests/test_mobile_allowlist.py). Kill switches:
 ``figures.enabled`` (off: every RPC here refuses, the prompt contract has no
 ``figures`` key, the intent box has no "make this explorable" and no route
@@ -46,6 +60,7 @@ from learnloop_sidecar.registry import method
 
 #: Every RPC this module registers (pinned desktop-only).
 FIGURE_RPCS: tuple[str, ...] = (
+    "figure.request",
     "reader.figure_request",
     "reader.figure_revise",
     "reader.figure_job",
@@ -67,6 +82,10 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
                                "revisions": FS.revisions_enabled(vault)}
     if FS.figure_offers_enabled(vault):
         figures["offers"] = True
+    if FS.show_me_enabled(vault):
+        # RW5d P1: present only while figures.show_me_enabled is on, so off the
+        # contract is RW5b's, key for key.
+        figures["show_me"] = True
     return {"figures": figures}
 
 
@@ -126,13 +145,15 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
 
     vault, _repository = _require(ctx)
     author = getattr(ctx, "figure_author_client", None)
+    # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
+    find = getattr(ctx, "figure_find_sources", None)
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
             # Every request is admitted against the vault loaded NOW (the
             # build's FiguresGate), not the one captured here.
             outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
-                                      live_vault=ctx.loaded_vault)
+                                      live_vault=ctx.loaded_vault, find=find)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         return {"figure": outcome.view, "reused": outcome.reused}
@@ -207,34 +228,185 @@ def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | Non
     return set(offerable_blocks(repository, sorted(said)))
 
 
-@method("reader.figure_request", FigureRequestInput)
-def reader_figure_request(ctx: SidecarContext, params: FigureRequestInput) -> dict[str, Any]:
-    """"Make this explorable": refused at once for held-out material or a
-    switch that is off; otherwise a build job (read it with reader.figure_job)."""
+def tutor_figure_goal(repository: Any, offer_ref: str | None) -> dict[str, Any] | None:
+    """RW5d: the ``figure_goal`` the Reader tutor's stored answer ``offer_ref``
+    wrote (its text and the cited spans it grounds in), read from the stored
+    output only (as :func:`offered_spans` reads its explorable blocks): the
+    press makes no model call, and a goal the answer did not write is refused
+    (G-SM5)."""
+
+    if not offer_ref:
+        return None
+    event = repository.question_event(offer_ref)
+    view = ((event or {}).get("source_context") or {}).get("reader_tutor") or {}
+    goal = view.get("figure_goal")
+    if not isinstance(goal, dict) or not str(goal.get("text") or "").strip():
+        return None
+    return goal
+
+
+def _same_goal(left: str | None, right: str | None) -> bool:
+    return " ".join(str(left or "").split()) == " ".join(str(right or "").split()) != ""
+
+
+#: P1's hosts are the Reader's: the attempt, workbench and lesson references are P3's and P4's.
+_LATER_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id", "lesson_id", "node_id")
+
+
+def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
+                    region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
+                    offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool) -> dict[str, Any]:
+    """One figure request, from either RPC: validated, its caller derived and
+    its held-out material refused here, on the request path, before any job or
+    model call; then a build job."""
+
+    from learnloop.source_retrieval.policy import derive_policy
+    from learnloop_sidecar.handlers.library_ask import reader_caller
 
     vault, repository = _require(ctx)
-    region = {"span_id": params.region.span_id, "bbox": list(params.region.bbox)} if params.region else None
-    if params.origin != "selection":
-        # RW5b: an offered figure is one block the judgment offered, no region.
+    if origin in FS.RESERVED_ORIGINS:
+        raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
+    goal = " ".join(str(goal_text or "").split()) or None
+    if goal is not None and not FS.show_me_enabled(vault):
+        raise SidecarError("show_me_disabled", "\"Show me\" in your own words is switched off (figures.show_me_enabled).")
+    if cold_active:
+        # SM4: nothing is shown or built during a check on your own (taking a
+        # figure as help there is P3's take step).
+        raise SidecarError("cold_check", "Figures aren't shown during a check on your own.")
+    later = [name for name in _LATER_HOST_REFS if host_ref.get(name)]
+    if later:
+        raise SidecarError("validation_error", "Figures on practice, feedback or lessons come in a later version.")
+    anchored = bool(span_ids or region)
+    home = str(extraction_id) if anchored else str((reading_at or {}).get("extraction_id") or "")
+    goal_author = None
+    keys: list[tuple[str, str]] | None = None
+    if origin == "tutor" and goal is not None:
+        # The tutor's goal: only the one its stored answer wrote, grounded in
+        # that answer's cited passages; the press is the grant (SM9).
         if not FS.figure_offers_enabled(vault):
             raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
-        offered = offered_spans(vault, repository, params.origin, params.offer_ref)
-        wanted = {(params.extraction_id, str(span)) for span in params.span_ids}
-        if region is not None or len(wanted) != 1 or not wanted <= offered:
+        stored = tutor_figure_goal(repository, offer_ref)
+        if anchored or stored is None or not _same_goal(stored.get("text"), goal):
+            raise SidecarError("not_offered", "That figure goal was not offered by the tutor's answer.")
+        goal_author = "tutor"
+        keys = [(str(key[0]), str(key[1])) for key in stored.get("span_keys") or () if len(key) == 2]
+        host_ref = {**host_ref, "question_event_id": offer_ref}
+    elif origin != "selection" and origin != "show_me":
+        # RW5b: an offered figure is one block the judgment offered, no region, no goal.
+        if not FS.figure_offers_enabled(vault):
+            raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
+        offered = offered_spans(vault, repository, origin, offer_ref)
+        wanted = {(str(extraction_id), str(span)) for span in span_ids}
+        if goal is not None or region is not None or len(wanted) != 1 or not wanted <= offered:
             raise SidecarError("not_offered", "That passage was not offered as an explorable figure.")
+    elif goal is not None:
+        goal_author = "learner"
+    if host_ref.get("question_event_id") and repository.question_event(str(host_ref["question_event_id"])) is None:
+        raise SidecarError("not_found", "That answer is no longer kept.")
+    if origin == "tutor" and goal is not None:
+        from learnloop.instructional.policy import caller_for_question_event
+        from learnloop.source_retrieval.policy import PolicyRefused
+
+        try:
+            caller = caller_for_question_event(vault, repository, str(offer_ref))
+        except PolicyRefused as exc:
+            raise SidecarError("not_found", str(exc)) from exc
+    else:
+        caller = reader_caller(vault, repository, extraction_id=home or None)
+    policy, _why = derive_policy(caller)
+    if policy == "cold_attempt":
+        raise SidecarError("cold_check", "Figures aren't shown during a check on your own.")
+    if policy != "reading":
+        raise SidecarError("validation_error", "Figures on practice, feedback or lessons come in a later version.")
     try:
         request = FS.check_request(vault, repository, FS.FigureRequest(
-            extraction_id=params.extraction_id, span_ids=list(params.span_ids), region=region, origin=params.origin))
+            extraction_id=str(extraction_id or home), span_ids=list(span_ids), region=region, origin=origin,
+            goal_text=goal, goal_author=goal_author, reading_at=reading_at, host_ref=host_ref, caller=caller,
+            grounding_keys=keys))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_requested", {"extraction_id": request.extraction_id,
-                                            "span_count": len(request.span_ids), "via": params.origin},
+                                            "span_count": len(request.span_ids), "via": origin},
            extraction_id=request.extraction_id)
+    if request.goal_text is not None:
+        # RW5d (salience only): never the words, only that they were given and with what.
+        _event(repository, "show_me_requested", {"extraction_id": request.extraction_id, "via": origin,
+                                                 "anchored": FS.anchored(request),
+                                                 "goal_author": request.goal_author},
+               extraction_id=request.extraction_id)
     if request.region is not None:
         _event(repository, "figure_region_selected", {"extraction_id": request.extraction_id,
                                                       "span_id": request.region["span_id"]},
                extraction_id=request.extraction_id)
     return _start(ctx, request)
+
+
+@method("reader.figure_request", FigureRequestInput)
+def reader_figure_request(ctx: SidecarContext, params: FigureRequestInput) -> dict[str, Any]:
+    """"Make this explorable": refused at once for held-out material or a
+    switch that is off; otherwise a build job (read it with reader.figure_job).
+    RW5d: a thin wrapper over :func:`figure_request`'s path for an anchor-only
+    request (RW5a/b's callers are unchanged)."""
+
+    region = {"span_id": params.region.span_id, "bbox": list(params.region.bbox)} if params.region else None
+    return _request_figure(ctx, origin=params.origin, extraction_id=params.extraction_id,
+                           span_ids=list(params.span_ids), region=region, goal_text=None, reading_at=None,
+                           offer_ref=params.offer_ref, host_ref={}, cold_active=False)
+
+
+class AnchorInput(ParamsModel):
+    extraction_id: str
+    span_ids: list[str] = Field(default_factory=list, max_length=40)
+    region: RegionInput | None = None
+
+
+class ReadingAtInput(ParamsModel):
+    extraction_id: str
+    span_id: str
+
+
+class HostRefInput(ParamsModel):
+    """References only, each verified on the server (spec §7.1). P1 verifies a
+    tutor answer's question event; the rest are P3's and P4's and refused."""
+
+    question_event_id: str | None = Field(default=None, max_length=200)
+    item_id: str | None = Field(default=None, max_length=200)
+    submission_id: str | None = Field(default=None, max_length=200)
+    workbench_session_id: str | None = Field(default=None, max_length=200)
+    attempt_id: str | None = Field(default=None, max_length=200)
+    lesson_id: str | None = Field(default=None, max_length=200)
+    node_id: str | None = Field(default=None, max_length=200)
+
+
+class FigureRequestV1Input(ParamsModel):
+    """``FigureRequestV1`` (spec §7.1). ``goal_author``, the policy and the
+    tiers are derived on the server, never sent."""
+
+    goal_text: str | None = Field(default=None, max_length=2000)
+    anchor: AnchorInput | None = None
+    origin: Literal["selection", "library", "tutor", "show_me", "ask", "teacher", "prefetch"] = "show_me"
+    host_ref: HostRefInput | None = None
+    reading_at: ReadingAtInput | None = None
+    offer_ref: str | None = Field(default=None, max_length=200)
+    #: The Reader's own cold flag (a check on your own is open): it only ever narrows.
+    cold_active: bool = False
+
+
+@method("figure.request", FigureRequestV1Input)
+def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[str, Any]:
+    """RW5d P1 "show me": one request for every host (module docstring); a build job."""
+
+    anchor = params.anchor
+    region = ({"span_id": anchor.region.span_id, "bbox": list(anchor.region.bbox)}
+              if anchor is not None and anchor.region else None)
+    reading_at = ({"extraction_id": params.reading_at.extraction_id, "span_id": params.reading_at.span_id}
+                  if params.reading_at else None)
+    host_ref = {key: value for key, value in (params.host_ref.model_dump() if params.host_ref else {}).items()
+                if value}
+    return _request_figure(ctx, origin=params.origin, extraction_id=anchor.extraction_id if anchor else None,
+                           span_ids=list(anchor.span_ids) if anchor else [], region=region,
+                           goal_text=params.goal_text, reading_at=reading_at, offer_ref=params.offer_ref,
+                           host_ref=host_ref, cold_active=params.cold_active)
 
 
 class FigureReviseInput(ParamsModel):
@@ -255,9 +427,8 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
     if base is None:
         raise SidecarError("not_found", "That figure is no longer kept.")
     try:
-        request = FS.check_request(vault, repository, FS.FigureRequest(
-            extraction_id=base["extraction_id"], span_ids=list(base.get("span_ids") or ()), region=base.get("region"),
-            origin=base["origin"], supersedes_id=base["id"], revision_note=params.note))
+        # RW5d: a show-me figure keeps its goal, home and grounding.
+        request = FS.check_request(vault, repository, FS.revision_request(repository, base, params.note))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_revision_requested", {"extraction_id": base["extraction_id"],

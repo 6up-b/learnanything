@@ -74,6 +74,19 @@ class ReaderTutorExplorableQAContext(ReaderTutorQAContext):
 
 
 @dataclass(frozen=True)
+class ReaderTutorShowMeQAContext(ReaderTutorQAContext):
+    """Reader RW5d P1 (``figures.show_me_enabled`` with RW5b's offers): the
+    Reader context whose answer may carry an optional ``figure_goal`` (no new
+    fields; its own prompt version). Used when no equation or figure block is
+    delivered; with one, :class:`ReaderTutorExplorableShowMeQAContext`."""
+
+
+@dataclass(frozen=True)
+class ReaderTutorExplorableShowMeQAContext(ReaderTutorExplorableQAContext):
+    """RW5d P1: RW5b's explorable context with the optional ``figure_goal``."""
+
+
+@dataclass(frozen=True)
 class TeachBackQuestionContext:
     practice_item_id: str
     practice_item_prompt: str
@@ -232,6 +245,34 @@ class ReaderTutorExplorableAnswerWithTools(ReaderTutorAnswerWithTools):
     explorable: list[ExplorableCitation] = Field(default_factory=list)
 
 
+#: RW5d P1: a tutor's figure goal is at most this long (spec §6.3; display).
+FIGURE_GOAL_CHARS = 160
+
+
+class _FigureGoal(WireModel):
+    #: RW5d P1: when an explorable figure would help THIS question although no
+    #: cited block is a ready equation, the figure to build, in one line
+    #: (AI-written, shown as a button the learner presses); else null.
+    figure_goal: str | None = None
+
+
+class ReaderTutorShowMeAnswer(ReaderTutorAnswer, _FigureGoal):
+    """RW5d P1 (``figures.show_me_enabled``): :class:`ReaderTutorAnswer` with
+    the optional ``figure_goal``; an output without it reads as no goal."""
+
+
+class ReaderTutorShowMeAnswerWithTools(ReaderTutorAnswerWithTools, _FigureGoal):
+    pass
+
+
+class ReaderTutorExplorableShowMeAnswer(ReaderTutorExplorableAnswer, _FigureGoal):
+    pass
+
+
+class ReaderTutorExplorableShowMeAnswerWithTools(ReaderTutorExplorableAnswerWithTools, _FigureGoal):
+    pass
+
+
 class TeachBackQuestion(WireModel):
     question_md: str
 
@@ -279,6 +320,13 @@ READER_TUTOR_TOOLS_PROMPT_VERSION = "mvp-0.11-tutor-qa-reader-modes-source-tool-
 #: prompts plus the ``explorable`` judgment on cited equation and figure blocks.
 READER_TUTOR_EXPLORABLE_PROMPT_VERSION = READER_TUTOR_PROMPT_VERSION + "-explorable"
 READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION = READER_TUTOR_TOOLS_PROMPT_VERSION + "-explorable"
+#: RW5d P1 (``figures.show_me_enabled`` with RW5b's offers): each of the four
+#: Reader-tutor prompts plus the optional ``figure_goal``; off, they are RW5b's.
+SHOW_ME_PROMPT_SUFFIX = "-show-me"
+READER_TUTOR_SHOW_ME_PROMPT_VERSION = READER_TUTOR_PROMPT_VERSION + SHOW_ME_PROMPT_SUFFIX
+READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION = READER_TUTOR_TOOLS_PROMPT_VERSION + SHOW_ME_PROMPT_SUFFIX
+READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION = READER_TUTOR_EXPLORABLE_PROMPT_VERSION + SHOW_ME_PROMPT_SUFFIX
+READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION = READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION + SHOW_ME_PROMPT_SUFFIX
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.2-source-item-quest-transfer-criteria-by-fact"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
@@ -606,6 +654,16 @@ _TUTOR_QA_READER_EXPLORABLE_TASK = (
 )
 
 
+#: RW5d P1: the optional figure goal (added only to a show-me context's task).
+_TUTOR_QA_READER_SHOW_ME_TASK = (
+    " `figure_goal`: when an explorable figure (something the learner changes with sliders and watches respond) "
+    "would help THIS question and no cited passage is already a ready equation or figure for it, one line "
+    "(at most 160 characters) saying what the figure should let the learner vary and watch, written to them "
+    "(\"vary a and b and watch the spiral open or close\"). LearnLoop shows it as a button; pressing it builds "
+    "the figure from the passages you cite. Null when no figure would help, and never a restatement of the answer."
+)
+
+
 def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     opening = not context.question_md.strip() and context.diagnostic_decision is not None
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
@@ -618,7 +676,15 @@ def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     # RW1c: only a ReaderTutorQAContext (reader_tutor.retrieval_enabled) adds
     # the three answer modes; every other context renders exactly as before.
     lookup = isinstance(context, ReaderTutorQAContext) and not opening
-    if lookup and isinstance(context, ReaderTutorExplorableQAContext):
+    if lookup and isinstance(context, ReaderTutorExplorableShowMeQAContext):
+        version = (READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION if with_tools
+                   else READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION)
+        task = (task + _TUTOR_QA_READER_LOOKUP_TASK + _TUTOR_QA_READER_EXPLORABLE_TASK
+                + _TUTOR_QA_READER_SHOW_ME_TASK)
+    elif lookup and isinstance(context, ReaderTutorShowMeQAContext):
+        version = READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION if with_tools else READER_TUTOR_SHOW_ME_PROMPT_VERSION
+        task = task + _TUTOR_QA_READER_LOOKUP_TASK + _TUTOR_QA_READER_SHOW_ME_TASK
+    elif lookup and isinstance(context, ReaderTutorExplorableQAContext):
         version = READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if with_tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
         task = task + _TUTOR_QA_READER_LOOKUP_TASK + _TUTOR_QA_READER_EXPLORABLE_TASK
     elif lookup:

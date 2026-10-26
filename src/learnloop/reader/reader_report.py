@@ -349,6 +349,7 @@ def build_reader_report(
     reading_paths_enabled: bool = True,
     figures_enabled: bool = False,
     figure_offers_enabled: bool = False,
+    figure_show_me_enabled: bool = False,
     skipped_section_los: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
@@ -363,7 +364,11 @@ def build_reader_report(
     ``figures`` block, so with figures off it is the report of before RW5a
     (fix round 3; the CLI passes the switch). ``figure_offers_enabled``
     (RW5b, ``figures.offers_enabled`` under it) adds the figures built from
-    an offer, by origin; off, the block is RW5a's.
+    an offer, by origin; off, the block is RW5a's. ``figure_show_me_enabled``
+    (RW5d P1, ``figures.show_me_enabled``) adds ``show_me``: requests with a
+    goal by origin and anchoring, the grounding mix, abstentions ("not from
+    your books"), unsupported kinds and the "not right?" rate of show-me
+    figures (counts only, never the words); off, the block is RW5b's.
 
     ``skipped_section_los`` (RW7b, §15's reading-path row): the vault's map
     of skipped sections to their LOs (the CLI passes
@@ -448,6 +453,25 @@ def build_reader_report(
                 "ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_figures else []
+        # RW5d P1: what "show me" asked (migration 224) and what it built.
+        has_requests = has_figures and figure_show_me_enabled and connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'").fetchone() is not None
+        show_me_requests = [
+            {"origin": row["origin"], "anchored": row["anchor_json"] is not None, "grounding": row["grounding"],
+             "goal_author": row["goal_author"]}
+            for row in connection.execute(
+                "SELECT origin, anchor_json, grounding, goal_author, created_at FROM figure_requests "
+                "WHERE goal_text IS NOT NULL OR anchor_json IS NULL ORDER BY created_at, id")
+            if in_window(row["created_at"])
+        ] if has_requests else []
+        show_me_figures = [
+            {"verification": shown_verification(row["verification"]), "unsupported_kind": row["unsupported_kind"],
+             "revision": row["supersedes_id"] is not None, "grounding": row["grounding"]}
+            for row in connection.execute(
+                "SELECT verification, unsupported_kind, supersedes_id, grounding, created_at FROM interactive_figures "
+                "WHERE goal_text IS NOT NULL OR grounding != 'anchor' ORDER BY created_at, id")
+            if in_window(row["created_at"])
+        ] if has_requests else []
         prediction_rows = [
             {"matched": bool(row["matched"]), "explained": row["explanation_text"] is not None}
             for row in connection.execute(
@@ -834,6 +858,23 @@ def build_reader_report(
             origin: dict(Counter(row["verification"] for row in figure_rows if row["origin"] == origin
                                  and not row["revision"]))
             for origin in ("library", "tutor")}
+    if figures_enabled and figure_show_me_enabled:
+        built = [row for row in show_me_figures if not row["revision"]]
+        report["figures"]["show_me"] = {
+            "requests": len(show_me_requests),
+            "by_origin": dict(Counter(row["origin"] for row in show_me_requests)),
+            "joint": sum(1 for row in show_me_requests if row["anchored"]),
+            "goal_by": dict(Counter(str(row["goal_author"] or "none") for row in show_me_requests)),
+            "grounding": dict(Counter(row["grounding"] for row in show_me_requests)),
+            # RW1c's abstention: built anyway, labelled "not from your books".
+            "abstentions": sum(1 for row in show_me_requests if row["grounding"] == "none"),
+            "built": dict(Counter(row["verification"] for row in built)),
+            "unsupported_by_kind": dict(Counter(str(row["unsupported_kind"] or "unknown") for row in built
+                                                if row["verification"] == "unsupported")),
+            "not_right": sum(1 for row in show_me_figures if row["revision"]),
+            "not_right_rate": (round(sum(1 for row in show_me_figures if row["revision"]) / len(built), 4)
+                               if built else None),
+        }
     return report
 
 

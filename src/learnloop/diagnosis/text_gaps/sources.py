@@ -428,7 +428,7 @@ def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, A
         row = connection.execute(
             "SELECT p.id, p.figure_id, p.extraction_id, p.prediction_index, p.learner_answer, p.observed_json, "
             "p.matched, p.explanation_text, p.created_at, f.spec_json, f.span_ids_json, f.region_json, "
-            "f.input_span_ids_json, f.asset_id "
+            "f.input_span_ids_json, f.asset_id, f.input_span_keys_json "
             "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
             (prediction_id,)).fetchone()
     if row is None or int(row[6]) != 0 or not str(row[4] or "").strip():
@@ -437,7 +437,7 @@ def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, A
         return None
     keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
             "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json", "input_span_ids_json",
-            "asset_id")
+            "asset_id", "input_span_keys_json")
     return {**dict(zip(keys, row)), "source_id": str(source_id)}
 
 
@@ -464,6 +464,25 @@ def figure_input_manifest(row: Mapping[str, Any]) -> list[str] | None:
     return list(dict.fromkeys(spans))
 
 
+def figure_input_keys(row: Mapping[str, Any]) -> dict[str, list[str]] | None:
+    """Reader RW5d: the retrieved passages a figure was built from, in any
+    source (``input_span_keys_json``), by extraction; None when unreadable
+    (a caller fails closed)."""
+
+    try:
+        keys = json.loads(row.get("input_span_keys_json") or "[]")
+        if not isinstance(keys, list):
+            return None
+        grouped: dict[str, list[str]] = {}
+        for key in keys:
+            if not isinstance(key, list) or len(key) != 2:
+                return None
+            grouped.setdefault(str(key[0]), []).append(str(key[1]))
+    except (TypeError, ValueError):
+        return None
+    return grouped
+
+
 class SourceWithheld(Exception):
     """A learner text whose context is held-out material now: nothing of it
     is built or sent, and its job is skipped (not retried) with this reason."""
@@ -476,9 +495,13 @@ def figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: 
     unreadable (fails closed). Fix round 2, F1."""
 
     manifest = figure_input_manifest(row)
-    if manifest is None:
+    keys = figure_input_keys(row)
+    if manifest is None or keys is None:
         return "the figure's input spans are unreadable"
-    return spans_withheld(vault, repository, str(row["extraction_id"]), manifest)
+    message = spans_withheld(vault, repository, str(row["extraction_id"]), manifest) if row.get("extraction_id") else None
+    for extraction_id, spans in keys.items():
+        message = message or spans_withheld(vault, repository, extraction_id, spans)
+    return message
 
 
 def missed_prediction_ids(repository: Repository) -> list[str]:
