@@ -59,7 +59,8 @@ The same picture was visible live in the CA1 landing's full suite (read from `/p
 
 * New `SidecarContext.close()` stops all four, each with a bounded join, idempotent (a later `load` or submit restarts them, as after `shutdown`).
 * `handlers/app.py` `shutdown` and `server.serve`'s `finally` (EOF) both call it.
-* `PostAttemptWorker.shutdown(timeout)` now joins its three slots within one deadline (it was 2 s per slot), so shutdown stays bounded when a slot is inside a model call. The job in flight is released before its next paid request (unchanged).
+* `PostAttemptWorker.shutdown(timeout)` now joins its three slots within one deadline (it was 2 s per slot), so shutdown stays bounded when a slot is inside a model call. A diagnose or embed job in flight is released before its next paid request (unchanged); the gaps slot did not do this until the Codex review's F2 (`docs/reviews/test-thread-leak-codex-review.md`).
+* Codex review F1: jobs a request starts on a thread of their own (Reader cue discovery, library asks, reading-path judgments, intent routings, hints, coverage) were outside `close()`; they now start through `ctx.background_jobs`, which `close()` cancels first and joins last (see the Codex review record).
 
 ### 2.2 Production: the spend-lease heartbeat outlived its last lease
 
