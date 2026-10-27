@@ -1408,6 +1408,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Reader CA5a (ux_reader_compare_ask_v1 §6.2, §13): "find this section in
+    # my other books". A boolean (classified so every new key has a rule):
+    # the Guide's pressed action over reader.correspondents' unchecked search
+    # hits; navigation and display, with no weight, margin or threshold (the
+    # hits keep the search's own order and C0a's per-source bound).
+    _ConfigRule(_exact(
+        "reader.correspondence.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
+        "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
+        "no measurement, scheduling or serving authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

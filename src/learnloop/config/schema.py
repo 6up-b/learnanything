@@ -2752,6 +2752,36 @@ class CurriculumConfig(BaseModel):
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
 
 
+class ReaderCorrespondenceConfig(BaseModel):
+    """Reader CA5a: *find this section in my other books*
+    (ux_reader_compare_ask_v1 §6.2, §6.3; CA5's *also in your books* will
+    share the switch).
+
+    A pressed action in the Guide's footer reads ``reader.correspondents``
+    for the section in view and, while the section has no judged coverage,
+    lists the live search hits grouped by book, each labelled *found by
+    search, not checked* (no treatment words): peek, go there, and compare
+    through the library compare path. *Not about this* records a coverage
+    correction exactly as C0a's ``curriculum.coverage_correct`` does. The
+    action is hidden for a section that has judged coverage. No model call
+    and no write besides the correction. ``enabled`` is the kill switch: off
+    (or with ``curriculum.enabled`` off, which gates the data), the Reader's
+    prompt contract carries no ``correspondence`` key and the Guide is
+    exactly as before CA5a. Navigation and display only: no successor.
+    """
+
+    enabled: bool = True
+
+
+class ReaderConfig(BaseModel):
+    """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
+
+    ``correspondence``: CA5a's (and later CA5's) switch.
+    """
+
+    correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -3997,6 +4027,7 @@ class LearnLoopConfig(BaseModel):
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
+    reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
