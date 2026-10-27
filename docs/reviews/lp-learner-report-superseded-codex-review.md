@@ -169,3 +169,77 @@ test_vault_writer.
   transactional application sequence (a column recorded inside the re-anchor
   transaction) would close it. That is a separate successor, for the owner's
   checkpoint.
+
+## Re-review
+
+Codex on gpt-6.1-sol, job `20261027-134328-0AMLhl`, against `e0fbcb59d`.
+Verdict REOPENED on one new finding; F1, F2 and F3 confirmed fixed.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Replacement and its mastery effect can commit in different orders | confirmed fixed by the re-review | `a1cf03b45` | (as above) |
+| F2 | Medium | Replay assumes claim IDs preserve order across processes | confirmed fixed by the re-review | `a1cf03b45` | (as above) |
+| F3 | Medium | Attempt-free rebuilds discard variance left by superseded claims | confirmed fixed by the re-review | `a1cf03b45`, `63610f28b` | (as above) |
+| F4 | Medium | Long replacement chains crash replay | fixed | `a056c135a` (reproductions `878c14eaa`) | `test_after_what_they_replaced_handles_a_chain_longer_than_the_recursion_limit`, `test_a_report_chain_longer_than_the_recursion_limit_replays_and_seeds` |
+
+### F4: supersession edges resolved iteratively
+
+Reproduced in two tests. The first: a 1,100-claim chain passed to
+`mastery.after_what_they_replaced` newest first, the way
+`Repository.learner_claims` returns rows (`ORDER BY created_at DESC, id`). The
+second: 1,100 sequential `too_easy`-style reports, one second apart, on one
+warm LO through the production seam `replace_claim_and_reanchor`, followed by
+`_ClaimStream.open`, the attempt-free seed
+`initial_mastery_state_for_learning_object` (now) and a rebuild to live. Both
+raised `RecursionError` at `mastery.py:249`. The recursive `key_of` went one
+frame deeper for each predecessor not yet resolved, and reading newest first
+meant no predecessor had been resolved yet. With every report written in the
+same second the ids sort oldest first, which is why a same-second chain did
+not show it.
+
+Fix: `after_what_they_replaced` now does a post-order depth-first walk with an
+explicit stack. A claim's key is settled only after every claim it replaced
+has been settled. The rule itself is unchanged: an unordered claim does not
+descend, a replacing key that ties or sorts first is extended by one
+component, and an edge back onto the path is skipped. The unit test checks
+both shapes. The already-ordered chain keeps its keys. In the fully inverted
+chain each key is its predecessor's key extended by one. The existing
+`test_after_what_they_replaced_moves_only_a_replacement_that_would_sort_first`
+passes unchanged. No new parameter, schema change or frontend change.
+
+### Re-review gate
+
+* `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: done.
+* `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+* Reproductions before the fix:
+  `uv run pytest tests/test_learner_report_superseded.py -k recursion_limit`:
+  2 failed (`RecursionError`). After the fix, with
+  `-k "recursion_limit or after_what_they_replaced"`: 3 passed.
+* Targeted run, `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+  MemorySwapMax=1G -- uv run pytest -n 6 <44 files>`: **766 passed, 4
+  skipped, 6 xfailed** in 185 s. The 44 files are every test file that
+  imports `learner.mastery` or `substrate.replay`, or names
+  `initial_mastery_state_for_learning_object`, `_ClaimStream` or
+  `replace_claim_and_reanchor`, plus the architecture, rebuild-orchestrator,
+  shadow-rebuild, item-authoring and field-priors files:
+  test_anti_double_count, test_architecture, test_capability_residual,
+  test_causal_activity_policy, test_causal_attribution_p1,
+  test_causal_p2_acceptance, test_characterization_mastery_reliability,
+  test_cold_start_revision, test_coverage_denominator_boundary,
+  test_diagnostic_probe_single_use, test_discrimination_profiles,
+  test_doctor, test_durable_promotion_arms, test_evidence_config,
+  test_exam_seeding, test_facet_diagnostics_v03, test_field_priors,
+  test_ingest_instrument_gates, test_irt_difficulty, test_item_authoring,
+  test_item_parameters, test_km2b_consumer_rekey, test_km2_write_path,
+  test_learner_report_superseded, test_lp_claim_fixes,
+  test_lp_claim_fixes_rereview, test_lp_claim_fixes_review, test_mastery,
+  test_misconception_resolution, test_planted_misgrade,
+  test_practice_information, test_primed_attempts, test_rebuild_equivalence,
+  test_rebuild_equivalence_review, test_rebuild_orchestrator, test_replay,
+  test_shadow_rebuild, test_source_append, test_source_set_synthesis,
+  test_state_sync, test_surprise, test_teach_back, test_tutor_promotion_w2,
+  test_voi_stopping.
+* Not run, because nothing changed there: durability lane (no migration or
+  DB code), frontend, cargo, DB reference scripts. Full suite: deferred to
+  the landing gate (owner rule, 2026-10-17).
+* `git diff --check`: clean.
