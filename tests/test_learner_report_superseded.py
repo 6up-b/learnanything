@@ -738,3 +738,61 @@ def test_after_what_they_replaced_moves_only_a_replacement_that_would_sort_first
     assert order["u"] is None and order["v"] == keys["v"]
     no_edges = [{"id": claim_id, "superseded_by": None} for claim_id in keys]
     assert after_what_they_replaced(no_edges, keys) == keys
+
+
+#: Re-review F4: a chain longer than Python's default recursion limit (1000).
+_LONG_CHAIN = 1_100
+
+
+def test_after_what_they_replaced_handles_a_chain_longer_than_the_recursion_limit():
+    """Re-review F4, the ordering rule on its own: a replacement chain longer
+    than the default recursion limit, both already in order (keys unchanged)
+    and fully inverted (each replacing claim's key sorts before what it
+    replaced, so each is lifted just after its predecessor). Resolved
+    iteratively: no ``RecursionError``, and the same keys as the rule states."""
+
+    import sys
+
+    from learnloop.learner.mastery import after_what_they_replaced
+
+    length = max(_LONG_CHAIN, sys.getrecursionlimit() + 100)
+    ids = [f"c{index:05d}" for index in range(length)]  # ids[i] replaced by ids[i + 1]
+    claims = [{"id": claim_id, "superseded_by": ids[index + 1] if index + 1 < length else None}
+              for index, claim_id in enumerate(ids)]
+    # Newest first, as ``Repository.learner_claims`` returns them (``created_at DESC``):
+    # each claim is resolved before the one it replaced is.
+    newest_first = list(reversed(ids))
+    ordered = {claim_id: (1, 5.0, claim_id) for claim_id in newest_first}
+    assert after_what_they_replaced(claims, ordered) == ordered
+    inverted = {claim_id: (1, 5.0, ids[length - 1 - ids.index(claim_id)]) for claim_id in newest_first}
+    order = after_what_they_replaced(claims, inverted)
+    assert order[ids[0]] == inverted[ids[0]]
+    assert all(order[ids[index]] == (*order[ids[index - 1]], 1) for index in range(1, length))
+    assert all(order[ids[index - 1]] < order[ids[index]] for index in range(1, length))
+
+
+def test_a_report_chain_longer_than_the_recursion_limit_replays_and_seeds(tmp_path):
+    """Re-review F4 through the production seam: more sequential reports on one
+    warm LO than the default recursion limit, each replacing the last
+    (``replace_claim_and_reanchor``). The claim stream opens over the chain and
+    the attempt-free seed reads it (before the fix both raised
+    ``RecursionError``), and the vault rebuilds to live."""
+
+    from learnloop.learner.mastery import initial_mastery_state_for_learning_object, replace_claim_and_reanchor
+    from learnloop.substrate.replay import _ClaimStream
+
+    paths, vault, repository = _vault(tmp_path)
+    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
+    item = vault.practice_items["pi_diag_mid"]
+    for index in range(_LONG_CHAIN):
+        replace_claim_and_reanchor(vault, repository, {
+            "claim_type": "self_rating", "scope_type": "learning_object", "scope_id": item.learning_object_id,
+            "evidence_family": "recall", "claimed_level": 0.7 if index % 2 else 0.4,
+            "prior_pseudo_count": 0.5, "source": "learner_report",
+        }, clock=_at(2 + index / 60))  # one second apart: the repository reads them newest first
+    reports = [row for row in _rows(repository) if row["source"] == "learner_report"]
+    assert len(reports) == _LONG_CHAIN and sum(row["superseded_by"] is None for row in reports) == 1
+    attempts = repository.list_attempts_by_learning_object(item.learning_object_id)
+    assert _ClaimStream.open(vault, repository, item.learning_object_id, attempts) is not None
+    initial_mastery_state_for_learning_object(vault, repository, item.learning_object_id, "2026-01-01T00:00:00Z")
+    _rebuilds_to_live(paths, repository)
