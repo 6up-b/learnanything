@@ -3,8 +3,8 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "31c28b737e637a93d687edbb52e10673808e92f4"
-source_commit_timestamp: "2026-10-27T16:09:20-04:00"
+source_commit: "0843991f2b18f27dbcfa32509c74e214a072eab8"
+source_commit_timestamp: "2026-10-27T17:51:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
@@ -119,6 +119,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_reader_ca5a_find_section.py`
 - `tests/test_section_coverage.py`
 - `tests/test_section_coverage_migration.py`
 - `tests/test_section_coverage_review.py`
