@@ -3,13 +3,13 @@ title: "card_lineage_edges"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
+source_commit_timestamp: "2026-10-27T10:26:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite card_lineage_edges"
   - "table card_lineage_edges"
-schema_head: 224
+schema_head: 225
 table_name: "card_lineage_edges"
 table_role: "raw_ledger"
 functionality_status: "active"

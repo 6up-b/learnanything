@@ -3,13 +3,13 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
+source_commit_timestamp: "2026-10-27T10:26:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
   - "table workbench_sessions"
-schema_head: 224
+schema_head: 225
 table_name: "workbench_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -138,6 +138,7 @@ None found by exact static reference scan.
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_library_exercises.py`
+- `tests/test_reader_ca2_astra_handoff_recovery.py`
 - `tests/test_reader_ca2_codex_rereview.py`
 - `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_ca2_fix_orchestrator.py`
@@ -149,7 +150,6 @@ None found by exact static reference scan.
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_rw2d_receipts_migration.py`
 - `tests/test_section_coverage_migration.py`
-- `tests/test_t1_batch_origin_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

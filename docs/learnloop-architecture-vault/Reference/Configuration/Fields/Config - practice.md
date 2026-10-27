@@ -3,8 +3,8 @@ title: "Config - practice"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
+source_commit_timestamp: "2026-10-27T10:26:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `practice.as_printed.enabled` | `true` | boolean | modeled default or validator seed | Turns as printed behavior on or off within reader CA1 (ux_reader_compare_ask_v1 §8, K15): the kill switch of the problem as printed (a crop of only an imported problem's own blocks from the page), the original page (one hint-equivalent before Submit, the existing book count of hints_used), the learner's photo for a card written from a phone photo, and the transcription report (a maintenance notice); display and a notice only, no scoring, scheduling, projection or serving change (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2628`; `src/learnloop_sidecar/handlers/as_printed.py:50`; `src/learnloop_sidecar/handlers/reader.py:713` |
+| `practice.as_printed.enabled` | `true` | boolean | modeled default or validator seed | Turns as printed behavior on or off within reader CA1 (ux_reader_compare_ask_v1 §8, K15): the kill switch of the problem as printed (a crop of only an imported problem's own blocks from the page), the original page (one hint-equivalent before Submit, the existing book count of hints_used), the learner's photo for a card written from a phone photo, and the transcription report (a maintenance notice); display and a notice only, no scoring, scheduling, projection or serving change (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2628`; `src/learnloop_sidecar/handlers/as_printed.py:58`; `src/learnloop_sidecar/handlers/reader.py:713` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
