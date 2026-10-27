@@ -365,3 +365,162 @@ def test_f2_a_report_never_counts_a_line_live_and_archived(tmp_path, monkeypatch
     monkeypatch.setattr(D, "_lines", real_lines)
     after = D.summary(sqlite_path)
     assert (after["denials"], after["archived_denials"]) == (0, 2)
+
+
+# -- 4. Codex verify 2 (2026-10-27): a degraded path never hides a line ------------------------------
+
+
+def test_v2_f1_an_unmarked_upgrade_leaves_the_log_live(tmp_path, monkeypatch):
+    """Verify 2 F1: the mark fails at the command's start. Without a mark the archival cannot tell the
+    lines from before the upgrade from a successor's, so it archives nothing and says so on stderr."""
+
+    from learnloop import one_ask_upgrade
+
+    paths = _vault_at(tmp_path, PREDECESSOR)
+    log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
+
+    def unmarkable(sqlite_path):
+        raise OSError("lock directory unavailable")
+
+    real = one_ask_upgrade.upgrade_to_one_ask
+
+    def then_a_sidecar_denial(*args, **kwargs):
+        result = real(*args, **kwargs)
+        D.append_denials(paths.sqlite_path, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
+        return result
+
+    monkeypatch.setattr(D, "cutover_mark", unmarkable)
+    monkeypatch.setattr(one_ask_upgrade, "upgrade_to_one_ask", then_a_sidecar_denial)
+    result = _upgrade(paths, TAG)
+    assert result.exit_code == 0, result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    assert _archives(paths) == [], "no mark: nothing archived"
+    assert O.denial_count(paths.sqlite_path) == 3, "the successor's denial (and the earlier ones) stay live"
+    assert json.loads(D._lines(log)[-1])["entry"] == SIDECAR_ENTRY
+    assert "AD guard denial log not archived" in result.output
+    # The module agrees: no mark, no archive.
+    assert D.archive_denial_log(paths.sqlite_path, from_version="a", to_version="b", mark=None) is None
+    assert O.denial_count(paths.sqlite_path) == 3 and _archives(paths) == []
+
+
+def _split_log(sqlite_path) -> tuple[D.Cutover, bytes]:
+    """A live log with two marked lines and one appended after the mark (so the archival splits)."""
+
+    log = D.denial_log_path(sqlite_path)
+    log.write_text(json.dumps(OLD_LINE) + "\n" + json.dumps({**OLD_LINE, "table": "mastery_ekf"}) + "\n",
+                   encoding="utf-8")
+    mark = D.cutover_mark(sqlite_path)
+    D.append_denials(sqlite_path, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
+    return mark, log.read_bytes()
+
+
+def _short_writes(monkeypatch, *, at: int, then: str) -> list[int]:
+    """os.write as under RLIMIT_FSIZE or a full disk: call number ``at`` writes a 64-byte prefix and
+    returns its length; later calls write normally (``then="resume"``) or raise EFBIG (``"fail"``)."""
+
+    import errno
+    import os
+
+    real = os.write
+    calls: list[int] = []
+
+    def write(fd, data):
+        calls.append(len(data))
+        n = len(calls) - 1
+        if n < at or (n > at and then == "resume"):
+            return real(fd, data)
+        if n == at:
+            return real(fd, bytes(data[:64]))
+        raise OSError(errno.EFBIG, "File too large")
+
+    monkeypatch.setattr(D.os, "write", write)
+    return calls
+
+
+@pytest.mark.parametrize("at", [0, 1], ids=["archive", "staging"])
+def test_v2_a_short_write_that_resumes_completes_every_byte(tmp_path, monkeypatch, at):
+    """Verify 2 (new Medium): os.write may write fewer bytes than asked. Each write is looped until
+    every byte is down: the archive holds every marked line and the live log every later one."""
+
+    sqlite_path = tmp_path / "state.sqlite"
+    mark, before = _split_log(sqlite_path)
+    cut = mark.length
+    _short_writes(monkeypatch, at=at, then="resume")
+    archive = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark)
+    monkeypatch.undo()
+    assert archive.read_bytes() == before[:cut]
+    assert D.denial_log_path(sqlite_path).read_bytes() == before[cut:]
+    assert not D.denial_log_path(sqlite_path).with_name(D.LOG_NAME + ".tmp").exists()
+
+
+@pytest.mark.parametrize("at", [0, 1], ids=["archive", "staging"])
+def test_v2_a_failed_write_keeps_the_live_log_and_removes_what_it_created(tmp_path, monkeypatch, at):
+    """Verify 2 (new Medium): a write that cannot finish (EFBIG after a short write) fails the
+    archival. The live log is untouched, and the partial archive and staging file are removed."""
+
+    sqlite_path = tmp_path / "state.sqlite"
+    log = D.denial_log_path(sqlite_path)
+    mark, before = _split_log(sqlite_path)
+    _short_writes(monkeypatch, at=at, then="fail")
+    with pytest.raises(OSError):
+        D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark)
+    monkeypatch.undo()
+    assert log.read_bytes() == before, "the live log is untouched"
+    assert D.archived_logs(sqlite_path) == [], "no partial archive"
+    assert not log.with_name(D.LOG_NAME + ".tmp").exists(), "no staging file"
+    assert D.denial_count(sqlite_path) == 3
+
+
+def test_v2_a_failed_archival_never_touches_an_existing_archive(tmp_path, monkeypatch):
+    sqlite_path = tmp_path / "state.sqlite"
+    now = datetime(2026, 10, 27, 12, 0, 0, tzinfo=UTC)
+    D.denial_log_path(sqlite_path).write_text("first\n", encoding="utf-8")
+    first = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=D.cutover_mark(sqlite_path),
+                                 now=now)
+    mark, before = _split_log(sqlite_path)
+    _short_writes(monkeypatch, at=1, then="fail")
+    with pytest.raises(OSError):
+        D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark, now=now)
+    monkeypatch.undo()
+    assert D.archived_logs(sqlite_path) == [first] and first.read_text(encoding="utf-8") == "first\n"
+    assert D.denial_log_path(sqlite_path).read_bytes() == before
+
+
+def test_v2_f2_a_report_without_the_lock_does_not_count_archives(tmp_path, monkeypatch):
+    """Verify 2 F2: the lock cannot be taken. The report gives the live count and marks the archive
+    count unavailable, so a line moved by an archival between the two reads is never counted twice."""
+
+    import os
+    from contextlib import contextmanager
+
+    from learnloop.adaptive_difficulty.report import render_markdown
+
+    sqlite_path = tmp_path / "state.sqlite"
+    log = D.denial_log_path(sqlite_path)
+    log.write_text(json.dumps(OLD_LINE) + "\n" + json.dumps(OLD_LINE) + "\n", encoding="utf-8")
+
+    @contextmanager
+    def no_lock(path):
+        raise PermissionError("lock not writable")
+        yield  # pragma: no cover
+
+    real_lines = D._lines
+
+    def lines_then_an_archival(path):
+        out = real_lines(path)
+        if path == log:  # another process archives between the live read and the archive listing
+            os.rename(log, log.with_name("ad_guard_denials.archived-a-to-b-20261027T120000Z.jsonl"))
+        return out
+
+    monkeypatch.setattr(D, "_log_lock", no_lock)
+    monkeypatch.setattr(D, "_lines", lines_then_an_archival)
+    block = D.summary(sqlite_path)
+    monkeypatch.undo()
+    assert block["denials"] == 2
+    assert block["archived"] is None and block["archived_denials"] is None, block
+    assert block["archived_unavailable"]
+    report = {"generated_at": "now", "algorithm_version": TAG, "records": 0, "auto_flags": [], "honest_lines": [],
+              "scores": {}, "dose_and_burden": {"lines": []}, "identifiability": {"statement": ""}, "guard": block}
+    text = render_markdown(report)
+    assert "refused 2 read(s) or write(s)" in text and "archive counts unavailable" in text
+    assert "are archived" not in text
