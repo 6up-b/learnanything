@@ -144,4 +144,40 @@ re-anchor for global claims), a separate successor.
 
 ## Gate (this stage; the full suite runs once at landing)
 
-See the stage result for the exact commands and counts.
+Every pytest inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G`; no frontend or `src-tauri` change, so no npm/vitest/cargo.
+
+* `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`.
+* `uv run lint-imports --no-cache`: 36 kept, 0 broken (the new module is in
+  the experiments-isolation contract's source list).
+* Targeted pytest, 148 files (`-n 6`, behind `flock
+  /tmp/learnloop-fullsuite.lock`): every test file added or changed, every file
+  that names the changed modules or functions (learner_claims, the claim
+  seeds and re-anchor, replay, retire_item, rung-variant requests, the
+  learner profile, field priors, the router card, AD replay, the upgrade
+  chain, activation journal), the files naming the head fixture, and the
+  contract tests (architecture, CLI help snapshot, config defaults
+  snapshot/config refactor, coordinated migrations, desktop RPC contract,
+  mobile allowlist, public-tip guards, table_roles, tracked fixture databases,
+  AD protected tables, sidecar serializer snapshot and contract, sqlite file
+  copies, e0 isolation): **8535 passed, 10 failed, 17 skipped, 6 xfailed**
+  (42:40). The 10: 7 chain pins that compare a version set to an explicit
+  set ending in `LATEST_ALGORITHM_VERSION`, fixed after (below), and 3 in
+  `tests/test_codex_lockdown_round2.py`, the known Codex CLI 0.164.0
+  environment break (fail on main too; another stage fixes them).
+* Rerun of the 9 files with failures (`-n 4`): 207 passed, 4 failed (the 3
+  Codex lockdown + `test_recurrence_commands.py::test_successor_vocabulary`,
+  fixed after), then `tests/test_recurrence_commands.py`: 47 passed.
+* Durability: `-m durability` on the migration tests touched
+  (`test_learner_claim_superseded_migration.py`,
+  `test_learner_claim_application_migration.py`,
+  `test_section_coverage_migration.py`, `test_reader_ca2_fix_orchestrator.py`,
+  `test_migrations.py`): 3 passed; `--durable-sqlite
+  tests/test_learner_report_superseded.py`: 50 passed, 2 xfailed.
+* DB reference: `db_generate_reference.py` then `db_validate_reference.py`
+  (errors: []), at `SCHEMA_HEAD = 225`.
+* CLI help snapshot regenerated inside pytest (only `upgrade` changed).
+
+No paid or live calls: every script outside pytest ran under `env -i` with
+empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR; no owner-vault copies (none
+in this stage); synthetic helpers.py vaults only.

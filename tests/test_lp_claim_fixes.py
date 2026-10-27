@@ -129,7 +129,7 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     assert UPGRADE_PREDECESSOR == PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
     # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
     assert TAG == "mvp-0.33"
-    assert CLAIM_FIXES_VERSIONS == frozenset({TAG, "mvp-0.34", LATEST_ALGORITHM_VERSION})
+    assert CLAIM_FIXES_VERSIONS == frozenset({TAG, "mvp-0.34", "mvp-0.35", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 

@@ -233,9 +233,9 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
     # The kept replaced claims (mvp-0.36, after Reader CA2's mvp-0.35) is the latest.
-    from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
-    assert f"{PREDECESSOR} -> {ONE_ASK_ALGORITHM_VERSION}" in result.output
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output

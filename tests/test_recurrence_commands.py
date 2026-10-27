@@ -123,6 +123,7 @@ def test_successor_vocabulary():
         VOI_STOPPING_ALGORITHM_VERSION,
         WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
         REPLAY_LEDGER_ALGORITHM_VERSION,
+        SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     )
 
     assert RECURRENCE_GROUP_ALGORITHM_VERSION == "mvp-0.12"
@@ -145,6 +146,7 @@ def test_successor_vocabulary():
         ELIGIBILITY_DECISION_ALGORITHM_VERSION, INTENT_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
         WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION, READING_PATH_PLAN_ALGORITHM_VERSION,
         CLAIM_FIXES_ALGORITHM_VERSION, REPLAY_LEDGER_ALGORITHM_VERSION, ONE_ASK_ALGORITHM_VERSION,
+        SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -164,7 +166,7 @@ def test_successor_vocabulary():
     assert CLAIM_FIXES_ALGORITHM_VERSION == "mvp-0.33"
     assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
     # Reader CA2's one Ask (mvp-0.35), then the kept replaced claims (mvp-0.36, the latest), follow them all.
-    assert LATEST_ALGORITHM_VERSION == ONE_ASK_ALGORITHM_VERSION == "mvp-0.36"
+    assert ONE_ASK_ALGORITHM_VERSION == "mvp-0.35" and LATEST_ALGORITHM_VERSION == "mvp-0.36"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
