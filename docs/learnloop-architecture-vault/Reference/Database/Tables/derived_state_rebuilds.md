@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -21,15 +21,14 @@ source_paths:
   - "migrations/009_derived_state_rebuilds.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/one_ask_upgrade.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/regrade_contract_upgrade.py"
 tags:
   - "learnloop/database/table"
@@ -94,12 +93,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/attempt_content_state_upgrade.py`
 - `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/one_ask_upgrade.py`
 - `src/learnloop/placement/report.py`
+- `src/learnloop/superseded_claims_upgrade.py`
 
 ### Direct SQL writers
 
@@ -124,12 +123,12 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_attempt_content_state_successor.py`
 - `tests/test_batch3_landing.py`
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_ingest_instrument_gates.py`
+- `tests/test_learner_report_superseded.py`
 - `tests/test_method_explicit_upgrade.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp011_upgrade.py`

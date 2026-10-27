@@ -10,7 +10,9 @@ parts the check reads (found 2026-10-15, docs/reviews/codex-isolation-app-server
   creates a table without a transport, and every subcommand (the app-server
   launch included) then fails with ``invalid transport in `mcp_servers.<name>```;
 * ``features list`` prints ``name  stage  true|false`` rows; an unknown
-  ``-c features.<key>`` is ignored;
+  ``-c features.<key>`` is ignored (and, in codex-cli 0.164.0, a retired
+  flag's: ``ignored_features`` with ``feature_stages`` ``removed``);
+* ``--version`` prints ``codex-cli <version>``;
 * ``-c``/``--config`` (as ``-c V``, ``-cV``, ``-c=V``, ``--config V``,
   ``--config=V``), ``--enable`` and ``--disable`` are global options, read
   wherever they stand (after ``app-server`` too); a later ``-c`` wins, and the
@@ -238,9 +240,12 @@ if command == "mcp list":
         entries.append(entry)
     print(json.dumps(entries, indent=2))
 elif command == "features list":
+    stages = spec.get("feature_stages", {})
     for feature in spec["features"]:
         if feature not in spec.get("missing_features", ()):
-            print("%-24s stable   %s" % (feature, "false" if feature in off else "true"))
+            print("%-24s %-18s %s" % (feature, stages.get(feature, "stable"), "false" if feature in off else "true"))
+elif args == ["--version"]:
+    print(spec.get("version", "codex-cli 0.163.0"))
 elif command == "debug models" and "--bundled" in args:
     print(json.dumps(spec["catalog"]))
 elif command == "debug models":
@@ -366,7 +371,9 @@ def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
     ``slow_seconds``, default 0.5, then answers), ``ignored_features`` (an
     override Codex does not act on), ``missing_features`` (rows ``features
     list`` omits), ``features`` (the rows ``features list`` prints, default
-    :data:`FEATURES`), ``catalog`` (what ``debug models --bundled`` prints,
+    :data:`FEATURES`), ``feature_stages`` (name -> the stage column, default
+    ``stable``; codex-cli 0.164.0 prints ``removed`` for a retired flag whose
+    override it ignores), ``version`` (what ``--version`` prints), ``catalog`` (what ``debug models --bundled`` prints,
     default :func:`bundled_catalog`), ``rejects_overrides`` (config keys this
     CLI refuses to load, as a June-era CLI refuses ``agents.enabled``),
     ``user_catalog`` / ``forced_catalog`` (``debug models`` without

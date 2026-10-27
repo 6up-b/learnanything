@@ -244,6 +244,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "shared_certainty_lcb",
         "response_posterior_json criterion_posteriors_json credible_interval_json quarantine_state "
         "fallback_reason"),
+    # A calibration model's alphas are numbers keyed by emission, as the model's reliability bins are.
+    "grader_calibration_alphas": (
+        "id model_id true_class alpha_json created_at",
+        ""),
     # A calibration model's provenance and evidence manifest name its policy, bundle and evidence
     # counts (``attempts.grader_calibration``), never an answer or an item: metadata.
     "grader_calibration_models": (
@@ -323,7 +327,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         ""),
     "learner_claims": (
         "id claim_type scope_type scope_id evidence_family claimed_level prior_pseudo_count source "
-        "created_at applied_after_attempts",
+        "created_at applied_after_attempts superseded_by",
         ""),
     "learner_gap_check_advances": (
         "id gap_id learning_object_id intent assumption_id original_due advanced_due algorithm_version created_at",
@@ -496,6 +500,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "expected_information_gain readiness_factor algorithm_version created_at chosen_at "
         "selection_propensity exploration_flag selection_temperature propensity_kind",
         "components_json reward_debug_json target_scope_json plain_english_json"),
+    # The offer's candidate ids are a JSON list of ids; its entry surface is classified as
+    # ``submission_intents``' is.
+    "scheduler_offer_receipts": (
+        "slate_id returned_candidate_ids_json collection_version created_at",
+        "entry_surface"),
     "schema_migrations": (
         "version name applied_at",
         ""),

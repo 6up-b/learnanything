@@ -5697,15 +5697,60 @@ class Repository(
             connection.commit()
         return int(count)
 
-    def learner_claims(self) -> list[dict[str, Any]]:
+    def learner_claims(self, *, include_superseded: bool = False) -> list[dict[str, Any]]:
+        """The claims in force (newest first); ``include_superseded`` adds the replaced ones.
+
+        A claim another claim replaced (``superseded_by``, successor mvp-0.36,
+        migration 225) is kept for replay only: every live reader reads the
+        claims in force, which are exactly the rows the predecessor's replace
+        seam left (it deleted the replaced ones). Replay passes
+        ``include_superseded`` and applies each claim at its own point."""
+
         with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM learner_claims
-                ORDER BY created_at DESC, id
-                """
-            ).fetchall()
-        return [dict(row) for row in rows]
+            rows = connection.execute("SELECT * FROM learner_claims ORDER BY created_at DESC, id").fetchall()
+        claims = [dict(row) for row in rows]
+        if include_superseded:
+            return claims
+        # Filtered here, not in SQL: a database attached below migration 225 has no such column.
+        return [claim for claim in claims if claim.get("superseded_by") is None]
+
+    def replace_learner_claim(
+        self,
+        claim: Mapping[str, Any],
+        *,
+        keep_replaced: bool,
+        clock: Clock | None = None,
+    ) -> str:
+        """The replace seam: ``claim`` replaces the in-force claims of its source on its scope; its id.
+
+        One source keeps one claim in force per scope (init-wizard global
+        claims, rung-variant requests and too-easy/too-hard reports per LO).
+        ``keep_replaced`` (the successor mvp-0.36,
+        ``mastery.replaced_claims_kept``): the replaced rows stay, marked
+        ``superseded_by`` the new claim's id in the transaction that inserts
+        it, so replay can apply each at its own time. Otherwise (below the
+        tag) they are deleted first, exactly as the predecessor's seam
+        (:meth:`delete_learner_claims`, then :meth:`insert_learner_claim`)."""
+
+        if not keep_replaced:
+            self.delete_learner_claims(
+                source=str(claim["source"]), scope_type=str(claim["scope_type"]), scope_id=claim.get("scope_id"),
+            )
+            return self.insert_learner_claim(claim, clock=clock)
+        with self.atomic():
+            claim_id = self.insert_learner_claim(claim, clock=clock)
+            query = (
+                "UPDATE learner_claims SET superseded_by = ? WHERE source = ? AND scope_type = ? "
+                "AND superseded_by IS NULL AND id <> ?"
+            )
+            params: list[Any] = [claim_id, claim["source"], claim["scope_type"], claim_id]
+            if claim.get("scope_id") is not None:
+                query += " AND scope_id = ?"
+                params.append(claim["scope_id"])
+            with self.connection() as connection:
+                connection.execute(query, params)
+                connection.commit()
+        return claim_id
 
     def delete_learner_claims(
         self, *, source: str, scope_type: str, scope_id: str | None = None

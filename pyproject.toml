@@ -523,6 +523,7 @@ source_modules = [
     "learnloop.sources_upgrade",
     "learnloop.stuck_prompt_upgrade",
     "learnloop.substrate",
+    "learnloop.superseded_claims_upgrade",
     "learnloop.symbolic_view",
     "learnloop.text_canon",
     "learnloop.tui",

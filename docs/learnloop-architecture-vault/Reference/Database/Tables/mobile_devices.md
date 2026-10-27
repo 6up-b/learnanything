@@ -3,8 +3,8 @@ title: "mobile_devices"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_devices"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/171_mobile_capture.sql"
   - "src/learnloop/capture/devices.py"
-  - "src/learnloop/db/stores/session_ownership.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -47,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/171_mobile_capture.sql`.
-- **Schema touched by:** `171_mobile_capture.sql`, `225_session_ownership.sql`.
+- **Schema touched by:** `171_mobile_capture.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,7 +83,6 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/capture/devices.py`
-- `src/learnloop/db/stores/session_ownership.py`
 
 ### Direct SQL writers
 
@@ -101,7 +99,6 @@ None found by exact static reference scan.
 
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_mobile_pairing.py`
-- `tests/test_session_ownership.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

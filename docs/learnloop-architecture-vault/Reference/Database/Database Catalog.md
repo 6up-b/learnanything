@@ -3,15 +3,15 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
 schema_head: 225
-table_count: 354
+table_count: 353
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -27,7 +27,7 @@ tags:
 
 # Database Catalog
 
-This is the exhaustive map of the 354 user tables at migration head 225. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 353 user tables at migration head 225. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 354 user tables at migration head 225. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 152 |
 | [[Table Roles#Derived|`derived`]] | 23 |
-| [[Table Roles#Receipt|`receipt`]] | 77 |
+| [[Table Roles#Receipt|`receipt`]] | 76 |
 | [[Table Roles#Workflow|`workflow`]] | 92 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 354 user tables at migration head 225. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 341 |
+| `active` | 340 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -252,8 +252,7 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/scheduler_slate_candidates|scheduler_slate_candidates]] — `workflow` · `active` · Holds candidates for scheduler slate while policy selects or reviews one so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `slate_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_slates|scheduler_slates]] — `workflow` · `active` · Gives scheduler slate a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `chosen_practice_item_id`, `chosen_attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/session_checkpoints|session_checkpoints]] — `workflow` · `active` · Tracks recoverable checkpoints within a learning session. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `current_practice_item_id`, `current_answer`, making the operational relationship explicit.
-- [[Reference/Database/Tables/session_handoffs|session_handoffs]] — `receipt` · `active` · Gives session handoff a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `from_device_id`, `to_device_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/sessions|sessions]] — `workflow` · `active` · Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `owner_device_id`, `started_at`, `energy`, making the operational relationship explicit.
+- [[Reference/Database/Tables/sessions|sessions]] — `workflow` · `active` · Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `started_at`, `energy`, `sleep_quality`, making the operational relationship explicit.
 - [[Reference/Database/Tables/shadow_component_events|shadow_component_events]] — `receipt` · `dormant-shadow` · Records the lifecycle of deliberately firewalled shadow scoring components. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `promotion_evidence_id`, `event_kind`, `component`, making the operational relationship explicit.
 
 ## Activity Substrate

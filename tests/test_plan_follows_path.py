@@ -125,9 +125,9 @@ def test_the_successor_is_one_constant_after_rw2d():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.reading_path_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    # LP-min (a)'s claim fixes (mvp-0.33) and rebuild equivalence (mvp-0.34) and Reader CA2 (mvp-0.35) and mobile PR-4 (mvp-0.36, the latest) landed after it and keep it.
+    # LP-min (a)'s claim fixes (mvp-0.33) and rebuild equivalence (mvp-0.34) and Reader CA2 (mvp-0.35) and the kept replaced claims (mvp-0.36) and mobile PR-4 (mvp-0.37, the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.36"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.37"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
     assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)

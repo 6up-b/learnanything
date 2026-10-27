@@ -130,8 +130,17 @@ class _ClaimStream:
     (review F5): after every attempt that sorts before it. Claims at one point
     keep their ``(created_at, id)`` order.
 
-    Claims are mutable rows (a re-claim replaces the earlier one), so a
-    replaced claim's earlier version is not replayed.
+    A re-claim replaces the earlier claim of its source on its scope. Below
+    the successor mvp-0.36 the replaced row was deleted, so it is not
+    replayed (a rebuild then disagrees with live wherever its re-anchor had
+    moved mastery). From the successor on it is kept, marked
+    ``superseded_by``: it is placed and applied like any claim, and every
+    point at or after the replacing claim's reads the replacing claim in its
+    place. The replacing claim was applied after the one it replaces (its
+    replacement and re-anchor are one transaction, review F1), and replay
+    places it after it whatever its stamp and id say (review F2:
+    ``mastery.after_what_they_replaced``; a ULID is monotonic within one
+    process only).
     """
 
     def __init__(
@@ -155,11 +164,20 @@ class _ClaimStream:
         if vault.learning_objects.get(learning_object_id) is None:
             return None
         attempt_keys = [_order_key(attempt) for attempt in attempts]
-        positions: dict[str, tuple[int, float, str] | None] = {}
         pending: list[tuple[tuple[int, float, str], dict[str, Any]]] = []
-        for claim in learner_mastery.covering_claims(vault, repository, learning_object_id):
-            position = _claim_position(claim, learning_object_id, attempt_keys)
-            positions[str(claim.get("id") or "")] = position
+        # Replaced claims too (successor mvp-0.36): each was applied live at its
+        # own point; the seed and each re-anchor read a replaced claim only
+        # until the claim that replaced it was made (``mastery._in_force``).
+        claims = learner_mastery.covering_claims(vault, repository, learning_object_id, include_superseded=True)
+        # Each replacing claim after the claim it replaced (review F2): a
+        # replacement from another process in the same second, at the same
+        # attempt count, may carry an id that sorts first.
+        positions: dict[str, tuple[int, float, str] | None] = learner_mastery.after_what_they_replaced(
+            claims,
+            {str(claim.get("id") or ""): _claim_position(claim, learning_object_id, attempt_keys) for claim in claims},
+        )
+        for claim in claims:
+            position = positions[str(claim.get("id") or "")]
             if position is None:
                 continue  # unordered: it can only act through the seed
             if str(claim.get("source")) not in learner_mastery.REANCHORING_CLAIM_SOURCES:

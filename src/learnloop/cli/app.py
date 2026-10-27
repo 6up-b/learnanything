@@ -9,6 +9,7 @@ from learnloop.algorithm_versions import (
     ONE_ASK_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
     REPLAY_LEDGER_ALGORITHM_VERSION,
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -99,7 +100,8 @@ def upgrade(
                 "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
                 f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, "
                 f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
-                f"{ONE_ASK_ALGORITHM_VERSION} or {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}); default: the latest."
+                f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION} or "
+                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -225,11 +227,16 @@ def upgrade(
     on the Reader's cold paths too, and makes help taken on a cold follow-up
     practice with help instead of refusing the submit, over an mvp-0.34 vault
     (or an mvp-0.9 to mvp-0.33 vault through the chain; kill switch:
-    ``ask.cold_help_converts = false``). ``--to mvp-0.36`` (default, the
-    latest successor; mobile PR-4) has an answer update only its question's
-    review schedule, so it never reopens a question that was retired, parked
-    or set aside, or brings back its old text, over an mvp-0.35 vault (or an
-    mvp-0.9 to mvp-0.34 vault through the chain; kill switch:
+    ``ask.cold_help_converts = false``). ``--to mvp-0.36`` (the
+    latest successor) keeps a learner report or starting level you replace
+    with a newer one, so a rebuild applies each at the time you gave it and
+    reproduces your live estimates, over an mvp-0.35 vault (or an mvp-0.9 to
+    mvp-0.34 vault through the chain; no kill switch: nothing you see
+    changes). ``--to mvp-0.37`` (default, the latest successor; mobile PR-4)
+    has an answer update only its question's review schedule, so it never
+    reopens a question that was retired, parked or set aside, or brings back
+    its old text, over an mvp-0.36 vault (or an mvp-0.9 to mvp-0.35 vault
+    through the chain; kill switch:
     ``practice.attempt_keeps_content_state = false``)."""
 
     from learnloop.ops.vault_upgrade import (
@@ -342,6 +349,10 @@ def upgrade(
         from learnloop.one_ask_upgrade import upgrade_to_one_ask
 
         result = upgrade_to_one_ask(_root(vault))
+    elif to == SUPERSEDED_CLAIMS_ALGORITHM_VERSION:
+        from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
+
+        result = upgrade_to_superseded_claims(_root(vault))
     elif to == ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION:
         from learnloop.attempt_content_state_upgrade import upgrade_to_attempt_content_state
 
@@ -353,8 +364,8 @@ def upgrade(
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
             f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, "
             f"{READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, "
-            f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION} or "
-            f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}."
+            f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
+            f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION} or {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

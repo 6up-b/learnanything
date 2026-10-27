@@ -3,8 +3,8 @@ title: "grade_interpretations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_interpretations"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ad23_fix_review.py`
+- `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`

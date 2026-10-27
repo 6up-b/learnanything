@@ -19,8 +19,9 @@ everything the predecessor means PLUS this:
   out of serving instead of reopening until the next sync.
 
 The tag is ONE constant (``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION``,
-``mvp-0.36``). Built on main at ``mvp-0.35`` (Reader CA2); if another
-successor lands first, the landing renumbers it after that one, and
+``mvp-0.37``). Built on main at ``mvp-0.35`` (Reader CA2) as ``mvp-0.36``;
+the kept replaced claims' successor (``learnloop.superseded_claims_upgrade``,
+``mvp-0.36``) landed first, so the landing renumbered it after that one, and
 :data:`PREDECESSOR` and its upgrade follow.
 
 The upgrade:
@@ -64,16 +65,16 @@ from pathlib import Path
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
-    ONE_ASK_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.one_ask_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.one_ask_upgrade import upgrade_to_one_ask
+from learnloop.superseded_claims_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.superseded_claims_upgrade import upgrade_to_superseded_claims
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -81,8 +82,8 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = ONE_ASK_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_one_ask
+PREDECESSOR = SUPERSEDED_CLAIMS_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_superseded_claims
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

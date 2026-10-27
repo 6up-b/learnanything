@@ -12,6 +12,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
+from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
@@ -50,7 +51,10 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     after = _schema(database)
     # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
     # interactive_figures rebuilt) follow on the way to head.
-    assert {name for name in before if before[name] != after.get(name)} == CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES
+    # The successor mvp-0.36's 225 (one learner_claims column) and mobile PR-4's 226 too.
+    assert {name for name in before if before[name] != after.get(name)} == (
+        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES
+    )
     assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 

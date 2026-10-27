@@ -334,7 +334,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     revalidated against the current predicate (A8; Codex verify F19, F20). With the predicate
     unavailable the view is empty and the replay reads no item, attempt or receipt."""
 
-    from learnloop.field.outcomes import measurement_masses, wholly_unassessed
+    from learnloop.field.outcomes import wholly_unassessed
     from learnloop.adaptive_difficulty.material_view import material_view
 
     view = material_view(vault, repository, view)
@@ -359,7 +359,8 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     ledger = view.ledger(connection)
     # Whether the grade measures anything, resolved from the ledger alone (Codex review F1): a
     # frozen-input attempt skips field's revision resolution, never its assessment rule.
-    masses = measurement_masses(connection, vault, ledger.values())
+    # Read through the view, in the rules (a legacy interpretation's references are the incumbent's).
+    masses = view.measurement_masses(connection, ledger)
     held = view.held_for_review(connection)
     serve_inputs: dict[str, dict[str, Any]] = {}
     for row in view.rows(connection, receipt_store.SERVE_INPUTS):
@@ -539,9 +540,14 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     claims: list[ClaimEvent] = []
     if serving_store.has_table(connection, "learner_claims"):
+        # The claims in force, as before the successor mvp-0.36 kept replaced
+        # rows (``superseded_by``; migration 225): AD reads what it always read.
+        in_force = (" WHERE superseded_by IS NULL "
+                    if "superseded_by" in {row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")}
+                    else " ")
         cursor = connection.execute(
-            "SELECT id, scope_type, scope_id, claimed_level, source, created_at FROM learner_claims "
-            "ORDER BY created_at, id")
+            "SELECT id, scope_type, scope_id, claimed_level, source, created_at FROM learner_claims"
+            f"{in_force}ORDER BY created_at, id")
         concept_los: dict[str, list[str]] = {}
         for lo in vault.learning_objects.values():
             concept_los.setdefault(str(lo.concept), []).append(lo.id)

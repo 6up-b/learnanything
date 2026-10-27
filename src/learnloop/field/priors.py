@@ -14,7 +14,10 @@ from learnloop.learner.mastery import initial_mastery_state_for_learning_object
 
 def load_frozen_priors(connection, attempts, config):
     attempts = tuple(attempts)
-    claims = [dict(row) for row in connection.execute("SELECT * FROM learner_claims")]
+    # The claims in force: a replaced claim (successor mvp-0.36, ``superseded_by``)
+    # stays out, as when the replace seam deleted it.
+    claims = [dict(row) for row in connection.execute("SELECT * FROM learner_claims")
+              if dict(row).get("superseded_by") is None]
     cutoff = min((parse_utc(row.observed_at) for row in attempts), default=None)
     eligible, later, unmapped = [], 0, 0
     for claim in claims:
@@ -31,7 +34,10 @@ def load_frozen_priors(connection, attempts, config):
             id=row.lo_id, subjects=[row.features.subject_id], concept=None,
         ))
     vault = SimpleNamespace(config=config, learning_objects=los)
-    repository = SimpleNamespace(learner_claims=lambda: eligible)
+    # The frozen priors read the claims in force only, replaced ones never
+    # (``include_superseded`` is accepted and ignored): the same priors as
+    # when the replace seam deleted them.
+    repository = SimpleNamespace(learner_claims=lambda include_superseded=False: eligible)
     lo_priors = {}
     for lo_id in sorted(los):
         state = initial_mastery_state_for_learning_object(vault, repository, lo_id, "frozen")
@@ -39,7 +45,7 @@ def load_frozen_priors(connection, attempts, config):
     # The subject-level factor uses only claims covering the whole subject;
     # LO-specific claims seed the incumbent, not unrelated LO predictions.
     subject_claims = [c for c in eligible if c["scope_type"] != "learning_object"]
-    repository = SimpleNamespace(learner_claims=lambda: subject_claims)
+    repository = SimpleNamespace(learner_claims=lambda include_superseded=False: subject_claims)
     general_means = {}
     for subject in sorted({row.features.subject_id for row in attempts}):
         subject_vault = SimpleNamespace(

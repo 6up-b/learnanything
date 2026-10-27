@@ -84,11 +84,11 @@ def test_the_sources_successors_follow_the_route_check_and_keep_every_predecesso
         SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION,
         DECIDER_TIER1_ALGORITHM_VERSION,
     )
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.36"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.37"
     assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset(
-        {"mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36"}
+        {"mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37"}
     )
-    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36"})
+    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37"})
     # The chain is linear: each means every predecessor's semantics PLUS its own.
     for version in (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION):
         for versions in (
@@ -190,7 +190,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.17 -> mvp-0.36" in result.output
+    assert "mvp-0.17 -> mvp-0.37" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output

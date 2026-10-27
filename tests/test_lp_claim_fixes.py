@@ -123,9 +123,9 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     from learnloop.claim_fixes_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    # Rebuild equivalence's mvp-0.34 and Reader CA2's mvp-0.35 and mobile PR-4's mvp-0.36 (the latest) landed after it and keep it.
+    # Rebuild equivalence's mvp-0.34, Reader CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) landed after it and keep it.
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.36"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.37"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
     # Built as mvp-0.32 beside RW7b's successor; RW7b landed first, so the landing renumbered it.
     assert TAG == "mvp-0.33"

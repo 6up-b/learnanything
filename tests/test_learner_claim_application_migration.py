@@ -71,9 +71,10 @@ def test_221_adds_the_claim_point_column_and_nothing_else(tmp_path):
     assert set(after) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
-        assert [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")][-1] == (
-            "applied_after_attempts"
-        )
+        # The successor mvp-0.36's 225 adds superseded_by after it on the way to head.
+        assert [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")][-2:] == [
+            "applied_after_attempts", "superseded_by",
+        ]
         # A claim from before 221 has no recorded point.
         assert connection.execute(
             "SELECT applied_after_attempts FROM learner_claims WHERE id = 'c_old'"

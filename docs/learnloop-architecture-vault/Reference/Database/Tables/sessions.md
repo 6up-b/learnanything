@@ -3,8 +3,8 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
@@ -21,16 +21,17 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/ai/chatgpt_plan/oauth.py"
   - "src/learnloop/ai/isolation.py"
+  - "src/learnloop/ai/providers/codex_lockdown.py"
   - "src/learnloop/cli/hints.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/session_ownership.py"
+  - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -45,7 +46,7 @@ tags:
 
 ## Why it exists
 
-Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `owner_device_id`, `started_at`, `energy`, making the operational relationship explicit. ^table-purpose
+Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `started_at`, `energy`, `sleep_quality`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
@@ -54,7 +55,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`, `161_collection_contract.sql`, `225_session_ownership.sql`.
+- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`, `161_collection_contract.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -71,8 +72,6 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `available_minutes` | `INTEGER` | no | — | — | Stored value |
 | `notes_md_path` | `TEXT` | no | — | — | Stored value |
 | `updated_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
-| `owner_device_id` | `TEXT` | no | — | — | Application-validated soft reference |
-| `owner_generation` | `INTEGER` | yes | `0` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -102,13 +101,11 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/db/stores/session_ownership.py`
 
 ### Upstream callers of the repository access surface
 
@@ -116,7 +113,6 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
@@ -132,6 +128,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/reader_tutor.py`
+- `src/learnloop_sidecar/handlers/sessions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -141,6 +138,7 @@ Indexes and uniqueness:
 - `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
 - `tests/recap_fixtures.py`
+- `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_ai_tool_isolation.py`
 - `tests/test_calibration_sessions.py`
 - `tests/test_contrast_pairs.py`
@@ -157,7 +155,6 @@ Indexes and uniqueness:
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_init.py`
-- `tests/test_library_exercises.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -183,7 +180,7 @@ CREATE TABLE sessions (
   available_minutes INTEGER CHECK (available_minutes IS NULL OR available_minutes >= 0),
   notes_md_path TEXT,
   updated_at TEXT
-, owner_device_id TEXT, owner_generation INTEGER NOT NULL DEFAULT 0);
+);
 ```
 
 ## Related notes

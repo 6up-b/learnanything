@@ -3,8 +3,8 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/reentry.py"
-  - "src/learnloop/db/stores/session_ownership.py"
+  - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -101,7 +101,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/hints/state.py`
@@ -130,7 +129,6 @@ Indexes and uniqueness:
 - `tests/test_owner_capture_1025.py`
 - `tests/test_placement_sidecar.py`
 - `tests/test_repositories.py`
-- `tests/test_session_ownership.py`
 - `tests/test_show.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_sidecar_item_authoring.py`

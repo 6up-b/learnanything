@@ -517,13 +517,38 @@ REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 # below the tag: both rules exactly as the predecessor).
 ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 
-# mvp-0.36 (mobile PR-4: a live attempt writes only its scheduling columns;
+# mvp-0.36 (replaced learner claims kept; docs/reviews/lp-learner-report-superseded.md),
+# on top of mvp-0.35 (Reader CA2; the chain stays linear: mvp-0.36 means
+# everything mvp-0.35 means PLUS this). The successor of the Medium recorded
+# at the rebuild-equivalence landing: a learner report (a too_easy/too_hard
+# retirement or a rung-variant request) or a new starting level replaces the
+# earlier claim of its source on the same scope (the replace seam). Below the
+# tag the seam DELETED that claim, whose live re-anchor had already moved
+# mastery, so replay could not apply it and a rebuild disagreed with live.
+# From the tag on the seam keeps the replaced row, marked
+# ``learner_claims.superseded_by`` (migration 225): every live reader reads
+# only the rows no claim replaced, exactly what it read before; replay applies
+# each claim at its own point and, at every point, reads a replaced claim
+# only until the claim that replaced it was made. A live write is unchanged
+# except that nothing is deleted; what moves is the replayed mastery of an LO
+# whose claim was replaced after the tag, toward the live value. No kill
+# switch: no live decision changes, and switching replay back would only
+# restore a known rebuild/live divergence. Rows deleted below the tag are
+# gone; replay cannot apply them.
+# Also under this tag's note: the AD guard offer-receipts fix (main cdd0a3c4f)
+# restored AD serving in place, without its own tag, on vaults holding an
+# answer picked from a published offer; it was accepted by the orchestrator's
+# ruling under the owner's proportionate bar (docs/reviews/ad-guard-offer-receipts.md §10).
+SUPERSEDED_CLAIMS_ALGORITHM_VERSION = "mvp-0.36"
+
+# mvp-0.37 (mobile PR-4: a live attempt writes only its scheduling columns;
 # docs/specs/spec_mobile_tailnet_v1.md §3.3 PR-2/PR-4, §9.3;
-# docs/reviews/mobile-pr3-pr4.md and its Codex review F4), on top of mvp-0.35
-# (Reader CA2; the chain stays linear: mvp-0.36 means everything mvp-0.35
-# means PLUS this). Built on main at mvp-0.35; if another successor lands
-# first, the landing renumbers it after that one (the tag lives in this ONE
-# constant: the upgrade, the CLI and the gate all read it). Content sync owns
+# docs/reviews/mobile-pr3-pr4.md and its Codex review F4), on top of mvp-0.36
+# (the kept replaced learner claims; the chain stays linear: mvp-0.37 means
+# everything mvp-0.36 means PLUS this). Built on main at mvp-0.35 as
+# mvp-0.36; renumbered after the learner-report successor at its landing
+# onto main (the tag lives in this ONE constant: the upgrade, the CLI and the
+# gate all read it). Content sync owns
 # a practice item row's ``active`` flag and ``content_hash``, and an attempt
 # owns the memory state: from the tag on, a live attempt's write to an
 # existing row takes only the scheduling columns and the last-attempt time,
@@ -541,7 +566,7 @@ ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 # closed outside the ledger. Kill switch: ``practice.attempt_keeps_content_state``
 # (off, or below the tag: the attempt writes the whole row exactly as the
 # predecessor).
-ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.36"
+ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -577,6 +602,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     CLAIM_FIXES_ALGORITHM_VERSION,
     REPLAY_LEDGER_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
 )
 
@@ -734,6 +760,11 @@ REPLAY_LEDGER_VERSIONS: frozenset[str] = successors_from(REPLAY_LEDGER_ALGORITHM
 # ``ask.cold_help_converts``; Reader CA2). Every later successor keeps it;
 # gates must use this set, never equality.
 ONE_ASK_VERSIONS: frozenset[str] = successors_from(ONE_ASK_ALGORITHM_VERSION)
+
+# Versions whose replace seam keeps the replaced learner claim as a
+# superseded row (``learner_claims.superseded_by``) instead of deleting it.
+# Every later successor keeps it; gates must use this set, never equality.
+SUPERSEDED_CLAIMS_VERSIONS: frozenset[str] = successors_from(SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
 
 # Versions whose live attempts write only their item row's scheduling columns
 # (``active`` only closes, ``content_hash`` untouched; behind

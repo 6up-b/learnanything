@@ -79,7 +79,9 @@ from learnloop.ai.providers.codex_lockdown import (
     catalog_pin_path,
     catalog_violations,
     check_fingerprint,
+    cli_version_text,
     disabled_features,
+    feature_refusal,
     feature_violations,
     install_on_sdk,
     item_violations,
@@ -605,7 +607,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     f"Codex MCP server {names} stays enabled under the isolated turn's overrides; "
                     "refusing the isolated turn."
                 )
-        features = self._feature_states(root, overrides, **context)
+        features, stages = self._feature_listing(root, overrides, **context)
         extra = unclassified_features_on(features, shell=shell)
         if extra:
             # A newer CLI's feature the lockdown has not reviewed: off too, then
@@ -614,13 +616,12 @@ class SdkCodexClient(TokenUsageAccounting):
                 root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
             )
             self._refuse_reenabled_features(launch_args, overrides)
-            features = self._feature_states(root, overrides, **context)
-        left_on = feature_violations(features, shell=shell)
+            features, stages = self._feature_listing(root, overrides, **context)
+        # A reviewed retired flag (stage `removed`, its switch no longer read)
+        # may read on; nothing else (codex-cli 0.164.0).
+        left_on = feature_violations(features, shell=shell, stages=stages)
         if left_on:
-            raise CodexLockdownUnavailable(
-                f"Codex does not report feature {', '.join(left_on)} off under the isolated turn's overrides "
-                "(a tool, connector, plugin or sub-agent could load); refusing the isolated turn."
-            )
+            raise CodexLockdownUnavailable(feature_refusal(left_on, stages, self._cli_version(root, **context)))
         stdout = self._codex_probe(root, overrides, "debug", "models", "--bundled", **context)
         try:
             catalog = json.loads(stdout)
@@ -725,15 +726,32 @@ class SdkCodexClient(TokenUsageAccounting):
             states[name] = server.get("enabled") is not False
         return states
 
-    def _feature_states(self, cwd: Path, overrides: list[str], **context: Any) -> dict[str, bool]:
-        """``codex features list`` under ``overrides``: ``name stage true|false`` rows."""
+    def _feature_listing(
+        self, cwd: Path, overrides: list[str], **context: Any,
+    ) -> tuple[dict[str, bool], dict[str, str]]:
+        """``codex features list`` under ``overrides``: ``name stage true|false`` rows, as states and stages.
+
+        The stage is the words between name and state (``under development``)."""
 
         states: dict[str, bool] = {}
+        stages: dict[str, str] = {}
         for line in self._codex_probe(cwd, overrides, "features", "list", **context).splitlines():
             parts = line.split()
             if len(parts) >= 2 and parts[-1] in {"true", "false"}:
                 states[parts[0]] = parts[-1] == "true"
-        return states
+                stages[parts[0]] = " ".join(parts[1:-1])
+        return states, stages
+
+    def _cli_version(self, cwd: Path, **context: Any) -> str | None:
+        """``codex --version`` for a refusal's message; ``None`` when it cannot be read.
+
+        Only words for the owner: the turn is refused either way. An interrupt
+        or the request's deadline still ends the check."""
+
+        try:
+            return cli_version_text(self._codex_probe(cwd, [], "--version", **context))
+        except CodexLockdownUnavailable:
+            return None
 
     def _raise_if_stopped(self, deadline: _Deadline | None, where: str) -> None:
         """Interrupted, or past the request's deadline: stop before the next step."""
