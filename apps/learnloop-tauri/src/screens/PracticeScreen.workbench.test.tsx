@@ -107,6 +107,19 @@ it("Work in steps opens the step editor full width with the stem on top and no b
   expect(screen.getByRole("textbox", { name: "Step 1" })).toBeTruthy();
 });
 
+it("hands the answer box's draft key to the steps, so the Reader resumes one attempt (Astra batch review)", async () => {
+  render(<PracticeScreen {...props()} />);
+  fireEvent.click(await screen.findByRole("button", { name: /work in steps/i }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalled());
+  const sent = api.workbenchOpen.mock.calls[0][0];
+  expect(typeof sent.submissionId).toBe("string");
+  expect(sent.submissionId.length).toBeGreaterThan(0);
+  // The same key the answer box drafts under.
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenCalled());
+  const drafted = api.savePracticeDraft.mock.calls.map((call: unknown[]) => (call[0] as { submissionId?: string }).submissionId);
+  expect(drafted).toContain(sent.submissionId);
+});
+
 it("the choice is remembered on this device, and the answer box is one click back", async () => {
   const first = render(<PracticeScreen {...props()} />);
   fireEvent.click(await screen.findByRole("button", { name: /work in steps/i }));

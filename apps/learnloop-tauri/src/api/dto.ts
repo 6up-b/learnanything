@@ -8599,6 +8599,9 @@ export interface WorkbenchOpenInput {
   practiceSessionId?: string | null;
   /** A book a problem left for the answer box counted (review F2). */
   carriedBook?: boolean;
+  /** The answer box's draft key handed to the steps (Astra batch review):
+   *  the problem keeps the draft's Ask thread and budget in every host. */
+  submissionId?: string | null;
   /** The serve the problem answers, kept on it for a resume (review F13).
    *  One pair (review F15): send both (a null included) to replace the pair
    *  the problem holds, or neither to keep it. */

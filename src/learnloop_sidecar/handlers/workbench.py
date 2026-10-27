@@ -441,6 +441,11 @@ class WorkbenchOpenInput(ParamsModel):
     practice_session_id: str | None = None
     #: A book a problem the learner left for the answer box counted (review F2).
     carried_book: bool = False
+    #: Astra batch review: the answer box's draft key (its ``submissionId``)
+    #: handed to the steps from the practice screen or the plan, recorded on
+    #: the problem so its Ask thread and budget stay one attempt's whichever
+    #: host resumes it. Beside the draft's checkpoint key, never instead.
+    submission_id: str | None = Field(default=None, max_length=200)
     #: The serve the problem answers ("check me", the practice screen's
     #: serve), kept on the session so a resume still submits as it (F13).
     #: One pair: naming either replaces both, nulls included; naming neither
@@ -556,6 +561,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
         )
         _carry_earlier(repository, draft_session, earlier, row)
+        _record_handoff(repository, params, row)
         _ensure_contract(vault, repository, row["id"])
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
@@ -605,6 +611,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
     )
     _carry_earlier(repository, draft_session, earlier, row)
+    _record_handoff(repository, params, row)
     _ensure_contract(vault, repository, row["id"])
     if resumed:
         _refuse_withheld_exercise(vault, repository, _run(WB.session_row, repository, row["id"]))
@@ -643,6 +650,49 @@ def _draft_earlier(repository, params: WorkbenchOpenInput, practice_item_id: str
     if not draft_earlier_opened(checkpoint, practice_item_id=str(practice_item_id)):
         return None, 0
     return session_id, 1
+
+
+def _handed_draft_keys(repository, params: WorkbenchOpenInput, practice_item_id: str | None) -> list[str]:
+    """Astra batch review (Medium): the answer box's draft keys an open from
+    the practice screen or the plan hands to the steps: the key the screen
+    names, and the key of the draft its practice session holds on the item
+    (the one the screen names while open, else the most recent open one),
+    read from the server's checkpoint. Either alone is enough; a key only
+    ever adds the draft's questions to the problem's attempt."""
+
+    if params.origin not in _DRAFT_HANDOFF_ORIGINS or not practice_item_id:
+        return []
+    keys = [params.submission_id.strip()] if params.submission_id and params.submission_id.strip() else []
+    try:
+        session_id = params.practice_session_id if _session_open(repository, params.practice_session_id) else None
+        if session_id is None:
+            recent = repository.most_recent_open_session()
+            session_id = str(recent["id"]) if recent else None
+        checkpoint = repository.fetch_session_checkpoint(session_id) if session_id else None
+    except Exception:  # noqa: BLE001 - no readable draft adds nothing
+        checkpoint = None
+    if checkpoint and checkpoint.get("current_practice_item_id") == practice_item_id:
+        focus = checkpoint.get("focus_block_state")
+        practice = focus.get("practice") if isinstance(focus, dict) else None
+        key = (practice.get("submissionId") or practice.get("submission_id")) if isinstance(practice, dict) else None
+        if isinstance(key, str) and key.strip():
+            keys.append(key.strip())
+    return keys
+
+
+def _record_handoff(repository, params: WorkbenchOpenInput, row: dict[str, Any]) -> None:
+    """Record the answer box's draft keys on the problem the steps opened or
+    resumed (``reader.workbench.record_draft_handoff``)."""
+
+    keys = _handed_draft_keys(repository, params, row.get("practice_item_id"))
+    if not keys:
+        return
+    from learnloop_sidecar.logging import log_event
+
+    try:
+        WB.record_draft_handoff(repository, str(row["id"]), keys)
+    except Exception as exc:  # noqa: BLE001 - the problem still opens; its budget reads its own key
+        log_event("workbench_draft_handoff_not_recorded", error=type(exc).__name__)
 
 
 def _carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None:

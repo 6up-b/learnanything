@@ -9,6 +9,7 @@ either table: the submitted attempt carries the evidence.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -33,6 +34,51 @@ STEP_COLUMNS = (
     "id", "session_id", "ordinal", "kind", "body_md", "supersedes_id", "deleted",
     "client_idempotency_key", "created_at",
 )
+
+
+#: The subject type of a session's ``reader_action_invoked`` events.
+SUBJECT_TYPE = "workbench_session"
+#: Astra batch review (Medium): the payload ``event`` that records the
+#: answer box's draft keys (its ``submission_id``) the practice screen handed
+#: into a session. Append-only (``interaction_events`` is a raw ledger), so
+#: the one attempt the draft and the steps are keeps both its identities
+#: whichever host it is resumed in; no column, no migration.
+DRAFT_HANDOFF_EVENT = "workbench_draft_handed"
+
+
+def handed_submission_ids(connection: sqlite3.Connection, session_ids: Iterable[str]) -> dict[str, set[str]]:
+    """The answer-box draft keys handed into each of ``session_ids``
+    (:data:`DRAFT_HANDOFF_EVENT`); a session with none is left out."""
+
+    wanted = sorted({str(session_id) for session_id in session_ids if session_id})
+    if not wanted:
+        return {}
+    marks = ", ".join("?" for _ in wanted)
+    rows = connection.execute(
+        "SELECT subject_id, payload_json FROM interaction_events WHERE kind = 'reader_action_invoked' "
+        f"AND subject_type = ? AND subject_id IN ({marks})",
+        (SUBJECT_TYPE, *wanted),
+    ).fetchall()
+    found: dict[str, set[str]] = {}
+    for subject_id, payload_json in rows:
+        try:
+            payload = json.loads(payload_json or "{}")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, dict) or payload.get("event") != DRAFT_HANDOFF_EVENT:
+            continue
+        keys = payload.get("draft_submission_ids")
+        for key in keys if isinstance(keys, list) else ():
+            if isinstance(key, str) and key.strip():
+                found.setdefault(str(subject_id), set()).add(key.strip())
+    return found
+
+
+def session_ids_for_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
+    """Every workbench session of the item, whatever its status."""
+
+    return [str(row[0]) for row in connection.execute(
+        f"SELECT id FROM {SESSIONS} WHERE practice_item_id = ?", (practice_item_id,))]
 
 
 def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:

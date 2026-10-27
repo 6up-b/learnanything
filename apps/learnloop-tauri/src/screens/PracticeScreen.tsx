@@ -827,6 +827,9 @@ export function PracticeScreen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
         practiceSessionId: session.sessionId ?? null,
+        // Astra batch review: the draft's key, so its Ask thread and budget
+        // stay this attempt's when the steps are resumed in the Reader.
+        submissionId: submissionId.current,
       });
       showSteps(result.session);
     } catch (error) {
@@ -848,6 +851,7 @@ export function PracticeScreen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
         practiceSessionId: session.sessionId ?? null,
+        submissionId: submissionId.current,
       });
       showSteps(result.session);
     } catch (error) {

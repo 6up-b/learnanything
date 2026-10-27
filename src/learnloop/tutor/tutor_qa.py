@@ -412,10 +412,64 @@ def practice_thread_events(
     # (the key the hint service counts by). A question asked under another
     # key is another serving's, even in the same window (the item skipped and
     # served again); a question recorded before CA2 carries no key and keeps
-    # the window's rule (in its session).
+    # the window's rule (in its session). Astra batch review: the attempt's
+    # identities are resolved first, so the answer box's draft handed into
+    # Work in Steps and resumed in the Reader is one thread and one budget.
+    submission_ids, workbench_ids = attempt_identities(
+        repository, practice_item_id=practice_item_id, submission_id=submission_id,
+        workbench_session_id=workbench_session_id)
     return [event for event in windowed
-            if attempt_key_matches(event, submission_id=submission_id, workbench_session_id=workbench_session_id,
-                                   session_id=session_id)]
+            if _key_in(event, submission_ids, workbench_ids, session_id=session_id)]
+
+
+def attempt_identities(
+    repository: Repository, *, practice_item_id: str | None, submission_id: str | None,
+    workbench_session_id: str | None,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Every identity of the one attempt in progress that ``submission_id``
+    and ``workbench_session_id`` name: ``(submission ids, workbench ids)``.
+
+    Astra batch review (Medium): the practice screen hands its answer box's
+    draft into Work in Steps, recording the draft's key on the workbench
+    (``reader.workbench.record_draft_handoff``); a workbench resumed in the
+    Reader asks under its own key (``workbench:<id>``). Both name one
+    attempt, so each identity brings the others it was handed with: the
+    workbench brings the draft keys handed into it, a draft key brings the
+    workbenches of the item it was handed into (the steps left for the answer
+    box again). Raw question rows are never rewritten; this is read time.
+    A handoff that cannot be read leaves the identities as named."""
+
+    submissions = {submission_id} if submission_id else set()
+    workbenches = {workbench_session_id} if workbench_session_id else set()
+    if not practice_item_id:
+        return frozenset(submissions), frozenset(workbenches)
+    from learnloop.db.stores import workbench as workbench_store
+
+    try:
+        with repository.connection() as connection:
+            handed = workbench_store.handed_submission_ids(
+                connection, {*workbench_store.session_ids_for_item(connection, practice_item_id), *workbenches})
+    except Exception:  # noqa: BLE001 - an unreadable handoff keeps the named identities (today's rule)
+        logger.exception("Could not read the draft handoffs of %s", practice_item_id)
+        return frozenset(submissions), frozenset(workbenches)
+    changed = True
+    while changed:
+        changed = False
+        for workbench_id, keys in handed.items():
+            if workbench_id in workbenches or keys & submissions:
+                if workbench_id not in workbenches or not keys <= submissions:
+                    workbenches.add(workbench_id)
+                    submissions |= keys
+                    changed = True
+    return frozenset(submissions), frozenset(workbenches)
+
+
+def _key_in(event: Mapping[str, Any], submission_ids: frozenset[str] | set[str],
+            workbench_ids: frozenset[str] | set[str], *, session_id: str | None) -> bool:
+    key = attempt_key_of(event)
+    if not key:
+        return session_id is None or event.get("session_id") == session_id
+    return key.get("submission_id") in submission_ids or key.get("workbench_session_id") in workbench_ids
 
 
 def attempt_key_matches(event: Mapping[str, Any], *, submission_id: str | None,
@@ -426,14 +480,10 @@ def attempt_key_matches(event: Mapping[str, Any], *, submission_id: str | None,
     Codex review F6: the server's identity, the same in every host). A
     question asked under the same key, or in the same unfinished workbench,
     is the attempt's; one recorded before CA2 has no key and is the window's
-    (in its practice session)."""
+    (in its practice session). The names as given: a handoff's other
+    identities are :func:`attempt_identities`'."""
 
-    key = attempt_key_of(event)
-    if not key:
-        return session_id is None or event.get("session_id") == session_id
-    if submission_id is not None and key.get("submission_id") == submission_id:
-        return True
-    return workbench_session_id is not None and key.get("workbench_session_id") == workbench_session_id
+    return _key_in(event, {submission_id} - {None}, {workbench_session_id} - {None}, session_id=session_id)
 
 
 def attempt_key_of(event: Mapping[str, Any]) -> dict[str, Any]:

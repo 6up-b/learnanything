@@ -95,7 +95,9 @@ SERVER_WORKBENCH_EVENTS: tuple[str, ...] = (
 #: ladder suggested when Help opened (the Reader's fallback progression reads
 #: it) and the header's help style. Salience only, like RW2a's.
 HELP_WORKBENCH_EVENTS: tuple[str, ...] = ("workbench_help_offered", "help_style_changed")
-SUBJECT_TYPE = "workbench_session"
+SUBJECT_TYPE = store.SUBJECT_TYPE
+#: Astra batch review: the answer box's draft keys handed into a session.
+DRAFT_HANDOFF_EVENT = store.DRAFT_HANDOFF_EVENT
 
 #: The submit line before an empty "stuck" answer (spec §5.1, UX §5.10).
 STUCK_NOTE = "Submitting now records 'stuck' — that's fine"
@@ -764,6 +766,30 @@ def resume_session(
             span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
             carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
         )
+
+
+def record_draft_handoff(repository: Any, session_id: str, submission_ids: Iterable[str],
+                         clock: Clock | None = None) -> list[str]:
+    """Astra batch review (Medium): the practice screen handed its answer
+    box's draft (keyed by ``submission_ids``, the draft's retry keys) into
+    this unfinished problem. Recorded once per key on the session's
+    salience-only events, so the transcript and the per-attempt Ask budget
+    read the draft and the steps as one attempt in every host
+    (``tutor_qa.practice_thread_events``). The workbench's own key
+    (``workbench:<id>``) is never recorded. Returns the keys recorded now."""
+
+    keys = sorted({str(key).strip() for key in submission_ids
+                   if key and str(key).strip() and not str(key).startswith(submission_id_for(""))})
+    if not keys:
+        return []
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        known = store.handed_submission_ids(connection, [session_id]).get(session_id, set())
+        new = [key for key in keys if key not in known]
+        if new:
+            _log(repository, session, DRAFT_HANDOFF_EVENT, clock, draft_submission_ids=new)
+    return new
 
 
 def _ordinal_after(live: Sequence[Mapping[str, Any]], after: Mapping[str, Any] | None) -> float:
@@ -1462,6 +1488,8 @@ __all__ = [
     "IMPORT_STATUSES",
     "ORIGINS",
     "SERVER_WORKBENCH_EVENTS",
+    "DRAFT_HANDOFF_EVENT",
+    "record_draft_handoff",
     "STATUSES",
     "STEP_KINDS",
     "STEP_OPS",
