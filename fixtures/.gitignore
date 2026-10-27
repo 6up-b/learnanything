@@ -1,2 +1,6 @@
-# The AD guard's denial log, written beside a vault's database (adaptive_difficulty.operation).
+# The AD guard's denial log, written beside a vault's database (adaptive_difficulty.operation), with
+# its archives (one per upgrade), its leaf lock and the split's staging file (adaptive_difficulty.denial_log).
 **/ad_guard_denials.jsonl
+**/ad_guard_denials.jsonl.tmp
+**/ad_guard_denials.archived-*.jsonl
+**/ad_guard_denials.lock

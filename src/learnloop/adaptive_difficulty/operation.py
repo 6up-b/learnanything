@@ -36,18 +36,22 @@ A refused statement raises (``sqlite3.DatabaseError``: "not authorized", or "acc
 prohibited"). AD's fail-closed paths turn that into "AD unavailable for this operation": the
 incumbent serves (owner decision 2026-10-21). Each denial is logged beside the database
 (``ad_guard_denials.jsonl``) and counted (``learnloop ad report``'s ``guard`` block); no UI notice.
+Each line names the refused operation's entry point (``entry``: the guard's ``entry``), and a
+successful ``learnloop upgrade`` archives the lines the log held when the command started, so the
+report counts the denials since the last upgrade began (owner decision 2026-10-27;
+:mod:`learnloop.adaptive_difficulty.denial_log`, whose leaf lock every append takes).
 
 With adaptive difficulty off, no operation opens and nothing here runs.
 """
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.denial_log import append_denials, denial_count, denial_log_path
 from learnloop.adaptive_difficulty.logs import warn_failure
 import copy
 import functools
 import hashlib
 import inspect
-import json
 import logging
 import re
 import sqlite3
@@ -648,8 +652,9 @@ def _default_mode() -> str:
     return _MODE["mode"]
 
 
-#: Denials of this process, by (verb, table, reader): ``learnloop ad report`` shows them, and they
-#: are appended to the vault's guard log (``ad_guard_denials.jsonl``) for a later report.
+#: Denials of this process, by (verb, table, reader) with the operation's entry point; they are
+#: appended to the vault's guard log (``ad_guard_denials.jsonl``, archived at each successful upgrade:
+#: :mod:`learnloop.adaptive_difficulty.denial_log`), which ``learnloop ad report`` counts.
 DENIALS: list[dict[str, Any]] = []
 
 
@@ -664,30 +669,14 @@ def _record_denials(op: Operation) -> None:
         observer(op)
     if not op.guard.denials or op.guard.mode == "observe":
         return
-    DENIALS.extend(op.guard.denials)
+    entry_point = op.guard.entry or None
+    DENIALS.extend({**denial, "entry": entry_point} for denial in op.guard.denials)
     try:
-        path = denial_log_path(op.raw_repository.sqlite_path)
-        with path.open("a", encoding="utf-8") as handle:
-            for denial in op.guard.denials:
-                handle.write(json.dumps({**denial, "epoch": op.epoch}, sort_keys=True) + "\n")
+        # Each line names the refused operation (owner decision 2026-10-27): the log is read without
+        # the process that wrote it, so the line carries its own entry point.
+        append_denials(op.raw_repository.sqlite_path, op.guard.denials, epoch=op.epoch, entry=entry_point)
     except OSError:
         warn_failure(LOG, "AD guard denials not logged")
-
-
-def denial_log_path(sqlite_path: Any) -> Path:
-    """The guard's denial log, beside the vault database."""
-
-    return Path(sqlite_path).with_name("ad_guard_denials.jsonl")
-
-
-def denial_count(sqlite_path: Any) -> int:
-    path = denial_log_path(sqlite_path)
-    if not path.exists():
-        return 0
-    try:
-        return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
-    except OSError:
-        return 0
 
 
 @contextmanager

@@ -27,7 +27,8 @@ No outcome of the report changes any switch, config or served item.
 
 from __future__ import annotations
 
-from learnloop.adaptive_difficulty.operation import denial_count, entry
+from learnloop.adaptive_difficulty import denial_log as DL
+from learnloop.adaptive_difficulty.operation import entry
 
 import math
 from collections import Counter, defaultdict
@@ -586,9 +587,13 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         # read nothing item-derived, and says so.
         "protection": {"available": view.available, "reason": view.reason,
                        "withheld_items": len(view.withheld_item_ids)},
-        # The AD guard's refusals so far (owner decision 2026-10-21: logged, counted here, no UI
-        # notice; each left AD unavailable for its operation, and the incumbent served).
-        "guard": {"denials": denial_count(repository.sqlite_path)},
+        # The AD guard's refusals (owner decision 2026-10-21: logged, counted here, no UI notice;
+        # each left AD unavailable for its operation, and the incumbent served). Owner decision
+        # 2026-10-27: the count is the live log's, the denials since the last upgrade began (a
+        # successful upgrade archives the lines the log held at its start), grouped by the refused
+        # operation's entry point (lines from before the entry was recorded: "unrecorded"); the
+        # archives by file and count only, read with the live log under its lock (one snapshot).
+        "guard": DL.summary(repository.sqlite_path),
         # Option B (round 8): the readings the withheld material touches are absent for AD's reading
         # signals; how many, and how many reading events on them AD did not use. No UI notice.
         "protected_readings": view.protected_reading_counts(connection),
@@ -612,6 +617,29 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     return report
 
 
+def _guard_lines(guard: Mapping[str, Any]) -> list[str]:
+    """The guard block's lines: the live log's count (since the last upgrade once one has archived
+    a log; "so far" before), by entry point, and the archives' total. Never a line's content."""
+
+    count, archived = guard.get("denials") or 0, guard.get("archived_denials") or 0
+    if not count and not archived:
+        return []
+    out = [""]
+    unavailable = guard.get("archived_unavailable")
+    if count:
+        since = "since the last upgrade" if guard.get("archived") else "so far"
+        if unavailable:  # the archives were not read (Codex verify 2 F2): whether one exists is unknown
+            since = f"in the live log (archive counts unavailable: {unavailable})"
+        out.append(f"AD's guard refused {count} read(s) or write(s) {since}: each left AD unavailable for that "
+                   "operation, and the incumbent served (ad_guard_denials.jsonl beside the database).")
+        out += [f"- {name}: {n}" for name, n in sorted((guard.get("by_entry") or {}).items())]
+    if archived:
+        files = len(guard.get("archived") or [])
+        out.append(f"{archived} earlier denial(s) are archived ({files} archive(s) beside the database, "
+                   "one per upgrade); they are not counted above.")
+    return out
+
+
 def render_markdown(report: Mapping[str, Any]) -> str:
     """A plain rendering for the owner (the JSON is the record)."""
 
@@ -620,10 +648,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
              "## Auto-flags"]
     for flag in report["auto_flags"]:
         lines.append(f"- {flag['flag']}: {'FIRES -> recommends ' + flag['recommends'] if flag['fires'] else 'quiet'}")
-    guard = (report.get("guard") or {}).get("denials")
-    if guard:
-        lines += ["", f"AD's guard refused {guard} read(s) or write(s) so far: each left AD unavailable for that "
-                      "operation, and the incumbent served (ad_guard_denials.jsonl beside the database)."]
+    lines += _guard_lines(report.get("guard") or {})
     protected = report.get("protected_readings") or {}
     if protected.get("readings"):
         lines += ["", f"Readings with protected material: {protected['readings']}; their reading events not used: "
