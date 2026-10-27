@@ -559,9 +559,9 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
             extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
             carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
+            draft_submission_ids=_handed_draft_keys(repository, params, named.get("practice_item_id")),
         )
         _carry_earlier(repository, draft_session, earlier, row)
-        _record_handoff(repository, params, row)
         _ensure_contract(vault, repository, row["id"])
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
@@ -609,9 +609,9 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         import_status=import_status, import_batch_id=batch_id,
         import_request=request, import_error=error, carried=carried,
         carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
+        draft_submission_ids=_handed_draft_keys(repository, params, params.practice_item_id),
     )
     _carry_earlier(repository, draft_session, earlier, row)
-    _record_handoff(repository, params, row)
     _ensure_contract(vault, repository, row["id"])
     if resumed:
         _refuse_withheld_exercise(vault, repository, _run(WB.session_row, repository, row["id"]))
@@ -658,7 +658,9 @@ def _handed_draft_keys(repository, params: WorkbenchOpenInput, practice_item_id:
     names, and the key of the draft its practice session holds on the item
     (the one the screen names while open, else the most recent open one),
     read from the server's checkpoint. Either alone is enough; a key only
-    ever adds the draft's questions to the problem's attempt."""
+    ever adds the draft's questions to the problem's attempt. Recorded in the
+    open's (or resume's) own transaction (Codex review F4): a handoff that
+    cannot be written fails the open, never exposes the problem without it."""
 
     if params.origin not in _DRAFT_HANDOFF_ORIGINS or not practice_item_id:
         return []
@@ -678,21 +680,6 @@ def _handed_draft_keys(repository, params: WorkbenchOpenInput, practice_item_id:
         if isinstance(key, str) and key.strip():
             keys.append(key.strip())
     return keys
-
-
-def _record_handoff(repository, params: WorkbenchOpenInput, row: dict[str, Any]) -> None:
-    """Record the answer box's draft keys on the problem the steps opened or
-    resumed (``reader.workbench.record_draft_handoff``)."""
-
-    keys = _handed_draft_keys(repository, params, row.get("practice_item_id"))
-    if not keys:
-        return
-    from learnloop_sidecar.logging import log_event
-
-    try:
-        WB.record_draft_handoff(repository, str(row["id"]), keys)
-    except Exception as exc:  # noqa: BLE001 - the problem still opens; its budget reads its own key
-        log_event("workbench_draft_handoff_not_recorded", error=type(exc).__name__)
 
 
 def _carry_earlier(repository, draft_session: str | None, earlier: int, row: dict[str, Any]) -> None:

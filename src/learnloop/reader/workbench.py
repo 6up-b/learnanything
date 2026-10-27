@@ -642,6 +642,7 @@ def open_session(
     serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
     carried_earlier: bool = False,
+    draft_submission_ids: Iterable[str] = (),
 ) -> tuple[dict[str, Any], bool]:
     """Open a session (or resume the open one for the same item or selection).
 
@@ -654,6 +655,9 @@ def open_session(
     presentation the problem answers. ``carried_earlier``: the answer box's
     draft opened an earlier attempt's help, carried as its own component
     (``earlier_opened_at``), never into ``carried``.
+    ``draft_submission_ids``: the answer box's draft keys handed in
+    (:func:`record_draft_handoff`), recorded in the same transaction as the
+    open, so no problem is exposed without them (Codex review F4).
     """
 
     if origin not in ORIGINS:
@@ -676,6 +680,7 @@ def open_session(
         if client_idempotency_key:
             existing = store.session_by_key(connection, client_idempotency_key)
             if existing is not None:
+                _handed(repository, connection, existing, draft_submission_ids, clock)
                 return existing, False
         if practice_item_id:
             existing = store.open_session_for_item(connection, practice_item_id)
@@ -691,6 +696,7 @@ def open_session(
                 span_ids=spans, source_visible=source_visible, carried=carried, now=now, clock=clock,
                 carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
             )
+            _handed(repository, connection, row, draft_submission_ids, clock)
             return row, True
         if parent_session_id is not None:
             _require(connection, parent_session_id)
@@ -724,6 +730,7 @@ def open_session(
              import_status=import_status)
         if row["source_visible"]:
             _record_book_exposure(repository, row, clock)
+        _handed(repository, connection, row, draft_submission_ids, clock)
     return row, False
 
 
@@ -740,10 +747,13 @@ def resume_session(
     serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
     carried_earlier: bool = False,
+    draft_submission_ids: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Resume a named session on the surface asking ("resume your steps", the
     ``✎`` mark, the rail): an abandoned one is reopened, and a move to another
-    surface is the same explicit transition :func:`open_session` makes."""
+    surface is the same explicit transition :func:`open_session` makes.
+    ``draft_submission_ids`` as :func:`open_session`: recorded with the
+    resume, in its transaction."""
 
     if origin not in ORIGINS:
         raise WorkbenchError("validation_error", f"unknown workbench origin {origin!r}")
@@ -761,11 +771,13 @@ def resume_session(
             store.update_session(connection, session_id, {"status": "open", "closed_at": None, "updated_at": now})
             session = _require(connection, session_id)
             _log(repository, session, "workbench_reopened", clock)
-        return _resume_existing(
+        row = _resume_existing(
             repository, connection, session, origin=origin, entry=entry, extraction_id=extraction_id,
             span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
             carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
         )
+        _handed(repository, connection, row, draft_submission_ids, clock)
+        return row
 
 
 def record_draft_handoff(repository: Any, session_id: str, submission_ids: Iterable[str],
@@ -778,17 +790,31 @@ def record_draft_handoff(repository: Any, session_id: str, submission_ids: Itera
     (``tutor_qa.practice_thread_events``). The workbench's own key
     (``workbench:<id>``) is never recorded. Returns the keys recorded now."""
 
-    keys = sorted({str(key).strip() for key in submission_ids
-                   if key and str(key).strip() and not str(key).startswith(submission_id_for(""))})
-    if not keys:
+    if not _draft_keys(submission_ids):
         return []
     with repository.atomic():
         connection = repository.connection()
-        session = _require(connection, session_id)
-        known = store.handed_submission_ids(connection, [session_id]).get(session_id, set())
-        new = [key for key in keys if key not in known]
-        if new:
-            _log(repository, session, DRAFT_HANDOFF_EVENT, clock, draft_submission_ids=new)
+        return _handed(repository, connection, _require(connection, session_id), submission_ids, clock)
+
+
+def _draft_keys(submission_ids: Iterable[str]) -> list[str]:
+    return sorted({str(key).strip() for key in submission_ids
+                   if key and str(key).strip() and not str(key).startswith(submission_id_for(""))})
+
+
+def _handed(repository: Any, connection: Any, session: Mapping[str, Any], submission_ids: Iterable[str],
+            clock: Clock | None) -> list[str]:
+    """Record the draft keys handed into ``session`` inside the caller's
+    transaction (:func:`record_draft_handoff`); a failure fails it whole."""
+
+    keys = _draft_keys(submission_ids)
+    if not keys:
+        return []
+    session_id = str(session["id"])
+    known = store.handed_submission_ids(connection, [session_id]).get(session_id, set())
+    new = [key for key in keys if key not in known]
+    if new:
+        _log(repository, session, DRAFT_HANDOFF_EVENT, clock, draft_submission_ids=new)
     return new
 
 
@@ -804,21 +830,17 @@ def attempt_identities(repository: Any, *, practice_item_id: str | None, submiss
     identity brings the others it was handed with: a workbench brings the
     draft keys handed into it, a draft key the workbenches of the item it was
     handed into (the steps left for the answer box again), until nothing new
-    joins. A handoff that cannot be read leaves the identities as named."""
+    joins. A handoff that cannot be read raises (Codex review F4): it is
+    never read as no handoff, which would give the attempt a fresh paid
+    allowance."""
 
     submissions = {submission_id} if submission_id else set()
     workbenches = {workbench_session_id} if workbench_session_id else set()
     if not practice_item_id:
         return frozenset(submissions), frozenset(workbenches)
-    try:
-        with repository.connection() as connection:
-            handed = store.handed_submission_ids(
-                connection, {*store.session_ids_for_item(connection, practice_item_id), *workbenches})
-    except Exception:  # noqa: BLE001 - an unreadable handoff keeps the named identities (today's rule)
-        import logging
-
-        logging.getLogger(__name__).exception("Could not read the draft handoffs of %s", practice_item_id)
-        return frozenset(submissions), frozenset(workbenches)
+    with repository.connection() as connection:
+        handed = store.handed_submission_ids(
+            connection, {*store.session_ids_for_item(connection, practice_item_id), *workbenches})
     changed = True
     while changed:
         changed = False
