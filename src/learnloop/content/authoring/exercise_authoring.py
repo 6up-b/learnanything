@@ -42,6 +42,7 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.ingest.block_roles import referenced_figures
 from learnloop.ingest.ir import is_figure_block, selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
@@ -195,9 +196,11 @@ def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
     is marked here (``reader.as_printed``, read time).
 
     Codex review of the Astra fixes, F2: a single item whose statement owns
-    a block also owns the selection's ``figures``, its stimulus ("the graph
-    shown"), whether or not the statement echoes the figure's text; a split
-    leaves a figure to the item whose statement covers it."""
+    a block also owns ``figures``, its stimulus ("the graph shown"), whether
+    or not the statement echoes the figure's text; a split leaves a figure to
+    the item whose statement covers it. Re-review F5: ``figures`` are the
+    selection's figures the statement refers to
+    (``ingest.block_roles.referenced_figures``), never every one selected."""
 
     if any(found is None for found in ranges):
         return set()
@@ -574,10 +577,11 @@ def author_exercises(
     # blocks are an item's alone (final verify F9); a single item's slice
     # decides its own (Astra batch review).
     anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
-    # Codex review F2: the selection's figures, a single exercise's stimulus.
-    figures = [block.span_id for block in (getattr(ir, "blocks", None) or [])
+    # Codex review F2, re-review F5: the selection's figures; a single
+    # exercise's stimulus are those its statement refers to, never every
+    # figure selected (a completed answer graph is not the problem's input).
+    figures = [(block.span_id, block.text) for block in (getattr(ir, "blocks", None) or [])
                if block.span_id in span_ids and is_figure_block(block)] if ir is not None else []
-    stimulus = set(figures) if len(result.items) == 1 else set()
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
@@ -594,6 +598,8 @@ def author_exercises(
                     {"title": label, "reason": "statement is not a verbatim excerpt of the selection"}
                 )
                 continue
+
+        stimulus = referenced_figures(statement, figures) if len(result.items) == 1 else set()
 
         duplicate_of = existing_prompts.get(_normalize(statement))
         if duplicate_of is not None:
@@ -725,7 +731,7 @@ def author_exercises(
             "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
                 source_refs, span_ids,
                 owned=_owned_spans(part_ranges, anchored, ordinal - 1, span_ids=span_ids,
-                                   text_length=len(exercise_text), figures=figures),
+                                   text_length=len(exercise_text), figures=sorted(stimulus)),
                 stimulus=stimulus)},
             "created_at": now,
             "updated_at": now,

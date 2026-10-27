@@ -8,7 +8,8 @@
 * F2 (High): a single-exercise import keeps the figure it was imported with
   as its stimulus, whether or not the statement echoes the figure's text, so
   a check on your own still shows the figure; a problem with no free crop
-  keeps it too.
+  keeps it too. Re-review F5: only a figure the statement refers to ("the
+  graph shown"); one it does not refer to is not its stimulus.
 * F3 (Medium): a block the import's check names as the book's solution that
   also holds part of the statement is not dropped from the crop (a partial
   print): the whole crop is withheld, the original page still offered.
@@ -188,13 +189,15 @@ def test_a_paraphrased_statement_keeps_its_figure_for_a_check_on_your_own(seeded
     assert view["kind"] == "figure" and _share(_image(view["crops"][0]["image"]), GREEN) > 0.9
 
 
-def test_a_problem_with_no_free_crop_keeps_its_figure_for_a_check_on_your_own(seeded, cold):
+def test_a_figure_the_statement_does_not_refer_to_is_not_its_stimulus(seeded, cold):
+    """Codex re-review F5: selected is not enough ("Compute 2+2." names no
+    figure, so the figure beside it may be anything, an answer too). A
+    problem with no free crop whose statement does refer to its figure keeps
+    it: ``test_reader_ca1_astra_rereview`` (F6)."""
+
     paths, ctx, repository = seeded
     item_id = _import(paths, repository, ["m1", "f1"], "Compute 2+2.", "4")
-    view = _view(ctx, item_id)
-    assert view["kind"] == "figure" and len(view["crops"]) == 1
-    assert _share(_image(view["crops"][0]["image"]), GREEN) > 0.9 and _share(_image(view["crops"][0]["image"]),
-                                                                              BLUE) == 0
+    assert _view(ctx, item_id)["kind"] == "none"
 
 
 def test_a_paraphrase_shows_no_free_crop_of_its_figure_alone(seeded, warm):
