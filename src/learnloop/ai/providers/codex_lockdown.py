@@ -199,16 +199,19 @@ REMOVED_STAGE = "removed"
 #: ``features/src/lib.rs`` ``Features::apply_map`` skips both keys
 #: (``"tui_app_server" | "worktrees" | "realtime_conversation" => continue``),
 #: so ``-c features.<key>=false`` and ``--disable`` cannot change them, and no
-#: code reads ``Feature::Worktrees`` or ``Feature::RealtimeConversation``.
+#: code gates on ``Feature::Worktrees`` or ``Feature::RealtimeConversation``
+#: (``core/src/config/managed_features.rs`` only warns that a managed
+#: requirement for either is ignored).
 REVIEWED_RETIRED_FEATURES: dict[str, str] = {
     "realtime_conversation": (
         "voice sessions start only on a client's thread/realtime/start request, which LearnLoop's client never "
         "sends; the turn's model gets no realtime tool (the prompt-input readback declares none)"
     ),
     "worktrees": (
-        "the managed-worktree tools (create_worktree, list_worktrees, get_worktree_creation_status) are dynamic "
-        "tools the TUI registers as a client; LearnLoop registers none, declines every dynamic tool call, and the "
-        "prompt-input readback declares no tool"
+        "the managed-worktree tools (create_worktree, list_worktrees, get_worktree_creation_status) exist only "
+        "where the TUI attaches them to its own thread start (dynamic_tools, or its local codex_worktrees MCP "
+        "server in the thread's config); LearnLoop's client attaches neither, declines every dynamic tool call, "
+        "has every MCP server off, and the prompt-input readback declares no tool"
     ),
 }
 
