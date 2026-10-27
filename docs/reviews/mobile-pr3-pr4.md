@@ -309,3 +309,190 @@ No frontend, Tauri or config change, so no npm, vitest, cargo or defaults-snapsh
    - an `adopt_session` RPC for "take it back".
 5. **Writes outside the spec's list.** Hint requests and reveals, workbench writes and `recover_practice_submission`
    are not ownership-checked. Should any be added before M2?
+
+## Landing onto main (2026-10-27)
+
+Landed in `learnanything-merge2` on `mobile/pr3-sweep-primary-only` (stage tip `92af02c3b`, base `5c6a0834f`) by merging
+`main` twice: `a25e9b45d` (the learner-report successor, mvp-0.36, migration 225, `migration_head_225`) and then
+`416a9ddfe` (the AD denial-log archival at upgrade). Main was neither fast-forwarded nor pushed. The learner-report
+successor landed first, so this stage's successor is now **mvp-0.37** and its migration **226**.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `57375428f` | `--no-ff` merge of `main` `a25e9b45d`. Conflicts, resolved keeping both sides: the chain (`algorithm_versions.py`: `SUPERSEDED_CLAIMS_ALGORITHM_VERSION` then this stage's constant), the upgrade CLI (help, dispatch, the unknown-target list), both activation completers (`cli/runtime.py`, `learnloop_sidecar/context.py`) and the journal docstring, the defaults snapshots (`config/template.py`), and 14 test files (chain pins, comments, and earlier-migration schema diffs, which now take both `SUPERSEDED_ALTERED_TABLES` and `PR4_ADDED_OBJECTS`/`PR4_ALTERED_TABLES`). The ~430 reference notes and the head fixture were taken from main and regenerated or rebuilt afterwards. |
+| `0048ada3b` | The renumbering. `ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"`, one constant, appended after mvp-0.36. `attempt_content_state_upgrade.PREDECESSOR` is now mvp-0.36 and its upgrade (`upgrade_to_superseded_claims`); its completion hands any other link's journal to `superseded_claims_upgrade.complete_interrupted_activation`, which hands it on in turn. Both completers install this module's completion. `225_session_ownership.sql` is now `226_session_ownership.sql`. `migration_head_225` was `git mv`'d to `migration_head_226` and rebuilt (below). The 5 hard-coded paths and `SCHEMA_HEAD = 226` in both DB reference scripts follow, as do every test path naming the head (51 files) and every earlier-migration "nothing else changed" pin (`[..., 225, 226]`, max 226). The defaults fingerprints were recomputed for mvp-0.35, mvp-0.36 and the new mvp-0.37; the branch had already recomputed mvp-0.9 to mvp-0.34 for `practice.attempt_keeps_content_state`. The template `.pyc` was cleared. Latest-version pins (`LATEST == "mvp-0.37"`, every `*_VERSIONS` set gains mvp-0.37) and the CLI help snapshot were updated. Interactions (i) and (ii) were tested. |
+| `684664e9a` | The DB/config reference regenerated at head 226. |
+| `31c28b737` | `--no-ff` merge of `main` `416a9ddfe`. **No conflicts.** The archival runs in the CLI `upgrade` command after the final step, so it covers `--to mvp-0.37` and every chain through it. |
+| `711bc671e` | Interaction (iii) tests. The reference regenerated again: only `cli/app.py` citation line numbers and test lists moved. |
+
+The diff against main adds **no tracked database or binary other than the head fixture**: `git diff --numstat -M main`
+lists only `fixtures/{migration_head_225 => migration_head_226}/state.sqlite`. Neither `.gitignore` changed, and
+nothing under `fixtures-local/` is tracked.
+
+### The head fixture
+
+`fixtures/migration_head_226/state.sqlite` was rebuilt from main's tracked, sanitized `migration_head_225/state.sqlite`:
+
+- a backup-API copy, with only `226_session_ownership.sql` applied through `apply_migrations` under
+  `UPGRADE_SCRATCH_COPY`;
+- `wal_checkpoint(TRUNCATE)` (0, 0, 0) and `journal_mode=DELETE` (header bytes 1/1);
+- `integrity_check` ok and `foreign_key_check` empty;
+- copied into place with the backup API, with no companion files.
+
+226 adds its 5 objects and the two `sessions` columns. Only `schema_migrations` and `sessions` (the new columns, both
+sessions `(NULL, 0)`) changed rows. Every companion file is byte-identical to main's. The README has a new section,
+and the branch's own `migration_head_225` was dropped.
+
+### Interactions (`tests/test_pr4_superseded_claims_landing.py`, `tests/test_attempt_content_state_successor.py`)
+
+- **(i) The replace seam vs PR-4's attempt write and ownership** (`test_landing_i_a_too_easy_retirement_during_a_session`).
+  - On the desktop sidecar at mvp-0.37, in one session: answer, then a `too_easy` retirement (the first report).
+  - Then a second answer on the same LO, while a second `too_easy` retirement of that item commits between the grading
+    and the attempt's transaction (another writer).
+  - The second report replaces the first (`superseded_by`) atomically with its re-anchor. The attempt keeps the
+    retirement's closed row and its content hash; its scheduling columns land.
+  - After a phone adopts the session, the desktop's `submit_attempt` is `session_moved` and writes nothing. Its
+    retirement of another item still lands, because `retire_practice_item` is not session-scoped: §9.5 does not list
+    it.
+  - `rebuild --shadow` is **0/0/0** after the race and again at the end.
+  - The control at mvp-0.36 (`test_landing_i_control_...`) shows the same seam, but the row reopens.
+  - Nothing was broken, so no fix was needed.
+  - A real wall clock leaves ~1e-9 logit and 1 s due-time noise between live and replay at every version, the
+    predecessor's included: live keeps sub-second times and the ledger stores whole seconds. The test therefore holds
+    the system clock at whole seconds and steps it explicitly.
+- **(ii) An interrupted mvp-0.36 activation, then `upgrade --to mvp-0.37`.**
+  - With the CLI's completion installed, the opener hands the mvp-0.36 journal down the chain and completes it. The
+    upgrade then reports "mvp-0.36 -> mvp-0.37", leaving no journal and both activations recorded.
+  - With no completion installed, an attach refuses with "`learnloop upgrade --to mvp-0.36`" and leaves the vault as it
+    was. The mvp-0.37 upgrade itself still completes the mvp-0.36 activation first, then activates mvp-0.37.
+  - An mvp-0.35 (CA2) journal is handed down two links and completed.
+  - On the three owner copies (a real `os._exit(17)` after mvp-0.36's publication, then `upgrade --to mvp-0.37`): all
+    three complete, with no journal left. The shadow afterwards is the `algorithm_version` stamp only.
+- **(iii) The AD denial-log archival (main `416a9ddfe`).**
+  - `upgrade --to mvp-0.37` archives the log **exactly once per command**: from mvp-0.36 directly, and chained from
+    mvp-0.35, where the archive is named `…archived-mvp-0.35-to-mvp-0.37-…`.
+  - A refused upgrade leaves a live log in place: one already at the tag, or a chain refused at its first link from
+    mvp-0.8.
+  - On the probability copy, the 6 historical lines were archived once by the chained upgrade, and once by each
+    `--to mvp-0.36` in (a).
+
+### Regeneration
+
+- DB reference: `db_generate_reference.py`, then `db_validate_reference.py`: **errors []** (354 table notes; config
+  field count 1,065, with `practice` at 2 keys).
+- CLI help snapshot: regenerated. Only the `upgrade` entry changed.
+- The sidecar serializer snapshot, desktop RPC contract, embedding recipe pins, mobile allowlist and config refactor
+  tests pass as merged (359 passed). No RPC, serializer or allowlist change.
+- `tests/test_ad_guard_reachable_reads.py` passes with `session_handoffs` and the new `sessions` columns, with no AD
+  column-class change needed.
+
+### Gate (at `711bc671e`; `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing-pr34/logs/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (5G scope); `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,289 passed, 1 failed**, 89 skipped, 44 xfailed. pytest time 2,323.4 s (38:43); wall time 38 min 47 s, with no lock wait. The failure is the known load flake `test_plan_first_transport_offer_grants::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter`; the parity scripts were running alongside. Rerun alone 3 times, with no other full suite running: **3/3 passed**. No faulthandler dump and no hang. A run started before the second merge was stopped and does not count. |
+| durability (`-m durability`, 5G scope) | **176 passed**, 1 skipped (72 s) |
+| owner lane (`-m owner_vaults`, fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/landing-pr34/owner-lane/`) | 80 passed, **9 failed**: the 9 recorded at the learner-report landing (`test_doctor` pre-044, `test_migrate_fresh` 153, `test_goal_decay_projection`, `test_sidecar_contract` recent ingests, `test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`, and the three probability-data ones in `test_daily_plan_kill_switch`, `test_field_workbench_signals` and `test_router_r2a_serving`). **Main's own tree** (`git archive 416a9ddfe`, `PYTHONPATH` on its own fresh copies) gives the same 80 passed and the same 9 failed. |
+| frontend / Tauri | not run: nothing under `apps/` changed |
+
+Iteration runs before the gate were targeted: 70 files, 1,422 tests, with 3 pin failures that were then fixed and
+rerun.
+
+### Parity (fresh backup-API copies of the same mvp035 owner copies; `fixtures-local/landing-pr34/`, scripts in `scripts/pr34_*.sh`)
+
+Setup: `base/` holds the copies, all at mvp-0.35. Routes go to the `127.0.0.1:9` blackhole (65 tasks). The only route
+pointing elsewhere is the opt-in `embedding` route, which is off and has no key. `code_main` is
+`git archive 416a9ddfe`; `code_branch` is `git archive 711bc671e`. Every run went through `env -i` with empty dirs.
+`run.py`'s audit hooks refuse Codex process starts and non-loopback sockets; no audit line was written.
+
+- **(a) `upgrade --to mvp-0.36`, main's code vs the branch's** (then a primary sidecar load; a second main copy is the
+  noise control).
+  - Every pre-existing row is identical: 18,813 / 10,300 / 23,713 rows in 358 tables. The only raw differences are the
+    3 tables that differ between main and main's own second copy (activation timestamps).
+  - The branch adds only the new columns and table:
+    - `session_handoffs` (empty) and its 4 objects;
+    - `sessions.owner_device_id`, NULL on every session (17 / 1 / 0), and `owner_generation` 0;
+    - `schema_migrations` +226.
+  - Integrity ok; foreign keys 0.
+  - `rebuild --shadow` right after the upgrade: mastery 21 / 18 / 34, facet 0, schedule 0, identical on both sides.
+    Every change is the `algorithm_version` stamp only, as at the earlier landings.
+  - After `rebuild-derived-state` on each side: **0/0/0** on both. A normalized row comparison (ULIDs and times masked)
+    of main vs branch then shows no differing table; the branch only adds `schema_migrations` +1 and
+    `session_handoffs`.
+  - `doctor` is identical: 57 issues / 1 error, 102 / 48 and 76 / 47, all known content errors.
+- **(b) `upgrade --to mvp-0.37`** (branch code, on copies of (a)'s branch vaults). It prints
+  "mvp-0.36 -> mvp-0.37" and leaves no journal.
+  - **0 LOs and 0 item schedules moved.**
+  - Rows are preserved. The only changes are the projection activation's rewrite of the facet rows (36 / 1 / 2
+    `facet_capability_evidence`, 76 / 2 / 4 `facet_recall_state`), the `parameter_registry` refresh (352), and +1
+    `derived_state_rebuilds` and +1 `parameter_registry_manifests`.
+  - Every existing session keeps `owner_device_id` NULL (the desktop), and `session_handoffs` stays empty.
+  - **Serving: no change.** The Today queue and the certification/curve dumps are identical after the version stamp.
+    The daily plan picks the same blocks and items; only the router card's `card_hash`/`snapshot_hash` move, because
+    the card carries the version.
+  - The rows mvp-0.37 could serve differently, if an attempt met one (closed while the YAML is active), number 1 / 10 /
+    0.
+  - Shadow right after the upgrade: the stamp only (21 / 18 / 34 mastery). After `rebuild-derived-state`: **0/0/0**.
+  - After a primary load and **12 live attempts** (with two `too_easy` retirements on one LO, the replace seam:
+    claims 2 -> 3 with 1 superseded, 1 -> 2 with 1, 2 -> 3 with 1): **0/0/0** on all three.
+  - Without that rebuild the live shadow is the activation's stamp only.
+  - The bare `upgrade` goes from mvp-0.36 to mvp-0.37. `--to mvp-0.37` from mvp-0.35 chains through mvp-0.36.
+  - `doctor` shows only the known content errors (1 / 48 / 47).
+- **(c) The kill switch off reproduces mvp-0.36.**
+  - On copies at mvp-0.36, at mvp-0.37 with `practice.attempt_keeps_content_state = false`, and at mvp-0.37 on: close
+    one open row (as the sync rule keeps a parked or superseded row), answer it, then run 12 live attempts with two
+    retirements.
+  - mvp-0.36 and mvp-0.37-off both reopen the row, and their whole `practice_item_state` table is identical.
+  - mvp-0.37-on keeps it closed (`inactive_state`), and only that row differs.
+  - Mastery, schedules and Today are identical across all three after the version stamp. The next primary load's
+    content sync re-decides the manually closed row the same way in each.
+- **(d) An interrupted mvp-0.37 activation** (`os._exit(17)` after the config publication) on all three copies:
+  - `upgrade --to mvp-0.37` completes it ("completed the interrupted activation of mvp-0.37"; run again: "vault is
+    already mvp-0.37").
+  - The desktop start completes it.
+  - Both equal the clean upgrade: 0 LOs moved.
+  - `Repository`, `open_vault_repository` without a completer and the secondary attach refuse with "The upgrade to
+    mvp-0.37 did not finish ... run `learnloop upgrade --to mvp-0.37`". The remote schema check raises
+    `SchemaMismatch`. Each leaves the vault as it was.
+  - Plain `doctor --json` is a read-only attach and refuses too (the journal stays), as at the earlier landings.
+- **(e) `ad report --json`: no new denials.**
+  - linear_algebra and arxiv_v2: 0 throughout.
+  - probability: 6 live denials at mvp-0.35 (its historical lines). (a)'s upgrade archived them, so from then on the
+    report shows 0 live and 6 archived, unchanged after the upgrade to mvp-0.37 and after the live run.
+- **Receipts and calls.** No run wrote a `model_call_receipts` row: 59 copies hold 0, and the 32 probability copies
+  hold the source's 56 historical receipts. The empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` stayed empty.
+  **Spend: $0.** Nothing under `~/learnloop-vaults`, `~/learnloop-retired` or `~/learnloop-books` was opened or listed.
+
+**Found here, not from this stage.** Answering a row closed *outside the ledger* (the harness's
+`set_practice_item_active(False)`) leaves `rebuild --shadow` at mastery 1 / schedule 1 on that item's LO and row:
+different `due_at` and logit. **Main's code at mvp-0.36 gives the same** (`cy3`), and an open-row control is 0/0/0 on
+both sides (`cy4`, `cy5`). It is identical at mvp-0.36, mvp-0.37-off and mvp-0.37-on, so PR-4 neither causes nor
+closes it. It needs its own look: a replay of a deactivation that has no ledger event.
+
+### Owner notes
+
+- Back up each vault, then close the desktop app, MCP and the phone page.
+- Run `learnloop upgrade --to mvp-0.37`; the bare `upgrade` now targets it. It accepts mvp-0.36 directly, and mvp-0.9
+  to mvp-0.35 through the chain (mvp-0.35 vaults pass through the kept-replaced-claims mvp-0.36). The command
+  archives the AD guard's denial log once, at the end.
+- At the activation nothing moves: 0 LOs and 0 schedules on all three copies, and every session stays the desktop's.
+  From the tag on, an answer never reopens a question that was retired, parked or set aside, or brings back its old
+  text.
+- Kill switch: `[practice] attempt_keeps_content_state = false` restores mvp-0.36's whole-row write, with no downgrade.
+- If an upgrade is interrupted, rerun the same command or open the desktop app.
+
+### Open items (carried from the stage)
+
+- **A distinct code for a stale adopt.** A stale `expected_generation` returns `session_moved` with the current owner
+  and generation. Does the owner want its own code, for example `session_generation_stale`? (§6, question 2)
+- **G10's cap-boundary clause is M2's**: the host's two workers acting for one device. (§6, question 3)
+- **The M2 desktop prompts**: the adopt / start-fresh / cancel prompt for `session_open_elsewhere`, the
+  `session_moved` banner, a `replace` parameter on `start_session`, and an `adopt_session` RPC. (§6, question 4)
+- **`request_device_id` returns None (the desktop) until PR-5** replaces it with the request origin. Until then
+  nothing can make a device own a session.
+- **Writes outside §9.5's list are not ownership-checked**: workbench, tutor, Ask, daily-plan and the other
+  session-keyed writes outside practice. (§6, question 5)
+- **The closed-outside-the-ledger replay divergence** recorded above, which is pre-existing on main.
