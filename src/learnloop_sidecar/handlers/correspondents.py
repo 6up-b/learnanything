@@ -20,7 +20,10 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   ``none``): a ``learner_card`` verdict and a ``learner`` row, nothing else.
 
 Kill switch ``curriculum.enabled``: off, every RPC here refuses and no call
-is made. Display and retrieval context only: nothing here writes a plan,
+is made. Reader CA5a's ``reader.correspondence.enabled`` (respecting it) is
+the presentation's: off, the Reader's prompt contract has no
+``correspondence`` key and the Guide shows no *find this section in my other
+books*; the RPCs here keep C0a's behaviour. Display and retrieval context only: nothing here writes a plan,
 evidence, mastery, FSRS, scheduler state, provenance or anything served.
 """
 from __future__ import annotations
@@ -49,6 +52,26 @@ CORRESPONDENT_RPCS: tuple[str, ...] = (
     "curriculum.coverage_correct",
 )
 COVER_ORIGIN = "curriculum.cover"
+
+
+def find_section_enabled(vault: Any) -> bool:
+    """Reader CA5a's switch (``reader.correspondence.enabled``), respecting
+    ``curriculum.enabled`` (which gates the data) and the Reader itself."""
+
+    reader = getattr(vault.config, "reader", None)
+    correspondence = getattr(reader, "correspondence", None)
+    return bool(getattr(correspondence, "enabled", False)) and SC.enabled(vault) and RD.reader_enabled(vault)
+
+
+def prompt_contract_fields(vault: Any) -> dict[str, Any]:
+    """What the Reader's prompt contract adds for CA5a (absent while off, so
+    the Guide is exactly as before): the pressed *find this section in my
+    other books*. CA5's one-line entry is not built: the Reader hides the
+    action for a section whose quiet read finds judged coverage."""
+
+    if not find_section_enabled(vault):
+        return {}
+    return {"correspondence": {"enabled": True, "find_section": True}}
 
 
 def _require(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]:
@@ -327,4 +350,4 @@ def curriculum_coverage_correct(ctx: SidecarContext, params: CoverageCorrectInpu
     return versioned({"correction": row})
 
 
-__all__ = ["CORRESPONDENT_RPCS"]
+__all__ = ["CORRESPONDENT_RPCS", "find_section_enabled", "prompt_contract_fields"]
