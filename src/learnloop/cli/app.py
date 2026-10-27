@@ -350,11 +350,37 @@ def upgrade(
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
         for note in result.notes:
             typer.echo(f"  - {note}")
+        _archive_ad_denial_log(_root(vault), result.from_version, result.to_version)
         return
     typer.echo(f"Vault not upgraded (currently {result.from_version}):")
     for problem in result.problems:
         typer.echo(f"  - {problem}")
     raise typer.Exit(code=1)
+
+def _archive_ad_denial_log(root: Path, from_version: str, to_version: str) -> None:
+    """Archive the AD guard's denial log once a successful upgrade has completed (owner decision
+    2026-10-27; ``learnloop.adaptive_difficulty.denial_log``).
+
+    Once per command, after the final step: every upgrade (each link of a chain included) has
+    returned, its activation journal completed and removed. A failed or refused upgrade never gets
+    here. Under the vault mutation lock, so two upgrades never pick the same archive name. A failure
+    to archive never fails the upgrade (the vault is upgraded); the log stays live and is named."""
+
+    from learnloop.adaptive_difficulty.denial_log import archive_denial_log
+    from learnloop.vault_lock import vault_mutation_lock
+
+    try:
+        loaded = load_vault(root)
+        sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        with vault_mutation_lock(root, purpose="ad_denial_log_archive"):
+            archived = archive_denial_log(sqlite_path, from_version=from_version, to_version=to_version)
+    except Exception as exc:  # noqa: BLE001 - diagnostic file; the upgrade itself has succeeded
+        typer.echo(f"  - AD guard denial log not archived ({type(exc).__name__}); "
+                   "ad report counts its earlier lines until the next upgrade", err=True)
+        return
+    if archived is not None:
+        typer.echo(f"  - AD guard denial log archived as {archived.name}; ad report counts denials from now")
+
 
 @app.command("add-subject")
 def add_subject(
