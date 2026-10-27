@@ -170,6 +170,23 @@ def _key(entry: Mapping[str, Any]) -> tuple[str, str]:
     return (str(entry.get("extraction_id") or ""), str(entry.get("span_id") or ""))
 
 
+def _entry_keys(entry: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Every block of a compared passage: one, or (Reader CA3, Codex review
+    F4) an anchor's blocks in the learner's order, its first naming it."""
+
+    key = _key(entry)
+    spans = [str(span) for span in entry.get("span_ids") or () if span]
+    if not spans:
+        return [key]
+    return [(key[0], span) for span in dict.fromkeys([key[1], *spans])]
+
+
+def _holder(claim: Mapping[str, Any], quote: str) -> tuple[str, str] | None:
+    """The block of a claim's passage that holds ``quote`` (first in order)."""
+
+    return next((key for key, block in claim["blocks"].items() if _quote_in(quote, block.text)), None)
+
+
 def _key_str(key: tuple[str, str]) -> str:
     return f"{key[0]}:{key[1]}"
 
@@ -256,7 +273,7 @@ def _plan(vault: LoadedVault, repository: Repository, stored: Mapping[str, Any],
           sources: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """What a keep would write, checked against the books as they are now (no writes)."""
 
-    keys = [_key(entry) for entry in sources]
+    keys = list(dict.fromkeys(key for entry in sources for key in _entry_keys(entry)))
     with repository.connection() as connection:
         blocks = blocks_by_key(connection, keys)
         roles = block_roles(connection, keys)
@@ -266,30 +283,36 @@ def _plan(vault: LoadedVault, repository: Repository, stored: Mapping[str, Any],
     for entry in sources:
         key = _key(entry)
         ref = str(entry.get("ref") or "")
+        own = _entry_keys(entry)
         block = blocks.get(key)
         run = repository.get_extraction_run(key[0]) if block is not None else None
-        if block is None or run is None or not run.get("revision_id"):
+        if any(part not in blocks for part in own) or run is None or not run.get("revision_id"):
             not_kept.append({"key": _key_str(key), "reason": "the passage is no longer in this reading"})
             continue
-        lines = []
+        # Each quote is rechecked against the block of the passage that holds
+        # it (an anchor's passage is several blocks: Codex review F4).
+        claim = {"ref": ref, "key": key, "entry": dict(entry), "block": block,
+                 "blocks": {part: blocks[part] for part in own}, "lines": [],
+                 "revision_id": str(run["revision_id"]), "hashes": {part: hashes.get(part) for part in own},
+                 "content_hash": hashes.get(key),
+                 "object_type": "definition" if roles.get(key) == "definition" else "claim"}
         for line in entry.get("contributions") or ():
-            if _quote_in(str(line.get("quote") or ""), block.text):
-                lines.append({"kind": "contribution", "text": str(line.get("contribution") or ""),
-                              "perspective": line.get("perspective"), "quote": str(line.get("quote")),
-                              "authorship": "ai", "label": "LearnLoop's reading (AI-written), quoting the source"})
+            if _holder(claim, str(line.get("quote") or "")) is not None:
+                claim["lines"].append({"kind": "contribution", "text": str(line.get("contribution") or ""),
+                                       "perspective": line.get("perspective"), "quote": str(line.get("quote")),
+                                       "authorship": "ai",
+                                       "label": "LearnLoop's reading (AI-written), quoting the source"})
             else:
                 not_kept.append({"key": _key_str(key), "reason": "a line's quote is no longer in the passage"})
-        claims[ref] = {"ref": ref, "key": key, "entry": dict(entry), "block": block, "lines": lines,
-                       "revision_id": str(run["revision_id"]), "content_hash": hashes.get(key),
-                       "object_type": "definition" if roles.get(key) == "definition" else "claim"}
+        claims[ref] = claim
     relations: list[dict[str, Any]] = []
     for relation in _relations(stored, set(claims)):
         left, right = claims[relation["left_ref"]], claims[relation["right_ref"]]
         fine = str(relation.get("relation") or "")
         coarse = coarse_relation(fine, left["object_type"], right["object_type"])
         ok = (coarse is not None and left["ref"] != right["ref"]
-              and _quote_in(str(relation.get("left_quote") or ""), left["block"].text)
-              and _quote_in(str(relation.get("right_quote") or ""), right["block"].text))
+              and _holder(left, str(relation.get("left_quote") or "")) is not None
+              and _holder(right, str(relation.get("right_quote") or "")) is not None)
         if not ok:
             not_kept.append({"keys": [_key_str(left["key"]), _key_str(right["key"])],
                              "reason": "a relation's quote is no longer in its passage" if coarse
@@ -396,14 +419,16 @@ def _write(vault: LoadedVault, repository: Repository, *, ask: Mapping[str, Any]
     for ref, claim in plan["passages"].items():
         entry = claim["entry"]
         quote = _quote_of(claim, relations)
+        # Cited to the block that holds the quote (an anchor's later block, F4).
+        cited = _holder(claim, quote) or claim["key"]
         written = SO.author_source_object(
             repository, source_id=str(entry.get("source_id")), revision_id=claim["revision_id"],
             object_type=claim["object_type"], exact_text=quote,
             content={"kept_from": "source_comparison", "comparison_id": stored["id"], "ask_id": ask["id"],
                      "query": stored.get("query_md"), "lines": claim["lines"],
                      "source_label": "source-authored", "source_title": entry.get("source_title")},
-            citations=[{"revision_id": claim["revision_id"], "span_id": claim["key"][1],
-                        "block_content_hash": claim["content_hash"], "exact_quote": quote}],
+            citations=[{"revision_id": claim["revision_id"], "span_id": cited[1],
+                        "block_content_hash": claim["hashes"].get(cited), "exact_quote": quote}],
             authorship="ai", status="proposed", model_provenance=provenance, clock=clock,
         )
         object_ids[ref] = written["source_object_id"]
@@ -411,7 +436,8 @@ def _write(vault: LoadedVault, repository: Repository, *, ask: Mapping[str, Any]
                         "key": _key_str(claim["key"]), "extraction_id": claim["key"][0], "span_id": claim["key"][1],
                         "source_id": entry.get("source_id"), "source_title": entry.get("source_title"),
                         "page": entry.get("page"), "object_type": claim["object_type"],
-                        "revision_id": claim["revision_id"], "quotes": [line["quote"] for line in claim["lines"]]})
+                        "revision_id": claim["revision_id"], "quotes": [line["quote"] for line in claim["lines"]],
+                        **({"span_ids": [part[1] for part in claim["blocks"]]} if len(claim["blocks"]) > 1 else {})})
     kept_relations: list[dict[str, Any]] = []
     for relation in relations:
         link = SO.link_relation(repository, source_object_id=object_ids[relation["left_ref"]],
@@ -430,7 +456,7 @@ def _write(vault: LoadedVault, repository: Repository, *, ask: Mapping[str, Any]
     learning_objects: list[str] = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
     for obj in objects:
         for lo_id in anchor_learning_objects(vault, repository, extraction_id=obj["extraction_id"],
-                                             span_ids=[obj["span_id"]]):
+                                             span_ids=list(obj.get("span_ids") or [obj["span_id"]])):
             if lo_id not in learning_objects:
                 learning_objects.append(lo_id)
     return {"version": KEPT_VERSION, "comparison_id": stored["id"], "caller": caller, "kept_at": utc_now_iso(clock),

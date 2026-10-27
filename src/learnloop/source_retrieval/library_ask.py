@@ -1151,6 +1151,10 @@ def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None 
                              "perspective": c.get("perspective"), "authorship": "ai"}
                             for c in entry.get("contributions") or ()],
             "assumes": assumes, "differs": differs,
+            # Reader CA3 (Codex review F4): an anchor of several blocks is the
+            # whole passage, so the tutor about this comparison reads all of it.
+            **({"span_keys": [f"{entry.get('extraction_id')}:{span}" for span in entry["span_ids"]]}
+               if entry.get("span_ids") else {}),
         })
     manifest = comparison.get("manifest") or {}
     verification = manifest.get("verification") if isinstance(manifest.get("verification"), Mapping) else {}

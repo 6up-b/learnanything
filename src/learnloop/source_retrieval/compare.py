@@ -280,13 +280,26 @@ def _compare_sources(
     # The anchor keeps the learner's order (its first block names it).
     anchor_order = list(dict.fromkeys(_ordered_keys(anchor_span_keys)))
     anchor: SpanHit | None = None
+    #: The anchor's blocks, in the learner's order (Codex review F4: a passage
+    #: of several blocks is stored, cached and kept as all of them).
+    anchor_blocks: list[tuple[str, str]] = []
     if anchor_order:
         kept_anchor = set(admitted(set(anchor_order)))
         anchor_keys = [key for key in anchor_order if key in kept_anchor and key[0] in scope.extractions]
         if anchor_keys:
-            anchor = _anchor_hit(repository, scope, anchor_keys)
+            anchor, anchor_blocks = _anchor_hit(repository, scope, anchor_keys)
             result.manifest["anchor_keys"] = [list(key) for key in anchor_keys]
     anchor_source = anchor.source_id if anchor is not None else None
+    if named:
+        # CA3 (Q13; Codex review F3): with named books, only those (and the
+        # anchor's) are verified and compared, so a pin from another book is
+        # left out with its reason before anything reaches a model.
+        allowed = set(named) | ({anchor_source} if anchor_source else set())
+        for key in list(pinned):
+            if scope.extractions[key[0]].source_id not in allowed:
+                pinned.remove(key)
+                result.dropped_pins.append({"extraction_id": key[0], "span_id": key[1],
+                                            "reason": "its book is not among the books you chose"})
 
     # Counterparts: every source in scope (CA3: the named ones), one shared
     # query embedding.
@@ -428,6 +441,12 @@ def _compare_sources(
         used += cost
         compared.append(source_id)
     counterpart_keys = [[verified[sid].extraction_id, verified[sid].span_id] for sid in compared]
+    if anchor is not None and anchor.source_id in compared and len(anchor_blocks) > 1:
+        # Codex review F4: the anchor's later blocks are part of what was
+        # compared: the cache identity (a reuse needs the same passage) and
+        # every later read of the comparison's passages name them.
+        at = counterpart_keys.index([anchor.extraction_id, anchor.span_id]) + 1
+        counterpart_keys[at:at] = [list(key) for key in anchor_blocks[1:]]
     result.manifest["counterpart_keys"] = counterpart_keys
     # Local contextual retrieval P1 (Codex review F9): each source's search
     # delivered the one passage the comparison reads (nothing while no new
@@ -439,7 +458,8 @@ def _compare_sources(
             deliver(vault, repository, searches[sid], [verified[sid].key])
     if len(compared) < 2:
         result.status = "too_few_sources"
-        result.sources = [_entry(verified[sid], f"s{i}", anchor) for i, sid in enumerate(compared, start=1)]
+        result.sources = [_entry(verified[sid], f"s{i}", anchor, anchor_blocks)
+                          for i, sid in enumerate(compared, start=1)]
         result.missing_perspectives = list(requested_perspectives) if not compared else []
         return result
 
@@ -468,7 +488,7 @@ def _compare_sources(
                       price_setting="source_service.llm_price_per_million")
     if skip is not None:
         result.status = skip
-        result.sources = [_entry(hit, ref, anchor) for ref, hit in refs.items()]
+        result.sources = [_entry(hit, ref, anchor, anchor_blocks) for ref, hit in refs.items()]
         return result
     if client is None:
         client, problem = resolve_client(vault, route)
@@ -476,7 +496,7 @@ def _compare_sources(
         problem = transport_problem(route, client)
     if client is None or problem is not None:
         result.status = f"unavailable: {problem}"
-        result.sources = [_entry(hit, ref, anchor) for ref, hit in refs.items()]
+        result.sources = [_entry(hit, ref, anchor, anchor_blocks) for ref, hit in refs.items()]
         return result
     caps = SpendCaps(max_candidates=len(refs), max_pairs=len(refs) ** 2, max_retries=1, max_calls=2,
                      max_total_tokens=400_000, max_estimated_usd=config.compare_max_cost_usd)
@@ -501,7 +521,7 @@ def _compare_sources(
         return result
 
     passages = {ref: hit.text for ref, hit in refs.items()}
-    entries = {ref: _entry(hit, ref, anchor) for ref, hit in refs.items()}
+    entries = {ref: _entry(hit, ref, anchor, anchor_blocks) for ref, hit in refs.items()}
     for line in answer.contributions:
         if line.source_ref not in passages or not _quote_in(line.quote, passages[line.source_ref]):
             result.dropped_lines.append({"kind": "contribution", "source_ref": line.source_ref,
@@ -558,20 +578,24 @@ def _ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]:
     return ordered
 
 
-def _anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> SpanHit:
+def _anchor_hit(repository: Repository, scope: Scope,
+                keys: Sequence[tuple[str, str]]) -> tuple[SpanHit, list[tuple[str, str]]]:
     """The anchor as one passage: its blocks of the first block's extraction,
-    in the learner's order, joined (cut to the prompt bound as any passage)."""
+    in the learner's order, joined (cut to the prompt bound as any passage),
+    and those blocks (the first names the passage)."""
 
     first = keys[0]
     same = [key for key in keys if key[0] == first[0]]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, same)
-    text = " ".join(blocks[key].text for key in same if key in blocks)
+    used = [key for key in same if key in blocks]
+    text = " ".join(blocks[key].text for key in used)
     extraction = scope.extractions[first[0]]
     block = blocks[first]
-    return SpanHit(extraction_id=first[0], span_id=first[1], source_id=extraction.source_id,
-                   source_title=extraction.title, text=text[:PASSAGE_CHARS], block_type=block.block_type,
-                   section_path=[], page=block.page, ordinal=block.ordinal, ranks={"anchor": 1})
+    hit = SpanHit(extraction_id=first[0], span_id=first[1], source_id=extraction.source_id,
+                  source_title=extraction.title, text=text[:PASSAGE_CHARS], block_type=block.block_type,
+                  section_path=[], page=block.page, ordinal=block.ordinal, ranks={"anchor": 1})
+    return hit, used
 
 
 def _also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope,
@@ -593,10 +617,15 @@ def _also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scop
     return found
 
 
-def _entry(hit: SpanHit, ref: str, anchor: SpanHit | None) -> dict[str, Any]:
+def _entry(hit: SpanHit, ref: str, anchor: SpanHit | None,
+           anchor_blocks: Sequence[tuple[str, str]] = ()) -> dict[str, Any]:
     entry = _source_entry(hit, ref)
     if anchor is not None and hit.key == anchor.key:
         entry["anchor"] = True
+        if len(anchor_blocks) > 1:
+            # Codex review F4: the passage is every block of the anchor (its
+            # first names it), so Keep and the tutor read all of it.
+            entry["span_ids"] = [key[1] for key in anchor_blocks]
     return entry
 
 
