@@ -273,7 +273,15 @@ draft's first line"), not a model parameter.
 All pytest runs inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6` at most,
 one at a time.
 
-GATE_TABLE
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| New files while building: `test_synthesis_sweep_primary_only` (4), `test_attempt_content_state_race` (5), `test_session_ownership` (18) | all passed; the red-on-base checks are in §1–§3 |
+| Every test file naming the head fixture (41) + `test_session_ownership_migration`, `test_tracked_fixture_databases`, `test_table_roles` | first run: 603 passed, 36 failed (the expected earlier-migration diffs). Fixed, then the 16 migration files: 119 passed, of which 12 still failed (the altered-table sets); fixed, then those 6 files: 33 passed |
+| **Targeted set**, 374 files (`docs/reviews/artifacts/mobile-pr3-pr4-targeted-tests.txt`): every file that calls a changed function (`start_session`, `end_session`, checkpoint update/clear/patch, `save_practice_draft`, `skip_practice_item`, `acknowledge_practice_submission`, `submit_attempt`, `submit_dont_know`, teach-back, ingest bind/lease recovery, `practice_item_state`, `apply_attempt`/`complete_self_graded_attempt`, session/checkpoint reads), the head-fixture files, and the contract set (architecture, CLI help snapshot, desktop RPC contract, sidecar serializer snapshot, sidecar contract, mobile allowlist, table roles, tracked fixture databases, coordinated migrations, migrations, replay, rebuild equivalence, shadow rebuild, repository scopes, public tip guards, SQLite file copies, secondary attach, host coexistence, PR-2 race) | **12,630 passed**, 43 skipped, 3 xfailed, **5 failed** in 44 min 31 s. 3 failures are `test_codex_lockdown_round2` (the machine's Codex CLI 0.164.0, which fails on main too and is another stage's fix). 2 were this stage's: `test_architecture::test_sql_writes_stay_in_registered_owner_modules` (the new store registered as a SQL owner) and `test_attempt_write_order` (its hook moved to the live write's new method). After those fixes, both files: **19 passed** |
+| Durability lane (`-m durability`) on the new files, the PR-2 race, secondary attach, host coexistence, repository scopes, the 14 migration-diff files, figure requests, tracked fixture databases and coordinated migrations | **59 passed** |
+| DB reference: `db_generate_reference.py` then `db_validate_reference.py` | **errors: []** (354 table notes; regenerated at head 225, committed whole) |
 
 No frontend, Tauri or config change, so no npm, vitest, cargo or defaults-snapshot work.
 
