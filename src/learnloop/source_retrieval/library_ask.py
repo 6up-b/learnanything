@@ -1290,6 +1290,32 @@ class OnlyPinned:
         return kept, manifest
 
 
+def comparison_passage_keys(repository: Repository, ask_id: str, comparison_id: str) -> list[str]:
+    """Reader CA3 (Codex re-review F10): every passage the ask's comparison
+    read, from the stored comparison itself (each compared book's passage and
+    every block of an anchor of several), as ``extraction:span`` keys, the
+    anchor first.
+
+    The tutor about a comparison is grounded in these, so a comparison larger
+    than a pin set (an anchor may run to the selection's 40 blocks, plus one
+    passage per book) reaches the tutor whole: the tutor's context budget, not
+    the request's size, decides what is left out, and the answer says so. Only
+    the comparison the ask shows now may be named, never another ask's."""
+
+    from learnloop.db.stores.source_service import comparison_row
+
+    row = ask_row(repository, ask_id)
+    if not comparison_id or row.get("comparison_id") != comparison_id:
+        raise LibraryAskError("validation_error", "That comparison isn't the one this question shows.")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        stored = comparison_row(connection, comparison_id)
+    keys = _keys([f"{key[0]}:{key[1]}" for key in (stored or {}).get("counterpart_keys") or ()
+                  if isinstance(key, (list, tuple)) and len(key) == 2])
+    if not keys:
+        raise LibraryAskError("validation_error", "That comparison has no passages to answer from.")
+    return keys
+
+
 def ask_tutor(
     vault: LoadedVault,
     repository: Repository,
@@ -1372,6 +1398,7 @@ __all__ = [
     "compare",
     "compare_enabled",
     "compare_table",
+    "comparison_passage_keys",
     "group_hits",
     "open_comparison",
     "ledger_explorable",

@@ -593,10 +593,30 @@ def _door_scope(repository: Any, row: dict[str, Any], params: LibraryCompareInpu
     return {"door": door, "anchor_keys": anchor, "source_ids": list(params.source_ids)}
 
 
-class LibraryAskTutorInput(ParamsModel):
+class _PinnedTutorInput(ParamsModel):
+    """Today's request, exactly: what the RPC takes while
+    ``reader_compare.scope_enabled`` is off (CA3 off = today)."""
+
     ask_id: str
     pinned_span_keys: list[str] = Field(min_length=1, max_length=20)
     question: str | None = Field(default=None, max_length=4000)
+
+
+class LibraryAskTutorInput(ParamsModel):
+    """The tutor over the pins, or (Reader CA3) over the comparison shown.
+
+    ``comparison_id`` (only while ``reader_compare.scope_enabled`` is on;
+    refused as unknown while off): the comparison this ask shows. The server
+    reads every passage it compared from the stored comparison (Codex
+    re-review F10), so a comparison larger than a pin set (an anchor of many
+    blocks and one passage per book) is answered from whole, the tutor's
+    context budget saying what it left out; ``pinned_span_keys`` stays the pin
+    set's bound and adds to it."""
+
+    ask_id: str
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    question: str | None = Field(default=None, max_length=4000)
+    comparison_id: str | None = None
 
 
 @method("reader.library_ask_tutor", LibraryAskTutorInput)
@@ -612,7 +632,19 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 
     vault, repository = _require(ctx)
+    if not scope_enabled(vault):
+        # CA3 off: today's request exactly (at least one pin, no comparison).
+        _PinnedTutorInput.model_validate(params.model_dump(exclude_defaults=True))
     row = _ask_row(repository, params.ask_id)
+    pinned_keys = list(params.pinned_span_keys)
+    if params.comparison_id is not None:
+        try:
+            compared = LA.comparison_passage_keys(repository, params.ask_id, params.comparison_id)
+        except LA.LibraryAskError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        pinned_keys = list(dict.fromkeys([*compared, *pinned_keys]))
+    if not pinned_keys:
+        raise SidecarError("validation_error", "Pin the passages the tutor should answer from.")
     caller = follow_up_caller(vault, repository, row)
     policy, _reason = derive_policy(caller)
     if policy == "cold_attempt":
@@ -622,7 +654,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     if not runtime.ready or client is None:
         raise SidecarError("provider_unavailable",
                            f"{provider_label(provider_name)} is unavailable for the tutor.", retryable=True)
-    provider = LA.OnlyPinned(PinnedSpanProvider(params.pinned_span_keys), item=item)
+    provider = LA.OnlyPinned(PinnedSpanProvider(pinned_keys), item=item)
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def answer(*, question_md: str, extraction_id: str, span_id: str) -> dict[str, Any]:
@@ -630,7 +662,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
                           question_md=question_md, source_span_provider=provider)
 
         try:
-            result = LA.ask_tutor(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
+            result = LA.ask_tutor(vault, worker_repo, params.ask_id, pinned_keys=pinned_keys,
                                   question_md=params.question, ask=answer)
         except HeldOutMaterialRefused as exc:
             raise SidecarError("exam_material", str(exc)) from exc
