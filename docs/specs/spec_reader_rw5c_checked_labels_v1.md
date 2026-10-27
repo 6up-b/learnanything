@@ -2,7 +2,7 @@
 
 **Status:** design only, for owner review **before any code** (2026-10-27). It is the follow-up stage that `docs/reviews/reader-workbench-RW5a.md` §8.4 names, and it is linked from `spec_reader_workbench_v1.md` §8.3, G23 and §13. Until RW5c lands, the RW5a amendment in that §8.3 governs: every figure is an illustration and G23 holds vacuously. **One owner choice is pending** (§8: option A or option B; the orchestrator recommends B). Every other choice has a recommended default, and all of them are listed in §17. After the owner's review, Codex reviews this design adversarially ("find a displayed element or number that these rules let carry the claim") before any code is written.
 
-**Base.** Code citations were checked in the worktree on branch `reader/rw5c-design` at `dbc1559e7` (migrations through 226, latest algorithm `mvp-0.37`). The deleted RW5a step-3 code is cited from commit `865a3b38f` (`git show 865a3b38f:<path>`). Python paths are relative to `src/`, frontend paths to `apps/learnloop-tauri/src/`, migrations to the repo root.
+**Base.** Code citations were checked in the worktree on branch `reader/rw5c-design` at `dbc1559e7` (migrations through 226, latest algorithm `mvp-0.37`). The deleted RW5a step-3 code is cited from commit `865a3b38f` (`git show 865a3b38f:<path>`). Python paths are relative to `src/`, frontend paths to `apps/learnloop-tauri/src/`, migrations to the repo root. Codex's adversarial review of this design (F1–F7) is folded in: `docs/reviews/reader-rw5c-design-codex-review.md`.
 
 ---
 
@@ -25,7 +25,7 @@ RW5a shipped every figure as an illustration. Its step 3 failed review five time
 | A certification version inside `verification_report_json`, and a reuse-key miss (so a paid rebuild) when it changed (round-5 R5-4) | A certification version on an append-only check ledger (§10.2). Rechecks are code only and never call a model |
 | "Checked" or "illustration" for the whole figure | Per element: *matches the book's equation (checked)*, *computed by LearnLoop from it*, or *AI-built, not checked* |
 
-The class B fix from RW5a (one `FiguresGate` for every figure-derived model request, re-read before each request, `figure_admission.py`) stays as it is. RW5c adds no new kind of model request (§6.7).
+The class B fix from RW5a (one `FiguresGate` for every figure-derived model request, re-read before each request, `figure_admission.py`) stays, with one addition: the build's gate key gains RW5c's switch, so a switch change stops the `differs` retry and every later write (§6.7). RW5c adds no new kind of model request.
 
 ## 2. Code truth (checked at `dbc1559e7`)
 
@@ -33,10 +33,13 @@ The class B fix from RW5a (one `FiguresGate` for every figure-derived model requ
 |---|---|---|
 | Steps 1–2 and their outcomes | `figures/verify.py:48-53` (`ILLUSTRATIVE`, `FAILED`, `UNSUPPORTED`; nothing produces `verified`); `:96` parameter grid; `:365-380` invariants, with `equals_source` skipped at `:370` | Step 3 goes after steps 1–2 and changes no part of them |
 | Quote check | `figures/verify.py:391-401` (`quote_in`: verbatim after collapsing whitespace; `check_claims`) | Kept. A quote is still the author's pointer (§5.1) |
-| The spec | `figures/spec.py:114-115` (`Text`, `Label` types), `:119` `SourceClaim`, `:135` `Parameter`, `:277-293` `Invariant` with `equals_source` naming a definition, `:313` `InteractiveFigureSpecV1`; `:652-654` (the compiler checks the `equals_source` name) | Unchanged: `ifs-v1` stays. The label walk keys on the `Label` and `Text` types (§7.1) |
+| The spec | `figures/spec.py:114-115` (`Text`, `Label` types), `:119` `SourceClaim`, `:135` `Parameter`, `:277-294` `Invariant` with `equals_source` naming a definition, `:313` `InteractiveFigureSpecV1`; `:652-654` (the compiler checks the `equals_source` name) | Unchanged: `ifs-v1` stays. The label walk keys on the `Label` and `Text` types (§7.1) |
 | Grammar | `figures/grammar.py:105-117` (`Node`: a `num` keeps its source `text`), `:120` names `^[A-Za-z][A-Za-z0-9]*$`, `:48-55` caps | The book's equation is translated into this same grammar's `Node`s (§5.3). Grammar identifiers are ASCII, so comparing names is exact |
 | Stored status | `db/stores/figures.py:32-43` (`VERIFIED_RW5C`, and `shown_verification` shows a stored `verified` as `illustrative`); `migrations/224_figure_requests.sql` (the current `interactive_figures`: `verification` CHECK includes `verified`, which needs `kind = 'reconstructed'`; `checks_json` is reserved for RW5d P2/P2b) | RW5c keeps both rules. Its result goes in a new ledger (§10.2), not in `verification` |
 | The view | `figures/service.py:649-658` `shown_row`; `:664-704` closed `PROPERTY_CHECKS`; `:731` `figure_view`; `:821-846` `request_hash` (the prompt version is part of the reuse key) | The view gains a closed element map and a source-check block (§7.4). RW5c changes no prompt, so reuse keys do not change (§6.7) |
+| Build admission, reuse and revisions | `figures/service.py:233-244` `build_key` (the gate's key: vault, `figures.enabled`, author route, cap, price, advanced panels); `:836-846` `request_hash` (it includes `supersedes_id` and `revision_note`; RW5d's show-me fields are added only when set, `:843-846`); `:850` `_reusable`; `:967-995` `_author_context` (`learner_note`, `problems_with_the_last_attempt`); `:1186-1226` the two-attempt loop; `:1267-1278` the store check, the row and its `figure_verified` judgment in one transaction; `:1319` `revision_request` ("not right?"); `migrations/224_figure_requests.sql:149-150` the unique reuse index (among shown rows) | The `differs` retry runs inside the loop (§6.6); the switch joins `build_key` (§6.7); *rebuild* is a revision with its own identity (§6.6) |
+| Clipped and integer bounds | `figures/spec.py:825-845` `shade_value` (each bound clamped to the plot's x range), `:848-864` `highlight_value` (clamped to the k axis); `figures/grammar.py:618-639` `exact_sum` (integers `ceil(a − 1e-9)` to `floor(b + 1e-9)`); `:33-37` IEEE arithmetic (`1/0` is `Infinity`, `sqrt(-1)` is `NaN`) | Derived labels state the bounds the evaluator used (§7.2); domains come from the unsimplified expressions (§6.3) |
+| Judgments | `db/stores/judgments.py:14-42` `append_judgment` (in the caller's transaction); `migrations/175_decider_judgments_and_receipt_labels.sql:36` (judge vocabulary, `verifier` among it), `:70-85` (supersession must name the same question) | Each check row has its judgment (§10.2) |
 | The code-owned frame | `screens/reader/figures/FigureInline.tsx:28-46` (`FIGURE_FRAME`, `PROPERTY_CHECK_COPY`), `:49-54` `frameBadge` | RW5c adds constants to this frame (§7.3) |
 | Label sites in the renderer | `screens/reader/figures/FigurePanels.tsx:22-31` `formatValue` (5 significant digits; exponent form outside [1e-3, 1e5); percent to 0.1); `:91` a shade finds its series **by label**; legends, SVG text, table headers and `aria-label`s at `:108-161`, `:183-203`, `:224-252` | Display agreement uses `formatValue`'s precision. Rewriting a label must keep `shade.series` and `annotation.target` bound (§7.4) |
 | Precedent: symbolic checks of LaTeX | `workbench/symbolic.py:1-66` (RW2b: "checked" comes only from text parsed by code; names are never resolved; fixed harness in the PF-b sandbox; controls must behave), `:203-210` (sympy's lark LaTeX parser), `:1013-1058` `run_checks` (limits `cpu_seconds=20, wall_seconds=30` at `:1033`, `per_check_seconds` 5 at `:1039`) | Same principles. The reader is RW5c's own (§5.3, where the probe shows why it is not lark) |
@@ -55,7 +58,7 @@ The class B fix from RW5a (one `FiguresGate` for every figure-derived model requ
 Made precise for RW5c, an element labelled *matches the book's equation (checked)* certifies all of the following:
 
 1. **The equation is the book's, as the Reader shows it.** Code read it from the LaTeX of one source block of the figure's own input spans. That block is not withheld and its health status is `ok` (§5.2). The provenance names the extraction, the span and the page.
-2. **The definition equals it, exactly.** sympy proves `definition − book_rhs = 0` for every real value of the plotted variable and for every parameter value under the sign assumptions implied by the sliders' ranges (§6.3). Proving it under weaker assumptions is a stronger statement, so it covers the whole range.
+2. **The definition equals it, exactly, on the same domain.** sympy proves `definition − book_rhs = 0` for every real value of the plotted variable where they are defined, and for every parameter value under the sign assumptions implied by the sliders' ranges (§6.3). Proving it under weaker assumptions is a stronger statement, so it covers the whole range. Code also proves that the two are defined at the same points, read from the unsimplified expressions before anything cancels (§6.3 step 3), so `(x² − c²)/(x − c)` is never checked against `x + c`.
 3. **What is drawn is that definition.** The element's expression is a bare reference to the definition: the same grammar `Node`, which the parity-tested evaluators compute (G22). Its literals are exact binary64 values and its branch conditions are exact (§6.1).
 4. **What is shown matches it to the digits shown, on the parameter grid.** At every displayed sample of every grid point (§6.4), the value as displayed equals the exact value of the book's equation as displayed.
 5. **The check worked.** Every negative control was refused (§6.5).
@@ -80,7 +83,7 @@ author → spec → steps 1–2 (unchanged) → shown? ──no──→ failed 
  3c exact check in the sandbox, per (definition, candidate) pair; controls; display agreement   (§6.3–6.5)
  3d outcome per definition: checked | differs | undecided | not_checkable   (§6.6)
  3e element roles and labels from the outcomes   (§7, option A or B §8)
- 3f one row in figure_source_checks   (§10.2)
+ 3f one row in figure_source_checks and its judgment_ledger verdict, in one transaction   (§10.2)
 ```
 
 Steps 3a–3f are deterministic functions of the stored spec, the source text, the block-health analyzer version, the reader version and the harness digest. So the same code rechecks a stored figure with no model call (§10.4).
@@ -156,11 +159,12 @@ A definition that fails a prerequisite is `not_checkable`, with its reason (`not
 For each pair (`d`, candidate):
 
 1. **Symbols and assumptions.** The variable is `real`. A parameter is `positive` when its slider's `min > 0`, `nonnegative` when `min ≥ 0`, and `real` otherwise. These are sign assumptions only, so a proof under them holds across the slider range.
-2. **Piecewise by intervals.** The breakpoints of both sides (all exact literals, §6.1) split the real line into open intervals and the breakpoints themselves. On each open interval, each side's branch is chosen by evaluating its conditions at an exact rational interior point; the conditions are constant there. The two branches must satisfy `simplify(a − b) == 0` as an identity, which is stronger than holding on the interval. At each breakpoint, both sides are substituted exactly and must simplify to equal values. A comparison against a parameter (name against name) makes the breakpoints depend on the parameters. P1 marks such pairs `undecided` (reason `parametric_breakpoint`), and P2 designs them (§13).
-3. **Structural equality first.** Two `Node` trees that are identical after the same canonical ordering of `+` and `*` are equal without calling sympy.
-4. **Proof of difference.** When the proof fails, the harness evaluates both sides with interval arithmetic (`mpmath.iv`) at exact rational points: the parameter grid of `verify.py:96`, with each double converted exactly, crossed with the variable's displayed samples. Precision grows until the intervals are disjoint, or until the time bound runs out. Two disjoint intervals **prove** that the definition differs from the equation.
+2. **Piecewise by intervals.** The breakpoints of both sides (all exact literals, §6.1) split the real line into open intervals and the breakpoints themselves. On each open interval, each side's branch is chosen by evaluating its conditions at an exact rational interior point; the conditions are constant there. The two branches must satisfy `simplify(a − b) == 0` as an identity, which is stronger than holding on the interval, and their domains must agree on the interval (step 3). At each breakpoint, both sides are substituted exactly and must both be defined with equal values, or both be undefined. A comparison against a parameter (name against name) makes the breakpoints depend on the parameters. P1 marks such pairs `undecided` (reason `parametric_breakpoint`), and P2 designs them (§13).
+3. **Domains agree, read before anything simplifies** (Codex review F1). `simplify` cancels common factors, so a zero difference says nothing about where each side is defined: the source `(x² − 1/16384)/(x − 1/128)` and the figure's `x + 0.0078125` simplify to the same expression, yet the source has no value at `x = 1/128`, which is not one of the 121 samples. So, from each side's **unsimplified** grammar AST (after definition expansion, for the branch that holds on the interval), code collects its **definedness conditions**: `a / b` gives `b ≠ 0`; `sqrt(u)` gives `u ≥ 0`; `log(u)` gives `u > 0`; `tan(u)` gives `cos(u) ≠ 0`; `a ^ b` gives `a ≠ 0` when `b` is a negative integer literal, nothing when `b` is a non-negative integer literal, `a ≥ 0` when `b` is any other positive literal, and `a > 0` otherwise. These are the points where the expression has no real value; the evaluators' IEEE arithmetic gives no finite value there when the point is reachable, and steps 1–2 refuse a figure that reaches one on its grid (`grammar.py:33-37`). A condition that sympy proves true under the sign assumptions (`σ ≠ 0` for a `positive` σ, `x² + 1 > 0`) is dropped. The domains **agree** when the two sides' remaining conditions are the same set after canonical ordering, or when the conditions mention only the variable and the two **excluded sets** (the union of `solveset` of each negated condition over the interval) are proved equal. They **differ** when those excluded sets are proved unequal: an exact point of the symmetric difference (here `x = 1/128`) is a proof of difference, because one side has a value there and the other has none. Anything else (a remaining condition that depends on a parameter and differs between the sides, or a set that `solveset` cannot compare, such as a `ConditionSet`) makes the pair `undecided`, with reason `domain`. Parametric domains are designed in P2 (§13), with parametric breakpoints.
+4. **Structural equality first.** Two `Node` trees that are identical after the same canonical ordering of `+` and `*` are equal without calling sympy (identical trees have identical domains).
+5. **Proof of difference.** When the proof fails, the harness evaluates both sides with interval arithmetic (`mpmath.iv`) at exact rational points: the parameter grid of `verify.py:96`, with each double converted exactly, crossed with the variable's displayed samples. Precision grows until the intervals are disjoint, or until the time bound runs out. Two disjoint intervals **prove** that the definition differs from the equation, and so does a domain point from step 3.
 
-The result of a pair is **equal** (proved), **different** (proved), or **undecided** (neither, within the bounds).
+The result of a pair is **equal** (proved, domains included), **different** (proved), or **undecided** (neither, within the bounds).
 
 ### 6.4 Display agreement (the "to the digits shown" check)
 
@@ -169,7 +173,7 @@ For each element that will carry `book` (§7.2), at every point of the parameter
 - the value the figure shows: the Python evaluator's double, formatted by a Python twin of `formatValue` (`FigurePanels.tsx:22-31`; the twin joins the G22 golden corpus, §14);
 - the exact value of the book's equation at that sample: interval arithmetic until its interval formats to one string, within the time bound.
 
-The two strings must be equal. The TypeScript renderer agrees with the Python evaluator only to G22's existing bound, 1e-9 relative. So a sample whose exact value lies within that bound of a display rounding boundary is *rounding decides*, and it fails closed. Any failure makes that element `ai`, not `book`, with reason `display_disagrees`. This is where catastrophic floating point (`(1 − cos x)/x²` near 0, `sin(10^15 π x)`) is caught. It also gives the scope note's phrase "points the check did not sample" its meaning: on the grid, what is shown is certified to the digits shown; off the grid it is not.
+The two strings must be equal. At a sample outside the common domain (§6.3 step 3), the figure must show no value (`spec.py:803` `_num` gives `None` for a value that is not finite). The TypeScript renderer agrees with the Python evaluator only to G22's existing bound, 1e-9 relative. So a sample whose exact value lies within that bound of a display rounding boundary is *rounding decides*, and it fails closed. Any failure makes that element `ai`, not `book`, with reason `display_disagrees`. This is where catastrophic floating point (`(1 − cos x)/x²` near 0, `sin(10^15 π x)`) is caught. It also gives the scope note's phrase "points the check did not sample" its meaning: on the grid, what is shown is certified to the digits shown; off the grid it is not.
 
 ### 6.5 Negative controls
 
@@ -177,21 +181,35 @@ Code builds the controls from the definition, as exact `Node` transformations: `
 
 ### 6.6 Outcomes per definition, and what each does
 
-| Outcome | When | What the learner sees |
-|---|---|---|
-| `checked` | some candidate is equal and its controls are refused | Each bare-reference element whose display agreement holds (§6.4) gets role `book` (§7). One whose display disagrees stays `ai` |
-| `differs` | **only for the author's stated claim**: `equals_source` names `d` and the quote names a readable candidate, and that pair is proved different | Treated as a failed stated claim, as RW5d Q4 rules for sketches. The build's second author attempt is told so ("your definition `f` differs from the quoted equation at x = −1, λ = 0.5, p = 0"), inside the existing two-attempt cap. If the second attempt also differs, the figure is **not shown**: *couldn't build a reliable version of this*, with the reason in the frame's words. The view takes this state from the ledger row (§10.2), and `verification` keeps steps 1–2's result. A recheck of a stored figure gives the same state, with *rebuild* (Q4). With the switch off, nothing reads the ledger, so the figure is RW5a's illustration (G23g) |
-| `undecided` | no pair equal, no stated claim proved different | `d`'s elements stay `ai`. If nothing on the figure is `book`, the badge is RW5a's illustration badge, with a closed reason in the ⓘ |
-| `not_checkable` | a prerequisite failed (§6.1), no readable candidate (§5.3), an unhealthy block (§5.2), or no sandbox | As `undecided` |
+**The stated claim, bound to concrete pairs** (Codex review F4). `ifs-v1` does not pair an `equals_source` invariant with a quote: invariants name definitions (`spec.py:294`), and `source_claims` is a separate list of `(span_id, quote)` (`spec.py:119-121`). So code binds them itself. A definition `d` **has a stated claim** when an `equals_source` invariant names it. Its **stated candidates** are the readable candidates (§5.3) whose segment any of the figure's quotes overlaps, for the quotes that `quote_in` verifies. Every other candidate is **unstated**. Each pair (`d`, candidate) has its own result from §6.3 (equal, different or undecided), or is not asked because a prerequisite failed.
 
-A figure has a checked element when at least one definition is `checked` and none is `differs`. RW5a's F3 (a second source equation is never left unchecked) is kept in element-scoped form: every definition is decided separately, and an element is `book` only for its own definition's check.
+**Precedence.** `d`'s outcome is the first row of this list that holds, in this order:
+
+1. `checked`, through a stated candidate: some stated pair is equal and its controls are refused (§6.5). The first such candidate in reading order is named.
+2. `differs`: `d` has a stated claim, no stated pair is equal, and **at least one stated pair is proved different**. This holds even when an unstated candidate is equal: the author's own claim about the book is false, and Q4 governs that, whatever else the definition happens to match. Example: one block holds `f(x)=x` and `g(x)=2x`, the author defines `d = 2*x`, names `d` in `equals_source` and quotes `f(x)=x`. `d` equals `g`, but the stated pair is proved different, so `d` is `differs` and the second attempt is told so.
+3. `checked`, through an unstated candidate: some unstated pair is equal and its controls are refused. The first such candidate in reading order is named.
+4. `undecided`: some pair was asked and none of the above holds.
+5. `not_checkable`: no pair was asked (a prerequisite failed, §6.1; no readable candidate, §5.3; an unhealthy block, §5.2; or no sandbox).
+
+| Outcome | What the learner sees |
+|---|---|
+| `checked` | Each bare-reference element whose display agreement holds (§6.4) gets role `book` (§7). One whose display disagrees stays `ai` |
+| `differs` | Treated as a failed stated claim, as RW5d Q4 rules for sketches. At build, the check runs inside the two-attempt loop (`service.py:1186-1226`), after steps 1–2 pass, and a `differs` is one more problem for the second attempt ("your definition `f` differs from the quoted equation at x = −1, λ = 0.5, p = 0", or "… has a value at x = 1/128, where the quoted equation has none"), inside the existing cap of two attempts. If the second attempt also differs, the figure is **not shown**: *couldn't build a reliable version of this*, with the reason in the frame's words. The view takes this state from the ledger row (§10.2), and `verification` keeps steps 1–2's result. A recheck of a stored figure gives the same state, with *rebuild* (Q4, below). With the switch off, nothing reads the ledger, so the figure is RW5a's illustration (G23g) |
+| `undecided` | `d`'s elements stay `ai`. If nothing on the figure is `book`, the badge is RW5a's illustration badge, with a closed reason in the ⓘ |
+| `not_checkable` | As `undecided` |
+
+**The figure's outcome** (the ledger row's `outcome`, §10.2) is, in order: `differs` if any definition differs; else `checked` if any definition is checked; else `undecided` if any is; else `not_checkable`. A figure has a checked element only when its outcome is `checked`, so a `differs` definition withholds every `book` role on the figure. RW5a's F3 (a second source equation is never left unchecked) is kept in element-scoped form: every definition is decided separately, and an element is `book` only for its own definition's check.
+
+**Rebuild** (Codex review F3). The rejected figure's row stays `illustrative` with an unchanged `input_hash`, so pressing *rebuild* with the same request would return that same row from `_reusable` (`service.py:850`), and a second row with that hash would hit the unique reuse index (`224_figure_requests.sql:149-150`). *Rebuild* is therefore a **new version** through the existing revision path: `revision_request(repository, rejected_row, "")` (`service.py:1319`), so `supersedes_id` is the rejected figure's id and its `input_hash` differs (`request_hash` includes `supersedes_id`, `service.py:841`). The learner wrote no note, so `learner_note` is empty; the difference is code text and goes in as the first attempt's `problems_with_the_last_attempt` (`service.py:994`), built from the rejected figure's newest check row. That row's id joins the request's identity as `source_check_id`, added to `request_hash` only when set, as RW5d's show-me fields are (`service.py:843-846`), so every other hash is unchanged and a rebuild after a certification-version bump asks afresh. The rejected figure and its check rows are never changed. The rebuilt figure is checked at build like any other (two attempts). *Rebuild* is a revision, so `check_request`'s revision rules apply, and it is offered only while `figures.revisions_enabled` is on; when that switch is off, the failed state shows without the action.
 
 **`kind`.** In P1 an element of a figure the author marked `illustrative` can also be `book`: an exact equality with the book is true, whatever the author called the figure. `kind = reconstructed` matters only because a reconstruction with a stated claim can *differ* (Q13).
 
 ### 6.7 Model routes, cost and admission
 
 - **No model route.** RW5c does not re-add `figure_verifier`. A model fallback that "transcribes the book's equation" when code cannot read it would bring class A back: the check would then compare the figure with a model's text. An unreadable equation stays unreadable, and coverage grows by adding rows to the table (§13).
-- **Cost.** The check makes no model call. Its only spend is the second author attempt after a proved `differs`, inside the existing per-request cap of two attempts and the `figures.max_daily_cost_usd` envelope, admitted by the existing `FiguresGate`. RW5c adds no cap and no price. CPU: one sandbox run per build or recheck. Latency is measured in the report (§12), and the figure appears as an illustration while the check runs, so the learner never waits for it.
+- **Cost.** The check makes no model call. Its only spend is the second author attempt after a proved `differs`, inside the existing per-request cap of two attempts and the `figures.max_daily_cost_usd` envelope, admitted by the existing `FiguresGate`. RW5c adds no cap and no price. CPU: one sandbox run per build or recheck.
+- **Latency.** At build, the check runs inside the attempt loop, before the row is stored, because a `differs` must reach the second attempt (§6.6). It adds at most the sandbox's wall-clock bound (§6.2) to a build that is already a background job waiting on the author. A stored figure shows as an illustration while its recheck runs (§10.4), and the row upgrades it in place. Latency is measured in the report (§12).
+- **Admission follows the switch** (Codex review F5). `build_key` (`service.py:233-244`) gains `figures.checked_labels_enabled`, as it holds `advanced_panels_enabled`, so `offer_build_key` inherits it. `FiguresGate` compares the key before every physical request, transport retries included, and at `gate.check("store")` (`service.py:1267`). So a switch change between the sandbox's result and the `differs` retry refuses that retry and every transport retry of it with `FiguresChanged`, and nothing is stored; the paid first answer keeps its checkpoint, as for any other switch change. The key is admission only: it is not part of `request_hash`, so reuse keys do not change (G23g). A recheck (§10.4) makes no model request, but it runs under a `FiguresGate` with the key `(vault, figures.enabled, figures.checked_labels_enabled)`, checked before the sandbox run and again just before the transaction that writes the check row and its judgment (§10.2). A unit that sees the switch off writes nothing. A row committed in the instant between that check and a switch-off is never shown while the switch is off, because the view reads the switch each time (§10.1).
 - **No prompt change in P1.** The author prompt already asks a reconstruction to quote its equation and to name it in `equals_source` (`figures/routes.py:81-104`). Reuse keys (`service.py:821`) therefore stay the same, and figures already stored are rechecked by code (§10.4). Whether a prompt addition would raise coverage ("use the book's symbol names; draw the definition by bare reference") is decided after P1 from the report's reasons (P1b, §13). Such a prompt change takes a version suffix only while the switch is on, following RW5b's pattern, so hashes stay the same when it is off.
 
 ## 7. Code-owned, element-scoped labels (3e)
@@ -210,7 +228,7 @@ The same element ids name every place an element's label is drawn: legend, SVG t
 | Role | Which elements | Label, derived by code | Voice |
 |---|---|---|---|
 | `book` | a bare reference to a `checked` definition (§6.1), with display agreement (§6.4) | the book's left-hand side, as the LaTeX substring of the source block (source text, never model text), rendered by KaTeX; then the frame's words *matches the book's equation (checked)*; ⓘ: the book's equation as LearnLoop read it, with the page, *open the page*, and what was checked (§3) | source (`§`) for the left-hand side, frame for the words |
-| `derived` (**option B only**) | an element computed from a `book` element by a closed template: a shade under a `book` series; a highlight on a `book` PMF series; a readout `integral(d, v, a, b)` or `sum(d, k, a, b)` whose body is the bare reference `d` and whose variable is the book's variable | a code template: *area under* [LHS] *from* [a] *to* [b]; `\int_{a}^{b}` [LHS] `\,d`v; `\sum_{k=a}^{b}` [LHS]. The bounds are code-rendered TeX of the bound expressions; then *computed by LearnLoop from it* | frame |
+| `derived` (**option B only**) | an element computed from a `book` element by a closed template: a shade under a `book` series; a highlight on a `book` PMF series; a readout `integral(d, v, a, b)` or `sum(d, k, a, b)` whose body is the bare reference `d` and whose variable is the book's variable | a code template over the **bounds the evaluator actually used**, never the author's bound expressions (Codex review F2): *area under* [LHS] *from* [lo] *to* [hi]; `\int_{lo}^{hi}` [LHS] `\,d`v; `\sum_{k=lo}^{hi}` [LHS]; then *computed by LearnLoop from it*. For a shade, lo and hi are `shade_value`'s clamped bounds (`spec.py:825-845`), which `evaluate_panel` already sends as the shade's `from` and `to`; when the clamp moved a bound, the frame adds *limited to the plotted range*. For a PMF highlight and for a `sum` readout, they are the integers the sum runs over: the highlight's bounds clamped to the k axis (`spec.py:848-864`), then `exact_sum`'s `ceil(a − 1e-9)` and `floor(b + 1e-9)` (`grammar.py:618-639`); a highlight whose clamp moved a bound also gets *limited to the plotted range*, and an empty range reads *no terms in this range*. For an `integral` readout, which is not clamped, they are its evaluated bounds, which the view sends beside the value. The numbers are formatted by `formatValue` and recomputed from the same evaluation at every slider change, so the label always names the operation whose value is shown | frame |
 | `ai` | everything else | **A:** the model's label, behind the model glyph `◇`, unless the token rule replaces it (§8.1). **B:** code's own TeX rendering of the element's expression (§8.2) | model (`◇`) |
 
 How code renders a parameter's slider, and the free text, is part of each option (§8).
@@ -223,7 +241,7 @@ The final clause appears whenever any `ai` element is drawn. The badge slot (`fr
 
 ### 7.3 The frame's new constants
 
-`FIGURE_FRAME` gains `bookChecked` (*matches the book's equation (checked)*), `restIllustration` (*the rest is an illustration*), `derivedFrom` (*computed by LearnLoop from it*, B only) and `aiElement` (*AI-built · not checked against the book*). A new closed table, `SOURCE_CHECK_COPY`, gives one phrase per reason key (*LearnLoop couldn't read the book's equation exactly: it uses Φ*; *the page this equation is on may be misread*; *checks need the sandbox, which this computer doesn't have*; …). An unknown key is dropped, as `PROPERTY_CHECK_COPY` drops one.
+`FIGURE_FRAME` gains `bookChecked` (*matches the book's equation (checked)*), `restIllustration` (*the rest is an illustration*), `derivedFrom` (*computed by LearnLoop from it*, B only), `limitedToPlot` (*limited to the plotted range*, B only), `noTerms` (*no terms in this range*, B only) and `aiElement` (*AI-built · not checked against the book*). A new closed table, `SOURCE_CHECK_COPY`, gives one phrase per reason key (*LearnLoop couldn't read the book's equation exactly: it uses Φ*; *the page this equation is on may be misread*; *checks need the sandbox, which this computer doesn't have*; …). An unknown key is dropped, as `PROPERTY_CHECK_COPY` drops one.
 
 ### 7.4 What the view sends, and the label rewrite
 
@@ -248,7 +266,7 @@ Both options share §§3–7: the same check, the same `book` role, the same col
 - **Numbers:** every value is computed and formatted by code, as today. Model label text may still contain numbers (*◇ P(X ≤ 0) = 30%*), in the model's voice.
 - **Slider labels:** the model's label behind `◇`. A parameter that is a symbol of a `checked` definition also shows the book's token in source voice: *§ λ · ◇ rate*.
 - **Residual, by its nature:** the token rule is a deny-list over free text. A homoglyph (`ƒ`, U+0192, survives NFKC) or a paraphrase (*◇ the textbook's density*) escapes it. The mitigation is that such a label still appears in the model's voice, behind `◇`, on an element marked *AI-built · not checked against the book*. RW5a's final round ruled model text inside the code-owned frame Low. Under A, Codex's adversarial question ("find a label that impersonates the claim") has answers by construction, and each would be ruled under that Low.
-- **Cost:** smaller (no templates and no expression renderer). The figure keeps the model's pedagogical names (*P(X ≤ 0)*, *CDF*).
+- **Cost:** smaller: no `derived` templates and no rewrite of labels that do not name the book. It still needs the grammar-to-TeX renderer, because the token rule's replacement is code's TeX rendering of the element's expression. The figure keeps the model's pedagogical names (*P(X ≤ 0)*, *CDF*).
 
 ### 8.2 Option B (strict, recommended): every label on a checked figure is code-owned
 
@@ -258,7 +276,7 @@ Both options share §§3–7: the same check, the same `book` role, the same col
 - **Slider labels:** the parameter's symbol. A symbol of a `checked` definition renders as the book's own token (`§ λ`, the token's LaTeX from the source block). Any other symbol renders as its grammar name rendered as a symbol, behind `◇`. The model's parameter `label` is not drawn.
 - **Numbers:** every number in a label slot or inside the panels is formatted by code from a value that code computed or that the learner set (readouts, areas, slider fields, table cells, tick labels). The slider ranges are the author's *settings* and are shown as settings, never inside a label.
 - **Free text** (`demonstrates`, assumptions, annotations, prediction prompts) stays where RW5a puts it: in the model's voice, **outside** the panels, labelled AI-written. It may contain numbers and symbols. Stripping them would be a deny-list, and RW5a's final round ruled this placement Low. An annotation's target renders as the target's code label (§7.4).
-- **What it closes:** no model string reaches any label slot of a figure that carries the claim, so the question "find a displayed element that impersonates the claim" has no label answer by construction. Only the free-text blocks remain, outside the panels and in the model's voice. The flagship's readout becomes *∫ from −40 to 0 of § f(x) dx = 30.0% · computed by LearnLoop from it*, which settles RW5a's open question 8 honestly.
+- **What it closes:** no model string reaches any label slot of a figure that carries the claim, so the question "find a displayed element that impersonates the claim" has no label answer by construction. Only the free-text blocks remain, outside the panels and in the model's voice. The flagship's readout becomes *∫ from −40 to 0 of § f(x) dx = 30.0% · computed by LearnLoop from it*, with the bounds the evaluator used (§7.2), which settles RW5a's open question 8 honestly.
 - **Cost:** larger. It needs a grammar-to-TeX renderer (Python), the derived templates and the rewrite of every label. The figure also loses the model's names on a checked figure (its *P(X ≤ 0)* moves into *what it shows*, in the model's voice).
 
 ### 8.3 Side by side
@@ -269,7 +287,7 @@ Both options share §§3–7: the same check, the same `book` role, the same col
 | Recurring-class risk (class A) | a deny-list remains (the token rule) | closed by construction for labels |
 | The flagship's "P(X ≤ 0)" (a clipped integral) | the model's label, open question 8 stays | the code template states the clip |
 | What the model's labels contribute on a checked figure | kept | moved into model-voice free text |
-| Build size of P1 | M | M–L |
+| Build size of P1 | M (the renderer, for the token rule only) | M–L (the renderer for every label, and the templates) |
 | Tests that differ | the token-rule corpus (homoglyphs and paraphrases are documented residuals) | every label slot is drawn from `elements`, and no model string is in any slot (G23e) |
 
 **Why the orchestrator recommends B:** RW5a lost five rounds to exactly the class that A keeps (a claim guarded by a list). The owner's own rules favour B: honest labels, and the proportionate bar (block on realistic learner-visible harm). A model label that impersonates the book next to a real "checked" is that kind of harm. B's cost is build effort and some lost model wording, not learner harm.
@@ -282,12 +300,13 @@ Both options share §§3–7: the same check, the same `book` role, the same col
 |---|---|
 | **G23a Only after the check.** | *matches the book's equation (checked)* appears only on an element of role `book`, and only when the switch is on and the newest `figure_source_checks` row for the figure carries the current certification version with outcome `checked` for that element's definition |
 | **G23b Code reads the book.** | The equation comes from §5.3's table, applied to a healthy (§5.2), non-withheld block of the figure's own input spans. No model output is a check input: a fake author that returns a correct sympy string, a wrong quote or a "verified" field changes nothing |
-| **G23c Exact or nothing.** | Equality is proved (§6.3). The controls are refused (§6.5). The literal and condition rules hold (§6.1). Display agreement holds (§6.4). The planted-wrong corpus (§14) is never `checked` |
+| **G23c Exact or nothing.** | Equality is proved, on the same domain (§6.3). A stated claim proved different is `differs`, whatever else matches (§6.6). The controls are refused (§6.5). The literal and condition rules hold (§6.1). Display agreement holds (§6.4). The planted-wrong corpus (§14) is never `checked` |
 | **G23d The walk is generic.** | A test enumerates every `Label`- and `Text`-typed field of `InteractiveFigureSpecV1` by type introspection and fails when the element walk misses one, so a new panel kind cannot bypass roles |
 | **G23e Labels are code-owned.** | The badge slot, the frame lines and the roles are code constants or closed keys. Under B, no model `Label` string reaches any label slot of a checked figure (legend, SVG text, table header, `aria-label`, readout, slider). Under A, a model label is drawn only behind `◇` on a non-`book` element, and the token rule's corpus passes |
 | **G23f Fails closed.** | No sandbox, a timeout, a broken control, an unreadable construct or an unhealthy block each give the RW5a illustration and a closed reason, never `checked` |
-| **G23g Off is RW5a/RW5d exactly.** | With `figures.checked_labels_enabled` off: the views, the reader report, the CLI outputs and the reuse keys equal goldens recorded on an export of main (RW5a's R3-2 and R4-2 pattern). Nothing reads `figure_source_checks` |
-| **G23h Never evidence.** | Nothing in attempts, evidence, hints, help outcomes, AD, scheduling or projection reads `figure_source_checks` or `sourceCheck` (the import contract, plus a test over `protected_tables`) |
+| **G23g Off is RW5a/RW5d exactly.** | With `figures.checked_labels_enabled` off: the views, the reader report, the CLI outputs and the reuse keys equal goldens recorded on an export of main (RW5a's R3-2 and R4-2 pattern). Nothing reads `figure_source_checks`. A switch change during a build or recheck stops it: no further author request (the `differs` retry and its transport retries included) and no check row or judgment (§6.7) |
+| **G23h Never evidence.** | Nothing in attempts, evidence, hints, help outcomes, AD, scheduling or projection reads `figure_source_checks`, `sourceCheck` or the `figure_source_check` judgments (the import contract, plus a test over `protected_tables`) |
+| **G23i Every check is a verdict.** | Each `figure_source_checks` row is committed in one transaction with its `judgment_ledger` row (task `figure_source_check`, judge `verifier`), at build and at recheck; a recheck's judgment supersedes the previous one for the same figure (§10.2) |
 
 G21, G22 (extended with the `formatValue` twin), G24 and G45 stay. G45's ½ density is still refused at step 2 by its `integrates_to_one` invariant. With that invariant removed, so that steps 1–2 pass, it is RW5c's `differs` case (§14).
 
@@ -295,7 +314,7 @@ G21, G22 (extended with the `formatValue` twin), G24 and G45 stay. G45's ½ dens
 
 ### 10.1 Kill switch
 
-`figures.checked_labels_enabled` (boolean, default **true**: a live change behind a kill switch, per the owner's frictionless defaults; Q2). It sits in the existing `[figures]` section next to `predictions_enabled` and its siblings (`config/schema.py:2583-2591`). This is the key the stage brief calls "e.g. `reader.figures.checked_labels`", renamed to the section's convention. Off: steps 3a–3f do not run, no check row is written, and every view equals RW5a/RW5d's (G23g). Existing rows are kept but not read, so turning the switch back on shows them again if their certification version is current. The view reads the switch each time, so a row written just before a switch-off is never shown while the switch is off. The key is classified in the parameter registry, and the 20 defaults snapshots are recomputed.
+`figures.checked_labels_enabled` (boolean, default **true**: a live change behind a kill switch, per the owner's frictionless defaults; Q2). It sits in the existing `[figures]` section next to `predictions_enabled` and its siblings (`config/schema.py:2583-2591`). This is the key the stage brief calls "e.g. `reader.figures.checked_labels`", renamed to the section's convention. Off: steps 3a–3f do not run, no check row is written, and every view equals RW5a/RW5d's (G23g). Existing rows are kept but not read, so turning the switch back on shows them again if their certification version is current. The view reads the switch each time, so a row written just before a switch-off is never shown while the switch is off. Builds and rechecks are admitted against the switch as it is now, before every request and every write (§6.7). The key is classified in the parameter registry, and every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry it moves is recomputed (`config/template.py:842`; 28 entries at `dbc1559e7`, all of which a new default moves, as RW5d's `show_me_enabled` moved every entry then recorded), with a "no scoring, scheduling, projection or serving change" note.
 
 ### 10.2 Migration 227 (recommended): `figure_source_checks`
 
@@ -311,12 +330,24 @@ The number is 227 if it is still free when the stage is implemented. The runner 
 | `definitions_json` | per definition: outcome, reason key, the candidate's provenance (`extraction_id`, `span_id`, page, the LaTeX segment, the left-hand side, block health `{analyzer_version, status}`), the controls' answers, display agreement `{samples, agreed}` |
 | `elements_json` | the element map of §7.4 (roles and code `tex`; no model text) |
 | `harness_sha256`, `reader_version`, `sympy_version` | what produced it |
+| `judgment_id` | the `judgment_ledger` row published with it (below) |
 | `created_at` | — |
 
 - **Role:** `RAW_LEDGER`, append-only: `_no_update` and `_no_delete` triggers, the pattern of `approach_maps` in `migrations/211_approach_maps.sql:58-68`. A recheck appends a row and never changes one. The shown state is the newest row at the current certification version. Classification: `db/table_roles.py`, `adaptive_difficulty/protected_tables.py` (PROTECTED and unread, with the reason "a code check of a figure's content; AD reads no figure") and `column_classes.py`. `interactive_figures` itself is unchanged.
+- **Its judgment** (Codex review F6; implementation-handoffs §0 rule 6, parent §8.3). Every check row is a verifier verdict, so it is published with one `judgment_ledger` row through `append_judgment` (`db/stores/judgments.py:14`), **in the same transaction**: at build, the transaction that inserts the figure and its `figure_verified` judgment (`service.py:1267-1278`), after `gate.check("store")`; at recheck, one transaction holding just the check row and its judgment, after the recheck gate's last check (§6.7). Either both commit or neither does. The row:
+  - `task` `figure_source_check` (beside steps 1–2's `figure_verified`, which is unchanged and keeps recording `illustrative`);
+  - `left_kind` `interactive_figure`, `left_id` the figure's id, and no right side, so the question is one per figure;
+  - `judge` `verifier` (code; in the existing vocabulary, `175_decider_judgments_and_receipt_labels.sql:36`), with no `judge_model` or `prompt_version`;
+  - `verdict` the figure's outcome: `checked`, `differs`, `undecided` or `not_checkable` (§6.6);
+  - `input_hash` the check's input digest: the sha256 of the canonical `spec_json`, the candidates' LaTeX segments with their `extraction_id`, `span_id` and block-health status, the certification version, `harness_sha256`, `reader_version` and `sympy_version`;
+  - `rationale` code text only, within the existing 400 characters: per definition, its name, outcome and closed reason key, and for `differs` the witness point; never model text;
+  - `supersedes_id`: none for the figure's first check; a later check (a recheck, a certification bump) supersedes the newest earlier `figure_source_check` judgment of the same figure, which the ledger's trigger requires to be the same question (`175_…sql:70-85`);
+  - the check row records the judgment's id (column `judgment_id`), so either can be found from the other.
+
+  Nothing outside `learnloop.figures` and the reader report reads task `figure_source_check` (G23h).
 - **`interactive_figures.verification` stays as it is.** It records steps 1–2 (`illustrative` | `failed` | `unsupported`). RW5c never writes `verified`, so the value reserved in 216 and 224 stays unused (`VERIFIED_RW5C`'s comment is updated), and `shown_verification` keeps showing any legacy `verified` row from the RW5a development rounds as an illustration. One source of truth: the ledger.
 - **Head fixture:** `migration_head_227`, with its README and the 5 hard-coded paths (CLAUDE.md), and both reference scripts rerun.
-- **The alternative, with no migration** (Q6): write the result into `verification_report_json` and set `verification = 'verified'` in place on recheck. It is smaller, but a recheck mutates a WORKFLOW row (no figure row is updated anywhere today), the result and its history share one column, and the switch-off golden depends on in-place state. The recommendation is the ledger.
+- **The alternative, with no migration** (Q6): write the result into `verification_report_json` and set `verification = 'verified'` in place on recheck (the judgment above is written either way). It is smaller, but a recheck mutates a WORKFLOW row (no figure row is updated anywhere today), the result and its history share one column, and the switch-off golden depends on in-place state. The recommendation is the ledger.
 
 ### 10.3 Successor
 
@@ -324,7 +355,7 @@ The number is 227 if it is still free when the stage is implemented. The runner 
 
 ### 10.4 Stored figures
 
-When a figure is opened with the switch on, and its tier is `grammar` with no check row at the current certification version, code queues a code-only recheck (a sidecar background job, the build worker's pattern, no model client). The figure shows as an illustration until the row lands. `learnloop reader figure-checks --recheck [--dry-run] --json --vault <path>` does the same in bulk. With `--dry-run` it reports and writes nothing, and it is the n=1 coverage instrument (§12). A certification-version bump triggers rechecks the same way, at no paid cost.
+When a figure is opened with the switch on, and its tier is `grammar` with no check row at the current certification version, code queues a code-only recheck (a sidecar background job, the build worker's pattern, no model client), admitted against the switch before its sandbox run and before its write, and published with its judgment (§6.7, §10.2). The figure shows as an illustration until the row lands. `learnloop reader figure-checks --recheck [--dry-run] --json --vault <path>` does the same in bulk. With `--dry-run` it reports and writes nothing, and it is the n=1 coverage instrument (§12). A certification-version bump triggers rechecks the same way, at no paid cost.
 
 ## 11. Fit with the rest of LearnLoop
 
@@ -354,7 +385,7 @@ The desktop Reader is the only host in P1. The phone page and MCP show no figure
 
 Everything here is descriptive. Nothing applies a made-up threshold.
 
-1. **Coverage on the owner's own books (before landing, code only).** `learnloop reader figure-checks --recheck --dry-run --json` runs on backup-API copies under `fixtures-local/`, with no model client and no writes. It reports how many stored grammar-tier figures would be `checked`, broken down by reason key (unreadable construct, health, names, literals, conditions, display, controls, sandbox). This answers whether RW5c is vacuous on the owner's material, and which rows of the construct table to add next.
+1. **Coverage on the owner's own books (before landing, code only).** `learnloop reader figure-checks --recheck --dry-run --json` runs on backup-API copies under `fixtures-local/`, with no model client and no writes. It reports how many stored grammar-tier figures would be `checked`, broken down by reason key (unreadable construct, health, names, literals, conditions, domains, display, controls, sandbox). This answers whether RW5c is vacuous on the owner's material, and which rows of the construct table to add next.
 2. **The owner's audit of every checked element.** `learnloop reader figure-checks --json` without `--recheck` (and a `source_checks` sub-block of the reader report, only while the switch is on) lists each `checked` element: the book's equation as read (rendered), the page link, and the figure's definition (rendered). With n=1, the owner can read every one. A wrong "checked" is the incident this design exists to prevent. If one happens: switch off, write a reproducing test, and run a Codex review. If the class recurs, escalate to an Opus scope review as RW5a did, not to another fix round.
 3. **The planted-wrong corpus** (tests, §14): every case must be not `checked`.
 4. **Descriptive use:** opens and *not right?* notes for figures with a `book` element compared with figures that have none, and the check's latency (median and maximum). None of these feeds a decision rule.
@@ -384,14 +415,19 @@ All model calls are fakes (`LEARNLOOP_FIGURE_MODELS=off` already resolves no rea
   - no bubblewrap, a timeout, and an inconclusive control (`None`, `0`, `""`) each give no `checked`;
   - `(1 − cos x)/x²` sampled near 0 gives `display_disagrees`;
   - two definitions with one `checked` and one `undecided` give per-element roles;
+  - **domains (F1, planted-wrong corpus):** the source `\frac{x^2 - \frac{1}{16384}}{x - \frac{1}{128}}` against the figure's `x + 0.0078125` on `[0, 1]` (steps 1–2 pass, `1/128` is not a sample, `simplify` gives 0) is never `checked`, and with a stated claim it is `differs` with the witness `x = 1/128`; the reverse (the figure keeps the factor, the book has cancelled it) likewise; `sqrt(x)^2` against `x`; a parameter-dependent condition that differs between the sides gives `undecided` (`domain`); `σ` in a denominator with a `positive` slider passes;
+  - **mixed candidates (F4):** one block with `f(x)=x` and `g(x)=2x`, the definition `d = 2*x` named in `equals_source` and the quote `f(x)=x`, gives `differs` (not `checked` through `g`) and the second attempt is told so; with the quote `g(x)=2x` it is `checked`, naming `g`; with no `equals_source` it is `checked` through the unstated `g`; the figure's outcome is `differs` whenever one definition differs, and then no element is `book`;
+  - **admission (F5):** with a fake author and a fake sandbox, the switch turned off between the sandbox's `differs` and the second attempt refuses that attempt (`FiguresChanged`), no author request is sent, a fake transport's retry of it is refused too, and no figure, check row or judgment is stored; a recheck whose switch turns off before its write writes nothing;
   - `kind = illustrative` with an exact match gives `book`; grounding `none` is never checked; a sketch tier is never checked;
   - a fake author that returns sympy text, a "verified" field or a check program changes nothing (G23b).
 - **`tests/test_rw5c_labels.py`:** G23d (the type-introspection walk covers every `Label`/`Text` field, and a synthetic new panel with a `Label` fails until it is mapped); the label rewrite keeps `shade.series` and `annotation.target` bound (evaluated in Python and through the TS compile in vitest); under B, the delivered spec of a checked figure holds no model `Label` string; under A, the token-rule corpus (the head token, the whole left-hand side, Unicode-to-LaTeX equivalents) holds, and the homoglyph and paraphrase residuals are recorded as documented passes behind `◇`.
 - **`tests/test_rw5c_switch_off.py`:** G23g goldens (`figure_view`, `build_reader_report`, the CLIs, `request_hash`) recorded on an export of main; nothing reads the table while the switch is off.
 - **`tests/test_rw5c_migration.py`:** append-only triggers, table roles, AD classification, and the head fixture (under `--durable-sqlite` too).
-- **`tests/test_rw5c_recheck.py`:** a stored reconstruction is rechecked with no model client; a certification bump rechecks; `differs` at recheck gives the failed state with *rebuild*; `--dry-run` writes nothing.
+- **`tests/test_rw5c_judgments.py` (F6):** each check row commits with exactly one `figure_source_check` judgment, at build and at recheck (judge `verifier`, verdict the figure's outcome, `judgment_id` linking them); a failure injected between the two inserts leaves neither; a recheck's judgment supersedes the previous one for the same figure; the build's `figure_verified` judgment is unchanged.
+- **`tests/test_rw5c_recheck.py`:** a stored reconstruction is rechecked with no model client; a certification bump rechecks; `differs` at recheck gives the failed state with *rebuild*; **pressing *rebuild* (F3)** calls the fake author (not a reuse of the rejected row), stores a new figure whose `supersedes_id` is the rejected one and whose `input_hash` differs, sends the difference as `problems_with_the_last_attempt` with an empty `learner_note`, can deliver the replacement as `checked`, and leaves the rejected row and its check rows unchanged; *rebuild* is not offered with `figures.revisions_enabled` off; `request_hash` is unchanged for every request without `source_check_id`; `--dry-run` writes nothing.
 - **`tests/test_rw5c_never_evidence.py`:** G23h, over imports and `protected_tables`.
 - **vitest** (`FigureInline.test.tsx`, `readerFigures.test.tsx`): the badge slot and frame lines are only code constants; every label site (legend, SVG text, table header, `aria-label`, readout, slider) reads from `elements`; a model label "matches the book's equation (checked)" in every model field never reaches a label slot (B) or appears only behind `◇` (A); the left-hand side renders through KaTeX in source voice; the ⓘ provenance; the collapsed line's *the rest is an illustration*.
+- **Derived bounds (F2, under B):** a `book` curve `x + 0.25` plotted over `[0, 1]` with a shade requested from `−1` to `2` is labelled *area under f(x) from 0 to 1 · limited to the plotted range* with the value 0.75, never *from −1 to 2*; a slider that moves a bound updates the label; a highlight from 1.5 to 4.2 on a k axis 0..3 reads *from 2 to 3 · limited to the plotted range*; an empty highlight range reads *no terms in this range*; an `integral` readout shows its evaluated bounds.
 - **G22 extension:** the `formatValue` twin's cases in the golden corpus, in both pytest and vitest.
 - **`uv run lint-imports --no-cache`:** every contract kept, with the new modules inside `learnloop.figures`.
 
@@ -416,10 +452,10 @@ The literal rule (exact binary64) and the display rule (to the digits shown) rep
 | Risk | Mitigation | Residual |
 |---|---|---|
 | The extraction misread the page, so the figure "matches" a misread | The health gate (§5.2); the ⓘ *as LearnLoop read it from p. N* with *open the page*; the owner's audit (§12) | A misread that health does not flag. The label is honest about whose reading it is |
-| A sympy bug proves a false identity | Structural equality first; controls; display agreement at the grid | A bug that also passes every control and every display sample: unlikely, recorded |
+| A sympy bug proves a false identity, or a cancellation hides a domain difference | Structural equality first; domain agreement from the unsimplified expressions (§6.3); controls; display agreement at the grid | A bug that also passes every control and every display sample: unlikely, recorded |
 | Coverage turns out vacuous on real books | Measured before landing (§12 item 1); P2 grows the construct table from the reasons | It may take P2 before most of the owner's equations are readable |
 | Under A, a model label impersonates the claim | The token rule; `◇` and *AI-built* on every non-`book` element | Homoglyphs and paraphrases (Low by RW5a's final ruling); none under B |
-| A check makes the figure slower to appear | The figure shows as an illustration first, and the check upgrades it in place | None for the learner |
+| A check makes the figure slower to appear | A stored figure shows as an illustration first and its recheck upgrades it in place; at build, the check is bounded by the sandbox's wall clock (§6.7) | At build, up to that bound added to a background build; measured (§12) |
 | Platform | Without bubblewrap nothing is checked (§6.2) | macOS and Windows never show "checked" in P1 |
 
 ## 17. Open questions for the owner (each with a recommended default)
@@ -429,7 +465,7 @@ The literal rule (exact binary64) and the display rule (to the digits shown) rep
 | **Q1** | **Option A (code labels only on the checked element) or option B (strict: every label and every number in a label slot on a checked figure is code-owned)?** (§8) | **B** (orchestrator's recommendation) |
 | Q2 | Default of `figures.checked_labels_enabled`? | **On** (a live change behind the kill switch) |
 | Q3 | Where the book's equation comes from: (i) the author's quote only, or (ii) code reads every readable equation in the figure's own input spans, with the quote as a pointer and stated claim? (§5.1) | **(ii)** |
-| Q4 | A stated claim proved to differ from its quoted equation, after the second attempt: not shown (as RW5d Q4 rules), or shown as an illustration labelled *differs from the book's equation it quotes*? (§6.6) | **Not shown** (*couldn't build a reliable version of this*); a stored figure becomes the same state, with *rebuild* |
+| Q4 | A stated claim proved to differ from its quoted equation, after the second attempt: not shown (as RW5d Q4 rules), or shown as an illustration labelled *differs from the book's equation it quotes*? (§6.6) | **Not shown** (*couldn't build a reliable version of this*); a stored figure becomes the same state, with *rebuild* (a new version through `supersedes_id`, §6.6, while `figures.revisions_enabled` is on) |
 | Q5 | Which source blocks may be read: health `ok` only, or `suspect` too with a warning? (§5.2) | **`ok` only** |
 | Q6 | Migration 227 `figure_source_checks` (append-only ledger), or no migration (in-place `verified` plus the report JSON)? (§10.2) | **Migration 227** |
 | Q7 | Recheck stored figures by code on first open (and through the CLI)? (§10.4) | **Yes** |
@@ -444,3 +480,66 @@ The literal rule (exact binary64) and the display rule (to the digits shown) rep
 | Q16 | macOS and Windows (no bubblewrap) never show "checked" in P1: acceptable? (§6.2) | **Yes** (fails closed, as RW2b does) |
 | Q17 | P1b's author-prompt addition: decided by the owner from the P1 report, rather than shipped with P1? (§6.7) | **Yes** |
 | Q18 | Label wording: *matches the book's equation (checked)*, with the ⓘ *as LearnLoop read it from p. N*? Or put *as read* in the line itself? (§3) | **The short line, with the ⓘ** |
+
+## 18. Agent prompt template (P1)
+
+Fill in `<base branch>` and the owner's answer to Q1 (`<A or B>`). Give it to a fresh agent in the repo. The review and fix steps follow `implementation_goal.md` §2. P1b and P2 get their own prompt, written from the P1 report.
+
+```text
+Implement LearnLoop Reader RW5c P1 ("matches the book's equation (checked)"), as
+specified in docs/specs/spec_reader_rw5c_checked_labels_v1.md (§13 row P1, plus every
+section it cites), with option <A or B> of §8 (the owner's answer to Q1). Every other
+open question takes its recommended default in §17 unless the owner's review says
+otherwise; record each answer used in the review file.
+
+Before coding, read: CLAUDE.md; docs/specs/implementation_handoffs.md §0 (standard rules
+and invariants; rule 6: every verifier verdict appends to judgment_ledger);
+spec_reader_rw5c_checked_labels_v1.md in full; spec_reader_workbench_v1.md §8.1-§8.6,
+G21-G24 and G45; spec_reader_show_me_figures_v1.md SM2, N-a, Q4 and §11.4;
+docs/reviews/reader-workbench-RW5a.md §8; docs/reviews/reader-rw5c-design-codex-review.md;
+docs/specs/daily_loop_frictionless_defaults.md; db/table_roles.py;
+docs/algorithm-change-playbook.md. Then write a short plan (files, migration, kill
+switch, spend caps and model routes, judgment_ledger writes, tests) to
+docs/reviews/reader-rw5c-p1.md and proceed.
+
+Work in your own worktree on a new branch reader/rw5c-p1, created from <base branch>.
+Follow §0 of the handoffs and the spec, especially these resolved contracts:
+- the book's equation comes only from §5.3's closed reader over healthy (§5.2),
+  non-withheld blocks of the figure's own input spans; no model output is a check input;
+- equality is §6.3's, including domain agreement from the unsimplified ASTs (F1);
+  §6.4's display agreement; §6.5's controls; nothing in the sandbox parses text;
+- outcomes follow §6.6's precedence: a stated claim proved different is `differs` even
+  when an unstated candidate is equal (F4); the figure's outcome is `differs` if any
+  definition differs; at build the check runs inside the two-attempt loop;
+- *rebuild* is a revision (`revision_request`, `supersedes_id`, `source_check_id` in
+  request_hash only when set), never a reuse of the rejected row (F3);
+- derived labels (option B) state the bounds the evaluator used: the shade's clamp,
+  the highlight's clamp and exact_sum's integers (§7.2, F2);
+- `figures.checked_labels_enabled` joins build_key; rechecks run under their own
+  FiguresGate; nothing is requested or written after a switch change (§6.7, F5);
+- every figure_source_checks row commits with its judgment_ledger row (task
+  figure_source_check, judge verifier) in one transaction, and a recheck's judgment
+  supersedes the previous one (§10.2, F6);
+- labels: the generic schema walk (§7.1, G23d) and the label rewrite by element id
+  (§7.4); under B no model Label reaches a label slot of a checked figure (G23e);
+- migration 227 (or the next free number) for figure_source_checks, RAW_LEDGER,
+  append-only, classified in db/table_roles.py, protected_tables.py and
+  column_classes.py; head fixture and reference scripts per CLAUDE.md;
+- no new model route, cap, price or constant (§6.7, §15); no algorithm successor
+  (§10.3); recompute every DEFAULTS_SNAPSHOT_BY_ALGORITHM entry the new key moves, with
+  a "no scoring, scheduling, projection or serving change" note;
+- "checked" is never evidence, mastery, certification or help weight (§11.2, G23h);
+- with the switch off, views, report, CLIs and reuse keys equal goldens from main (G23g);
+- no live or paid AI calls in tests (fakes only); sandbox tests skip without bubblewrap
+  and have a fake-sandbox twin; the coverage run (§12 item 1) is code only, on
+  learnloop.db.copies backups under fixtures-local/, never on the tracked vaults;
+- if the spec contradicts the code, record it in the review file, take the
+  conservative option (no `checked`, switch off) if work can continue, else stop.
+
+Done means: G23a-G23i and G22's extension pass; the §14 tests exist and pass;
+uv run lint-imports --no-cache, uv run pytest -n auto and uv run pytest -m durability
+pass; npm run typecheck && npm test pass; the DB reference scripts pass. The review file
+lists what was built, deviations, test results with pass counts, files touched, the
+migration, the §12 coverage report (by reason key), owner-run commands (dry-run first)
+and open questions. Commit with clear messages; do not merge or push.
+```

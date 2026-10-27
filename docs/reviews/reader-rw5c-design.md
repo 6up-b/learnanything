@@ -12,7 +12,7 @@
 - **Check:** code only. A fixed harness in the PF-b sandbox gets JSON ASTs (no text parsing in the sandbox) and runs sympy exact equality, piecewise by intervals, under sign assumptions taken from the slider ranges. It has structural negative controls, an interval-arithmetic proof of difference, and display agreement to the digits `formatValue` shows (spec §6). There is no `figure_verifier` route and no new cap, price or constant.
 - **Labels:** element-scoped. Roles are `book`, `derived` (B only) and `ai`, found by a generic walk over the schema's `Label` and `Text` types. Delivered labels are rewritten by element id, with `shade.series` and `annotation.target` rebound (spec §7).
 - **Owner choice pending (Q1):** A (code labels only on the checked element, plus a token rule) or B (strict: every label on a checked figure code-owned). The orchestrator recommends B (spec §8).
-- **G23** becomes G23a–G23h (spec §9). The kill switch is `figures.checked_labels_enabled` (default on). Migration 227 adds `figure_source_checks`, an append-only RAW_LEDGER, with the no-migration alternative as Q6. There is no successor (spec §10).
+- **G23** becomes G23a–G23h (spec §9; G23i, every check is a verdict, was added by the Codex review, `reader-rw5c-design-codex-review.md`). The kill switch is `figures.checked_labels_enabled` (default on). Migration 227 adds `figure_source_checks`, an append-only RAW_LEDGER, with the no-migration alternative as Q6. There is no successor (spec §10).
 - **Open questions:** Q1–Q18 in spec §17.
 
 ## Feasibility probes (offline)
