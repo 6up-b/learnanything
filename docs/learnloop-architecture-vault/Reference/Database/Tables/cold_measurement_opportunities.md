@@ -3,8 +3,8 @@ title: "cold_measurement_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "31c28b737e637a93d687edbb52e10673808e92f4"
-source_commit_timestamp: "2026-10-27T16:09:20-04:00"
+source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
+source_commit_timestamp: "2026-10-27T18:06:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunities"
@@ -113,6 +113,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_causal_cold_outcomes.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_migrations.py`
 - `tests/test_certification_cold_probe.py`
 

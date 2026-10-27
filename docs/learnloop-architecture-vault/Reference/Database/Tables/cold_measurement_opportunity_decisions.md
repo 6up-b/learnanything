@@ -3,8 +3,8 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "31c28b737e637a93d687edbb52e10673808e92f4"
-source_commit_timestamp: "2026-10-27T16:09:20-04:00"
+source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
+source_commit_timestamp: "2026-10-27T18:06:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_migrations.py`
 - `tests/ad23_fakes.py`
 - `tests/test_assumed_known.py`
@@ -129,7 +130,6 @@ None found by exact static reference scan.
 - `tests/test_quick_check.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_scheduler.py`
-- `tests/test_serve_eligibility.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
