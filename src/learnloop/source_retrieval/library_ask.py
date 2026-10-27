@@ -1090,6 +1090,11 @@ def open_comparison(
         material = EM.held_out_material(vault, repository)
         if material.covers(str(extraction_id)) or EM.held_out_among(material, extraction_id, anchor):
             raise LibraryAskError("exam_material", EM.held_out_refusal(material, extraction_id))
+        # Exam material is assessment-only: an anchor on it is never compared
+        # (the service would drop it; refusing first opens no row for it).
+        exam = EM.exam_material(vault, repository)
+        if any(exam.covers(str(extraction_id), span) for span in anchor) or (not anchor and exam.covers(str(extraction_id))):
+            raise LibraryAskError("exam_material", "This passage is exam material, so it isn't compared.")
     words = words[:QUESTION_CHARS]
     ask_id = "la_" + new_ulid()
     manifest: dict[str, Any] = {"caller": dict(caller), "policy": caller.get("policy"), "comparison_only": True,
