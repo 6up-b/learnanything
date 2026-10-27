@@ -19,7 +19,10 @@ hint has one, else the round-2 task list): Codex's five round-3 scenarios
 from __future__ import annotations
 
 import os
+import sys
 import threading
+import time
+import traceback
 from typing import Any, Callable
 
 import pytest
@@ -140,8 +143,14 @@ class Harness:
         Load-robust (Oct 27 flake: at load ~17 P1's ~900 jobs overran a 60 s join, the test read
         ``seen`` before the drain had run and the thread guard caught the drain still running). No
         timing decides the outcome: the worker drains until no job of this runner is queued or
-        running (a claim the vault lock deferred is retried), and the hang guard only stops a drain
-        that never ends, after its current job, so the thread is always joined."""
+        running (a claim the vault lock deferred is retried).
+
+        A drain that never ends fails, bounded (review F1): past the hang guard the worker is told to
+        stop after its current chunk, and every batch with a job still pending is cancelled through
+        the runner's own cancellation, which a running handler reads at its checkpoints (the path the
+        sidecar's Cancel takes). The worker then gets a bounded grace to return. A job blocked where
+        no cancellation reaches it (a thread cannot be killed) fails the drain naming the worker's
+        stack instead of joining it forever; the thread guard then reports the survivor too."""
 
         stop = threading.Event()
 
@@ -153,18 +162,32 @@ class Harness:
             while not stop.is_set() and (self.runner.drain(max_jobs=_DRAIN_CHUNK) or pending()):
                 pass
 
-        thread = threading.Thread(target=work, name="t1-landing-d-drain")
+        thread = threading.Thread(target=work, name="t1-landing-d-drain", daemon=True)
         thread.start()
         thread.join(_DRAIN_HANG_GUARD_S)
-        hung = thread.is_alive()
+        if not thread.is_alive():
+            assert pending() == []
+            return
         stop.set()
-        thread.join()
-        assert not hung, f"the drain did not finish within {_DRAIN_HANG_GUARD_S} s"
-        assert pending() == []
+        for batch_id in sorted({job["batch_id"] for job in pending()}):
+            self.runner.cancel_batch(batch_id)
+        thread.join(_DRAIN_STOP_GRACE_S)
+        if thread.is_alive():
+            frame = sys._current_frames().get(thread.ident or -1)
+            where = "".join(traceback.format_stack(frame)) if frame is not None else "(no frame)"
+            raise AssertionError(
+                f"the drain did not finish within {_DRAIN_HANG_GUARD_S} s, and its worker is still running "
+                f"{_DRAIN_STOP_GRACE_S} s after its jobs were cancelled; it is blocked at:\n{where}")
+        raise AssertionError(
+            f"the drain did not finish within {_DRAIN_HANG_GUARD_S} s; its pending jobs were cancelled")
 
 
 #: keep: a hang guard, not a pass/fail timing; a drain this long means it is stuck, not slow.
 _DRAIN_HANG_GUARD_S = 900
+#: keep: how long a stuck drain's worker gets to return once its jobs are cancelled (a cleanup
+#: bound: a handler honours a cancel at its next checkpoint, so a worker still running after this
+#: is blocked where no cancel reaches it).
+_DRAIN_STOP_GRACE_S = 60
 #: keep: how many jobs the drain runs between stop checks (any positive size checks the same).
 _DRAIN_CHUNK = 25
 
@@ -544,3 +567,72 @@ def test_p7_rw5b_figures_ask_as_the_rpc_that_asked(harness):
     assert harness.out(built)["work"] == {"provider": "openrouter", "client": "openrouter"}
     for other in ("reader.library_ask", "ask_tutor_question"):
         assert harness.out(harness.call(other))["provider"] != "openrouter", other
+
+
+# -- the drain's hang guard (Oct 27 review F1) ------------------------------------------------------
+
+
+def _drain_worker() -> threading.Thread | None:
+    return next((thread for thread in threading.enumerate() if thread.name == "t1-landing-d-drain"), None)
+
+
+def _enqueue_blocking(harness, handler: Callable[[Any], dict[str, Any]]) -> str:
+    from learnloop.content.pipeline.runner import JobSpec
+
+    harness.runner.handlers["t1_block"] = handler
+    return harness.runner.enqueue_batch("t1_block", [JobSpec(job_type="t1_block", payload={})])
+
+
+def test_the_hang_guard_cancels_a_blocked_job_and_leaves_no_worker(harness, monkeypatch):
+    """A job that blocks until it is cancelled: past the hang guard the drain cancels it through the
+    runner's own cancellation (the flag a running handler reads at its checkpoints), the worker
+    returns, and the drain fails, bounded, with no worker left alive."""
+
+    from learnloop.content.pipeline.runner import JobCancelled
+
+    monkeypatch.setattr(sys.modules[__name__], "_DRAIN_HANG_GUARD_S", 0.2)
+    monkeypatch.setattr(sys.modules[__name__], "_DRAIN_STOP_GRACE_S", 60.0, raising=False)
+    saw: dict[str, bool] = {}
+
+    def until_cancelled(job_ctx) -> dict[str, Any]:
+        # Bounded so a regressed harness cannot hang the suite: 60 s of 10 ms checkpoints.
+        for _ in range(6000):
+            if job_ctx.cancelled():
+                saw["cancelled"] = True
+                raise JobCancelled()
+            time.sleep(0.01)
+        return {}
+
+    batch = _enqueue_blocking(harness, until_cancelled)
+    with pytest.raises(AssertionError, match="did not finish"):
+        harness.drain()
+    assert saw == {"cancelled": True}
+    assert _drain_worker() is None
+    assert {job["status"] for job in harness.runner.repo.ingest_jobs_for_batch(batch)} == {"cancelled"}
+
+
+def test_the_hang_guard_fails_bounded_when_a_job_ignores_cancellation(harness, monkeypatch):
+    """A job blocked where no cancellation reaches it: the drain still returns (it fails naming the
+    stuck worker and where it is blocked) while the worker is blocked, instead of joining it forever."""
+
+    monkeypatch.setattr(sys.modules[__name__], "_DRAIN_HANG_GUARD_S", 0.2)
+    monkeypatch.setattr(sys.modules[__name__], "_DRAIN_STOP_GRACE_S", 0.2, raising=False)
+    release = threading.Event()
+
+    def ignores_cancellation(_job_ctx) -> dict[str, Any]:
+        release.wait(60)  # bounded so a regressed harness cannot hang the suite
+        return {}
+
+    _enqueue_blocking(harness, ignores_cancellation)
+    try:
+        with pytest.raises(AssertionError, match="still running") as failed:
+            harness.drain()
+        worker = _drain_worker()
+        assert worker is not None and worker.is_alive()  # the drain returned while the job was blocked
+        assert "ignores_cancellation" in str(failed.value)  # names where the worker is stuck
+    finally:
+        release.set()
+        worker = _drain_worker()
+        if worker is not None:
+            worker.join(30)
+    assert _drain_worker() is None
