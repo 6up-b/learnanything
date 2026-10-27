@@ -37,7 +37,7 @@ from learnloop.hints.report_workbench import workbench_unaided_progress
 from learnloop.workbench.help_outcomes import help_outcomes
 from tests.approach_map_fakes import ITEM, LO
 from tests.hint_fakes import WriterFake
-from tests.rw2c_base_sequence import SWITCHES
+from tests.rw2c_base_sequence import SWITCHES, without_later_stage_keys
 from tests.test_help_outcomes import FACET, _facets, _grading, _insert, _only, _row, _snapshot, _vault, _verdicts, _world
 from tests.test_workbench_route_example import ROUTE, FindFake
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar, wb_answer
@@ -241,7 +241,7 @@ def test_fr2_3_with_every_switch_off_a_problem_with_rw2c_history_restores_the_ba
     at_tip = _run_state(Path(learnloop.__file__).resolve().parents[2], paths.root, wb)
     assert at_base["help_state"]["hints"] and at_base["help_state"]["hints"][0]["bridge"]
     for key in ("help_state", "problem"):
-        assert at_tip[key] == at_base[key], key
+        assert without_later_stage_keys(at_tip[key]) == at_base[key], key
     # In process, after a reload: the restored state carries no RW2c key.
     ctx.reload()
     off = call(ctx, "workbench.help_state", {"sessionId": wb})

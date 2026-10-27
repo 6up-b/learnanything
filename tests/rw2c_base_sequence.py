@@ -26,6 +26,28 @@ import sys
 from typing import Any
 
 SWITCHES = ("help_outcomes_enabled", "examples_enabled", "compare_methods_enabled", "passage_draw_enabled")
+
+#: Keys later stages ADD to the workbench payloads, outside RW2c's switches, with the
+#: value they carry when their feature is unused: Reader CA2's earlier-attempt help
+#: (``earlierHints`` 0, ``earlierOpened`` False; batch landing 2026-10-26). The pin
+#: compares RW2c's part, so the tip drops exactly these, at exactly these values.
+LATER_STAGE_KEYS = {"earlierHints": 0, "earlierOpened": False}
+
+
+def without_later_stage_keys(value: Any) -> Any:
+    """``value`` without :data:`LATER_STAGE_KEYS` (each must carry its unused value)."""
+
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in LATER_STAGE_KEYS:
+                assert item == LATER_STAGE_KEYS[key], (key, item)
+                continue
+            out[key] = without_later_stage_keys(item)
+        return out
+    if isinstance(value, list):
+        return [without_later_stage_keys(item) for item in value]
+    return value
 _ULID = re.compile(r"[0-9A-HJKMNP-TV-Z]{26}")
 _TIME = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?")
 _HEX = re.compile(r"\b[0-9a-f]{32,64}\b")

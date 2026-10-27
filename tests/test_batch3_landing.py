@@ -423,6 +423,7 @@ def test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s(tmp_path, monk
     from tests.source_retrieval_fakes import HashingEmbedder, loaded
     from tests.test_query_student import _adopt, _space
 
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))  # the student's data root, per test
     paths, repository, root, _model, _report = student_vault(
         tmp_path, extra='\n[embedding.source_space]\ndefault = "local:grouped"\n')
     caps = SpendCaps(max_candidates=10_000, max_pairs=0, max_calls=100, max_total_tokens=10**8, max_estimated_usd=10.0)

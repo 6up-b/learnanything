@@ -21,7 +21,7 @@ import sys
 import pytest
 
 from tests.hint_fakes import ChooserFake, WriterFake, prefer
-from tests.rw2c_base_sequence import SWITCHES, BridgeFake
+from tests.rw2c_base_sequence import SWITCHES, BridgeFake, without_later_stage_keys
 from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar, wb_answer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,7 +58,7 @@ def test_with_all_four_switches_off_the_sequence_equals_the_base_codes(tmp_path)
     assert at_base["payloads"]["bridge_1"]["result"]["status"] == "ready"
     for key in ("writer_contexts", "writer_prompts", "check_prompts", "chooser_states", "payloads", "rows",
                 "config_workbench"):
-        assert at_tip[key] == at_base[key], key
+        assert without_later_stage_keys(at_tip[key]) == at_base[key], key
 
 
 def test_switched_on_the_same_sequence_carries_rw2c(tmp_path):
