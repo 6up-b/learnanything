@@ -262,7 +262,17 @@ Doctor's error codes are only the known content ones.
 
 - `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`.
 - `uv run lint-imports --no-cache`: 36 contracts kept, 0 broken.
-- Targeted pytest in a 5G memory-capped scope, `-n 6`. The run and its file list are in §8.
+- Targeted pytest in a 5G memory-capped scope, `-n 6`, over the 66 files in §8: **6,681 passed,
+  1 failed, 6 skipped, 36 xfailed** in 976 s. Another stage's full suite was running on the machine
+  at the same time.
+  - The one failure is `tests/test_ad3_subject_view.py::test_coupling_is_prediction_only`, already
+    recorded as a load-sensitive flake (`adaptive-difficulty-ad23-codex-review.md`). Its
+    plain-vs-adversarial evidence masses differed by a uniform factor, and its evidence tables are
+    written by code outside AD.
+  - Rerun alone: 8 of 8 passed. Rerun three times with `-n 6` together with
+    `tests/test_ad3_reading.py` and `tests/test_ad2_serving.py`: 52 passed each time.
+- This stage's own files: `tests/test_ad_guard_offer_receipts.py`,
+  `tests/test_ad_guard_reachable_reads.py` and `tests/test_ad_protected_tables.py`, 15 passed.
 - No migration, schema, frontend or Tauri change, so no durability lane, DB reference regeneration,
   vitest or cargo run.
 
