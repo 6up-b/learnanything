@@ -3,8 +3,8 @@ title: "Config - capture"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
-source_commit_timestamp: "2026-10-27T10:21:01-04:00"
+source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
+source_commit_timestamp: "2026-10-27T13:01:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml capture"
@@ -43,7 +43,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3478`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/intent/control.py:329` |
+| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3496`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/intent/control.py:329` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

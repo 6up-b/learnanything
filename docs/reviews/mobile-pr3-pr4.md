@@ -248,6 +248,12 @@ tests fail by construction on the base, which has neither the columns nor the co
 
 ## 4. Persisted and served meaning
 
+> **Superseded by the Codex review (F4, `docs/reviews/mobile-pr3-pr4-codex-review.md`).** The second bullet below
+> (a closed row stays closed until the next sync) changes which items are served even without a concurrent writer,
+> so the attempt write is now the successor **mvp-0.36** (`ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`, kill switch
+> `practice.attempt_keeps_content_state`); below the tag, or off, the attempt upserts the whole row as before. The
+> text below is the original reasoning, kept as written.
+
 **No successor** under the algorithm-change playbook:
 
 - no scorer, scheduler, projection or replay input changed;
