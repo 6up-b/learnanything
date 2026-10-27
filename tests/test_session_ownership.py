@@ -224,6 +224,37 @@ def test_starting_fresh_keeps_the_replaced_draft_and_ends_that_session(tmp_path)
         connection.execute("UPDATE session_handoffs SET kind = 'adopt'")
 
 
+def test_a_retried_replacement_never_ends_the_session_it_created(tmp_path):
+    """Codex review F2. The phone replaced the desktop's session A with B, the
+    response was lost, B got a draft, and the original ``replace=A`` request
+    is retried. A is no longer open, so the retry is stale: before the fix B
+    was the caller's own session, so the replacement was never validated and
+    the retry created C and ended B (and its draft) with no receipt."""
+
+    paths, repository = _vault(tmp_path)
+    desktop = _call(_desktop(paths), "start_session", {"availableMinutes": 25})["sessionId"]
+    phone = repository.start_session_exclusive({"available_minutes": 10}, PHONE, replace=desktop)
+    _draft(repository, phone, answer="Drafted on the phone after the lost response")
+
+    with pytest.raises(SessionOwnershipError) as stale:
+        repository.start_session_exclusive({"available_minutes": 10}, PHONE, replace=desktop)
+
+    assert stale.value.code == "session_open_elsewhere"
+    assert stale.value.details["session_id"] == phone
+    assert stale.value.details["owner_device_id"] == PHONE
+    assert stale.value.details["draft_first_line"] == "Drafted on the phone after the lost response"
+    assert [row["id"] for row in _open_sessions(repository)] == [phone]
+    assert repository.fetch_session_checkpoint(phone)["current_answer"].startswith("Drafted on the phone")
+    assert len(repository.session_handoffs(desktop)) == 1
+    assert repository.session_handoffs(phone) == []
+    # Naming the caller's own open session is not stale: it is replaced silently.
+    fresh = repository.start_session_exclusive({"available_minutes": 10}, PHONE, replace=phone)
+    assert [row["id"] for row in _open_sessions(repository)] == [fresh]
+    # With nothing open there is nothing to end, so a stale name ends nothing either.
+    repository.end_session(fresh)
+    assert repository.start_session_exclusive({"available_minutes": 10}, PHONE, replace=desktop)
+
+
 def test_a_device_replaces_its_own_session_silently(tmp_path):
     _paths, repository = _vault(tmp_path)
     first = repository.start_session_exclusive({"available_minutes": 10}, PHONE)
@@ -325,20 +356,43 @@ _WRITES = (
     ("submit_dont_know", {"practiceItemId": ITEM}),
     ("acknowledge_practice_submission", {"practiceItemId": ITEM, "submissionId": _SUBMISSION}),
     ("end_session", {}),
+    # Codex review F3: §6.5's list is examples, not an exemption list.
+    ("record_self_grade_disclosure", {"practiceItemId": ITEM, "submissionId": _SUBMISSION,
+                                      "answerMd": "a later desktop edit"}),
+    ("record_self_grade_disclosure", {"practiceItemId": ITEM, "submissionId": _SUBMISSION,
+                                      "answerMd": "my draft", "displayId": "display_1"}),
+    ("practice.request_hint", {"practiceItemId": ITEM, "submissionId": _SUBMISSION, "answerMd": "my draft"}),
+    ("practice.record_hint_reveal", {"practiceItemId": ITEM, "submissionId": _SUBMISSION, "authoredIndex": 0,
+                                     "answerMd": "my draft"}),
+    ("practice.answer_discriminating", {"practiceItemId": ITEM, "submissionId": _SUBMISSION,
+                                        "questionAssistId": "ha_unknown", "answerMd": "yes"}),
 )
+_WRITE_IDS = [f"{name}-display" if "displayId" in params else name for name, params in _WRITES]
 
 
-@pytest.mark.parametrize(("method_name", "params"), _WRITES, ids=[name for name, _ in _WRITES])
+def _ledger_counts(repository: Repository) -> tuple[int, int, int]:
+    with repository.connection() as connection:
+        return tuple(
+            connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in ("practice_attempts", "reveal_events", "help_assists")
+        )
+
+
+@pytest.mark.parametrize(("method_name", "params"), _WRITES, ids=_WRITE_IDS)
 def test_every_session_scoped_write_from_the_old_owner_is_session_moved(tmp_path, method_name, params):
     paths, repository = _vault(tmp_path)
     ctx = _desktop(paths)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": ITEM,
                                        "answerMd": "my draft", "submissionId": _SUBMISSION})
+    if "displayId" in params:
+        # The display branch needs a frozen trace: the desktop froze it, then
+        # the phone adopted the session with that checkpoint (Codex review F3).
+        _call(ctx, "record_self_grade_disclosure", {"sessionId": session_id, "practiceItemId": ITEM,
+                                                    "submissionId": _SUBMISSION, "answerMd": "my draft"})
     repository.adopt_session(session_id, PHONE, 0)
     checkpoint = repository.fetch_session_checkpoint(session_id)
-    with repository.connection() as connection:
-        attempts = connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0]
+    counts = _ledger_counts(repository)
 
     with pytest.raises(SidecarError) as moved:
         _call(ctx, method_name, {"sessionId": session_id, **params})
@@ -351,10 +405,92 @@ def test_every_session_scoped_write_from_the_old_owner_is_session_moved(tmp_path
     # Nothing was written: the phone's session, checkpoint and attempts stand.
     assert repository.fetch_session(session_id)["ended_at"] is None
     assert repository.fetch_session_checkpoint(session_id) == checkpoint
-    with repository.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0] == attempts
+    assert _ledger_counts(repository) == counts
     # Reads stay unrestricted.
     assert _call(ctx, "get_session", {"sessionId": session_id})["sessionId"] == session_id
+
+
+def test_a_skip_never_clears_the_draft_of_a_device_that_adopted_while_the_queue_was_built(tmp_path, monkeypatch):
+    """Codex review F1. The desktop's skip passes its ownership check, then
+    builds the queue (outside any transaction). Meanwhile the phone adopts the
+    session and saves its own draft through a second connection. Before the
+    fix the skip then published its offer and cleared the checkpoint
+    unconditionally, deleting the phone's draft; now the clear re-checks the
+    owner and the generation inside the transaction that commits the offer."""
+
+    from learnloop_sidecar.handlers import practice as practice_handlers
+    from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
+
+    paths, _repository = _vault(tmp_path)
+    ctx = _desktop(paths)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": ITEM,
+                                       "answerMd": "desktop draft", "submissionId": _SUBMISSION})
+    phone = Repository.attach(paths.sqlite_path)
+    original = practice_handlers.build_due_queue
+    phone_draft = {"current_practice_item_id": ITEM, "current_answer": "the phone's own draft"}
+
+    def build_while_the_phone_adopts(*args, **kwargs):
+        queue = original(*args, **kwargs)
+        phone.adopt_session(session_id, PHONE, 0)
+        patch_checkpoint(phone, SessionCheckpointInput(session_id=session_id, **phone_draft), device_id=PHONE)
+        return queue
+
+    monkeypatch.setattr(practice_handlers, "build_due_queue", build_while_the_phone_adopts)
+    with pytest.raises(SidecarError) as moved:
+        _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": ITEM})
+
+    assert moved.value.code == "session_moved"
+    assert moved.value.details["owner_device_id"] == PHONE
+    checkpoint = phone.fetch_session_checkpoint(session_id)
+    assert checkpoint is not None
+    assert (checkpoint["current_practice_item_id"], checkpoint["current_answer"]) == (
+        ITEM, phone_draft["current_answer"]
+    )
+
+
+def test_a_skip_refuses_a_session_that_moved_and_came_back_while_the_queue_was_built(tmp_path, monkeypatch):
+    """The same window, with the desktop taking the session back before the
+    skip commits: the owner matches again, but the checkpoint is the phone's
+    draft carried back, so the generation read before the build refuses it."""
+
+    from learnloop_sidecar.handlers import practice as practice_handlers
+    from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
+
+    paths, _repository = _vault(tmp_path)
+    ctx = _desktop(paths)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    other = Repository.attach(paths.sqlite_path)
+    original = practice_handlers.build_due_queue
+
+    def build_while_it_moves_and_returns(*args, **kwargs):
+        queue = original(*args, **kwargs)
+        other.adopt_session(session_id, PHONE, 0)
+        patch_checkpoint(other, SessionCheckpointInput(session_id=session_id, current_practice_item_id=ITEM,
+                                                       current_answer="written on the phone"), device_id=PHONE)
+        other.adopt_session(session_id, None, 1)
+        return queue
+
+    monkeypatch.setattr(practice_handlers, "build_due_queue", build_while_it_moves_and_returns)
+    with pytest.raises(SidecarError) as moved:
+        _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": ITEM})
+
+    assert moved.value.code == "session_moved"
+    assert moved.value.details["owner_generation"] == 2
+    assert other.fetch_session_checkpoint(session_id)["current_answer"] == "written on the phone"
+
+
+def test_the_owner_skips_as_before(tmp_path):
+    paths, repository = _vault(tmp_path)
+    ctx = _desktop(paths)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": ITEM,
+                                       "answerMd": "desktop draft", "submissionId": _SUBMISSION})
+
+    skipped = _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": ITEM})
+
+    assert skipped["sessionId"] == session_id
+    assert repository.fetch_session_checkpoint(session_id) is None
 
 
 def test_the_owner_writes_as_before_and_ended_sessions_keep_their_old_errors(tmp_path):

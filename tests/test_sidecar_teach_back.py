@@ -611,6 +611,7 @@ def test_sidecar_teach_back_finish_retry_returns_same_attempt(tmp_path):
                 current_practice_item_id=TEACH_ITEM_ID,
                 current_answer=saved_answer,
             ),
+            device_id=None,  # the desktop
         )
         retry = _call(
             vault_root,
@@ -688,6 +689,7 @@ def test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt(tmp_path
                 current_practice_item_id=TEACH_ITEM_ID,
                 current_answer=saved_answer,
             ),
+            device_id=None,  # the desktop
         )
         retry = _call(
             vault_root,
@@ -785,6 +787,7 @@ def test_sidecar_teach_back_resume_merges_pending_learner_answer(tmp_path):
                 current_practice_item_id=TEACH_ITEM_ID,
                 current_answer=json.dumps({"mode": "teach_back", "state": state}, sort_keys=True),
             ),
+            device_id=None,  # the desktop
         )
 
         resumed = _call(

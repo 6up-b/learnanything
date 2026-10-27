@@ -79,6 +79,7 @@ from learnloop_sidecar.handlers.sessions import (
     draft_plan_presentation,
     draft_self_grade_disclosure,
     patch_checkpoint,
+    request_device_id,
     require_owned_session,
     settle_self_grade_disclosure,
 )
@@ -677,6 +678,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             submission_id=params.submission_id,
             declared_stuck=params.declared_stuck,
         ),
+        device_id=request_device_id(ctx),
         plan_presentation_id=params.plan_presentation_id,
         first_hint_progress=_draft_marker(vault, params),
         hint_seen=params.hint_seen if "hint_seen" in params.model_fields_set else KEEP_HINT_SEEN,
@@ -726,6 +728,10 @@ def record_hint_reveal(ctx: SidecarContext, params: HintRevealInput) -> dict[str
             f"Practice Item {item.id} has {len(item.hints)} authored hints; no hint {params.authored_index}.",
             details={"field": "authoredIndex"},
         )
+    # Mobile PR-4 (Codex review F3): a reveal row is counted into the
+    # session's submission, so the device the session moved away from gets
+    # ``session_moved`` (a refusal, not a failed write).
+    require_owned_session(ctx, repository, params.session_id)
     if _in_diagnostic_block(repository, item):
         return versioned({"recorded": False, "reason": "diagnostic_block", "assist_id": None})
     try:
@@ -907,7 +913,13 @@ def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosur
     if submission_id is None:
         raise SidecarError("validation_error", "submissionId must not be blank.", details={"field": "submissionId"})
     if params.display_id is not None:
-        return _record_disclosure_display(repository, item, params, submission_id)
+        # Mobile PR-4 (Codex review F3): a display of the key is a
+        # session-scoped write too (its reveal row counts against later
+        # productions). The ownership check, the pending-draft check and the
+        # row commit in one transaction, so no adopt lands between them.
+        with repository.atomic():
+            require_owned_session(ctx, repository, params.session_id)
+            return _record_disclosure_display(repository, item, params, submission_id)
     explanation_md = (params.explanation_md or "").strip() or None
     patch_checkpoint(
         repository,
@@ -917,6 +929,7 @@ def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosur
             current_answer=params.answer_md,
             submission_id=submission_id,
         ),
+        device_id=request_device_id(ctx),
         self_grade_disclosure={
             "practiceItemId": params.practice_item_id,
             "learningObjectId": item.learning_object_id,
@@ -1883,7 +1896,13 @@ def _store_submission_receipt(
 @method("skip_practice_item", SkipInput)
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    session = require_owned_session(ctx, repository, params.session_id)  # mobile PR-4
+    # Mobile PR-4: refused early, before the queue is built, when the session
+    # is another device's; checked again below, with the generation read here,
+    # in the transaction that publishes the offer and clears the checkpoint
+    # (Codex review F1), so a session adopted while the queue was being built
+    # keeps the new owner's draft.
+    session = require_owned_session(ctx, repository, params.session_id)
+    generation = int(session.get("owner_generation") or 0)
     trace = offer_trace_for(vault, params.session_id)
     queue = build_due_queue(
         vault,
@@ -1895,11 +1914,16 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
         ),
         offer_trace=trace,
     )
+
+    def clear_owned_checkpoint() -> None:
+        require_owned_session(ctx, repository, params.session_id, expected_generation=generation)
+        clear_checkpoint(repository, params.session_id)
+
     queue, dtos = publish_offer(
         ctx, vault, repository, queue, trace=trace, surface="skip_requeue",
         removed_ids=frozenset({params.practice_item_id}),
+        alongside=clear_owned_checkpoint,
     )
-    clear_checkpoint(repository, params.session_id)
     return versioned(
         {
             "generated_at": utc_now_iso(),

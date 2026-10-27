@@ -200,7 +200,8 @@ class RequestHintInput(ParamsModel):
 def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any]:
     """Ask for a hint written for the learner's work (a job; see the module)."""
 
-    from learnloop_sidecar.handlers.practice import _in_diagnostic_block, _require_open_session
+    from learnloop_sidecar.handlers.practice import _in_diagnostic_block
+    from learnloop_sidecar.handlers.sessions import require_owned_session
 
     vault, repository = ctx.require_vault()
     if not adaptive_enabled(vault.config):
@@ -210,7 +211,10 @@ def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any
     item = vault.practice_items.get(params.practice_item_id)
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
-    _require_open_session(repository, params.session_id)
+    # Mobile PR-4 (Codex review F3): the hint job's acceptance boundary. The
+    # device the session moved away from starts no model-backed work on it
+    # (``session_moved``); a job accepted before a handoff completes.
+    require_owned_session(ctx, repository, params.session_id)
     if _in_diagnostic_block(repository, item):
         # Probe redesign §5.5 (G-H14): no hint during a diagnostic block, and
         # no model is asked.
@@ -385,9 +389,12 @@ def answer_discriminating(ctx: SidecarContext, params: DiscriminateAnswerInput) 
     """Record the learner's answer to a discriminating question (fire and
     forget: the screen never waits on it). No model call, no evidence."""
 
+    from learnloop_sidecar.handlers.sessions import require_owned_session
+
     vault, repository = ctx.require_vault()
     if not adaptive_enabled(vault.config):
         return versioned({"recorded": False, "reason": "adaptive_disabled", "assist_id": None})
+    require_owned_session(ctx, repository, params.session_id)  # mobile PR-4 (Codex review F3)
     try:
         recorded = hint_service.record_discriminate_answer(
             vault, repository, practice_item_id=params.practice_item_id, session_id=params.session_id,

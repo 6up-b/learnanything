@@ -117,7 +117,12 @@ class SessionOwnershipStoreMixin:
     # -- the ownership check ----------------------------------------------
 
     def require_session_owner(
-        self, session_id: str, device_id: str | None, *, require_open: bool = True
+        self,
+        session_id: str,
+        device_id: str | None,
+        *,
+        require_open: bool = True,
+        expected_generation: int | None = None,
     ) -> dict[str, Any]:
         """The session row, if ``device_id`` owns it; ``session_moved`` otherwise.
 
@@ -125,12 +130,21 @@ class SessionOwnershipStoreMixin:
         transaction when it has one, so no adopt commits between the check
         and the write. ``require_open`` (the default) also refuses an ended
         session, as the writes did before ownership existed.
+
+        ``expected_generation`` is for a write that checked ownership before
+        slow work outside its transaction (a skip builds the queue first) and
+        checks again inside it: a session that moved in between, even one
+        adopted back by the same device, is ``session_moved``, because its
+        checkpoint may now be another device's draft (Codex review F1).
         """
 
         session = self.fetch_session(session_id)
         if session is None:
             raise SessionOwnershipError("not_found", f"Session {session_id} was not found.")
-        if not _same_owner(session.get("owner_device_id"), device_id):
+        moved = expected_generation is not None and int(session.get("owner_generation") or 0) != int(
+            expected_generation
+        )
+        if moved or not _same_owner(session.get("owner_device_id"), device_id):
             snapshot = self.session_owner_snapshot(session)
             raise SessionOwnershipError(
                 "session_moved",
@@ -161,6 +175,11 @@ class SessionOwnershipStoreMixin:
           own session is replaced silently);
         * one another device owns and ``replace`` is None, or names any other
           session: raise ``session_open_elsewhere`` with its snapshot;
+        * ``replace`` names no open session (a stale replacement, such as a
+          retry of one that already committed) while a session is open, the
+          caller's own included: raise ``session_open_elsewhere`` with the
+          open session's snapshot, ending nothing (a compare-and-swap on the
+          id, checked before the same-owner rule);
         * ``replace`` names that session (the learner chose "start fresh"):
           keep its checkpoint in ``session_handoffs``, end it, and create the
           new one.
@@ -181,6 +200,19 @@ class SessionOwnershipStoreMixin:
                     ).fetchall()
                 ]
             foreign = [row for row in open_rows if not _same_owner(row.get("owner_device_id"), owner_device_id)]
+            if replace is not None and open_rows and all(row["id"] != replace for row in open_rows):
+                # A stale ``replace`` (Codex review F2): the session it names
+                # is no longer open, so the learner's "start fresh" was decided
+                # on a session that has since ended (typically by this very
+                # replacement, whose response was lost). The open session,
+                # even the caller's own, is not ended on that stale decision:
+                # the caller re-reads it and asks again.
+                held = (foreign or open_rows)[0]
+                raise SessionOwnershipError(
+                    "session_open_elsewhere",
+                    f"A session is open on {self.device_label(held.get('owner_device_id'))}.",
+                    self.session_owner_snapshot(held),
+                )
             if foreign:
                 held = foreign[0]
                 if replace is None or replace != held["id"]:

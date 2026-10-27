@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from typing import Any
@@ -514,8 +515,15 @@ def publish_offer(
     trace: OfferTrace | None,
     surface: str,
     removed_ids: frozenset[str] = frozenset(),
+    alongside: Callable[[], None] | None = None,
 ) -> tuple[list[ScheduledItem], list[dict[str, Any]]]:
     """Filter, serialize and publish one Today offer; returns (items, dtos).
+
+    ``alongside`` (mobile PR-4, Codex review F1): session writes that commit
+    in one transaction with the offer. It runs first in that transaction, so
+    raising refuses the offer too (a skip re-checks the session's owner there
+    and clears its checkpoint). Everything slow (the build, the readiness
+    probe, the decision) runs before the transaction opens.
 
     Teach-back items dead-end without their AI provider, so they are dropped
     from the offered queue while it is down; ``removed_ids`` are dropped too (a
@@ -569,20 +577,23 @@ def publish_offer(
                 "router R1: offer decision for slate %s not logged", trace.slate_id, exc_info=True
             )
             decision = None
-    if slate_id is not None:
-        repository.finalize_scheduler_offer(
-            slate_id,
-            [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id],
-            entry_surface="desktop_queue",
-            router_decision=decision,
-        )
-    elif decision is not None:
-        # Nothing was published (an empty offer): the stop is still a decision.
-        try:
-            record_decision(repository, decision)
-        except Exception:  # pragma: no cover - logging never fails the offer
-            logging.getLogger(__name__).warning(
-                "router R1: empty-offer decision for slate %s not logged", trace.slate_id if trace else None,
-                exc_info=True,
+    with repository.atomic() if alongside is not None else nullcontext():
+        if alongside is not None:
+            alongside()
+        if slate_id is not None:
+            repository.finalize_scheduler_offer(
+                slate_id,
+                [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id],
+                entry_surface="desktop_queue",
+                router_decision=decision,
             )
+        elif decision is not None:
+            # Nothing was published (an empty offer): the stop is still a decision.
+            try:
+                record_decision(repository, decision)
+            except Exception:  # pragma: no cover - logging never fails the offer
+                logging.getLogger(__name__).warning(
+                    "router R1: empty-offer decision for slate %s not logged", trace.slate_id if trace else None,
+                    exc_info=True,
+                )
     return queue, dtos

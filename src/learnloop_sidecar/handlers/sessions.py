@@ -235,7 +235,7 @@ def patch_checkpoint(
     repository,
     params: SessionCheckpointInput,
     *,
-    device_id: str | None = None,
+    device_id: str | None,
     plan_presentation_id: Any = _KEEP,
     self_grade_disclosure: Any = _KEEP,
     first_hint_progress: Any = _KEEP,
@@ -260,8 +260,9 @@ def patch_checkpoint(
     Mobile PR-4 (§6.5): the read-merge-write is one ``BEGIN IMMEDIATE``
     transaction, so two writers never merge into the same stale checkpoint,
     and it starts with the ownership check: ``device_id`` (the request
-    origin's; None is the desktop) must own the session, or the patch fails
-    with ``session_moved``.
+    origin's, :func:`request_device_id`; None is the desktop) must own the
+    session, or the patch fails with ``session_moved``. It has no default, so
+    no caller checks against the desktop by omission (Codex review F3).
     """
 
     with repository.atomic():
@@ -369,23 +370,31 @@ def owned_session_errors() -> Iterator[None]:
         raise ownership_error(error) from None
 
 
-def _require_owned(repository, session_id: str, device_id: str | None) -> dict[str, Any]:
+def _require_owned(
+    repository, session_id: str, device_id: str | None, *, expected_generation: int | None = None
+) -> dict[str, Any]:
     with owned_session_errors():
-        return repository.require_session_owner(session_id, device_id)
+        return repository.require_session_owner(session_id, device_id, expected_generation=expected_generation)
 
 
-def require_owned_session(ctx: SidecarContext, repository, session_id: str) -> dict[str, Any]:
+def require_owned_session(
+    ctx: SidecarContext, repository, session_id: str, *, expected_generation: int | None = None
+) -> dict[str, Any]:
     """The open session, if the request's device owns it (mobile PR-4, §6.5).
 
-    Every session-scoped write calls it: checkpoint updates and clears, draft
-    saves, skips, submit acceptance, acknowledgements and the end. A write
-    from a device that does not own the session fails with ``session_moved``
-    (not retryable), carrying the owner's label and generation. Reads never
-    call it. A submit accepted before a handoff completes, because ownership
-    is checked at acceptance.
+    Every session-scoped write calls it at its acceptance boundary:
+    checkpoint updates and clears, draft saves, self-grade disclosures (both
+    the freeze and a display of the key), skips, submit acceptance, hint
+    requests, hint reveals and discriminating answers, teach-back turns,
+    acknowledgements and the end. A write from a device that does not own the
+    session fails with ``session_moved`` (not retryable), carrying the owner's
+    label and generation. Reads never call it. A submit or a hint job
+    accepted before a handoff completes, because ownership is checked at
+    acceptance. ``expected_generation``: see
+    ``SessionOwnershipStoreMixin.require_session_owner``.
     """
 
-    return _require_owned(repository, session_id, request_device_id(ctx))
+    return _require_owned(repository, session_id, request_device_id(ctx), expected_generation=expected_generation)
 
 
 def _merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str):

@@ -49,6 +49,7 @@ from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.handlers.sessions import (
     SessionCheckpointInput,
     patch_checkpoint,
+    request_device_id,
     require_owned_session,
 )
 from learnloop_sidecar.registry import method
@@ -164,10 +165,10 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
             planned=plan_followups(vault, repository, item),
             scheduler_candidate_id=offer,
         )
-        _persist_state(repository, params.session_id, state)
+        _persist_state(ctx, repository, params.session_id, state)
     elif offer != bound_offer:
         state.scheduler_candidate_id = offer
-        _persist_state(repository, params.session_id, state)
+        _persist_state(ctx, repository, params.session_id, state)
     learning_object = vault.learning_object_for_item(item)
     return versioned(
         {
@@ -237,7 +238,7 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
         raise SidecarError("validation_error", str(exc)) from exc
     state.scheduler_candidate_id = offer
     # Persist before calling the provider so the answered turn survives a crash.
-    _persist_state(repository, params.session_id, state)
+    _persist_state(ctx, repository, params.session_id, state)
 
     budget = min(len(state.planned), vault.config.teach_back.max_followups)
     if not params.finish and state.asked_count < budget:
@@ -251,7 +252,7 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
                 # transcript (asked criteria only) below.
                 question = None
         if question is not None:
-            _persist_state(repository, params.session_id, state)
+            _persist_state(ctx, repository, params.session_id, state)
             return versioned(
                 {
                     "done": False,
@@ -546,7 +547,7 @@ def _load_state(repository, session_id: str, practice_item_id: str) -> TeachBack
     return state
 
 
-def _persist_state(repository, session_id: str, state: TeachBackState) -> None:
+def _persist_state(ctx: SidecarContext, repository, session_id: str, state: TeachBackState) -> None:
     patch_checkpoint(
         repository,
         SessionCheckpointInput(
@@ -556,4 +557,5 @@ def _persist_state(repository, session_id: str, state: TeachBackState) -> None:
                 {"mode": "teach_back", "state": state.to_dict()}, sort_keys=True
             ),
         ),
+        device_id=request_device_id(ctx),
     )
