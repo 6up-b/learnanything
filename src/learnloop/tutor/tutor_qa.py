@@ -379,10 +379,12 @@ class QuestionLimitReached(Exception):
 def practice_thread_events(
     repository: Repository, *, practice_item_id: str | None, session_id: str | None,
     submission_id: str | None = None, workbench_session_id: str | None = None,
+    aliases: AttemptAliases | None = None,
 ) -> list[dict[str, Any]]:
     """The practice Ask thread of the attempt being composed: the answered
     practice questions on (item, session) asked since the item's last
-    attempt (owner capture 2026-10-25, B3).
+    attempt (owner capture 2026-10-25, B3). ``aliases``: the attempt's other
+    identities (:class:`AttemptAliases`), read as its own.
 
     The window is the one a question is counted in as a hint
     (:func:`hint_equivalents_for_submission`: after the item's most recent
@@ -398,7 +400,7 @@ def practice_thread_events(
         # Codex review F6: an unfinished workbench is one attempt whichever
         # host (and practice session) it is worked in; its key, not the
         # session, says which questions are its.
-        session_id=None if workbench_session_id else session_id,
+        session_id=None if workbench_session_id or (aliases and aliases.workbench_session_ids) else session_id,
         answer_status="answered",
     )
     if not practice_item_id:
@@ -412,56 +414,26 @@ def practice_thread_events(
     # (the key the hint service counts by). A question asked under another
     # key is another serving's, even in the same window (the item skipped and
     # served again); a question recorded before CA2 carries no key and keeps
-    # the window's rule (in its session). Astra batch review: the attempt's
-    # identities are resolved first, so the answer box's draft handed into
-    # Work in Steps and resumed in the Reader is one thread and one budget.
-    submission_ids, workbench_ids = attempt_identities(
-        repository, practice_item_id=practice_item_id, submission_id=submission_id,
-        workbench_session_id=workbench_session_id)
+    # the window's rule (in its session). Astra batch review: with the
+    # attempt's other identities (the answer box's draft handed into Work in
+    # Steps and resumed in the Reader), one thread and one budget.
+    submission_ids = {submission_id} - {None} | set(aliases.submission_ids if aliases else ())
+    workbench_ids = {workbench_session_id} - {None} | set(aliases.workbench_session_ids if aliases else ())
     return [event for event in windowed
             if _key_in(event, submission_ids, workbench_ids, session_id=session_id)]
 
 
-def attempt_identities(
-    repository: Repository, *, practice_item_id: str | None, submission_id: str | None,
-    workbench_session_id: str | None,
-) -> tuple[frozenset[str], frozenset[str]]:
-    """Every identity of the one attempt in progress that ``submission_id``
-    and ``workbench_session_id`` name: ``(submission ids, workbench ids)``.
+@dataclass(frozen=True)
+class AttemptAliases:
+    """The other identities of the one attempt in progress a practice
+    question names (Astra batch review, Medium): the answer box's draft keys
+    handed into Work in Steps and the workbenches they were handed into, as
+    the caller resolved them (``reader.workbench.attempt_identities``; this
+    module never reads the workbench, contract W1). Read time only: every
+    question row keeps the key it was asked under."""
 
-    Astra batch review (Medium): the practice screen hands its answer box's
-    draft into Work in Steps, recording the draft's key on the workbench
-    (``reader.workbench.record_draft_handoff``); a workbench resumed in the
-    Reader asks under its own key (``workbench:<id>``). Both name one
-    attempt, so each identity brings the others it was handed with: the
-    workbench brings the draft keys handed into it, a draft key brings the
-    workbenches of the item it was handed into (the steps left for the answer
-    box again). Raw question rows are never rewritten; this is read time.
-    A handoff that cannot be read leaves the identities as named."""
-
-    submissions = {submission_id} if submission_id else set()
-    workbenches = {workbench_session_id} if workbench_session_id else set()
-    if not practice_item_id:
-        return frozenset(submissions), frozenset(workbenches)
-    from learnloop.db.stores import workbench as workbench_store
-
-    try:
-        with repository.connection() as connection:
-            handed = workbench_store.handed_submission_ids(
-                connection, {*workbench_store.session_ids_for_item(connection, practice_item_id), *workbenches})
-    except Exception:  # noqa: BLE001 - an unreadable handoff keeps the named identities (today's rule)
-        logger.exception("Could not read the draft handoffs of %s", practice_item_id)
-        return frozenset(submissions), frozenset(workbenches)
-    changed = True
-    while changed:
-        changed = False
-        for workbench_id, keys in handed.items():
-            if workbench_id in workbenches or keys & submissions:
-                if workbench_id not in workbenches or not keys <= submissions:
-                    workbenches.add(workbench_id)
-                    submissions |= keys
-                    changed = True
-    return frozenset(submissions), frozenset(workbenches)
+    submission_ids: frozenset[str] = frozenset()
+    workbench_session_ids: frozenset[str] = frozenset()
 
 
 def _key_in(event: Mapping[str, Any], submission_ids: frozenset[str] | set[str],
@@ -481,7 +453,7 @@ def attempt_key_matches(event: Mapping[str, Any], *, submission_id: str | None,
     question asked under the same key, or in the same unfinished workbench,
     is the attempt's; one recorded before CA2 has no key and is the window's
     (in its practice session). The names as given: a handoff's other
-    identities are :func:`attempt_identities`'."""
+    identities are :class:`AttemptAliases`."""
 
     return _key_in(event, {submission_id} - {None}, {workbench_session_id} - {None}, session_id=session_id)
 
@@ -612,6 +584,7 @@ def question_usage(
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
     metered: bool = True,
+    aliases: AttemptAliases | None = None,
 ) -> tuple[int, int | None]:
     """(used, limit) for one Q&A budget window.
 
@@ -642,6 +615,7 @@ def question_usage(
             repository, practice_item_id=practice_item_id, session_id=session_id,
             submission_id=submission_id if keyed else None,
             workbench_session_id=workbench_session_id if keyed else None,
+            aliases=aliases if keyed else None,
         ))
         return used, (config.max_questions_practice if metered or not keyed else None)
     if context == "feedback":
@@ -795,6 +769,7 @@ def ask_question(
     workbench_session_id: str | None = None,
     about_step: int | None = None,
     count_every_question: bool = False,
+    attempt_aliases: AttemptAliases | None = None,
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
@@ -860,7 +835,10 @@ def ask_question(
     answer before it is shown: an answer that would give the item's answer away is never
     delivered on the spot; the learner gets the ladder's take step
     (``result["take_offer"]``) instead, nothing is counted or debited for
-    the withheld text, and the row keeps it with ``source_context.withheld``."""
+    the withheld text, and the row keeps it with ``source_context.withheld``.
+    ``attempt_aliases`` (Astra batch review; resolved by the adapter): the
+    attempt's other identities, read as its own by the budget and the thread;
+    the row stores only the key it is asked under."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -931,6 +909,7 @@ def ask_question(
         submission_id=submission_id,
         workbench_session_id=workbench_session_id,
         metered=not is_subscription_transport(client=client),
+        aliases=attempt_aliases,
     )
     if limit is not None and used >= limit:
         raise QuestionLimitReached(context=context, limit=limit, used=used)
@@ -951,6 +930,7 @@ def ask_question(
             session_id=session_id,
             submission_id=submission_id,
             workbench_session_id=workbench_session_id,
+            aliases=attempt_aliases,
         )
     )
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -1962,12 +1942,15 @@ def _thread(
     session_id: str | None,
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
+    aliases: AttemptAliases | None = None,
 ) -> list[dict[str, Any]]:
     if context == "practice":
         # B3: only this attempt's turns (an earlier serving's are not this
-        # conversation); Reader CA2 (K5, C6): only this submission's.
+        # conversation); Reader CA2 (K5, C6): only this submission's (and its
+        # handoff's other identities, Astra batch review).
         events = practice_thread_events(repository, practice_item_id=practice_item_id, session_id=session_id,
-                                        submission_id=submission_id, workbench_session_id=workbench_session_id)
+                                        submission_id=submission_id, workbench_session_id=workbench_session_id,
+                                        aliases=aliases)
     elif context == "feedback":
         events = repository.question_events(
             context="feedback", attempt_id=attempt_id, answer_status="answered"

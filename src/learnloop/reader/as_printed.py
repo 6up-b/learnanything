@@ -60,12 +60,20 @@ The rules held here, on the server:
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Any
 
+from learnloop.ingest.block_roles import lead_role
 from learnloop.ingest.ir import DocumentBlock, is_figure_block, page_region, selection_region
+
+#: Reads blocks' effective roles over a connection, keyed (extraction, span)
+#: (``source_retrieval.corpus.block_roles``: a solution region's body
+#: included). Passed in by the caller: the Reader sits below source retrieval.
+RoleReader = Callable[[Any, Sequence[tuple[str, str]]], Mapping[tuple[str, str], str | None]]
+#: Whether a text gives an expected answer away (``tutor_qa.span_leaks_expected``).
+LeakCheck = Callable[[str, Any], bool]
 
 #: The kinds of view (the client renders one control per kind).
 KIND_PAGE = "page"
@@ -359,13 +367,13 @@ def _outside_statement(block_text: str, statement: str) -> str | None:
     return None
 
 
-def _holds_its_solution(block_text: str, statement: str, expected_answer: Any) -> bool:
+def _holds_its_solution(block_text: str, statement: str, expected_answer: Any,
+                        leaks: LeakCheck | None = None) -> bool:
     """Whether a block of the stem also holds the stem's solution: a solution
-    or proof lead starts one of its later parts, or its text beside the
-    statement gives the expected answer away (the tutor's leak matcher,
-    ``tutor_qa.span_leaks_expected``) while the statement itself does not."""
-
-    from learnloop.ingest.block_roles import lead_role
+    or proof lead starts one of its later parts, or (with ``leaks``, the
+    tutor's leak matcher ``tutor_qa.span_leaks_expected``) its text beside
+    the statement gives the expected answer away while the statement itself
+    does not."""
 
     parts = [part for part in _PART_BREAK.split(str(block_text or "")) if part.strip()]
     if any(lead_role(part) in _ANSWER_LEADS for part in parts[1:]):
@@ -373,11 +381,9 @@ def _holds_its_solution(block_text: str, statement: str, expected_answer: Any) -
     rest = _outside_statement(block_text, statement)
     if rest is None:
         rest = " ".join(_tokens(block_text))
-    if not rest or expected_answer in (None, "", {}):
+    if not rest or leaks is None or expected_answer in (None, "", {}):
         return False
-    from learnloop.tutor.tutor_qa import span_leaks_expected
-
-    return span_leaks_expected(rest, expected_answer) and not span_leaks_expected(statement, expected_answer)
+    return leaks(rest, expected_answer) and not leaks(statement, expected_answer)
 
 
 def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set[str]:
@@ -397,25 +403,26 @@ def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set
     return found
 
 
-def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin) -> PrintedOrigin:
+def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin, *, roles: RoleReader | None = None,
+                       leaks: LeakCheck | None = None) -> PrintedOrigin:
     """The origin with no solution in its free crop (module docstring, "Never
     the solution"): solution blocks leave the crop's own blocks (and the
     original page's outline); a block holding the stem and its solution
-    leaves no free crop. Fails closed: a guard that cannot be read leaves no
-    free crop, the original page still offered."""
+    leaves no free crop. ``roles`` reads the blocks' effective roles (else
+    each block's stored hint); ``leaks`` the answer-leak matcher (else no
+    leak test). Fails closed: a guard that cannot be read leaves no free
+    crop, the original page still offered."""
 
     if not origin.span_ids:
         return origin
     no_crop = replace(origin, span_ids=(), regions={}, page_span_ids=origin.located_by)
     try:
-        from learnloop.ingest.block_roles import lead_role
-        from learnloop.source_retrieval.corpus import block_roles
-
         blocks = {block.span_id: block for block in repository.document_blocks(origin.extraction_id,
                                                                                list(origin.located_by))}
         with repository.connection() as connection:
             solution = _solution_span_ids(connection, str(getattr(item, "id", "")), origin.extraction_id)
-            roles = block_roles(connection, [(origin.extraction_id, span) for span in blocks])
+            role_of = (dict(roles(connection, [(origin.extraction_id, span) for span in blocks])) if roles is not None
+                       else {(origin.extraction_id, span): block.role_hint for span, block in blocks.items()})
     except Exception:  # noqa: BLE001 - fail closed: no free crop, the page still offered
         import logging
 
@@ -435,7 +442,7 @@ def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin) -> Pri
         block = blocks.get(span)
         if span in solution or (block is not None and lead_role(block.text) == "solution"):
             return "solution"
-        if roles.get((origin.extraction_id, span)) != "solution":
+        if role_of.get((origin.extraction_id, span)) != "solution":
             return None
         shared = block is not None and _outside_statement(block.text, statement) is not None
         return "unsure" if shared else "solution"
@@ -445,7 +452,7 @@ def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin) -> Pri
     own = tuple(span for span in origin.span_ids if span not in dropped)
     located = tuple(span for span in origin.located_by if span not in dropped) or origin.located_by
     if not own or any(kinds.get(span) == "unsure" for span in own) or any(
-            _holds_its_solution(blocks[span].text, statement, expected)
+            _holds_its_solution(blocks[span].text, statement, expected, leaks)
             for span in own if span in blocks and not is_figure_block(blocks[span])):
         return replace(no_crop, page_span_ids=located)
     if not dropped:
@@ -454,9 +461,12 @@ def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin) -> Pri
                    page_span_ids=located)
 
 
-def printed_origin(repository: Any, item: Any) -> PrintedOrigin | None:
+def printed_origin(repository: Any, item: Any, *, roles: RoleReader | None = None,
+                   leaks: LeakCheck | None = None) -> PrintedOrigin | None:
     """The item's print, or None (pasted text, a generated card, a photo card).
-    Its own blocks never include a solution (:func:`_without_solutions`)."""
+    Its own blocks never include a solution (:func:`_without_solutions`;
+    ``roles`` and ``leaks`` as there: the desktop RPC passes source
+    retrieval's role reader and the tutor's leak matcher)."""
 
     canonical = getattr(item, "canonical_exercise", None)
     if canonical is not None:
@@ -476,7 +486,7 @@ def printed_origin(repository: Any, item: Any) -> PrintedOrigin | None:
             return None
     if origin is None or repository is None:
         return origin
-    return _without_solutions(repository, item, origin)
+    return _without_solutions(repository, item, origin, roles=roles, leaks=leaks)
 
 
 def printed_crops(
@@ -597,16 +607,19 @@ def item_as_printed(
     source_title: str | None = None,
     photo: Mapping[str, Any] | None = None,
     origin: PrintedOrigin | None = None,
+    roles: RoleReader | None = None,
+    leaks: LeakCheck | None = None,
 ) -> dict[str, Any]:
     """The practice view of ``item`` as printed (K15). ``cold``: a check on
     your own now (the caller reads it on the server, D46); ``photo``: the
     capture the card was written from, when there is one; ``origin``: where
-    its print is (read here when not given, :func:`printed_origin`)."""
+    its print is (read here when not given, :func:`printed_origin` with
+    ``roles`` and ``leaks``)."""
 
     if not enabled:
         return {"enabled": False, "kind": KIND_NONE, "cold": cold, "reason": "disabled"}
     if origin is None:
-        origin = printed_origin(repository, item)
+        origin = printed_origin(repository, item, roles=roles, leaks=leaks)
     if origin is not None:
         if origin.relation != "verbatim":
             return _none("variant", cold=cold)

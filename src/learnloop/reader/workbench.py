@@ -792,6 +792,45 @@ def record_draft_handoff(repository: Any, session_id: str, submission_ids: Itera
     return new
 
 
+def attempt_identities(repository: Any, *, practice_item_id: str | None, submission_id: str | None,
+                       workbench_session_id: str | None) -> tuple[frozenset[str], frozenset[str]]:
+    """Every identity of the one attempt in progress that ``submission_id``
+    and ``workbench_session_id`` name: ``(submission ids, workbench ids)``
+    (Astra batch review, Medium; ``tutor_qa.AttemptAliases`` carries them).
+
+    The practice screen hands its answer box's draft into Work in Steps
+    (:func:`record_draft_handoff`); a workbench resumed in the Reader asks
+    under its own key (``workbench:<id>``). Both name one attempt, so each
+    identity brings the others it was handed with: a workbench brings the
+    draft keys handed into it, a draft key the workbenches of the item it was
+    handed into (the steps left for the answer box again), until nothing new
+    joins. A handoff that cannot be read leaves the identities as named."""
+
+    submissions = {submission_id} if submission_id else set()
+    workbenches = {workbench_session_id} if workbench_session_id else set()
+    if not practice_item_id:
+        return frozenset(submissions), frozenset(workbenches)
+    try:
+        with repository.connection() as connection:
+            handed = store.handed_submission_ids(
+                connection, {*store.session_ids_for_item(connection, practice_item_id), *workbenches})
+    except Exception:  # noqa: BLE001 - an unreadable handoff keeps the named identities (today's rule)
+        import logging
+
+        logging.getLogger(__name__).exception("Could not read the draft handoffs of %s", practice_item_id)
+        return frozenset(submissions), frozenset(workbenches)
+    changed = True
+    while changed:
+        changed = False
+        for workbench_id, keys in handed.items():
+            if (workbench_id in workbenches or keys & submissions) and (
+                    workbench_id not in workbenches or not keys <= submissions):
+                workbenches.add(workbench_id)
+                submissions |= keys
+                changed = True
+    return frozenset(submissions), frozenset(workbenches)
+
+
 def _ordinal_after(live: Sequence[Mapping[str, Any]], after: Mapping[str, Any] | None) -> float:
     ordinals = sorted(float(step["ordinal"]) for step in live)
     if after is None:
@@ -1490,6 +1529,7 @@ __all__ = [
     "SERVER_WORKBENCH_EVENTS",
     "DRAFT_HANDOFF_EVENT",
     "record_draft_handoff",
+    "attempt_identities",
     "STATUSES",
     "STEP_KINDS",
     "STEP_OPS",

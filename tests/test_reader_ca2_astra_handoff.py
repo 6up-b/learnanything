@@ -20,7 +20,7 @@ import pytest
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop.attempts import salience_firewall as SF
 from learnloop.reader import workbench as WB
-from learnloop.tutor.tutor_qa import attempt_identities, practice_thread_events, question_usage
+from learnloop.tutor.tutor_qa import AttemptAliases, practice_thread_events, question_usage
 from learnloop_sidecar.errors import SidecarError
 from tests.test_reader_ca2_codex_review import ITEM, FakeTutor, PlanTutor, _call, sidecar  # noqa: F401 - fixture
 
@@ -43,9 +43,12 @@ def _used(ctx, *, session: str | None = None, submission_id: str | None = None,
     """The metered per-attempt budget as the ask reads it (the test vault's
     transcript route is a subscription one, which shows no bound)."""
 
+    from learnloop_sidecar.handlers.tutor_qa import attempt_aliases
+
     vault, repository = ctx.require_vault()
     return question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=session,
-                          submission_id=submission_id, workbench_session_id=workbench_session_id, metered=True)
+                          submission_id=submission_id, workbench_session_id=workbench_session_id, metered=True,
+                          aliases=attempt_aliases(repository, ITEM, submission_id, workbench_session_id))
 
 
 def _open_steps(ctx, session: str, **extra) -> str:
@@ -88,12 +91,14 @@ def test_the_production_counting_functions_read_one_attempt_across_the_handoff(s
     for index in range(LIMIT):
         _ask(ctx, session, submissionId=BOX, question=f"Why {index}?")
     wb = _open_steps(ctx, session, submissionId=BOX)
-    before = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=session,
-                            submission_id=BOX)
-    after = question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=None,
-                           submission_id=WB.submission_id_for(wb), workbench_session_id=wb)
+    before = _used(ctx, session=session, submission_id=BOX)
+    after = _used(ctx, submission_id=WB.submission_id_for(wb), workbench_session_id=wb)
     assert before == after == (LIMIT, LIMIT)
-    assert attempt_identities(repository, practice_item_id=ITEM, submission_id=WB.submission_id_for(wb),
+    # Without the resolved identities (the rule before the fix) the Reader read 0/3.
+    assert question_usage(vault, repository, context="practice", practice_item_id=ITEM, session_id=None,
+                          submission_id=WB.submission_id_for(wb), workbench_session_id=wb,
+                          metered=True) == (0, LIMIT)
+    assert WB.attempt_identities(repository, practice_item_id=ITEM, submission_id=WB.submission_id_for(wb),
                               workbench_session_id=wb) == (frozenset({BOX, WB.submission_id_for(wb)}),
                                                            frozenset({wb}))
 
@@ -157,7 +162,7 @@ def test_a_reader_open_hands_no_draft(sidecar):
                                            "stemMd": vault.practice_items[ITEM].prompt, "submissionId": BOX})
     wb = opened["session"]["sessionId"]
     assert _transcript(ctx, workbenchSessionId=wb)["events"] == []
-    assert attempt_identities(repository, practice_item_id=ITEM, submission_id=None,
+    assert WB.attempt_identities(repository, practice_item_id=ITEM, submission_id=None,
                               workbench_session_id=wb) == (frozenset(), frozenset({wb}))
 
 
@@ -180,8 +185,13 @@ def test_a_new_attempt_still_gets_a_fresh_allowance(sidecar):
     from tests.test_reader_ca2_one_ask import _attempt
 
     _attempt(repository, "att_done", "2999-01-01T00:00:00Z")
+    aliases = AttemptAliases(*WB.attempt_identities(repository, practice_item_id=ITEM,
+                                                    submission_id=WB.submission_id_for(wb),
+                                                    workbench_session_id=wb))
+    assert BOX in aliases.submission_ids
     assert practice_thread_events(repository, practice_item_id=ITEM, session_id=None,
-                                  submission_id=WB.submission_id_for(wb), workbench_session_id=wb) == []
+                                  submission_id=WB.submission_id_for(wb), workbench_session_id=wb,
+                                  aliases=aliases) == []
     assert _used(ctx, session=session, submission_id="next-serve") == (0, LIMIT)
     assert _used(ctx, session=session, submission_id=BOX) == (0, LIMIT)
 

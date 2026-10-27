@@ -27,6 +27,7 @@ from learnloop.tutor.tutor_qa import (
     build_tutor_qa_note,
     practice_thread_events,
     question_usage,
+    AttemptAliases,
 )
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -180,6 +181,9 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 note_id=event.get("note_id"), session_id=event.get("session_id"),
                 submission_id=key.get("submission_id") if isinstance(key, dict) else None,
                 workbench_session_id=key.get("workbench_session_id") if isinstance(key, dict) else None,
+                aliases=(attempt_aliases(repository, event.get("practice_item_id"), key.get("submission_id"),
+                                         key.get("workbench_session_id"))
+                         if isinstance(key, dict) and event["context"] == "practice" else None),
                 # As the transcript reads it: no bound on a subscription route (F8).
                 metered=not (event["context"] == "practice" and ask_panel_enabled(vault)
                              and _tutor_route_subscription(vault)),
@@ -293,7 +297,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             tool_request_handler=_tool_request_handler(vault),
             **({"answer_mode": panel_ask.answer_mode} if panel_ask.answer_mode is not None else {}),
             **({"submission_id": panel_ask.submission_id, "workbench_session_id": panel_ask.workbench_session_id,
-                "about_step": params.about_step,
+                "about_step": params.about_step, "attempt_aliases": panel_ask.aliases,
                 # Codex review F3: a workbench question during a cold
                 # administration counts as the workbench's cold rule says.
                 "count_every_question": panel_ask.count_every_question,
@@ -358,6 +362,9 @@ class PanelAsk:
     session_id: str | None = None
     cold: bool = False
     count_every_question: bool = False
+    #: Astra batch review: the attempt's other identities (the answer box's
+    #: draft handed into Work in Steps), read as its own by budget and thread.
+    aliases: AttemptAliases | None = None
 
     @property
     def bound(self) -> bool:
@@ -398,7 +405,9 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
     cold = params.context == "practice" and bool(item_id) and _item_cold(vault, repository, str(item_id))
     if params.workbench_session_id is None:
         return PanelAsk(answer_mode=answer_mode_param or help_style_answer_mode(style),
-                        submission_id=params.submission_id, session_id=params.session_id, cold=cold)
+                        submission_id=params.submission_id, session_id=params.session_id, cold=cold,
+                        aliases=(attempt_aliases(repository, item_id, params.submission_id, None)
+                                 if params.context == "practice" else None))
     if params.context != "practice":
         raise SidecarError("validation_error", "Only a practice question is asked from a workbench.")
     from learnloop.reader import workbench as WB
@@ -418,14 +427,34 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
         practice_session = params.session_id or session.get("practice_session_id")
     else:
         practice_session = _practice_session(ctx, repository, params.session_id or session.get("practice_session_id"))
+    submission_id = params.submission_id or WB.submission_id_for(params.workbench_session_id)
     return PanelAsk(
         answer_mode=answer_mode_param or help_style_answer_mode(style),
         workbench_session_id=params.workbench_session_id,
-        submission_id=params.submission_id or WB.submission_id_for(params.workbench_session_id),
+        submission_id=submission_id,
         session_id=practice_session,
         cold=cold,
         count_every_question=cold and not help_converts_active(vault),
+        aliases=attempt_aliases(repository, item_id, submission_id, params.workbench_session_id),
     )
+
+
+def attempt_aliases(repository: Any, practice_item_id: str | None, submission_id: str | None,
+                    workbench_session_id: str | None) -> AttemptAliases | None:
+    """Astra batch review (Medium): the other identities of the attempt a
+    practice question names (``reader.workbench.attempt_identities``: the
+    answer box's draft handed into Work in Steps, resumed in the Reader), so
+    its thread and its per-attempt budget are one in every host. None
+    without an item or a key."""
+
+    if not practice_item_id or not (submission_id or workbench_session_id):
+        return None
+    from learnloop.reader import workbench as WB
+
+    submissions, workbenches = WB.attempt_identities(
+        repository, practice_item_id=str(practice_item_id), submission_id=submission_id,
+        workbench_session_id=workbench_session_id)
+    return AttemptAliases(submission_ids=submissions, workbench_session_ids=workbenches)
 
 
 def _worked_help_check(answer_md: str, item: Any) -> list[str]:
@@ -715,6 +744,7 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
             session_id=panel_ask.session_id if panel_ask.bound else params.session_id,
             submission_id=panel_ask.submission_id if panel else None,
             workbench_session_id=panel_ask.workbench_session_id,
+            aliases=panel_ask.aliases,
             # Codex review F8 (owner 2026-10-26): no request bound on a subscription route.
             metered=not (panel and params.context == "practice" and _tutor_route_subscription(vault)),
         )
@@ -730,6 +760,7 @@ def get_tutor_transcript(ctx: SidecarContext, params: GetTutorTranscriptInput) -
             session_id=panel_ask.session_id if panel_ask.bound else params.session_id,
             submission_id=panel_ask.submission_id if panel else None,
             workbench_session_id=panel_ask.workbench_session_id,
+            aliases=panel_ask.aliases,
         )
     elif params.context == "feedback":
         events = repository.question_events(

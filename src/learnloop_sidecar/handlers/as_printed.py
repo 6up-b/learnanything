@@ -24,6 +24,8 @@ from typing import Any
 from pydantic import Field
 
 from learnloop.reader.as_printed import item_as_printed, printed_origin
+from learnloop.source_retrieval.corpus import block_roles
+from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -44,6 +46,14 @@ class AsPrintedInput(ParamsModel):
 class TranscriptionReportInput(ParamsModel):
     practice_item_id: str
     note: str | None = Field(default=None, max_length=REPORT_NOTE_MAX_CHARS)
+
+
+def _origin(repository: Any, item: Any) -> Any:
+    """The item's print with its solution guard's full readers (Astra batch
+    review): every block's effective role, a solution region's body included,
+    and the tutor's answer-leak matcher."""
+
+    return printed_origin(repository, item, roles=block_roles, leaks=span_leaks_expected)
 
 
 def _enabled(vault: Any) -> bool:
@@ -106,7 +116,7 @@ def practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str
     if not _enabled(vault):
         return versioned(item_as_printed(repository, item, enabled=False, cold=False, render=False))
     cold = cold_now(vault, repository, item.id)
-    origin = printed_origin(repository, item)
+    origin = _origin(repository, item)
     photo = None
     if origin is None:
         from learnloop.capture import photo_for_practice_item
@@ -114,7 +124,8 @@ def practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str
         photo = photo_for_practice_item(repository, item.id)
     title = _source_title(repository, origin.source_id, origin.extraction_id) if origin is not None else None
     view = item_as_printed(repository, item, enabled=True, cold=cold, render=params.render,
-                           source_title=title, photo=photo, origin=origin)
+                           source_title=title, photo=photo, origin=origin, roles=block_roles,
+                           leaks=span_leaks_expected)
     return versioned({"practice_item_id": item.id, **view})
 
 
@@ -126,7 +137,7 @@ def practice_report_transcription(ctx: SidecarContext, params: TranscriptionRepo
     if not _enabled(vault):
         raise SidecarError("disabled", "The problem as printed is off (practice.as_printed.enabled).")
     item = vault.practice_items.get(params.practice_item_id)
-    origin = printed_origin(repository, item) if item is not None else None
+    origin = _origin(repository, item) if item is not None else None
     try:
         notice = report_transcription_mismatch(vault, repository, params.practice_item_id, origin=origin,
                                                note=params.note)
