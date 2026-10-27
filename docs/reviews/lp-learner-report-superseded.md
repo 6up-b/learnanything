@@ -194,3 +194,156 @@ MemorySwapMax=1G`; no frontend or `src-tauri` change, so no npm/vitest/cargo.
 No paid or live calls: every script outside pytest ran under `env -i` with
 empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR; no owner-vault copies (none
 in this stage); synthetic helpers.py vaults only.
+
+## Landing onto main (2026-10-27)
+
+Landed in `learnanything-ad1` on `lp/learner-report-superseded` (stage tip
+`dcd1e9429`, base `5c6a0834f`) by merging `main` at `cdd0a3c4f`, which adds
+the Codex CLI 0.164.0 lockdown fix (`b49ca63bb`) and the AD guard
+offer-receipts fix (`cdd0a3c4f`). Main was neither fast-forwarded nor pushed.
+This stage lands first and keeps migration 225 and `migration_head_225`.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `436b3cec9` | `--no-ff` merge of `main` `cdd0a3c4f`. **No conflicts.** The AD column classes already classed `learner_claims.superseded_by` as a read column of `learner_claims` (`column_classes.py`), so main's new reachable-reads scan (`tests/test_ad_guard_reachable_reads.py`, `tests/ad_reachable_reads.py`) accepts the new column and the replay's in-force read (`WHERE superseded_by IS NULL`) as merged. In a targeted run of the reachable-reads scan, the offer-receipts tests, the migration-225 test, `test_learner_report_superseded.py` and the 0.164.0 lockdown tests: 86 passed, 2 xfailed (the stage's known strict xfails). |
+| `a38bfd722` | DB/config reference regenerated (`db_generate_reference.py`, then `db_validate_reference.py`: **errors []**). The real changes are citations: `ai/providers/codex.py` line numbers moved by `b49ca63bb`, `learner/mastery.py` line numbers, and test lists that now name main's new AD guard tests. The other ~425 note changes are `source_commit` stamps. |
+| `a866c0649` | The mvp-0.36 version note (the `algorithm_versions.py` comment and this record's "Successor mvp-0.36" section). It names the AD guard offer-receipts fix (main `cdd0a3c4f`): that fix restored AD serving in place, without its own tag, on vaults holding an answer picked from a published offer, and the orchestrator's ruling accepted it under the owner's proportionate bar (`docs/reviews/ad-guard-offer-receipts.md` §10). After this commit, regenerating the reference changed only `source_commit` stamps, so that churn was discarded. |
+
+Against main, the diff adds **no tracked database or binary other than the
+head fixture rename** (`git diff --numstat -M main` lists only
+`fixtures/{migration_head_224 => migration_head_225}/state.sqlite`). The root
+`.gitignore` is unchanged and nothing under `fixtures-local/` is tracked.
+
+### Regeneration
+
+- DB reference: regenerated as above; 0 validation errors.
+- CLI help snapshot, sidecar serializer snapshot, desktop RPC contract,
+  embedding recipe pins, and the config defaults snapshots and fingerprints
+  (`test_config_refactor.py`) all pass as merged (62 passed). Main changed no
+  default, CLI command or RPC, so none was regenerated. The template `.pyc`
+  was cleared before the full suite.
+
+### Gate (at `a866c0649`; `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`, 5G scope; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,188 passed, 0 failed**, 89 skipped, 44 xfailed. pytest time 2,367.5 s (39:27); wall time 39 min 31 s, after a 7-minute wait for another stage's lock. No faulthandler dump and no hang. All 10 Codex lockdown tests pass with main's fix. No flake fired, so nothing needed a rerun. |
+| durability (`-m durability`, same wrapper and scope) | **139 passed**, 1 skipped (57 s) |
+| owner lane (`-m owner_vaults`, fresh backup-API copies of `fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/landing/owner-lane/`) | 80 passed, **9 failed**: the **6 known** (`test_doctor` pre-044, `test_migrate_fresh` 153, `test_goal_decay_projection`, `test_sidecar_contract` recent ingests, `test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`), plus 3 on the probability copy: `test_daily_plan_kill_switch::test_plan_off_is_dl0_on_fixture_copies`, `test_field_workbench_signals::test_g41_off_is_the_predecessor_on_fixture_copies` and `test_router_r2a_serving::test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_copies`. **The same 9 fail on main**: main's own tree (`git archive cdd0a3c4f`), run with `PYTHONPATH` on its own fresh copies, also gave 80 passed and 9 failed. The 3 are data-dependent and come from the owner's recent use of probability, which these copies hold: 2 daily plans with 3 blocks, and a real `workbench_stuck` session. They are not from this stage. |
+| frontend / Tauri | not run: the merge touches nothing under `apps/` |
+
+### Parity (fresh backup-API copies of `fixtures-local/owner-copies-mvp035/*`, all three at mvp-0.35 on main's code; `fixtures-local/landing-lrs/`, scripts in `scripts/`)
+
+Setup: `base/` holds the copies. Routes go to the `127.0.0.1:9` blackhole (65
+tasks, none elsewhere apart from the opt-in `embedding` route, which is off
+and has no key in the environment). `code_main` is `git archive cdd0a3c4f`
+and `code_branch` is `git archive a866c0649`. Every run went through `env -i`
+with empty dirs. `run.py`'s audit hooks refuse Codex process starts and
+non-loopback sockets; no audit line was written.
+
+- **(a) main vs branch at mvp-0.35, no upgrade** (after a primary sidecar load
+  at a frozen clock; a second main copy is the noise control). Every row of
+  all 358 tables is identical: 18,810 rows in linear_algebra, 10,297 in
+  probability, 23,710 in arxiv_v2. The branch adds only
+  `learner_claims.superseded_by` (all NULL), its table SQL, and
+  `schema_migrations` +225 (common rows identical). Integrity ok; foreign
+  keys 0. `rebuild --shadow` is **0/0/0** on both sides. `doctor` is
+  identical: linear_algebra 57 issues / 1 error (`layout:missing_directory`),
+  probability 102 / 48 (46 `criterion:unknown_dependency`, 2 `yaml:invalid`),
+  arxiv_v2 76 / 47 (46 `criterion:unknown_dependency`, 1
+  `layout:missing_directory`). All are the known content errors.
+- **(b) `upgrade --to mvp-0.36`, then `rebuild-derived-state`** (branch code).
+  The upgrade prints "Upgraded vault: mvp-0.35 -> mvp-0.36" and leaves no
+  journal.
+  - **Mastery and schedules: 0 LOs and 0 items moved**, both after the
+    activation and after the rebuild, on all three vaults.
+  - **Rows: every row kept.** On a normalized comparison, the only changes
+    are the version stamps (`algorithm_version` on the DERIVED rows, plus the
+    version labels inside `attempt_debug_payloads.payload_json` after the
+    rebuild), the projection activation's facet-row timestamps, the
+    `parameter_registry` refresh (352 rows), and the added receipts (+1
+    `derived_state_rebuilds`, +1 `parameter_registry_manifests`, +225 in
+    `schema_migrations`).
+  - The rebuild also appends ledger backfill rows (`activity_observations`,
+    `grade_interpretations`, `raw_grade_events`, `measurement_events`:
+    38/38/38/152 in linear_algebra, 3/3/3/12 in probability, 2/2/2/8 in
+    arxiv_v2). **Main's own `rebuild-derived-state` at mvp-0.35 appends
+    exactly the same rows** (control copy). FTS content is identical.
+  - Shadow right after the upgrade: facet 0, schedule 0, mastery 21 / 18 / 34
+    = **the `algorithm_version` stamp only**, as at the mvp-0.35 landing.
+    After the rebuild: **0/0/0**. Doctor unchanged.
+  - **Live** (a primary load, then 12 self-graded attempts at a frozen clock,
+    with two `too_easy` retirements on one LO after attempts 3 and 7):
+    - linear_algebra, `lo_compute_with_complex_numbers`: claims on the LO
+      went 2 -> 3, with 1 `superseded_by`.
+    - probability, `lo_count_compound_and_ordered_outcomes`: 1 -> 2, with 1
+      superseded.
+    - arxiv_v2, `lo_render_a_classifier_s_decision_regions`: 2 -> 3, with 1
+      superseded.
+    - `rebuild --shadow` afterwards: **0/0/0 on all three**. The first try of
+      this script did not run on linear_algebra and arxiv_v2: it grouped
+      candidate items by practice mode, and it treated an empty
+      `attempt_types_allowed` (which allows every type) as disallowed.
+      Corrected, it was rerun on fresh copies of the upgraded vaults.
+- **(c) an interrupted mvp-0.36 activation** (the upgrade dies with
+  `os._exit(17)` after the config publication), on all three vaults. The
+  vault is left with label mvp-0.36, the journal present, and mastery
+  untouched.
+  - `upgrade --to mvp-0.36` completes it ("completed the interrupted
+    activation of mvp-0.36"); run again, it says "vault is already mvp-0.36".
+  - The desktop start (`SidecarContext.load`) completes it.
+  - Both equal the clean upgrade (0 LOs moved).
+  - Every attach that may not complete it refuses with "The upgrade to
+    mvp-0.36 did not finish ... run `learnloop upgrade --to mvp-0.36`" and
+    leaves the vault as it was: `Repository`, `open_vault_repository` without
+    a completer, and the secondary attach raise `InterruptedActivation`; the
+    remote schema check raises `SchemaMismatch`. The upgrade then completes it.
+  - Plain `doctor --json` is a read-only attach and refuses too (the journal
+    stays), as recorded at the earlier landings.
+- **(d) `ad report --json`: no new denials.** Before the upgrade, after it,
+  and after the live run, the guard denials are linear_algebra 0/0/0,
+  probability 6/6/6 and arxiv_v2 0/0/0. Probability's 6 are the historical
+  lines in its `ad_guard_denials.jsonl`, unchanged in length.
+- **Receipts and calls.** 0 `model_call_receipts` rows were written by any
+  run. Linear_algebra and arxiv_v2 copies hold 0. Every probability copy
+  holds the same 56 historical receipts as its source (the owner's use on
+  Oct 25-26, latest `2026-10-26T18:30:28Z`). The empty `HOME`, `CODEX_HOME`
+  and `LEARNLOOP_CONFIG_DIR` stayed empty. **Spend: $0.** Nothing under
+  `~/learnloop-vaults`, `~/learnloop-retired` or `~/learnloop-books` was
+  opened or listed.
+
+### Owner notes
+
+- Back up each vault, then close the desktop app, MCP and the phone page.
+- Run `learnloop upgrade --to mvp-0.36` (the bare `upgrade` now targets
+  mvp-0.36). It accepts mvp-0.35 directly and mvp-0.9 to mvp-0.34 through the
+  chain.
+- Nothing learner-visible moves at the activation (0 LOs, 0 schedules on all
+  three copies). From the tag on, a second learner report on an LO keeps the
+  replaced claim as a `superseded_by` row instead of deleting it, so replay
+  agrees with live.
+- If an upgrade is interrupted, rerun the same command or open the desktop
+  app.
+
+### Open items (carried from the stage)
+
+- **Kill switch:** none ships (the stage's reasoning is that no live decision
+  changes). This is the owner's checkpoint question.
+- **Deleted pre-0.36 claims are unrecoverable.** Claims the predecessor
+  replaced were deleted, and replay cannot apply them. An optional ledger
+  reconstruction is a possible follow-up.
+- **Strict xfail:**
+  `test_a_global_claim_made_after_materialization_rebuilds_to_live`. A global
+  claim made after an LO's materialization does not re-anchor the live row.
+  This is pre-existing and needs its own successor.
+- **Cross-source claim order at one point:** two re-anchoring claims from
+  different sources on one LO, in the same second, at the same attempt count,
+  written by two processes, replay in `(created_at, id)` order, which can
+  invert. Closing it needs a transactional application-sequence successor.
+- **Migration 225 clash:** phone PR-3/PR-4 (`learnanything-merge2`) also built
+  a migration 225 and `migration_head_225`. This stage lands first and keeps
+  225; PR-3/PR-4 must renumber theirs (226+) and rebuild their head fixture
+  from this one.
