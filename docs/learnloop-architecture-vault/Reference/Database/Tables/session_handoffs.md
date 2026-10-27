@@ -3,22 +3,22 @@ title: "session_handoffs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "72208d5a50777166e4f6d036a3f61805212debf1"
-source_commit_timestamp: "2026-10-27T13:01:42-04:00"
+source_commit: "0048ada3be44b48136e2f7be0ce1d4eb666912be"
+source_commit_timestamp: "2026-10-27T15:49:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_handoffs"
   - "table session_handoffs"
-schema_head: 225
+schema_head: 226
 table_name: "session_handoffs"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "scheduling"
-introduced_in: "225_session_ownership.sql"
+introduced_in: "226_session_ownership.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/225_session_ownership.sql"
+  - "migrations/226_session_ownership.sql"
   - "src/learnloop/db/stores/session_ownership.py"
 tags:
   - "learnloop/database/table"
@@ -42,8 +42,8 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/225_session_ownership.sql`.
-- **Schema touched by:** `225_session_ownership.sql`.
+- **Introduced by:** `migrations/226_session_ownership.sql`.
+- **Schema touched by:** `226_session_ownership.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

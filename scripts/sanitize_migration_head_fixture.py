@@ -10,7 +10,7 @@ It runs on a backup-API copy, never on a vault and never in place::
 
     env -i PATH=/usr/bin:/bin HOME=$(mktemp -d) .venv/bin/python \\
         scripts/sanitize_migration_head_fixture.py \\
-        --source fixtures/migration_head_225 --out fixtures-local/head-sanitized \\
+        --source fixtures/migration_head_226 --out fixtures-local/head-sanitized \\
         --sweep-hashes tests/fixtures/sanitized_head_sweep.json
 
 ``--sweep-hashes`` is written from the unsanitized source the first time (the

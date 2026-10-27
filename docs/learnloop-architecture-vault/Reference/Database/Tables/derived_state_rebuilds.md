@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
-source_commit_timestamp: "2026-10-27T13:58:58-04:00"
+source_commit: "0048ada3be44b48136e2f7be0ce1d4eb666912be"
+source_commit_timestamp: "2026-10-27T15:49:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 225
+schema_head: 226
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,14 +21,15 @@ source_paths:
   - "migrations/009_derived_state_rebuilds.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/one_ask_upgrade.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/regrade_contract_upgrade.py"
 tags:
   - "learnloop/database/table"
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/attempt_content_state_upgrade.py`
 - `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_attempt_content_state_successor.py`
 - `tests/test_batch3_landing.py`
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
@@ -142,7 +145,6 @@ Indexes and uniqueness:
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_mvp022_upgrade.py`
 - `tests/test_mvp023_upgrade.py`
-- `tests/test_mvp024_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

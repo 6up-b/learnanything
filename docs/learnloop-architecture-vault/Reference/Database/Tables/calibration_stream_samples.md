@@ -3,13 +3,13 @@ title: "calibration_stream_samples"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
-source_commit_timestamp: "2026-10-27T13:58:58-04:00"
+source_commit: "0048ada3be44b48136e2f7be0ce1d4eb666912be"
+source_commit_timestamp: "2026-10-27T15:49:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite calibration_stream_samples"
   - "table calibration_stream_samples"
-schema_head: 225
+schema_head: 226
 table_name: "calibration_stream_samples"
 table_role: "raw_ledger"
 functionality_status: "active"

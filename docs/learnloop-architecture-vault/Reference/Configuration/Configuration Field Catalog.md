@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
-source_commit_timestamp: "2026-10-27T13:58:58-04:00"
+source_commit: "0048ada3be44b48136e2f7be0ce1d4eb666912be"
+source_commit_timestamp: "2026-10-27T15:49:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
@@ -12,8 +12,8 @@ aliases:
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 74
-field_count: 1064
-field_status_counts: {"ACTIVE": 1038, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+field_count: 1065
+field_status_counts: {"ACTIVE": 1039, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -34,17 +34,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1064 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1065 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1038 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1039 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1064-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1065-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -109,7 +109,7 @@ Every one of the 1064 effective leaves has a semantic Function, a runtime/refact
 | [[Config - library_exercises|`library_exercises`]] | 2 | Runtime configuration |
 | [[Config - figures|`figures`]] | 9 | Runtime configuration |
 | [[Config - reader_compare|`reader_compare`]] | 2 | Runtime configuration |
-| [[Config - practice|`practice`]] | 1 | Runtime configuration |
+| [[Config - practice|`practice`]] | 2 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |
 | [[Config - reading_paths|`reading_paths`]] | 3 | Runtime configuration |
 | [[Config - curriculum|`curriculum`]] | 4 | Runtime configuration |

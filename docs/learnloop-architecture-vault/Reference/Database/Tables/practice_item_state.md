@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
-source_commit_timestamp: "2026-10-27T13:58:58-04:00"
+source_commit: "0048ada3be44b48136e2f7be0ce1d4eb666912be"
+source_commit_timestamp: "2026-10-27T15:49:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 225
+schema_head: 226
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -22,10 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/config/schema.py"
+  - "src/learnloop/config/template.py"
   - "src/learnloop/content/proposals/patches.py"
-  - "src/learnloop/content/synthesis/coverage_rollup.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/practice_generation.py"
@@ -84,6 +85,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._record_attempt_practice_item_state()`
 - `Repository._upsert_practice_item_state_record()`
 - `Repository.deactivate_practice_item_serving()`
 - `Repository.find_record()`
@@ -141,6 +143,8 @@ Indexes and uniqueness:
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
+- `tests/test_attempt_content_state_race.py`
+- `tests/test_attempt_content_state_successor.py`
 - `tests/test_attempts.py`
 - `tests/test_card_lineage.py`
 - `tests/test_causal_factor_deferral.py`
@@ -154,8 +158,6 @@ Indexes and uniqueness:
 - `tests/test_e2e_tui.py`
 - `tests/test_evaluation.py`
 - `tests/test_event_sufficiency.py`
-- `tests/test_exam_seeding.py`
-- `tests/test_family_memory_projection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
