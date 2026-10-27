@@ -34,15 +34,21 @@ not persisted meaning. No table changes. No scoring, scheduling, serving or proj
   upgrade result reports `upgraded`:
   - It runs once per command, after the final step. A chained upgrade (e.g. mvp-0.33 → mvp-0.35 through
     mvp-0.34) produces one archive named `<from>-to-<to>`.
-  - Every upgrade function returns only after its journalled activation has committed and its journal has been
-    removed, so the archive is made after the journal completes.
+  - It runs after the upgrade function has returned. For the journalled successors that is after the activation
+    journal has completed and been removed. The mvp-0.30, mvp-0.31 and mvp-0.32 upgrades activate directly,
+    without an activation journal (corrected after the Codex review, `ad-denial-log-codex-review.md`).
+  - Only the lines the live log held when the command started move (Codex review F1). The CLI marks the log
+    (its identity and length) before it dispatches; a denial logged after the mark stays live.
   - A refused upgrade never reaches the call: exit 1 ("vault is already …", a refused chain step) or exit 2
     (an unknown target). Neither does a failed one (an exception).
   - Without a live log it does nothing.
-- **The archive.** The rename is `ad_guard_denials.jsonl` → `ad_guard_denials.archived-<from>-to-<to>-<UTC
-  YYYYMMDDTHHMMSSZ>.jsonl`, beside it.
-  - `os.rename` is atomic.
-  - It runs under the vault mutation lock, so two upgrades never pick the same name.
+- **The archive.** The marked lines go to `ad_guard_denials.archived-<from>-to-<to>-<UTC
+  YYYYMMDDTHHMMSSZ>.jsonl`, beside the live log.
+  - When nothing was appended after the mark, the live file is renamed (`os.rename`, atomic, byte-identical).
+    Otherwise the marked bytes are written to the archive and the later lines replace the live file.
+  - It runs under the log's own leaf lock (`ad_guard_denials.lock`), which every append takes too, so two
+    upgrades never pick the same name and no append writes into an archive (Codex review F1). Before the review
+    it ran under the vault mutation lock instead.
   - A name already taken gets `-2`, `-3`, … An archive is never overwritten and never deleted.
   - A failure to archive never fails the upgrade, which has already succeeded. The CLI names the failure (its
     exception type only) on stderr, and the log stays live.
