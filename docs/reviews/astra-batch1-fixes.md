@@ -108,8 +108,136 @@ event. **No successor needed**; no table, no fingerprint change.
 
 ## Gate
 
-See the stage result (commands and counts); recorded here at the end of the
-stage.
+Targeted only (owner rule 2026-10-17: the full suite runs once, in the
+landing gate). Every test command in a `systemd-run --user --scope -p
+MemoryMax=5G -p MemorySwapMax=1G` scope; the pytest run behind
+`flock /tmp/learnloop-fullsuite.lock`.
+
+* `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2`: ok.
+* `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+* `uv run pytest -n 6` over the 109 files below: **2,347 passed, 3 skipped,
+  0 failed** (5 min 41 s).
+* `apps/learnloop-tauri`: `npm install` ok; `npm run typecheck` clean;
+  `npx vitest run --maxWorkers=4` over `src/components/AsPrinted.test.tsx`,
+  `src/screens/PracticeScreen.asPrinted.test.tsx`,
+  `src/screens/PracticeScreen.workbench.test.tsx`,
+  `src/screens/PracticeScreen.ca2OneAsk.test.tsx`: 4 files, 54 tests passed;
+  `npm run frontend:build` ok.
+* Not run (nothing changed there): cargo check (no `src-tauri` change), the
+  durability lane (no migration, no DB or connection code), the DB reference
+  scripts (no schema change).
+
+Pytest files run:
+
+- `tests/test_ad1_codex_rereview_fixes.py`
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_fix_round4.py`
+- `tests/test_ad1_fix_round5.py`
+- `tests/test_ad1_fix_round6.py`
+- `tests/test_ad1_send_guard.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad3_relatedness.py`
+- `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_ad_epoch.py`
+- `tests/test_ad_protected_readings.py`
+- `tests/test_architecture.py`
+- `tests/test_batch3_landing.py`
+- `tests/test_canonical_exercise_serialization.py`
+- `tests/test_capture_desktop.py`
+- `tests/test_capture_route_recovery.py`
+- `tests/test_codex_output_schema.py`
+- `tests/test_compare_methods.py`
+- `tests/test_controller_snapshot.py`
+- `tests/test_desktop_rpc_contract.py`
+- `tests/test_exam_protection.py`
+- `tests/test_exam_protection_review.py`
+- `tests/test_exercise_arm.py`
+- `tests/test_exercise_authoring.py`
+- `tests/test_facet_locks_landing.py`
+- `tests/test_field_signal_production_paths.py`
+- `tests/test_field_workbench_signals.py`
+- `tests/test_figures_show_me_codex_review.py`
+- `tests/test_graph_edit_proposals.py`
+- `tests/test_hint_h2b_fix3.py`
+- `tests/test_hint_h2b_fix4.py`
+- `tests/test_hint_h2b_rereview.py`
+- `tests/test_hint_h2b_review.py`
+- `tests/test_import_split_parity.py`
+- `tests/test_learner_text_gaps_flow.py`
+- `tests/test_library_ask_review.py`
+- `tests/test_library_exercises.py`
+- `tests/test_maintenance_feed.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_openrouter_client.py`
+- `tests/test_owner_capture_1025.py`
+- `tests/test_pf_generation.py`
+- `tests/test_placement_opening_probes.py`
+- `tests/test_plan_first_transport_offer_grants.py`
+- `tests/test_probe_pool_empty.py`
+- `tests/test_question_queue.py`
+- `tests/test_reader_ca1_as_printed.py`
+- `tests/test_reader_ca1_astra_fixes.py`
+- `tests/test_reader_ca1_codex_review.py`
+- `tests/test_reader_ca2_astra_handoff.py`
+- `tests/test_reader_ca2_codex_rereview.py`
+- `tests/test_reader_ca2_codex_review.py`
+- `tests/test_reader_ca2_fix_orchestrator.py`
+- `tests/test_reader_ca2_one_ask.py`
+- `tests/test_reader_compare_table.py`
+- `tests/test_reader_rw2b_fix10.py`
+- `tests/test_reader_rw2b_fix11.py`
+- `tests/test_reader_rw2b_fix12.py`
+- `tests/test_reader_rw2b_fix13.py`
+- `tests/test_reader_rw2b_fix14.py`
+- `tests/test_reader_rw2b_fix15.py`
+- `tests/test_reader_rw2b_fix3.py`
+- `tests/test_reader_rw2b_fix4.py`
+- `tests/test_reader_rw2b_fix5.py`
+- `tests/test_reader_rw2b_fix6.py`
+- `tests/test_reader_rw2b_fix7.py`
+- `tests/test_reader_rw2b_fix8.py`
+- `tests/test_reader_rw2b_fix9.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reader_rw4b_admission_idempotency.py`
+- `tests/test_reader_rw4b_fix6.py`
+- `tests/test_reader_workbench_rw2a.py`
+- `tests/test_required_method_authority.py`
+- `tests/test_required_method_items.py`
+- `tests/test_reread_safety.py`
+- `tests/test_router_r2a_landing.py`
+- `tests/test_sidecar_append.py`
+- `tests/test_sidecar_serializer_snapshot.py`
+- `tests/test_sidecar_source_retrieval.py`
+- `tests/test_sidecar_tutor_qa.py`
+- `tests/test_source_exercise_import.py`
+- `tests/test_source_exercise_rpcs.py`
+- `tests/test_source_first_needs.py`
+- `tests/test_source_outcome_analytics.py`
+- `tests/test_structured_transport_parity.py`
+- `tests/test_table_roles.py`
+- `tests/test_tracked_fixture_databases.py`
+- `tests/test_tutor_delivery_fixes.py`
+- `tests/test_tutor_practice_request.py`
+- `tests/test_tutor_qa.py`
+- `tests/test_tutor_tool_requests.py`
+- `tests/test_ux_phase3_today.py`
+- `tests/test_workbench_assistance.py`
+- `tests/test_workbench_check_kinds.py`
+- `tests/test_workbench_check_map.py`
+- `tests/test_workbench_check.py`
+- `tests/test_workbench_chooser.py`
+- `tests/test_workbench_discriminate.py`
+- `tests/test_workbench_help_kill_switch.py`
+- `tests/test_workbench_hint_service.py`
+- `tests/test_workbench_hints.py`
+- `tests/test_workbench_in_session_gaps.py`
+- `tests/test_workbench_passage_draw.py`
+- `tests/test_workbench_report.py`
+- `tests/test_workbench_route_example.py`
+- `tests/test_workbench_step_graph.py`
+- `tests/test_workbench_text_gaps.py`
+- `tests/test_workbench_trace.py`
 
 ## Open items
 
