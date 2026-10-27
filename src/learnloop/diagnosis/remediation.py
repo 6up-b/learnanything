@@ -822,7 +822,16 @@ def record_remediation_attempt(
     # retry. Live only (``vault``): replay and a regrade pass none, so they
     # schedule nothing. Off, below the tag, or for any other attempt it does
     # nothing and the predecessor's branches below run exactly as before.
-    reschedule_assisted_cold_retry(vault, repository, attempt, clock=clock)
+    if vault is not None:
+        try:
+            # A savepoint of the attempt's transaction: a failure here rolls
+            # the whole reschedule back (the retry stays open for the next
+            # serve to withdraw, as the predecessor leaves it) and never fails
+            # the attempt.
+            with repository.atomic():
+                reschedule_assisted_cold_retry(vault, repository, attempt, clock=clock)
+        except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+            logger.warning("cold-retry reschedule failed for attempt %s", attempt.get("id"), exc_info=True)
 
     if attempt.get("primed"):
         episode = repository.open_remediation_episode_for_primed_item(

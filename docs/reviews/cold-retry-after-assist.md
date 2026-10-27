@@ -143,7 +143,31 @@ schedule tests fail: `test_help_on_a_due_cold_retry_schedules_one_fresh_retry_on
 
 ## 7. Gate
 
-GATE_PLACEHOLDER
+Every pytest command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6`,
+one test run at a time; every Python command outside pytest under `env -i` with empty, existing HOME, CODEX_HOME and
+LEARNLOOP_CONFIG_DIR directories (no route configured, no live call).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken (and again after the last code change) |
+| fail-first: `tests/test_cold_retry_reschedule.py` against the base's `remediation.py` (new names stubbed, rule a no-op) | 5 failed (the five schedule tests in §6), as intended |
+| pytest `tests/test_cold_retry_reschedule.py` | 29 passed |
+| pytest batch 1 (60 files: the new file, every test naming the chain or the latest version, and the contract tests, below) | 1,475 passed, 17 skipped, 6 xfailed, 6 failed: chain-tail set literals this stage moves (`"mvp-0.36", LATEST` sets, two negative indices, the recurrence vocabulary); fixed, then those 6 files: 135 passed, 6 skipped, 1 xfailed, 1 failed (one more index), fixed, that file 12 passed, 1 xfailed |
+| pytest batch 2 (62 files exercising `remediation`, the cold lanes, `PracticeConfig` or the attempt write, below) | 2,127 passed, 5 skipped |
+| after the last code change (the reschedule's savepoint guard): the new file, `test_remediation_cold_retry`, `test_reader_ca2_one_ask`, `test_certification_cold_probe`, `test_causal_cold_outcomes`, `test_coldness_receipt`, `test_post_attempt_pipeline`, `test_serve_eligibility`, `test_primed_attempts`, `test_guided_redo` | 597 passed |
+| DB/config reference: `db_generate_reference.py`, `db_validate_reference.py` | regenerated (the new field and the 1,066-leaf counts); validated, errors `[]` |
+| CLI help snapshot | regenerated (`python -m tests.test_cli_help_snapshot --write`): only `upgrade` moves |
+| durability lane | not run: no migration, no DB or connection code |
+| npm / vitest / frontend build, cargo check | not run: nothing under `apps/` changed |
+| full suite | not run (owner rule 2026-10-17: once, in the landing gate) |
+
+**Batch 1:** test_cold_retry_reschedule.py test_ad23_successor.py test_ai_config.py test_assumed_known.py test_attempt_content_state_successor.py test_batch3_landing.py test_config_refactor.py test_diagnosis_input_provenance.py test_exam_protection_review.py test_field_workbench_signals.py test_intent_codex_rereview.py test_learner_report_superseded.py test_lp_claim_fixes.py test_lp_claim_fixes_rereview.py test_lp_claim_fixes_review.py test_method_explicit_upgrade.py test_mvp011_upgrade.py test_mvp013_upgrade.py test_mvp014_upgrade.py test_mvp015_upgrade.py test_mvp016_upgrade.py test_mvp017_upgrade.py test_mvp018_upgrade.py test_mvp020_upgrade.py test_mvp021_upgrade.py test_mvp022_upgrade.py test_mvp023_upgrade.py test_mvp024_upgrade.py test_plan_determinism.py test_plan_determinism_landing.py test_plan_follows_path.py test_pr4_superseded_claims_landing.py test_reader_ca2_one_ask.py test_reader_guidance.py test_reader_recap_review_r2.py test_reader_recap_review_r3.py test_reading_step_switch.py test_rebuild_equivalence.py test_rebuild_equivalence_review.py test_recurrence_commands.py test_reference_gate_imports.py test_regrade_contract_replay.py test_regrade_contract_successor.py test_regrade_contract_upgrade.py test_required_method_grading.py test_route_rules_in_grader.py test_serve_eligibility_review.py test_ux_phase1_round2_rereview.py test_cli_help_snapshot.py test_sidecar_serializer_snapshot.py test_sidecar_contract.py test_desktop_rpc_contract.py test_mobile_allowlist.py test_architecture.py test_table_roles.py test_coordinated_migrations.py test_tracked_fixture_databases.py test_registry_audit.py test_e0_isolation.py test_ad_denial_log.py
+
+**Batch 2:** test_ad23_inversion.py test_attempt_content_state_race.py test_authoring_contract.py test_causal_attribution_p0.py test_causal_attribution_p2.py test_causal_cold_outcomes.py test_causal_factor_deferral.py test_causal_orchestrator.py test_causal_p2_acceptance.py test_causal_repair_sidecar_rpcs.py test_coldness_receipt.py test_collection_dataset.py test_common_repair_delivery.py test_compare_methods.py test_daily_loop_lo_lifecycle_serving.py test_daily_plan_build.py test_daily_plan_owner_decisions.py test_diagnostic_probe_freshness.py test_dialogue_causal_join.py test_exam_protection.py test_family_memory_projection.py test_followup_diagnostic_selection.py test_forecast_receipts.py test_goal_series.py test_guided_redo.py test_held_grade_evidence.py test_hypothesis_surface_wiring.py test_instrument_servability_journeys.py test_instrument_serving.py test_intent_codex_review.py test_intent_fix_round4.py test_item_authoring.py test_mcp_c1a_landing.py test_mcp_c1a_review.py test_migrations.py test_misconception_transitions_intake.py test_pfc_unassessed_readers.py test_post_attempt_pipeline.py test_practice_index_admission.py test_prescription_passages.py test_primed_attempts.py test_probe_remint.py test_quick_check.py test_reader_ca1_codex_review.py test_reader_rw1c_review.py test_reader_workbench_rw2a.py test_remediation_cold_retry.py test_retrieval_interventions_write_points.py test_reveal_ledger.py test_router_r2a_serving.py test_scheduler.py test_scoreboard.py test_serve_eligibility.py test_sidecar_remediation_surfaces.py test_stuck_prompt.py test_ux_phase4_feedback.py test_ux_phase4_landing.py test_voi_forecasts.py test_certification_cold_probe.py test_mvp09_upgrade.py test_mvp010_upgrade.py test_sidecar_measurement.py
+
+No paid or live call was made: every grade is self-graded, no model route is configured, no vault but synthetic ones
+was opened.
 
 ## 8. Open questions
 
