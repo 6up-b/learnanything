@@ -225,6 +225,93 @@ def test_without_another_independent_surface_the_refusal_is_recorded_and_nothing
     assert repository.remediation_episode(episode["id"])["cold_item_id"] == cold_item
 
 
+def test_a_surface_answered_since_the_primed_attempt_is_never_the_fresh_retry(tmp_path):
+    """Codex review F1: the fresh retry keeps the primed source attempt, so its
+    final receipt scans from it; a surface the learner answered in between is
+    already hard-contaminated (``cold_item_answer_reveal``) and is never chosen.
+    With no clean surface left the refusal is recorded and nothing is scheduled."""
+
+    vault, repository, episode, _primed, cold_item = _repair(tmp_path)
+    spare = _spare(repository, episode)
+    [old] = _tasks(repository, episode["id"])
+    between = _answer(vault, repository, spare, NOW + timedelta(hours=12))
+    _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
+
+    [withdrawn] = _tasks(repository, episode["id"])
+    assert withdrawn["id"] == old["id"] and withdrawn["status"] == "expired"
+    [decision] = _table(repository, "SELECT d.* FROM cold_measurement_opportunity_decisions d JOIN "
+                                    "cold_measurement_opportunities o ON o.id = d.measurement_opportunity_id "
+                                    f"WHERE o.trigger_kind = 'assisted_cold_retry' AND o.trigger_ref = '{old['id']}'")
+    assert (decision["decision"], decision["reason"]) == ("structurally_refused", "no_uncontaminated_surface")
+    summary = json.loads(decision["candidate_summary_json"])
+    assert summary["cold_item_id"] is None
+    assert summary["contaminated"] == {spare: {"reason": "cold_item_answer_revealed_post_primed",
+                                               "event_ids": [between.attempt_id]}}
+    assert repository.remediation_episode(episode["id"])["cold_item_id"] == cold_item
+
+
+# -- the replacement's repair forecast (Codex review F2) ----------------------------------------------
+
+
+def _repair_receipts(repository):
+    from learnloop.db.stores import forecast_receipts as receipt_store
+    from learnloop.scheduling import forecast_receipts as FR
+
+    with repository.connection() as connection:
+        return receipt_store.list_receipts(connection, kind=FR.REPAIR_COLD_OUTCOME)
+
+
+def _repair_resolutions(vault):
+    from learnloop.evsi_calibration.forecast_report import resolved_receipts
+    from learnloop.scheduling import forecast_receipts as FR
+
+    return {receipt["followup_task_id"]: resolution for receipt, resolution in resolved_receipts(vault)
+            if receipt["kind"] == FR.REPAIR_COLD_OUTCOME}
+
+
+def test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured(tmp_path):
+    from learnloop.diagnosis.causal_orchestrator import record_cold_verification_from_task
+    from learnloop.scheduling import forecast_receipts as FR
+
+    vault, repository, episode, primed, cold_item = _repair(tmp_path)
+    spare = _spare(repository, episode)
+    [original] = _repair_receipts(repository)
+    _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
+    withdrawn, fresh = _tasks(repository, episode["id"])
+
+    receipts = {receipt["followup_task_id"]: receipt for receipt in _repair_receipts(repository)}
+    assert set(receipts) == {withdrawn["id"], fresh["id"]}
+    # The original forecast is immutable and censored by the withdrawn retry's disposition.
+    assert receipts[withdrawn["id"]] == original
+    # The replacement's forecast is bound to its own task, written in its scheduling transaction.
+    replacement = receipts[fresh["id"]]
+    assert replacement["binding_kind"] == FR.FOLLOWUP_TASK and replacement["censor_reason"] is None
+    assert replacement["source_attempt_id"] == primed.attempt_id
+    assert replacement["practice_item_id"] == spare
+    assert replacement["decision_kind"] == "cold_retry_schedule"
+    assert replacement["created_at"] == fresh["created_at"]
+    resolutions = _repair_resolutions(vault)
+    assert resolutions[withdrawn["id"]] == {"state": "censored", "reason": WITHDRAWN_COLD_RETRY_OUTCOME}
+    assert resolutions[fresh["id"]]["reason"] == "awaiting_cold_attempt"
+
+    due = ASSISTED_AT + COLD_RETRIEVAL_DELAY + timedelta(minutes=5)
+    cold = _answer(vault, repository, spare, due)
+    consumed = dict(repository.followup_task(fresh["id"]))
+    # The fixture's misconception carries no diagnosed repair class; the verification
+    # is fired with one (as the forecast-receipt tests do) to measure the fresh retry.
+    consumed["context"] = dict(consumed["context"]) | {"repair_class_id": "rc_stub"}
+    record_cold_verification_from_task(vault, repository, task=consumed, cold_attempt_id=cold.attempt_id,
+                                       clock=FrozenClock(due))
+    measured = repository.causal_cold_outcome_for_task(fresh["id"])
+    assert measured["outcome"] == "cold_success" and measured["cold_attempt_id"] == cold.attempt_id
+    resolutions = _repair_resolutions(vault)
+    assert resolutions[fresh["id"]] == {
+        "state": "resolved", "reason": "realized", "emission": "cold_success", "attempt_id": cold.attempt_id,
+        "binding": "followup_task", "regraded_since_verification": False,
+    }
+    assert resolutions[withdrawn["id"]] == {"state": "censored", "reason": WITHDRAWN_COLD_RETRY_OUTCOME}
+
+
 # -- certification probes are not rescheduled ----------------------------------------------------------
 
 

@@ -680,16 +680,27 @@ def _independent_cold_item(
     THE cold-surface rule of the repair lane: treatment picks the episode's
     first cold item with it (excluding the primed surface), and the cold-retry
     reschedule (``mvp-0.38``) picks a fresh retry's with it (excluding every
-    surface the episode already used)."""
+    surface the episode already used, then skipping any surface already
+    hard-contaminated since the primed attempt: Codex review F1)."""
+
+    return next(iter(_independent_cold_candidates(vault, repository, candidates,
+                                                  excluded_surfaces=excluded_surfaces)), None)
+
+
+def _independent_cold_candidates(
+    vault: LoadedVault,
+    repository: Repository,
+    candidates: list[Any],
+    *,
+    excluded_surfaces: set[str | None],
+) -> list[Any]:
+    """Every candidate :func:`_independent_cold_item` accepts, in rank order."""
 
     from learnloop.substrate.canonical_projection import surface_group_id
 
     shown = set(exposed_items(vault, repository, candidates, with_held_out=True))
-    return next(
-        (item for item in candidates
-         if surface_group_id(item) not in excluded_surfaces and item.id not in shown),
-        None,
-    )
+    return [item for item in candidates
+            if surface_group_id(item) not in excluded_surfaces and item.id not in shown]
 
 
 def _record_unbound_primed_disposition(
@@ -1150,9 +1161,13 @@ def reschedule_assisted_cold_retry(
     * the fresh retry's surface is chosen by the lane's one rule
       (:func:`_independent_cold_item`) among the repair's ranked items,
       excluding the primed surface and the assisted retry's (the receipt's
-      surface novelty fails on any surface already attempted); none left is
-      recorded as a refused opportunity (``no_independent_surface``) and the
-      repair stays unmeasurable, as below the tag;
+      surface novelty fails on any surface already attempted), skipping any
+      surface already hard-contaminated since the primed attempt (its answer
+      seen or its group administered: the final receipt's own scan, Codex
+      review F1); none left is recorded as a refused opportunity
+      (``no_independent_surface``, or ``no_uncontaminated_surface`` when the
+      exposure history ruled them all out) and the repair stays unmeasurable,
+      as below the tag;
     * its timing is the lane's existing rule, read from the attempt that took
       the help (the latest exposure): due ``COLD_RETRIEVAL_DELAY`` after it,
       open for ``COLD_RETRY_WINDOW`` (no new delay);
@@ -1161,7 +1176,11 @@ def reschedule_assisted_cold_retry(
       where it came from, so the coldness receipt scans from the primed
       attempt and records the assisted attempt as the co-intervention it is.
       The episode's cold item moves to the fresh surface (reveal attribution
-      follows it); the episode stays ``cold_scheduled``.
+      follows it); the episode stays ``cold_scheduled``;
+    * the fresh retry records its own repair forecast (bound to it, in the
+      same transaction; Codex review F2), so a measured replacement resolves
+      in ``learnloop diagnosis calibration`` while the withdrawn retry's
+      forecast censors.
 
     A certification cold probe is never rescheduled: one probe per
     certificate, ever (``certification_cold_probe``, migration 139's unique
@@ -1200,7 +1219,11 @@ def reschedule_assisted_cold_retry(
     case = episode_case(repository, episode)
     if case is None:
         return None
-    from learnloop.attempts.coldness_receipt import LANE_REPAIR_COLD_RETRY, record_schedule_refusal_receipt
+    from learnloop.attempts.coldness_receipt import (
+        LANE_REPAIR_COLD_RETRY,
+        record_schedule_refusal_receipt,
+        repair_surface_hard_contamination,
+    )
     from learnloop.substrate.canonical_projection import surface_group_id
 
     opportunity = repository.get_or_create_cold_measurement_opportunity(
@@ -1231,9 +1254,29 @@ def reschedule_assisted_cold_retry(
     ]
     excluded = {surface_group_id(item) for item in used_items if item is not None}
     excluded_ids = {item.id for item in used_items if item is not None}
-    fresh_item = _independent_cold_item(
+    independent = _independent_cold_candidates(
         vault, repository, [item for item in ranked if item.id not in excluded_ids], excluded_surfaces=excluded,
     )
+    # Codex review F1: the fresh retry keeps the primed source attempt, so its
+    # final receipt scans from it. A surface whose answer the learner saw, or
+    # whose group they were administered, since then is already a hard
+    # contamination there: skip it (first clean one in rank order) rather than
+    # spend an answer on a measurement unusable when scheduled.
+    source_attempt_id = (
+        str(context.get("source_attempt_id") or "") or str(task.get("source_attempt_id") or "")
+    ) or None
+    source_attempt = repository.fetch_practice_attempt(source_attempt_id) if source_attempt_id else None
+    contaminated: dict[str, dict[str, Any]] = {}
+    fresh_item = None
+    for candidate in independent:
+        hard = repair_surface_hard_contamination(
+            vault, repository, source_attempt=source_attempt, cold_item_id=candidate.id,
+            case_ref=str(task.get("case_ref") or "") or None, until=attempted_at,
+        )
+        if hard is None:
+            fresh_item = candidate
+            break
+        contaminated[candidate.id] = {"reason": hard["reason"], "event_ids": list(hard["event_ids"])}
     candidate_summary = {
         "withdrawn_task_id": str(task["id"]),
         "assisted_attempt_id": str(attempt.get("id") or "") or None,
@@ -1241,15 +1284,20 @@ def reschedule_assisted_cold_retry(
         "withdrawn_cold_item_id": str(task.get("selected_item_id") or "") or None,
         "cold_item_id": fresh_item.id if fresh_item is not None else None,
     }
+    if contaminated:
+        candidate_summary["contaminated"] = contaminated
     if fresh_item is None:
         candidate_summary["ranked_item_ids"] = [item.id for item in ranked]
+        # Every independent surface already contaminated is its own structural
+        # fact (the exposure history ruled them out), distinct from none at all.
+        reason = "no_uncontaminated_surface" if contaminated else "no_independent_surface"
         repository.record_cold_measurement_opportunity_decision(
             measurement_opportunity_id=str(opportunity["id"]), decision="structurally_refused",
-            reason="no_independent_surface", candidate_summary=candidate_summary, clock=clock,
+            reason=reason, candidate_summary=candidate_summary, clock=clock,
         )
         record_schedule_refusal_receipt(
             repository, opportunity=opportunity, decision="structurally_refused",
-            reason="no_independent_surface", candidate_summary=candidate_summary, clock=clock,
+            reason=reason, candidate_summary=candidate_summary, clock=clock,
         )
         return None
     created = parse_utc(attempted_at) or (clock or SystemClock()).now()
@@ -1277,6 +1325,18 @@ def reschedule_assisted_cold_retry(
         clock=clock,
     )
     repository.update_remediation_episode(episode_id, cold_item_id=fresh_item.id, clock=clock)
+    # Codex review F2: the replacement gets its own repair forecast, bound to
+    # its own task in this scheduling transaction (the receipt key carries the
+    # task, so the withdrawn retry's forecast stays as written and censors on
+    # its disposition). It is the primed attempt's forecast, as the original
+    # was: the repair class and hypotheses are the carried §6.2 context.
+    if source_attempt is not None:
+        _repair_forecast(
+            vault, repository, source_attempt,
+            repair_class_id=str(context.get("repair_class_id") or "") or None,
+            hypothesis_ids=[str(value) for value in context.get("hypothesis_ids") or [] if value],
+            episode=repository.remediation_episode(episode_id) or episode, task=fresh, clock=clock,
+        )
     logger.info(
         "cold retry %s withdrawn after help was taken (attempt %s); fresh retry %s on %s",
         task["id"], attempt.get("id"), fresh["id"], fresh_item.id,
