@@ -524,3 +524,182 @@ def test_a_torn_journal_at_the_predecessor_is_removed_and_nothing_activates(tmp_
     _journal(paths).write_text('{"predecessor": "mvp-0.3', encoding="utf-8")
     assert complete_interrupted_activation(paths.root) is None
     assert not _journal(paths).exists() and _version(paths) == PREDECESSOR and not _activated(paths)
+
+
+# -- Codex review (2026-10-27): one transaction per report, supersession order, attempt-free history --
+
+
+def _attempt_count(repository) -> int:
+    with closing(sqlite3.connect(repository.sqlite_path)) as connection:
+        return int(connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0])
+
+
+def _rebuilds_to_live(paths, repository):
+    live = _mastery(repository)
+    diff = _shadow_summary(paths)
+    assert diff["summary"] == ZERO, {family: diff[family]["changes"][:3] for family in ZERO}
+    for _ in range(2):
+        rebuild_all_derived_state(load_vault(paths.root), repository)
+        assert _mastery(repository) == live
+    return live
+
+
+def test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads(tmp_path, monkeypatch):
+    """Review F1. Writer A commits its replacement claim and pauses before its
+    re-anchor; writer B reports on the same LO meanwhile. The replacement, its
+    application position and its re-anchor are one transaction, so B waits for
+    A's whole report: live applies A then B, as replay does (before the fix B's
+    claim and re-anchor landed between A's, and the precision-weighted merges
+    ran in an order replay cannot see)."""
+
+    import threading
+
+    from learnloop.learner import mastery
+
+    paths, vault, repository = _vault(tmp_path)
+    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
+    paused, release = threading.Event(), threading.Event()
+    original = mastery.reanchor_mastery_from_claim
+
+    def pausing(*args, **kwargs):
+        if threading.current_thread().name == "writer-a":
+            paused.set()
+            assert release.wait(10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(mastery, "reanchor_mastery_from_claim", pausing)
+    failures: list[BaseException] = []
+    _set_report_config(paths, 0.25)  # A's report and B's differ, so the order of their merges shows
+
+    def writer(item_id, reason, minutes):
+        try:
+            retire_item(paths.root, Repository(paths.sqlite_path), practice_item_id=item_id, reason=reason,
+                        clock=_at(minutes))
+        except BaseException as failure:  # pragma: no cover - surfaced below
+            failures.append(failure)
+
+    a = threading.Thread(target=writer, args=("pi_diag_mid", "too_easy", 2), name="writer-a")
+    b = threading.Thread(target=writer, args=("pi_diag_hard", "too_easy", 3), name="writer-b")
+    a.start()
+    assert paused.wait(10)
+    _set_report_config(paths, 2.0, level=0.9)
+    b.start()
+    b.join(2)  # well inside the 5 s busy timeout: B is held at its transaction while A is open
+    held = b.is_alive()
+    release.set()
+    a.join(10)
+    b.join(10)
+    assert not failures and not a.is_alive() and not b.is_alive()
+    assert held, "writer B's report landed between writer A's replacement and its re-anchor"
+    reports = [row for row in _rows(repository) if row["source"] == "learner_report"]
+    assert len(reports) == 2 and reports[0]["superseded_by"] == reports[1]["id"]
+    _rebuilds_to_live(paths, repository)
+
+
+def test_a_failure_between_the_replacement_and_its_re_anchor_leaves_the_earlier_report_in_force(
+    tmp_path, monkeypatch
+):
+    """Review F1, fault injection: the re-anchor fails after the replacement was
+    written. Nothing of the report commits: the earlier report is still the one
+    in force (no ``superseded_by``), no new claim is on record, and the vault
+    still rebuilds to live."""
+
+    from learnloop.learner import mastery
+
+    paths, vault, repository = _vault(tmp_path)
+    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
+    retire_item(paths.root, repository, practice_item_id="pi_diag_mid", reason="too_easy", clock=_at(2))
+    before = _rows(repository)
+
+    def failing(*args, **kwargs):
+        raise RuntimeError("injected: the re-anchor fails")
+
+    monkeypatch.setattr(mastery, "reanchor_mastery_from_claim", failing)
+    with pytest.raises(RuntimeError, match="injected"):
+        retire_item(paths.root, repository, practice_item_id="pi_diag_hard", reason="too_easy", clock=_at(3))
+    monkeypatch.undo()
+    assert _rows(repository) == before
+    _rebuilds_to_live(paths, repository)
+
+
+def _report_in_child(root, sqlite_path, item_id, reason, minutes, claim_id, conn):
+    """A second process's report whose claim id sorts BEFORE the first process's (review F2):
+    ULIDs are monotonic only within one process."""
+
+    try:
+        insert = Repository.insert_learner_claim
+
+        def with_this_process_id(self, claim, **kwargs):
+            return insert(self, {**claim, "id": claim_id}, **kwargs)
+
+        Repository.insert_learner_claim = with_this_process_id  # the forked child only
+        retire_item(root, Repository(sqlite_path), practice_item_id=item_id, reason=reason,
+                    clock=_at(minutes))
+        conn.send(None)
+    except BaseException as failure:  # pragma: no cover - surfaced in the parent
+        conn.send(repr(failure))
+    finally:
+        conn.close()
+
+
+def test_a_replacement_from_another_process_whose_id_sorts_first_replays_after_the_claim_it_replaced(tmp_path):
+    """Review F2. Two reports on one warm LO in the same second at the same
+    attempt count, the second written by another process whose claim id sorts
+    before the first's. Replay places the replacing claim after the claim it
+    replaced (the supersession edge), whatever the ids say, so the two
+    precision-weighted merges run in live's order."""
+
+    paths, vault, repository = _vault(tmp_path)
+    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
+    _set_report_config(paths, 0.25)
+    retire_item(paths.root, repository, practice_item_id="pi_diag_mid", reason="too_easy", clock=_at(2))
+    _set_report_config(paths, 2.0, level=0.9)
+    (first,) = [row for row in _rows(repository) if row["source"] == "learner_report"]
+    inverted = "0" * 26  # a valid id that sorts before every ULID
+    assert inverted < first["id"]
+    context = multiprocessing.get_context("fork")
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(target=_report_in_child,
+                              args=(paths.root, paths.sqlite_path, "pi_diag_hard", "too_easy", 2, inverted, child))
+    process.start()
+    child.close()
+    outcome = parent.recv()
+    process.join(30)
+    assert outcome is None, outcome
+    reports = [row for row in _rows(repository) if row["source"] == "learner_report"]
+    by_id = {row["id"]: row for row in reports}
+    assert set(by_id) == {first["id"], inverted} and by_id[first["id"]]["superseded_by"] == inverted
+    with closing(sqlite3.connect(repository.sqlite_path)) as connection:
+        stamps = dict(connection.execute(
+            "SELECT id, created_at || '/' || applied_after_attempts FROM learner_claims WHERE source = 'learner_report'"))
+    assert stamps[first["id"]] == stamps[inverted]  # the tie only the edge can break
+    _rebuilds_to_live(paths, repository)
+
+
+def _set_report_config(paths, pseudo_count, level=0.70):
+    """The vault's ``[rung_variants]`` report settings (a too_easy report claims ``harder_claim_level``)."""
+
+    path = paths.root / "learnloop.toml"
+    marker = "\n[rung_variants]\n"
+    head = path.read_text().split(marker)[0]
+    path.write_text(f"{head}{marker}claim_pseudo_count = {pseudo_count}\nharder_claim_level = {level}\n")
+
+
+def test_two_retirements_on_an_lo_without_attempts_rebuild_to_the_variance_the_replaced_one_left(tmp_path):
+    """Review F3. No attempt at all on the LO (retirements write none; rung
+    requests would). The first retirement report at pseudo-count 0.25 seeds the
+    row at variance 4; the second, after the setting moves to 2, replaces it.
+    Live keeps 4 (a re-anchor never lowers a zero-evidence row's variance); the
+    attempt-free rebuild reads the replaced claim's seed too, so it keeps 4 and
+    does not manufacture certainty from no evidence."""
+
+    paths, vault, repository = _vault(tmp_path)
+    _set_report_config(paths, 0.25)
+    retire_item(paths.root, repository, practice_item_id="pi_diag_mid", reason="too_easy", clock=_at(1))
+    _set_report_config(paths, 2.0)
+    retire_item(paths.root, repository, practice_item_id="pi_diag_hard", reason="too_easy", clock=_at(2))
+    assert _attempt_count(repository) == 0
+    reports = [row for row in _rows(repository) if row["source"] == "learner_report"]
+    assert len(reports) == 2 and reports[0]["superseded_by"] == reports[1]["id"]
+    live = _rebuilds_to_live(paths, repository)
+    assert live["lo_diag"][1] == pytest.approx(4.0) and live["lo_diag"][2] == 0
