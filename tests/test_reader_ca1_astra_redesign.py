@@ -71,7 +71,7 @@ LAYOUT = (
     ("s1", "Text", 1, [72.0, 380.0, 540.0, 410.0], BLUE, "We get 6."),
     # F6: two figures the statement uses; Figure 1 holds an answer inset
     # (no block of its own) outside the learner's selected sub-box.
-    ("t6", "Text", 2, [0.0, 50.0, 540.0, 90.0], RED, "Compare Figures 1 and 2."),
+    ("t6", "Text", 2, [0.0, 50.0, 540.0, 90.0], RED, "Compare Figure 1 with Figure 2."),
     ("h1", "Figure", 2, [0.0, 110.0, 100.0, 210.0], GREEN, "Figure 1. A line."),
     ("h2", "Figure", 2, [0.0, 220.0, 100.0, 320.0], GREEN, "Figure 2. A parabola."),
     # Legacy: a problem, its solution, and a figure before and after the solution.
@@ -202,10 +202,10 @@ def test_f2_a_required_input_graph_is_shown_in_a_check_on_your_own(seeded, cold)
     paths, ctx, repository = seeded
     item_id, _calls = _import(paths, repository, ["q1", "g1"], "Estimate f(2) from the graph.", "about 3",
                               roles={"g1": "stimulus"})
-    assert _refs(paths, item_id)["g1"]["figure_role"] == "stimulus" and _refs(paths, item_id)["g1"]["owned"] is True
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and view["label"] == FIGURE_LABEL and len(view["crops"]) == 1
     assert _share(_image(view["crops"][0]["image"]), GREEN) > 0.9
+    assert _refs(paths, item_id)["g1"]["figure_role"] == "stimulus" and _refs(paths, item_id)["g1"]["owned"] is True
 
 
 def test_f2_the_input_graph_prints_with_the_problem_outside_a_check(seeded, warm):
@@ -291,22 +291,22 @@ def _blue_free(view: dict) -> None:
 
 def test_f6_an_excluded_inset_never_returns_through_a_merged_crop(seeded, warm):
     paths, ctx, repository = seeded
-    item_id, _calls = _import(paths, repository, ["t6", "h1", "h2"], "Compare Figures 1 and 2.", "one is curved",
+    item_id, _calls = _import(paths, repository, ["t6", "h1", "h2"], "Compare Figure 1 with Figure 2.", "one is curved",
                               roles={"h1": "stimulus", "h2": "stimulus"}, region=H1_REGION)
     view = _view(ctx, item_id)
+    _blue_free(view)                                                     # no pixel of the inset
     assert _crop_spans(view) == [["t6"], ["h1"], ["h2"]]
     assert view["crops"][1]["bbox"] == [10.0, 120.0, 40.0, 150.0]       # the sub-box, alone
     assert view["crops"][2]["bbox"] == [0.0, 220.0, 100.0, 320.0]
-    _blue_free(view)
 
 
 def test_f6_and_in_a_check_on_your_own(seeded, cold):
     paths, ctx, repository = seeded
-    item_id, _calls = _import(paths, repository, ["t6", "h1", "h2"], "Compare Figures 1 and 2.", "one is curved",
+    item_id, _calls = _import(paths, repository, ["t6", "h1", "h2"], "Compare Figure 1 with Figure 2.", "one is curved",
                               roles={"h1": "stimulus", "h2": "stimulus"}, region=H1_REGION)
     view = _view(ctx, item_id)
-    assert view["kind"] == "figure" and len(view["crops"]) == 2
     _blue_free(view)
+    assert view["kind"] == "figure" and len(view["crops"]) == 2
 
 
 def test_f6_and_when_the_text_gives_no_free_crop(seeded, cold):
@@ -315,8 +315,8 @@ def test_f6_and_when_the_text_gives_no_free_crop(seeded, cold):
     item_id, _calls = _import(paths, repository, ["t6", "h1", "h2"], "How do the two figures differ?",
                               "one is curved", roles={"h1": "stimulus", "h2": "stimulus"}, region=H1_REGION)
     view = _view(ctx, item_id)
-    assert view["kind"] == "figure" and len(view["crops"]) == 2
     _blue_free(view)
+    assert view["kind"] == "figure" and len(view["crops"]) == 2
 
 
 def test_f6_crop_boxes_returns_one_crop_per_retained_region():
