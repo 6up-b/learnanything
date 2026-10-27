@@ -3,13 +3,13 @@ title: "scheduler_offer_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_offer_receipts"
   - "table scheduler_offer_receipts"
-schema_head: 224
+schema_head: 225
 table_name: "scheduler_offer_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/161_collection_contract.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
@@ -100,6 +102,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad_reachable_reads.py`
+- `tests/test_ad_guard_offer_receipts.py`
+- `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_facet_outcome_view.py`

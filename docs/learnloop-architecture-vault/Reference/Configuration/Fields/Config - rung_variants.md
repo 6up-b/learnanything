@@ -3,8 +3,8 @@ title: "Config - rung_variants"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml rung_variants"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/authoring/item_authoring.py"
+  - "tests/test_learner_report_superseded.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/rung-variants"
@@ -41,14 +42,14 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `rung_variants.easier_score_fraction` | `0.25` | number | modeled default or validator seed | Sets the easier score fraction used by learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:934`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:454` |
-| `rung_variants.harder_score_fraction` | `1.0` | number | modeled default or validator seed | Sets the harder score fraction used by learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:935`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:454` |
-| `rung_variants.self_grade_confidence` | `3` | integer | modeled default or validator seed | Controls self grade confidence in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:937`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:476` |
+| `rung_variants.easier_score_fraction` | `0.25` | number | modeled default or validator seed | Sets the easier score fraction used by learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:934`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:445` |
+| `rung_variants.harder_score_fraction` | `1.0` | number | modeled default or validator seed | Sets the harder score fraction used by learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:935`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:445` |
+| `rung_variants.self_grade_confidence` | `3` | integer | modeled default or validator seed | Controls self grade confidence in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:937`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:467` |
 | `rung_variants.easier_claim_level` | `0.25` | number | modeled default or validator seed | Controls easier claim level in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:938`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/item_authoring.py:339` |
 | `rung_variants.harder_claim_level` | `0.7` | number | modeled default or validator seed | Controls harder claim level in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:939`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/item_authoring.py:339` |
-| `rung_variants.claim_pseudo_count` | `2.0` | number | modeled default or validator seed | Controls claim pseudo count in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:940`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/item_authoring.py:353` |
+| `rung_variants.claim_pseudo_count` | `2.0` | number | modeled default or validator seed | Controls claim pseudo count in learner-requested easier and harder activity variants, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:940`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/item_authoring.py:354` |
 | `rung_variants.max_pending_per_item` | `1` | integer | modeled default or validator seed | Caps pending per item allowed by learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:941`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:393` |
-| `rung_variants.retry_on_rung_violation` | `true` | boolean | modeled default or validator seed | Turns retry on rung violation behavior on or off within learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:942`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:752` |
+| `rung_variants.retry_on_rung_violation` | `true` | boolean | modeled default or validator seed | Turns retry on rung violation behavior on or off within learner-requested easier and harder activity variants. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:942`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/content/authoring/rung_variants.py:743` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -57,7 +58,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-None found by exact static reference scan.
+- `tests/test_learner_report_superseded.py`
 
 ## Extension and modification guidance
 

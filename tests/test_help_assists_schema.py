@@ -43,7 +43,7 @@ from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -367,6 +367,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 224
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 225
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

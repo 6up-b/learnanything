@@ -35,6 +35,7 @@ from tests.test_reader_ca2_codex_review import (  # noqa: F401 - the sidecar fix
     sidecar,
 )
 from tests.workbench_help_fakes import STEP_1
+from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 
 
 def _row(paths, workbench_id: str) -> dict:
@@ -217,15 +218,17 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [223, 224]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225]
     after = schema()
     assert set(after) - RW5D_ADDED_OBJECTS == set(before)
-    assert {name for name in before if before[name] != after[name]} == CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES
+    assert {name for name in before if before[name] != after[name]} == (
+        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES
+    )
     with closing(sqlite3.connect(database)) as connection:
         # A problem from before 223 reads as no opening carried.
         assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 224
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 225
     assert 223 in applied_versions(head)
     assert head.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:

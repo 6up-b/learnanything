@@ -15,15 +15,15 @@ as the observation reliability weight. Legacy (mvp-0.6) behavior is unchanged.
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import copysign, exp, log, sqrt
 from typing import TYPE_CHECKING, Any
 
-from learnloop.algorithm_versions import CLAIM_FIXES_VERSIONS
-from learnloop.clock import parse_utc
+from learnloop.algorithm_versions import CLAIM_FIXES_VERSIONS, SUPERSEDED_CLAIMS_VERSIONS
+from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.config import MasteryConfig
 from learnloop.db.repositories import ItemParameterState, MasteryState
 from learnloop.numeric import clamp
@@ -190,6 +190,95 @@ def claim_fixes_live(vault) -> bool:
     )
 
 
+def replaced_claims_kept(vault) -> bool:
+    """The successor mvp-0.36: the replace seam keeps a replaced claim (``superseded_by``).
+
+    Below ``SUPERSEDED_CLAIMS_ALGORITHM_VERSION`` the seam deletes it, as the
+    predecessor. No kill switch: no live reader sees a replaced row
+    (``Repository.learner_claims`` reads the claims in force), so keeping it
+    changes only what replay can apply."""
+
+    config = getattr(vault, "config", None)
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in SUPERSEDED_CLAIMS_VERSIONS
+
+
+def _in_force(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The claims among ``claims`` that no claim among them replaced (successor mvp-0.36).
+
+    ``claims`` are the claims made by one point of the stream: a replaced
+    claim is in force there until the claim that replaced it was made. Rows
+    written below the successor carry no ``superseded_by``, so this keeps
+    them all."""
+
+    made = {str(claim.get("id") or "") for claim in claims}
+    return [claim for claim in claims if claim.get("superseded_by") is None or str(claim["superseded_by"]) not in made]
+
+
+def after_what_they_replaced(claims: list[dict[str, Any]], keys: dict[str, Any]) -> dict[str, Any]:
+    """``keys`` (claim id -> order key, or None for an unordered claim) with each replacing claim after what it replaced.
+
+    Review F2 (successor mvp-0.36): a replacing claim was applied after the
+    claim it replaced (the replacement and its re-anchor are one transaction
+    after the replaced claim's own, ``replace_claim_and_reanchor``), but its
+    stamp has second resolution and its ULID is monotonic within one process
+    only, so a replacement written by another process in the same second, at
+    the same attempt count, can sort first. Where it would, its key becomes the
+    replaced claim's key extended by one component: just after it, before
+    every key that sorted after it. The keys of one call have one length, so
+    the extension is a structural tie-break, no number. Rows written below the
+    successor carry no ``superseded_by``: the keys come back unchanged.
+
+    Re-review F4: the edges are resolved with an explicit stack (each claim
+    after every claim it replaced), not by recursion, so a replacement chain of
+    any length resolves; the repository reads claims newest first, which made a
+    recursive walk as deep as the chain."""
+
+    replaced_by: dict[str, list[str]] = {}
+    for claim in claims:
+        replacer = claim.get("superseded_by")
+        if replacer is not None:
+            replaced_by.setdefault(str(replacer), []).append(str(claim.get("id") or ""))
+    if not replaced_by:
+        return dict(keys)
+
+    def earlier_of(claim_id: str) -> Iterator[str]:
+        # An unordered claim is placed after nothing, so what it replaced is
+        # resolved on its own turn.
+        return iter(replaced_by.get(claim_id, ()) if keys.get(claim_id) is not None else ())
+
+    lifted: dict[str, Any] = {}
+    for root in keys:
+        if root in lifted:
+            continue
+        # Depth-first, post-order: a claim's key is settled once every claim it
+        # replaced is. ``on_path`` holds the claims being resolved; a cycle
+        # cannot be written (each edge points to a newer claim), but an edge
+        # back onto the path is skipped rather than looped on.
+        on_path = {root}
+        stack: list[tuple[str, Iterator[str]]] = [(root, earlier_of(root))]
+        while stack:
+            claim_id, pending = stack[-1]
+            earlier = next((candidate for candidate in pending
+                            if candidate not in lifted and candidate not in on_path), None)
+            if earlier is not None:
+                on_path.add(earlier)
+                stack.append((earlier, earlier_of(earlier)))
+                continue
+            stack.pop()
+            on_path.discard(claim_id)
+            key = keys.get(claim_id)
+            if key is not None:
+                for earlier in replaced_by.get(claim_id, ()):
+                    if earlier not in lifted:
+                        continue  # still on the path: the cycle edge skipped above
+                    earlier_key = lifted[earlier]
+                    if earlier_key is not None and key <= earlier_key:
+                        key = (*earlier_key, 1)
+            lifted[claim_id] = key
+    return lifted
+
+
 #: Claim sources whose writers re-anchor an already-materialized LO at the
 #: claim's own time (``reanchor_mastery_from_claim``): rung-variant requests,
 #: too-easy/too-hard reports and, from the claim-fixes successor on, tutor gap
@@ -241,15 +330,22 @@ def initial_mastery_state_for_learning_object(
         logit_variance=float(mastery_config.cold_start_prior_logit_variance),
     )
     fixes = claim_fixes_live(vault)
-    claims = covering_claims(vault, repository, learning_object_id)
-    if fixes and claims_made is not None:
-        claims = [claim for claim in claims if str(claim.get("id") or "") in claims_made]
+    if fixes and claims_made is None:
+        # Now (live, an attempt-free rebuild, an activation's re-seed): the
+        # claims in force seed the mean, and every claim on record, replaced
+        # ones included, is read for the variance the anchors left (review F3:
+        # a replaced anchor re-seeded the row at its own point, as live kept).
+        made = covering_claims(vault, repository, learning_object_id, include_superseded=True)
+        claims = [claim for claim in made if claim.get("superseded_by") is None]
+    else:
+        made = _claims_made(vault, repository, learning_object_id, claims_made, fixes=fixes)
+        claims = _in_force(made)
     claim = _winning_claim(claims, fixes=fixes)
     if claim is None:
         return cold
     state = _claim_seed(vault, claim, cold, now_iso, fixes=fixes)
     if fixes:
-        retained = _retained_cold_variance(vault, claims, learning_object_id, cold, now_iso)
+        retained = _retained_cold_variance(vault, made, learning_object_id, cold, now_iso)
         if retained > state.logit_variance:
             state = replace(state, logit_variance=retained)
     return state
@@ -291,10 +387,13 @@ def _retained_cold_variance(
     """The largest variance a re-anchoring claim's seed left on the zero-evidence row (re-review F8).
 
     Each re-anchoring claim on this LO re-seeded the row from the claims made
-    by its own point (those before it in the ``(created_at, id)`` order, then
-    itself). Every claim in ``claims`` is placed before the point the caller
-    seeds at, so in a zero-evidence stretch that order is the order they were
-    applied in."""
+    by its own point (those before it in the ``(created_at, id)`` order, each
+    replacing claim after the claim it replaced (review F2), then itself).
+    Every claim in ``claims`` is placed before the point the caller seeds at,
+    so in a zero-evidence stretch that order is the order they were applied
+    in. ``claims`` are the claims made by the caller's point, replaced ones
+    included (each anchor reads the claims in force at its own point), also
+    when the caller seeds now (review F3)."""
 
     best = cold.logit_variance
     anchors = [
@@ -304,9 +403,15 @@ def _retained_cold_variance(
         and claim.get("scope_type") == "learning_object"
         and claim.get("scope_id") == learning_object_id
     ]
+    # Each replacing claim after what it replaced (review F2), whatever its stamp and id say.
+    order = after_what_they_replaced(claims, {str(claim.get("id") or ""): _made_order(claim) for claim in claims})
     for anchor in anchors:
-        point = _made_order(anchor)
-        winner = _winning_claim([claim for claim in claims if _made_order(claim) <= point], fixes=True)
+        point = order[str(anchor.get("id") or "")]
+        # A replaced anchor re-seeded the row too (successor mvp-0.36): at its
+        # point it was in force, and the claims replaced by then were not.
+        winner = _winning_claim(
+            _in_force([claim for claim in claims if order[str(claim.get("id") or "")] <= point]), fixes=True
+        )
         if winner is not None:
             best = max(best, _claim_seed(vault, winner, cold, now_iso, fixes=True).logit_variance)
     return best
@@ -416,6 +521,37 @@ def reanchor_mastery_from_claim(
         )
 
 
+def replace_claim_and_reanchor(vault, repository, claim: dict[str, Any], *, clock=None) -> str:
+    """The replace seam and the re-anchor of an LO-scoped learner report, as one write; the claim's id.
+
+    ``claim`` replaces the in-force claim of its source on its LO
+    (``Repository.replace_learner_claim``) and re-anchors that LO's mastery at
+    once, recording its application position (``reanchor_mastery_from_claim``
+    with ``claim_id``). From the successor mvp-0.36 on (review F1) the three
+    are one ``BEGIN IMMEDIATE`` transaction (a savepoint inside a caller's):
+    another writer's report on the same LO lands wholly before or after, so
+    the order the claims replace one another is the order their merges ran,
+    which is the order replay applies them in; and a failure between the
+    replacement and its re-anchor leaves neither. Below the tag both are
+    written exactly as the predecessor wrote them."""
+
+    keep = replaced_claims_kept(vault)
+    with repository.atomic() if keep else nullcontext():
+        claim_id = repository.replace_learner_claim(claim, keep_replaced=keep, clock=clock)
+        reanchor_mastery_from_claim(
+            vault,
+            repository,
+            str(claim["scope_id"]),
+            claimed_level=float(claim["claimed_level"]),
+            prior_pseudo_count=float(claim["prior_pseudo_count"]),
+            now_iso=utc_now_iso(clock),
+            # Under the claim-fixes successor: the claim's place among the LO's
+            # attempts, recorded with its re-anchor (re-review F7).
+            claim_id=claim_id,
+        )
+    return claim_id
+
+
 def _reanchor_in_transaction(
     vault,
     repository,
@@ -460,19 +596,42 @@ def covering_learner_claim(
     """
 
     fixes = claim_fixes_live(vault)
-    claims = covering_claims(vault, repository, learning_object_id)
-    if fixes and claims_made is not None:
-        claims = [claim for claim in claims if str(claim.get("id") or "") in claims_made]
-    return _winning_claim(claims, fixes=fixes)
+    made = _claims_made(vault, repository, learning_object_id, claims_made, fixes=fixes)
+    return _winning_claim(_in_force(made), fixes=fixes)
 
 
-def covering_claims(vault, repository, learning_object_id: str) -> list[dict[str, Any]]:
-    """Every learner claim that covers ``learning_object_id`` (any scope)."""
+def _claims_made(
+    vault, repository, learning_object_id: str, claims_made: Collection[str] | None, *, fixes: bool
+) -> list[dict[str, Any]]:
+    """The covering claims made by the caller's point: replay's ``claims_made``, else those in force now.
+
+    Replay (``claims_made``, under the claim-fixes successor) reads the
+    replaced claims too, so a claim replaced after its point is in force there
+    (successor mvp-0.36; :func:`_in_force` drops the ones replaced by then).
+    Live (``None``) reads the claims in force: no claim is made after now."""
+
+    if not (fixes and claims_made is not None):
+        return covering_claims(vault, repository, learning_object_id)
+    return [
+        claim
+        for claim in covering_claims(vault, repository, learning_object_id, include_superseded=True)
+        if str(claim.get("id") or "") in claims_made
+    ]
+
+
+def covering_claims(
+    vault, repository, learning_object_id: str, *, include_superseded: bool = False
+) -> list[dict[str, Any]]:
+    """Every learner claim in force that covers ``learning_object_id`` (any scope).
+
+    ``include_superseded`` (replay): the replaced claims too (successor
+    mvp-0.36, ``learner_claims.superseded_by``)."""
 
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         return []
-    return [claim for claim in repository.learner_claims() if _claim_covers_learning_object(claim, learning_object)]
+    rows = repository.learner_claims(include_superseded=True) if include_superseded else repository.learner_claims()
+    return [claim for claim in rows if _claim_covers_learning_object(claim, learning_object)]
 
 
 def _winning_claim(claims: list[dict[str, Any]], *, fixes: bool) -> dict[str, Any] | None:

@@ -43,7 +43,7 @@ from learnloop.curriculum.depth_rungs import (
     trajectory_slugs,
     waypoint_rung,
 )
-from learnloop.learner.mastery import display_mastery, reanchor_mastery_from_claim
+from learnloop.learner.mastery import display_mastery, replace_claim_and_reanchor
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -417,10 +417,16 @@ def request_rung_variant(
     # Claim FIRST so a cold LO's initial mastery (materialized at attempt time)
     # seeds from it (mastery.initial_mastery_state_for_learning_object).
     claim_level = config.easier_claim_level if direction == "easier" else config.harder_claim_level
-    repository.delete_learner_claims(
-        source=CLAIM_SOURCE, scope_type="learning_object", scope_id=item.learning_object_id
-    )
-    claim_id = repository.insert_learner_claim(
+    # The replace seam: one rung-variant claim in force per LO; from the
+    # successor mvp-0.36 on the earlier one stays as a replaced row for replay,
+    # and the replacement and its re-anchor are one transaction (review F1).
+    # Re-anchor immediately: for a warm LO the claim was previously inert
+    # (covering_learner_claim only feeds first materialization), which meant a
+    # learner asking for harder work changed nothing the scheduler or the
+    # generation rung selector could see.
+    claim_id = replace_claim_and_reanchor(
+        vault,
+        repository,
         {
             "claim_type": "self_rating",
             "scope_type": "learning_object",
@@ -431,21 +437,6 @@ def request_rung_variant(
             "source": CLAIM_SOURCE,
         },
         clock=clock,
-    )
-    # Re-anchor immediately: for a warm LO the claim was previously inert
-    # (covering_learner_claim only feeds first materialization), which meant a
-    # learner asking for harder work changed nothing the scheduler or the
-    # generation rung selector could see.
-    reanchor_mastery_from_claim(
-        vault,
-        repository,
-        item.learning_object_id,
-        claimed_level=claim_level,
-        prior_pseudo_count=config.claim_pseudo_count,
-        now_iso=utc_now_iso(clock),
-        # Under the claim-fixes successor: the claim's place among the LO's
-        # attempts, recorded with its re-anchor (re-review F7).
-        claim_id=claim_id,
     )
 
     # The belief write: a deterministic self-graded self_report attempt on the

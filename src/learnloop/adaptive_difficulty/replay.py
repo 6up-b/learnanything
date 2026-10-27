@@ -540,9 +540,14 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     claims: list[ClaimEvent] = []
     if serving_store.has_table(connection, "learner_claims"):
+        # The claims in force, as before the successor mvp-0.36 kept replaced
+        # rows (``superseded_by``; migration 225): AD reads what it always read.
+        in_force = (" WHERE superseded_by IS NULL "
+                    if "superseded_by" in {row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")}
+                    else " ")
         cursor = connection.execute(
-            "SELECT id, scope_type, scope_id, claimed_level, source, created_at FROM learner_claims "
-            "ORDER BY created_at, id")
+            "SELECT id, scope_type, scope_id, claimed_level, source, created_at FROM learner_claims"
+            f"{in_force}ORDER BY created_at, id")
         concept_los: dict[str, list[str]] = {}
         for lo in vault.learning_objects.values():
             concept_los.setdefault(str(lo.concept), []).append(lo.id)

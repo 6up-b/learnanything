@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 224
+schema_head: 225
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/one_ask_upgrade.py`
 - `src/learnloop/placement/report.py`
+- `src/learnloop/superseded_claims_upgrade.py`
 
 ### Direct SQL writers
 
@@ -127,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_ingest_instrument_gates.py`
+- `tests/test_learner_report_superseded.py`
 - `tests/test_method_explicit_upgrade.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp011_upgrade.py`
@@ -141,7 +143,6 @@ Indexes and uniqueness:
 - `tests/test_mvp022_upgrade.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_mvp024_upgrade.py`
-- `tests/test_p0_cutover_mvp08.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

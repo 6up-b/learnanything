@@ -75,7 +75,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 TARGET = METHOD_EXPLICIT_ALGORITHM_VERSION
 
@@ -83,9 +83,9 @@ TARGET = METHOD_EXPLICIT_ALGORITHM_VERSION
 def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     assert TARGET == "mvp-0.25"
     # Regrade contracts (mvp-0.26) followed it and keep it.
-    assert SUCCESSOR_CHAIN[16] == TARGET and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert SUCCESSOR_CHAIN[16] == TARGET and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     assert SUCCESSOR_CHAIN[15] == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", LATEST_ALGORITHM_VERSION})
     # The chain is linear: it means every predecessor's semantics PLUS its own.
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
@@ -240,7 +240,7 @@ def test_upgrade_command_defaults_to_the_successor(tmp_path):
     assert result.exit_code == 0, result.output
     # The default is the latest successor (regrade contracts, mvp-0.26), through this one.
     assert f"mvp-0.24 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.23")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.25"])
     assert result.exit_code == 0, result.output
@@ -260,7 +260,7 @@ def test_new_vaults_start_at_the_successor(tmp_path):
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
     # Regrade contracts (mvp-0.26) are the latest and keep the method rules.
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     assert method_rules_active(fresh) and route_rules_active(fresh)
 
 

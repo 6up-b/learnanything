@@ -92,9 +92,11 @@ def test_mvp035_is_one_constant_after_mvp034_and_the_latest():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.one_ask_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-3:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35")
-    assert TAG == "mvp-0.35" == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG})
+    # The kept replaced claims' mvp-0.36 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-4:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36")
+    assert TAG == "mvp-0.35" and LATEST_ALGORITHM_VERSION == "mvp-0.36"
+    assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
 
@@ -111,13 +113,15 @@ def test_upgrade_to_mvp035_works_from_every_supported_version(tmp_path, start):
     assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
 
 
-def test_a_bare_upgrade_targets_mvp035(tmp_path):
+def test_a_bare_upgrade_targets_the_latest_through_mvp035(tmp_path):
     from learnloop.cli import app
 
+    # The latest is the kept replaced claims' mvp-0.36, chained through this tag.
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
 
 
 # -- the journalled activation ----------------------------------------------------------------------

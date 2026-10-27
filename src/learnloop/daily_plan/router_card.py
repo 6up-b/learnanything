@@ -598,11 +598,13 @@ class CardGatherer:
                                     "report": str(row["reason"] or "returned").replace("_", " ")})
             if _table(connection, "learner_claims"):
                 for row in connection.execute(
-                    f"SELECT scope_id, claim_type, claimed_level, created_at FROM learner_claims "
+                    f"SELECT * FROM learner_claims "
                     f"WHERE scope_type = 'learning_object' AND scope_id IN ({_marks(sorted(los))}) AND created_at < ? "
                     "ORDER BY created_at DESC, id DESC",
                     (*sorted(los), now_iso),
                 ):
+                    if "superseded_by" in row.keys() and row["superseded_by"] is not None:
+                        continue  # a replaced claim (successor mvp-0.36): the card lists the claims in force, as before
                     reports.append({"at": row["created_at"], "topic": titles.get(row["scope_id"]),
                                     "report": f"{str(row['claim_type']).replace('_', ' ')} ({row['claimed_level']})"})
         except Exception:  # noqa: BLE001 - named as unknown

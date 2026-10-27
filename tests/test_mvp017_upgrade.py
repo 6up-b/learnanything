@@ -74,7 +74,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
@@ -89,7 +89,7 @@ def test_the_route_check_successor_keeps_every_predecessor():
     # Router R2a's staged frame (mvp-0.23) is now the latest.
     assert SUCCESSOR_CHAIN[8] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
     assert SUCCESSOR_CHAIN[11] == ROUTE_RULES_ALGORITHM_VERSION == "mvp-0.20"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     # The chain is linear: mvp-0.17 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the route check.

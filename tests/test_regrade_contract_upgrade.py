@@ -43,7 +43,7 @@ from tests.test_regrade_contract_successor import JOINT, _settle, _vault
 TARGET = REGRADE_CONTRACT_ALGORITHM_VERSION
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
 CLOCK = FrozenClock(datetime(2026, 12, 1, 12, 0, tzinfo=UTC))
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
 
 
 def _attempt_rows(repository):
@@ -232,10 +232,10 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
-    # Reader CA2's one Ask (mvp-0.35) is the latest since the batch landing.
-    from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
+    # The kept replaced claims (mvp-0.36, after Reader CA2's mvp-0.35) is the latest.
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
-    assert f"{PREDECESSOR} -> {ONE_ASK_ALGORITHM_VERSION}" in result.output
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output

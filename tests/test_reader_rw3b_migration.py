@@ -35,7 +35,7 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 NOW = "2026-10-20T10:00:00Z"
 #: What 215 adds: the earlier migrations' "nothing else changed" diffs on the
 #: way to head read these.
@@ -78,7 +78,7 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 and RW7a's 217 (their own two tables each, altering nothing) follow on the way to head.
-    assert [migration.version for migration in applied] == [215, 216, 217, 218, 219, 220, 221, 222, 223, 224]  # and T1's 218, RW2d's 219, local retrieval P1's 220
+    assert [migration.version for migration in applied] == [215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225]  # and T1's 218, RW2d's 219, local retrieval P1's 220
     after = _schema(database)
     assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES) == set(), "215 alters nothing"
@@ -188,7 +188,7 @@ def test_the_head_fixture_is_at_head_in_rollback_mode_with_empty_rw3b_tables(tmp
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     # RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 224
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 225
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("passage_links", "reader_cue_impressions"):

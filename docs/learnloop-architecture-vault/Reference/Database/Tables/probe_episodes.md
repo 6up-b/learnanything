@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 224
+schema_head: 225
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -156,6 +156,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_architecture.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attempt_completion.py`
@@ -175,7 +176,6 @@ Indexes and uniqueness:
 - `tests/test_hint_discriminating.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_intent_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

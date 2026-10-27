@@ -3,13 +3,13 @@ title: "learner_theta"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_theta"
   - "table learner_theta"
-schema_head: 224
+schema_head: 225
 table_name: "learner_theta"
 table_role: "compat"
 functionality_status: "dormant-owner-gated"

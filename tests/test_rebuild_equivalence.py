@@ -32,7 +32,7 @@ import sqlite3
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.content.authoring.item_authoring import retire_item
@@ -333,7 +333,7 @@ def test_random_histories_with_claims_after_attempts_and_too_easy_retirements_re
     seeds, and a ``too_easy`` or ``duplicate_surface`` retirement, then a
     primary load, shadow-rebuilds to 0/0/0 and an applied rebuild (twice)
     leaves mastery exactly as live. (A second learner report on one LO is the
-    replace seam's case, pinned below.)"""
+    replace seam's case, pinned below and fixed by mvp-0.36.)"""
 
     rng = random.Random(1000 + seed)
     claims = ()
@@ -380,12 +380,23 @@ def test_random_histories_with_claims_after_attempts_and_too_easy_retirements_re
     assert _mastery(repository) == live
 
 
-@pytest.mark.parametrize("version", ["mvp-0.33", LATEST_ALGORITHM_VERSION])
-@pytest.mark.xfail(strict=True, reason=(
-    "landing finding (LP-min (a), pre-existing at mvp-0.33): a learner report (a too_easy/too_hard "
-    "retirement or a rung-variant request) replaces the LO's earlier learner_report claim "
-    "(delete_learner_claims), whose live re-anchor already moved mastery; replay cannot apply a deleted claim"
+_DELETED_CLAIM = pytest.mark.xfail(strict=True, reason=(
+    "landing finding (LP-min (a), pre-existing at mvp-0.33, fixed by mvp-0.36): below the tag a learner "
+    "report (a too_easy/too_hard retirement or a rung-variant request) replaces the LO's earlier learner_report "
+    "claim by deleting it (delete_learner_claims), whose live re-anchor already moved mastery; replay cannot "
+    "apply a deleted claim"
 ))
+
+
+@pytest.mark.parametrize("version", [
+    pytest.param("mvp-0.33", marks=_DELETED_CLAIM),
+    pytest.param("mvp-0.34", marks=_DELETED_CLAIM),
+    pytest.param("mvp-0.35", marks=_DELETED_CLAIM),
+    # The successor keeps the replaced claim (superseded_by), so replay applies it at its own time
+    # (tests/test_learner_report_superseded.py).
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
+    LATEST_ALGORITHM_VERSION,
+])
 def test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live(tmp_path, version):
     paths = create_placement_vault(tmp_path / "vault", version=version)
     add_followup_item(paths.root)

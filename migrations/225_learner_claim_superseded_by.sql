@@ -1,0 +1,21 @@
+-- Replaced learner claims kept (successor mvp-0.36;
+-- docs/reviews/lp-learner-report-superseded.md): the claim that replaced this
+-- one, or NULL while it is in force.
+--
+-- Numbered 225, the next free number after main's 224; a stage landing first
+-- may take it, and the landing renumbers.
+--
+-- A learner report (a too_easy/too_hard retirement, a rung-variant request)
+-- or a new starting level replaces the earlier claim of its source on the
+-- same scope (the replace seam, Repository.delete_learner_claims below the
+-- successor). The earlier claim's live re-anchor had already moved mastery,
+-- so deleting it left replay unable to apply it, and a rebuild disagreed with
+-- live. From the successor on the seam keeps the row and records here the id
+-- of the claim that replaced it, written once in the transaction that writes
+-- the replacing claim (Repository.replace_learner_claim). Every live reader
+-- reads only rows with NULL here; replay reads every row and treats a
+-- replaced claim as in force only until the claim that replaced it was made.
+-- NULL on every row written below the successor (nothing was replaced then:
+-- the replaced rows were deleted).
+ALTER TABLE learner_claims ADD COLUMN superseded_by TEXT
+  CHECK (superseded_by IS NULL OR superseded_by <> id);

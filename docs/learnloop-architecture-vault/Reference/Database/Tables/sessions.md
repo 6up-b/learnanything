@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 224
+schema_head: 225
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,13 +21,14 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/ai/chatgpt_plan/oauth.py"
   - "src/learnloop/ai/isolation.py"
+  - "src/learnloop/ai/providers/codex_lockdown.py"
   - "src/learnloop/cli/hints.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -137,6 +138,7 @@ Indexes and uniqueness:
 - `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
 - `tests/recap_fixtures.py`
+- `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_ai_tool_isolation.py`
 - `tests/test_calibration_sessions.py`
 - `tests/test_contrast_pairs.py`
@@ -153,7 +155,6 @@ Indexes and uniqueness:
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_init.py`
-- `tests/test_library_exercises.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
