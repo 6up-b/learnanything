@@ -108,6 +108,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from learnloop.content.sources.math_text import contains_unicode_math, unicode_math_to_latex
 from learnloop.ingest.block_roles import figure_is_unsafe
 from learnloop.ingest.ir import DocumentBlock, is_figure_block, page_region, selection_region
 
@@ -566,12 +567,31 @@ def _contained(block_text: str, statement: str) -> tuple[bool, _Placement | None
     statement places it with no words after the statement in the block and,
     before it, none or only a label or heading (:func:`_is_label`; Codex
     re-review F1: "The answer is 4." is not one), or when the whole block is
-    a label (it prints no part of the statement). Anything else is doubt."""
+    a label (it prints no part of the statement). Anything else is doubt.
 
-    placed = _placement(block_text, statement)
-    if placed is not None and not placed.after and (not placed.before or _is_label(placed.before)):
-        return True, placed
+    The block is read as printed and, when it carries Unicode math, as the
+    import wrote it (:func:`_import_forms`): the same rule, never looser,
+    since each form is the block's own whole text."""
+
+    for form in _import_forms(block_text):
+        placed = _placement(form, statement)
+        if placed is not None and not placed.after and (not placed.before or _is_label(placed.before)):
+            return True, placed
     return (True, None) if _is_label(block_text) else (False, None)
+
+
+def _import_forms(block_text: str) -> list[str]:
+    """The block's text, and the text an import made of it when it carries
+    Unicode math (CA1 landing finding): ``exercise_authoring`` passes each
+    part through ``unicode_math_to_latex`` ("exist ∈ such that" becomes
+    "exist $\\in$ such that"), so a verbatim statement holds that form."""
+
+    forms = [block_text]
+    if contains_unicode_math(block_text):
+        converted, _changed = unicode_math_to_latex(block_text)
+        if converted != block_text:
+            forms.append(converted)
+    return forms
 
 
 def _answer_heading(text: str | None) -> str | None:

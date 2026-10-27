@@ -773,11 +773,51 @@ this landing**, and the decision is left to the orchestrator or owner.
 
 ### Open items
 
-* The Unicode-math containment finding above.
-* `test_query_student.py` builds its socket path under `tmp_path`. It fails
-  when `TMPDIR` is long (the gate's was 81 characters). A short per-test
-  runtime dir would make it independent of the runner's `TMPDIR`.
+* Closed by the follow-up below: the Unicode-math containment finding, and
+  the query-student `TMPDIR` fragility.
 * The owners' current imported items are unchanged by the branch: all 3 (LA)
   and 8 (probability) are still `page/no_geometry` on both sides.
 * Carried from above: the legacy residual and the warm `NO_CROP` stimulus
   figure (Redesign, owner questions 1 and 2).
+
+## Follow-up: Unicode math in containment (`fix/ca1-unicode-containment`, from main `c365b84f2`)
+
+**Fix.** `as_printed._contained` reads a block in two forms. One is its
+printed text. The other, when the block carries Unicode math, is the text
+the import wrote: `_import_forms` uses the same
+`contains_unicode_math` → `unicode_math_to_latex` call that
+`exercise_authoring` makes on each part. The functions are imported from
+`learnloop.content.sources.math_text`, as `reader.annotations` already does,
+so the import contracts are unchanged (36 kept). The containment test is
+otherwise exactly as before:
+
+* each form is the block's own whole text;
+* nothing may follow the statement;
+* only a label may come before it;
+* coverage still comes from what prints.
+
+**Tests** (`tests/test_reader_ca1_unicode_containment.py`):
+
+| Test | On main `c365b84f2` | Now |
+|---|---|---|
+| `test_a_verbatim_import_of_unicode_math_gets_its_free_crop` (the landing's case D: the prompt holds `$\lambda \in F$`, the block holds `λ ∈ 𝐅`) | `[]` (no crop) | crop `[["x1"]]` |
+| `test_containment_reads_the_converted_form_and_nothing_more` | fails | passes |
+| `test_an_answer_after_the_converted_statement_still_gives_no_free_crop` | `NO_CROP` | `NO_CROP` |
+| `test_a_statement_that_only_partly_covers_the_converted_block_gives_no_free_crop` | `NO_CROP` | `NO_CROP` |
+| `test_a_statement_reaching_past_what_prints_gives_no_free_crop` | `NO_CROP` | `NO_CROP` |
+
+The three `NO_CROP` cases are strictness guards. They cannot fail on main,
+which was stricter (it withheld every converted block); they pin that the
+fix loosens nothing. F1's regressions, including the 22 label cases, pass.
+
+**Query-student `TMPDIR`.** The fixture's short runtime dir is now made
+under `/tmp` whatever the runner's `TMPDIR`. With a 187-character `TMPDIR`,
+`tests/test_query_student.py` had 6 failures on main and 43 passed (8
+skipped) here.
+
+**Gate.** `lint-imports`: 36 kept, 0 broken. Targeted `pytest -n 6` over
+76 files (as_printed, span_view, exercise_authoring, import_exercises,
+block_original_region and source-exercise files, the contract tests, the
+spend envelopes, the new file and `test_query_student.py`): **2,092
+passed, 13 skipped, 0 failed** (3 min 38 s). Same rules: 5G scope,
+`flock`, `env -i` outside pytest, no live calls.

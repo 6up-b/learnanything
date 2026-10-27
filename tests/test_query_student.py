@@ -50,8 +50,9 @@ from tests.source_retrieval_fakes import HashingEmbedder, loaded
 def _fresh(monkeypatch, tmp_path):
     clear_cache()
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-    # A Unix socket path is at most 107 bytes: the runtime directory is a short temporary one.
-    short = Path(tempfile.mkdtemp(prefix="llq"))
+    # A Unix socket path is at most 107 bytes: the runtime directory is a short temporary one,
+    # under /tmp whatever the runner's TMPDIR (a long one pushed the socket past the limit).
+    short = Path(tempfile.mkdtemp(prefix="llq", dir="/tmp" if Path("/tmp").is_dir() else None))
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(short))
     E._ENCODERS.clear()
     yield short
