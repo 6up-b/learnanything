@@ -232,10 +232,21 @@ class PrintedOrigin:
     #: item's own in ``span_ids`` (empty when that can't be read: no free
     #: crop, the charged page only; Codex re-review F9). None: ``span_ids``.
     page_span_ids: tuple[str, ...] | None = None
+    #: Codex review of the Astra fixes, F2: the figures the problem was
+    #: imported with (its stimulus), kept for a check on your own (§15 Q10)
+    #: even when its text gives no free crop or the statement does not echo
+    #: the figure. None: the figures among ``span_ids``.
+    figure_span_ids: tuple[str, ...] | None = None
 
     @property
     def located_by(self) -> tuple[str, ...]:
         return self.span_ids if self.page_span_ids is None else self.page_span_ids
+
+    @property
+    def stimulus(self) -> tuple[str, ...]:
+        """The blocks a check on your own may crop figures from."""
+
+        return self.span_ids if self.figure_span_ids is None else self.figure_span_ids
 
 
 def _region(value: Any) -> tuple[int, Box] | None:
@@ -278,6 +289,8 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
     spans: list[str] = []
     #: Re-review F9: ``owned`` per block (absent: written before ownership was kept).
     ownership: dict[str, bool] = {}
+    #: Codex review F2: the figures a single-exercise import keeps as its stimulus.
+    stimulus: set[str] = set()
     regions: dict[str, tuple[int, Box]] = {}
     source_id: str | None = None
     for ref in getattr(provenance, "source_refs", None) or []:
@@ -295,6 +308,8 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
         owned = _ref_field(ref, "owned")
         if isinstance(owned, bool):
             ownership[span] = owned
+        if _ref_field(ref, "stimulus") is True:
+            stimulus.add(span)
         ref_id = _ref_field(ref, "ref_id")
         source_id = source_id or _ref_field(ref, "source_id") or (str(ref_id) if ref_id and ref_id != ref_extraction else None)
         region = _region(_ref_field(ref, "region"))
@@ -318,7 +333,8 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
     own = tuple(span for span in spans if ownership.get(span, False))
     return PrintedOrigin(extraction_id=extraction_id, span_ids=own, source_id=source_id,
                          regions={span: box for span, box in regions.items() if span in own},
-                         page_span_ids=tuple(spans))
+                         page_span_ids=tuple(spans),
+                         figure_span_ids=tuple(span for span in spans if span in own or span in stimulus))
 
 
 #: The leads that start a worked answer inside a block that began as the
@@ -344,46 +360,60 @@ def _find(tokens: list[str], part: list[str]) -> int:
     return -1
 
 
-def _outside_statement(block_text: str, statement: str) -> str | None:
-    """The words of a block that are not the item's statement, or None when
-    the two share no run of words (the block is not the statement's, or the
-    learner reworded it). The statement may sit inside the block, the block
-    inside the statement, or the two overlap at an edge (a statement over
-    several blocks); compared as whole words."""
+def _beside_statement(block_text: str, statement: str) -> tuple[str, str] | None:
+    """The words of a block before and after the item's statement, or None
+    when nothing places the statement in the block (they share no run of
+    words: the block is not the statement's, or the learner reworded it).
+    The statement may sit inside the block, the block inside the statement,
+    or the two overlap at an edge (a statement over several blocks);
+    compared as whole words, then, for a learner's edit that only moved
+    spaces ("2 + 2" for "2+2"), as the same characters without spaces."""
 
     block, stem = _tokens(block_text), _tokens(statement)
     if not block or not stem:
         return None
     if _find(stem, block) >= 0:
-        return ""
+        return "", ""
     at = _find(block, stem)
     if at >= 0:
-        return " ".join(block[:at] + block[at + len(stem):])
+        return " ".join(block[:at]), " ".join(block[at + len(stem):])
     for size in range(min(len(block), len(stem)) - 1, 0, -1):
         if block[-size:] == stem[:size]:
-            return " ".join(block[:-size])
+            return " ".join(block[:-size]), ""
         if block[:size] == stem[-size:]:
-            return " ".join(block[size:])
+            return "", " ".join(block[size:])
+    joined_block, joined_stem = "".join(block), "".join(stem)
+    if joined_block in joined_stem:
+        return "", ""
+    at = joined_block.find(joined_stem)
+    if at >= 0:
+        return joined_block[:at], joined_block[at + len(joined_stem):]
     return None
 
 
-def _holds_its_solution(block_text: str, statement: str, expected_answer: Any,
-                        leaks: LeakCheck | None = None) -> bool:
-    """Whether a block of the stem also holds the stem's solution: a solution
-    or proof lead starts one of its later parts, or (with ``leaks``, the
-    tutor's leak matcher ``tutor_qa.span_leaks_expected``) its text beside
-    the statement gives the expected answer away while the statement itself
-    does not."""
+def _stem_only(block_text: str, statement: str, expected_answer: Any, leaks: LeakCheck | None = None) -> bool:
+    """Whether a block of the problem is affirmatively its stem only, so it
+    may be cropped for free (Codex review of the Astra fixes, F1: a leak test
+    that finds nothing does not make a block safe; its matcher ignores a lone
+    digit or a short word). It is when the statement places it (inside the
+    statement, or the statement inside it) and every other word of it comes
+    before the statement (a label, a heading). Not when words follow the
+    statement in the block (an answer, a solution, a hint, the next
+    exercise), when nothing places it, when a solution or proof lead starts
+    a later part of it, or when (with ``leaks``, the tutor's leak matcher
+    ``tutor_qa.span_leaks_expected``) its words before the statement give the
+    expected answer away while the statement does not."""
 
     parts = [part for part in _PART_BREAK.split(str(block_text or "")) if part.strip()]
     if any(lead_role(part) in _ANSWER_LEADS for part in parts[1:]):
-        return True
-    rest = _outside_statement(block_text, statement)
-    if rest is None:
-        rest = " ".join(_tokens(block_text))
-    if not rest or leaks is None or expected_answer in (None, "", {}):
         return False
-    return leaks(rest, expected_answer) and not leaks(statement, expected_answer)
+    beside = _beside_statement(block_text, statement)
+    if beside is None or beside[1]:
+        return False
+    before = beside[0]
+    if not before or leaks is None or expected_answer in (None, "", {}):
+        return True
+    return not (leaks(before, expected_answer) and not leaks(statement, expected_answer))
 
 
 def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set[str]:
@@ -406,19 +436,20 @@ def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set
 def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin, *, roles: RoleReader | None = None,
                        leaks: LeakCheck | None = None) -> PrintedOrigin:
     """The origin with no solution in its free crop (module docstring, "Never
-    the solution"): solution blocks leave the crop's own blocks (and the
-    original page's outline); a block holding the stem and its solution
-    leaves no free crop. ``roles`` reads the blocks' effective roles (else
-    each block's stored hint); ``leaks`` the answer-leak matcher (else no
-    leak test). Fails closed: a guard that cannot be read leaves no free
-    crop, the original page still offered."""
+    the solution"): solution blocks leave the crop's own blocks, its figures
+    and the original page's outline; the crop is free only when every own
+    text block is affirmatively stem only (:func:`_stem_only`), else no free
+    crop. ``roles`` reads the blocks' effective roles (else each block's
+    stored hint); ``leaks`` the answer-leak matcher (else no leak test).
+    Fails closed: a guard that cannot be read leaves no free crop and no
+    figure, the original page still offered."""
 
-    if not origin.span_ids:
+    if not origin.span_ids and not origin.stimulus:
         return origin
-    no_crop = replace(origin, span_ids=(), regions={}, page_span_ids=origin.located_by)
+    no_crop = replace(origin, span_ids=(), regions={}, page_span_ids=origin.located_by, figure_span_ids=())
+    wanted = list(dict.fromkeys((*origin.located_by, *origin.stimulus)))
     try:
-        blocks = {block.span_id: block for block in repository.document_blocks(origin.extraction_id,
-                                                                               list(origin.located_by))}
+        blocks = {block.span_id: block for block in repository.document_blocks(origin.extraction_id, wanted)}
         with repository.connection() as connection:
             solution = _solution_span_ids(connection, str(getattr(item, "id", "")), origin.extraction_id)
             role_of = (dict(roles(connection, [(origin.extraction_id, span) for span in blocks])) if roles is not None
@@ -434,31 +465,34 @@ def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin, *, rol
 
     def solution_kind(span: str) -> str | None:
         """``"solution"``: a block of the book's solution (on its spans, or
-        led by "Solution"; a block in a solution region the statement does
-        not share). ``"unsure"``: a solution region's block the statement
-        shares words with (an exercise printed straight after the previous
-        one's solution reads as its body). None: not a solution."""
+        led by "Solution", sharing no words with the statement or wholly
+        inside it; a block in a solution region the statement does not
+        share). ``"unsure"``: a solution block that also holds words the
+        statement places beside its own (Codex review F3: part of the
+        problem with its answer; dropping it would print the problem in
+        part), or a solution region's block the statement shares words with
+        (an exercise printed straight after the previous one's solution
+        reads as its body). None: not a solution."""
 
         block = blocks.get(span)
+        beside = _beside_statement(block.text, statement) if block is not None else None
         if span in solution or (block is not None and lead_role(block.text) == "solution"):
-            return "solution"
+            return "solution" if beside is None or beside == ("", "") else "unsure"
         if role_of.get((origin.extraction_id, span)) != "solution":
             return None
-        shared = block is not None and _outside_statement(block.text, statement) is not None
-        return "unsure" if shared else "solution"
+        return "unsure" if beside is not None else "solution"
 
-    kinds = {span: solution_kind(span) for span in origin.located_by}
+    kinds = {span: solution_kind(span) for span in wanted}
     dropped = {span for span, kind in kinds.items() if kind == "solution"}
+    figures = tuple(span for span in origin.stimulus if span not in dropped)
     own = tuple(span for span in origin.span_ids if span not in dropped)
     located = tuple(span for span in origin.located_by if span not in dropped) or origin.located_by
-    if not own or any(kinds.get(span) == "unsure" for span in own) or any(
-            _holds_its_solution(blocks[span].text, statement, expected, leaks)
+    if not own or any(kinds.get(span) == "unsure" for span in own) or not all(
+            _stem_only(blocks[span].text, statement, expected, leaks)
             for span in own if span in blocks and not is_figure_block(blocks[span])):
-        return replace(no_crop, page_span_ids=located)
-    if not dropped:
-        return origin
+        return replace(no_crop, page_span_ids=located, figure_span_ids=figures)
     return replace(origin, span_ids=own, regions={span: box for span, box in origin.regions.items() if span in own},
-                   page_span_ids=located)
+                   page_span_ids=located, figure_span_ids=figures)
 
 
 def printed_origin(repository: Any, item: Any, *, roles: RoleReader | None = None,
@@ -623,15 +657,18 @@ def item_as_printed(
     if origin is not None:
         if origin.relation != "verbatim":
             return _none("variant", cold=cold)
-        if not origin.span_ids:
-            return _page_without_crop(repository, origin, source_title=source_title, cold=cold)
         if cold:
-            figures = printed_crops(repository, extraction_id=origin.extraction_id, span_ids=origin.span_ids,
-                                    render=render, figure_only=True, regions=origin.regions)
+            # Codex review F2: the stimulus figures, whether or not the text
+            # gives a free crop (the problem needs its figure to be answered).
+            figures = (printed_crops(repository, extraction_id=origin.extraction_id, span_ids=origin.stimulus,
+                                     render=render, figure_only=True, regions=origin.regions)
+                       if origin.stimulus else {"crops": []})
             if not figures["crops"]:
                 return _none("cold_check", cold=True)
             return {"enabled": True, "kind": KIND_FIGURE, "cold": True, "label": FIGURE_LABEL,
                     "status": figures["status"], "crops": figures["crops"]}
+        if not origin.span_ids:
+            return _page_without_crop(repository, origin, source_title=source_title, cold=cold)
         printed = printed_crops(repository, extraction_id=origin.extraction_id, span_ids=origin.span_ids,
                                 render=render, regions=origin.regions)
         title = source_title or "your book"

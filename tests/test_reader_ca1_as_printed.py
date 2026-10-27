@@ -105,6 +105,11 @@ def _make_canonical(root: Path, *, relation: str = "verbatim", spans: list[str] 
     payload = read_yaml(path)
     payload["canonical_exercise"] = {"source_id": "src_ca1", "revision_id": "rev_ca1", "extraction_id": EXTRACTION,
                                      "span_ids": spans or OWN, "label": "Exercise 6.1.12", "relation": relation}
+    # The statement is the exercise's text, as an import writes it (Codex
+    # review of the Astra fixes, F1: a block the statement does not place is
+    # never cropped for free).
+    payload["prompt"] = " ".join(f"block {span}" for span, kind, *_rest in LAYOUT
+                                 if span in (spans or OWN) and kind != "Figure")
     write_yaml(path, payload)
 
 
@@ -218,7 +223,7 @@ def test_the_practice_view_locates_the_problem_outside_a_check_and_records_nothi
     assert view["originalPage"] == {"extractionId": EXTRACTION, "spanId": "e1", "outlineSpanIds": ["e1", "e2", "f1"],
                                     "sourceId": "src_ca1"}
     assert view["transcriptionReport"] is True
-    assert all(crop["image"] is None for crop in view["crops"])            # no render asked: labels only
+    assert view["crops"] and all(crop["image"] is None for crop in view["crops"])   # no render asked: labels only
     rendered = _call(ctx, "practice.as_printed", {"practiceItemId": ITEM, "render": True})
     assert all(crop["image"] for crop in rendered["crops"])
     assert _exposures(repository) == before                               # the crop is the stem: no exposure

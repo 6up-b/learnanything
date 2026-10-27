@@ -278,6 +278,7 @@ def test_a_canonical_exercise_never_crops_a_solution_block_it_names(solved, warm
     payload = read_yaml(path)
     payload["canonical_exercise"] = {"source_id": "src_sol", "revision_id": "rev_sol", "extraction_id": SOL,
                                      "span_ids": ["p1", "q1"], "label": "Exercise 3", "relation": "verbatim"}
+    payload["prompt"] = "Compute 2+2."               # the exercise's statement, as the import writes it
     write_yaml(path, payload)
     view = _view(ctx, ITEM)
     assert [crop["spanIds"] for crop in view["crops"]] == [["p1"]]

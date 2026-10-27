@@ -42,7 +42,7 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.ingest.ir import selection_region
+from learnloop.ingest.ir import is_figure_block, selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
     LEGACY_UNMAPPED,
@@ -172,7 +172,8 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
 
 def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
                  ranges: Sequence[tuple[int, int] | None], index: int, *,
-                 span_ids: Sequence[str] = (), text_length: int | None = None) -> set[str]:
+                 span_ids: Sequence[str] = (), text_length: int | None = None,
+                 figures: Sequence[str] = ()) -> set[str]:
     """Reader CA1 (Codex re-review F9, final verify F9; Astra batch review,
     owner 2026-10-26): the blocks one item is printed from, when they are its
     alone. A single-exercise import is no exception: its blocks are the ones
@@ -191,7 +192,12 @@ def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
     that one item whose statement is the whole edited text is printed from
     the whole selection (``span_ids``; the capture editor's OCR fix of the
     passage the learner selected). Solution blocks are never cropped, whatever
-    is marked here (``reader.as_printed``, read time)."""
+    is marked here (``reader.as_printed``, read time).
+
+    Codex review of the Astra fixes, F2: a single item whose statement owns
+    a block also owns the selection's ``figures``, its stimulus ("the graph
+    shown"), whether or not the statement echoes the figure's text; a split
+    leaves a figure to the item whose statement covers it."""
 
     if any(found is None for found in ranges):
         return set()
@@ -204,22 +210,29 @@ def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
         return {span for span, part_start, part_end in part_ranges if part_start < end and start < part_end}
 
     mine = blocks(ranges[index])
+    if len(ranges) == 1:
+        return mine | set(figures) if mine else set()
     others = set().union(*(blocks(found) for other, found in enumerate(ranges) if other != index))
     return set() if mine & others else mine
 
 
 def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *,
-               owned: set[str]) -> list[dict[str, Any]]:
+               owned: set[str], stimulus: set[str] = frozenset()) -> list[dict[str, Any]]:
     """One item's copy of the selection's refs. Every block stays a ref (the
     selection is the item's provenance), and each ref says whether that block
     is this item's own (``owned``), so its print never crops another item's
     exercise (Codex re-review F9). Every import records it, split or not: a
     Reader import without it was written before ownership was kept, and its
-    crop is not shown as its own (final verify F9)."""
+    crop is not shown as its own (final verify F9). A figure a single
+    exercise was imported with is marked its ``stimulus`` (Codex review F2),
+    which a check on your own shows even when the problem's text gives no
+    free crop (a paraphrased statement, an answer in the stem's block)."""
 
     refs = [json.loads(json.dumps(ref)) for ref in source_refs]
     for ref, span_id in zip(refs, span_ids):
         ref["owned"] = span_id in owned
+        if span_id in stimulus:
+            ref["stimulus"] = True
     return refs
 
 
@@ -561,6 +574,10 @@ def author_exercises(
     # blocks are an item's alone (final verify F9); a single item's slice
     # decides its own (Astra batch review).
     anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
+    # Codex review F2: the selection's figures, a single exercise's stimulus.
+    figures = [block.span_id for block in (getattr(ir, "blocks", None) or [])
+               if block.span_id in span_ids and is_figure_block(block)] if ir is not None else []
+    stimulus = set(figures) if len(result.items) == 1 else set()
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
@@ -708,7 +725,8 @@ def author_exercises(
             "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
                 source_refs, span_ids,
                 owned=_owned_spans(part_ranges, anchored, ordinal - 1, span_ids=span_ids,
-                                   text_length=len(exercise_text)))},
+                                   text_length=len(exercise_text), figures=figures),
+                stimulus=stimulus)},
             "created_at": now,
             "updated_at": now,
         }
