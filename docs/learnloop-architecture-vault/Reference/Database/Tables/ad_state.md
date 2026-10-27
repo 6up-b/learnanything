@@ -3,8 +3,8 @@ title: "ad_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
-source_commit_timestamp: "2026-10-27T10:26:00-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_state"
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_migration.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
+- `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_architecture.py`
 - `tests/test_rebuild_orchestrator.py`
 

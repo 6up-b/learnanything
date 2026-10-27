@@ -3,8 +3,8 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
-source_commit_timestamp: "2026-10-27T10:26:00-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/schemas.py"
   - "src/learnloop/attempts/attempts.py"
@@ -137,6 +138,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_exam_session.py`
 - `tests/test_grade_resolution_pipeline.py`

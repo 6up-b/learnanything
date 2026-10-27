@@ -3,8 +3,8 @@ title: "Config - ui"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47d547fbf49615c63acfc293b37e60349d38119a"
-source_commit_timestamp: "2026-10-27T10:26:00-04:00"
+source_commit: "436b3cec90ff96f82f1c03d5a3d1a02eded67014"
+source_commit_timestamp: "2026-10-27T13:58:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ui"
@@ -24,6 +24,7 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_ai_runtime.py"
   - "tests/test_chatgpt_plan_workspace.py"
+  - "tests/test_codex_cli_0164_lockdown.py"
   - "tests/test_codex_isolation_mcp_check.py"
   - "tests/test_codex_lockdown_frozen.py"
   - "tests/test_codex_lockdown_round2.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_codex_tool_lockdown.py"
   - "tests/test_diagnosis_input_provenance.py"
   - "tests/test_diagnosis_isolation.py"
-  - "tests/test_e0_credentials.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ui"
@@ -66,6 +66,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_ai_runtime.py`
 - `tests/test_chatgpt_plan_workspace.py`
+- `tests/test_codex_cli_0164_lockdown.py`
 - `tests/test_codex_isolation_mcp_check.py`
 - `tests/test_codex_lockdown_frozen.py`
 - `tests/test_codex_lockdown_round2.py`
@@ -73,7 +74,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_codex_tool_lockdown.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_isolation.py`
-- `tests/test_e0_credentials.py`
 
 ## Extension and modification guidance
 
