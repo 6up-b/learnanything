@@ -1184,6 +1184,7 @@ def compare(
     open_source_id: str | None = None,
     requested_perspectives: Sequence[str] = (),
     scope: Mapping[str, Any] | None = None,
+    bind: Callable[[Callable[[], None], Sequence[str], str | None], Mapping[str, Any]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Compare the pinned passages through the service's ``compare_sources``.
@@ -1195,6 +1196,15 @@ def compare(
     books (``source_ids``) only narrow what is compared, and with neither,
     every book in scope with a passage is compared, as ``compare_sources``
     does. The table says which door it came through and what was asked.
+
+    ``bind`` (Reader CA3, Codex final verify F12; None otherwise, so the ask
+    is bound at once, as RW4a/RW4d do): the job's fence. It is given the
+    write that binds this result to the ask (its stored comparison's id, its
+    requested perspectives), every passage the comparison read
+    (:func:`compared_passage_keys`) and the stored id, if any, and returns
+    the fields the table carries for them. A job cancelled or superseded by
+    a newer comparison of the ask writes nothing, so the comparison shown
+    keeps resolving whichever job finishes last.
 
     ``requested_perspectives`` (RW4d, only while ``reader_compare.keep_enabled``
     is on; empty otherwise, so the call and the table are RW4a's) are passed to
@@ -1231,11 +1241,19 @@ def compare(
         extra["requested_perspectives"] = perspectives
     comparison = compare_sources(row["query"], pinned_span_keys=pins, **extra)
     payload = comparison.as_dict() if hasattr(comparison, "as_dict") else dict(comparison)
-    if payload.get("comparison_id"):
-        _update(repository, ask_id, comparison_id=payload["comparison_id"])
-    if perspectives:
-        _update(repository, ask_id, requested_perspectives_json=json.dumps(perspectives))
     table = compare_table(payload, first_source_id=open_source_id)
+
+    def write_binding() -> None:
+        if payload.get("comparison_id"):
+            _update(repository, ask_id, comparison_id=payload["comparison_id"])
+        if perspectives:
+            _update(repository, ask_id, requested_perspectives_json=json.dumps(perspectives))
+
+    if bind is None:
+        write_binding()
+    else:
+        table.update(bind(write_binding, compared_passage_keys(payload, table),
+                          str(payload["comparison_id"]) if payload.get("comparison_id") else None))
     if perspectives:
         table["requested_perspectives"] = perspectives
         table["missing_perspectives"] = [str(value) for value in payload.get("missing_perspectives") or ()]
@@ -1288,6 +1306,22 @@ class OnlyPinned:
         if len(kept) != len(spans):
             manifest["references_left_out"] = len(spans) - len(kept)
         return kept, manifest
+
+
+def compared_passage_keys(payload: Mapping[str, Any], table: Mapping[str, Any]) -> list[str]:
+    """Every passage a comparison read, as ``extraction:span`` keys, the
+    anchor first: the service's own record (``counterpart_keys``, what a
+    stored comparison keeps too), else the table's rows (each row's passage,
+    every block of an anchor of several). Server-side only: the tutor about a
+    comparison that was not stored reads these, never keys the client sends
+    (Codex final verify F10)."""
+
+    recorded = (payload.get("manifest") or {}).get("counterpart_keys") or ()
+    keys = [f"{key[0]}:{key[1]}" for key in recorded if isinstance(key, (list, tuple)) and len(key) == 2]
+    if not keys:
+        keys = [key for row in table.get("rows") or () for key in (row.get("span_keys") or [row.get("key")])
+                if ":" in str(key or "")]
+    return _keys(keys)
 
 
 def comparison_passage_keys(repository: Repository, ask_id: str, comparison_id: str) -> list[str]:
@@ -1398,6 +1432,7 @@ __all__ = [
     "compare",
     "compare_enabled",
     "compare_table",
+    "compared_passage_keys",
     "comparison_passage_keys",
     "group_hits",
     "open_comparison",

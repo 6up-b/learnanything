@@ -5,8 +5,8 @@ blocks (the selection's own bound) and one passage per compared book. The
 tutor about a stored comparison names it (``comparisonId``): the server reads
 every passage it compared from the stored comparison, so its size never meets
 a request bound, and the tutor's context budget says what it left out. One
-that was not stored (fewer than two books) shows at most an anchor's blocks,
-the bound the request's keys take. A comparison id that is not the ask's own
+that was not stored is named by the passages the server kept for it
+(``passagesId``, Codex final verify F10, tests/test_reader_ca3_codex_round3.py). A comparison id that is not the ask's own
 is refused; while CA3 is off the tutor's request is today's exactly.
 
 Every model is a fake (no network).
@@ -81,10 +81,11 @@ def test_f10_the_tutor_reads_every_passage_of_a_comparison_larger_than_a_pin_set
     prompt = tutor.prompts[0]
     spans = json.loads(prompt[prompt.index("{"):])["context"]["source_spans"]
     assert {f"{s['extraction_id']}:{s['span_id']}" for s in spans} == given
-    # Keys sent in the request keep a bound: an anchor's (the most an unstored comparison shows).
+    # Keys sent in the request keep the pins' bound (Codex final verify F10: a
+    # comparison's passages never travel in the request).
     with pytest.raises(ValidationError):
         call(ctx, "reader.library_ask_tutor", {"askId": table["askId"],
-                                               "pinnedSpanKeys": [f"ext_long:x{n}" for n in range(41)]})
+                                               "pinnedSpanKeys": [f"ext_long:x{n}" for n in range(21)]})
 
 
 def test_f10_a_comparison_of_one_book_is_asked_about_by_its_passages(library):
@@ -96,7 +97,8 @@ def test_f10_a_comparison_of_one_book_is_asked_about_by_its_passages(library):
     assert table["status"] == "too_few_sources" and not table.get("comparisonId")
     shown = _shown_keys(table)
     assert len(shown) == BLOCKS > 20
-    answer = call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "pinnedSpanKeys": shown})
+    # Codex final verify F10: its passages are the server's, named by one id (never sent as keys).
+    answer = call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "passagesId": table["passagesId"]})
     assert set(answer["groundedKeys"]) | _left_out(answer) == set(shown)
 
 

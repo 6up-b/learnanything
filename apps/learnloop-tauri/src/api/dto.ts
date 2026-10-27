@@ -9021,6 +9021,10 @@ export interface CompareTableDto {
   scope?: { door: CompareDoor; question: string; sourceIds: string[]; anchorKeys: string[] };
   /** Reader CA3: the books this comparison could read, for "+ add a book". */
   library?: LibraryBookDto[];
+  /** Reader CA3 (Codex final verify F10): a comparison that was not stored (no
+   *  `comparisonId`): its passages, kept on the server under this id, which
+   *  the tutor about it names (its passages never travel in the request). */
+  passagesId?: string;
 }
 
 // ── Reader CA3: compare from anywhere (ux_reader_compare_ask_v1 §4, K12) ──

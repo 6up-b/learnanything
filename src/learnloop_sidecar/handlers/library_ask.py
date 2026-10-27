@@ -197,22 +197,82 @@ def _as_sidecar_error(exc: BaseException) -> SidecarError:
                         retryable=True)
 
 
+def fenced(job: _Job, write: Callable[[], Any]) -> bool:
+    """Run ``write`` (a job's binding of its result to its ask) unless the job
+    is cancelled; False when it was. Under the job's lock, so a cancel (or a
+    newer job superseding it) and the write never interleave: once a job is
+    cancelled it binds nothing (Reader CA3, Codex final verify F12)."""
+
+    with job.lock:
+        if job.cancelled:
+            return False
+        write()
+        return True
+
+
 class LibraryJobs:
-    """Library jobs in flight and just finished, kept for reading back (in memory)."""
+    """Library jobs in flight and just finished, kept for reading back (in memory).
+
+    Reader CA3 (Codex final verify F10): also the passages of each ask's
+    latest comparison that was not stored (its comparison step skipped or
+    unavailable, or fewer than two books), under their own id, so the tutor
+    about it reads every one of them from the server. A stored comparison is
+    named by its durable id instead; these are kept as long as the sidecar
+    runs (as many asks as jobs are kept), and one no longer kept is said so."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
+        #: ask id -> (passages id, every passage its latest unstored comparison read).
+        self._passages: dict[str, tuple[str, list[str]]] = {}
+
+    def remember_passages(self, ask_id: str, keys: list[str]) -> str:
+        from learnloop.ids import new_ulid
+
+        passages_id = f"cmpp_{new_ulid()}"
+        with self._lock:
+            self._passages.pop(ask_id, None)
+            self._passages[ask_id] = (passages_id, list(keys))
+            while len(self._passages) > MAX_KEPT_JOBS:
+                self._passages.pop(next(iter(self._passages)))
+        return passages_id
+
+    def forget_passages(self, ask_id: str) -> None:
+        """The ask now shows a stored comparison: its unstored one is no longer shown."""
+
+        with self._lock:
+            self._passages.pop(ask_id, None)
+
+    def passages(self, ask_id: str) -> tuple[str, list[str]] | None:
+        with self._lock:
+            found = self._passages.get(ask_id)
+        return None if found is None else (found[0], list(found[1]))
 
     def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
-              deliver: Deliver | None = None) -> _Job:
+              deliver: Deliver | None = None, supersede: bool = False,
+              on_job: Callable[[_Job], None] | None = None) -> _Job:
+        """``supersede`` (Reader CA3, Codex final verify F12): this job
+        replaces the unfinished jobs of its kind for the same ask (a
+        refinement of a comparison): they are cancelled, so none of them
+        answers or binds after this one started, even when the frontend's own
+        cancel comes late. ``on_job`` is given the job before its work runs."""
+
         from learnloop.ids import new_ulid
 
         job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic(), deliver=deliver)
         with self._lock:
+            older = [other for other in self._kept.values() if supersede and ask_id is not None
+                     and other.kind == kind and other.ask_id == ask_id and not other.done.is_set()]
             self._kept[job.job_id] = job
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
+        # Each under its own lock only (a fenced write holds its job's lock
+        # and may take this one's), before this job's work starts.
+        for other in older:
+            with other.lock:
+                other.cancelled = True
+        if on_job is not None:
+            on_job(job)
         _vault, repository = ctx.require_vault()
         sqlite_path = repository.sqlite_path
 
@@ -290,8 +350,10 @@ def _job_payload(job: _Job) -> dict[str, Any]:
 
 
 def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
-           deliver: Deliver | None = None) -> dict[str, Any]:
-    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver))
+           deliver: Deliver | None = None, supersede: bool = False,
+           on_job: Callable[[_Job], None] | None = None) -> dict[str, Any]:
+    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver, supersede=supersede,
+                                         on_job=on_job))
 
 
 def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -429,11 +491,10 @@ def reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> 
     return _start(ctx, "notes", params.ask_id, work)
 
 
-#: An anchor's blocks: the selection a comparison may start from. It is also
-#: the most passages a comparison that is not stored can show (fewer than two
-#: books compared: the anchor's blocks, or one passage), so the tutor about
-#: such a comparison takes as many keys (Codex re-review F10); a stored one is
-#: named by its id instead and has no request bound. A request-size guardrail.
+#: An anchor's blocks: the selection a comparison may start from. A
+#: request-size guardrail. The tutor about a comparison never sends its
+#: passages (Codex final verify F10): it names the comparison (stored) or its
+#: passages kept on the server (not stored), so no request bound limits it.
 ANCHOR_SPANS_MAX = 40
 
 
@@ -521,6 +582,27 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
         raise SidecarError("reader_compare_keep_disabled",
                            "Requested perspectives are switched off (reader_compare.keep_enabled is false).")
     scope = _door_scope(repository, row, params) if scoped else None
+    jobs = _jobs(ctx)
+    #: The job this request runs as (given before its work starts).
+    running: dict[str, _Job] = {}
+
+    def bind(write: Callable[[], None], passage_keys: Any, comparison_id: str | None) -> dict[str, Any]:
+        """CA3 (Codex final verify F10, F12): the result binds its ask only
+        while its job is live (not cancelled, not superseded by a newer
+        comparison of the ask); a comparison that was not stored keeps its
+        passages on the server, named by their own id."""
+
+        bound: dict[str, Any] = {}
+
+        def binding() -> None:
+            write()
+            if comparison_id is None and passage_keys:
+                bound["passages_id"] = jobs.remember_passages(ask_id, list(passage_keys))
+            else:
+                jobs.forget_passages(ask_id)
+
+        fenced(running["job"], binding)
+        return bound
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def bound_compare(query: str, **kwargs: Any) -> Any:
@@ -534,7 +616,7 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
             table = LA.compare(vault, worker_repo, ask_id, pinned_keys=params.pinned_span_keys,
                                compare_sources=bound_compare, record_shown=shown,
                                open_source_id=params.open_source_id, requested_perspectives=perspectives,
-                               **({"scope": scope} if scope is not None else {}))
+                               **({"scope": scope, "bind": bind} if scope is not None else {}))
         except PolicyRefused as exc:
             raise SidecarError(exc.code, "That book isn't one this comparison may read here."
                                if exc.code == "scope_refused" else str(exc)) from exc
@@ -550,8 +632,10 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
 
     # RW4d's whole-comparison withholding at delivery is installed only while
     # keeping is on: off, the compare job is 3988cf778's (fix round 6, F4).
+    # CA3 (F12): a newer comparison of the ask supersedes the older ones (off: today's jobs).
     return _start(ctx, "compare", ask_id, work,
-                  deliver=(lambda result: deliver_comparison(ctx, ask_id, result)) if keep else None)
+                  deliver=(lambda result: deliver_comparison(ctx, ask_id, result)) if keep else None,
+                  supersede=scope is not None, on_job=lambda job: running.update(job=job))
 
 
 def _open_for_door(ctx: SidecarContext, vault: Any, repository: Any, params: LibraryCompareInput) -> str:
@@ -613,19 +697,21 @@ class _PinnedTutorInput(ParamsModel):
 class LibraryAskTutorInput(ParamsModel):
     """The tutor over the pins, or (Reader CA3) over the comparison shown.
 
-    ``comparison_id`` (only while ``reader_compare.scope_enabled`` is on;
-    refused as unknown while off): the comparison this ask shows. The server
-    reads every passage it compared from the stored comparison (Codex
-    re-review F10), so a comparison larger than a pin set (an anchor of many
-    blocks and one passage per book) is answered from whole, the tutor's
-    context budget saying what it left out. ``pinned_span_keys``: the pins, or
-    the passages of a comparison that was not stored (fewer than two books:
-    at most an anchor's blocks, hence its bound); added to a named one."""
+    Only while ``reader_compare.scope_enabled`` is on (refused as unknown
+    while off), one of: ``comparison_id``, the stored comparison this ask
+    shows, whose passages the server reads from the stored comparison (Codex
+    re-review F10); ``passages_id``, the comparison this ask shows that was
+    not stored, whose passages the server kept when it showed it (Codex final
+    verify F10). Either way every passage it compared (an anchor of up to 40
+    blocks and one passage per book) is answered from, the tutor's context
+    budget saying what it left out, and no passage of it travels in the
+    request. ``pinned_span_keys``: the pins (today's bound), added to it."""
 
     ask_id: str
-    pinned_span_keys: list[str] = Field(default_factory=list, max_length=ANCHOR_SPANS_MAX)
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
     question: str | None = Field(default=None, max_length=4000)
     comparison_id: str | None = None
+    passages_id: str | None = None
 
 
 @method("reader.library_ask_tutor", LibraryAskTutorInput)
@@ -646,12 +732,21 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
         _PinnedTutorInput.model_validate(params.model_dump(exclude_defaults=True))
     row = _ask_row(repository, params.ask_id)
     pinned_keys = list(params.pinned_span_keys)
+    if params.comparison_id is not None and params.passages_id is not None:
+        raise SidecarError("validation_error", "Ask about one comparison: its id or its passages, not both.")
     if params.comparison_id is not None:
         try:
             compared = LA.comparison_passage_keys(repository, params.ask_id, params.comparison_id)
         except LA.LibraryAskError as exc:
             raise SidecarError(exc.code, str(exc)) from exc
         pinned_keys = list(dict.fromkeys([*compared, *pinned_keys]))
+    elif params.passages_id is not None:
+        kept = _jobs(ctx).passages(params.ask_id)
+        if kept is None:
+            raise SidecarError("not_found", "That comparison is no longer kept; compare again.")
+        if kept[0] != params.passages_id:
+            raise SidecarError("validation_error", "That comparison isn't the one this question shows.")
+        pinned_keys = list(dict.fromkeys([*kept[1], *pinned_keys]))
     if not pinned_keys:
         raise SidecarError("validation_error", "Pin the passages the tutor should answer from.")
     caller = follow_up_caller(vault, repository, row)

@@ -283,9 +283,10 @@ it("F5: compare these books has refine, previous and the tutor over the compared
 });
 
 it("F5: a comparison's tutor uses every block of an anchor of several blocks", async () => {
-  // Not stored (no comparisonId): its passages are sent, every block of the anchor.
+  // Not stored (no comparisonId): the server kept its passages, every block of
+  // the anchor, and the tutor names them (Codex final verify F10).
   api.readerLibraryCompare.mockResolvedValue(done(table({
-    comparisonId: null,
+    comparisonId: null, passagesId: "cmpp_1",
     rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: "ext_m:m1", spanKeys: ["ext_m:m1", "ext_m:m2"] }, table().rows[1]],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: ["ext_m:m1", "ext_m:m2"] },
   })));
@@ -300,7 +301,7 @@ it("F5: a comparison's tutor uses every block of an anchor of several blocks", a
   api.readerLibraryAskTutor.mockResolvedValue(done(tutorAnswer("both"), "tutor"));
   fireEvent.keyDown(within(pane).getByRole("textbox", { name: "your question for the tutor about this comparison" }), { key: "Enter", ctrlKey: true });
   await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
-  expect(api.readerLibraryAskTutor.mock.calls[0][0].pinnedSpanKeys).toEqual(["ext_m:m1", "ext_m:m2", "ext_s:s1"]);
+  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toMatchObject({ askId: "la_c", passagesId: "cmpp_1", pinnedSpanKeys: [] });
 });
 
 it("F6: changing the books clears (and cancels) the tutor's answer about the earlier comparison", async () => {
@@ -411,6 +412,32 @@ it("re-review F10: a stored comparison of any size reaches the tutor by its id, 
   expect(await within(pane).findByText("from the whole comparison")).toBeTruthy();
   expect(within(pane).getByText(
     `${SCOPE_COPY.tutorLeftOut(2, "over the tutor's context budget")} · ${SCOPE_COPY.tutorLeftOut(1, "it is exam material")}`)).toBeTruthy();
+});
+
+it("final verify F10: a comparison not stored, of more passages than any request bound, reaches the tutor by its passages' id", async () => {
+  // The reported scenario: a 40-block anchor and one counterpart, the comparison step skipped.
+  const blocks = Array.from({ length: 40 }, (_, n) => `ext_m:m${n + 1}`);
+  api.readerLibraryCompare.mockResolvedValue(done(table({
+    status: "skipped: source_compare is off", comparisonId: null, passagesId: "cmpp_41",
+    rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: blocks[0], spanKeys: blocks, contributes: [] },
+      { ...table().rows[1], contributes: [] }],
+    scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: blocks },
+  })));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  select(await screen.findByText(PROSE));
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.click(within(palette).getByRole("button", { name: "how do my other books treat this?" }));
+  const pane = await screen.findByRole("region", { name: "compare your books" });
+  // The comparison step could not run, but the tutor about its passages stays available.
+  const tutor = await within(pane).findByRole("textbox", { name: "your question for the tutor about this comparison" });
+  api.readerLibraryAskTutor.mockResolvedValue(done(tutorAnswer("from all 41 passages"), "tutor"));
+  fireEvent.keyDown(tutor, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
+  // Named by the server's id: none of its 41 passages travels in the request.
+  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toEqual({ askId: "la_c", pinnedSpanKeys: [], passagesId: "cmpp_41", question: null });
+  expect(await within(pane).findByText("from all 41 passages")).toBeTruthy();
 });
 
 it("re-review F11: the focused comparison region takes / and Ctrl+Enter", async () => {

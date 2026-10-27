@@ -230,3 +230,118 @@ reproduced (a failing test first) and are fixed.
   `api/client.ts` (`readerLibraryAskTutor` input), and
   `src/learnloop_sidecar/handlers/library_ask.py` (`ANCHOR_SPANS_MAX`,
   `_PinnedTutorInput`, `comparisonId`). Expect the CA5a merge there.
+
+## Round 3: final verify (codex-job 20261027-190623-5y4LdE, VERDICT: REOPENED)
+
+The final verify confirmed F1 and F11 fixed. It reopened F10 and raised F12. Both
+were reproduced with a failing test first and are fixed by one design: every
+comparison result the Reader can show resolves through a server-side record of
+its ask and its passages, and a cancelled or superseded comparison job cannot
+change that record.
+
+| id | severity | title | verdict | test |
+|----|----------|-------|---------|------|
+| F10 | Medium | Unstored multi-source comparisons still exceed the tutor RPC limit (reopened) | fixed | `tests/test_reader_ca3_codex_round3.py` (5 F10 tests); vitest `compareScopeCodexReview.test.tsx` "final verify F10", F5 test updated |
+| F12 | Medium | A cancelled refinement invalidates the displayed comparison's tutor action | fixed | `tests/test_reader_ca3_codex_round3.py` (3 F12 tests: cancelled, superseded, unsuperseded) |
+
+### F10 (reopened): what changed
+
+- Reproduced: a 40-block anchor in a synthetic book, one named counterpart, and the
+  comparison step skipped (`route_skip` faked to "skipped: source_compare is off").
+  The table had two rows, status `skipped`, no `comparisonId` and 41 passages, so
+  the hook's expansion into `pinnedSpanKeys` exceeded the tutor's bound of 40. The
+  new backend test failed (no way to name the comparison), and the new vitest
+  failed against the old hook (it sent the 41 keys).
+- The server now keeps the passages of a comparison that was not stored. While
+  `reader_compare.scope_enabled` is on, the compare job's result binds through a
+  callback (`LA.compare(..., bind=...)`). For a result with no stored comparison
+  it records every passage the comparison read (`LA.compared_passage_keys`: the
+  service's own `counterpart_keys`, the anchor first, else the table's rows) in
+  the sidecar's `LibraryJobs`, under a new id (`cmpp_…`). The table carries it
+  as `passagesId`. The record holds one entry per ask, for that ask's latest
+  unstored comparison; a stored comparison binding the ask removes it.
+- `reader.library_ask_tutor` takes `passagesId`, only while CA3 is on (today's
+  `_PinnedTutorInput` still refuses it while off). A `passagesId` that is not the
+  ask's current one is refused (`validation_error`). If the sidecar no longer holds
+  the record, the request is refused with "compare again" (`not_found`). Naming
+  both `comparisonId` and `passagesId` is refused. The passages are grounded
+  exactly as a stored comparison's are: the tutor's context budget decides what is
+  left out, and the answer says so.
+- No passage of a comparison travels in the request any more, so the tutor's
+  `pinned_span_keys` is back to the pins' bound of 20 (`ANCHOR_SPANS_MAX` stays
+  the bound on the compare request's anchor). The frontend sends
+  `{askId, comparisonId}` for a stored comparison and `{askId, passagesId}` for
+  one that was not stored, with `pinnedSpanKeys: []` either way.
+- Limitation: the unstored record is in memory, kept as long as the sidecar
+  runs (for as many asks as jobs are kept, 64). After a sidecar replacement the
+  tutor says "compare again" instead of answering. A stored comparison stays
+  durable through `source_comparisons`. Making the unstored record durable too
+  would take a column or table (migration 227), which this round did not add (see
+  the open question below).
+
+### F12: what changed
+
+- Reproduced: on one ask, refinement A (gated in its fake `propose_comparison`)
+  was started and cancelled, and refinement B was started and finished (stored
+  comparison shown). Then A was released. A's `compare()` overwrote
+  `library_asks.comparison_id`, and the tutor request for the displayed B failed
+  with "That comparison isn't the one this question shows." The same overwrite also
+  breaks Keep of B. In the second variant (no explicit cancel) A's job also read
+  as `done`.
+- Fence: the binding writes (the ask's `comparison_id`, its
+  `requested_perspectives_json`, the unstored passages record) run inside
+  `fenced(job, ...)`, under the job's lock. A cancelled job binds nothing, and
+  because cancel takes the same lock, a cancel and a write never interleave.
+- Supersession: while CA3 is on, a compare job supersedes (cancels) the unfinished
+  compare jobs of the same ask when it starts (`LibraryJobs.start(...,
+  supersede=True)`). So a superseded job never answers or binds, even when the
+  frontend's own cancel arrives late (its start was still in flight). Older jobs
+  are cancelled outside the jobs lock, so the lock order (job lock, then jobs
+  lock, taken by a fenced passages write) cannot deadlock.
+- The comparison shown therefore keeps resolving, for the tutor and for Keep,
+  whichever job finishes last. A refinement that finishes without being
+  superseded binds as before, and the earlier comparison is no longer the ask's.
+- CA3 off: no `bind`, no supersession. The compare job and its binding are
+  today's.
+
+### Gate (round 3)
+
+- `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+- Targeted pytest, `flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6 <34 files>`:
+  **769 passed**. Files: the 31 of the re-review round, plus
+  tests/test_reader_ca3_codex_round3.py (new, 8 tests), tests/test_compare_sources.py and
+  tests/test_compare_sources_keep.py.
+- Frontend (apps/learnloop-tauri, each command in the 5G scope):
+  `npx vitest run --maxWorkers=4 src/screens/reader`: **88 files, 827 passed**.
+  `npm run typecheck` was clean, and `npm run frontend:build` built.
+- Reproductions: before the fix, the new F10 backend test failed (there was no
+  `passagesId`). Both F12 variants failed: the cancelled one with "That comparison
+  isn't the one this question shows.", the superseded one because the older job
+  read `done`. Both new or updated vitest cases failed against the hook at 807a0bb7c,
+  which sent the 41 or 3 expanded keys.
+- Not run: no migration, schema, config or src-tauri change, so no durability lane,
+  DB reference scripts or cargo check. The full suite was not run; it runs once in
+  the landing gate.
+- No live calls: every model in these tests is a fake.
+
+### Open question for the owner (round 3)
+
+- An unstored comparison's passages are held in the sidecar's memory. After a
+  sidecar replacement, the tutor about such a comparison says "compare again".
+  Making them durable would need migration 227 (for example a `library_asks`
+  column holding the shown comparison's passages). This round did not add it.
+- The same supersession race exists while CA3 is off (RW4d's pins compare). A
+  cancelled older compare job still rebinds `library_asks.comparison_id`, so Keep
+  of the comparison shown can be refused as stale. The fence is installed only
+  while CA3 is on, so that the CA3-off behaviour stays today's. Applying it with
+  CA3 off as well is a one-line change if wanted.
+
+### For the landing (round 3)
+
+- This round touched `src/learnloop_sidecar/handlers/library_ask.py` (`fenced`,
+  `LibraryJobs` passages record and `supersede`, the compare `bind`, tutor
+  `passages_id`, the tutor pins' bound back to 20) and
+  `src/learnloop/source_retrieval/library_ask.py` (`compare(..., bind=)`,
+  `compared_passage_keys`). On the frontend it touched `useLibraryAsk.ts`
+  (`askTutor`), `api/dto.ts` (`CompareTableDto.passagesId`) and `api/client.ts`.
+  Expect the CA5a merge in `useLibraryAsk.ts`.

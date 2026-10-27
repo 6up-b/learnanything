@@ -683,26 +683,28 @@ export function useLibraryAsk({
   /** The tutor over the pins, or (CA3, `about: "comparison"`) over the
    *  comparison shown: its passages, every block of an anchor (Codex review F4,
    *  F5), whatever is pinned. A comparison with no library answer asks about it.
-   *  A stored comparison is named by its id (Codex re-review F10): the server
-   *  reads every passage it compared, however many, so none is cut to fit the
-   *  request; one not stored (fewer than two books) sends its passages. */
+   *  The comparison is named, never sent as keys: a stored one by its id
+   *  (Codex re-review F10), one not stored by the passages the server kept
+   *  for it (`passagesId`, Codex final verify F10). The server reads every
+   *  passage it compared, however many, so none is cut to fit the request. */
   const askTutor = useCallback(async (question: string, about?: "pins" | "comparison") => {
     const current = stateRef.current;
     if (!current) return;
     const basis = about ?? (current.pinned.length || !current.direct ? "pins" : "comparison");
     const shown = basis === "comparison" ? current.compare.value : null;
     const comparisonId = shown?.comparisonId ?? null;
-    const pins = basis !== "comparison" ? current.pinned : comparisonId ? []
-      : [...new Set((shown?.rows ?? []).flatMap((row) => (row.spanKeys?.length ? row.spanKeys : [row.key])))];
+    const passagesId = comparisonId ? null : shown?.passagesId ?? null;
+    const pins = basis !== "comparison" ? current.pinned : [];
     const askIdOf = basis === "comparison" ? shown?.askId ?? null : current.ask.value?.askId ?? null;
-    if (!askIdOf || (pins.length === 0 && !comparisonId)) return;
+    if (!askIdOf || (pins.length === 0 && !comparisonId && !passagesId)) return;
     const key = current.key;
     update(key, () => ({ tutor: { phase: "pending", value: null, failure: null }, tutorBasis: basis }));
     const askId = askIdOf;
     const pinnedSpanKeys = pins;
     try {
       const answer = await runJob("tutor", () => api.readerLibraryAskTutor({
-        askId, pinnedSpanKeys, ...(comparisonId ? { comparisonId } : {}), question: question.trim() || null,
+        askId, pinnedSpanKeys, ...(comparisonId ? { comparisonId } : passagesId ? { passagesId } : {}),
+        question: question.trim() || null,
       }));
       if (answer === null) return;
       update(key, () => ({ tutor: { phase: "landed", value: answer, failure: null } }));

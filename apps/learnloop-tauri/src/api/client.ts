@@ -1642,7 +1642,7 @@ export const api = {
     call<ReadingPathDto>("reader_reading_path_override", { input }),
   /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
    *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
-  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; question?: string | null }) =>
+  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; passagesId?: string; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>
     call<LibraryJobDto<T>>("reader_library_job", { input }),
