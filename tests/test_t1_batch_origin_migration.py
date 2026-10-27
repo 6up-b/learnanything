@@ -25,7 +25,7 @@ from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: What 218 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 T1_ALTERED_TABLES = frozenset({"ingest_batches"})
 

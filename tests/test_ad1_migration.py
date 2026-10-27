@@ -36,7 +36,7 @@ from tests.test_ad23_migration import AD23_ADDED_OBJECTS
 from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_TABLES
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
 #: test_help_assists_schema.py, test_library_asks_migration.py).

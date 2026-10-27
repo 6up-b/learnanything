@@ -33,6 +33,7 @@ from learnloop.db.stores.diagnoses import (
 )
 from learnloop.db.stores.model_calls import ModelCallStoreMixin
 from learnloop.db.stores.recurrence import RecurrenceStoreMixin
+from learnloop.db.stores.session_ownership import SessionOwnershipStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
 from learnloop.db.stores.facet_identity import settled_merge_rows
@@ -867,6 +868,7 @@ class Repository(
     CollectionStoreMixin,
     DiagnosisStoreMixin,
     RecurrenceStoreMixin,
+    SessionOwnershipStoreMixin,
 ):
     def __init__(self, sqlite_path: Path):
         """Create the database, or attach to one at this code's migrations.

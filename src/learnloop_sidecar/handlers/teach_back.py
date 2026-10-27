@@ -48,8 +48,8 @@ from learnloop_sidecar.handlers.ai_providers import (
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.handlers.sessions import (
     SessionCheckpointInput,
-    _require_open_session,
     patch_checkpoint,
+    require_owned_session,
 )
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.serving import refuse_held_out_item, refuse_unservable_item
@@ -141,7 +141,7 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
     """
 
     vault, repository = ctx.require_vault()
-    _require_open_session(repository, params.session_id)
+    require_owned_session(ctx, repository, params.session_id)  # mobile PR-4
     item = _require_teach_back_item(vault, params.practice_item_id)
     refuse_unservable_item(vault, item)
     refuse_held_out_item(vault, repository, item)
@@ -194,7 +194,7 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
     """
 
     vault, repository = ctx.require_vault()
-    _require_open_session(repository, params.session_id)
+    require_owned_session(ctx, repository, params.session_id)  # mobile PR-4
     item = _require_teach_back_item(vault, params.practice_item_id)
     state = _load_state(repository, params.session_id, item.id)
     offer = _conversation_offer(

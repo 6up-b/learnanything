@@ -179,11 +179,11 @@ def test_no_file_over_five_megabytes(tracked):
 
 
 def test_the_historical_databases_size_exception_is_bounded():
-    head, replay = "fixtures/migration_head_224/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
+    head, replay = "fixtures/migration_head_225/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
     assert oversized([(head, 6_696_960), (replay, 5_976_064)]) == []
     assert [row[0] for row in oversized([(head, 100 * 1024 * 1024), (replay, 7 * 1024 * 1024)])] == [head, replay]
     # The exception is for those two databases only, never for a name elsewhere.
-    for path in ("fixtures/migration_head_224/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
+    for path in ("fixtures/migration_head_225/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
         assert oversized([(path, MAX_BYTES + 1)]) != []
     assert all(limit < 2 * MAX_BYTES for _pattern, limit in HISTORICAL_DATABASE_MAX_BYTES)
 

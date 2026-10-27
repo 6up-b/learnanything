@@ -79,6 +79,7 @@ from learnloop_sidecar.handlers.sessions import (
     draft_plan_presentation,
     draft_self_grade_disclosure,
     patch_checkpoint,
+    require_owned_session,
     settle_self_grade_disclosure,
 )
 from learnloop_sidecar.logging import debug_enabled, log_event
@@ -661,6 +662,10 @@ def start_overconfidence_probe(ctx: SidecarContext, params: OverconfidenceProbeI
 def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     _require_active_item(vault, params.practice_item_id)
+    # Mobile PR-4: a draft from a device that no longer owns the session is
+    # refused before it binds anything (``session_moved``); the patch checks
+    # again inside its own transaction.
+    require_owned_session(ctx, repository, params.session_id)
     _bind_offer(repository, params, params.submission_id)
     patch_checkpoint(
         repository,
@@ -1214,21 +1219,25 @@ def acknowledge_practice_submission(
             "submissionId must not be blank.",
             details={"field": "submissionId"},
         )
-    checkpoint = repository.fetch_session_checkpoint(params.session_id)
-    disclosure = draft_self_grade_disclosure(checkpoint)
-    if (
-        disclosure is not None
-        and disclosure["practice_item_id"] == params.practice_item_id
-        and disclosure["submission_id"] == submission_id
-    ):
-        # The self-graded draft committed: its full answer counts against the
-        # next attempt (Codex review F1).
-        settle_self_grade_disclosure(repository, checkpoint)
-    status = repository.acknowledge_practice_checkpoint(
-        params.session_id,
-        practice_item_id=params.practice_item_id,
-        submission_id=submission_id,
-    )
+    # Mobile PR-4: the ownership check and the compare-and-delete are one
+    # transaction (a device the session moved away from gets session_moved).
+    with repository.atomic():
+        require_owned_session(ctx, repository, params.session_id)
+        checkpoint = repository.fetch_session_checkpoint(params.session_id)
+        disclosure = draft_self_grade_disclosure(checkpoint)
+        if (
+            disclosure is not None
+            and disclosure["practice_item_id"] == params.practice_item_id
+            and disclosure["submission_id"] == submission_id
+        ):
+            # The self-graded draft committed: its full answer counts against the
+            # next attempt (Codex review F1).
+            settle_self_grade_disclosure(repository, checkpoint)
+        status = repository.acknowledge_practice_checkpoint(
+            params.session_id,
+            practice_item_id=params.practice_item_id,
+            submission_id=submission_id,
+        )
     return versioned({"status": status, "acknowledged": status != "checkpoint_mismatch"})
 
 
@@ -1288,7 +1297,9 @@ def submit_attempt_on(
             entry_surface=entry_surface,
             hint_window_fold=hint_window_fold,
         )
-    _require_open_session(repository, params.session_id)
+    # Mobile PR-4: ownership is checked at acceptance; a submit accepted
+    # before a handoff completes normally.
+    require_owned_session(ctx, repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     held = _held_read(repository, item)
@@ -1494,7 +1505,7 @@ def submit_dont_know_on(
     # Fix round 2, item 2, as in ``submit_attempt_on``.
     params, stale = _without_stale_help(repository, params, successor=successor)
     hint_window_fold = hint_window_fold or stale
-    _require_open_session(repository, params.session_id)
+    require_owned_session(ctx, repository, params.session_id)  # mobile PR-4: checked at acceptance
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
@@ -1872,7 +1883,7 @@ def _store_submission_receipt(
 @method("skip_practice_item", SkipInput)
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    session = _require_open_session(repository, params.session_id)
+    session = require_owned_session(ctx, repository, params.session_id)  # mobile PR-4
     trace = offer_trace_for(vault, params.session_id)
     queue = build_due_queue(
         vault,

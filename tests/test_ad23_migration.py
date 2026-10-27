@@ -8,7 +8,7 @@ stamps with the protection epoch (the AD23 redesign, round 2: ``item_serve_input
 ``ad_coupling_versions`` (RECEIPT, append-only), ``ad_state`` and
 ``ad_attempt_trace`` (DERIVED, the AD replayer) and ``item_forecast_scores``
 (DERIVED, the forecast-score replayer). Every pre-existing row is unchanged.
-The head fixture (migration_head_224) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
+The head fixture (migration_head_225) holds 214 with main's 215-220, in rollback mode; the durability lane runs the same
 upgrade under WAL; the FK check is clean.
 """
 
@@ -25,7 +25,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 NEW_TABLES = {"ad_selections", "ad_commission_results", "ad_dose_offers", "ad_relatedness_runs",
               "ad_coupling_versions", "ad_state", "ad_attempt_trace", "item_forecast_scores"}
 #: What 214 adds (the earlier migrations' "nothing else changed" diffs on the way to head read it).

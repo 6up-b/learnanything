@@ -608,7 +608,7 @@ def test_replay_never_reads_the_switch(tmp_path):
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from tests.helpers import _set_algorithm_version_at
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
     _set_algorithm_version_at(root, LATEST_ALGORITHM_VERSION)

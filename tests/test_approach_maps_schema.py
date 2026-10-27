@@ -31,7 +31,7 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
 #: §9's columns, plus the revision keys and the trigger H1 adds.
 SPEC_COLUMNS = {"id", "practice_item_id", "practice_item_hash", "family_id", "version", "map_json", "seeds_json",

@@ -12,7 +12,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 C0A_ADDED_OBJECTS = frozenset({
     "section_coverage", "sqlite_autoindex_section_coverage_1", "idx_section_coverage_judged",
