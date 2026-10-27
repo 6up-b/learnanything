@@ -15,7 +15,7 @@ as the observation reliability weight. Legacy (mvp-0.6) behavior is unchanged.
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -227,7 +227,12 @@ def after_what_they_replaced(claims: list[dict[str, Any]], keys: dict[str, Any])
     replaced claim's key extended by one component: just after it, before
     every key that sorted after it. The keys of one call have one length, so
     the extension is a structural tie-break, no number. Rows written below the
-    successor carry no ``superseded_by``: the keys come back unchanged."""
+    successor carry no ``superseded_by``: the keys come back unchanged.
+
+    Re-review F4: the edges are resolved with an explicit stack (each claim
+    after every claim it replaced), not by recursion, so a replacement chain of
+    any length resolves; the repository reads claims newest first, which made a
+    recursive walk as deep as the chain."""
 
     replaced_by: dict[str, list[str]] = {}
     for claim in claims:
@@ -236,24 +241,41 @@ def after_what_they_replaced(claims: list[dict[str, Any]], keys: dict[str, Any])
             replaced_by.setdefault(str(replacer), []).append(str(claim.get("id") or ""))
     if not replaced_by:
         return dict(keys)
+
+    def earlier_of(claim_id: str) -> Iterator[str]:
+        # An unordered claim is placed after nothing, so what it replaced is
+        # resolved on its own turn.
+        return iter(replaced_by.get(claim_id, ()) if keys.get(claim_id) is not None else ())
+
     lifted: dict[str, Any] = {}
-
-    def key_of(claim_id: str, visiting: frozenset[str]) -> Any:
-        if claim_id in lifted:
-            return lifted[claim_id]
-        key = keys.get(claim_id)
-        if key is not None:
-            for earlier in replaced_by.get(claim_id, ()):
-                if earlier in visiting:
-                    continue  # a cycle cannot be written (each edge points to a newer claim); never loop on one
-                earlier_key = key_of(earlier, visiting | {claim_id})
-                if earlier_key is not None and key <= earlier_key:
-                    key = (*earlier_key, 1)
-        lifted[claim_id] = key
-        return key
-
-    for claim_id in keys:
-        key_of(claim_id, frozenset())
+    for root in keys:
+        if root in lifted:
+            continue
+        # Depth-first, post-order: a claim's key is settled once every claim it
+        # replaced is. ``on_path`` holds the claims being resolved; a cycle
+        # cannot be written (each edge points to a newer claim), but an edge
+        # back onto the path is skipped rather than looped on.
+        on_path = {root}
+        stack: list[tuple[str, Iterator[str]]] = [(root, earlier_of(root))]
+        while stack:
+            claim_id, pending = stack[-1]
+            earlier = next((candidate for candidate in pending
+                            if candidate not in lifted and candidate not in on_path), None)
+            if earlier is not None:
+                on_path.add(earlier)
+                stack.append((earlier, earlier_of(earlier)))
+                continue
+            stack.pop()
+            on_path.discard(claim_id)
+            key = keys.get(claim_id)
+            if key is not None:
+                for earlier in replaced_by.get(claim_id, ()):
+                    if earlier not in lifted:
+                        continue  # still on the path: the cycle edge skipped above
+                    earlier_key = lifted[earlier]
+                    if earlier_key is not None and key <= earlier_key:
+                        key = (*earlier_key, 1)
+            lifted[claim_id] = key
     return lifted
 
 
