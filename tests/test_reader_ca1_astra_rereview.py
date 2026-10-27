@@ -9,10 +9,12 @@
   in its middle, never leaves the rest of the problem printed alone: a free
   crop must account for the whole statement, else the whole crop is withheld.
 * F5 (High): a selected figure is the problem's (its crop, its stimulus for
-  a check on your own) only when the statement refers to a shown figure or
-  names it, or echoes text of it no text block accounts for. A completed
-  answer graph selected with "Sketch y=x^2." is neither cropped nor shown
-  cold; an input diagram ("the line shown") still is.
+  a check on your own) only when the import author calls it ``stimulus``
+  (the Astra redesign; these tests first pinned a lexical rule over the
+  statement's words, and were rewritten). A completed answer graph selected
+  with "Sketch y=x^2." is neither cropped nor shown cold; an input diagram
+  ("the line shown") still is. A legacy import (no role recorded) keeps
+  main's figure rule less solutions: the residual is an owner question.
 * F6 (High): a kept figure keeps the learner's selected sub-box when the
   text gives no free crop, and when the figure is stimulus without textual
   ownership, so an answer inset elsewhere in the image block stays out of a
@@ -113,16 +115,19 @@ def _text(span: str) -> str:
     return next(text for name, _kind, _page, _bbox, _colour, text in LAYOUT if name == span)
 
 
-def _import(paths, repository, spans: list[str], statement: str, answer: str, *, region=None) -> str:
+def _import(paths, repository, spans: list[str], statement: str, answer: str, *, region=None,
+            roles: dict[str, str] | None = None) -> str:
     from learnloop.content.authoring import exercise_authoring as EX
-    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring, FigureRolePayload
     from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in spans]}
     if region is not None:
         raw["region"] = region
-    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md=statement, expected_answer_md=answer)]))
+    claims = [FigureRolePayload(span_id=span, role=role) for span, role in (roles or {}).items()]
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md=statement, expected_answer_md=answer,
+                                                       figure_roles=claims)]))
     (summary,) = EX.import_exercises(paths.root, repository, client, extraction_id=EXT, raw_selection=raw,
                                      source_id="src_rr")["items"]
     return summary["practice_item_id"]
@@ -224,7 +229,7 @@ def test_a_completed_answer_graph_selected_with_sketch_is_not_the_problems(seede
     paths, ctx, repository = seeded
     item_id = _import(paths, repository, ["s1", "g1"], "Sketch y=x^2.", "a parabola")
     assert _owned(paths, item_id) == [True, False]
-    assert not any(ref.get("stimulus") for ref in _refs(paths, item_id))
+    assert [ref.get("figure_role") for ref in _refs(paths, item_id)] == [None, "unrelated"]
     view = _view(ctx, item_id)
     assert [crop["spanIds"] for crop in view["crops"]] == [["s1"]]
     assert _share(_image(view["crops"][0]["image"]), GREEN) == 0
@@ -236,26 +241,44 @@ def test_a_completed_answer_graph_is_not_shown_in_a_check_on_your_own(seeded, co
     assert _view(ctx, item_id)["kind"] == "none"
 
 
-def test_an_old_rule_import_never_crops_an_answer_graph_the_statement_does_not_refer_to(seeded, cold):
-    paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["s1", "g1"], "Sketch y=x^2.", "a parabola")
+def _as_legacy(paths, item_id: str) -> None:
+    """An import before the redesign: every block owned, no figure role."""
+
     _mark_every_block_owned(paths, item_id)
-    assert _view(ctx, item_id)["kind"] == "none"
+    path = next(paths.root.rglob(f"{item_id}.yaml"))
+    payload = read_yaml(path)
+    for ref in payload["provenance"]["source_refs"]:
+        ref.pop("figure_role", None)
+    write_yaml(path, payload)
 
 
-def test_an_old_rule_import_crops_only_the_stem_beside_an_answer_graph(seeded, warm):
+@pytest.mark.parametrize("cold_check", [False, True])
+def test_the_legacy_residual_an_old_mark_on_an_unmarked_answer_graph_keeps_mains_rule(seeded, monkeypatch,
+                                                                                         cold_check):
+    """The documented residual (rewritten: the lexical rule hid this graph by
+    its statement's words). An import before the redesign recorded no role;
+    nothing marks the completed graph as an answer (no solution span, role
+    or lead), so main's figure rule holds: an owned figure before any
+    solution prints, and a check on your own shows it. Owner question in
+    ``docs/reviews/astra-batch1-fixes.md`` (Redesign)."""
+
+    import learnloop.intent.checks as checks
+
+    monkeypatch.setattr(checks, "served_check",
+                        lambda *args, **kwargs: {"cold": True, "locators_hidden": True} if cold_check else None)
     paths, ctx, repository = seeded
     item_id = _import(paths, repository, ["s1", "g1"], "Sketch y=x^2.", "a parabola")
-    _mark_every_block_owned(paths, item_id)
+    _as_legacy(paths, item_id)
     view = _view(ctx, item_id)
-    assert [crop["spanIds"] for crop in view["crops"]] == [["s1"]]
-    assert _share(_image(view["crops"][0]["image"]), GREEN) == 0
+    assert view["kind"] == ("figure" if cold_check else "page")
+    assert _share(_image(view["crops"][-1]["image"]), GREEN) > 0.9
 
 
 def test_a_required_input_diagram_stays_the_problems_stimulus(seeded, cold):
     paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["t2", "g2"], "Find the slope of the line shown.", "2")
-    assert [ref.get("stimulus") for ref in _refs(paths, item_id)] == [None, True]
+    item_id = _import(paths, repository, ["t2", "g2"], "Find the slope of the line shown.", "2",
+                      roles={"g2": "stimulus"})
+    assert [ref.get("figure_role") for ref in _refs(paths, item_id)] == [None, "stimulus"]
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and len(view["crops"]) == 1
     assert _share(_image(view["crops"][0]["image"]), GREEN) > 0.5
@@ -266,7 +289,8 @@ def test_a_required_input_diagram_stays_the_problems_stimulus(seeded, cold):
 
 def test_a_kept_figure_keeps_its_sub_box_when_the_text_gives_no_free_crop(seeded, cold):
     paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["t2", "g2"], "Find the slope of the line shown.", "2", region=G2_REGION)
+    item_id = _import(paths, repository, ["t2", "g2"], "Find the slope of the line shown.", "2", region=G2_REGION,
+                      roles={"g2": "stimulus"})
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and len(view["crops"]) == 1
     image = _image(view["crops"][0]["image"])
@@ -282,8 +306,9 @@ def test_the_sub_box_is_kept_while_warm_too(seeded, warm):
 def test_a_stimulus_figure_without_textual_ownership_keeps_its_sub_box(seeded, cold):
     paths, ctx, repository = seeded
     # A paraphrase: the full selection is the prompt, nothing is owned, the figure is stimulus.
-    item_id = _import(paths, repository, ["t2", "g2"], "What is the slope of that line?", "2", region=G2_REGION)
-    assert _owned(paths, item_id) == [False, False]
+    item_id = _import(paths, repository, ["t2", "g2"], "What is the slope of that line?", "2", region=G2_REGION,
+                      roles={"g2": "stimulus"})
+    assert _owned(paths, item_id) == [False, True]                      # no text owned; the figure by its role
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and len(view["crops"]) == 1
     image = _image(view["crops"][0]["image"])
@@ -291,20 +316,6 @@ def test_a_stimulus_figure_without_textual_ownership_keeps_its_sub_box(seeded, c
 
 
 # -- the rules themselves --------------------------------------------------------------------------------
-
-
-def test_a_figure_is_referenced_by_its_number_or_by_a_pointer_to_the_one_selected():
-    from learnloop.ingest.block_roles import referenced_figures
-
-    one = [("g", "A line through the origin.")]
-    two = [("g", "Figure 3.2 A line."), ("h", "Figure 3.3 The completed graph.")]
-    assert referenced_figures("Find the slope of the line shown.", one) == {"g"}
-    assert referenced_figures("Use the diagram below.", one) == {"g"}
-    assert referenced_figures("Sketch y=x^2.", one) == set()
-    assert referenced_figures("Sketch the graph of y=x^2.", one) == set()
-    assert referenced_figures("In Figure 3.2, find the slope.", two) == {"g"}
-    # A pointer that names no number cannot tell two figures apart.
-    assert referenced_figures("Find the slope of the line shown.", two) == set()
 
 
 def test_a_placement_starts_and_ends_where_words_do():

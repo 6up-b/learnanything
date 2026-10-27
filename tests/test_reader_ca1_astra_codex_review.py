@@ -5,11 +5,12 @@
   no free crop, whatever the leak matcher says (it ignores a lone digit and
   a short word), and neither does an owned block that shares no words with
   the statement (nothing says it is the stem).
-* F2 (High): a single-exercise import keeps the figure it was imported with
-  as its stimulus, whether or not the statement echoes the figure's text, so
+* F2 (High): a single-exercise import keeps the figure the author calls
+  its stimulus, whether or not the statement echoes the figure's text, so
   a check on your own still shows the figure; a problem with no free crop
-  keeps it too. Re-review F5: only a figure the statement refers to ("the
-  graph shown"); one it does not refer to is not its stimulus.
+  keeps it too. One the author does not call stimulus is not (the Astra
+  redesign: roles from the author's structured output, never from words;
+  rewritten from the lexical rule these tests first pinned).
 * F3 (Medium): a block the import's check names as the book's solution that
   also holds part of the statement is not dropped from the crop (a partial
   print): the whole crop is withheld, the original page still offered.
@@ -101,14 +102,20 @@ def _text(span: str) -> str:
     return next(text for name, _kind, _page, _bbox, _colour, text in LAYOUT if name == span)
 
 
-def _import(paths, repository, spans: list[str], statement: str, answer: str) -> str:
+def _import(paths, repository, spans: list[str], statement: str, answer: str, *,
+            roles: dict[str, str] | None = None) -> str:
+    """``roles``: the author's figure roles (the Astra redesign: a figure is
+    the problem's only as a validated ``stimulus``)."""
+
     from learnloop.content.authoring import exercise_authoring as EX
-    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring, FigureRolePayload
     from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
 
     _write_facet_registry(paths.root.parent)
     raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in spans]}
-    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md=statement, expected_answer_md=answer)]))
+    claims = [FigureRolePayload(span_id=span, role=role) for span, role in (roles or {}).items()]
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md=statement, expected_answer_md=answer,
+                                                       figure_roles=claims)]))
     (summary,) = EX.import_exercises(paths.root, repository, client, extraction_id=EXT, raw_selection=raw,
                                      source_id="src_cx")["items"]
     return summary["practice_item_id"]
@@ -167,7 +174,8 @@ def test_an_owned_block_sharing_no_words_with_the_statement_gives_no_free_crop(s
 
 def test_a_statement_that_names_but_does_not_echo_its_figure_keeps_it(seeded, warm):
     paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["t1", "f1"], "Find the slope of the graph shown.", "2")
+    item_id = _import(paths, repository, ["t1", "f1"], "Find the slope of the graph shown.", "2",
+                      roles={"f1": "stimulus"})
     assert _owned(paths, item_id) == [True, True]
     view = _view(ctx, item_id)
     assert {span for crop in view["crops"] for span in crop["spanIds"]} == {"t1", "f1"}
@@ -175,7 +183,8 @@ def test_a_statement_that_names_but_does_not_echo_its_figure_keeps_it(seeded, wa
 
 def test_a_check_on_your_own_still_shows_the_figure_the_statement_names(seeded, cold):
     paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["t1", "f1"], "Find the slope of the graph shown.", "2")
+    item_id = _import(paths, repository, ["t1", "f1"], "Find the slope of the graph shown.", "2",
+                      roles={"f1": "stimulus"})
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and view["label"] == FIGURE_LABEL and len(view["crops"]) == 1
     assert _share(_image(view["crops"][0]["image"]), GREEN) > 0.9
@@ -183,17 +192,16 @@ def test_a_check_on_your_own_still_shows_the_figure_the_statement_names(seeded, 
 
 def test_a_paraphrased_statement_keeps_its_figure_for_a_check_on_your_own(seeded, cold):
     paths, ctx, repository = seeded
-    item_id = _import(paths, repository, ["t1", "f1"], "What is the slope of that line?", "2")
-    assert _owned(paths, item_id) == [False, False]
+    item_id = _import(paths, repository, ["t1", "f1"], "What is the slope of that line?", "2",
+                      roles={"f1": "stimulus"})
+    assert _owned(paths, item_id) == [False, True]          # no text owned; the figure by its role
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and _share(_image(view["crops"][0]["image"]), GREEN) > 0.9
 
 
 def test_a_figure_the_statement_does_not_refer_to_is_not_its_stimulus(seeded, cold):
-    """Codex re-review F5: selected is not enough ("Compute 2+2." names no
-    figure, so the figure beside it may be anything, an answer too). A
-    problem with no free crop whose statement does refer to its figure keeps
-    it: ``test_reader_ca1_astra_rereview`` (F6)."""
+    """Codex re-review F5: selected is not enough. The author did not call
+    the figure beside "Compute 2+2." its stimulus, so it is not shown."""
 
     paths, ctx, repository = seeded
     item_id = _import(paths, repository, ["m1", "f1"], "Compute 2+2.", "4")

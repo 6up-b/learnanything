@@ -25,7 +25,6 @@ from pydantic import Field
 
 from learnloop.reader.as_printed import item_as_printed, printed_origin
 from learnloop.source_retrieval.corpus import block_roles
-from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -49,11 +48,10 @@ class TranscriptionReportInput(ParamsModel):
 
 
 def _origin(repository: Any, item: Any) -> Any:
-    """The item's print with its solution guard's full readers (Astra batch
-    review): every block's effective role, a solution region's body included,
-    and the tutor's answer-leak matcher."""
+    """The item's print with its solution guard's full reader (Astra batch
+    review): every block's effective role, a solution region's body included."""
 
-    return printed_origin(repository, item, roles=block_roles, leaks=span_leaks_expected)
+    return printed_origin(repository, item, roles=block_roles)
 
 
 def _enabled(vault: Any) -> bool:
@@ -124,8 +122,7 @@ def practice_as_printed(ctx: SidecarContext, params: AsPrintedInput) -> dict[str
         photo = photo_for_practice_item(repository, item.id)
     title = _source_title(repository, origin.source_id, origin.extraction_id) if origin is not None else None
     view = item_as_printed(repository, item, enabled=True, cold=cold, render=params.render,
-                           source_title=title, photo=photo, origin=origin, roles=block_roles,
-                           leaks=span_leaks_expected)
+                           source_title=title, photo=photo, origin=origin, roles=block_roles)
     return versioned({"practice_item_id": item.id, **view})
 
 

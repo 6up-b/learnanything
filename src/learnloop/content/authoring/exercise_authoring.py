@@ -35,6 +35,8 @@ from typing import Any, Mapping
 from learnloop.ai.errors import AIOutputTruncated
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.content.authoring.ai_contracts import (
+    FIGURE_ROLE_INSTRUCTIONS,
+    ExerciseAuthoredItem,
     ExerciseAuthoring,
     ExerciseAuthoringContext,
     exercise_authoring_prompt,
@@ -42,7 +44,7 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.ingest.block_roles import referenced_figures
+from learnloop.ingest.block_roles import figure_numbers
 from learnloop.ingest.ir import is_figure_block, selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
@@ -173,8 +175,7 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
 
 def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
                  ranges: Sequence[tuple[int, int] | None], index: int, *,
-                 span_ids: Sequence[str] = (), text_length: int | None = None,
-                 figures: Sequence[str] = ()) -> set[str]:
+                 span_ids: Sequence[str] = (), text_length: int | None = None) -> set[str]:
     """Reader CA1 (Codex re-review F9, final verify F9; Astra batch review,
     owner 2026-10-26): the blocks one item is printed from, when they are its
     alone. A single-exercise import is no exception: its blocks are the ones
@@ -193,14 +194,9 @@ def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
     that one item whose statement is the whole edited text is printed from
     the whole selection (``span_ids``; the capture editor's OCR fix of the
     passage the learner selected). Solution blocks are never cropped, whatever
-    is marked here (``reader.as_printed``, read time).
-
-    Codex review of the Astra fixes, F2: a single item whose statement owns
-    a block also owns ``figures``, its stimulus ("the graph shown"), whether
-    or not the statement echoes the figure's text; a split leaves a figure to
-    the item whose statement covers it. Re-review F5: ``figures`` are the
-    selection's figures the statement refers to
-    (``ingest.block_roles.referenced_figures``), never every one selected."""
+    is marked here (``reader.as_printed``, read time). A figure's ownership is
+    not read from the text: :func:`_figure_roles` decides it (the Astra
+    redesign)."""
 
     if any(found is None for found in ranges):
         return set()
@@ -214,29 +210,85 @@ def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
 
     mine = blocks(ranges[index])
     if len(ranges) == 1:
-        return mine | set(figures) if mine else set()
+        return mine
     others = set().union(*(blocks(found) for other, found in enumerate(ranges) if other != index))
     return set() if mine & others else mine
 
 
 def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *,
-               owned: set[str], stimulus: set[str] = frozenset()) -> list[dict[str, Any]]:
+               owned: set[str], figures: Mapping[str, tuple[str, str | None]] | None = None) -> list[dict[str, Any]]:
     """One item's copy of the selection's refs. Every block stays a ref (the
     selection is the item's provenance), and each ref says whether that block
     is this item's own (``owned``), so its print never crops another item's
     exercise (Codex re-review F9). Every import records it, split or not: a
     Reader import without it was written before ownership was kept, and its
-    crop is not shown as its own (final verify F9). A figure a single
-    exercise was imported with is marked its ``stimulus`` (Codex review F2),
-    which a check on your own shows even when the problem's text gives no
-    free crop (a paraphrased statement, an answer in the stem's block)."""
+    crop is not shown as its own (final verify F9).
+
+    A figure's ref (the Astra redesign) records the role the author gave it
+    for this item (``figure_role``) and, when validation refused a
+    ``stimulus`` claim, why (``figure_role_rejected``); it is ``owned`` only
+    as a validated stimulus (:func:`_figure_roles`), whatever text overlaps."""
 
     refs = [json.loads(json.dumps(ref)) for ref in source_refs]
     for ref, span_id in zip(refs, span_ids):
         ref["owned"] = span_id in owned
-        if span_id in stimulus:
-            ref["stimulus"] = True
+        if figures is not None and span_id in figures:
+            role, rejected = figures[span_id]
+            ref["owned"] = role == STIMULUS and rejected is None
+            ref["figure_role"] = role
+            if rejected is not None:
+                ref["figure_role_rejected"] = rejected
     return refs
+
+
+#: The figure role shown with the problem (``ai_contracts.FigureRole``).
+STIMULUS = "stimulus"
+#: Roles that say a figure is some exercise's answer or solution.
+_SOLUTION_FIGURE_ROLES = frozenset({"answer", "worked"})
+
+
+def _claimed_roles(entry: ExerciseAuthoredItem) -> dict[str, str]:
+    """The author's role per figure span for one item; on two claims for one
+    figure, any claim but ``stimulus`` wins (a contradiction never shows it)."""
+
+    roles: dict[str, str] = {}
+    for claim in entry.figure_roles:
+        span = str(claim.span_id)
+        if roles.get(span) in (None, STIMULUS):
+            roles[span] = str(claim.role)
+    return roles
+
+
+def _figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None], statement: str, *,
+                  claimed_elsewhere: set[str]) -> dict[str, tuple[str, str | None]]:
+    """Reader CA1 (the Astra redesign): each selected figure's role for one
+    item, (role, why a stimulus claim was refused). The role comes from the
+    import author's structured output, which read the selection; it is never
+    guessed from the statement's words. Validation only narrows it, so a
+    figure is the problem's (shown with it, also during a check on your own)
+    only when all of these hold:
+
+    * the author said ``stimulus`` for this item (a figure it did not name,
+      or named outside the selection's figures, is ``unrelated``);
+    * no item of the selection called it an ``answer`` or ``worked``
+      (``claimed_elsewhere``: never another exercise's solution);
+    * the figure numbers do not contradict: when the statement names a
+      figure number ("Use Figure 1") and the figure's own text carries
+      numbers, one of them is the one named (only Figure 2 selected: no)."""
+
+    named = figure_numbers(statement)
+    roles: dict[str, tuple[str, str | None]] = {}
+    for span, text in figures.items():
+        role = claimed.get(span, "unrelated")
+        rejected: str | None = None
+        if role == STIMULUS:
+            own_numbers = figure_numbers(text)
+            if span in claimed_elsewhere:
+                rejected = "another_exercise_answer"
+            elif named and own_numbers and not named & own_numbers:
+                rejected = "figure_number_mismatch"
+        roles[span] = (role, rejected)
+    return roles
 
 
 def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
@@ -519,6 +571,10 @@ def author_exercises(
     schema_dims = json.loads(schema_row.get("dimensions_json") or "{}")
 
     ir = repository.load_document_ir(extraction_id)
+    # The Astra redesign: the selection's figures, whose role for each
+    # exercise the author reports (``figure_roles``), validated below.
+    figures = {block.span_id: block.text for block in (getattr(ir, "blocks", None) or [])
+               if block.span_id in span_ids and is_figure_block(block)} if ir is not None else {}
     context = ExerciseAuthoringContext(
         extraction_id=extraction_id,
         exercise_text=exercise_text,
@@ -532,6 +588,8 @@ def author_exercises(
         learning_object_hint=learning_object_hint or "",
         task_feature_schema=schema_dims,
         book_solution=dict(book_solution or {}),
+        figures={"blocks": [{"span_id": span, "text": _normalize(text or "")} for span, text in figures.items()],
+                 "instructions": FIGURE_ROLE_INSTRUCTIONS} if figures else {},
     )
     result = request_exercise_authoring(client, context, admit=admit)
 
@@ -577,11 +635,8 @@ def author_exercises(
     # blocks are an item's alone (final verify F9); a single item's slice
     # decides its own (Astra batch review).
     anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
-    # Codex review F2, re-review F5: the selection's figures; a single
-    # exercise's stimulus are those its statement refers to, never every
-    # figure selected (a completed answer graph is not the problem's input).
-    figures = [(block.span_id, block.text) for block in (getattr(ir, "blocks", None) or [])
-               if block.span_id in span_ids and is_figure_block(block)] if ir is not None else []
+    claims = [_claimed_roles(entry) for entry in result.items]
+    answer_figures = {span for claimed in claims for span, role in claimed.items() if role in _SOLUTION_FIGURE_ROLES}
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
@@ -599,7 +654,7 @@ def author_exercises(
                 )
                 continue
 
-        stimulus = referenced_figures(statement, figures) if len(result.items) == 1 else set()
+        figure_roles = _figure_roles(claims[ordinal - 1], figures, statement, claimed_elsewhere=answer_figures)
 
         duplicate_of = existing_prompts.get(_normalize(statement))
         if duplicate_of is not None:
@@ -731,8 +786,8 @@ def author_exercises(
             "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
                 source_refs, span_ids,
                 owned=_owned_spans(part_ranges, anchored, ordinal - 1, span_ids=span_ids,
-                                   text_length=len(exercise_text), figures=sorted(stimulus)),
-                stimulus=stimulus)},
+                                   text_length=len(exercise_text)),
+                figures=figure_roles)},
             "created_at": now,
             "updated_at": now,
         }

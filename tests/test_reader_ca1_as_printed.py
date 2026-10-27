@@ -167,20 +167,25 @@ def _blocks(spans):
             for index, (span, kind, page, bbox, _c, _o) in enumerate(LAYOUT, start=1) if span in spans]
 
 
-def test_a_block_between_two_of_the_problems_splits_the_crop_and_each_page_has_its_own():
-    crops, skipped = crop_boxes(_blocks(OWN), _blocks([span for span, *_ in LAYOUT]))
-    assert [(crop.page, crop.span_ids) for crop in crops] == [(0, ("e1",)), (0, ("e2", "f1")), (1, ("e3",))]
-    assert crops[1].bbox == (72.0, 180.0, 540.0, 400.0) and skipped == []
-    # With nothing between them the two text blocks are one crop, their union, unpadded.
-    joined, _ = crop_boxes(_blocks(["e1", "e2"]), _blocks(["e1", "e2", "x9"]))
-    assert [(crop.span_ids, crop.bbox) for crop in joined] == [(("e1", "e2"), (72.0, 100.0, 540.0, 210.0))]
+def test_each_of_the_problems_blocks_is_its_own_crop_in_reading_order():
+    """The Astra redesign (F6): never merged, so a crop is exactly one
+    block's box (rewritten: this test pinned the old join of consecutive
+    blocks into their union)."""
+
+    crops, skipped = crop_boxes(_blocks(OWN))
+    assert [(crop.page, crop.span_ids) for crop in crops] == [(0, ("e1",)), (0, ("e2",)), (0, ("f1",)), (1, ("e3",))]
+    assert crops[1].bbox == (72.0, 180.0, 540.0, 210.0) and skipped == []
+    # Nothing between them still leaves two crops, each its own box, unpadded.
+    apart, _ = crop_boxes(_blocks(["e1", "e2"]))
+    assert [(crop.span_ids, crop.bbox) for crop in apart] == [(("e1",), (72.0, 100.0, 540.0, 130.0)),
+                                                             (("e2",), (72.0, 180.0, 540.0, 210.0))]
 
 
 def test_a_block_without_a_page_or_a_box_crops_nothing():
     own = _blocks(["e1"]) + [DocumentBlock.build(span_id="nobox", block_type="Text", text="t", ordinal=99, page=0),
                              DocumentBlock.build(span_id="nopage", block_type="Text", text="t", ordinal=100,
                                                  bbox=[1.0, 1.0, 2.0, 2.0])]
-    crops, skipped = crop_boxes(own, [])
+    crops, skipped = crop_boxes(own)
     assert [crop.span_ids for crop in crops] == [("e1",)] and skipped == ["nobox", "nopage"]
 
 
@@ -188,13 +193,13 @@ def test_the_crops_from_the_page_hold_only_the_problems_own_ink(book):
     _paths, _ctx, repository = book
     printed = printed_crops(repository, extraction_id=EXTRACTION, span_ids=OWN, render=True)
     assert printed["status"] == "ok"
-    assert [crop["span_ids"] for crop in printed["crops"]] == [["e1"], ["e2", "f1"], ["e3"]]
-    assert [crop["page_label"] for crop in printed["crops"]] == ["1", "1", "2"]
-    first, second, third = (_image(crop["image"]) for crop in printed["crops"])
-    for image in (first, second, third):
+    assert [crop["span_ids"] for crop in printed["crops"]] == [["e1"], ["e2"], ["f1"], ["e3"]]
+    assert [crop["page_label"] for crop in printed["crops"]] == ["1", "1", "1", "2"]
+    first, second, figure, third = (_image(crop["image"]) for crop in printed["crops"])
+    for image in (first, second, figure, third):
         assert _share(image, BLUE) == 0 and _share(image, GREY) == 0       # no neighbour, no caption
-    assert _share(first, RED) > 0.9 and _share(third, RED) > 0.9
-    assert _share(second, GREEN) > 0.3 and _share(second, RED) > 0.05
+    assert _share(first, RED) > 0.9 and _share(second, RED) > 0.9 and _share(third, RED) > 0.9
+    assert _share(figure, GREEN) > 0.9
     # Rendered at the reader's scale (1.4): a 468 x 30 pt block.
     assert (first.width, first.height) == (656, 42)
 
@@ -207,7 +212,7 @@ def test_without_the_original_the_geometry_is_kept_and_nothing_is_drawn(tmp_path
     _seed_book(paths.root, repository, with_pdf=False)
     printed = printed_crops(repository, extraction_id=EXTRACTION, span_ids=OWN, render=True)
     assert printed["status"] == "no_original"
-    assert [crop["image"] for crop in printed["crops"]] == [None, None, None]
+    assert [crop["image"] for crop in printed["crops"]] == [None, None, None, None]
 
 
 # -- the practice view (K15) -----------------------------------------------------------------------
@@ -427,7 +432,7 @@ def test_only_a_verbatim_import_can_be_reported(book, warm):
 def test_the_crop_rpc_takes_a_problems_blocks(book):
     _paths, ctx, _repository = book
     result = _call(ctx, "reader.block_original_region", {"extractionId": EXTRACTION, "spanIds": OWN})
-    assert result["status"] == "ok" and [crop["spanIds"] for crop in result["crops"]] == [["e1"], ["e2", "f1"], ["e3"]]
+    assert result["status"] == "ok" and [crop["spanIds"] for crop in result["crops"]] == [["e1"], ["e2"], ["f1"], ["e3"]]
     assert all(crop["image"] for crop in result["crops"])
     single = _call(ctx, "reader.block_original_region", {"extractionId": EXTRACTION, "spanId": "e1"})
     assert single["reason"] == "crop" and single["regionRender"]

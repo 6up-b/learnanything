@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from typing import Literal
 
 from pydantic import Field
 
@@ -18,6 +19,19 @@ from learnloop.content.proposals.ai_contracts import (
     TraceContractPayload,
 )
 from learnloop.vault.required_method import CRITERIA_BY_FACT_GUIDANCE
+
+#: What a figure selected with an exercise is to that exercise (Reader CA1,
+#: the Astra redesign): ``stimulus``, input the learner needs to answer it
+#: (the graph to read from, the circuit to analyse); ``answer``, what the
+#: learner is asked to produce, drawn completed; ``worked``, part of a worked
+#: example or the book's solution; ``unrelated``, anything else.
+FigureRole = Literal["stimulus", "answer", "worked", "unrelated"]
+
+
+class FigureRolePayload(WireModel):
+    span_id: str
+    role: FigureRole
+
 
 class ExerciseAuthoredItem(WireModel):
     """One selected textbook exercise completed into a full PracticeItem
@@ -61,6 +75,13 @@ class ExerciseAuthoredItem(WireModel):
     # statement itself requires a method and the mapped object is that method;
     # the statement is never rewritten, so the writer drops one it does not state.
     required_method: RequiredMethodPayload | None = None
+    # Reader CA1 (the Astra redesign): the role of each figure in
+    # ``context.figures`` for THIS exercise. Only a validated ``stimulus`` is
+    # shown with the problem (``exercise_authoring._figure_roles``).
+    figure_roles: list[FigureRolePayload] = Field(
+        default_factory=list,
+        description="One entry per figure in context.figures: its role for this exercise.",
+    )
 
 BANNED_RESPONSE_MODES: tuple[str, ...] = (
     "multiple_choice",
@@ -89,6 +110,11 @@ class ExerciseAuthoringContext:
     # Left out of the prompt when empty, so a Reader import's prompt is
     # byte-identical to before.
     book_solution: dict = field(default_factory=dict)
+    # Reader CA1 (the Astra redesign): the figure blocks of the selection
+    # ({"blocks": [{"span_id", "text"}], "instructions"}), whose role each
+    # item reports in ``figure_roles``. Left out of the prompt when empty, as
+    # ``book_solution`` is.
+    figures: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -155,7 +181,8 @@ class VideoStoryboard(WireModel):
 #: mvp-0.3 (owner rule 2026-10-13): criteria by fact; a required method only
 #: when the book's own statement requires it on a method target. ``-v2``
 #: (review F14 reopened): the shared guidance leaves the sentence to LearnLoop.
-EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.3-criteria-by-fact-v2"
+#: ``mvp-0.4``: figure roles (Reader CA1, the Astra redesign).
+EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.4-figure-roles-criteria-by-fact-v2"
 CONCEPT_ANIMATION_PROMPT_VERSION = "mvp-0.2-structured-explainer"
 VIDEO_STORYBOARD_PROMPT_VERSION = "mvp-0.1-video-storyboard"
 
@@ -208,6 +235,20 @@ method (never add an instruction to it) and the mapped learning object lists
 that method in `required_method_targets`; otherwise leave it null.
 """
 EXERCISE_AUTHORING_PROMPT = EXERCISE_AUTHORING_PROMPT.replace("__CRITERIA_BY_FACT__", CRITERIA_BY_FACT_GUIDANCE)
+
+#: Sent in ``context.figures.instructions`` only when the selection holds a
+#: figure (Reader CA1, the Astra redesign): the learner sees a ``stimulus``
+#: figure with the problem, including during a check on their own, and never
+#: any other.
+FIGURE_ROLE_INSTRUCTIONS = (
+    "context.figures.blocks are the figures in the learner's selection (span_id and extracted text). "
+    "For each exercise, set figure_roles to one entry per figure: role 'stimulus' only when the learner "
+    "needs to see that figure to answer this exercise as stated (the graph to read a value from, the "
+    "circuit to analyse); 'answer' when it shows what the exercise asks the learner to produce (a "
+    "completed sketch, diagram or graph); 'worked' when it belongs to a worked example or a solution; "
+    "'unrelated' otherwise, or when unsure. A figure the statement names by number is stimulus only if "
+    "its own text carries that number."
+)
 
 # The scene skeleton the model fills in. It fixes the things models get wrong
 # on their own: a pinned title, one helper per explanatory beat that clears
@@ -391,8 +432,9 @@ def exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str:
 
 def _exercise_context(context: ExerciseAuthoringContext) -> dict:
     values = asdict(context)
-    if not values.get("book_solution"):
-        values.pop("book_solution", None)
+    for optional in ("book_solution", "figures"):
+        if not values.get(optional):
+            values.pop(optional, None)
     return values
 
 

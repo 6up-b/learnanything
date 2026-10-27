@@ -241,9 +241,13 @@ def test_a_split_selection_still_crops_each_items_own_block(solved, warm):
     assert _view(ctx, second)["notice"] == NO_CROP     # its block holds its solution
 
 
-def test_a_selection_level_edit_of_the_whole_passage_keeps_the_crop_but_not_the_solution(solved, warm):
+def test_a_selection_level_edit_of_the_whole_passage_never_crops_the_solution(solved, warm):
     """The capture editor's OCR fix: one item whose statement is the whole
-    edited passage is printed from the whole selection, less its solution."""
+    edited passage owns the whole selection, but its solution block is never
+    printed, and (the Astra redesign, F3) a dropped block supplies no part of
+    the statement: a prompt holding the book's solution gets no free crop,
+    the charged page only. Rewritten: this test pinned the old exception
+    that counted a dropped block wholly inside the statement."""
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
@@ -259,7 +263,7 @@ def test_a_selection_level_edit_of_the_whole_passage_keeps_the_crop_but_not_the_
     (summary,) = EX.import_exercises(paths.root, repository, client, extraction_id=SOL, raw_selection=raw,
                                      source_id="src_sol")["items"]
     assert _owned(paths, summary["practice_item_id"]) == [True, True]
-    assert [crop["spanIds"] for crop in _view(ctx, summary["practice_item_id"])["crops"]] == [["p1"]]
+    assert _view(ctx, summary["practice_item_id"])["notice"] == NO_CROP
     # Part of the edited passage only: ownership can't be read, the charged page only.
     client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="Exercise 3. Compute 2 + 2.",
                                                        expected_answer_md="4")]))

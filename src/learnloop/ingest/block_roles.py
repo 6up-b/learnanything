@@ -9,7 +9,6 @@ and "Worked Example" are recognizable deterministically.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 import re
 
@@ -323,43 +322,21 @@ def numbered_references(text: str) -> list[NumberedReference]:
     return sorted(found, key=lambda reference: reference.start)
 
 
-# --- a problem's statement and the figures selected with it ---------------
+# --- figure numbers -------------------------------------------------------
 #
-# Reader CA1 (Codex re-review of the Astra fixes, F5): a figure selected with
-# an exercise is its stimulus only when the statement says so, never because
-# it was selected (a completed answer graph selected with "Sketch y=x^2." is
-# the answer, not the problem's input). The statement names it ("Figure 3.2",
-# "Fig. 4"), or points at a figure shown with it ("the line shown", "the
-# diagram below", "in the figure"); a pointer that names no number picks a
-# figure only when the selection holds exactly one (which of two figures is
-# the input is not known). Structural vocabulary, no weights.
+# Reader CA1 (the Astra redesign): a figure's role for an exercise is the
+# import author's structured output (``exercise_authoring._figure_roles``),
+# never read from the statement's words. The figure numbers a text names are
+# only a cross-check on it: a statement that names "Figure 1" never gets a
+# figure whose own text says "Figure 2" as its input.
 
-_FIGURE_NUMBER_RE = re.compile(r"\b(?:fig(?:ure)?s?)\.?\s*(?P<number>\d+(?:[.\-]\d+)*[a-z]?)\b", re.IGNORECASE)
-_SHOWN_FIGURE_RE = re.compile(
-    r"\b(?:shown|pictured|depicted|illustrated|plotted\s+(?:below|above|here))\b"
-    r"|\b(?:the|this|that|these|those|each)\s+(?:figures?|diagrams?|pictures?|images?|drawings?)\b"
-    r"|\b(?:figures?|diagrams?|graphs?|plots?|pictures?|charts?|images?)\s+(?:below|above|here|opposite"
-    r"|(?:at|on|to)\s+(?:the\s+)?(?:right|left))\b",
-    re.IGNORECASE,
-)
+_FIGURE_REFERENCE_RE = re.compile(
+    rf"\b(?:fig(?:ure)?s?)\.?\s*(?P<numbers>{_REF_ONE}(?:{_REF_SEPARATOR}{_REF_ONE})*)", re.IGNORECASE)
 
 
 def figure_numbers(text: str | None) -> set[str]:
-    """The figure numbers a text names ("Figure 3.2", "Fig. 4", "figs 1")."""
+    """The figure numbers a text names ("Figure 3.2", "Fig. 4", "Figures 1
+    and 2"; a range names its two ends)."""
 
-    return {match.group("number").lower() for match in _FIGURE_NUMBER_RE.finditer(text or "")}
-
-
-def referenced_figures(statement: str | None, figures: Sequence[tuple[str, str | None]]) -> set[str]:
-    """The figures among ``figures`` (span, text) that ``statement`` refers
-    to: those whose own text carries a figure number the statement names,
-    else, when the statement names a figure or points at one shown and the
-    selection holds exactly one figure, that one; else none."""
-
-    numbers = figure_numbers(statement)
-    named = {span for span, text in figures if numbers & figure_numbers(text)}
-    if named:
-        return named
-    if len(figures) == 1 and (numbers or _SHOWN_FIGURE_RE.search(statement or "")):
-        return {figures[0][0]}
-    return set()
+    return {number.group(0).lower() for match in _FIGURE_REFERENCE_RE.finditer(text or "")
+            for number in _NUMBER_IN_RE.finditer(match.group("numbers"))}

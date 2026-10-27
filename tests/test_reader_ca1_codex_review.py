@@ -50,31 +50,32 @@ def _block(span: str, bbox, *, kind: str = "Text", ordinal: int = 0, page: int =
 # -- F2: the crop shows none of another block -----------------------------------------------------
 
 
-def test_a_neighbour_reaching_into_the_gap_splits_the_crop_though_its_centre_is_outside():
+def test_a_neighbour_reaching_into_the_gap_is_in_no_crop_though_its_centre_is_outside():
     own = [_block("a", [0, 0, 100, 20], ordinal=1), _block("b", [0, 80, 20, 100], ordinal=3)]
-    solution = _block("sol", [50, 30, 200, 70], ordinal=2)                # centre (125, 50): outside [0, 0, 100, 100]
-    crops, _ = crop_boxes(own, [*own, solution])
-    assert [crop.span_ids for crop in crops] == [("a",), ("b",)]
+    # The solution's box (ordinal 2, [50, 30, 200, 70]) lies in no crop: each is its own block's box.
+    crops, _ = crop_boxes(own)
+    assert [(crop.span_ids, crop.bbox) for crop in crops] == [(("a",), (0.0, 0.0, 100.0, 20.0)),
+                                                             (("b",), (0.0, 80.0, 20.0, 100.0))]
 
 
-def test_a_neighbour_touching_the_union_only_at_its_edge_does_not_split_it():
+def test_adjacent_blocks_stay_two_crops():
+    """The Astra redesign (F6): never merged (rewritten: this test pinned
+    the join of two blocks sharing an edge)."""
+
     own = [_block("a", [0, 0, 100, 20], ordinal=1), _block("b", [0, 20, 100, 40], ordinal=2)]
-    beside = _block("n", [100, 0, 160, 40], ordinal=3)                    # shares an edge, no area
-    crops, _ = crop_boxes(own, [*own, beside])
-    assert [(crop.span_ids, crop.bbox) for crop in crops] == [(("a", "b"), (0.0, 0.0, 100.0, 40.0))]
+    crops, _ = crop_boxes(own)
+    assert [(crop.span_ids, crop.bbox) for crop in crops] == [(("a",), (0.0, 0.0, 100.0, 20.0)),
+                                                             (("b",), (0.0, 20.0, 100.0, 40.0))]
 
 
-def test_a_neighbour_already_inside_one_of_the_problems_boxes_does_not_block_the_join():
-    # A caption box the extractor drew overlapping the figure: the figure's
-    # own crop already holds that sliver; the join shows no more of it.
+def test_a_crop_is_exactly_its_blocks_box():
+    """A caption the extractor drew overlapping the figure is in the figure's
+    crop only as far as the figure's own box reaches (rewritten: this test
+    pinned when a join was allowed)."""
+
     own = [_block("t", [0, 0, 100, 20], ordinal=1), _block("f", [0, 20, 100, 120], kind="Figure", ordinal=2)]
-    overlapping = _block("cap", [0, 110, 100, 130], kind="Caption", ordinal=3)
-    crops, _ = crop_boxes(own, [*own, overlapping])
-    assert [crop.span_ids for crop in crops] == [("t", "f")]
-    # ...but a join that would show more of it is refused.
-    wide = [_block("t", [0, 0, 100, 20], ordinal=1), _block("f", [0, 120, 40, 140], kind="Figure", ordinal=2)]
-    crops, _ = crop_boxes(wide, [*wide, _block("cap", [50, 60, 100, 130], ordinal=3)])
-    assert [crop.span_ids for crop in crops] == [("t",), ("f",)]
+    crops, _ = crop_boxes(own)
+    assert [crop.bbox for crop in crops] == [(0.0, 0.0, 100.0, 20.0), (0.0, 20.0, 100.0, 120.0)]
 
 
 def test_a_figure_only_crop_never_takes_in_the_stem_beside_it(book):
@@ -197,10 +198,16 @@ def _import_selection(paths, repository, *, region=None) -> str:
                      {"spanId": "f1", "quote": "block f1"}]}
     if region is not None:
         raw["region"] = region
+    from learnloop.content.authoring.ai_contracts import FigureRolePayload
+
     # The statement runs over every block selected (Astra batch review: a
-    # single item owns the blocks its statement covers, no more).
+    # single item owns the blocks its statement covers, no more), and the
+    # author calls the figure its input (the Astra redesign: a figure is
+    # owned by its validated role, never by the text).
     client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="block e1 block e2 block f1",
-                                                       title="Exercise 6.1.12")]))
+                                                       title="Exercise 6.1.12",
+                                                       figure_roles=[FigureRolePayload(span_id="f1",
+                                                                                       role="stimulus")])]))
     result = EX.import_exercises(paths.root, repository, client, extraction_id=EXTRACTION, raw_selection=raw,
                                  source_id="src_ca1")
     (summary,) = result["items"]
@@ -215,7 +222,7 @@ def test_a_reader_selection_import_shows_its_print_after_binding(book, warm):
     assert vault.practice_items[item_id].canonical_exercise is None       # the selection path writes none
     view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id, "render": True})
     assert view["kind"] == "page" and view["label"] == "as printed (Strang p.1)"
-    assert [crop["spanIds"] for crop in view["crops"]] == [["e1"], ["e2", "f1"]]
+    assert [crop["spanIds"] for crop in view["crops"]] == [["e1"], ["e2"], ["f1"]]
     assert view["originalPage"] == {"extractionId": EXTRACTION, "spanId": "e1", "outlineSpanIds": ["e1", "e2", "f1"],
                                     "sourceId": "src_ca1"}
     assert view["transcriptionReport"] is True
@@ -249,7 +256,8 @@ def test_a_region_selection_s_sub_box_is_the_crop_shown(book, warm):
     assert refs[f"span:{EXTRACTION}/f1"].model_extra["region"] == {"page": 0, "bbox": [100.0, 250.0, 400.0, 300.0]}
     view = _call(ctx, "practice.as_printed", {"practiceItemId": item_id})
     by_spans = {tuple(crop["spanIds"]): crop["bbox"] for crop in view["crops"]}
-    assert by_spans[("e2", "f1")] == [72.0, 180.0, 540.0, 300.0]           # e2's box joined with the clipped region
+    assert by_spans[("f1",)] == [100.0, 250.0, 300.0, 300.0]               # the region, clipped to f1, alone
+    assert by_spans[("e2",)] == [72.0, 180.0, 540.0, 210.0]
     # The pending workbench crop takes the same region through the multi-block form.
     pending = _call(ctx, "reader.block_original_region", {
         "extractionId": EXTRACTION, "spanIds": ["f1"], "region": {"spanId": "f1", "page": 0, "bbox": [100, 250, 400, 300]}})
