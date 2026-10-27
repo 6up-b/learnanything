@@ -3,8 +3,8 @@ title: "Config - ask"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
-source_commit_timestamp: "2026-10-26T19:10:43-04:00"
+source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
+source_commit_timestamp: "2026-10-26T21:57:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ask"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/tutor/tutor_qa.py"
+  - "tests/test_batch3_landing.py"
   - "tests/test_reader_ca2_codex_review.py"
   - "tests/test_reader_ca2_one_ask.py"
   - "tests/test_reader_tutor_switch_off.py"
@@ -55,6 +56,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/test_batch3_landing.py`
 - `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_tutor_switch_off.py`

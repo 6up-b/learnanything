@@ -349,7 +349,10 @@ class StudentEncoder:
                receipt_id: str | None = None) -> list[list[float]]:
         if not self.ready():
             self.start()
-            self._await_ready(deadline)
+            # Never an unbounded wait (batch landing, 2026-10-26): without the caller's
+            # deadline the start wait gets the query process's own time box, so a student
+            # that never becomes ready is a TimeoutError (the resolver's encoder_late).
+            self._await_ready(deadline if deadline is not None else time.monotonic() + SP.SOCKET_TIMEOUT_S)
         remaining = SP.SOCKET_TIMEOUT_S if deadline is None else deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("the retrieval time box ran out before the student query")

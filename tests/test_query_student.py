@@ -653,6 +653,53 @@ def test_the_resolver_serves_the_adopted_student_and_never_waits_for_a_zero_weig
     assert "#qe_" in served["spaces"]["local:grouped"]["list"]
 
 
+def test_a_student_that_never_becomes_ready_is_late_within_the_time_box_never_a_hang(tmp_path, monkeypatch):
+    """Batch landing (2026-10-26): a search with no deadline waited for a starting student
+    forever (``_await_ready(None)``; a full-suite run hung there under load). Without a
+    deadline the start wait is bounded by the query process's own time box
+    (``SOCKET_TIMEOUT_S``, the registered `keep` guardrail), and the resolver reports the
+    local space as ``encoder_late`` while the others serve."""
+
+    import threading
+
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from learnloop.source_retrieval.recipes import SOURCE_RETRIEVAL_RECIPES
+
+    caps = SpendCaps(max_candidates=10_000, max_pairs=0, max_calls=100, max_total_tokens=10**8, max_estimated_usd=10.0)
+    paths, repository, root, _model, _report = student_vault(
+        tmp_path, extra='\n[embedding.source_space]\ndefault = "local:grouped"\n')
+    assert backfill_embeddings(loaded(paths), caps=caps, recipes=("source_block",), registry=SOURCE_RETRIEVAL_RECIPES,
+                               client_factory=HashingEmbedder)["status"] == "complete"
+    _adopt(root, _space(paths))
+    monkeypatch.delenv(D.MODELS_ENV, raising=False)
+    # A started query process that never writes its ready status (stalled, or starved under load).
+    monkeypatch.setattr(E, "_spawn", lambda command, *, env, log: type("P", (), {"pid": None})())
+    monkeypatch.setattr(SP, "SOCKET_TIMEOUT_S", 0.5)
+    E._ENCODERS.clear()
+    encoder = E.adopted_encoder(loaded(paths))
+    for _ in range(10):
+        encoder._record_start(0.05)  # starts measured in time: the resolver waits rather than skips
+    out: dict = {}
+
+    def run() -> None:
+        try:
+            out["selection"] = _search(paths, repository).space_selection
+        except BaseException as exc:  # noqa: BLE001 - reported below
+            out["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    started = time.monotonic()
+    thread.start()
+    thread.join(20)
+    assert not thread.is_alive(), "the search waited for the student without a bound"
+    assert "error" not in out, out.get("error")
+    assert time.monotonic() - started < 20
+    local = out["selection"]["spaces"]["local:grouped"]
+    assert local["status"] == "encoder_late", local
+    assert "qwen" in out["selection"]["contributing"]
+
+
 def test_the_nightly_index_batch_replays_the_queued_queries_with_the_teacher(tmp_path, monkeypatch):
     paths, repository, root, model, report = student_vault(tmp_path)
     vault = loaded(paths)

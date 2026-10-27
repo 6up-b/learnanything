@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "88ac842750f27e5ccf6f233bae1607d8f3a5d115"
-source_commit_timestamp: "2026-10-26T19:10:43-04:00"
+source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
+source_commit_timestamp: "2026-10-26T21:57:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -28,6 +28,7 @@ source_paths:
   - "tests/figure_fixtures.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
+  - "tests/test_batch3_landing.py"
   - "tests/test_daily_loop_reader_authored_practice.py"
   - "tests/test_daily_loop_reader_retire.py"
   - "tests/test_daily_loop_reference_adoption.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_library_ask_review.py"
   - "tests/test_project_capture.py"
-  - "tests/test_question_signal.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -83,6 +83,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figure_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
+- `tests/test_batch3_landing.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
@@ -90,7 +91,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_project_capture.py`
-- `tests/test_question_signal.py`
 
 ## Extension and modification guidance
 
