@@ -19,6 +19,11 @@ and PR-4's session ownership, in one session on the desktop sidecar:
   retirement of another item still lands, with its own claim and re-anchor;
 * a shadow rebuild agrees with live: 0/0/0.
 
+Interaction (iii): main's AD denial-log archival at upgrade (416a9ddfe)
+archives the log once per `upgrade --to mvp-0.37` command, chained from
+mvp-0.35 too, and a refused upgrade leaves it in place. Interaction (ii) is in
+``tests/test_attempt_content_state_successor.py``.
+
 Fakes only: self-graded attempts, no model call.
 """
 
@@ -192,3 +197,61 @@ def test_landing_i_control_below_the_tag_the_same_session_reopens_the_retired_ro
     first, second = _claims(repository)
     assert first["superseded_by"] == second["id"] and second["superseded_by"] is None
     assert repository.practice_item_state("pi_diag_mid").active is True
+
+
+# -- Interaction (iii): the AD denial-log archival (main 416a9ddfe) at mobile PR-4's upgrade ----------
+
+
+def _denial_cli(monkeypatch):
+    from learnloop import activation_journal
+    from learnloop.cli.runtime import _complete_interrupted_activation
+
+    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
+
+
+@pytest.mark.parametrize("start", ["mvp-0.36", "mvp-0.35"], ids=["direct", "chained-from-mvp-0.35"])
+def test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once(tmp_path, monkeypatch, start):
+    """`upgrade --to mvp-0.37` (directly, or chained from mvp-0.35 through
+    mvp-0.36) archives the AD guard's denial log once, after the final step,
+    naming the command's start and target; a second, refused run leaves the
+    log written since in place."""
+
+    from tests.test_ad_denial_log import OLD_LINE, _archives, _upgrade, _write_log
+    from tests.helpers import create_placement_vault
+    from learnloop.adaptive_difficulty import denial_log as D
+    from learnloop.adaptive_difficulty import operation as O
+
+    _denial_cli(monkeypatch)
+    paths = create_placement_vault(tmp_path / "v", version=start)
+    log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
+    before = log.read_text(encoding="utf-8")
+    result = _upgrade(paths, LATEST_ALGORITHM_VERSION)
+    assert result.exit_code == 0, result.output
+    assert f"{start} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.37"
+    [archive] = _archives(paths)
+    assert archive.name.startswith(f"ad_guard_denials.archived-{start}-to-{LATEST_ALGORITHM_VERSION}-")
+    assert archive.read_text(encoding="utf-8") == before and not log.exists()
+    assert result.output.count("AD guard denial log archived") == 1
+    assert O.denial_count(paths.sqlite_path) == 0 and D.summary(paths.sqlite_path)["archived_denials"] == 2
+
+    # Refused (already at the tag): the log written since stays live and nothing more is archived.
+    log = _write_log(paths, [OLD_LINE])
+    again = _upgrade(paths, LATEST_ALGORITHM_VERSION)
+    assert again.exit_code == 1 and f"vault is already {LATEST_ALGORITHM_VERSION}" in again.output, again.output
+    assert log.exists() and _archives(paths) == [archive] and O.denial_count(paths.sqlite_path) == 1
+
+
+def test_landing_iii_a_refused_chained_upgrade_to_mvp037_leaves_the_log_in_place(tmp_path, monkeypatch):
+    """A chain the first link refuses (a vault older than the chain) archives nothing."""
+
+    from tests.test_ad_denial_log import OLD_LINE, _archives, _upgrade, _write_log
+    from tests.helpers import create_placement_vault
+
+    _denial_cli(monkeypatch)
+    paths = create_placement_vault(tmp_path / "old", version="mvp-0.8")
+    log = _write_log(paths, [OLD_LINE])
+    result = _upgrade(paths, LATEST_ALGORITHM_VERSION)
+    assert result.exit_code == 1, result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.8"
+    assert log.exists() and _archives(paths) == []
