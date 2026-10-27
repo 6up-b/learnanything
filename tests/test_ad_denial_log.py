@@ -217,3 +217,151 @@ def test_the_report_renders_a_guard_block_without_entries(tmp_path):
     report = {"generated_at": "now", "algorithm_version": TAG, "records": 0, "auto_flags": [], "honest_lines": [],
               "scores": {}, "dose_and_burden": {"lines": []}, "identifiability": {"statement": ""}, "guard": {"denials": 2}}
     assert "refused 2 read(s) or write(s) so far" in render_markdown(report)
+
+
+# -- 3. Codex review F1/F2 (2026-10-27): the cutover never hides a later denial ----------------------
+
+NEW_LINE = {"reader": "learnloop.adaptive_difficulty.replay", "table": "practice_attempts", "verb": "read",
+            "why": "derived"}
+SIDECAR_ENTRY = "learnloop.adaptive_difficulty.replay.load_events"
+
+
+def test_f1_a_denial_after_the_upgrade_returned_stays_live(tmp_path, monkeypatch):
+    """F1: the upgrade commits and releases its lock; a sidecar operation, under the successor, logs a
+    denial before the CLI archives. That denial is after the upgrade: it stays in the live count."""
+
+    from learnloop import one_ask_upgrade
+
+    paths = _vault_at(tmp_path, PREDECESSOR)
+    log = _write_log(paths, [OLD_LINE, {**OLD_LINE, "table": "mastery_ekf"}])
+    before = log.read_text(encoding="utf-8")
+    real = one_ask_upgrade.upgrade_to_one_ask
+
+    def then_a_sidecar_denial(*args, **kwargs):
+        result = real(*args, **kwargs)
+        D.append_denials(paths.sqlite_path, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
+        return result
+
+    monkeypatch.setattr(one_ask_upgrade, "upgrade_to_one_ask", then_a_sidecar_denial)
+    result = _upgrade(paths, TAG)
+    assert result.exit_code == 0, result.output
+    [archive] = _archives(paths)
+    assert archive.read_text(encoding="utf-8") == before, "only the lines from before the upgrade are archived"
+    assert O.denial_count(paths.sqlite_path) == 1, "the successor's denial stays counted"
+    [line] = log.read_text(encoding="utf-8").splitlines()
+    assert json.loads(line)["entry"] == SIDECAR_ENTRY
+    block = D.summary(paths.sqlite_path)
+    assert (block["denials"], block["archived_denials"]) == (1, 2)
+
+
+def test_f1_an_append_in_flight_never_writes_into_the_archive(tmp_path):
+    """F1, overlapping variant: an appender is between its two lines when the upgrade archives. Its
+    lines land in the live log (not through a handle into the renamed archive)."""
+
+    import threading
+
+    paths = _vault_at(tmp_path, PREDECESSOR)
+    log = _write_log(paths, [OLD_LINE])
+    before = log.read_text(encoding="utf-8")
+    started, go = threading.Event(), threading.Event()
+
+    def denials():
+        yield {**NEW_LINE, "table": "first"}
+        started.set()
+        go.wait(30)
+        yield {**NEW_LINE, "table": "second"}
+
+    appender = threading.Thread(target=D.append_denials, args=(paths.sqlite_path, denials()),
+                                kwargs={"epoch": "e2", "entry": SIDECAR_ENTRY})
+    appender.start()
+    try:
+        assert started.wait(30)
+        result = _upgrade(paths, TAG)
+    finally:
+        go.set()
+        appender.join(30)
+    assert result.exit_code == 0, result.output
+    [archive] = _archives(paths)
+    assert archive.read_text(encoding="utf-8") == before
+    assert [json.loads(line)["table"] for line in log.read_text(encoding="utf-8").splitlines()] == ["first", "second"]
+
+
+def test_f1_lines_appended_after_the_mark_stay_live_and_the_marked_ones_are_archived(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    log = D.denial_log_path(sqlite_path)
+    log.write_text(json.dumps(OLD_LINE) + "\n" + '{"verb": "re', encoding="utf-8")  # a torn tail at the mark
+    mark = D.cutover_mark(sqlite_path)
+    D.append_denials(sqlite_path, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
+    archive = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark)
+    assert archive.read_text(encoding="utf-8") == json.dumps(OLD_LINE) + "\n" + '{"verb": "re'
+    [line] = D._lines(log)
+    assert json.loads(line)["entry"] == SIDECAR_ENTRY, "the torn tail was ended: the new line stands alone"
+    assert not log.with_name(D.LOG_NAME + ".tmp").exists()
+    # A later log (another archival moved the marked lines) and no log at the mark: nothing archived.
+    assert D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark) is None
+    fresh = tmp_path / "fresh" / "state.sqlite"
+    fresh.parent.mkdir()
+    empty = D.cutover_mark(fresh)
+    D.append_denials(fresh, [NEW_LINE], epoch="e2", entry=SIDECAR_ENTRY)
+    assert D.archive_denial_log(fresh, from_version="a", to_version="b", mark=empty) is None
+    assert D.denial_count(fresh) == 1
+
+
+def test_f1_the_archival_waits_for_an_append_holding_the_log_lock(tmp_path):
+    """Appends and the archival share the log's leaf lock (a second open file description, as another
+    process's): the archival does not run while an append holds it."""
+
+    import threading
+
+    sqlite_path = tmp_path / "state.sqlite"
+    D.denial_log_path(sqlite_path).write_text(json.dumps(OLD_LINE) + "\n", encoding="utf-8")
+    mark = D.cutover_mark(sqlite_path)
+    done = threading.Event()
+    out: list = []
+
+    def archive():
+        out.append(D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark))
+        done.set()
+
+    worker = threading.Thread(target=archive)
+    with D._log_lock(sqlite_path):
+        worker.start()
+        try:
+            assert not done.wait(0.3), "the archival ran while the log lock was held"
+        finally:
+            pass
+    worker.join(30)
+    assert done.is_set() and out[0] is not None and D.denial_count(sqlite_path) == 0
+
+
+def test_f2_a_report_never_counts_a_line_live_and_archived(tmp_path, monkeypatch):
+    """F2: an upgrade archiving between the live read and the archive listing. The report is read
+    under the log lock, so the archival waits and the snapshot counts each line once."""
+
+    import threading
+
+    sqlite_path = tmp_path / "state.sqlite"
+    D.denial_log_path(sqlite_path).write_text(json.dumps(OLD_LINE) + "\n" + json.dumps(OLD_LINE) + "\n",
+                                              encoding="utf-8")
+    mark = D.cutover_mark(sqlite_path)
+    real_lines = D._lines
+    workers: list[threading.Thread] = []
+
+    def lines_then_an_upgrade(path):
+        out = real_lines(path)
+        if path.name == D.LOG_NAME and not workers:
+            worker = threading.Thread(target=D.archive_denial_log, args=(sqlite_path,),
+                                      kwargs={"from_version": "a", "to_version": "b", "mark": mark})
+            workers.append(worker)
+            worker.start()
+            worker.join(0.5)  # an unlocked report lets the archival finish here
+        return out
+
+    monkeypatch.setattr(D, "_lines", lines_then_an_upgrade)
+    block = D.summary(sqlite_path)
+    for worker in workers:
+        worker.join(30)
+    assert block["denials"] + block["archived_denials"] == 2, block
+    monkeypatch.setattr(D, "_lines", real_lines)
+    after = D.summary(sqlite_path)
+    assert (after["denials"], after["archived_denials"]) == (0, 2)
