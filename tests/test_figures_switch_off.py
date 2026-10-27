@@ -35,8 +35,10 @@ def _record(tmp_path: Path, *, enabled: bool | None) -> dict:
 #: ``compareKeep`` and RW7a's ``readingPaths`` with Orient's "what matters
 #: here?" in the contract; RW4d's ``comparisons``, RW4e's ``roles`` and RW7a's
 #: ``reading_paths`` in the report. These pins are about RW5a's switch, so
-#: everything else stays byte for byte.
-LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths")
+#: everything else stays byte for byte. Reader CA5a's ``correspondence``
+#: (find this section in my other books) is pinned by
+#: tests/test_reader_ca5a_find_section.py.
+LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence")
 LATER_REPORT_KEYS = ("comparisons", "roles", "reading_paths")
 
 
