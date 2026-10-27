@@ -42,9 +42,14 @@ task an unassisted attempt would have consumed), and is not an exam attempt. In 
    retry count, because before CA2 an assisted cold attempt was refused.
 3. **The surface.** The lane's one rule, factored out unchanged as `remediation._independent_cold_item` (treatment
    now calls it with the primed surface excluded, exactly its old inline code), over the repair's ranked items with
-   the primed surface and the assisted retry's surface excluded. None left: the fresh opportunity is decided
-   `structurally_refused / no_independent_surface` with its schedule-refusal receipt, and the repair stays
-   unmeasurable, as below the tag.
+   the primed surface and the assisted retry's surface excluded, then (Codex review F1) skipping, in rank order, any
+   surface already hard-contaminated since the primed attempt: the final receipt's own scan
+   (`coldness_receipt.repair_surface_hard_contamination`: its answer revealed, or its surface group administered,
+   between the primed attempt and the assisted one), because the fresh retry keeps the primed source attempt and its
+   final receipt would hard-fail such a surface. Skipped surfaces are listed in the candidate summary
+   (`contaminated`). None left: the fresh opportunity is decided `structurally_refused / no_independent_surface` (or
+   `no_uncontaminated_surface` when the exposure history ruled every independent surface out) with its
+   schedule-refusal receipt, and the repair stays unmeasurable, as below the tag.
 4. **The timing is the existing rule, no new delay.** `not_before = the assisted attempt + COLD_RETRIEVAL_DELAY`,
    `expires_at = not_before + COLD_RETRY_WINDOW`. `COLD_RETRY_WINDOW` names the 30 days the primed branch always used
    inline (one value, both sites). The delay runs from the attempt that took the help because that is the latest
@@ -64,8 +69,11 @@ task an unassisted attempt would have consumed), and is not an exam attempt. In 
    attribution follows it). An unassisted answer on the fresh surface consumes it and completes the episode through
    the unchanged consumer.
 
-Not changed: the repair forecast (`forecast_receipts.record_repair_expectation`) is written once, bound to the first
-task, in the primed attempt's transaction; the fresh task gets no second forecast (see open questions).
+7. **The forecast (Codex review F2).** The fresh task gets its own repair forecast
+   (`forecast_receipts.record_repair_expectation` via `_repair_forecast`), bound to it, written in its scheduling
+   transaction, for the primed attempt with the carried repair class and hypotheses. The receipt key carries the task,
+   so the original forecast stays as written and censors on the withdrawn retry's disposition
+   (`unmeasurable_no_held_out_surface`), while a measured replacement resolves in `learnloop diagnosis calibration`.
 
 ## 3. Certification probes: not rescheduled
 
@@ -171,10 +179,7 @@ was opened.
 
 ## 8. Open questions
 
-- **The repair forecast for the fresh retry.** `record_repair_expectation` binds one forecast to the first task in the
-  primed attempt's transaction; that task now ends `unmeasurable_no_held_out_surface`, and the fresh retry's outcome
-  has no forecast of its own. Writing a second forecast for the same primed attempt (or re-binding the first) is a
-  forecast-receipts decision; left as is.
+- ~~The repair forecast for the fresh retry~~: resolved by Codex review F2 (§2 item 7).
 - **Surface novelty on the fresh surface.** The lane's rule excludes the primed and assisted surfaces and items whose
   material was shown, not every surface the learner has ever attempted (neither did treatment's first pick). The
   ranking puts never- and least-recently-attempted items first; a fresh surface attempted long ago would record
