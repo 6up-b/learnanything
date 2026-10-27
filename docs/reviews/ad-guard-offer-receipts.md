@@ -21,7 +21,12 @@ failure surfaced as `ViewDenied: ('denied', 'DatabaseError')`.
 - The audit (§4) found two more latent denials of the same class and fixed both.
 - **No successor.** The fix is a bug fix: it restores the behaviour specified since mvp-0.30. On every
   vault without such an attempt the result is row-identical (§5).
-- All three owner copies now upgrade to mvp-0.35, rebuild, report and pass doctor (§6).
+- All three owner copies now upgrade to mvp-0.35, rebuild and report (§6). Doctor does not pass on
+  any of them: it reports the copies' existing content errors (1, 47 and 48), the same codes and
+  counts as on the un-upgraded copies, so no new doctor error (corrected after the Codex review;
+  `ad-guard-offer-receipts-codex-review.md`).
+- The no-successor decision was challenged by the Codex review (F1) and is upheld there, with the
+  per-vault rollback pinned by a test and the in-place change put to the owner at the checkpoint.
 
 ## 1. Reproduction
 
@@ -212,8 +217,9 @@ The playbook asks whether persisted meaning changes. It does not:
 
 - **The specified behaviour.** Since mvp-0.30 (AD23), AD reads field's rows through the view, and
   an operation that does so runs with zero denials. That is AD23's contract test. A refusal caused
-  by an incomplete registry is a defect, and the incumbent-serves fallback is the failure mode, not
-  a specified state.
+  by an incomplete registry is a defect. The incumbent-serves fallback *is* specified, as the
+  response to a denial (A8's round-2 record, D25, owner decision 2026-10-21); what is not specified
+  is a denial of a read the rules exist to make (corrected after the Codex review, F1).
   - Labels, masses, the replay and AD state mean what they meant.
   - No default, fingerprint, schema or migration changes.
   - The upgrade chain is untouched and stays linear.
@@ -256,7 +262,11 @@ No model call and no spend.
 
 The probability report's `guard.denials` reads **6**. These are the copy's 6 historical lines from
 the live vault, not new denials: the count is cumulative over the log file, and no line was added.
-Doctor's error codes are only the known content ones.
+Doctor's error codes are only the known content ones. Baseline (added after the Codex review): doctor on
+fresh, un-upgraded copies of the same three owner copies reports the same content codes and counts
+(`layout:missing_directory` 1; `criterion:unknown_dependency` 46 + `layout:missing_directory` 1;
+`criterion:unknown_dependency` 46 + `yaml:invalid` 2), plus one `sqlite:migrations_missing` each,
+which the upgrade clears. So the upgrade adds no doctor error; it does not make doctor pass.
 
 ## 7. Gate (this stage; the full suite runs once at landing)
 

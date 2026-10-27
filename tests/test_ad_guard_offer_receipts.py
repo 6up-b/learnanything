@@ -153,3 +153,63 @@ def test_the_receipt_stays_refused_outside_the_rules(tmp_path):
         with suppress(O.OperationPoisoned), O.ad_operation(vault, repository):
             with pytest.raises(sqlite3.DatabaseError, match="not authorized|is prohibited"):
                 connection.execute("SELECT slate_id FROM scheduler_offer_receipts").fetchall()
+
+
+# -- Codex review F1: the serving change on the affected shape, and its per-vault rollback ---------
+
+
+HARD = {"complexity": 3, "transfer": "far", "scaffolding": "none", "span": "multi_step",
+        "response": "long_constructed", "tools": ["closed_book"]}
+SERVED = ("pi_h", "pi_e1", "pi_e2", "pi_e3")
+
+
+def _served_over_a_pick(tmp_path, name: str, *, ad: str = "") -> list:
+    """The plan's served steps, its records and AD's draws on a vault holding the affected shape
+    (an earlier answer picked from a published offer), with a hard slot AD substitutes when it can."""
+
+    from learnloop.daily_plan.engine import advance, build_plan, day_records
+
+    from tests.ad23_fakes import env_for, selections
+
+    paths = ad23_vault(tmp_path / name, items=SERVED, features={"pi_h": HARD}, ad=ad,
+                       config="[router]\nenabled = false\n")
+    seed_learner_pick(paths, answer(paths, "pi_e3"), "pi_e3")
+    env, clock = env_for(paths, items=SERVED)
+    build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
+    sequence = []
+    for _ in range(4):
+        _record, step = advance(env, serve=True)
+        sequence.append({key: step.get(key) for key in ("kind", "practice_item_id", "learning_object_id", "position")})
+        if step["kind"] != "item":
+            break
+        clock.advance(2)
+        answer(paths, step["practice_item_id"], presentation_id=step["presentation_id"], clock=clock)
+        clock.advance(1)
+    records = [{"blocks": [[(i.practice_item_id, i.est_minutes, i.position, i.displaced_reason) for i in b.items]
+                           for b in r.blocks], "status": r.status} for r in day_records(env)]
+    return [sequence, records, selections(paths)]
+
+
+def test_the_fix_changes_serving_on_the_affected_shape_and_the_switches_restore_the_refusal_state(
+        tmp_path, monkeypatch, observed):
+    """F1 reproduced: before the fix (the table unclassified) every AD operation over this vault was
+    poisoned, so the incumbent served every slot and AD drew nothing; with the fix AD draws under the
+    same tag. The vault's own AD2+AD3 switches (all false) serve exactly what the refusal served,
+    so the predecessor's observable serving state stays reachable per vault, without a new tag."""
+
+    from learnloop.adaptive_difficulty import protected_tables as T
+    from learnloop.adaptive_difficulty import successor as SC
+
+    restored = _served_over_a_pick(tmp_path, "fixed")
+    off = _served_over_a_pick(tmp_path, "off", ad="".join(f"{name} = false\n" for name in SC.SWITCHES))
+    assert _denials(observed) == []
+    with monkeypatch.context() as patched:
+        patched.setattr(T, "ROLES", {table: kind for table, kind in T.ROLES.items()
+                                     if table != "scheduler_offer_receipts"})
+        refused = _served_over_a_pick(tmp_path, "refused")
+    first = [denial for denial in _denials(observed) if denial["why"] != O.POISONED]
+    assert first and {(d["table"], d["why"]) for d in first} == {("scheduler_offer_receipts", "an unclassified table")}
+    assert refused[2] == [] and off[2] == []
+    assert restored[2], "with the fix AD draws on the affected shape"
+    assert restored[0][0]["practice_item_id"] != refused[0][0]["practice_item_id"]
+    assert off[:2] == refused[:2]
