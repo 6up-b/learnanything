@@ -27,7 +27,7 @@ from tests.helpers import (
     seed_due_item,
     use_init_algorithm_version,
 )
-from tests.owner_vaults import owner_vault, owner_vaults
+from tests.owner_vaults import owner_vault, owner_vaults, require_owner_vault
 
 # The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
 # H3); these tests drive an in-process HTTP server through it as a provider double.
@@ -1944,7 +1944,7 @@ def test_sidecar_get_recent_ingests_lists_canonical_sources(tmp_path):
     # The arxiv fixture vault holds canonical_source notes plus the proposal
     # batches their ingests produced; copy it so loading never mutates it.
     vault_root = tmp_path / "vault"
-    shutil.copytree(owner_vault("arxiv"), vault_root)
+    shutil.copytree(require_owner_vault("arxiv"), vault_root)
 
     responses = _rpc(
         [

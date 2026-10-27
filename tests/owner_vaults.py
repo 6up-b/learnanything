@@ -79,6 +79,20 @@ def owner_vault(name: str) -> Path:
     return root / name
 
 
+def require_owner_vault(name: str) -> Path:
+    """The lane's copy of one owner vault, or skip the test when the lane has none.
+
+    A lane is often made of the three working vaults only; a test that reads an
+    early vault (``arxiv``, ``conic-sections``, ``linear_algebra_legacy``, ...)
+    then has nothing to read, which says nothing about the code under test. It
+    is skipped with the reason, as a working-vault test skips an absent copy.
+    """
+    path = owner_vault(name)
+    if not path.is_dir():
+        pytest.skip(f"owner_vaults lane: {OWNER_VAULTS_ENV} holds no copy of {name!r}")
+    return path
+
+
 def _tracked_fixture_paths() -> list[str] | None:
     try:
         result = subprocess.run(
