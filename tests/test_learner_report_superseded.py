@@ -88,11 +88,11 @@ def test_the_tag_is_one_constant_after_mvp035_and_the_latest():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.superseded_claims_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    # Mobile PR-4's mvp-0.37 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-3:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
-    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-2] and LATEST_ALGORITHM_VERSION == "mvp-0.37"
+    # Mobile PR-4's mvp-0.37 and the cold-retry reschedule's mvp-0.38 (the latest) follow it (and keep it).
+    assert SUCCESSOR_CHAIN[-4:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38")
+    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-3] and LATEST_ALGORITHM_VERSION == "mvp-0.38"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.35"
-    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37"})
+    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     # No new default and no kill switch: only the version string moves the fingerprint.
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]

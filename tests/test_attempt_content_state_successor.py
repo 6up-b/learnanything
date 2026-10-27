@@ -137,16 +137,17 @@ def _closed_then_answered(paths):
 # -- the chain -------------------------------------------------------------------------------------
 
 
-def test_mvp037_is_one_constant_after_mvp036_and_the_latest():
+def test_mvp037_is_one_constant_after_mvp036():
     from learnloop.attempt_content_state_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.schema import PracticeConfig
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
 
     # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
-    assert SUCCESSOR_CHAIN[-3:] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
-    assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG})
+    # The cold-retry reschedule's mvp-0.38 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-4:-1] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.38" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG, "mvp-0.38"})
     assert PracticeConfig().attempt_keeps_content_state is True
     rule = classify_config_path("practice.attempt_keeps_content_state")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
@@ -216,13 +217,15 @@ def test_upgrade_to_mvp037_works_from_supported_versions(tmp_path, start):
     assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
 
 
-def test_a_bare_upgrade_targets_mvp037(tmp_path):
+def test_a_bare_upgrade_targets_the_latest_through_mvp037(tmp_path):
     from learnloop.cli import app
 
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
+    # The latest is the cold-retry reschedule's mvp-0.38, chained through this tag.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
 
 
 def test_the_upgrade_refuses_a_version_before_the_chain(tmp_path):

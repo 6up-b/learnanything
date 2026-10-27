@@ -1,0 +1,159 @@
+# The cold-retry reschedule: a fresh cold retry after help on a cold follow-up (mvp-0.38)
+
+Stage `cold-retry-after-assist`, branch `sched/cold-retry-after-assist` in `learnanything-dl2`, base `1bcde2096`
+(main: latest algorithm `mvp-0.37`, migrations through 226, head fixture `migration_head_226`). Owner decision
+2026-10-25 (Reader CA2 follow-up Q4, recorded as an open question in `docs/reviews/reader-ca2-one-ask.md` §3): when
+the learner takes help on a cold follow-up, the attempt still converts to practice with help (CA2,
+`ask.cold_help_converts`), and a fresh cold retry is now scheduled, so the repair can still be measured cold instead
+of being left unmeasurable. Process: `docs/algorithm-change-playbook.md`.
+
+No migration, no schema change, no frontend or `src-tauri` change. Fakes only: no model call, no paid call, no owner
+vault or copy of one (synthetic vaults only).
+
+## 1. Where things happen today (mvp-0.37)
+
+| What | Where |
+|---|---|
+| A repair cold retry is **created** | `remediation.record_remediation_attempt`, primed branch: the episode's primed attempt schedules a `cold_retry` on the episode's `cold_item_id`, `not_before = primed attempt + COLD_RETRIEVAL_DELAY` (1 day), `expires_at = not_before + 30 days` |
+| Its **cold surface** is chosen | `remediation.start_remediation_treatment`: the best-ranked item (`_rank_items`) on a surface group other than the primed item's whose material the learner was not shown (`exposed_items`, held-out material included) |
+| Help on a due cold follow-up is **admitted** | `serve_eligibility._decide_submit` (`COLD_CHECK_HELP_TAKEN`, claims no task), under `serve_eligibility.help_converts_active` (mvp-0.35+, `ask.cold_help_converts`) |
+| The assisted attempt **does not consume** it | `record_remediation_attempt` (`assisted_attempt` -> return) and `certification_cold_probe._record_probe_outcome` (returns None) |
+| The measurement is **withdrawn** | at the next serve of the item: `serve_eligibility._decide_cold_check` sees the item practised since the task was created (`COLD_CHECK_PRACTISED_SINCE_SCHEDULED`) and `scheduler.apply_eligibility_writes` -> `remediation.withdraw_cold_measurement` records `unmeasurable_no_held_out_surface` and expires the task. If the item is never served again, the expiry sweep labels it at its window's end |
+
+So under mvp-0.37 the repair ends unmeasurable. The coldness receipt explains why the same surface cannot simply be
+re-timed: its `surface_novelty` dimension fails on any surface ever attempted, and an attempt on the cold item inside
+the window is a hard exposure (`cold_item_answer_reveal`), the one finding that blocks a verification.
+
+## 2. The rule (mvp-0.38, `practice.reschedule_cold_after_assist`)
+
+`remediation.reschedule_assisted_cold_retry`, called first in `record_remediation_attempt`, live only (the attempt
+step passes the vault; replay and a regrade pass none). It acts when the rule is live
+(`reschedule_cold_after_assist_active`: the tag or later, the switch on, and CA2's rule on, without which submit
+refuses the assisted attempt) and the attempt is assisted (`assisted_attempt`: hints, a hinted type, or primed) on the
+item of a due, open `cold_retry` (the consumer's own lookup, `active_followup_task_for_item(kind="cold_retry")`: the
+task an unassisted attempt would have consumed), and is not an exam attempt. In the attempt's transaction:
+
+1. **The assisted retry ends now**, with the existing typed disposition: `withdraw_cold_measurement` (reason
+   `cold_check_help_taken`, `detail.stage = "submit"`; the function gained a `stage` argument, default `"serve"`), its
+   final coldness receipt, the task expired. Below the tag the same disposition lands at the next serve.
+2. **The bound.** If the withdrawn retry was itself a fresh one (its context carries
+   `remediation.ASSISTED_RESCHEDULE_CONTEXT_KEY`), nothing more is scheduled: **one fresh retry per assisted chain**, a
+   structural bound in the functional form (no count constant; label `keep`). No existing cap applied: the lane had no
+   retry count, because before CA2 an assisted cold attempt was refused.
+3. **The surface.** The lane's one rule, factored out unchanged as `remediation._independent_cold_item` (treatment
+   now calls it with the primed surface excluded, exactly its old inline code), over the repair's ranked items with
+   the primed surface and the assisted retry's surface excluded. None left: the fresh opportunity is decided
+   `structurally_refused / no_independent_surface` with its schedule-refusal receipt, and the repair stays
+   unmeasurable, as below the tag.
+4. **The timing is the existing rule, no new delay.** `not_before = the assisted attempt + COLD_RETRIEVAL_DELAY`,
+   `expires_at = not_before + COLD_RETRY_WINDOW`. `COLD_RETRY_WINDOW` names the 30 days the primed branch always used
+   inline (one value, both sites). The delay runs from the attempt that took the help because that is the latest
+   exposure on the repair: it is the lane's "later session, not this one" rule, the same rule the scheduler re-applies
+   after a reveal (`scheduler._cold_task_reveals`).
+5. **The context is the repair's.** The fresh task copies the withdrawn task's scheduling-time context (§6.2: the
+   primed source attempt, repair class, hypotheses, reveal spend) and adds where it came from
+   (`assisted_reschedule`: the withdrawn task, the assisted attempt, the withdrawn cold item, the reason). Its
+   `source_attempt_id` stays the primed attempt. So the coldness receipt scans from the primed attempt and records the
+   assisted attempt as what it is, a retrieval-type co-intervention on the repair's learning object: the fresh retry
+   qualifies as cold retrieval, and `qualifies_as_repair_effect_verification` is honest that help came in between.
+   Co-interventions are recorded, never blocking (`record_cold_verification_from_task`), so the verification still
+   lands.
+6. **Bookkeeping.** A new cold-measurement opportunity per withdrawn retry (`trigger_kind = "assisted_cold_retry"`,
+   `trigger_ref` = the withdrawn task; its unique key makes it idempotent), decided `scheduled` with the fresh task in
+   the same insert. The episode stays `cold_scheduled` and its `cold_item_id` moves to the fresh surface (reveal
+   attribution follows it). An unassisted answer on the fresh surface consumes it and completes the episode through
+   the unchanged consumer.
+
+Not changed: the repair forecast (`forecast_receipts.record_repair_expectation`) is written once, bound to the first
+task, in the primed attempt's transaction; the fresh task gets no second forecast (see open questions).
+
+## 3. Certification probes: not rescheduled
+
+`docs/specs/spec_measurement_efficiency_v1.md` §5.7 (as implemented in `goals/certification_cold_probe.py`): "one
+held-out-surface item per certified LO", and "one probe per certificate, ever" is a schema fact, migration 139's
+`uq_followup_tasks_certification_probe` unique index on `case_ref` (the certificate id) for the whole life of the vault,
+consumed or expired. The scheduler's idempotency read is status-blind on purpose, and `false_certification_rate` reads
+an expired probe as `probe_expired`, unmeasured, never a pass. A fresh probe for the same certificate would need a
+migration that drops that invariant and a spec change to the metric's denominator, which the owner's decision does not
+ask for (it names the repair). A re-earned certificate (different cells or recipe) hashes to a new id and earns a new
+probe through the existing scheduler. So an assisted probe stays as CA2 left it (practice with help; the next serve
+withdraws it), and the rule only ever looks up `kind = "cold_retry"`. Test:
+`test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it`.
+
+## 4. The successor (playbook items 1-8)
+
+| Item | Done |
+|---|---|
+| 1. New tag | `COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"`, one constant, appended to `SUCCESSOR_CHAIN` after `mvp-0.37`; `COLD_RETRY_RESCHEDULE_VERSIONS`; `LATEST_ALGORITHM_VERSION` follows. A change to which cold checks are scheduled and served is a successor by the 2026-10-17 eligibility rule even though replay is unchanged |
+| 2. Ledgers immutable | nothing rewritten; a task withdrawn below the tag stays withdrawn |
+| 3. Upgrade | `learnloop/cold_retry_reschedule_upgrade.py` (`upgrade_to_cold_retry_reschedule`), the chain's journalled link built on `attempt_content_state_upgrade.py`: the predecessor, or `mvp-0.9` onwards through the chain; anything older refused; one `BEGIN IMMEDIATE` activation under the vault mutation lock with the journal and the durable publication last; `complete_interrupted_activation` completes its own journal and hands any earlier link's down. The CLI (`upgrade --to mvp-0.38`, the bare upgrade's target, the help and refusal text) and the CLI and sidecar openers install it as the chain's latest completion; `activation_journal`'s docstring names it |
+| 4. Defaults fingerprint | `practice.reschedule_cold_after_assist = true` (a modelled default, left out of the decision-only template); every snapshot recomputed (29), the `mvp-0.38` snapshot added; dropping the key reproduces every earlier value (checked for all 28) |
+| 5. Table roles | no new table |
+| 6. Replay / rebuild equivalence | replay passes no vault, so it schedules nothing; `followup_tasks` and `remediation_episodes` are `WORKFLOW` tables no rebuild clears. A same-version rebuild leaves the lane exactly as live left it, and `rebuild --shadow` is 0/0/0 with the fresh retry scheduled and consumed (switch on and off) |
+| 7. Shadow rebuild on a copy | in-test only (`shadow_rebuild` on synthetic vaults; `live_database_unchanged`); no owner-vault copy in this stage |
+| 8. Upgrade path | CLI upgrade from `mvp-0.9`, `mvp-0.30`, `mvp-0.35`, `mvp-0.36`, `mvp-0.37`; bare upgrade; pre-chain refusal; an interrupted `mvp-0.38` activation completed by the next CLI command and by the upgrade itself; a failure after the rename; an interrupted `mvp-0.37` activation completed then upgraded, with and without an installed completion |
+
+**Kill switch.** `practice.reschedule_cold_after_assist` (default true), classified in
+`params/parameter_registry.py` as a structural operational kill switch. Off, or below the tag, the rule returns before
+reading anything and `record_remediation_attempt` runs the predecessor's branches unchanged; the off-state test
+compares the whole lane (tasks, episode, outcomes, opportunity decisions) with an `mvp-0.37` vault's, and then the next
+serve withdraws the retry as the predecessor does.
+
+**No made-up constants.** No new weight, margin or threshold. The delay and window are the lane's existing ones
+(`COLD_RETRIEVAL_DELAY`, the 30-day window now named `COLD_RETRY_WINDOW`); the bound is structural (a context marker,
+one fresh retry per chain, `keep`: an anti-nag ceiling on a learner who keeps taking help).
+
+## 5. Files
+
+- `src/learnloop/algorithm_versions.py`: the tag, the chain, the version set.
+- `src/learnloop/diagnosis/remediation.py`: `COLD_RETRY_WINDOW`, `_independent_cold_item`,
+  `reschedule_cold_after_assist_active`, `reschedule_assisted_cold_retry`, `withdraw_cold_measurement(stage=)`, the
+  call in `record_remediation_attempt`.
+- `src/learnloop/cold_retry_reschedule_upgrade.py` (new); `cli/app.py`, `cli/runtime.py`, `learnloop_sidecar/context.py`,
+  `activation_journal.py`, `pyproject.toml` (the experiments-isolation contract's module list).
+- `src/learnloop/config/schema.py` (`PracticeConfig.reschedule_cold_after_assist`), `config/template.py` (notes, 29
+  fingerprints, the `mvp-0.38` snapshot), `params/parameter_registry.py`.
+- `tests/test_cold_retry_reschedule.py` (new); `tests/cli_help_snapshot.json`; chain-tail pins moved in the existing
+  successor tests (the latest is `mvp-0.38`; version sets gain it; `test_attempt_content_state_successor.py` no longer
+  calls mvp-0.37 the latest).
+- `docs/learnloop-architecture-vault/_scripts/db_generate_reference.py` (the field's description) and the regenerated
+  reference notes.
+
+## 6. Tests (`tests/test_cold_retry_reschedule.py`)
+
+**Fail-first.** Run against the base's `remediation.py` (only the new names stubbed, the rule a no-op), the five
+schedule tests fail: `test_help_on_a_due_cold_retry_schedules_one_fresh_retry_on_another_surface`,
+`test_the_fresh_retry_is_invisible_until_due_then_measures_the_repair_cold`,
+`test_help_on_the_fresh_retry_too_ends_it_and_spawns_nothing`,
+`test_without_another_independent_surface_the_refusal_is_recorded_and_nothing_is_scheduled`,
+`test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`. With the change all pass.
+
+| Area | Tests |
+|---|---|
+| The schedule | the withdrawn retry's typed disposition (`stage = submit`, `cold_check_help_taken`); one fresh retry on the unused surface; `not_before` / `expires_at` from the existing rule; the carried context and marker; the opportunity decided `scheduled`; the episode's cold item |
+| Measured cold | invisible until due; an unassisted answer consumes it and completes the episode; the final coldness evaluation has no hard contamination, qualifies as cold retrieval and lists the assisted attempt as a co-intervention |
+| Unchanged | an unassisted cold retry is consumed as before |
+| The bound | help on the fresh retry withdraws it and schedules nothing; a later assisted answer finds nothing; two tasks in all |
+| No surface | the refusal recorded; nothing scheduled; the episode's cold item unchanged |
+| Certification | an assisted probe stays open; no second probe |
+| The switch | the gate (tag / switch off / CA2 off / predecessor / predecessor with the switch on; no vault); off and below the tag: the lane equals an `mvp-0.37` vault's, and the next serve withdraws as practised |
+| Replay | a same-version rebuild leaves `followup_tasks`, `remediation_episodes` and the opportunities exactly as live |
+| Rebuild equivalence | `shadow_rebuild` 0/0/0 (mastery, facet, schedule) with the fresh retry scheduled and consumed, switch on and off, on the rebuild-equivalent placement vault. (The basic vault with its seeded due item is not rebuild-equivalent at any version, the predecessor and no-hint runs included: a pre-existing fixture property, not this change) |
+| The chain | one constant after mvp-0.37 and the latest; the snapshots; the registry rule; the upgrades and journals listed in §4 |
+
+## 7. Gate
+
+GATE_PLACEHOLDER
+
+## 8. Open questions
+
+- **The repair forecast for the fresh retry.** `record_repair_expectation` binds one forecast to the first task in the
+  primed attempt's transaction; that task now ends `unmeasurable_no_held_out_surface`, and the fresh retry's outcome
+  has no forecast of its own. Writing a second forecast for the same primed attempt (or re-binding the first) is a
+  forecast-receipts decision; left as is.
+- **Surface novelty on the fresh surface.** The lane's rule excludes the primed and assisted surfaces and items whose
+  material was shown, not every surface the learner has ever attempted (neither did treatment's first pick). The
+  ranking puts never- and least-recently-attempted items first; a fresh surface attempted long ago would record
+  `surface_novelty = fail` as evidence (not blocking), exactly as a first pick could.
+- **An assisted cold follow-up that is not yet due** (practised before the check fell due) is outside the owner's
+  decision: it is practice before the check, withdrawn at the next serve as before.
