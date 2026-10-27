@@ -179,11 +179,12 @@ def test_a_global_claim_made_after_materialization_rebuilds_to_live(tmp_path, ve
     assert _shadow_summary(paths)["summary"] == ZERO
 
 
-def test_two_reports_before_any_attempt_seed_from_the_latest_with_the_variance_each_left(tmp_path):
-    """Zero-evidence re-anchors: the replaced report re-seeded the row, then the
-    replacing one; replay's seed before the first attempt is the replacing
-    claim's mean with the larger variance either left (re-review F8, with the
-    replaced anchor read at its own point)."""
+def test_two_rung_requests_on_a_cold_lo_then_an_attempt_rebuild_to_live(tmp_path):
+    """A rung request replaced by a second one on an LO never answered before.
+    Each request also writes a self-report attempt (so the second claim lands
+    after an attempt, not on a zero-evidence row; review F3's correction): the
+    attempt-free case, two retirement reports and no attempt at all, is
+    ``test_two_retirements_on_an_lo_without_attempts_rebuild_to_the_variance_the_replaced_one_left``."""
 
     paths, vault, repository = _vault(tmp_path)
     request_rung_variant(vault, repository, practice_item_id="pi_diag_hard", direction="easier", clock=_at(1))
@@ -642,15 +643,21 @@ def _report_in_child(root, sqlite_path, item_id, reason, minutes, claim_id, conn
         conn.close()
 
 
-def test_a_replacement_from_another_process_whose_id_sorts_first_replays_after_the_claim_it_replaced(tmp_path):
-    """Review F2. Two reports on one warm LO in the same second at the same
-    attempt count, the second written by another process whose claim id sorts
-    before the first's. Replay places the replacing claim after the claim it
-    replaced (the supersession edge), whatever the ids say, so the two
-    precision-weighted merges run in live's order."""
+@pytest.mark.parametrize("warm", [True, False], ids=["warm", "attempt-free"])
+def test_a_replacement_from_another_process_whose_id_sorts_first_replays_after_the_claim_it_replaced(
+    tmp_path, warm
+):
+    """Review F2. Two reports on one LO in the same second at the same attempt
+    count, the second written by another process whose claim id sorts before
+    the first's. Replay places the replacing claim after the claim it replaced
+    (the supersession edge), whatever the ids say: on a warm LO the two
+    precision-weighted merges run in live's order; on an attempt-free LO the
+    replaced report's seed (variance 4) is read at its own point, before its
+    replacement."""
 
     paths, vault, repository = _vault(tmp_path)
-    _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
+    if warm:
+        _answer(vault, repository, "pi_diag_easy", minutes=1, points=1.0)
     _set_report_config(paths, 0.25)
     retire_item(paths.root, repository, practice_item_id="pi_diag_mid", reason="too_easy", clock=_at(2))
     _set_report_config(paths, 2.0, level=0.9)
@@ -673,7 +680,9 @@ def test_a_replacement_from_another_process_whose_id_sorts_first_replays_after_t
         stamps = dict(connection.execute(
             "SELECT id, created_at || '/' || applied_after_attempts FROM learner_claims WHERE source = 'learner_report'"))
     assert stamps[first["id"]] == stamps[inverted]  # the tie only the edge can break
-    _rebuilds_to_live(paths, repository)
+    live = _rebuilds_to_live(paths, repository)
+    if not warm:
+        assert _attempt_count(repository) == 0 and live["lo_diag"][1] == pytest.approx(4.0)
 
 
 def _set_report_config(paths, pseudo_count, level=0.70):
@@ -703,3 +712,29 @@ def test_two_retirements_on_an_lo_without_attempts_rebuild_to_the_variance_the_r
     assert len(reports) == 2 and reports[0]["superseded_by"] == reports[1]["id"]
     live = _rebuilds_to_live(paths, repository)
     assert live["lo_diag"][1] == pytest.approx(4.0) and live["lo_diag"][2] == 0
+
+
+def test_after_what_they_replaced_moves_only_a_replacement_that_would_sort_first():
+    """The ordering rule on its own (review F2): a replacing claim whose key ties
+    or sorts before the claim it replaced is placed just after it (chains
+    included); every other key, and every key without a supersession edge, is
+    unchanged."""
+
+    from learnloop.learner.mastery import after_what_they_replaced
+
+    claims = [
+        {"id": "c", "superseded_by": "b"},  # c replaced by b, b replaced by a
+        {"id": "b", "superseded_by": "a"},
+        {"id": "a", "superseded_by": None},
+        {"id": "x", "superseded_by": None},
+        {"id": "u", "superseded_by": "v"},  # u unordered: nothing to place v after
+        {"id": "v", "superseded_by": None},
+    ]
+    keys = {"c": (1, 5.0, "c"), "b": (1, 5.0, "b"), "a": (1, 5.0, "a"), "x": (1, 5.0, "d"),
+            "u": None, "v": (0, 1.0, "v")}
+    order = after_what_they_replaced(claims, keys)
+    assert order["c"] == keys["c"] and order["b"] == (1, 5.0, "c", 1) and order["a"] == (1, 5.0, "c", 1, 1)
+    assert order["c"] < order["b"] < order["a"] < keys["x"] and order["x"] == keys["x"]
+    assert order["u"] is None and order["v"] == keys["v"]
+    no_edges = [{"id": claim_id, "superseded_by": None} for claim_id in keys]
+    assert after_what_they_replaced(no_edges, keys) == keys
