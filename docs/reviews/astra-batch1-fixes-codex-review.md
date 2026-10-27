@@ -273,3 +273,104 @@ Pytest files run:
 - `tests/test_workbench_step_graph.py`
 - `tests/test_workbench_text_gaps.py`
 - `tests/test_workbench_trace.py`
+
+## Re-review (Codex job `20261027-040307-F7FaoL`, verdict REOPENED)
+
+The re-review confirmed F2 and F4 fixed, reopened F1 and F3, and raised two
+new Highs (F5, F6). All four open findings reproduced as failing tests
+before the fix (commit `727f3c3ea`) and are fixed. No migration, no schema
+change, no algorithm successor, no new parameter (the label vocabulary and
+the figure-reference cues are structural, not weights), no frontend or
+`src-tauri` change, no paid or live model call (every model a fake).
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | `_stem_only` accepts arbitrary text before the statement | fixed | `727f3c3ea` | `tests/test_reader_ca1_astra_rereview.py::test_an_answer_before_the_statement_in_its_block_gives_no_free_crop`, `::test_labels_and_headings_are_labels[*]`, `::test_other_words_before_the_statement_are_not_labels[*]`; control `tests/test_reader_ca1_astra_codex_review.py::test_a_label_before_the_statement_still_crops` |
+| F2 | High | stimulus figure of a single-exercise import | confirmed fixed (narrowed by F5) | `8cc4c7420` | re-review confirmed; `test_reader_ca1_astra_codex_review.py` F2 tests still pass, one renamed for F5 (below) |
+| F3 | Medium (reopened) | whitespace edits still permit a partial print | fixed | `727f3c3ea` | `tests/test_reader_ca1_astra_rereview.py::test_a_solution_block_holding_part_of_the_statement_up_to_spaces_withholds_the_crop`, `::test_a_solution_block_holding_the_statement_in_its_middle_withholds_the_crop`, `::test_a_placement_starts_and_ends_where_words_do`; control `::test_a_statement_the_kept_blocks_print_whole_still_crops` |
+| F4 | Medium | handoff write shares the open/resume transaction | confirmed fixed | `841bbed51` | re-review confirmed; `tests/test_reader_ca2_astra_handoff_recovery.py` passes |
+| F5 | High | every selected figure becomes free stimulus | fixed | `727f3c3ea` | `tests/test_reader_ca1_astra_rereview.py::test_a_completed_answer_graph_selected_with_sketch_is_not_the_problems`, `::test_a_completed_answer_graph_is_not_shown_in_a_check_on_your_own`, `::test_an_old_rule_import_never_crops_an_answer_graph_the_statement_does_not_refer_to`, `::test_an_old_rule_import_crops_only_the_stem_beside_an_answer_graph`, `::test_a_figure_is_referenced_by_its_number_or_by_a_pointer_to_the_one_selected`; control (input diagram) `::test_a_required_input_diagram_stays_the_problems_stimulus` |
+| F6 | High | retained cold-check figures lose their selected bounds | fixed | `727f3c3ea` | `tests/test_reader_ca1_astra_rereview.py::test_a_kept_figure_keeps_its_sub_box_when_the_text_gives_no_free_crop`, `::test_a_stimulus_figure_without_textual_ownership_keeps_its_sub_box`; control `::test_the_sub_box_is_kept_while_warm_too` |
+
+Reproduction: the new file was run against the code before the fix (with a
+`_is_label` shim that accepts every prefix, the rule as it stood): 17 failed,
+14 passed. The behavioural failures were 9 (F1 x1, F3 x2, F5 x4, F6 x2) plus
+the 8 negative label cases; the 4 behavioural controls and the positive label
+cases passed. After the fix: 36 passed (the file gained 5 cases for the rules
+themselves).
+
+### F1: words before the statement must be a label
+
+`reader/as_printed.py::_is_label`: the words a block holds before the
+statement are allowed only when every one is a label word: an exercise kind
+(`Exercise(s)`, `Problem(s)`, `Question(s)`, `Part`, `Task`, `Example`; `Ex.`,
+`Prob.`, `No.`, `Q` only with a number after them), a number (`12.`, `3.2:`),
+a letter or a roman numeral only as an enumerator (`(a)`, `b)`, `iv.`; a bare
+`a` or `mix` is a word), a section/difficulty mark (`§`, `*`, `†`, `★`), or a
+dash. `The answer is 4. Compute 2+2.` therefore gives `NO_CROP` (the original
+page still offered), whatever the leak matcher says; the leak test still
+runs over an accepted label. A bare number before the statement (`4 Compute
+...`) is accepted as an exercise number, as `content.sources.exercise_statements`
+already reads one.
+
+### F3: placement without spaces, and the whole statement printed
+
+`_placement` (replacing `_beside_statement`) compares the block and the
+statement as the same characters without spaces for every case, the edge
+overlaps included, and each match must start and end on a word boundary in
+both texts (so a lone `4` never places itself inside `24`). The review's
+named solution block `(b) Compute 3+3. We get 6.` against the statement
+`... (b) Compute 3 + 3.` is now placed (an edge overlap with words after it):
+`unsure`, the whole crop withheld. A second rule closes the class: the free
+crop must print the whole statement (`_covers`): the parts the kept blocks
+place, plus those of a dropped solution block wholly inside the statement
+(the capture editor's whole-passage edit, unchanged), must leave no part of
+the statement out. A solution block holding part (b) in its middle (`We get
+4. (b) Compute 3+3. We get 6.`, placed by nothing) now withholds the crop
+instead of printing (a) alone.
+
+### F5: a figure is the problem's only when the statement refers to it
+
+`ingest/block_roles.py::referenced_figures` (shared by the import and the
+read): a figure selected with a problem is its own only when the statement
+names its number (`Figure 3.2` in both) or points at a figure shown
+(`shown`, `pictured`, `the figure`, `the diagram below`, ...) and the
+selection holds exactly one figure (a pointer cannot tell two apart).
+`Sketch y=x^2.` refers to nothing, so the completed graph selected with it
+is neither owned nor stimulus. The import (`exercise_authoring`) marks
+stimulus, and owns figures for a single item, by that rule only (a figure the
+anchored statement's slice overlaps stays owned, as before F2). At read time
+a Reader selection's figures (owned or stimulus, so an old-rule import that
+owned every block too) are kept only when the statement refers to them or
+echoes text of them that no kept text block prints; a dropped figure leaves
+the free crop and the check on your own. A `canonical_exercise` is unchanged:
+its blocks are the sources service's exercise region, not a selection.
+
+One test of the previous round asserted the opposite of F5 (an unreferenced
+figure beside `Compute 2+2.` kept for a check on your own); it is now
+`test_reader_ca1_astra_codex_review.py::test_a_figure_the_statement_does_not_refer_to_is_not_its_stimulus`,
+and the no-free-crop case with a referenced figure is covered by the F6
+tests. Spec note for the landing: §15 Q10's figure-only exception now reads
+"a figure the statement refers to", not "a figure the problem was imported
+with".
+
+### F6: kept figures keep their sub-box
+
+The learner's drawn region now stays with every kept figure: in
+`_selection_origin` for owned and stimulus figures alike, and in
+`_without_solutions` on both the free-crop and the withheld path (it used
+to clear `regions` when withholding). With selected bounds that leave an
+answer inset out of the figure block, the check on your own crops the
+sub-box only (the test draws the inset blue and asserts none of it).
+
+### Gate (as run in this step)
+
+- `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+- targeted pytest, `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6 <files>`: **1319 passed**, 0 failed (102.8 s), over:
+  - changed or added: `tests/test_reader_ca1_astra_rereview.py`, `tests/test_reader_ca1_astra_codex_review.py`;
+  - exercising `reader/as_printed`, `content/authoring/exercise_authoring`, `ingest/block_roles`: `tests/test_reader_ca1_as_printed.py`, `tests/test_reader_ca1_astra_fixes.py`, `tests/test_reader_ca1_codex_review.py`, `tests/test_reader_ca2_astra_handoff_recovery.py`, `tests/test_exercise_authoring.py`, `tests/test_compare_sources_keep.py`, `tests/test_document_ir.py`, `tests/test_import_split_parity.py`, `tests/test_library_exercises.py`, `tests/test_required_method_authority.py`, `tests/test_required_method_items.py`, `tests/test_source_exercise_import.py`, `tests/test_source_exercise_rpcs.py`, `tests/test_source_retrieval_rereview.py`, `tests/test_tutor_delivery_fixes.py`, `tests/test_glm_ocr.py`, `tests/test_facet_locks_landing.py`, `tests/test_codex_output_schema.py`, `tests/test_structured_transport_parity.py`, `tests/test_openrouter_client.py`;
+  - contracts: `tests/test_architecture.py`, `tests/test_cli_help_snapshot.py`, `tests/test_sidecar_serializer_snapshot.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_mobile_allowlist.py`, `tests/test_table_roles.py`, `tests/test_coordinated_migrations.py`, `tests/test_tracked_fixture_databases.py`.
+- Not run (nothing in scope changed): durability lane (no migration or DB/connection code), npm/vitest/frontend build (no frontend change), cargo check (no `src-tauri` change), DB reference scripts (no schema change). The full suite is left to the landing gate (owner rule, 2026-10-17).
