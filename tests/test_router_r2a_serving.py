@@ -438,6 +438,9 @@ def _plan_trace(root: Path) -> list[tuple]:
     # copies compare only when they serve the same session.
     session_id = "s_g8"
     with Repository(root / "state.sqlite").connection() as connection:
+        # An owner copy keeps the owner's own planned blocks (built at their versions, by
+        # their router): the trace is the blocks this serve builds, not those.
+        earlier = {row[0] for row in connection.execute("SELECT id FROM attention_blocks")}
         connection.execute("UPDATE sessions SET ended_at = ? WHERE ended_at IS NULL", ("2026-10-12T09:00:00Z",))
         connection.execute(
             "INSERT INTO sessions(id, started_at, available_minutes) VALUES (?, '2026-10-12T09:30:00Z', 25)",
@@ -458,6 +461,8 @@ def _plan_trace(root: Path) -> list[tuple]:
             "JOIN attention_block_events e ON e.block_id = b.id AND e.kind = 'block_chosen' "
             "WHERE b.daily_plan_id IS NOT NULL ORDER BY b.created_at, b.plan_ordinal"
         ):
+            if row["id"] in earlier:
+                continue
             items = [
                 json.loads(event["detail_json"])["practice_item_id"]
                 for event in connection.execute(
