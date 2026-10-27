@@ -517,6 +517,32 @@ REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 # below the tag: both rules exactly as the predecessor).
 ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 
+# mvp-0.36 (mobile PR-4: a live attempt writes only its scheduling columns;
+# docs/specs/spec_mobile_tailnet_v1.md §3.3 PR-2/PR-4, §9.3;
+# docs/reviews/mobile-pr3-pr4.md and its Codex review F4), on top of mvp-0.35
+# (Reader CA2; the chain stays linear: mvp-0.36 means everything mvp-0.35
+# means PLUS this). Built on main at mvp-0.35; if another successor lands
+# first, the landing renumbers it after that one (the tag lives in this ONE
+# constant: the upgrade, the CLI and the gate all read it). Content sync owns
+# a practice item row's ``active`` flag and ``content_hash``, and an attempt
+# owns the memory state: from the tag on, a live attempt's write to an
+# existing row takes only the scheduling columns and the last-attempt time,
+# its ``active`` can only close (a diagnostic probe's single use still lands)
+# and its ``content_hash`` is never written. Below the tag the attempt upserts
+# the whole row from the vault it graded against, which (a) undoes a content
+# sync another process committed while the answer was being graded (a
+# retired item reopens, an edited one gets its old hash back: PR-2's reverse
+# race) and (b) even without a concurrent writer reopens a row the sync rule
+# keeps closed while its YAML is active (review-parked,
+# measurement-superseded, a microprobe, a deactivation replay keeps) until the
+# next sync. (b) changes which items are SERVED (``inactive_state``), so it is
+# a successor (the 2026-10-17 eligibility rule), never evidence, FSRS, the
+# projection or replay: replay keeps the full upsert and re-closes what was
+# closed outside the ledger. Kill switch: ``practice.attempt_keeps_content_state``
+# (off, or below the tag: the attempt writes the whole row exactly as the
+# predecessor).
+ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.36"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -551,6 +577,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     CLAIM_FIXES_ALGORITHM_VERSION,
     REPLAY_LEDGER_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
+    ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
 )
 
 
@@ -707,6 +734,12 @@ REPLAY_LEDGER_VERSIONS: frozenset[str] = successors_from(REPLAY_LEDGER_ALGORITHM
 # ``ask.cold_help_converts``; Reader CA2). Every later successor keeps it;
 # gates must use this set, never equality.
 ONE_ASK_VERSIONS: frozenset[str] = successors_from(ONE_ASK_ALGORITHM_VERSION)
+
+# Versions whose live attempts write only their item row's scheduling columns
+# (``active`` only closes, ``content_hash`` untouched; behind
+# ``practice.attempt_keeps_content_state``; mobile PR-4). Every later successor
+# keeps it; gates must use this set, never equality.
+ATTEMPT_CONTENT_STATE_VERSIONS: frozenset[str] = successors_from(ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

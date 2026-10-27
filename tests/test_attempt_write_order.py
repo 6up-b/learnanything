@@ -31,7 +31,9 @@ def test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post
         ("_insert_practice_attempt", "receipt"),
         ("_insert_grading_evidence", "grade"),
         ("_insert_error_event", "evidence"),
-        # Mobile PR-4: the live write takes the scheduling columns only.
+        # The predecessor's whole-row upsert (this mvp-0.6 vault), or from
+        # mobile PR-4's successor on, the scheduling columns only.
+        ("_upsert_practice_item_state_record", "state"),
         ("_record_attempt_practice_item_state", "state"),
     )
     for method_name, label in hooks:

@@ -78,6 +78,7 @@ from learnloop.learner.mastery import (
 from learnloop.algorithm_versions import (
     P0_PROJECTION_VERSIONS,
     REGRADE_CONTRACT_VERSIONS,
+    ATTEMPT_CONTENT_STATE_VERSIONS,
     REPLAY_LEDGER_VERSIONS,
     SOURCE_REFERENCE_GATE_VERSIONS,
 )
@@ -1371,6 +1372,18 @@ def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
     replay_config = getattr(vault.config, "replay", None)
     return vault.config.algorithms.algorithm_version in REPLAY_LEDGER_VERSIONS and bool(
         getattr(replay_config, "ledger_bounded", True)
+    )
+
+
+def attempt_keeps_content_state(vault: LoadedVault) -> bool:
+    """Whether a live attempt writes only its item row's scheduling columns
+    (mobile PR-4, ``ATTEMPT_CONTENT_STATE_VERSIONS`` and the kill switch
+    ``practice.attempt_keeps_content_state``). Below the tag, or off, the
+    attempt writes the whole row as the predecessor did. Replay never asks."""
+
+    practice_config = getattr(vault.config, "practice", None)
+    return vault.config.algorithms.algorithm_version in ATTEMPT_CONTENT_STATE_VERSIONS and bool(
+        getattr(practice_config, "attempt_keeps_content_state", True)
     )
 
 
@@ -3206,6 +3219,7 @@ def _apply_attempt_in_transaction(
         application,
         replace_existing=attempt.replace_existing,
         write_legacy_facet_state=not is_canonical_state_vault(vault),
+        keep_content_state=attempt_keeps_content_state(vault),
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
     # Meas §3.A6: append the grader's trace observations. After persistence
@@ -3769,6 +3783,7 @@ def _persist_attempt_application(
     *,
     replace_existing: bool,
     write_legacy_facet_state: bool = True,
+    keep_content_state: bool = False,
 ) -> None:
     # mvp-0.7 retires the legacy per-LO facet-state bridge: the derived updates
     # are still computed (surprise/breadth/debug read them in memory) but never
@@ -3806,6 +3821,7 @@ def _persist_attempt_application(
             ability_transition=application.ability_transition,
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
+            keep_content_state=keep_content_state,
         )
 
 

@@ -3,7 +3,8 @@
 LP-min (a) (claim-fixes review F2, re-review): ``learnloop.claim_fixes_upgrade``
 journals its activation across the config file and the database, and so do
 the next links', rebuild equivalence's ``learnloop.replay_ledger_upgrade`` and
-Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35), at the same path (the journal names its target; the installed completion is the
+Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35) and mobile PR-4's
+``learnloop.attempt_content_state_upgrade`` (mvp-0.36), at the same path (the journal names its target; the installed completion is the
 chain's latest upgrade's, which hands an earlier link's journal to that link).
 A process
 that dies after it publishes the successor's config and before it commits the

@@ -2629,9 +2629,27 @@ class AsPrintedConfig(BaseModel):
 
 
 class PracticeConfig(BaseModel):
-    """The practice surfaces' own display switches (Reader CA1: ``as_printed``)."""
+    """The practice surfaces' own switches.
+
+    ``as_printed``: Reader CA1's display switches.
+
+    ``attempt_keeps_content_state`` is the kill switch of the successor
+    ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`` (mobile PR-4,
+    ``docs/reviews/mobile-pr3-pr4.md`` and its Codex review F4). At that tag
+    or later, with it on: a live attempt's write to its item's existing
+    ``practice_item_state`` row takes only the scheduling columns and the
+    last-attempt time; ``active`` can only close (a diagnostic probe's single
+    use still lands) and ``content_hash`` is content sync's alone. So an
+    attempt never reopens a row content sync closed, whether that sync ran
+    while the answer was graded (another process) or before it (a parked,
+    superseded or deactivated item stays out of serving until the sync rule
+    reopens it). Off, or below the tag: the attempt writes the whole row from
+    the vault it graded against, exactly as the predecessor. Replay never
+    reads it (replay rebuilds the whole row and re-closes what was closed).
+    """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
+    attempt_keeps_content_state: bool = True
 
 
 class RolesConfig(BaseModel):

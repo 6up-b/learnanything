@@ -456,6 +456,7 @@ source_modules = [
     "learnloop.algorithm_versions",
     "learnloop.app_launch",
     "learnloop.attempts",
+    "learnloop.attempt_content_state_upgrade",
     "learnloop.attempt_types",
     "learnloop.bootstrap",
     "learnloop.capture",

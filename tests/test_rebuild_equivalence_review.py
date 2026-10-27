@@ -250,7 +250,7 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
     from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Reader CA2's mvp-0.35 follows it as the latest since the batch landing (and keeps it).
-    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
     assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)

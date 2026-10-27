@@ -121,15 +121,15 @@ def _root(vault: Path | None) -> Path:
     return root
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 and mvp-0.35 too).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.36 too).
 
     Installed for every CLI command (``learnloop.activation_journal``), so
     each command's opener completes it before the command reads the vault."""
 
     # The chain's latest upgrade completes its own journal and hands an
     # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
-    # mvp-0.35 at the batch landing).
-    from learnloop.one_ask_upgrade import complete_interrupted_activation
+    # mvp-0.35 at the batch landing; mobile PR-4's mvp-0.36).
+    from learnloop.attempt_content_state_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

@@ -163,8 +163,9 @@ def test_successor_vocabulary():
     assert READING_PATH_PLAN_ALGORITHM_VERSION == "mvp-0.32"
     assert CLAIM_FIXES_ALGORITHM_VERSION == "mvp-0.33"
     assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
-    # Reader CA2's one Ask (mvp-0.35) follows them all as the latest.
-    assert LATEST_ALGORITHM_VERSION == ONE_ASK_ALGORITHM_VERSION == "mvp-0.35"
+    assert ONE_ASK_ALGORITHM_VERSION == "mvp-0.35"
+    # Mobile PR-4's attempt write (mvp-0.36) follows them all as the latest.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.36"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
