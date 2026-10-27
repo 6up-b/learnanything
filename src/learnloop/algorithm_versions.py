@@ -535,6 +535,10 @@ ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 # switch: no live decision changes, and switching replay back would only
 # restore a known rebuild/live divergence. Rows deleted below the tag are
 # gone; replay cannot apply them.
+# Also under this tag's note: the AD guard offer-receipts fix (main cdd0a3c4f)
+# restored AD serving in place, without its own tag, on vaults holding an
+# answer picked from a published offer; it was accepted by the orchestrator's
+# ruling under the owner's proportionate bar (docs/reviews/ad-guard-offer-receipts.md §10).
 SUPERSEDED_CLAIMS_ALGORITHM_VERSION = "mvp-0.36"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest

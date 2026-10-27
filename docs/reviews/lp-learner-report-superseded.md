@@ -95,6 +95,12 @@ so the activation's rebuild derives what the predecessor's derived (tested:
 only the row label differs). What changes is every later rebuild of an LO
 whose claim is replaced from the tag on.
 
+**Also recorded under this tag.** The AD guard offer-receipts fix (main
+cdd0a3c4f) restored AD serving in place, without its own tag, on vaults
+holding an answer picked from a published offer. It was accepted by the
+orchestrator's ruling under the owner's proportionate bar; see
+`docs/reviews/ad-guard-offer-receipts.md` §10.
+
 ## Tests
 
 * `tests/test_rebuild_equivalence.py::test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`:
