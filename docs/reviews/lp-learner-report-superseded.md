@@ -56,9 +56,15 @@ One nullable column and a version gate on the seam's write; no new table.
   the seed before the first attempt, each zero-evidence re-seed, and the
   re-review F8 variance retention (each anchor reads the claims in force at
   its own point, so a replaced anchor still counts the variance it left) all
-  read that. The replacing claim is always made after the claim it replaces
-  (its stamp, and its ULID within the same second), so it sorts after it.
-  Live (`claims_made is None`) reads the claims in force, unchanged.
+  read that. The replacing claim is applied after the claim it replaces: the
+  replacement, its application position and its re-anchor are one
+  transaction (`mastery.replace_claim_and_reanchor`, Codex review F1), and
+  replay places it after that claim whatever its stamp and id say
+  (`mastery.after_what_they_replaced`, review F2: a stamp has second
+  resolution and a ULID is monotonic within one process only). Live
+  (`claims_made is None`) seeds the mean from the claims in force, unchanged,
+  and reads every claim on record for the retained variance (review F3).
+  Codex review and fixes: `docs/reviews/lp-learner-report-superseded-codex-review.md`.
 
 Below the tag nothing writes `superseded_by`, so replay reads exactly what it
 read before at every older version (the strict xfail stays xfail there).
@@ -98,8 +104,9 @@ whose claim is replaced from the tag on.
   * the seam: a second report keeps the first as a replaced row no live reader
     reads; below the tag (mvp-0.33, mvp-0.35) the seam still deletes; a
     rung-variant request replaces only its own source on its own LO (0/0/0);
-    two reports before any attempt seed from the latest with the variance each
-    left (0/0/0, rebuild == live); the field's frozen priors read the same with
+    two rung requests on a cold LO, then an attempt (0/0/0, rebuild == live;
+    each request also writes a self-report attempt, so this is not the
+    attempt-free case: that one is Codex review F3's test); the field's frozen priors read the same with
     the replaced row kept as with it deleted;
   * the starting level: an LO first practised under the bootstrap level
     rebuilds to live after the level changes (replay reads the replaced
