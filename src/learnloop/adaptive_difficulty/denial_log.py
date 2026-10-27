@@ -17,14 +17,22 @@ counts the denials recorded since the last upgrade began, and an AD failure unde
 never moved out of the count (Codex review F1, 2026-10-27). When nothing was appended since the mark
 the archive is the live file renamed (atomic, byte-identical). An archive is never overwritten (a
 name already taken gets a counter) and never deleted. A failed or refused upgrade leaves the log
-where it is; no log at the mark, nothing to archive.
+where it is; no log at the mark, nothing to archive; no mark (the command could not take one), no
+archive either: without it a successor's denial cannot be told from the marked lines (Codex verify 2
+F1), so the log stays live until the next upgrade.
+
+**A failed archival changes nothing (Codex verify 2).** Every write is looped until all its bytes
+are down (a short write under ``RLIMIT_FSIZE`` or a full disk is not success). If any step of a
+split fails, the live log is left untouched and the partial archive and staging file this archival
+created are removed; an archive that already existed is never touched.
 
 **One lock (Codex review F1/F2).** Appends, the mark, the archival and :func:`summary` each run
 under an exclusive ``flock`` on ``ad_guard_denials.lock`` beside the log, and an append opens, writes
 and closes the live file inside it: no append handle spans an archival, and a report never sees a
 line both live and archived. It is a leaf lock: nothing else is acquired while it is held, so it
 sits after the vault mutation lock and SQLite's locks in every order. Without ``fcntl`` (non-POSIX)
-it degrades to no lock.
+it degrades to no lock. A report that cannot take the lock gives the live count only and marks the
+archive count unavailable (Codex verify 2 F2).
 
 Crash windows (best effort, never a hidden line): a process that dies after the upgrade completed
 but before the archival leaves the marked lines live (counted until the next upgrade archives
@@ -37,6 +45,7 @@ The log is a diagnostic file, not persisted meaning: no migration and no algorit
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 from collections import Counter
@@ -156,14 +165,19 @@ def summary(sqlite_path: Any) -> dict[str, Any]:
     archives' counts (file names and line counts only; a line's content is never shown).
 
     Read under the log lock, so an archival never lands between the live read and the archive
-    listing (Codex review F2). A lock that cannot be opened (a read-only directory) reads without
-    it: nothing can archive there either."""
+    listing (Codex review F2). When the lock cannot be taken, the live count alone is given and the
+    archives are marked unavailable (``archived``/``archived_denials`` None, ``archived_unavailable``
+    the reason): an unlocked pair of reads could count a line both live and archived (Codex verify 2
+    F2). The live count is never withheld."""
 
     try:
         with _log_lock(sqlite_path):
             return _snapshot(sqlite_path)
-    except OSError:
-        return _snapshot(sqlite_path)
+    except OSError as exc:
+        reason = f"the denial log's lock could not be taken ({type(exc).__name__})"
+    lines = _lines(denial_log_path(sqlite_path))
+    return {"denials": len(lines), "by_entry": dict(sorted(Counter(map(_entry_of, lines)).items())),
+            "archived": None, "archived_denials": None, "archived_unavailable": reason}
 
 
 @dataclass(frozen=True)
@@ -195,14 +209,35 @@ def _safe(version: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ".-_" else "_" for ch in str(version)) or "unknown"
 
 
+def _remove(path: Path) -> None:
+    try:
+        os.unlink(path)
+    except OSError:  # gone already; or it stays, and its lines are counted twice, never hidden
+        pass
+
+
 def _fsync_write(path: Path, data: bytes, *, exclusive: bool) -> None:
+    """Write every byte of ``data`` to ``path`` and fsync it, or raise (Codex verify 2: ``os.write``
+    may write a prefix and return its length). A file this call opened is removed on failure: it is
+    one it created (``exclusive``) or the archival's own staging file. A failed exclusive open (a
+    name already taken) leaves that file alone."""
+
     flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if exclusive else os.O_TRUNC)
     fd = os.open(path, flags, 0o644)
     try:
-        os.write(fd, data)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+        try:
+            view = memoryview(data)
+            while view:
+                written = os.write(fd, view)
+                if written <= 0:
+                    raise OSError(errno.EIO, f"wrote nothing of {len(view)} byte(s)", str(path))
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except BaseException:
+        _remove(path)
+        raise
 
 
 def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, mark: Cutover | None,
@@ -210,9 +245,13 @@ def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, 
     """Move the lines the live log held at ``mark`` to a dated archive beside it; None when the mark
     found no log, or the log there now is a later one (another archival moved the marked lines).
 
-    ``mark`` None (the command could not mark the log at its start) archives the whole live log.
-    Under the log lock: appends wait, and two archivals never pick the same name. A taken name gets
-    a counter, so an archive is never overwritten."""
+    ``mark`` None (the command could not mark the log at its start) archives nothing (Codex verify 2
+    F1): the log stays live. Under the log lock: appends wait, and two archivals never pick the same
+    name. A taken name gets a counter, so an archive is never overwritten. Raises OSError when the
+    archival fails; the live log is then untouched and nothing this call wrote is left behind."""
+
+    if mark is None:
+        return None
 
     live = denial_log_path(sqlite_path)
     with _log_lock(sqlite_path):
@@ -220,9 +259,9 @@ def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, 
             stat = os.stat(live)
         except FileNotFoundError:
             return None
-        if mark is not None and (mark.identity != (stat.st_dev, stat.st_ino) or not mark.length):
+        if mark.identity != (stat.st_dev, stat.st_ino) or not mark.length:
             return None  # every line here was appended after the command started
-        cut = stat.st_size if mark is None else min(mark.length, stat.st_size)
+        cut = min(mark.length, stat.st_size)
         base = f"{_ARCHIVE_PREFIX}{_safe(from_version)}-to-{_safe(to_version)}-{_stamp(now)}"
         target = live.with_name(base + ".jsonl")
         counter = 1
@@ -235,11 +274,17 @@ def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, 
         data = live.read_bytes()
         head, tail = data[:cut], data[cut:]
         # The marked lines into the archive first, then the later ones as the live log: a crash in
-        # between counts the marked lines twice, never hides one.
+        # between counts the marked lines twice, never hides one. A failure before the replace
+        # removes both files written here and leaves the live log as it was.
         _fsync_write(target, head, exclusive=True)
         staged = live.with_name(LOG_NAME + ".tmp")
-        _fsync_write(staged, tail, exclusive=False)
-        os.replace(staged, live)
+        try:
+            _fsync_write(staged, tail, exclusive=False)
+            os.replace(staged, live)
+        except BaseException:
+            _remove(staged)
+            _remove(target)
+            raise
         return target
 
 

@@ -368,7 +368,8 @@ def _ad_denial_log_database(root: Path) -> Path:
 def _mark_ad_denial_log(root: Path) -> Any:
     """Mark the AD guard's denial log at the upgrade command's start (its identity and length;
     ``learnloop.adaptive_difficulty.denial_log.cutover_mark``). None when it cannot be marked (the
-    vault does not load here): the archival then takes the whole live log, as before the mark."""
+    vault does not load here, or the log's lock cannot be taken): the archival then archives nothing
+    and says so (Codex verify 2 F1), since a successor's denial could not be told from the rest."""
 
     from learnloop.adaptive_difficulty.denial_log import cutover_mark
 
@@ -386,11 +387,15 @@ def _archive_ad_denial_log(root: Path, from_version: str, to_version: str, mark:
     returned. A failed or refused upgrade never gets here. Only the lines the log held at ``mark``
     (the command's start) move; a denial logged since stays live. Under the log's own leaf lock,
     which every append takes too, so two archivals never pick the same name and no append writes
-    into an archive. A failure to archive never fails the upgrade (the vault is upgraded); the log
-    stays live and is named."""
+    into an archive. A failure to archive (or no mark) never fails the upgrade (the vault is
+    upgraded); the log stays live, untouched, and stderr says so."""
 
     from learnloop.adaptive_difficulty.denial_log import archive_denial_log
 
+    if mark is None:
+        typer.echo("  - AD guard denial log not archived (it could not be marked at the upgrade's start); "
+                   "ad report counts its earlier lines until the next upgrade", err=True)
+        return
     try:
         archived = archive_denial_log(_ad_denial_log_database(root), from_version=from_version,
                                       to_version=to_version, mark=mark)

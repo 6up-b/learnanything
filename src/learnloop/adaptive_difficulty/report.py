@@ -625,8 +625,11 @@ def _guard_lines(guard: Mapping[str, Any]) -> list[str]:
     if not count and not archived:
         return []
     out = [""]
+    unavailable = guard.get("archived_unavailable")
     if count:
         since = "since the last upgrade" if guard.get("archived") else "so far"
+        if unavailable:  # the archives were not read (Codex verify 2 F2): whether one exists is unknown
+            since = f"in the live log (archive counts unavailable: {unavailable})"
         out.append(f"AD's guard refused {count} read(s) or write(s) {since}: each left AD unavailable for that "
                    "operation, and the incumbent served (ad_guard_denials.jsonl beside the database).")
         out += [f"- {name}: {n}" for name, n in sorted((guard.get("by_entry") or {}).items())]
