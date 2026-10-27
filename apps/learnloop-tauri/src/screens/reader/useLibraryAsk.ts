@@ -104,7 +104,10 @@ function failureLine(error: unknown, fallback: string): string {
 
 /** What the learner asked for: a library answer, or (CA5a) a comparison of
  *  these pins, which a retry or the personalization chip runs again (Codex
- *  review F5: never the ordinary answer and its notes in its place). */
+ *  review F5: never the ordinary answer and its notes in its place). A
+ *  comparison's pins follow the learner's pins after it starts (a changed
+ *  pin, an explicit compare), so a rerun never brings back a pin the learner
+ *  removed (re-review F8). */
 export type LibraryAskIntent = { kind: "ask" } | { kind: "compare"; pins: string[] };
 
 export interface LibraryAskState {
@@ -220,7 +223,7 @@ export function useLibraryAsk({
 
   const run = useCallback(async (request: LibraryAskRequest, personalized: boolean, intent: LibraryAskIntent = { kind: "ask" }) => {
     if (!enabled) return;
-    if (intent.kind === "compare" && (!settings?.compare || intent.pins.length < 2)) return;
+    if (intent.kind === "compare" && !settings?.compare) return;
     for (const stage of JOB_STAGES) cancelStage(stage);
     const key = ++keyRef.current;
     const comparing = intent.kind === "compare";
@@ -237,8 +240,11 @@ export function useLibraryAsk({
       }));
       if (keyRef.current !== key || ask === null) return;
       update(key, () => ({ ask: { phase: "landed", value: ask, failure: null } }));
-      if (comparing) await runCompareRef.current(key, ask.askId, intent.pins);
-      else if (ask.hits.length > 0) void loadNotes(key, ask.askId);
+      // Fewer than two pins left (F8): the ask reruns with the pin kept, and
+      // compare waits for a second one, as in an ordinary ask.
+      if (comparing) {
+        if (intent.pins.length >= 2) await runCompareRef.current(key, ask.askId, intent.pins);
+      } else if (ask.hits.length > 0) void loadNotes(key, ask.askId);
     } catch (error) {
       if (keyRef.current !== key) return;
       update(key, () => ({ ask: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't look in your books.") } }));
@@ -287,9 +293,11 @@ export function useLibraryAsk({
   const togglePin = useCallback((hitKey: string) => {
     const current = stateRef.current;
     if (!current) return;
-    update(current.key, (s) => ({
-      pinned: s.pinned.includes(hitKey) ? s.pinned.filter((k) => k !== hitKey) : [...s.pinned, hitKey],
-    }));
+    update(current.key, (s) => {
+      const pinned = s.pinned.includes(hitKey) ? s.pinned.filter((k) => k !== hitKey) : [...s.pinned, hitKey];
+      // A comparison's intent follows the pins (F8); an ordinary ask stays one.
+      return s.intent.kind === "compare" ? { pinned, intent: { kind: "compare", pins: pinned } } : { pinned };
+    });
   }, [update]);
 
   /** Two pinned passages from different sources (the service has no source cap). */
@@ -318,8 +326,9 @@ export function useLibraryAsk({
   const compare = useCallback(async (perspectives: string[] = []) => {
     const current = stateRef.current;
     if (!current?.ask.value || !settings?.compare) return;
+    if (current.intent.kind === "compare") update(current.key, () => ({ intent: { kind: "compare", pins: [...current.pinned] } }));
     await runCompare(current.key, current.ask.value.askId, current.pinned, perspectives);
-  }, [settings, runCompare]);
+  }, [settings, runCompare, update]);
 
   /** Reader CA5a: compare two sections' passages through this same path. The
    *  ask is anchored on the open section (its title is the question), both
@@ -327,6 +336,7 @@ export function useLibraryAsk({
    *  organizer's notes wait to be asked for ("write the notes"): the learner
    *  asked to compare, so no other model call is made for them. */
   const compareWith = useCallback(async (request: LibraryAskRequest, pins: string[]) => {
+    if (pins.length < 2) return;
     await run(request, settings?.personalizedDefault ?? true, { kind: "compare", pins });
   }, [run, settings]);
 
