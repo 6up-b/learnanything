@@ -502,7 +502,9 @@ class Sampler(threading.Thread):
                                       "scope_current_max": None,
                                       "scope_peak": None, "gpu_used_mib_max": None, "device_reserved_max": None,
                                       "samples": 0}
-        self._stop = threading.Event()
+        # Not ``_stop``: that name is threading.Thread's own method, and
+        # shadowing it makes is_alive()/join() raise once the thread ends.
+        self._stop_requested = threading.Event()
         self._abort_at: float | None = None
 
     def _max(self, key: str, value: Any) -> None:
@@ -551,7 +553,7 @@ class Sampler(threading.Thread):
                                           "abort": self.abort_reason})
 
     def run(self) -> None:
-        while not self._stop.wait(self.interval):
+        while not self._stop_requested.wait(self.interval):
             self.sample()
             # A forward pass cannot be interrupted: past the grace, exit hard.
             if (self._abort_at is not None and self.on_hard_abort is not None
@@ -559,7 +561,7 @@ class Sampler(threading.Thread):
                 self.on_hard_abort(self.abort_reason or "aborted")
 
     def stop(self) -> None:
-        self._stop.set()
+        self._stop_requested.set()
 
 
 def _own_rss(field: str = "VmRSS:") -> int | None:

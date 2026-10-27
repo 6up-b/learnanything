@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import gate_model_requests
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
@@ -68,7 +69,8 @@ class GapJobOutcome:
     source_kind: str
     source_id: str
     #: done | skipped | retry_later (this text backs off; the run goes on) |
-    #: deferred (a spend stop or the daily cap: the run stops) | failed | lease_lost
+    #: deferred (a spend stop or the daily cap: the run stops) | released
+    #: (``cancelled``: the worker stopped; the run stops) | failed | lease_lost
     state: str
     gap_id: str | None = None
     action: str | None = None
@@ -406,9 +408,18 @@ def process_next_gap_job(
     clock: Clock | None = None,
     source: tuple[str, str] | None = None,
     stuck_source: StuckTextSource | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> GapJobOutcome | None:
-    """Lease and run the next runnable gap job (or ``source``'s); None when none is."""
+    """Lease and run the next runnable gap job (or ``source``'s); None when none is.
 
+    ``cancelled`` (the sidecar worker's shutdown, test-thread-leak review F2)
+    is asked before the lease and, on the live path, before every request the
+    text's budget admits: once true, no further request is sent and the job is
+    released ``released`` with its checkpoint, its attempt refunded, for the
+    next start. The live daily cap is checked as without it."""
+
+    if cancelled is not None and cancelled():
+        return None
     with repository.atomic():
         job = store.lease_next_job(repository.connection(), owner=owner, now=utc_now_iso(clock),
                                    lease_seconds=LEASE_SECONDS, source=source)
@@ -429,6 +440,16 @@ def process_next_gap_job(
             return store.release_job(repository.connection(), job_id, owner=owner, epoch=epoch,
                                      now=utc_now_iso(clock), not_before=not_before, error=error,
                                      refund_attempt=refund)
+
+    def stopped() -> GapJobOutcome | None:
+        """The job released for the next start when ``cancelled`` stopped it."""
+
+        if cancelled is None or not cancelled():
+            return None
+        released = release(not_before=None, error="cancelled: the worker stopped", refund=True)
+        outcome.state = "released" if released else "lease_lost"
+        outcome.error = "cancelled"
+        return outcome
 
     def skip(reason: str, text: LearnerText | None) -> GapJobOutcome:
         return _skip(repository, job, text, vault, progress, owner=owner, epoch=epoch, clock=clock,
@@ -477,7 +498,12 @@ def process_next_gap_job(
     figure_gate = (FiguresGate(vault, text_key)
                    if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) else None)
     try:
-        budget = budget_factory(vault) if budget_factory is not None else None
+        if budget_factory is not None:
+            budget = budget_factory(vault)
+        else:
+            # The live path's own per-text budget (as process_learner_text
+            # builds it), asking ``cancelled`` before each request it admits.
+            budget = TextBudget.for_text(vault, cancelled=cancelled) if cancelled is not None else None
         with gate_model_requests(figure_gate) if figure_gate is not None else nullcontext():
             row = process_learner_text(
                 root, repository, text, clients=clients, budget=budget, clock=clock,
@@ -491,6 +517,8 @@ def process_next_gap_job(
         outcome.error = "figures_changed"
         return outcome
     except ReadingDeferred as exc:
+        if exc.spend and (cancelled_outcome := stopped()) is not None:
+            return cancelled_outcome
         if exc.spend and budget_factory is not None:
             # The command's shared budget ran out, not this text: released
             # untouched (attempt refunded) for the next run; the run stops.
@@ -501,6 +529,8 @@ def process_next_gap_job(
         return _retry_or_fail(repository, job, text, vault, progress, owner=owner, epoch=epoch, clock=clock,
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])
     except Exception as exc:  # noqa: BLE001 - retried with backoff, then logged as failed
+        if isinstance(exc, AIInterrupted) and (cancelled_outcome := stopped()) is not None:
+            return cancelled_outcome
         LOG.warning("learner-text gap job %s failed", job_id, exc_info=True)
         return _retry_or_fail(repository, job, text, vault, progress, owner=owner, epoch=epoch, clock=clock,
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])

@@ -47,8 +47,9 @@ def serve(stdin: TextIO, stdout: TextIO) -> None:
             if ctx.shutdown_requested:
                 break
     finally:
-        # Shutdown or EOF: background map builds stop writing (bounded drain).
-        ctx.close_background_builds()
+        # Shutdown or EOF: every background owner stops (bounded joins) and
+        # map builds stop writing.
+        ctx.close()
 
 
 def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:

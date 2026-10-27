@@ -139,4 +139,5 @@ def test_with_the_plan_off_the_dl0_queue_cap_still_applies_and_with_it_on_the_li
         ctx.load(paths.root)
         queue = _call(ctx, "get_today_queue", {})
         results[enabled] = queue["reentryRefresherCap"]
+        ctx.close()  # the next round's context replaces this one
     assert results[True] is None

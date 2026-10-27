@@ -91,11 +91,15 @@ class _Leases:
         self._lock = threading.Lock()
         self._held: dict[str, tuple[Repository, set[str]]] = {}
         self._thread: threading.Thread | None = None
+        # Set when the last lease is dropped: the heartbeat ends then, not a
+        # whole beat later (a thread with nothing to renew is not kept).
+        self._idle = threading.Event()
 
     def hold(self, repository: Repository, handle: str) -> None:
         with self._lock:
             _repository, handles = self._held.setdefault(str(repository.sqlite_path), (repository, set()))
             handles.add(handle)
+            self._idle.clear()
             if self._thread is None:
                 self._thread = threading.Thread(target=self._run, name="source-service-spend-leases", daemon=True)
                 self._thread.start()
@@ -109,6 +113,8 @@ class _Leases:
             entry[1].discard(handle)
             if not entry[1]:
                 del self._held[key]
+            if not self._held:
+                self._idle.set()
 
     def renew_now(self) -> int:
         """Renew every held lease now (the heartbeat's one beat)."""
@@ -129,9 +135,8 @@ class _Leases:
         return renewed
 
     def _run(self) -> None:
-        wait = threading.Event()
         while True:
-            wait.wait(HEARTBEAT_SECONDS)
+            self._idle.wait(HEARTBEAT_SECONDS)
             with self._lock:
                 if not self._held:
                     self._thread = None

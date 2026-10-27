@@ -5,6 +5,9 @@ import sys
 from pathlib import Path
 import pytest
 
+# Fails a test that leaves a thread running (tests/thread_guard.py).
+pytest_plugins = ["tests.thread_guard"]
+
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
 # --basetemp is not supplied, while still allowing CI to override it.
@@ -118,6 +121,21 @@ _db_migrate.switch_to_wal = _lane_switch_to_wal
 for _module in list(sys.modules.values()):
     if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
         _module.connect = _fast_test_connect
+
+
+# Background owners (sidecar contexts, ingest hosts, post-attempt workers,
+# exam graders) that test code constructs are closed when the test ends
+# (tests/background_owners.py); production-built ones stay their owner's.
+from tests import background_owners as _background_owners  # noqa: E402
+
+_background_owners.install()
+
+
+@pytest.fixture(autouse=True)
+def close_test_background_owners():
+    start = _background_owners.mark()
+    yield
+    _background_owners.close_since(start)
 
 
 def pytest_addoption(parser):
