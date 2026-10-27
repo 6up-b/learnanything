@@ -109,7 +109,9 @@ def set_learner_profile(ctx: SidecarContext, params: SetLearnerProfileInput) -> 
         starting_level=params.starting_level,
         level_note=params.level_note,
     )
-    seed_global_learner_claim(repository, params.starting_level)
+    from learnloop.learner.mastery import replaced_claims_kept
+
+    seed_global_learner_claim(repository, params.starting_level, keep_replaced=replaced_claims_kept(vault))
     return versioned(
         {
             "starting_level": profile["starting_level"],

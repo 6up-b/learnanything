@@ -332,18 +332,16 @@ def _apply_difficulty_report(
     if reason not in ("too_easy", "too_hard") or not item.learning_object_id:
         return
     from learnloop.learner.capability_mapping import default_capability_for
-    from learnloop.learner.mastery import reanchor_mastery_from_claim
+    from learnloop.learner.mastery import reanchor_mastery_from_claim, replaced_claims_kept
 
     config = vault.config.rung_variants
     claim_level = (
         config.harder_claim_level if reason == "too_easy" else config.easier_claim_level
     )
-    repository.delete_learner_claims(
-        source="learner_report",
-        scope_type="learning_object",
-        scope_id=item.learning_object_id,
-    )
-    claim_id = repository.insert_learner_claim(
+    # The replace seam: one learner report in force per LO. From the successor
+    # mvp-0.36 on the earlier report stays as a replaced row, so replay can
+    # apply its re-anchor at its own time (below it, it is deleted).
+    claim_id = repository.replace_learner_claim(
         {
             "claim_type": "self_rating",
             "scope_type": "learning_object",
@@ -353,6 +351,7 @@ def _apply_difficulty_report(
             "prior_pseudo_count": config.claim_pseudo_count,
             "source": "learner_report",
         },
+        keep_replaced=replaced_claims_kept(vault),
         clock=clock,
     )
     reanchor_mastery_from_claim(

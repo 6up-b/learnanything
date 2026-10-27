@@ -517,6 +517,26 @@ REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 # below the tag: both rules exactly as the predecessor).
 ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 
+# mvp-0.36 (replaced learner claims kept; docs/reviews/lp-learner-report-superseded.md),
+# on top of mvp-0.35 (Reader CA2; the chain stays linear: mvp-0.36 means
+# everything mvp-0.35 means PLUS this). The successor of the Medium recorded
+# at the rebuild-equivalence landing: a learner report (a too_easy/too_hard
+# retirement or a rung-variant request) or a new starting level replaces the
+# earlier claim of its source on the same scope (the replace seam). Below the
+# tag the seam DELETED that claim, whose live re-anchor had already moved
+# mastery, so replay could not apply it and a rebuild disagreed with live.
+# From the tag on the seam keeps the replaced row, marked
+# ``learner_claims.superseded_by`` (migration 225): every live reader reads
+# only the rows no claim replaced, exactly what it read before; replay applies
+# each claim at its own point and, at every point, reads a replaced claim
+# only until the claim that replaced it was made. A live write is unchanged
+# except that nothing is deleted; what moves is the replayed mastery of an LO
+# whose claim was replaced after the tag, toward the live value. No kill
+# switch: no live decision changes, and switching replay back would only
+# restore a known rebuild/live divergence. Rows deleted below the tag are
+# gone; replay cannot apply them.
+SUPERSEDED_CLAIMS_ALGORITHM_VERSION = "mvp-0.36"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -551,6 +571,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     CLAIM_FIXES_ALGORITHM_VERSION,
     REPLAY_LEDGER_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
 )
 
 
@@ -707,6 +728,11 @@ REPLAY_LEDGER_VERSIONS: frozenset[str] = successors_from(REPLAY_LEDGER_ALGORITHM
 # ``ask.cold_help_converts``; Reader CA2). Every later successor keeps it;
 # gates must use this set, never equality.
 ONE_ASK_VERSIONS: frozenset[str] = successors_from(ONE_ASK_ALGORITHM_VERSION)
+
+# Versions whose replace seam keeps the replaced learner claim as a
+# superseded row (``learner_claims.superseded_by``) instead of deleting it.
+# Every later successor keeps it; gates must use this set, never equality.
+SUPERSEDED_CLAIMS_VERSIONS: frozenset[str] = successors_from(SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

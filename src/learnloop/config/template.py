@@ -2928,12 +2928,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decides exactly as the predecessor). No default changes here: only the
     # version string moves the fingerprint (the key is in every snapshot
     # above, inert below the tag). Existing vaults reach it by `learnloop
-    # upgrade` (default target) from mvp-0.34, or from mvp-0.9 onwards
-    # through the chain. New vaults start here (the template's
-    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    # upgrade` from mvp-0.34, or from mvp-0.9 onwards through the chain. New
+    # vaults started here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12) until the kept replaced claims' successor landed.
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     "mvp-0.35": "2d0f2bb94b88f01d35cfd375721c4bf87ade8d9aba1c21a5a4695410258e159a",
+    # mvp-0.36 (replaced learner claims kept;
+    # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
+    # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
+    # keeping a replaced learner report, rung-variant claim or starting level
+    # as a row marked superseded_by (migration 225), which replay applies at
+    # its own time and no live reader reads, so a rebuild reproduces live
+    # mastery after a second report on an LO. No kill switch and no default
+    # changes: only the version string moves the fingerprint. Existing vaults
+    # reach it by `learnloop upgrade` (default target) from mvp-0.35, or from
+    # mvp-0.9 onwards through the chain. New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.36": "8c2f91f6d1359c05de3752bc3d838605b0e411ef41bd92e52dfe1d0314d9779c",
 }
 
 

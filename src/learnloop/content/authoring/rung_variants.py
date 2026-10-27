@@ -43,7 +43,7 @@ from learnloop.curriculum.depth_rungs import (
     trajectory_slugs,
     waypoint_rung,
 )
-from learnloop.learner.mastery import display_mastery, reanchor_mastery_from_claim
+from learnloop.learner.mastery import display_mastery, reanchor_mastery_from_claim, replaced_claims_kept
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -417,10 +417,9 @@ def request_rung_variant(
     # Claim FIRST so a cold LO's initial mastery (materialized at attempt time)
     # seeds from it (mastery.initial_mastery_state_for_learning_object).
     claim_level = config.easier_claim_level if direction == "easier" else config.harder_claim_level
-    repository.delete_learner_claims(
-        source=CLAIM_SOURCE, scope_type="learning_object", scope_id=item.learning_object_id
-    )
-    claim_id = repository.insert_learner_claim(
+    # The replace seam: one rung-variant claim in force per LO; from the
+    # successor mvp-0.36 on the earlier one stays as a replaced row for replay.
+    claim_id = repository.replace_learner_claim(
         {
             "claim_type": "self_rating",
             "scope_type": "learning_object",
@@ -430,6 +429,7 @@ def request_rung_variant(
             "prior_pseudo_count": config.claim_pseudo_count,
             "source": CLAIM_SOURCE,
         },
+        keep_replaced=replaced_claims_kept(vault),
         clock=clock,
     )
     # Re-anchor immediately: for a warm LO the claim was previously inert

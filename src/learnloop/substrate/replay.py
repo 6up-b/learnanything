@@ -130,8 +130,14 @@ class _ClaimStream:
     (review F5): after every attempt that sorts before it. Claims at one point
     keep their ``(created_at, id)`` order.
 
-    Claims are mutable rows (a re-claim replaces the earlier one), so a
-    replaced claim's earlier version is not replayed.
+    A re-claim replaces the earlier claim of its source on its scope. Below
+    the successor mvp-0.36 the replaced row was deleted, so it is not
+    replayed (a rebuild then disagrees with live wherever its re-anchor had
+    moved mastery). From the successor on it is kept, marked
+    ``superseded_by``: it is placed and applied like any claim, and every
+    point at or after the replacing claim's reads the replacing claim in its
+    place. The replacing claim is made after the one it replaces (its stamp
+    and its ULID), so it sorts after it.
     """
 
     def __init__(
@@ -157,7 +163,10 @@ class _ClaimStream:
         attempt_keys = [_order_key(attempt) for attempt in attempts]
         positions: dict[str, tuple[int, float, str] | None] = {}
         pending: list[tuple[tuple[int, float, str], dict[str, Any]]] = []
-        for claim in learner_mastery.covering_claims(vault, repository, learning_object_id):
+        # Replaced claims too (successor mvp-0.36): each was applied live at its
+        # own point; the seed and each re-anchor read a replaced claim only
+        # until the claim that replaced it was made (``mastery._in_force``).
+        for claim in learner_mastery.covering_claims(vault, repository, learning_object_id, include_superseded=True):
             position = _claim_position(claim, learning_object_id, attempt_keys)
             positions[str(claim.get("id") or "")] = position
             if position is None:

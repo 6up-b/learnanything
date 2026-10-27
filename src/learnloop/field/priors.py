@@ -14,7 +14,10 @@ from learnloop.learner.mastery import initial_mastery_state_for_learning_object
 
 def load_frozen_priors(connection, attempts, config):
     attempts = tuple(attempts)
-    claims = [dict(row) for row in connection.execute("SELECT * FROM learner_claims")]
+    # The claims in force: a replaced claim (successor mvp-0.36, ``superseded_by``)
+    # stays out, as when the replace seam deleted it.
+    claims = [dict(row) for row in connection.execute("SELECT * FROM learner_claims")
+              if dict(row).get("superseded_by") is None]
     cutoff = min((parse_utc(row.observed_at) for row in attempts), default=None)
     eligible, later, unmapped = [], 0, 0
     for claim in claims:
