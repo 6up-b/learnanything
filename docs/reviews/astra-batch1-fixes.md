@@ -298,6 +298,77 @@ optional list, and the version suffix the method-rule tests pin is kept.
    get roles by a one-off author pass? That would be a model call per
    item, so it needs an owner OK.
 
+### Sol verify of `89e140a2a` (job `20261027-051210-SODKXG`): three closed
+
+Sol confirmed F1, F2, F3, F4, F5 and the CA2 aliasing fixed, and reopened
+three. The design is unchanged; each fix tightens one of its rules.
+
+1. **High: duplicate claims bypassed the global refusal.**
+   * Cause: `_claimed_roles` kept the first non-stimulus claim, so
+     `[unrelated, answer]` became `unrelated`. The answer claim was lost,
+     and a sibling's `stimulus` then owned the answer figure.
+   * Fix: every claim counts. Within an item the strongest claim stands,
+     whatever the order (answer or worked, then unrelated, then stimulus).
+     The global refusal set is read from every raw claim of every item
+     (`_answer_figures`).
+   * Tests: `test_a_duplicate_answer_claim_is_never_lost[4 orders]`,
+     `test_a_sibling_never_owns_a_figure_one_item_calls_its_answer_among_duplicates[3]`.
+     Fail-before on `89e140a2a`: `[unrelated, answer]` and
+     `[unrelated, worked]` gave the sibling the figure cold (`'figure' == 'none'`);
+     `[answer, unrelated]` already held.
+2. **Medium: the solution-lead rule hid an input graph.**
+   * Cause: "Solution concentration (mol/L) versus time (s)." matched the
+     lexical lead on a figure's text.
+   * Fix:
+     - The heading test never reads a figure. A figure leaves only by its
+       solution span, its solution role or its validated figure role.
+     - On text, the lead must be a heading (`_ANSWER_HEADING`): "Solution"
+       or "Proof", optionally numbered or enumerated, then punctuation or the
+       end of the line. A word starting a sentence does not count. The same
+       heading test marks a solution start for the figure-ordering rule.
+   * Tests: `test_a_graph_titled_solution_concentration_shows_in_a_check_on_your_own`,
+     `..._prints_with_the_problem`, `test_a_legacy_graph_..._still_shows_cold`, and
+     `test_a_solution_lead_is_a_heading_not_a_word_starting_a_sentence[13 cases]`.
+     Fail-before: `kind == "none"` cold, and the crop was `[["c9"]]`
+     without the graph. Every existing "Solution"-led text case still drops.
+3. **High: overlapping boxes could still show excluded pixels (F6).**
+   * Fix: every rendered crop is **masked**. `excluded_areas` lists, per
+     page, two kinds of area:
+     - the box of every block not retained (a dropped solution, a neighbour,
+       an owned figure held back);
+     - for a retained block shown by its sub-box, the rest of its box.
+   * `span_view._local_pdf_crops(masks=)` paints those areas white in each
+     crop, widened outward to whole pixels. The DTO is unchanged and no crop
+     is withheld, so a stimulus figure stays answerable during a check on
+     your own.
+   * One exemption: a block's box that holds a whole crop is that block's
+     container (a figure group around its figure) and is not painted over it,
+     since painting it would blank a required graph. The rest of a sub-box's
+     block is never exempt.
+   * Tests: `test_an_overlapping_figure_box_never_shows_another_figures_excluded_inset`
+     (Codex's probe: the inset at (85,105,95,120) outside Figure 3's
+     sub-box, inside Figure 4's box (80,100,180,200)),
+     `test_and_in_a_check_on_your_own_where_both_figures_stay`,
+     `test_a_box_overlapping_a_dropped_solution_block_never_shows_it`, and
+     `test_a_container_around_a_retained_figure_is_not_painted_over_it`.
+     Fail-before: blue (excluded) pixels in Figure 4's crop warm and cold,
+     and in the problem's crop where it overlaps its solution block.
+
+Residuals:
+
+* A retained box loses the pixels it shares with excluded content. For
+  example, a figure's axis label extracted as a separate unselected block
+  is painted out. This costs legibility, not safety.
+* A non-retained block whose box wholly encloses a retained one is treated
+  as its container and is not painted over it.
+
+Gate for this round: `lint-imports` 36 kept, 0 broken. Targeted
+`pytest -n 6` over the 74 files naming as_printed, span_view,
+exercise_authoring, import_exercises, block_original_region or
+source_exercise, plus the contract tests and the spend envelopes:
+**2,030 passed, 5 skipped, 0 failed** (3 min 17 s). Same rules as the gate
+below.
+
 ### Gate (redesign)
 
 Targeted only. The rules followed:

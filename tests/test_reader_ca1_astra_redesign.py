@@ -79,22 +79,38 @@ LAYOUT = (
     ("k6", "Figure", 3, [72.0, 100.0, 300.0, 280.0], GREEN, "The shaded region."),
     ("r7", "Text", 3, [72.0, 300.0, 540.0, 340.0], BLUE, "Solution. The area is 2."),
     ("k7", "Figure", 3, [72.0, 350.0, 300.0, 530.0], BLUE, "The region, split in two."),
+    # Sol verify 2: a required graph whose title starts with the word "Solution".
+    ("c9", "Text", 4, [72.0, 50.0, 540.0, 90.0], RED, "Estimate the concentration at t = 5 s from the graph."),
+    ("g9", "Figure", 4, [72.0, 100.0, 300.0, 280.0], GREEN, "Solution concentration (mol/L) versus time (s)."),
+    # Sol verify 3: overlapping boxes. Figure 3's sub-box leaves out an
+    # inset that Figure 4's box overlaps; a problem's box overlaps its
+    # dropped solution block.
+    ("t8", "Text", 5, [0.0, 20.0, 300.0, 60.0], RED, "Compare Figure 3 with Figure 4."),
+    ("fa", "Figure", 5, [0.0, 100.0, 100.0, 200.0], GREEN, "Figure 3. A line."),
+    ("fb", "Figure", 5, [80.0, 100.0, 180.0, 200.0], GREEN, "Figure 4. A parabola."),
+    ("p8", "Text", 5, [72.0, 300.0, 540.0, 350.0], RED, "Exercise 8. Compute 5+5."),
+    ("r8", "Text", 5, [72.0, 340.0, 540.0, 380.0], BLUE, "Solution. The sum is 10."),
 )
-#: F6: the answer inset inside h1's block, and the learner's sub-box of h1 leaving it out.
-INSET = (2, [80.0, 180.0, 100.0, 210.0])
+#: F6: the answer inset inside h1's block, and the learner's sub-box of h1
+#: leaving it out; Sol verify 3: the inset inside Figure 3 (fa) that its
+#: sub-box leaves out and Figure 4's box (fb) overlaps.
+INSETS = ((2, [80.0, 180.0, 100.0, 210.0]), (5, [85.0, 105.0, 95.0, 120.0]))
 H1_REGION = {"spanId": "h1", "page": 2, "bbox": [10.0, 120.0, 40.0, 150.0]}
+FA_REGION = {"spanId": "fa", "page": 5, "bbox": [0.0, 100.0, 80.0, 200.0]}
+PAGES = 6
 
 
 def _seed(root, repository) -> None:
     pages = []
-    for page in range(4):
+    for page in range(PAGES):
         image = Image.new("RGB", (612, 792), "white")
         draw = ImageDraw.Draw(image)
         for _span, _kind, block_page, bbox, colour, _text in LAYOUT:
             if block_page == page:
                 draw.rectangle(bbox, fill=colour)
-        if page == INSET[0]:
-            draw.rectangle(INSET[1], fill=BLUE)
+        for inset_page, inset in INSETS:
+            if page == inset_page:
+                draw.rectangle(inset, fill=BLUE)
         pages.append(image)
     out = io.BytesIO()
     pages[0].save(out, format="PDF", resolution=72.0, save_all=True, append_images=pages[1:])
@@ -114,7 +130,7 @@ def _seed(root, repository) -> None:
                                   section_path=["6.1"])
               for index, (span, kind, page, bbox, _colour, text) in enumerate(LAYOUT, start=1)]
     unit = DocumentUnit(unit_id="u_rd", label="6.1", ordinal=0, semantic_hash="sha256:u_rd", page_start=0,
-                        page_end=3, span_ids=[block.span_id for block in blocks])
+                        page_end=PAGES - 1, span_ids=[block.span_id for block in blocks])
     ir = DocumentIR(extractor="marker", extractor_version="1", units=[unit], blocks=blocks, assets=[],
                     health=ExtractionHealth())
     _persist(repository, ir, revision_id="rev_rd", extraction_id=EXT)
@@ -454,3 +470,121 @@ def test_a_split_never_gives_one_item_a_figure_another_calls_its_answer(seeded, 
     assert _refs(paths, first)["g1"]["figure_role_rejected"] == "another_exercise_answer"
     assert _refs(paths, second)["g1"]["owned"] is False and _refs(paths, second)["g1"]["figure_role"] == "answer"
     assert _view(ctx, first)["kind"] == "none" and _view(ctx, second)["kind"] == "none"
+
+
+# -- Sol verify 1: every claim on a figure counts, in any order --------------------------------------------
+
+
+@pytest.mark.parametrize("claims", [["unrelated", "answer"], ["answer", "unrelated"], ["unrelated", "worked"],
+                                    ["stimulus", "unrelated", "answer"]])
+def test_a_duplicate_answer_claim_is_never_lost(claims):
+    from learnloop.content.authoring.exercise_authoring import _answer_figures, _claimed_roles
+    from tests.test_exercise_authoring import _item
+
+    entry = _item(figure_roles=[FigureRolePayload(span_id="f", role=role) for role in claims])
+    assert _claimed_roles(entry) == {"f": "worked" if "worked" in claims else "answer"}
+    assert _answer_figures([entry, _item(figure_roles=[FigureRolePayload(span_id="f", role="stimulus")])]) == {"f"}
+
+
+@pytest.mark.parametrize("claims", [["unrelated", "answer"], ["answer", "unrelated"], ["unrelated", "worked"]])
+def test_a_sibling_never_owns_a_figure_one_item_calls_its_answer_among_duplicates(seeded, cold, claims):
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    paths, ctx, repository = seeded
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in ("q1", "g1", "d1")]}
+    client = FakeClient(ExerciseAuthoring(items=[
+        _item(statement_md="Draw the diagram of the circuit with its equivalent resistance marked.",
+              title="Exercise 2", figure_roles=[FigureRolePayload(span_id="g1", role=role) for role in claims]),
+        _item(statement_md="Estimate f(2) from the graph.", title="Exercise 1",
+              figure_roles=[FigureRolePayload(span_id="g1", role="stimulus")]),
+    ]))
+    first, second = (summary["practice_item_id"] for summary in EX.import_exercises(
+        paths.root, repository, client, extraction_id=EXT, raw_selection=raw, source_id="src_rd")["items"])
+    assert _view(ctx, second)["kind"] == "none"                          # the sibling's stimulus claim is refused
+    assert _refs(paths, second)["g1"]["owned"] is False
+    assert _refs(paths, second)["g1"]["figure_role_rejected"] == "another_exercise_answer"
+    assert _refs(paths, first)["g1"]["owned"] is False
+
+
+# -- Sol verify 2: a figure never leaves by the words its text starts with ---------------------------------
+
+
+def test_a_graph_titled_solution_concentration_shows_in_a_check_on_your_own(seeded, cold):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["c9", "g9"], "Estimate the concentration at t = 5 s from the graph.",
+                              "about 0.4 mol/L", roles={"g9": "stimulus"})
+    view = _view(ctx, item_id)
+    assert view["kind"] == "figure" and len(view["crops"]) == 1
+    assert _share(_image(view["crops"][0]["image"]), GREEN) > 0.9
+
+
+def test_the_graph_titled_solution_concentration_prints_with_the_problem(seeded, warm):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["c9", "g9"], "Estimate the concentration at t = 5 s from the graph.",
+                              "about 0.4 mol/L", roles={"g9": "stimulus"})
+    assert _crop_spans(_view(ctx, item_id)) == [["c9"], ["g9"]]
+
+
+def test_a_legacy_graph_titled_solution_concentration_still_shows_cold(seeded, cold):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["c9", "g9"], "Estimate the concentration at t = 5 s from the graph.",
+                              "about 0.4 mol/L")
+    _as_legacy(paths, item_id)
+    assert _view(ctx, item_id)["kind"] == "figure"                       # main's answer, kept
+
+
+@pytest.mark.parametrize(("text", "kind"), [
+    ("Solution", "solution"), ("Solution.", "solution"), ("Solution: x = 2", "solution"),
+    ("Solution. The sum is 4.", "solution"), ("Solutions 3.2:", "solution"), ("Solution (a).", "solution"),
+    ("Solution\nThe sum is 4.", "solution"), ("Proof.", "proof"), ("Proof", "proof"),
+    ("Solution concentration (mol/L) versus time (s).", None), ("Solutions of x^2 = 4 are 2 and -2.", None),
+    ("Proofreading is a skill.", None), ("Find the solution.", None),
+])
+def test_a_solution_lead_is_a_heading_not_a_word_starting_a_sentence(text, kind):
+    from learnloop.reader.as_printed import _answer_heading
+
+    assert _answer_heading(text) == kind
+
+
+# -- Sol verify 3: no crop shows excluded pixels where boxes overlap --------------------------------------
+
+
+def test_an_overlapping_figure_box_never_shows_another_figures_excluded_inset(seeded, warm):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["t8", "fa", "fb"], "Compare Figure 3 with Figure 4.", "one curves",
+                              roles={"fa": "stimulus", "fb": "stimulus"}, region=FA_REGION)
+    view = _view(ctx, item_id)
+    _blue_free(view)
+    assert _crop_spans(view) == [["t8"], ["fa"], ["fb"]]
+    figure_b = _image(view["crops"][2]["image"])
+    assert _share(figure_b, GREEN) > 0.7                                 # Figure 4 itself still shows
+
+
+def test_and_in_a_check_on_your_own_where_both_figures_stay(seeded, cold):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["t8", "fa", "fb"], "Compare Figure 3 with Figure 4.", "one curves",
+                              roles={"fa": "stimulus", "fb": "stimulus"}, region=FA_REGION)
+    view = _view(ctx, item_id)
+    _blue_free(view)
+    assert view["kind"] == "figure" and len(view["crops"]) == 2       # still answerable: both figures show
+
+
+def test_a_box_overlapping_a_dropped_solution_block_never_shows_it(seeded, warm):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["p8", "r8"], "Compute 5+5.", "10")
+    view = _view(ctx, item_id)
+    _blue_free(view)
+    assert _crop_spans(view) == [["p8"]] and _share(_image(view["crops"][0]["image"]), RED) > 0.7
+
+
+def test_a_container_around_a_retained_figure_is_not_painted_over_it():
+    from learnloop.reader.as_printed import _masks_for
+
+    figure = (0.0, 100.0, 100.0, 200.0)
+    group = ((0.0, 90.0, 120.0, 230.0), True)                          # a figure group around the figure
+    rest_of_sub_box_block = ((0.0, 80.0, 200.0, 300.0), False)        # never spared
+    assert _masks_for(figure, [group]) == []
+    assert _masks_for(figure, [rest_of_sub_box_block]) == [list(figure)]

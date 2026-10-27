@@ -13,8 +13,16 @@ The rules held here, on the server:
   retained region (a text block's box, or a figure's box clipped to the
   learner's selected sub-box) is its own crop, in reading order, never
   merged with another (the Astra redesign, F6: a union rectangle can take in
-  pixels of a block or sub-box that was left out; one region per crop holds
-  only its own box by construction). No padding, no tolerance constant. A
+  pixels of a block or sub-box that was left out). Boxes can still overlap,
+  so every rendered crop is **masked** (Sol verify 3): each crop is painted
+  white over every excluded area it overlaps, which is every block on the
+  page not retained (a dropped solution, a neighbour, an owned figure held
+  back) and, for a retained block shown by its selected sub-box, the rest
+  of its box. No crop then shows a pixel of excluded content, whatever
+  overlaps; a retained box loses only what it shares with excluded content.
+  An excluded box holding a whole crop is that block's container (a figure
+  group around its figure) and is not painted over it. The DTO is
+  unchanged. No padding, no tolerance constant. A
   block without a page or a box crops nothing, and a crop that cannot be
   made is reported as such, never replaced by the whole page; the original
   page is still offered when the block's page is known (F5).
@@ -34,8 +42,11 @@ The rules held here, on the server:
   is conservative by construction (the Astra redesign):
 
   1. *Solution blocks leave.* A block on the import's book-solution spans,
-     with a ``solution`` effective role, or led by "Solution" is never
-     cropped and never outlined on the original page, whatever the marks say.
+     with a ``solution`` effective role, or (a text block) led by a
+     "Solution" heading (:data:`_ANSWER_HEADING`) is never cropped and never
+     outlined on the original page, whatever the marks say. A figure leaves
+     only by its span, its role, or its validated figure role (Sol verify 2:
+     a graph titled "Solution concentration ..." is input).
   2. *Text by containment.* Every own text block that remains must lie
      inside the statement: its whole text, less at most a leading label or
      heading ("Exercise 6.", "(a)": :func:`_is_label`), is a run of the
@@ -61,7 +72,7 @@ The rules held here, on the server:
   One rule reads both, so an old mark is never trusted further than this:
   a solution block (rule 1) is never the problem's figure; in the free crop
   an owned figure shows only when it comes before every solution block and
-  every block a solution or proof lead runs into, in reading order (any
+  every text block a solution or proof heading runs into, in reading order (any
   other is left to the original page beside it); and it is kept to the
   learner's selected sub-box. A check on your own cannot open the page, so
   there an owned figure shows unless it is a solution block (the problem
@@ -92,7 +103,6 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from learnloop.ingest.block_roles import lead_role
 from learnloop.ingest.ir import DocumentBlock, is_figure_block, page_region, selection_region
 
 #: Reads blocks' effective roles over a connection, keyed (extraction, span)
@@ -175,6 +185,62 @@ def crop_boxes(
                 continue
         crops.append(CropBox(page, box, (block.span_id,)))
     return crops, skipped
+
+
+def _outside(outer: Box, inner: Box) -> list[Box]:
+    """``outer`` less ``inner`` (inside it), as at most four rectangles."""
+
+    left, top, right, bottom = outer
+    il, it, ir, ib = inner
+    parts = [(left, top, right, it), (left, ib, right, bottom), (left, it, il, ib), (ir, it, right, ib)]
+    return [part for part in parts if part[2] > part[0] and part[3] > part[1]]
+
+
+#: An excluded area, and whether it is a block's whole box (which may be a
+#: container around a retained block: :func:`_masks_for`).
+Excluded = tuple[Box, bool]
+
+
+def excluded_areas(
+    retained: Sequence[DocumentBlock],
+    on_pages: Sequence[DocumentBlock],
+    regions: Mapping[str, tuple[int, Box]] | None = None,
+) -> dict[int, list[Excluded]]:
+    """Per page, the areas no crop may show (Sol verify 3): the box of every
+    block on the page that is not ``retained``, and for a retained block
+    shown by its selected sub-box (``regions``), the rest of its box. The
+    renderer paints them white in each crop (:func:`_masks_for`)."""
+
+    retained_ids = {block.span_id for block in retained}
+    areas: dict[int, list[Excluded]] = {}
+    for block in on_pages:
+        box = _box(block)
+        if block.page is not None and box is not None and block.span_id not in retained_ids:
+            areas.setdefault(int(block.page), []).append((box, True))
+    for block in retained:
+        box, region = _box(block), (regions or {}).get(block.span_id)
+        if block.page is None or box is None or region is None or int(region[0]) != int(block.page):
+            continue
+        shown = _overlap(region[1], box)
+        rest = _outside(box, shown) if shown is not None else [box]
+        areas.setdefault(int(block.page), []).extend((part, False) for part in rest)
+    return areas
+
+
+def _contains(outer: Box, inner: Box) -> bool:
+    return outer[0] <= inner[0] and outer[1] <= inner[1] and inner[2] <= outer[2] and inner[3] <= outer[3]
+
+
+def _masks_for(crop: Box, areas: Sequence[Excluded]) -> list[list[float]]:
+    """The excluded areas one crop paints white: those overlapping it, except
+    a block's box holding the whole crop. That is a container the extractor
+    drew around the retained block (a figure group around its figure); its
+    other members are blocks of their own, masked by their own boxes, and
+    painting it would blank the retained block (a required graph lost cold).
+    The rest of a sub-box's block is always painted."""
+
+    return [list(part) for area, block_box in areas if not (block_box and _contains(area, crop))
+            for part in [_overlap(area, crop)] if part is not None]
 
 
 def _pdf_path(repository: Any, extraction_id: str) -> Any:
@@ -335,9 +401,18 @@ def _canonical_origin(item: Any) -> PrintedOrigin:
                          page_span_ids=spans)
 
 
-#: The leads that start a worked answer ("... Solution: x = 2", "Prove that
-#: ... Proof. ..."): a figure after one is not shown free (legacy rule).
-_ANSWER_LEADS = frozenset({"solution", "proof"})
+#: A solution or proof heading that starts a text block or a part of one:
+#: the word alone, or with a number or enumerator, then punctuation or the
+#: end of the line ("Solution", "Solution.", "Solution 3.2:", "Proof.",
+#: "Solutions (a) -"). Sol verify 2: never a word starting a sentence
+#: ("Solution concentration (mol/L) versus time (s)." is a graph's title),
+#: and never read on a figure's text: a figure leaves only by its solution
+#: span, its solution role or its validated figure role.
+_ANSWER_HEADING = re.compile(
+    r"\s*(?P<kind>solutions?|proofs?)(?:\s+(?:\d+(?:[.\-]\d+)*[a-z]?|\(?[a-z]\)|\(?[ivxlc]+\)))?"
+    r"\s*(?:[.:;\u2013\u2014-]|$)",
+    re.IGNORECASE,
+)
 #: Where a block's text is cut to read the lead of each part: a line break,
 #: or the space after a sentence or clause ends.
 _PART_BREAK = re.compile(r"\n+|(?<=[.!?:;)])\s+")
@@ -506,11 +581,19 @@ def _contained(block_text: str, statement: str) -> tuple[bool, _Placement | None
     return (True, None) if _is_label(block_text) else (False, None)
 
 
-def _runs_into_solution(text: str | None) -> bool:
-    """Whether a solution or proof lead starts any part of a block's text."""
+def _answer_heading(text: str | None) -> str | None:
+    """``"solution"`` or ``"proof"`` when a heading of that kind starts the
+    text's first line (:data:`_ANSWER_HEADING`), else None."""
 
-    parts = [part for part in _PART_BREAK.split(str(text or "")) if part.strip()]
-    return any(lead_role(part) in _ANSWER_LEADS for part in parts)
+    lines = str(text or "").strip().splitlines()
+    match = _ANSWER_HEADING.match(lines[0]) if lines else None
+    return None if match is None else ("proof" if match.group("kind").lower().startswith("proof") else "solution")
+
+
+def _runs_into_solution(text: str | None) -> bool:
+    """Whether a solution or proof heading starts any part of a block's text."""
+
+    return any(_answer_heading(part) for part in _PART_BREAK.split(str(text or "")) if part.strip())
 
 
 def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set[str]:
@@ -556,10 +639,12 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
         logging.getLogger(__name__).exception("Could not read the solution blocks of %s", getattr(item, "id", "?"))
         return no_crop
 
-    # Rule 1: solution blocks leave, whatever the marks say.
+    # Rule 1: solution blocks leave, whatever the marks say. The heading test
+    # reads text blocks only (Sol verify 2: a graph titled "Solution
+    # concentration ..." is the problem's input).
     dropped = {span for span, block in blocks.items()
                if span in solution or role_of.get((origin.extraction_id, span)) == "solution"
-               or lead_role(block.text) == "solution"}
+               or (not is_figure_block(block) and _answer_heading(block.text) == "solution")}
     located = tuple(span for span in origin.located_by if span not in dropped) or origin.located_by
     own = [span for span in origin.span_ids if span in blocks and span not in dropped]
     figures = [span for span in own if is_figure_block(blocks[span])]
@@ -568,7 +653,8 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
     # reading order (an old mark may own a completed answer figure; the
     # original page beside the crop shows the rest).
     first_solution = min((block.ordinal for span, block in blocks.items()
-                          if span in dropped or _runs_into_solution(block.text)), default=None)
+                          if span in dropped or (not is_figure_block(block) and _runs_into_solution(block.text))),
+                         default=None)
     free_figures = {span for span in figures if first_solution is None or blocks[span].ordinal < first_solution}
 
     def kept_regions(spans: Sequence[str]) -> dict[str, tuple[int, Box]]:
@@ -635,6 +721,9 @@ def printed_crops(
     if not blocks:
         return {"status": "not_found", "crops": [], "skipped_span_ids": []}
     boxes, skipped = crop_boxes(blocks, regions)
+    pages = sorted({box.page for box in boxes})
+    neighbours = repository.document_blocks_on_pages(extraction_id, pages) if pages else []
+    masks = excluded_areas(blocks, neighbours, regions)
     if not boxes:
         return {"status": "no_geometry", "crops": [], "skipped_span_ids": [] if figure_only else skipped}
     pdf_path = _pdf_path(repository, extraction_id)
@@ -647,7 +736,9 @@ def printed_crops(
         for index, box in enumerate(boxes):
             by_page.setdefault(box.page, []).append(index)
         for page, indices in by_page.items():
-            made, _size = SV._local_pdf_crops(pdf_path, page, [list(boxes[i].bbox) for i in indices])
+            made, _size = SV._local_pdf_crops(pdf_path, page, [list(boxes[i].bbox) for i in indices],
+                                              masks=[_masks_for(boxes[i].bbox, masks.get(page, []))
+                                                     for i in indices])
             for index, image in zip(indices, made):
                 images[index] = image
         if not any(images):

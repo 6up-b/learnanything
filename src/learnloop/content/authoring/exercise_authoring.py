@@ -247,16 +247,32 @@ STIMULUS = "stimulus"
 _SOLUTION_FIGURE_ROLES = frozenset({"answer", "worked"})
 
 
+#: How strongly a claim keeps a figure from being shown: on several claims
+#: for one figure, the strongest stands (an answer or a solution over
+#: "unrelated" over "stimulus"), whatever their order.
+_CLAIM_STRENGTH = {"answer": 2, "worked": 2, "unrelated": 1, STIMULUS: 0}
+
+
 def _claimed_roles(entry: ExerciseAuthoredItem) -> dict[str, str]:
-    """The author's role per figure span for one item; on two claims for one
-    figure, any claim but ``stimulus`` wins (a contradiction never shows it)."""
+    """The author's role per figure span for one item. Every claim counts
+    (Sol verify 1: duplicates in any order): the strongest stands, so a
+    figure is ``stimulus`` only when no claim of the item contradicts it."""
 
     roles: dict[str, str] = {}
     for claim in entry.figure_roles:
-        span = str(claim.span_id)
-        if roles.get(span) in (None, STIMULUS):
-            roles[span] = str(claim.role)
+        span, role = str(claim.span_id), str(claim.role)
+        if span not in roles or _CLAIM_STRENGTH[role] > _CLAIM_STRENGTH[roles[span]]:
+            roles[span] = role
     return roles
+
+
+def _answer_figures(entries: Sequence[ExerciseAuthoredItem]) -> set[str]:
+    """Every figure some claim of some item calls an ``answer`` or ``worked``
+    (Sol verify 1: read from every claim, never from one resolved role per
+    item), so it is no item's stimulus."""
+
+    return {str(claim.span_id) for entry in entries for claim in entry.figure_roles
+            if str(claim.role) in _SOLUTION_FIGURE_ROLES}
 
 
 def _figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None], statement: str, *,
@@ -636,7 +652,7 @@ def author_exercises(
     # decides its own (Astra batch review).
     anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
     claims = [_claimed_roles(entry) for entry in result.items]
-    answer_figures = {span for claimed in claims for span, role in claimed.items() if role in _SOLUTION_FIGURE_ROLES}
+    answer_figures = _answer_figures(result.items)
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
 
