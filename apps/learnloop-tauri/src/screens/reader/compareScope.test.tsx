@@ -52,16 +52,11 @@ const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUr
 const BOX = "What do you want to do with this?";
 const LIBRARY = [{ sourceId: "src_axler", title: "Axler" }, { sourceId: "src_strang", title: "Strang" }, { sourceId: "src_lay", title: "Lay" }];
 
-/** The intent contract with CA3's verb beside "where else" (as the sidecar sends it while on). */
-const intent: ReaderIntentContractDto = {
+/** The intent contract as the sidecar sends it while CA3 is on (the fixture), and while off. */
+const intent: ReaderIntentContractDto = baseIntent;
+const intentOff: ReaderIntentContractDto = {
   ...baseIntent,
-  palette: baseIntent.palette.map((group) => group.group !== "transfer" ? group : {
-    ...group,
-    actions: group.actions.flatMap((action) => action.id !== "where_else_explained" ? [action] : [action, {
-      id: "compare_books", group: "transfer" as const, intention: "transfer" as const, label: "how do my other books treat this?",
-      effect: { kind: "compare" as const, door: "selection" as const }, model: true,
-    }]),
-  }),
+  palette: baseIntent.palette.map((group) => ({ ...group, actions: group.actions.filter((action) => action.effect.kind !== "compare") })),
 };
 
 function done<T>(result: T, kind = "compare") {
@@ -300,7 +295,7 @@ it("the tutor's offer opens the same comparison beside the book; without it, tod
 });
 
 it("switched off, the ask box and the palette are today's", async () => {
-  on({ libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true }, intent: baseIntent });
+  on({ libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true }, intent: intentOff });
   await openAskBox("how do Axler and Strang treat eigenvalues");
   await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(1));
   expect(api.readerCompareScope).not.toHaveBeenCalled();
@@ -308,6 +303,17 @@ it("switched off, the ask box and the palette are today's", async () => {
   await within(pane).findByText("A symmetric matrix equals its transpose.");
   expect(within(pane).queryByRole("button", { name: SCOPE_COPY.compareBooks })).toBeNull();
   expect(within(pane).getByText(/pin passages from two places to compare them/)).toBeTruthy();
+});
+
+it("switched off, the selection's palette has no comparison verb", async () => {
+  on({ libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true }, intent: intentOff });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  select(await screen.findByText(view.blocks[1].markdown));
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  expect(within(palette).queryByRole("button", { name: "how do my other books treat this?" })).toBeNull();
+  expect(within(palette).getByRole("button", { name: "where else is this explained?" })).toBeTruthy();
 });
 
 it("every door builds the same payload keys (C1)", () => {

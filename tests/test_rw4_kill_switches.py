@@ -54,7 +54,8 @@ def _without_library(contract: dict) -> dict:
         for name in ("palette", "notesPalette"):
             groups = []
             for group in intent[name]:
-                actions = [a for a in group["actions"] if a["effect"]["kind"] != "library_ask"]
+                # Reader CA3's "how do my other books treat this?" builds on the library answer too.
+                actions = [a for a in group["actions"] if a["effect"]["kind"] not in ("library_ask", "compare")]
                 if actions:
                     groups.append({**group, "actions": actions})
             intent[name] = groups
@@ -64,7 +65,9 @@ def _without_library(contract: dict) -> dict:
 def test_the_switch_restores_rw1bs_contract_byte_for_byte(make):
     _on_paths, on = make()
     contract_on = call(on, "reader.prompt_contract", {})
-    assert contract_on["libraryAsk"] == {"expandGraph": True, "personalizedDefault": True, "compare": True}
+    # Reader CA3 (reader_compare.scope_enabled, on by default) adds compareScope.
+    assert contract_on["libraryAsk"] == {"expandGraph": True, "personalizedDefault": True, "compare": True,
+                                         "compareScope": True}
     groups = {group["group"] for group in contract_on["intent"]["palette"]}
     assert "orient" in groups
     _off_paths, off = make("library_ask", {"enabled": False})

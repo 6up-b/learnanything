@@ -516,7 +516,11 @@ def test_the_intent_boxs_figure_action_is_show_me_while_on():
     assert actions["make_explorable"].label == "show me…"
     assert actions["make_explorable"].describe.endswith(RI.SHOW_ME_CLAUSE)
     assert actions["make_explorable"].effect == {"kind": "figure"}
-    assert RI.question_set_version(on) == RI.SHOW_ME_QUESTION_SET_VERSION
+    # Reader CA3 (on by default) adds Transfer's "how do my other books treat
+    # this?", so the set carries its suffix; without it, show me's set exactly.
+    assert RI.question_set_version(on) == RI.SHOW_ME_QUESTION_SET_VERSION + RI.COMPARE_QUESTION_SET_SUFFIX
+    config.reader_compare.scope_enabled = False
+    assert RI.question_set_version(RI.Availability.from_config(config)) == RI.SHOW_ME_QUESTION_SET_VERSION
     config.figures.show_me_enabled = False
     off = RI.Availability.from_config(config)
     actions = {action.id: action for action in RI.available_actions(off)}

@@ -45,7 +45,8 @@ function intentWithoutLibrary(): ReaderIntentContractDto {
   const strip = (groups: ReaderIntentContractDto["palette"]) => groups
     // RW5a's "make this explorable" (figures.enabled) and RW7a's "what matters here?" (reading_paths.enabled)
     // are not RW4a's: the base's snapshot has none of them.
-    .map((group) => ({ ...group, actions: group.actions.filter((action) => !["library_ask", "reading_path", "figure"].includes(action.effect.kind as string)) }))
+    // Reader CA3's "how do my other books treat this?" (kind compare) builds on the library answer: absent with it.
+    .map((group) => ({ ...group, actions: group.actions.filter((action) => !["library_ask", "reading_path", "figure", "compare"].includes(action.effect.kind as string)) }))
     .filter((group) => group.actions.length > 0);
   return { ...readerIntentContractFixture, palette: strip(readerIntentContractFixture.palette), notesPalette: strip(readerIntentContractFixture.notesPalette) };
 }

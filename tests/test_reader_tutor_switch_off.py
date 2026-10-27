@@ -61,6 +61,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # panel makes the help style the Reader's answer mode (Q5); off, the
         # launch default answers as the golden recorded.
         set_config(paths, "ask", panel_enabled=False)
+        # Reader CA3 (landed after this golden too): off, so its contract key
+        # and "how do my other books treat this?" are absent; these pins are RW1c's.
+        set_config(paths, "reader_compare", scope_enabled=False)
     ctx = context(paths.root)
     tutor = tool_tutor(answer_md="The determinant vanishes there, so t is a root.")
 
