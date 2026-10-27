@@ -893,7 +893,8 @@ when no coverage has been judged and the section is not protected. Pressed, it l
 Peek renders in the rail through `reader.correspondent_peek` (protection read again, the hit's own section's first
 blocks only, each one shown recorded as exposure), go there is the library hit's source detour, and compare is the
 library compare path (an ask anchored on the section, both passages pinned, the organizer's notes left to be asked
-for; a retry or the personalization chip reruns the comparison). *Not about this* is one idempotent operation,
+for; a retry or the personalization chip reruns the comparison over the pins as the learner last left them, and
+with one pin left it reruns the ask and keeps that pin). *Not about this* is one idempotent operation,
 `reader.correspondent_dismiss`: a section-pair `learner_card` verdict (task `section_correspondence`) and C0a's
 correction per LO of the open section, in one transaction, with an undo of its own; a section with no LO gets the
 pair verdict only. The detour-strip crumb for a peek and §6.5's salience events are deferred to CA5. The new `[reader.correspondence]`

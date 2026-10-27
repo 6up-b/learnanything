@@ -82,3 +82,66 @@ Every pytest, vitest, npm and cargo command ran inside
 - `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok (two passthroughs added).
 - No schema change, so the DB reference was not regenerated.
 - No paid or live call was made, and no Python ran outside pytest.
+
+## Re-review (Codex, gpt-6.1-sol; job 20261027-182940-XntDNf)
+
+Verdict was REOPENED. F1 and F2 were confirmed fixed. One new finding, F8.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | High | Peek reads protection again; target section's blocks only | confirmed fixed (earlier round) | 295b77168 | `test_reader_ca5a_find_section.py` |
+| F2 | High | Every block shown is recorded as `source_exposure` | confirmed fixed (earlier round) | 295b77168 | `test_reader_ca5a_find_section.py` |
+| F8 | Medium | Personalization restores obsolete comparison pins | fixed | e40baab23 | `libraryAskJobs.test.tsx`: four new `F8:` tests |
+
+**F8: reproduced, then fixed.** I reproduced the scenario through the real hook with mocked RPCs. Three of the
+four new tests failed before the fix:
+- B replaced by C, compare, then the chip: it compared A/B again.
+- B replaced by C without pressing compare, then retry: it compared A/B again.
+- One pin left, then the chip: A/B came back and were compared.
+
+The fourth test checks that an ordinary ask's pins never turn it into a comparison. It passed before the fix
+and still passes.
+
+The fix is in `useLibraryAsk.ts`:
+- **Pins:** in a comparison started from *find this section*, `togglePin` updates `intent.pins` along with
+  `pinned`.
+- **Explicit compare:** `compare()` writes the pins it compares into the intent.
+- **Rerun:** a retry or the chip uses the pins as the learner last left them.
+- **One pin left:** the rerun asks again and keeps that pin. It compares nothing, and compare waits for a second
+  pin as in an ordinary ask. Before the fix, `run` had silently refused to rerun.
+- **Fewer than two pins:** `compareWith` itself now refuses a call with fewer than two pins (the guard moved
+  there out of `run`).
+- **Ordinary asks:** their intent stays `ask`. RW4a's behaviour is unchanged.
+
+The spec's as-built paragraph (`ux_reader_compare_ask_v1.md` §13) now says the rerun uses the current pins.
+
+**Scope:** frontend only. The change adds no config key, parameter, migration or model call.
+
+### Re-review gate (targeted)
+
+Every npm and vitest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`.
+Vitest ran at `--maxWorkers=4`.
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+- **Targeted pytest:** none. This round changed no Python. The earlier round's 565 pytest results stand.
+- `npm install` and `npm run typecheck`: clean.
+- **Vitest:** 121 passed over 13 files. That is the earlier 117 plus the 4 new F8 tests:
+  - `libraryAskJobs.test.tsx` (11)
+  - `libraryAsk.test.tsx` (16)
+  - `libraryAskSwitchOff.test.tsx` (4)
+  - `libraryExercises.test.tsx` (10)
+  - `libraryExercisesReader.test.tsx` (3)
+  - `libraryRoles.test.tsx` (2)
+  - `figures/advancedPanels.test.tsx` (23)
+  - `figures/libraryOfferSettle.test.tsx` (4)
+  - `compareKeep.test.tsx` (15)
+  - `compareKeepSwitchOff.test.tsx` (2)
+  - `paletteAskPostures.test.tsx` (4)
+  - `findSection.test.tsx` (22)
+  - `findSectionReader.test.tsx` (5)
+- `npm run frontend:build`: ok.
+- `git diff --check`: clean.
+- **Not run, and why:**
+  - `cargo check`: `src-tauri` is unchanged.
+  - Durability lane and DB reference: there is no schema or DB change.
+- No live or paid call was made, and no Python ran outside the tools above.
