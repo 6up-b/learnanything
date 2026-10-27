@@ -5751,7 +5751,7 @@ class Repository(
             for event in error_events:
                 self._insert_error_event(connection, event)
             self._insert_attempt_surprise(connection, surprise)
-            self._upsert_practice_item_state_record(connection, practice_item_state)
+            self._record_attempt_practice_item_state(connection, practice_item_state)
             self._upsert_mastery_state_record(connection, mastery_state)
             for state in facet_recall_states:
                 self._upsert_facet_recall_state(connection, state)
@@ -18589,6 +18589,57 @@ class Repository(
                 _json(surprise.get("gate_diagnostics")),
                 surprise["algorithm_version"],
                 surprise["created_at"],
+            ),
+        )
+
+    def _record_attempt_practice_item_state(
+        self,
+        connection: sqlite3.Connection,
+        state: PracticeItemState,
+    ) -> None:
+        """A live attempt's write to its item's scheduling row.
+
+        Mobile PR-4 (the reverse of PR-2's race, ``spec_mobile_tailnet_v1``
+        §9.3): content sync owns ``active`` and ``content_hash``, and an
+        attempt owns the memory state. The attempt computed both content
+        columns from the vault it loaded, which a content sync in another
+        process (the desktop's watcher, the phone host's reload) may have
+        moved past while the answer was being graded; writing them back would
+        reopen an item the sync just closed, or restore an old hash. So an
+        existing row takes only the scheduling columns and the last-attempt
+        time, and ``active`` can only close: a diagnostic probe's single use
+        (``active = 0``) still lands, a non-probe attempt never reopens a row.
+        A missing row is inserted whole, as before. Replay keeps the full
+        upsert (``replace_attempt_derived_outcome``): it deletes the rows it
+        rebuilds first, and re-closes what was closed outside the ledger.
+        """
+
+        connection.execute(
+            """
+            INSERT INTO practice_item_state(
+              practice_item_id, difficulty, stability, retrievability, due_at,
+              active, content_hash, last_attempt_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(practice_item_id) DO UPDATE SET
+              difficulty = excluded.difficulty,
+              stability = excluded.stability,
+              retrievability = excluded.retrievability,
+              due_at = excluded.due_at,
+              active = MIN(practice_item_state.active, excluded.active),
+              last_attempt_at = excluded.last_attempt_at,
+              updated_at = excluded.updated_at
+            """,
+            (
+                state.practice_item_id,
+                state.difficulty,
+                state.stability,
+                state.retrievability,
+                state.due_at,
+                1 if state.active else 0,
+                state.content_hash,
+                state.last_attempt_at,
+                state.updated_at,
             ),
         )
 
