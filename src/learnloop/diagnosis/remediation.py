@@ -30,6 +30,12 @@ REPAIR_COLD_OPPORTUNITY_POLICY_VERSION = "repair_cold_opportunity_v1"
 #: the result a cold retrieval.
 COLD_RETRIEVAL_DELAY = timedelta(days=1)
 
+#: How long a scheduled cold retry stays takeable after it falls due (its
+#: ``expires_at`` is ``not_before`` + this). Named for the cold-retry
+#: reschedule (``mvp-0.38``), which gives a fresh retry the lane's own window;
+#: the value is the one ``record_remediation_attempt`` always used inline.
+COLD_RETRY_WINDOW = timedelta(days=30)
+
 #: How much of a repair episode's answer may be handed over before the cold
 #: measurement at the end of it is worth less than it claims. Expressed on the
 #: reveal ledger's 0..1 fraction-of-answer scale and summed over the episode's
@@ -616,12 +622,7 @@ def start_remediation_treatment(
     # attempt's feedback, its exercise or book solution read in a source, its
     # prompt rendered in a proposal), or one made from held-out material, is
     # never the cold check (off with ``goals.held_out_selection``).
-    shown = set(exposed_items(vault, repository, ranked[1:], with_held_out=True))
-    cold = next(
-        (item for item in ranked[1:]
-         if surface_group_id(item) != primed_surface and item.id not in shown),
-        None,
-    )
+    cold = _independent_cold_item(vault, repository, ranked[1:], excluded_surfaces={primed_surface})
     updates: dict[str, Any] = {
         "state": "treatment",
         "primed_item_id": primed.id,
@@ -663,6 +664,32 @@ def start_remediation_treatment(
         # chosen, and this is the only record of why.
         "unservable_skips": unservable_skips,
     }
+
+
+def _independent_cold_item(
+    vault: LoadedVault,
+    repository: Repository,
+    candidates: list[Any],
+    *,
+    excluded_surfaces: set[str | None],
+) -> Any | None:
+    """The best-ranked candidate on a surface group outside
+    ``excluded_surfaces`` whose own material the learner was not shown (exam
+    protection: ``exposed_items`` with held-out material), or None.
+
+    THE cold-surface rule of the repair lane: treatment picks the episode's
+    first cold item with it (excluding the primed surface), and the cold-retry
+    reschedule (``mvp-0.38``) picks a fresh retry's with it (excluding every
+    surface the episode already used)."""
+
+    from learnloop.substrate.canonical_projection import surface_group_id
+
+    shown = set(exposed_items(vault, repository, candidates, with_held_out=True))
+    return next(
+        (item for item in candidates
+         if surface_group_id(item) not in excluded_surfaces and item.id not in shown),
+        None,
+    )
 
 
 def _record_unbound_primed_disposition(
@@ -786,8 +813,16 @@ def record_remediation_attempt(
     """Link treatment attempts and consume delayed tasks exactly once.
 
     ``vault`` (the live attempt step only; replay and a regrade pass none)
-    lets a scheduled cold check record its repair forecast.
+    lets a scheduled cold check record its repair forecast, and (from
+    ``mvp-0.38``) an assisted due cold retry schedule its fresh retry.
     """
+
+    # The cold-retry reschedule (mvp-0.38, owner decision 2026-10-25): help
+    # taken on a due repair cold retry ends it now and schedules one fresh
+    # retry. Live only (``vault``): replay and a regrade pass none, so they
+    # schedule nothing. Off, below the tag, or for any other attempt it does
+    # nothing and the predecessor's branches below run exactly as before.
+    reschedule_assisted_cold_retry(vault, repository, attempt, clock=clock)
 
     if attempt.get("primed"):
         episode = repository.open_remediation_episode_for_primed_item(
@@ -896,7 +931,7 @@ def record_remediation_attempt(
             return
         created = parse_utc(attempt.get("created_at")) or (clock or SystemClock()).now()
         not_before = (created.astimezone(UTC) + COLD_RETRIEVAL_DELAY).replace(microsecond=0)
-        expires = not_before + timedelta(days=30)
+        expires = not_before + COLD_RETRY_WINDOW
         repository.update_remediation_episode(
             episode["id"], state="cold_scheduled", primed_attempt_id=attempt["id"], clock=clock
         )
@@ -1042,6 +1077,204 @@ def record_remediation_attempt(
         )
 
 
+#: The ``context`` key a fresh cold retry carries (the cold-retry reschedule,
+#: ``mvp-0.38``): where it came from. Its presence is the chain's bound: a
+#: retry that carries it is never rescheduled again.
+ASSISTED_RESCHEDULE_CONTEXT_KEY = "assisted_reschedule"
+
+#: The trigger of a fresh retry's cold-measurement opportunity (one per
+#: withdrawn retry: the opportunity's unique ``(lane, trigger_kind,
+#: trigger_ref)`` key, ``trigger_ref`` = the withdrawn task).
+ASSISTED_RESCHEDULE_TRIGGER = "assisted_cold_retry"
+
+
+def reschedule_cold_after_assist_active(vault: Any) -> bool:
+    """The cold-retry reschedule (``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``,
+    ``mvp-0.38``): at that tag or later with
+    ``practice.reschedule_cold_after_assist`` on, and with Reader CA2's rule on
+    (``serve_eligibility.help_converts_active``: without it submit refuses an
+    assisted attempt on a due cold retry, so there is nothing to reschedule).
+    Below the tag, switched off, or no vault (replay, a regrade): the
+    predecessor."""
+
+    from learnloop import serve_eligibility
+    from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_VERSIONS
+
+    config = getattr(vault, "config", None)
+    if config is None:
+        return False
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    switch = getattr(config, "practice", None)
+    return (
+        version in COLD_RETRY_RESCHEDULE_VERSIONS
+        and bool(getattr(switch, "reschedule_cold_after_assist", False))
+        and serve_eligibility.help_converts_active(vault)
+    )
+
+
+def reschedule_assisted_cold_retry(
+    vault: LoadedVault | None,
+    repository: Repository,
+    attempt: Mapping[str, Any],
+    *,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Help taken on a due repair cold retry: end it and schedule ONE fresh
+    cold retry for the same repair (owner decision 2026-10-25, Reader CA2
+    follow-up Q4; ``mvp-0.38``). Returns the fresh task, or None.
+
+    Acts only when the rule is live (:func:`reschedule_cold_after_assist_active`)
+    and ``attempt`` is assisted (:func:`assisted_attempt`: hints, a hinted
+    type, or primed) on the item of a due, open ``cold_retry`` (the task an
+    unassisted attempt would have consumed: the consumer's own lookup), and
+    is not an exam attempt (which never touches the lane). Then, in the
+    attempt's transaction:
+
+    * the assisted retry is withdrawn now with the existing typed disposition
+      (``withdraw_cold_measurement``: ``unmeasurable_no_held_out_surface``,
+      reason ``cold_check_help_taken``, ``detail.stage = "submit"``) instead of
+      at the next serve, where the predecessor withdraws it as practised;
+    * unless that retry was itself a fresh one (its context carries
+      :data:`ASSISTED_RESCHEDULE_CONTEXT_KEY`): one fresh retry per chain, a
+      structural bound (keep), so help taken on every retry never schedules
+      retries forever;
+    * the fresh retry's surface is chosen by the lane's one rule
+      (:func:`_independent_cold_item`) among the repair's ranked items,
+      excluding the primed surface and the assisted retry's (the receipt's
+      surface novelty fails on any surface already attempted); none left is
+      recorded as a refused opportunity (``no_independent_surface``) and the
+      repair stays unmeasurable, as below the tag;
+    * its timing is the lane's existing rule, read from the attempt that took
+      the help (the latest exposure): due ``COLD_RETRIEVAL_DELAY`` after it,
+      open for ``COLD_RETRY_WINDOW`` (no new delay);
+    * it carries the withdrawn retry's scheduling-time context unchanged (the
+      repair's primed source attempt, repair class, hypotheses: §6.2), plus
+      where it came from, so the coldness receipt scans from the primed
+      attempt and records the assisted attempt as the co-intervention it is.
+      The episode's cold item moves to the fresh surface (reveal attribution
+      follows it); the episode stays ``cold_scheduled``.
+
+    A certification cold probe is never rescheduled: one probe per
+    certificate, ever (``certification_cold_probe``, migration 139's unique
+    index); an assisted probe stays practice and its next serve withdraws it.
+    """
+
+    if vault is None or not reschedule_cold_after_assist_active(vault):
+        return None
+    if not assisted_attempt(attempt) or "exam" in str(attempt.get("attempt_type") or ""):
+        return None
+    practice_item_id = str(attempt.get("practice_item_id") or "")
+    attempted_at = str(attempt.get("created_at") or "")
+    if not practice_item_id or not attempted_at:
+        return None
+    task = repository.active_followup_task_for_item(practice_item_id, kind="cold_retry", at=attempted_at)
+    if task is None:
+        return None
+    from learnloop.serve_eligibility import COLD_CHECK_HELP_TAKEN
+
+    withdrawn = withdraw_cold_measurement(
+        vault, repository, str(task["id"]), reason=COLD_CHECK_HELP_TAKEN, stage="submit",
+        decision={"assisted_attempt_id": str(attempt.get("id") or "")}, clock=clock,
+    )
+    if withdrawn is None or str(withdrawn.get("status") or "") != "expired":
+        return None
+    context = task.get("context")
+    context = dict(context) if isinstance(context, Mapping) else {}
+    if context.get(ASSISTED_RESCHEDULE_CONTEXT_KEY):
+        # The bound: this retry was the chain's fresh one.
+        logger.info("cold retry %s was itself a fresh retry; not rescheduled again", task["id"])
+        return None
+    episode_id = str(task.get("remediation_episode_id") or "")
+    episode = repository.remediation_episode(episode_id) if episode_id else None
+    if episode is None or str(episode.get("state") or "") != "cold_scheduled":
+        return None
+    case = episode_case(repository, episode)
+    if case is None:
+        return None
+    from learnloop.attempts.coldness_receipt import LANE_REPAIR_COLD_RETRY, record_schedule_refusal_receipt
+    from learnloop.substrate.canonical_projection import surface_group_id
+
+    opportunity = repository.get_or_create_cold_measurement_opportunity(
+        lane=LANE_REPAIR_COLD_RETRY,
+        trigger_kind=ASSISTED_RESCHEDULE_TRIGGER,
+        trigger_ref=str(task["id"]),
+        learning_object_id=str(case_value(case, "learning_object_id") or "") or None,
+        case_kind=str(episode.get("case_kind") or "") or None,
+        case_ref=str(episode.get("case_ref") or "") or None,
+        remediation_episode_id=episode_id,
+        source_attempt_id=str(attempt.get("id") or "") or None,
+        policy_version=REPAIR_COLD_OPPORTUNITY_POLICY_VERSION,
+        clock=clock,
+    )
+    ranked, _unservable = _rank_items(
+        vault, repository, case,
+        target_checkpoint_ids=_case_target_checkpoint_ids(
+            repository, case,
+            case_kind=str(episode.get("case_kind") or "misconception"),
+            case_ref=str(episode.get("case_ref") or "") or None,
+        ),
+        clock=clock,
+    )
+    used_items = [
+        vault.practice_items.get(item_id)
+        for item_id in (str(episode.get("primed_item_id") or ""), str(task.get("selected_item_id") or ""))
+        if item_id
+    ]
+    excluded = {surface_group_id(item) for item in used_items if item is not None}
+    excluded_ids = {item.id for item in used_items if item is not None}
+    fresh_item = _independent_cold_item(
+        vault, repository, [item for item in ranked if item.id not in excluded_ids], excluded_surfaces=excluded,
+    )
+    candidate_summary = {
+        "withdrawn_task_id": str(task["id"]),
+        "assisted_attempt_id": str(attempt.get("id") or "") or None,
+        "primed_item_id": str(episode.get("primed_item_id") or "") or None,
+        "withdrawn_cold_item_id": str(task.get("selected_item_id") or "") or None,
+        "cold_item_id": fresh_item.id if fresh_item is not None else None,
+    }
+    if fresh_item is None:
+        candidate_summary["ranked_item_ids"] = [item.id for item in ranked]
+        repository.record_cold_measurement_opportunity_decision(
+            measurement_opportunity_id=str(opportunity["id"]), decision="structurally_refused",
+            reason="no_independent_surface", candidate_summary=candidate_summary, clock=clock,
+        )
+        record_schedule_refusal_receipt(
+            repository, opportunity=opportunity, decision="structurally_refused",
+            reason="no_independent_surface", candidate_summary=candidate_summary, clock=clock,
+        )
+        return None
+    created = parse_utc(attempted_at) or (clock or SystemClock()).now()
+    not_before = (created.astimezone(UTC) + COLD_RETRIEVAL_DELAY).replace(microsecond=0)
+    expires = not_before + COLD_RETRY_WINDOW
+    context[ASSISTED_RESCHEDULE_CONTEXT_KEY] = {
+        "from_task_id": str(task["id"]),
+        "assisted_attempt_id": str(attempt.get("id") or "") or None,
+        "withdrawn_cold_item_id": str(task.get("selected_item_id") or "") or None,
+        "reason": COLD_CHECK_HELP_TAKEN,
+    }
+    fresh = repository.create_followup_task(
+        kind="cold_retry",
+        case_kind=str(task.get("case_kind") or episode["case_kind"]),
+        case_ref=str(task.get("case_ref") or episode["case_ref"]),
+        source_attempt_id=str(task.get("source_attempt_id") or "") or None,
+        remediation_episode_id=episode_id,
+        not_before=not_before.isoformat().replace("+00:00", "Z"),
+        expires_at=expires.isoformat().replace("+00:00", "Z"),
+        selected_item_id=fresh_item.id,
+        context=context,
+        measurement_opportunity_id=str(opportunity["id"]),
+        measurement_decision_reason="independent_surface_selected",
+        measurement_candidate_summary=candidate_summary,
+        clock=clock,
+    )
+    repository.update_remediation_episode(episode_id, cold_item_id=fresh_item.id, clock=clock)
+    logger.info(
+        "cold retry %s withdrawn after help was taken (attempt %s); fresh retry %s on %s",
+        task["id"], attempt.get("id"), fresh["id"], fresh_item.id,
+    )
+    return fresh
+
+
 def assisted_attempt(attempt: Mapping[str, Any]) -> bool:
     """Did the attempt take help (hints, a hinted type) or see its answer
     (primed)? Such an attempt never answers a cold measurement (Reader CA2)."""
@@ -1071,6 +1304,7 @@ def withdraw_cold_measurement(
     reason: str,
     reveal_event_ids: tuple[str, ...] | list[str] = (),
     decision: Mapping[str, Any] | None = None,
+    stage: str = "serve",
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Withdraw an open cold measurement its selected surface can no longer
@@ -1084,8 +1318,9 @@ def withdraw_cold_measurement(
 
     * a repair ``cold_retry`` records its typed §4.3 disposition
       (:data:`WITHDRAWN_COLD_RETRY_OUTCOME`, no servable independent
-      opportunity, ``detail.stage = "serve"`` with the reason and the reveal
-      rows) and its final coldness receipt, as the expiry sweep does for an
+      opportunity, ``detail.stage = stage`` (``"serve"``; ``"submit"`` when the
+      cold-retry reschedule ends an assisted retry in its attempt's step) with
+      the reason and the reveal rows) and its final coldness receipt, as the expiry sweep does for an
       expiry, then expires (the sweep sees the outcome and writes nothing
       more). If the disposition cannot be written the task is left open, so
       nothing ends unlabelled;
@@ -1132,7 +1367,7 @@ def withdraw_cold_measurement(
                 # right-censors).
                 servable_opportunity=False,
                 detail={
-                    "stage": "serve",
+                    "stage": stage,
                     "reason": reason,
                     "reveal_event_ids": [str(value) for value in reveal_event_ids],
                     "eligibility": dict(decision or {}),

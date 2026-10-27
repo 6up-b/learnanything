@@ -462,6 +462,7 @@ source_modules = [
     "learnloop.capture",
     "learnloop.causal_activity_policy",
     "learnloop.claim_fixes_upgrade",
+    "learnloop.cold_retry_reschedule_upgrade",
     "learnloop.clock",
     "learnloop.confidence_events",
     "learnloop.config",
