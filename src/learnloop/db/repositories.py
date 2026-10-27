@@ -5704,12 +5704,13 @@ class Repository(
         seam left (it deleted the replaced ones). Replay passes
         ``include_superseded`` and applies each claim at its own point."""
 
-        query = "SELECT * FROM learner_claims"
-        if not include_superseded:
-            query += " WHERE superseded_by IS NULL"
         with self.connection() as connection:
-            rows = connection.execute(query + " ORDER BY created_at DESC, id").fetchall()
-        return [dict(row) for row in rows]
+            rows = connection.execute("SELECT * FROM learner_claims ORDER BY created_at DESC, id").fetchall()
+        claims = [dict(row) for row in rows]
+        if include_superseded:
+            return claims
+        # Filtered here, not in SQL: a database attached below migration 225 has no such column.
+        return [claim for claim in claims if claim.get("superseded_by") is None]
 
     def replace_learner_claim(
         self,

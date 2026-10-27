@@ -37,6 +37,22 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Replaced learner claims kept (migration 225), branch `lp/learner-report-superseded`, 2026-10-27
+
+Renamed from `migration_head_224` on the successor mvp-0.36's branch
+(`docs/reviews/lp-learner-report-superseded.md`). Rebuilt from main's tracked,
+sanitized `migration_head_224/state.sqlite` (main `5c6a0834f`): a backup-API
+copy with only `225_learner_claim_superseded_by.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. 225 adds one nullable column, `learner_claims.superseded_by`
+(the claim that replaced this one; NULL on every row, and this fixture has no
+claim); no other object changed and only `schema_migrations` gained a row, so
+the sanitized content carries over. If another stage lands 225 first, the
+landing renumbers this one and rebuilds the head the same way.
+
 ## Batch landing: Reader CA2 (223) + Reader RW5d P1 (224), 2026-10-26
 
 Renamed from `migration_head_222` at the batch landing onto main (Reader CA2,
@@ -84,12 +100,12 @@ built from the tracked copy). The C0a branch's own head (222 on 220, without
 ## History
 
 This is a copy of the small conic-sections vault upgraded through migration
-224, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+225, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
 landing, 220 on that one at local contextual retrieval P1's landing, 221 on
 that one on the LP-min (a) claim-fixes branch, 222 on that one at
-curriculum C0a's landing, and 223 then 224 on that one at the batch landing of
-Reader CA2 and RW5d P1). Migration 167 adds the learner-field F1 read model
+curriculum C0a's landing, 223 then 224 on that one at the batch landing of
+Reader CA2 and RW5d P1, and 225 on that one on the mvp-0.36 branch). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,

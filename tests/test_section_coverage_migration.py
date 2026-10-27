@@ -11,8 +11,9 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
 from learnloop.db.table_roles import TableRole, tables_for_role
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
+from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 C0A_ADDED_OBJECTS = frozenset({
     "section_coverage", "sqlite_autoindex_section_coverage_1", "idx_section_coverage_judged",
@@ -45,17 +46,20 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [222, 223, 224]
+    assert [migration.version for migration in applied] == [222, 223, 224, 225]
     after = _schema(database)
     # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
     # interactive_figures rebuilt) follow on the way to head.
-    assert {name for name in before if before[name] != after.get(name)} == CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES
+    # The successor mvp-0.36's 225 (one learner_claims column) too.
+    assert {name for name in before if before[name] != after.get(name)} == (
+        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES
+    )
     assert set(after) - set(before) - RW5D_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 
 def test_the_head_fixture_is_at_222_in_rollback_mode():
     versions = applied_versions(HEAD)
-    assert max(versions) == max(m.version for m in discover_migrations()) == 224
+    assert max(versions) == max(m.version for m in discover_migrations()) == 225
     assert 221 in versions  # rebuilt at the landing on main's head 221 (LP-min (a)'s claim fixes)
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
@@ -118,7 +122,7 @@ def test_222_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224]
+        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224, 225]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

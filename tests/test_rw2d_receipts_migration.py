@@ -27,7 +27,7 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_224" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
 #: What 219 adds: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 RW2D_ADDED_OBJECTS = frozenset({
     "field_signal_receipts", "field_signal_receipts_lo", "field_signal_receipts_no_update",
@@ -79,7 +79,7 @@ def test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else(tmp_
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Local retrieval P1's 220 (its three tables, altering nothing) follows on the way to head.
-    assert [migration.version for migration in applied] == [219, 220, 221, 222, 223, 224]
+    assert [migration.version for migration in applied] == [219, 220, 221, 222, 223, 224, 225]
     after = _schema(database)
     assert set(after) - set(before) - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS == RW2D_ADDED_OBJECTS
     assert {name for name in before if before[name] != after[name]} == (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES)
@@ -112,7 +112,7 @@ def test_the_receipts_are_append_only_and_keyed_once(tmp_path):
 def test_the_head_fixture_holds_219_in_rollback_mode():
     # LP-min (a)'s 221 is the head now (tests/test_learner_claim_application_migration.py).
     assert 219 in applied_versions(HEAD)
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 224
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 225
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM field_signal_receipts").fetchone() == (0,)
@@ -128,7 +128,7 @@ def test_219_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 218)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [219, 220, 221, 222, 223, 224]
+        assert [migration.version for migration in apply_migrations(database)] == [219, 220, 221, 222, 223, 224, 225]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         with connection:
