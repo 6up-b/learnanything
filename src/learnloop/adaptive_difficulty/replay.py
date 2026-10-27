@@ -334,7 +334,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     revalidated against the current predicate (A8; Codex verify F19, F20). With the predicate
     unavailable the view is empty and the replay reads no item, attempt or receipt."""
 
-    from learnloop.field.outcomes import measurement_masses, wholly_unassessed
+    from learnloop.field.outcomes import wholly_unassessed
     from learnloop.adaptive_difficulty.material_view import material_view
 
     view = material_view(vault, repository, view)
@@ -359,7 +359,8 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     ledger = view.ledger(connection)
     # Whether the grade measures anything, resolved from the ledger alone (Codex review F1): a
     # frozen-input attempt skips field's revision resolution, never its assessment rule.
-    masses = measurement_masses(connection, vault, ledger.values())
+    # Read through the view, in the rules (a legacy interpretation's references are the incumbent's).
+    masses = view.measurement_masses(connection, ledger)
     held = view.held_for_review(connection)
     serve_inputs: dict[str, dict[str, Any]] = {}
     for row in view.rows(connection, receipt_store.SERVE_INPUTS):

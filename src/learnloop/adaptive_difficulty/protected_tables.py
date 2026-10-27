@@ -88,6 +88,11 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("forecast_receipts", PROTECTED),
     ("grade_adjudications", DENIED),
     ("grade_interpretations", DENIED),
+    # A grader calibration model's Dirichlet alphas (migration 066): its numbers, immutable with it
+    # and neutral as it is. Field's effective observations read them, inside the rules, for an
+    # interpretation recorded before its shared certainty LCB was (the reachable-reads audit,
+    # 2026-10-27: unclassified, they poisoned the replay over such an interpretation).
+    ("grader_calibration_alphas", NEUTRAL),
     ("grader_calibration_models", NEUTRAL),
     ("grading_evidence", DENIED),
     ("hypothesis_recurrence_groups", DENIED),
@@ -143,6 +148,12 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("reveal_events", PROTECTED),
     ("rung_variant_requests", DENIED),
     ("scheduler_slate_candidates", DENIED),
+    # The incumbent scheduler's published offer (migration 161): which of a slate's candidates the
+    # learner was shown. Field's serving attribution reads it, inside the rules, only to label an
+    # attempt picked from that offer ``learner_pick`` (``field.outcomes._serving``); like its slate's
+    # candidates it is the incumbent's serving state, never read raw (owner-vault upgrade blocker,
+    # 2026-10-27: unclassified, it poisoned every AD operation over a vault with such an attempt).
+    ("scheduler_offer_receipts", DENIED),
     ("schema_migrations", NEUTRAL),
     # Curriculum C0a (migration 222): a coverage row names a reading's section.
     ("section_coverage", PROTECTED),
