@@ -1348,10 +1348,12 @@ export function ReaderScreen({
   };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
-  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
+  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
     if (!render || offline) return;
     setLibraryCompose(null);
-    libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
+    // CA3: the ask box (Ctrl+Shift+F) reads named books first; a palette verb asks as before.
+    if (box) void libraryCtl.askBox({ query, entry, extractionId: render.extractionId, spanIds });
+    else libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
   }, [render, offline, libraryCtl]);
   const closeLibrary = useCallback(() => {
     setLibraryCompose(null);
@@ -2359,7 +2361,8 @@ export function ReaderScreen({
                     // RW4a: Shift+Enter asks your library (sources first); off, it is Enter.
                     if (e.key === "Enter" && e.shiftKey && libraryCtl.enabled && librarySearch.trim()) {
                       e.preventDefault();
-                      libraryCtl.ask({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
+                      // CA3: with compare from anywhere on, the ask box first reads named books.
+                      void libraryCtl.askBox({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
                       return;
                     }
                     if (e.key === "Enter") setSearchDeep(true);
@@ -2389,6 +2392,7 @@ export function ReaderScreen({
                     onClose={libraryCtl.close}
                     exercises={exerciseProps}
                     onMakeExplorable={figureOffersOn ? (hit, offerRef) => makeExplorable(hit, "library", offerRef) : null}
+                    onReword={libraryCtl.scopeOn ? (words) => { libraryCtl.close(); setLibrarySearch(words); } : null}
                   />
                 </Card>
                 </CompareKeepContext.Provider>
@@ -2591,6 +2595,17 @@ export function ReaderScreen({
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
         return;
+      case "compare":
+        // CA3: Transfer's "how do my other books treat this?": a comparison
+        // anchored on the selection, every other book, no pins (§4.1).
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", ...meta });
+        if (!render || offline) return;
+        setLibraryCompose(null);
+        libraryCtl.compareFrom({
+          door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
+          extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
+        });
+        return;
       case "reading_path":
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
@@ -2644,7 +2659,7 @@ export function ReaderScreen({
     if (kind === "ask" && askPhase === "pending") cancelAsk();
     if (kind === "active_reading") activeCtl.close();
     if (kind === "another_way") activeCtl.closeAnother();
-    if (kind === "library_ask") closeLibrary();
+    if (kind === "library_ask" || kind === "compare") closeLibrary();
     void cancel.handle.then(async (handle) => {
       if (handle?.annotationId && cancel.routingId) {
         const annotationId = handle.annotationId;
@@ -3057,7 +3072,8 @@ export function ReaderScreen({
             ctl={libraryCtl}
             compose={libraryCompose}
             onCompose={setLibraryCompose}
-            onAsk={(query) => askLibraryHere(query, "reader", selectionSpanIds.length ? selectionSpanIds : [readingSpan ?? activeSpan].filter((span): span is string => Boolean(span)))}
+            onAsk={(query) => askLibraryHere(query, "reader", selectionSpanIds.length ? selectionSpanIds : [readingSpan ?? activeSpan].filter((span): span is string => Boolean(span)), true)}
+            onReword={libraryCtl.scopeOn ? (words) => { libraryCtl.close(); setLibraryCompose(words); } : null}
             onOpenHit={openLibraryHit}
             onPracticePick={onCheckMe ? pickLibraryPractice : null}
             onClose={closeLibrary}
@@ -3457,6 +3473,19 @@ export function ReaderScreen({
                   }
                 },
                 offerStore: tutorOfferStore,
+                // CA3: "how do your books treat this?" opens the same comparison beside
+                // the book, anchored on the passage the question was asked on (absent
+                // while compare from anywhere is off, or while working: today's inline table).
+                onCompare: libraryCtl.scopeOn && !offline && !working && render
+                  ? (request: { question: string; toolCallId: string | null }, exchange: { extractionId: string; spanId: string }) => {
+                    setLibraryCompose(null);
+                    libraryCtl.compareFrom({
+                      door: "tutor_offer", question: request.question, extractionId: exchange.extractionId,
+                      anchorSpanIds: exchange.spanId ? [exchange.spanId] : [], toolCallId: request.toolCallId,
+                      openSourceId: render.sourceId,
+                    });
+                  }
+                  : null,
                 // RW4b: a practice offer's textbook exercises, as RW4a's pane gets them.
                 exercises: exerciseProps,
               },

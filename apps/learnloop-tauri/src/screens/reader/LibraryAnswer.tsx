@@ -18,16 +18,22 @@
 // or a figure; note.explorable, present only while figures.offers_enabled is
 // on) carries "make this explorable"; pressing it builds the figure under that
 // passage in its book (the button itself calls nothing).
+// Reader CA3 (libraryAsk.compareScope on): a comparison with no library answer
+// renders as CompareScopeView; the ask box's reading shows its pending line;
+// an answer offers "compare these books ▸" (its books, no pins), and a reading
+// that failed offers comparing all the books on the words; the compare stage
+// carries the routed line (chips, + add a book). Off, the answer is RW4a's/RW4d's.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
+import { CompareScopeView, ScopeLine } from "./CompareScope";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { hitRoleLabel } from "./roleLabel";
-import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
+import { LIBRARY_COPY, SCOPE_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { EvidenceMarker, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 const linkStyle = {
@@ -252,8 +258,11 @@ export function LibraryAnswer({
   onClose,
   exercises = null,
   onMakeExplorable = null,
+  onReword = null,
 }: {
   ctl: LibraryAskController;
+  /** CA3: "change" on the routed line reopens the ask box with these words (absent: no "change"). */
+  onReword?: ((words: string) => void) | null;
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
   onOpenHit: ((hit: LibraryHitDto) => void) | null;
   /** RW5b: build an offered figure of a hit (`offerRef`: this library question). Absent: no offer shown. */
@@ -270,7 +279,23 @@ export function LibraryAnswer({
   const [reopened, setReopened] = useState<string | null>(null);
   const state = ctl.state;
   if (!state) return null;
+  if (state.direct) {
+    // CA3: a comparison from a door with no library answer.
+    return <CompareScopeView ctl={ctl} onClose={onClose} onReword={onReword} onPracticePick={onPracticePick} Table={CompareTable} />;
+  }
+  if (state.scope?.phase === "pending") {
+    // CA3: the ask box's words are being read for named books (pressed, so it may take a moment).
+    return (
+      <section aria-label="ask your library" data-library-answer="" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+        <span style={headStyle}>{LIBRARY_COPY.title}</span>
+        <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
+        <ModelActionState phase="pending" verb={SCOPE_COPY.reading} onCancel={onClose} />
+      </section>
+    );
+  }
   const ask = state.ask.value;
+  // CA3: the answer's own books, for "compare these books ▸".
+  const answerSources = new Set((ask?.hits ?? []).flatMap((hit) => (hit.sourceId ? [hit.sourceId] : [])));
   const notes = new Map((state.notes.value?.notes ?? []).map((note) => [note.key, note]));
   const notesPhase = state.notes.phase;
   const hits = new Map((ask?.hits ?? []).map((hit) => [hit.key, hit]));
@@ -394,6 +419,12 @@ export function LibraryAnswer({
             <MeaningLabel style={{ fontSize: 11 }}>
               {ask.sourceCount} source{ask.sourceCount === 1 ? "" : "s"} · {ask.passageCount} passage{ask.passageCount === 1 ? "" : "s"} · {LIBRARY_COPY.found(ask.basis)} · {LIBRARY_COPY.notesBy}
             </MeaningLabel>
+            {ctl.scopeOn && state.compareAllWords ? (
+              // CA3: the ask box couldn't read which books were named (§4.3).
+              <button type="button" data-compare-all="" onClick={ctl.compareAll} style={{ ...linkStyle, textDecoration: "none", textAlign: "left" }}>
+                {SCOPE_COPY.compareAll(state.compareAllWords)}
+              </button>
+            ) : null}
             {notesPhase === "pending" ? (
               <ModelActionState phase="pending" verb={LIBRARY_COPY.noting} onCancel={ctl.cancelNotes} />
             ) : null}
@@ -495,16 +526,25 @@ export function LibraryAnswer({
                       />
                     </label>
                   ) : null}
+                  {ctl.scopeOn && answerSources.size >= 2 ? (
+                    // CA3: all the books in the answer, no pins needed.
+                    <button type="button" onClick={ctl.compareBooks} style={linkStyle}>{SCOPE_COPY.compareBooks}</button>
+                  ) : null}
                   {ctl.settings?.compare ? (
                     ctl.canCompare ? (
                       <button type="button" onClick={() => void ctl.compare(perspectiveList())} style={linkStyle}>{LIBRARY_COPY.compare} ({state.pinned.length})</button>
-                    ) : (
+                    ) : ctl.scopeOn ? null : (
                       <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_COPY.compareNeeds}</MeaningLabel>
                     )
                   ) : null}
                   <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button>
                 </div>
                 <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↑↓ move · space peek · p pin · o open · c compare pinned · ctrl+↵ ask the tutor about pinned</span>
+                {ctl.scopeOn && state.chips && state.compare.phase !== "idle" && state.lastCompare?.door !== "pins" ? (
+                  // CA3: the routed line, as soon as the books are known (§4.2).
+                  <ScopeLine chips={state.chips} table={state.compare.value} library={state.library ?? []}
+                    onBooks={ctl.setBooks} onReword={null} />
+                ) : null}
                 {state.compare.phase !== "idle" ? (
                   <ModelActionState
                     phase={state.compare.phase}
@@ -514,7 +554,7 @@ export function LibraryAnswer({
                     capRoute="comparison"
                     fallback="Reading the passages"
                     onCancel={ctl.cancelCompare}
-                    onRetry={() => void ctl.compare(perspectiveList())}
+                    onRetry={() => (ctl.scopeOn && state.lastCompare ? ctl.retryCompare() : void ctl.compare(perspectiveList()))}
                   >
                     {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
                     {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}

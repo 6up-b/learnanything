@@ -19,10 +19,25 @@
 // late failure (Codex review F6; re-review F12, F13). A read of a job answers
 // at once (a wait would hold the serial sidecar), so the hook paces its reads
 // (re-review F11).
+//
+// Reader CA3 (ux_reader_compare_ask_v1 §4; K12), only while the contract's
+// `libraryAsk.compareScope` is on: one comparison request for every door
+// (`comparePayload`): the selection verb and the tutor's offer open a
+// comparison with no library answer first (`compareFrom`), the ask box reads
+// named books first (`askBox`: one Decider reading, then the comparison at
+// once, or today's library answer), and a library answer's "compare these
+// books" compares the answer's books with no pins (`compareBooks`). The chips
+// (`×`, "+ add a book") and the refine box (`/`, `refine`) re-run the same
+// request; the earlier table stays one key away (`previous`). Off, none of it
+// exists and every call is RW4a's/RW4d's.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
+  CompareDoor,
+  CompareRequestDto,
+  CompareScopeReadingDto,
   CompareTableDto,
+  LibraryBookDto,
   FindPracticeResultDto,
   LibraryAskDto,
   LibraryAskEntry,
@@ -63,6 +78,78 @@ export const LIBRARY_COPY = {
   close: "esc back to reading",
 } as const;
 
+/** Reader CA3's words (§4.2, §4.3, X1, X2). */
+export const SCOPE_COPY = {
+  title: "COMPARE",
+  reading: "reading which books you named",
+  comparing: "comparing",
+  allBooks: "all your books",
+  yourPassage: "your passage",
+  on: "on:",
+  change: "change",
+  addBook: "+ add a book",
+  addPlaceholder: "a book in your library…",
+  remove: (title: string) => `stop comparing ${title}`,
+  notInLibrary: (name: string) => `“${name}” isn't in your library`,
+  pending: "finding each book's passages, then lining them up",
+  chooseBooks: "choose books ▸",
+  compareBooks: "compare these books ▸",
+  compareAll: (words: string) => `couldn't read which books you named · compare all your books on “${words}” ▸`,
+  refine: "what do you want to see? a geometric view, an application, just the proofs… or other books",
+  refineKeys: "/ refine · ↵ · esc",
+  refining: "reading what you want to see",
+  refineMissed: "Couldn't read that; the comparison is unchanged.",
+  previous: "previous ▸",
+  hidePrevious: "◂ back to this comparison",
+  previousLabel: "the earlier comparison",
+  askTutor: "ask the tutor about this comparison",
+  askTutorNote: "answers only from these passages",
+} as const;
+
+/** What one comparison request asks (every door builds one; K12). */
+export interface CompareRequest {
+  door: CompareDoor;
+  askId?: string | null;
+  question?: string | null;
+  extractionId?: string | null;
+  anchorSpanIds?: string[];
+  sourceIds?: string[];
+  pinnedSpanKeys?: string[];
+  openSourceId?: string | null;
+  requestedPerspectives?: string[];
+  toolCallId?: string | null;
+}
+
+/** The one payload every door sends (C1, K12): the same keys, whatever the door. */
+export function comparePayload(request: CompareRequest): Required<CompareRequestDto> {
+  return {
+    door: request.door,
+    askId: request.askId ?? null,
+    question: request.question ?? null,
+    extractionId: request.extractionId ?? null,
+    anchorSpanIds: request.anchorSpanIds ?? [],
+    sourceIds: request.sourceIds ?? [],
+    pinnedSpanKeys: request.pinnedSpanKeys ?? [],
+    openSourceId: request.openSourceId ?? null,
+    requestedPerspectives: request.requestedPerspectives ?? [],
+    toolCallId: request.toolCallId ?? null,
+  };
+}
+
+/** The routed line's chips: the books, the topic, what wasn't matched (§4.2). */
+export interface ScopeChips {
+  /** The books compared (named or chosen); empty: every book with a match. */
+  books: LibraryBookDto[];
+  /** The anchor leads ("your passage"). */
+  anchored: boolean;
+  topic: string | null;
+  unmatched: string | null;
+  /** The reading these chips came from (its `change` is a learner correction). */
+  judgmentId: string | null;
+  /** The learner's own words, kept for "change". */
+  words: string | null;
+}
+
 export type SourceCaller = { kind: "reader"; ref: string | null };
 
 export interface LibraryAskRequest {
@@ -83,8 +170,8 @@ interface Stage<T> {
 const IDLE = { phase: "idle" as ModelActionPhase, value: null, failure: null };
 const CANCELLED = { phase: "idle" as ModelActionPhase, value: null, failure: null, cancelled: true };
 
-type JobStage = "ask" | "notes" | "compare" | "tutor";
-const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor"];
+type JobStage = "ask" | "notes" | "compare" | "tutor" | "scope";
+const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor", "scope"];
 /** The pause between reads of a pending job (the sidecar's read never waits, F11). */
 export const JOB_POLL_MS = 250;
 
@@ -113,6 +200,22 @@ export interface LibraryAskState {
   tutor: Stage<LibraryTutorDto>;
   practice: Stage<FindPracticeResultDto>;
   peek: { key: string; phase: ModelActionPhase; view: SpanViewDto | null } | null;
+  /** CA3: a comparison opened with no library answer (its request), else null. */
+  direct?: CompareRequest | null;
+  /** CA3: the ask box's reading of named books (pending while read). */
+  scope?: Stage<CompareScopeReadingDto>;
+  /** CA3: the routed line (absent before a comparison is asked). */
+  chips?: ScopeChips | null;
+  /** CA3: the library's books, for "+ add a book". */
+  library?: LibraryBookDto[];
+  /** CA3: the request the comparison stage last ran (re-run by chips and refine). */
+  lastCompare?: CompareRequest | null;
+  /** CA3: earlier tables of this comparison, newest last (never paid for twice). */
+  previous?: CompareTableDto[];
+  /** CA3: the refine box's reading. */
+  refine?: Stage<CompareScopeReadingDto>;
+  /** CA3: the ask box couldn't read the words: comparing them all is one press away. */
+  compareAllWords?: string | null;
 }
 
 /** The organizer's status as a state: notes landed, capped, unreachable or failed. */
@@ -147,6 +250,8 @@ export function useLibraryAsk({
   const enabled = Boolean(settings);
   // RW4d: keep this comparison and its perspectives field (absent while off).
   const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null;
+  // CA3: compare from anywhere (absent while reader_compare.scope_enabled is off).
+  const scopeOn = Boolean(settings?.compare && settings?.compareScope);
   const [state, setState] = useState<LibraryAskState | null>(null);
   const keyRef = useRef(0);
   const stateRef = useRef<LibraryAskState | null>(null);
@@ -159,7 +264,7 @@ export function useLibraryAsk({
   // Each stage's job in flight, and its epoch: a cancel (or a newer run of the
   // stage) bumps the epoch, so the older job's result is dropped on arrival.
   const jobsRef = useRef<Partial<Record<JobStage, string>>>({});
-  const epochsRef = useRef<Record<JobStage, number>>({ ask: 0, notes: 0, compare: 0, tutor: 0 });
+  const epochsRef = useRef<Record<JobStage, number>>({ ask: 0, notes: 0, compare: 0, tutor: 0, scope: 0 });
 
   const cancelStage = useCallback((stage: JobStage) => {
     epochsRef.current[stage] += 1;
@@ -209,13 +314,14 @@ export function useLibraryAsk({
     }
   }, [runJob, update]);
 
-  const run = useCallback(async (request: LibraryAskRequest, personalized: boolean) => {
+  const run = useCallback(async (request: LibraryAskRequest, personalized: boolean,
+                                 extra: Partial<LibraryAskState> = {}) => {
     if (!enabled) return;
     for (const stage of JOB_STAGES) cancelStage(stage);
     const key = ++keyRef.current;
     setState({
       key, request, personalized, ask: { phase: "pending", value: null, failure: null }, notes: IDLE, pinned: [],
-      compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
+      compare: IDLE, tutor: IDLE, practice: IDLE, peek: null, ...extra,
     });
     try {
       const ask = await runJob("ask", () => api.readerLibraryAsk({
@@ -284,15 +390,40 @@ export function useLibraryAsk({
     return state.pinned.length >= 2 && sources.size >= 2;
   })();
 
+  /** CA3: run one comparison request in the compare stage (every door, chips and refine). */
+  const runCompare = useCallback(async (key: number, request: CompareRequest) => {
+    update(key, (s) => ({
+      compare: { phase: "pending", value: null, failure: null }, lastCompare: request,
+      // The table being replaced stays one key away (never paid for twice).
+      previous: s.compare.value ? [...(s.previous ?? []), s.compare.value] : s.previous ?? [],
+    }));
+    try {
+      const table = await runJob("compare", () => api.readerLibraryCompare(comparePayload(request)));
+      if (table === null) return;
+      const phase = comparePhase(table.status);
+      update(key, (s) => ({
+        compare: { phase, value: table, failure: phase === "failed" ? "Couldn't compare these books." : null },
+        library: table.library?.length ? table.library : s.library ?? [],
+      }));
+    } catch (error) {
+      update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these books.") } }));
+    }
+  }, [runJob, update]);
+
   /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
   const compare = useCallback(async (perspectives: string[] = []) => {
     const current = stateRef.current;
     if (!current?.ask.value || !settings?.compare) return;
     const key = current.key;
-    update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
     const askId = current.ask.value.askId;
     const pinnedSpanKeys = current.pinned;
     const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : [];
+    if (scopeOn) {
+      // CA3: the pins are one more door of the one request.
+      void runCompare(key, { door: "pins", askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
+      return;
+    }
+    update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
     try {
       const table = await runJob("compare", () => api.readerLibraryCompare(
         requested.length ? { askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested } : { askId, pinnedSpanKeys, openSourceId }));
@@ -302,15 +433,168 @@ export function useLibraryAsk({
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, keep, openSourceId, runJob, update]);
+  }, [settings, keep, openSourceId, runJob, update, scopeOn, runCompare]);
+
+  /** CA3: open a comparison with no library answer (the selection verb, the tutor's offer, the ask box). */
+  const compareFrom = useCallback((request: CompareRequest, chips: ScopeChips | null = null,
+                                   library: LibraryBookDto[] = []) => {
+    if (!enabled || !scopeOn) return;
+    for (const stage of JOB_STAGES) cancelStage(stage);
+    const key = ++keyRef.current;
+    const query = request.question ?? "";
+    setState({
+      key, request: { query, entry: "reader", extractionId: request.extractionId ?? null, spanIds: request.anchorSpanIds ?? [] },
+      personalized: false, ask: IDLE, notes: IDLE, pinned: [], compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
+      direct: request, chips: chips ?? { books: [], anchored: Boolean(request.anchorSpanIds?.length), topic: query || null,
+        unmatched: null, judgmentId: null, words: null },
+      library, previous: [],
+    });
+    void runCompare(key, { ...request, openSourceId: request.openSourceId ?? openSourceId });
+  }, [enabled, scopeOn, cancelStage, runCompare, openSourceId]);
+
+  /** CA3: the ask box (Ctrl+Shift+F; Ask on the library page): read the words for
+   *  named books first, then compare at once, or answer as today's library ask. */
+  const askBox = useCallback(async (request: LibraryAskRequest) => {
+    if (!enabled) return;
+    if (!scopeOn) {
+      void run(request, settings?.personalizedDefault ?? true);
+      return;
+    }
+    for (const stage of JOB_STAGES) cancelStage(stage);
+    const key = ++keyRef.current;
+    setState({
+      key, request, personalized: settings?.personalizedDefault ?? true, ask: IDLE, notes: IDLE, pinned: [],
+      compare: IDLE, tutor: IDLE, practice: IDLE, peek: null, scope: { phase: "pending", value: null, failure: null },
+    });
+    let reading: CompareScopeReadingDto | null = null;
+    try {
+      reading = await runJob("scope", () => api.readerCompareScope({ text: request.query, mode: "ask", extractionId: request.extractionId }));
+      if (keyRef.current !== key || reading === null) return;
+    } catch {
+      if (keyRef.current !== key) return;
+    }
+    if (reading?.status === "read" && reading.intent === "compare") {
+      const titles = new Map((reading.library ?? []).map((book) => [book.sourceId, book.title]));
+      compareFrom({ door: "ask_box", question: reading.topic || request.query, extractionId: request.extractionId,
+        sourceIds: reading.sourceIds }, {
+        books: reading.sourceIds.map((sourceId) => ({ sourceId, title: titles.get(sourceId) ?? sourceId })),
+        anchored: false, topic: reading.topic || request.query, unmatched: reading.unmatched,
+        judgmentId: reading.judgmentId, words: request.query,
+      }, reading.library ?? []);
+      return;
+    }
+    // A library question (or a reading that failed): today's sources-first answer;
+    // when nothing could be read, comparing all the books is one press away.
+    const missed = !reading || reading.status === "fallback" && reading.reason !== "too_few_books" && reading.reason !== "cold_attempt";
+    void run(request, settings?.personalizedDefault ?? true, missed ? { compareAllWords: request.query } : {});
+  }, [enabled, scopeOn, settings, cancelStage, runJob, run, compareFrom]);
+
+  /** CA3: "compare all your books on …" after a reading that failed. */
+  const compareAll = useCallback(() => {
+    const current = stateRef.current;
+    if (!current?.compareAllWords) return;
+    compareFrom({ door: "ask_box", question: current.compareAllWords, extractionId: current.request.extractionId, sourceIds: [] }, {
+      books: [], anchored: false, topic: current.compareAllWords, unmatched: null, judgmentId: null, words: current.compareAllWords,
+    });
+  }, [compareFrom]);
+
+  /** CA3: a library answer's "compare these books": the answer's books, no pins. */
+  const compareBooks = useCallback(() => {
+    const current = stateRef.current;
+    const ask = current?.ask.value;
+    if (!current || !ask || !scopeOn) return;
+    const seen = new Map<string, string>();
+    for (const hit of ask.hits) if (hit.sourceId && !seen.has(hit.sourceId)) seen.set(hit.sourceId, hit.sourceTitle ?? hit.sourceId);
+    const books = [...seen].map(([sourceId, title]) => ({ sourceId, title }));
+    update(current.key, () => ({
+      chips: { books, anchored: false, topic: ask.query, unmatched: null, judgmentId: null, words: null },
+    }));
+    void runCompare(current.key, { door: "library_answer", askId: ask.askId, sourceIds: books.map((book) => book.sourceId), openSourceId });
+  }, [scopeOn, update, runCompare, openSourceId]);
+
+  /** CA3: the chips changed (× or "+ add a book"): the same request re-runs with those books. */
+  const setBooks = useCallback((books: LibraryBookDto[]) => {
+    const current = stateRef.current;
+    if (!current?.chips || !scopeOn) return;
+    const judgmentId = current.chips.judgmentId;
+    if (judgmentId) {
+      void api.readerCompareScopeCorrection({ judgmentId, sourceIds: books.map((book) => book.sourceId) }).catch(() => undefined);
+    }
+    update(current.key, (s) => ({ chips: s.chips ? { ...s.chips, books } : s.chips }));
+    const askId = current.compare.value?.askId ?? current.ask.value?.askId ?? null;
+    const last = current.lastCompare ?? current.direct ?? null;
+    const sourceIds = books.map((book) => book.sourceId);
+    if (askId) {
+      void runCompare(current.key, { door: "refine", askId, sourceIds, openSourceId,
+        requestedPerspectives: last?.requestedPerspectives ?? [] });
+    } else if (current.direct) {
+      // The first comparison has not landed (no row yet): start it again with these books.
+      compareFrom({ ...current.direct, sourceIds }, { ...current.chips, books });
+    }
+  }, [scopeOn, update, runCompare, compareFrom, openSourceId]);
+
+  /** CA3: "change": the learner rewords the ask box (a learner correction of the reading). */
+  const reword = useCallback((): string | null => {
+    const current = stateRef.current;
+    const chips = current?.chips;
+    if (chips?.judgmentId) {
+      void api.readerCompareScopeCorrection({ judgmentId: chips.judgmentId, sourceIds: null }).catch(() => undefined);
+    }
+    return chips?.words ?? current?.request.query ?? null;
+  }, []);
+
+  /** CA3: the refine box (`/`): other books change the chips; a view becomes a requested perspective. */
+  const refine = useCallback(async (words: string) => {
+    const current = stateRef.current;
+    const text = words.trim();
+    if (!current?.chips || !scopeOn || !text) return;
+    const key = current.key;
+    const compared = current.chips.books.length ? current.chips.books
+      : (current.compare.value?.rows ?? []).flatMap((row) => (row.sourceId ? [{ sourceId: row.sourceId, title: row.sourceTitle ?? row.sourceId }] : []));
+    update(key, () => ({ refine: { phase: "pending", value: null, failure: null } }));
+    let reading: CompareScopeReadingDto | null = null;
+    try {
+      reading = await runJob("scope", () => api.readerCompareScope({
+        text, mode: "refine", extractionId: current.request.extractionId, currentSourceIds: compared.map((book) => book.sourceId) }));
+      if (keyRef.current !== key || reading === null) return;
+    } catch {
+      if (keyRef.current !== key) return;
+    }
+    const askId = stateRef.current?.compare.value?.askId ?? current.ask.value?.askId ?? null;
+    if (reading?.status === "read" && reading.intent === "books" && reading.change && askId) {
+      const titles = new Map([...(reading.library ?? []), ...compared].map((book) => [book.sourceId, book.title]));
+      const named = reading.sourceIds;
+      const ids = reading.change === "add" ? [...new Set([...compared.map((book) => book.sourceId), ...named])]
+        : reading.change === "only" ? named : compared.map((book) => book.sourceId).filter((id) => !named.includes(id));
+      const books = ids.map((sourceId) => ({ sourceId, title: titles.get(sourceId) ?? sourceId }));
+      update(key, (s) => ({ refine: { phase: "landed", value: reading, failure: null },
+        chips: s.chips ? { ...s.chips, books, unmatched: reading?.unmatched ?? null } : s.chips }));
+      void runCompare(key, { door: "refine", askId, sourceIds: ids, openSourceId,
+        requestedPerspectives: stateRef.current?.lastCompare?.requestedPerspectives ?? [] });
+      return;
+    }
+    if (reading?.status === "read" && reading.intent === "views" && askId && keep?.perspectives) {
+      const before = stateRef.current?.lastCompare?.requestedPerspectives ?? [];
+      const requested = [...before.filter((value) => value !== text), text].slice(-keep.maxPerspectives);
+      update(key, () => ({ refine: { phase: "landed", value: reading, failure: null } }));
+      void runCompare(key, { door: "refine", askId, sourceIds: compared.map((book) => book.sourceId), openSourceId,
+        requestedPerspectives: requested });
+      return;
+    }
+    update(key, () => ({ refine: { phase: "failed", value: reading, failure: SCOPE_COPY.refineMissed } }));
+  }, [scopeOn, keep, update, runJob, runCompare, openSourceId]);
 
   const askTutor = useCallback(async (question: string) => {
     const current = stateRef.current;
-    if (!current?.ask.value || current.pinned.length === 0) return;
+    // CA3: a comparison with no library answer asks about its compared passages.
+    const direct = current?.direct && current.compare.value ? current.compare.value : null;
+    const pins = current?.pinned.length ? current.pinned : direct ? direct.rows.map((row) => row.key) : [];
+    const askIdOf = current?.ask.value?.askId ?? direct?.askId ?? null;
+    if (!current || !askIdOf || pins.length === 0) return;
     const key = current.key;
     update(key, () => ({ tutor: { phase: "pending", value: null, failure: null } }));
-    const askId = current.ask.value.askId;
-    const pinnedSpanKeys = current.pinned;
+    const askId = askIdOf;
+    const pinnedSpanKeys = pins;
     try {
       const answer = await runJob("tutor", () => api.readerLibraryAskTutor({
         askId, pinnedSpanKeys, question: question.trim() || null,
@@ -325,9 +609,12 @@ export function useLibraryAsk({
   /** "Practice this question": the same find_practice call as DL3's box (proposes only). */
   const practice = useCallback(async () => {
     const current = stateRef.current;
-    if (!current?.ask.value) return;
+    // CA3: "practice this" on a comparison with no library answer: its question.
+    const ask = current?.ask.value ?? (current?.direct ? {
+      query: current.compare.value?.scope?.question ?? current.request.query, learningObjectIds: [] as string[],
+      extractionId: current.request.extractionId } : null);
+    if (!current || !ask) return;
     const key = current.key;
-    const ask = current.ask.value;
     update(key, () => ({ practice: { phase: "pending", value: null, failure: null } }));
     try {
       const result = await api.findPractice({
@@ -391,9 +678,18 @@ export function useLibraryAsk({
     }
   }, [enabled, cancelStage]);
 
+  /** CA3: run the last comparison request again (a retry after a failure). */
+  const retryCompare = useCallback(() => {
+    const current = stateRef.current;
+    const last = current?.lastCompare;
+    if (current && last) void runCompare(current.key, last);
+  }, [runCompare]);
+
   return {
     enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
+    // CA3 (absent in effect while scopeOn is false: each returns without a call).
+    scopeOn, askBox, compareFrom, compareBooks, compareAll, setBooks, reword, refine, retryCompare,
   };
 }
 

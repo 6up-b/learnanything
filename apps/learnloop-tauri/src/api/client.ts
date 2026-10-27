@@ -5,6 +5,8 @@ import { noteFallbackOffer } from "../app/planFallback";
 import type {
   DifficultyRating,
   FirstHintProgress,
+  CompareRequestDto,
+  CompareScopeReadingDto,
   CompareTableDto,
   KeepComparisonResultDto,
   KeepTakeDto,
@@ -1612,8 +1614,14 @@ export const api = {
   // readerLibraryJobCancel (a cancelled job never answers).
   readerLibraryAskNotes: (input: { askId: string }) =>
     call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
-  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] }) =>
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] } | CompareRequestDto) =>
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
+  // Reader CA3: the ask box's (or the refine box's) reading of named books, a job;
+  // and the learner's change of it (a learner_card row).
+  readerCompareScope: (input: { text: string; mode?: "ask" | "refine"; extractionId?: string | null; currentSourceIds?: string[] }) =>
+    call<LibraryJobDto<CompareScopeReadingDto>>("reader_compare_scope", { input }),
+  readerCompareScopeCorrection: (input: { judgmentId: string; sourceIds: string[] | null }) =>
+    call<{ judgmentId: string }>("reader_compare_scope_correction", { input }),
   // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
   readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
     call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
