@@ -143,3 +143,90 @@ covered every file under `src/screens/reader` and `src/screens/ReaderScreen*.tes
   `useLibraryAsk.ts` and `ReaderWorkingPosture.tsx` (one optional prop).
 - The owner question of the stage review (the ask box with the Decider unavailable) is
   unchanged.
+
+## Re-review (codex-job 20261027-184553-TESPOx, VERDICT: REOPENED)
+
+F1 (High) was confirmed fixed by the re-review. Two new findings were raised; both
+reproduced (a failing test first) and are fixed.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F10 | Medium | Multi-block tutor requests exceed the RPC limit | fixed | aacf2a129 (backend), 98d14d422 (frontend + bound) | `tests/test_reader_ca3_codex_rereview.py` (5 tests); vitest `compareScopeCodexReview.test.tsx` "re-review F10", F5 tests updated |
+| F11 | Low | Extracting shared controls breaks shortcuts on the comparison region | fixed | 98d14d422 | vitest `compareScopeCodexReview.test.tsx` "re-review F11" (2 tests; both failed against the pre-fix `CompareScope.tsx`) |
+
+### F10: what changed
+
+- Reproduced: a selection anchor of 22 blocks in a synthetic book plus one counterpart
+  gives a comparison of 23 passages. The old hook expanded them into `pinnedSpanKeys`,
+  and `LibraryAskTutorInput` refused them (`max_length=20`). The new frontend test,
+  run against the old hook, still sent the expanded keys.
+- `reader.library_ask_tutor` takes `comparisonId`, accepted only while
+  `reader_compare.scope_enabled` is on. The server reads every passage the comparison
+  compared from the stored `source_comparisons.counterpart_keys`, through the new
+  `library_ask.comparison_passage_keys`: every book's passage and every block of the
+  anchor, anchor first. So the request's size never limits a stored comparison. Naming
+  a comparison that is not the one this ask shows is refused (`validation_error`). A
+  request with no pins and no comparison is refused.
+- Request bounds: pins keep 20. A comparison that was not stored (`too_few_sources`, so
+  fewer than two books) shows at most its anchor's blocks, so it still sends its keys.
+  The tutor's `pinned_span_keys` therefore takes `ANCHOR_SPANS_MAX = 40`, the same named
+  bound as `anchor_span_ids` (a request-size guardrail, not a model parameter). While
+  CA3 is off, the request is validated as today's exactly (`_PinnedTutorInput`: at
+  least 1 pin, at most 20, no `comparisonId`).
+- Context budget: `tutor_qa.context_token_budget` still decides what the tutor is given
+  (unchanged, from the F7 round). Every passage is either grounded, possibly trimmed, or
+  listed in `droppedPins` with its reason; the tests pin this at the schema's floor of
+  1,000 tokens. The comparison's tutor answer now shows what was left out, counted by
+  reason ("left out 2 passages: over the tutor's context budget").
+- Frontend: `askTutor` about a comparison sends `{askId, comparisonId, pinnedSpanKeys: []}`
+  when the shown table has a `comparisonId`. Otherwise it sends the rows' keys,
+  including every anchor block, as before.
+
+### F11: what changed
+
+- Reproduced: focusing the `compare your books` region and pressing `/` or Ctrl+Enter did
+  nothing. Both new tests failed against `CompareScope.tsx` at 12989ee8e.
+- The controls' state and shortcuts are now one hook, `useCompareControls`.
+  `CompareScopeView` calls it and puts `onKeyDown` on its focusable section
+  (`tabIndex=-1`), then passes the controls down to `CompareScopeBody`. Where the body
+  is used alone (a library answer's "compare these books"), the body's own div is
+  focusable and carries the same handler: focusability and keyboard handling stay
+  together in both hosts.
+
+### Gate (re-review round)
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+- Targeted pytest, `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6 <31 files>`:
+  **684 passed** (the known load flake in `test_plan_first_transport_offer_grants.py` passed too). Files:
+  tests/test_reader_ca3_codex_rereview.py tests/test_reader_ca3_codex_review.py
+  tests/test_reader_ca3_compare_anywhere.py tests/test_library_ask.py tests/test_library_ask_review.py
+  tests/test_library_ask_expand.py tests/test_reader_compare_table.py tests/test_rw4_kill_switches.py
+  tests/test_mobile_allowlist.py tests/test_plan_first_transport_offer_grants.py tests/test_batch3_landing.py
+  tests/test_capture_desktop.py tests/test_capture_route_recovery.py tests/test_field_signal_production_paths.py
+  tests/test_learner_text_gaps_flow.py tests/test_reader_ca2_astra_handoff.py tests/test_reader_ca2_codex_rereview.py
+  tests/test_reader_ca2_codex_review.py tests/test_reader_ca2_fix_orchestrator.py tests/test_reader_ca2_one_ask.py
+  tests/test_reader_find_sources_callers.py tests/test_sidecar_source_retrieval.py tests/test_sidecar_tutor_qa.py
+  tests/test_tutor_delivery_fixes.py tests/test_tutor_practice_request.py tests/test_tutor_tool_requests.py
+  tests/test_compare_keep_switch_off.py tests/test_reader_tutor_switch_off.py tests/test_architecture.py
+  tests/test_desktop_rpc_contract.py tests/test_sidecar_serializer_snapshot.py
+- Frontend (apps/learnloop-tauri, each command in the 5G scope): `npm install` ok;
+  `npm run typecheck` clean. `npx vitest run --maxWorkers=4` on 11 files gave
+  **102 passed**: src/screens/reader/compareKeep.test.tsx, compareKeepSwitchOff.test.tsx,
+  compareScope.test.tsx, compareScopeCodexReview.test.tsx (12),
+  figures/advancedPanels.test.tsx, figures/libraryOfferSettle.test.tsx,
+  libraryAsk.test.tsx, libraryAskJobs.test.tsx, libraryExercises.test.tsx,
+  libraryExercisesReader.test.tsx, libraryRoles.test.tsx.
+  `npm run frontend:build` built.
+- Not run: no migration, schema, config or src-tauri change, so no durability lane, DB
+  reference scripts or cargo check. Following the owner rule, the full suite was not
+  run; it runs once in the landing gate.
+- No live calls: every model in these tests is a fake, and no paid command ran.
+
+### For the landing (addendum)
+
+- This round touched `CompareScope.tsx` (new `useCompareControls`, the `controls` prop,
+  the tutor's left-out line), `useLibraryAsk.ts` (`askTutor`, `SCOPE_COPY.tutorLeftOut`),
+  `api/client.ts` (`readerLibraryAskTutor` input), and
+  `src/learnloop_sidecar/handlers/library_ask.py` (`ANCHOR_SPANS_MAX`,
+  `_PinnedTutorInput`, `comparisonId`). Expect the CA5a merge there.
