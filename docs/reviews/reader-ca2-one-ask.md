@@ -160,3 +160,178 @@ test_architecture.py test_table_roles.py test_constraint_engine.py`.
 `get_tutor_transcript`, `BoundAsk` or `reader_tutor`, less those in batch 1): test_ad1_attempt_columns.py test_ad1_codex_review_fixes.py test_ad1_fix_round4.py test_ad1_reading_opportunities.py test_ad23_contract.py test_ad3_dose_arm.py test_adaptive_difficulty_ad1.py test_ai_config.py test_assumed_known.py test_authoring_contract.py test_capture_desktop.py test_capture_route_recovery.py test_causal_attribution_p0.py test_causal_attribution_p2.py test_causal_cold_outcomes.py test_causal_factor_deferral.py test_causal_orchestrator.py test_causal_p2_acceptance.py test_causal_repair_sidecar_rpcs.py test_certification_cold_probe.py test_chatgpt_plan_provider.py test_chatgpt_plan_workspace.py test_codex_lockdown_round2.py test_codex_lockdown_round3.py test_codex_output_schema.py test_codex_tool_lockdown.py test_coldness_receipt.py test_collection_dataset.py test_common_repair_delivery.py test_compare_sources_keep.py test_daily_loop_reader_authored_practice.py test_daily_loop_reader_retire.py test_daily_loop_reference_adoption.py test_diagnosis_input_provenance_landing.py test_diagnosis_input_provenance.py test_diagnostic_probe_freshness.py test_dialogue_causal_join.py test_dl2_rw4b_keyed_pick_check.py test_e0_delivery.py test_embedding_route_isolation.py test_exam_protection.py test_exam_protection_review.py test_field_signal_production_paths.py test_figure_offers.py test_figures_rw5b_fix_round2.py test_figures_rw5b_review.py test_followup_diagnostic_selection.py test_forecast_receipts.py test_goal_certification_any_of.py test_goal_series.py test_guided_redo.py test_held_grade_evidence.py test_hint_kill_switch.py test_hypothesis_surface_wiring.py test_instrument_servability_journeys.py test_instrument_serving.py test_integration_daily_loop_field.py test_intent_checks.py test_intent_codex_review.py test_intent_fix_round4.py test_intent_fix_round5.py test_intent_orchestrator_rulings.py test_intent_plan.py test_judge_routes.py test_learner_text_gaps_composition.py test_learner_text_gaps_flow.py test_learner_text_gaps.py test_learner_text_gaps_review.py test_library_ask.py test_library_ask_review.py test_mcp_c1a_landing.py test_migrations.py test_misconception_transitions_intake.py test_model_usage_report.py test_output_budget.py test_owner_capture_1025.py test_p2_leakage_suite.py test_p3_journeys.py test_pfc_unassessed_readers.py test_pf_generation.py test_pinned_span_bridge.py test_placement_opening_probes.py test_placement_signals.py test_plan_first_transport_grant_scope.py test_plan_first_transport_offer_grants.py test_plan_first_transport.py test_post_attempt_pipeline.py test_prescription_passages.py test_primed_attempts.py test_probe_remint.py test_question_context.py test_question_promotions.py test_question_queue.py test_question_signal.py test_quick_check.py test_reader_activity.py test_reader_branches.py test_reader_dialogue.py test_reader_guidance.py test_reader_inquiry_kill_switch.py test_reader_inquiry_status.py test_reader_intent.py test_reader_observation_records.py test_reader_passage_check.py test_reader_recap.py test_reader_recap_review.py test_reader_recap_review_r2.py test_reader_reconnect.py test_reader_report.py test_reader_rw1b_review.py test_reader_rw1c_review.py test_reader_tutor_offers.py test_reader_tutor_retrieval.py test_reader_tutor_switch_off.py test_reader_wrap_up.py test_remediation_cold_retry.py test_retrieval_interventions_write_points.py test_reveal_ledger.py test_rw2c_switch_off.py test_rw4_kill_switches.py test_salience_firewall.py test_scheduler.py test_scoreboard.py test_sidecar_measurement.py test_sidecar_reader_p3.py test_sidecar_reader.py test_sidecar_remediation_surfaces.py test_sidecar_source_retrieval.py test_sidecar_teach_back.py test_sidecar_tutor_qa.py test_source_retrieval_followup.py test_source_retrieval_guards.py test_source_retrieval_rereview_cost.py test_source_retrieval_rereview.py test_source_retrieval_search.py test_source_retrieval_tutor.py test_source_space_resolver.py test_structured_transport_parity.py test_stuck_prompt.py test_teacher_te0_confidence_events.py test_tutor_citations.py test_tutor_delivery_fixes.py test_tutor_practice_request.py test_tutor_promotion_w2.py test_tutor_qa.py test_tutor_tool_requests.py test_ux_phase1_connect_ai.py test_ux_phase1_landing.py test_ux_phase1_usability_round1.py test_ux_phase2_shell.py test_ux_phase4_feedback.py
 
 No paid or live call was made: every model is a fake, no vault was opened, no provider was routed.
+
+## Landing onto main (batch 3: Reader CA2 + Reader RW5d P1 + local retrieval P2, 2026-10-26)
+
+The three stages land together (owner-approved batch landing) on `merge/batch3-onto-main` in `learnanything-merge2`,
+cut from `main` at `1335df0c0` (latest `mvp-0.34`, migrations through 222, head fixture `migration_head_222`, Reader
+CA1 just landed). Main was neither fast-forwarded nor pushed. The same section is appended to all three stages'
+records; the stage-specific owner notes and open items are at the end.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `043463103` | `--no-ff` merge of `reader/ca2-one-ask` (`ebfbfe7e5`, base `eae00d58a`). Conflicts composed keeping both sides: `algorithm_versions.py` (the chain gains `ONE_ASK_ALGORITHM_VERSION` after `REPLAY_LEDGER_ALGORITHM_VERSION`), `cli/app.py` (help text, `--to` dispatch, refusal text name 0.33, 0.34 and 0.35), `config/schema.py` (`ReplayConfig` and `AskConfig`), `template.py` (23 snapshot hunks: main's notes kept, CA2's note added, renumbered "inert below mvp-0.35"), `parameter_registry.py` (C0a's and CA2's rules), `sidecar/context.py`, `handlers/practice.py`, `handlers/sessions.py` (CA1's `pageSeen` and CA2's `earlierOpened` draft flags side by side: `_with_keyed_flag` and `_with_earlier_opened`, `draft_page_seen` and the earlier-marker helpers), `api/client.ts`, `PracticeScreen.tsx` (CA1's as-printed imports and `OpenInSource` modal beside CA2's `DockedAsk`; the book component stays `bookCarried \|\| pageSeen`, CA2's `earlierCounted` beside it; both draft flags in the checkpoint and its deps), 45 test files (main's absolute chain indices and head paths kept; the version pins moved below), the reference notes (main's side, then regenerated). CA2's `migrations/221_workbench_earlier_opened.sql` renamed **223**; its `fixtures/migration_head_221` dropped (main's 222 kept for the rebuild). CA2's `one_ask_upgrade.py` rewritten to the journalled activation (below). The stale practice-cap wording fixed (below). |
+| `bdd511fa6` | `--no-ff` merge of `reader/rw5d-p1-show-me` (`33b9aa5d8`, base `eaf9859ad`). Conflicts: `template.py` (24 hunks, RW5d's `[figures] show_me_enabled` note on every tag), `AskRail.tsx` (CA2's Enter-sends branch and RW5d's `alt+Enter` *show me ▸* branch both kept, CA2's `enterSends` label kept on the ask button, RW5d's show-me row and thread lines after it), `tests/test_mobile_allowlist.py` (the desktop-only list names both `READER_CA1_RPCS` and `READER_RW5D_RPCS`; CA2 adds no RPC). Migration 224 keeps its number. |
+| `54aef20c7` | `fixtures/migration_head_224` **rebuilt** from main's tracked, sanitized `migration_head_222/state.sqlite`: a backup-API copy, 223 then 224 applied under `UPGRADE_SCRATCH_COPY`, `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), integrity ok, `foreign_key_check` empty, copied into place with the backup API, no companion files. Every table's rows equal main's 222 except `schema_migrations` (+223, +224); against RW5d's own head only `workbench_sessions` differs. Git records it as the rename `migration_head_222 -> migration_head_224`; README updated. |
+| `de25dd4fa` | Earlier migrations' schema-diff tests through 223 + 224 (`[..., 222, 223, 224]`, `CA2_ALTERED_TABLES = {"workbench_sessions"}` beside RW5d's sets); CA2's migration test renumbered `test_223_adds_only_the_earlier_opening_column` (from 222, applies [223, 224], head 224); chain pins at mvp-0.35; all 26 defaults fingerprints recomputed (template `.pyc` cleared). |
+| `88ac84275` | `--no-ff` merge of `retrieval/lr-p2-query-student` (`3d3755578`, base `eaf9859ad`). Conflicts: `parameter_registry.py` (RW5d's `figure_admission` and LR P2's four module owners), `template.py` (24 hunks, LR P2's `[embedding.local]` student keys and route note on every tag). Fingerprints recomputed again (26, from the composed defaults). |
+| `930abc06e` | References and CLI help (below). |
+| `867f7934a` | `tests/test_batch3_landing.py`: the chain and journal tests and interactions (i)-(iv); the activation journal's docstring names `one_ask_upgrade`. |
+| `9a3dbdeba` | The last tests pinning mvp-0.34 as the latest (LP claim fixes' version set, rebuild equivalence's bare upgrade, mvp-0.18's default target); version comments. |
+
+`main` and all three stage tips (`ebfbfe7e5`, `33b9aa5d8`, `3d3755578`) are ancestors of the tip. Against main the diff
+adds **no tracked database or binary apart from the head fixture rename** (`git diff --numstat -M main` lists only
+`fixtures/{migration_head_222 => migration_head_224}/state.sqlite` as binary); the root `.gitignore` is unchanged.
+
+### Renumbering and the chain
+
+- `ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"`, after `REPLAY_LEDGER_ALGORITHM_VERSION` (`mvp-0.34`, rebuild equivalence;
+  `mvp-0.33` is the LP claim fixes). `LATEST_ALGORITHM_VERSION` is `mvp-0.35`; `ONE_ASK_VERSIONS == {"mvp-0.35"}`; the
+  snapshot `mvp-0.35` is recorded; the earlier `*_VERSIONS` sets each gain `mvp-0.35`.
+- `one_ask_upgrade.py` now follows `replay_ledger_upgrade.py`: `PREDECESSOR = mvp-0.34`, the chained predecessors
+  `mvp-0.9 .. mvp-0.33` go through `upgrade_to_replay_ledger` first; the activation is ONE `BEGIN IMMEDIATE`
+  transaction under the vault mutation lock (the predecessor's manifest, `activate_p0_projection`, the registry
+  refresh, the journal (`predecessor`, `target`) at the shared `<db>.claim-fixes-activation` path, the durable
+  publication last); the completion marker is the `p0_projection_activation` receipt under the tag. Its
+  `complete_interrupted_activation` completes a journal naming mvp-0.35 and hands any other to rebuild equivalence's
+  (which hands an mvp-0.33 journal on). The CLI (`cli/runtime.py`) and the desktop sidecar (`sidecar/context.py`) now
+  install `one_ask_upgrade.complete_interrupted_activation`, the chain's latest.
+- `learnloop upgrade --to mvp-0.35` works from mvp-0.9, 0.27, 0.29, 0.30, 0.31, 0.32, 0.33 and 0.34
+  (`test_upgrade_to_mvp035_works_from_every_supported_version`, 8 cases); the bare `upgrade` targets mvp-0.35. The
+  upgrade's help and refusal text name every tag; `tests/cli_help_snapshot.json` changed only for `upgrade`.
+- New keys move no unrelated version hash: `test_eval_harness.py`, `test_success_head*.py` and the field arm tests pass
+  as merged (the arm hashes read `[mastery]` only).
+
+### The practice Ask cap (fixed at landing; owner decisions 2026-10-26)
+
+`config/template.py`'s `[tutor_qa]` comment and `TutorQAConfig`'s description said practice was "per item+session".
+They now say: **per attempt; enforced on metered routes; unlimited on the subscription (ChatGPT plan) route while
+`[ask] panel_enabled`** (off, the cap applies on every route). The cap stays `max_questions_practice = 3` in
+`<vault>/learnloop.toml` `[tutor_qa]`, beside `max_questions_feedback` (per attempt), `max_questions_library` (per note
+per UTC day) and `max_questions_reader` (per span per UTC day). The code (`tutor_qa.question_usage(metered=...)`) was
+already CA2's final rule; no behaviour changed.
+
+### Interactions (`tests/test_batch3_landing.py`; no break found, so no fix)
+
+- **(i) CA2's cap vs RW5d's *show me*.** RW5d's spec §6.2 sends the Ask rail's text "as a figure goal instead of a
+  question"; CA2's K5 cap counts question events. A tutor `figure_goal` press and an Ask-rail *show me* each build a
+  figure, write no `question_events` row and leave the practice and library budgets as they were, at mvp-0.35 with the
+  panel on (`test_i_...`). P3's Ask-panel *show me* (a figure as a hint-equivalent) is not built yet.
+- **(ii) CA2's `earlier_opened_at` vs CA1 and rebuild equivalence.** The column is LIFECYCLE state on a WORKFLOW table;
+  replay never reads it. A workbench submit with an earlier opening carried into steps rebuilds exactly as the same
+  submit without it: mastery 0, facets 0 (`test_ii_...`). **Finding (pre-existing on main, not the batch):** on that
+  real-clock sidecar path the shadow rebuild moves the submitted item's `due_at` by 1 s (live 1 s later): reproduced
+  3/3 on `git archive main` at mvp-0.34 with a plain workbench submit. The owner parity below (frozen clocks) is 0/0/0.
+  CA1's as-printed page reads and writes no learner state (its parity stands).
+- **(iii) T1's offer keying vs CA2's routes.** A grant given on `figure.request` (even naming `tutor_qa`) never routes
+  CA2's Ask (`ask_tutor_question`) to OpenRouter; a grant given on the Ask itself routes it to OpenRouter, which is
+  metered (`is_subscription_transport` false), so the per-attempt cap applies there; the plan route stays unlimited
+  with the panel on (`test_iii_...`; fake OpenAI client, nothing sent).
+- **(iv) LR P2's resolver vs RW5d's grounding.** RW5d grounds a goal through `find_sources_for_caller`. With an adopted
+  (fake) student behind `spaces.LOCAL_QUERY_ENCODER` and `default = "local:grouped"`, the hook is live (it tries to start
+  the query process); with `embedding.local.student = false` it starts nothing and the grounding retrieval's status and
+  hits equal P1's empty hook exactly (`test_iv_...`).
+
+### Regeneration
+
+- `db_generate_reference.py` then `db_validate_reference.py`: **errors []** after the prose counts were updated by hand
+  (Configuration.md and Database.md: **1,064 leaves in 74 sections, 353 table notes**). No new `CONFIG_SECTION_FUNCTIONS`
+  entry was needed (CA2 brought `ask`; `figures` and `embedding.local` existed). ~425 other note changes are
+  `source_commit` stamps.
+- `validate_vault.py`: passed (1,161 notes).
+- `tests/cli_help_snapshot.json`: `upgrade` only. RPC contract, serializer snapshot and mobile allowlist pass as merged.
+
+### Gate (at `9a3dbdeba`; `env -i`, empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`; logs in `fixtures-local/landing-batch3/logs/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` (+ `uv pip install pypdfium2`), 5G scopes; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| targeted run (104 files: every stage's tests, the chain/migration/pin files, contracts), `-n 6`, 5G | 2,188 passed, 3 failed (stale latest-version pins, fixed in `9a3dbdeba`, 42 passed on rerun), 25 skipped, 3 xfailed, 26 min |
+| `tests/test_batch3_landing.py` | 24 passed |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50`) | **NOT COMPLETED.** Started 20:18:49 after waiting for the thread-leak stage's lock; reached 99% by 21:06:40, then no line was written. One worker held ~737 threads at ~1,100% CPU (the known leaked-thread class); it was SIGKILLed at 21:36 as a worker of this run, but xdist never replaced it and the other 7 workers sat idle in `futex_wait` (load ~0.6): a hang, not slow tests. The progress lines show 16 `F` marks before the hang; with `-q` the names print only at the end, so they are unknown. Killing the rest of the run's process tree was **refused by the permission layer**, so per the brief the gate stopped there: the lock is still held by that hung run, and the requested rerun (`-o faulthandler_timeout=600 --junitxml=full.xml`) and the durability lane were not run. Wall time and the 50 slowest tests are therefore not available. |
+| Codex lockdown on main's tree (`git archive main`, alone) | the same 10 fail on codex-cli 0.164.0: `test_codex_isolation_mcp_check` ×3, `test_codex_lockdown_round2` ×3, `test_codex_lockdown_round3` ×3, `test_diagnosis_isolation::test_configured_mcp_servers_are_listed_and_disabled` |
+| torch lane (`uv sync ... --extra pdf`; `tests/test_query_student.py` + `_gpu.py`; then the standard extras re-synced, torch gone) | 50 passed, 1 skipped (the GPU smoke) |
+| owner lane (`-m owner_vaults`, backup-API copies of the three mvp030 backups in `fixtures-local/owner-lane-batch3/`) | 83 passed, **6 failed: exactly the 6 known** (`test_doctor` pre-044, `test_migrate_fresh` 153, `test_goal_decay_projection`, `test_sidecar_contract` recent ingests, `test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`); 0 `model_call_receipts` |
+| `npm install` (esbuild's postinstall blocked as before), `npm run typecheck` | clean |
+| `npm test -- --maxWorkers=4` (whole vitest) | **221 files, 1,917 tests passed** (61 s) |
+| `npm run frontend:build`; `cargo check` | built (the usual chunk-size warning); finished |
+| empty dirs | `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` stayed empty; `HOME` gained `.nv/ComputeCache` and `.local/share` (the torch lane's CUDA cache and a tool cache) |
+
+### Parity (backup-API copies of the mvp030 backups; `fixtures-local/landing-batch3/`, scripts in `scripts/`)
+
+Setup: `orig/` = backup-API copies of `learnanything/fixtures-local/vault-backups-20261025-mvp030/{linear_algebra,probability}`;
+`u34/` = `orig` brought to **mvp-0.34 with main's code** (routes to the `127.0.0.1:9` blackhole, 64 tasks on main and 65
+on the merge (LR P2's `retrieval_query_generator`), none outside it; `upgrade --to mvp-0.34`, `rebuild-derived-state` ×2).
+`code_main` = `git archive 1335df0c0`, `code_merge` = `git archive 867f7934a` (src and migrations unchanged since). Every
+run through `env -i` with empty dirs; `run.py`'s audit hook refuses Codex process starts and non-loopback sockets.
+
+- **(a) main vs merge at mvp-0.34** (after the primary sidecar load; a second main copy as the noise control): every
+  row of all 357 common tables identical (18,806 rows LA, 8,195 probability); the merge adds only 224's objects
+  (`figure_requests` empty, its indexes and triggers) and the new columns (`interactive_figures` ×12,
+  `workbench_sessions.earlier_opened_at`), all NULL; `schema_migrations` +223, +224, common rows identical; integrity
+  ok, foreign keys 0, `model_call_receipts` 0. Certification, Today and the plan **byte-identical** main vs merge (and
+  main vs main). `rebuild --shadow` **0/0/0** both sides; `doctor` identical (57/1 LA, 101/48 probability, pre-existing).
+- **(b) `upgrade --to mvp-0.35`** (the merge's code, on copies of u34): "mvp-0.34 -> mvp-0.35", no journal left. **Rows:
+  every row kept; mastery and every schedule unchanged (0 LOs, 0 items moved).** What changes, exactly: the
+  `algorithm_version` stamp (0.34 -> 0.35) and `updated_at`/`created_at` of `facet_recall_state` (76 / 2 rows) and
+  `facet_capability_evidence` (36 / 1) (DERIVED, the projection activation), `parameter_registry.updated_at` (352, the
+  refresh), plus one `derived_state_rebuilds` (`p0_projection_activation`), one `parameter_registry_manifests` row.
+  Shadow right after the upgrade: facet 0, **mastery 21 / 18 = the `mastery_state` version stamp only** (no value moves),
+  schedule 0, as at RW7b's projection-only activation; after `rebuild-derived-state` ×2: **0/0/0**; doctor unchanged.
+  After a primary load + 12 live attempts (frozen clock): **0/0/0**. Bare `upgrade` -> mvp-0.35. From the mvp-0.30
+  backup straight `--to mvp-0.35` (chains through 0.31-0.34) and the owner's two steps (`--to mvp-0.34`, then
+  `--to mvp-0.35`), rebuilt: **0/0/0**, doctor unchanged. **Nothing changes until CA2 is used.**
+- **(c) the kill switches** (`[ask] panel_enabled`, `cold_help_converts`, `[figures] show_me_enabled`,
+  `[embedding.local] student` all false): set before the upgrade (k35), or after an on upgrade then rebuilt (kr35),
+  versus the merge's mvp-0.34 copy: certification, Today, mastery and every schedule identical after the version
+  stamp; the plan identical except 7 hashes over the versioned card (`card_hash`, `snapshot_hash`), exactly as the
+  rbeq landing recorded for its tag; the switches-on copy (on35) the same. (a) shows the merge at mvp-0.34 equals main.
+- **(d) an interrupted mvp-0.35 activation** (the upgrade dies with `os._exit(17)` after the config publication):
+  label mvp-0.35, journal present, the predecessor's mastery untouched. `upgrade --to mvp-0.35` completes it ("completed
+  the interrupted activation of mvp-0.35"; again: "vault is already mvp-0.35"); the desktop start completes it; both
+  equal the clean upgrade (0 LOs moved). Every attach that may not complete it refuses with "The upgrade to mvp-0.35
+  did not finish ... run `learnloop upgrade --to mvp-0.35`" (`Repository`, `open_vault_repository` without a
+  completer, the secondary attach, and the remote schema check as `SchemaMismatch`), leaving the vault as it was. Plain
+  `doctor --json` is a read-only attach and refuses too (the journal stays), as recorded at the LP and rbeq landings.
+- **Receipts and calls.** The 42 parity databases with a receipts table and the 3 owner-lane copies hold **0
+  `model_call_receipts`** (the other 21 files are the probability backup's empty `.learnloop/state.sqlite` stubs); no
+  audit-log line (no process start, no socket). **Spend: $0.** Nothing under `~/learnloop-vaults`, `~/learnloop-retired`
+  or `~/learnloop-books` was opened or listed.
+
+### Owner notes
+
+- **Before upgrading:** back up the vaults; close the desktop app, the MCP server and the phone page. Then
+  `learnloop upgrade --to mvp-0.35 --vault <vault>` (or the bare `learnloop upgrade`); from mvp-0.30 it chains through
+  0.31-0.34 (mvp-0.34's step is the whole-vault rebuild). Migrations 223 and 224 apply on the first open.
+- **Kill switches (`<vault>/learnloop.toml`):** `[ask] panel_enabled = false` (the overlay and per-source answer mode
+  as before), `[ask] cold_help_converts = false` (the predecessor's cold rules, no downgrade), `[figures]
+  show_me_enabled = false` (RW5b's figures exactly), `[embedding.local] student = false` (the query student never
+  serves; P1's retrieval).
+- **The practice Ask cap:** `[tutor_qa] max_questions_practice` (default 3) per attempt on metered routes; unlimited on
+  the ChatGPT plan route while the panel is on.
+- **Local retrieval P2 stays off until you run its setup** (`docs/reviews/retrieval-local-p2-query-student.md`,
+  "Commands for the owner"): `embeddings local setup` (adopting the cached 9B), `embeddings local index`,
+  `embeddings local student setup` (adopting the two 0.6B bases), then `student plan`, `generate`, `targets`, `train`,
+  `evaluate`, `adopt` / `reject`, `status`, each with `--dry-run` first.
+
+### Open items
+
+- **The full suite and the durability lane are not done.** The run hung at 99% (leaked-thread workers deadlocked); the
+  kill of its process tree was refused by the permission layer, so the lock is still held by it. Owner/coordinator:
+  end that run (`fixtures-local/landing-batch3/scripts/fullsuite.sh`'s tree), then rerun once with
+  `-o faulthandler_timeout=600 --junitxml=fixtures-local/landing-batch3/logs/full.xml`, then `-m durability`, and
+  record the hung tests' stacks, wall time and the 50 slowest here. Do not land before that.
+- **Low (pre-existing, main):** a real-clock workbench submit leaves `practice_item_state.due_at` 1 s later than a
+  rebuild computes (interaction (ii)); frozen-clock parity is 0/0/0.
+- **Low (recorded since LP):** `doctor --json` refuses an interrupted activation rather than completing it.
+
+### Open items for Reader CA2
+
+- **F2 (Low, on the record):** strategy questions are not routed to the hint service; that routing is H4's (Codex
+  review F2's rejected part). Leak control and the take step apply to every practice Ask answer meanwhile.
+- The successor renumbered **mvp-0.35** (this record's §1 and the spec's as-built note say mvp-0.34, the branch's
+  number); migration renumbered **223** (221 on the branch).
+- Carried from §3: K9's "just show me" recognition, H4's strategy answers, the earlier-attempt count across a restart,
+  the window fold, Q4's measurement.
