@@ -1256,6 +1256,20 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the typing pause before a speculative intent routing / its deadline / the route's daily Decider "
         "call cap; latency and spend bounds, no measurement authority (a routing only picks which palette "
         "action runs)."),
+    # Reader CA3: comparing from anywhere. The kill switch (a boolean,
+    # classified so every new key has a rule), and the ask box's reading of
+    # named books (one Decider request per pressed Enter; verdicts go to
+    # judgment_ledger, never evidence): its deadline and the route's daily
+    # call cap. Latency and spend bounds: the reading only picks which books
+    # a display-only comparison reads.
+    _ConfigRule(_exact(
+        "reader_compare.scope_enabled",
+        "reader_compare.scope_timeout_seconds",
+        "reader_compare.scope_max_calls_per_day",
+    ), "structural", "operational",
+        "kill switch for comparing from anywhere (one comparison request for every door, an anchor without "
+        "pins, named books that only narrow the scope) / the ask box's reading deadline / the route's daily "
+        "Decider call cap; display, latency and spend bounds, no measurement, scheduling or serving authority."),
     # Reader workbench RW4a: the library answer's organizer (one listwise call
     # per ask; notes are display, verdicts go to judgment_ledger, never
     # evidence): its metered spend a UTC day.

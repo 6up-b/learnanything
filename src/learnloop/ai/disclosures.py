@@ -23,6 +23,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("tier1_decider", "decider", "tier1"),
     ("learner_gap_decider", "decider", "learner_text_gaps"),
     ("reader_intent", "decider", "reader_intent"),
+    ("compare_scope", "decider", "compare_scope"),
     ("library_organizer", "llm", "library_ask"),
     ("approach_map", "llm", "approach_maps"),
     ("hint_chooser", "decider", "hint_chooser"),
@@ -85,6 +86,14 @@ _WHEN = {
         "meant. With reader_intent.speculative_enabled on (the default) the same is sent once you "
         "pause typing for a moment, before you press Enter, so the action is ready when you do; "
         "switching it off sends nothing until Enter. An empty Enter sends nothing."
+    ),
+    "compare_scope": (
+        "While reader_compare.scope_enabled is on, each time you press Enter in the ask box (Ctrl+Shift+F in "
+        "the Reader, or Ask on the library page) or in a comparison's refine box (/): your words and the titles "
+        "and file names of the books in your library (and, when refining, which of them are being compared), "
+        "so the Decider can say whether you asked for a comparison, which books you named and what the topic "
+        "is. Never a passage of a book, nothing else you wrote and never material held out for an exam. "
+        "Nothing is sent while you type, or for any other way into a comparison."
     ),
     "library_ask": (
         "While library_ask.enabled is on, each time you ask your library (Shift+Enter in the library "

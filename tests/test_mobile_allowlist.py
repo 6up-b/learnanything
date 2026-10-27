@@ -310,6 +310,19 @@ def test_the_pinned_rw4a_rpcs_are_all_of_them():
     assert set(READER_RW4A_RPCS) - {"reader.prompt_contract", "find_practice"} == set(LIBRARY_ASK_RPCS)
 
 
+# Reader CA3 (ux_reader_compare_ask_v1 §4, K12): compare from anywhere adds the
+# ask box's reading of named books and the learner's change of it, and extends
+# reader.library_compare (one request for every door) and
+# reader.prompt_contract (libraryAsk.compareScope). Desktop only.
+READER_CA3_RPCS = ("reader.compare_scope", "reader.compare_scope_correction", "reader.library_compare")
+
+
+def test_the_pinned_ca3_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.compare_scope import COMPARE_SCOPE_RPCS
+
+    assert set(READER_CA3_RPCS) - {"reader.library_compare"} == set(COMPARE_SCOPE_RPCS)
+
+
 # Reader workbench RW4b (spec_reader_workbench_v1 §7.4): the view of a
 # proposal's textbook exercises (their exposure) and the fallback search, and
 # (fix round 4, R1) the one server operation that admits a picked exercise's
@@ -710,7 +723,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA1_RPCS + READER_RW5D_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

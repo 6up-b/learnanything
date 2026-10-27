@@ -1356,6 +1356,13 @@ class AIRoutingConfig(BaseModel):
     # empty = the code-default openrouter_decider profile, never a chat
     # fallback and never LEARNLOOP_AI_PROVIDER.
     reader_intent: str | None = None
+    # Reader CA3 (ux_reader_compare_ask_v1 §4.3, §12.2): the ask box's and the
+    # comparison's refine box's reading of the learner's words (is it a
+    # comparison? which of the library's books are named? the topic), one
+    # Decider request of typed questions over the book list. A decider-only
+    # route: empty = the code-default openrouter_decider profile, never a chat
+    # fallback and never LEARNLOOP_AI_PROVIDER.
+    compare_scope: str | None = None
     # Reader workbench RW4a (spec_reader_workbench_v1 §7.3, §7.6): the library
     # answer's organizer, one listwise call (a note per passage on what it
     # contributes). Empty = ai.active_provider; a metered route needs
@@ -2607,10 +2614,27 @@ class ReaderCompareConfig(BaseModel):
     the tutor's comparison). Proposals and display only: nothing becomes a
     concept edge, facet merge, prerequisite, LO change or evidence. Off, the
     compare display is RW4a's exactly and the keep RPCs refuse.
+
+    Reader CA3 (ux_reader_compare_ask_v1 §4, K12): ``scope_enabled`` is the
+    kill switch of comparing from anywhere: one comparison request for every
+    door (a selection's *how do my other books treat this?*, the ask box
+    reading named books, the tutor's offer, *compare these books* in a library
+    answer), an anchor without pins, named books that only narrow the scope,
+    and the refine box. The ask box's words are read by one Decider request
+    (``ai.routing.compare_scope``), time-boxed by ``scope_timeout_seconds`` and
+    capped at ``scope_max_calls_per_day`` requests a UTC day (counted from the
+    route's reservations, failed calls included); readings and the learner's
+    corrections are ``judgment_ledger`` rows (task ``compare_scope``), never
+    evidence. Comparisons stay display and retrieval: nothing in scoring,
+    scheduling, projection or serving reads any of it, so no successor. Off,
+    the RPC takes only today's pinned request and every door is RW4a's/RW4d's.
     """
 
     enabled: bool = True
     keep_enabled: bool = True
+    scope_enabled: bool = True
+    scope_timeout_seconds: float = Field(default=4.0, gt=0.0, le=30.0)
+    scope_max_calls_per_day: int = Field(default=200, ge=0)
 
 
 class AsPrintedConfig(BaseModel):

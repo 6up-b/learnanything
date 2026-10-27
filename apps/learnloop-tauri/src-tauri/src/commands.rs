@@ -1391,6 +1391,9 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Reader CA3: the ask box's reading of named books, and the learner's change of it.
+sidecar_passthrough!(reader_compare_scope, "reader.compare_scope");
+sidecar_passthrough!(reader_compare_scope_correction, "reader.compare_scope_correction");
 // Reader workbench RW4b (exercises from my sources: the view, the fallback): desktop only.
 sidecar_passthrough!(reader_exercise_candidates, "reader.exercise_candidates");
 sidecar_passthrough!(reader_find_exercises, "reader.find_exercises");

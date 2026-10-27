@@ -28,6 +28,22 @@ caller's scope is considered, not only those a first page happens to show:
 6. **No consensus**: the output has no merged or canonical answer field.
 7. **Stored** in ``source_comparisons`` with the caller context, so reopening
    it does not pay twice.
+
+Reader CA3 (ux_reader_compare_ask_v1 §4.1, §12.2, K12) adds two optional
+arguments, each absent from the call and its manifest when not given (so a
+pinned comparison is exactly as before):
+
+* ``anchor_span_keys``: the passage the comparison is about (a selection, the
+  passage a tutor answer was asked on). It passes the pins' filters first
+  (exam material, the scope, an answer-reproducing passage in practice); a
+  passage that passes is its book's column without a verification call (the
+  learner chose it), compared first, and its book is not searched again. The
+  other books are found by discovery, so no pin is needed.
+* ``source_ids``: the books the learner named or chose. They only narrow the
+  scope: a book outside the caller's scope is refused (``scope_refused``),
+  as a wider ``policy`` is. Only those books (and the anchor's) are
+  compared; the other books in scope with a passage on the question are
+  listed under "also discussed in", unchecked and never sent to a model.
 """
 from __future__ import annotations
 
@@ -163,6 +179,8 @@ def compare_sources(
     requested_perspectives: Sequence[str] = (),
     pinned_span_ids: Sequence[Any] = (),
     pinned_span_keys: Sequence[Any] = (),
+    anchor_span_keys: Sequence[Any] = (),
+    source_ids: Sequence[str] = (),
     policy: str | None = None,
     deadline: float | None = None,
     client: Any | None = None,
@@ -182,7 +200,8 @@ def compare_sources(
     with service_spend(vault, repository, clock=clock):
         return _compare_sources(vault, repository, query, caller=caller, facet_ids=facet_ids,
                                 requested_perspectives=requested_perspectives, pinned_span_ids=pinned_span_ids,
-                                pinned_span_keys=pinned_span_keys, policy=policy, deadline=deadline, client=client,
+                                pinned_span_keys=pinned_span_keys, anchor_span_keys=anchor_span_keys,
+                                source_ids=source_ids, policy=policy, deadline=deadline, client=client,
                                 verify_client=verify_client, embedder=embedder, clock=clock)
 
 
@@ -196,8 +215,10 @@ def _compare_sources(
     requested_perspectives: Sequence[str],
     pinned_span_ids: Sequence[Any],
     pinned_span_keys: Sequence[Any],
-    policy: str | None,
-    deadline: float | None,
+    anchor_span_keys: Sequence[Any] = (),
+    source_ids: Sequence[str] = (),
+    policy: str | None = None,
+    deadline: float | None = None,
     client: Any | None,
     verify_client: Any | None,
     embedder: Any | None,
@@ -218,30 +239,57 @@ def _compare_sources(
     result.manifest = {"query_hash": query_hash, "policy": derived, "policy_derived_from": reason,
                        "caller": {"kind": caller.kind, "ref": caller.ref}, "scope": scope.describe()}
 
-    # Pins pass the policy's filters before anything reaches a model.
-    pinned: list[tuple[str, str]] = []
-    pins = _span_keys(list(pinned_span_ids) + list(pinned_span_keys))
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        pin_blocks = blocks_by_key(connection, sorted(pins))
-    # Exam material is assessment-only (role authority; the sources merge):
-    # it never reaches the verification or comparison model, whatever the
-    # policy.
-    pin_exam = exam_withheld(vault, repository, pins)
-    for key in sorted(pins):
-        block = pin_blocks.get(key)
-        # The exam label first: a scope that leaves exam material out (the
-        # teaching scope, post_attempt's) would otherwise give a vaguer reason.
-        why = "no such passage" if block is None else "it is exam material" if key in pin_exam \
-            else _pin_reason(scope, key, policy=derived, item=item)
-        if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
-                block.text, item.expected_answer):
-            why = "it reproduces the answer to the item you are practising"
-        if why is not None:
-            result.dropped_pins.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
-        else:
-            pinned.append(key)
+    # CA3: named books only narrow the scope; one outside it is refused, as a
+    # wider policy is, before anything is read or paid for.
+    sources = _by_source(scope)
+    named = list(dict.fromkeys(str(value) for value in source_ids if str(value).strip()))
+    if named:
+        outside = [source_id for source_id in named if source_id not in sources]
+        if outside:
+            raise PolicyRefused("scope_refused",
+                                "a named source is not among the sources this comparison may read")
+        result.manifest["source_ids"] = named
 
-    # Counterparts: every source in scope, one shared query embedding.
+    # Pins (and CA3's anchor) pass the policy's filters before anything
+    # reaches a model.
+    def admitted(keys: set[tuple[str, str]]) -> list[tuple[str, str]]:
+        passed: list[tuple[str, str]] = []
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            found = blocks_by_key(connection, sorted(keys))
+        # Exam material is assessment-only (role authority; the sources merge):
+        # it never reaches the verification or comparison model, whatever the
+        # policy.
+        exam_keys = exam_withheld(vault, repository, keys)
+        for key in sorted(keys):
+            block = found.get(key)
+            # The exam label first: a scope that leaves exam material out (the
+            # teaching scope, post_attempt's) would otherwise give a vaguer reason.
+            why = "no such passage" if block is None else "it is exam material" if key in exam_keys \
+                else _pin_reason(scope, key, policy=derived, item=item)
+            if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
+                    block.text, item.expected_answer):
+                why = "it reproduces the answer to the item you are practising"
+            if why is not None:
+                result.dropped_pins.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
+            else:
+                passed.append(key)
+        return passed
+
+    pins = _span_keys(list(pinned_span_ids) + list(pinned_span_keys))
+    pinned = admitted(pins)
+    # The anchor keeps the learner's order (its first block names it).
+    anchor_order = list(dict.fromkeys(_ordered_keys(anchor_span_keys)))
+    anchor: SpanHit | None = None
+    if anchor_order:
+        kept_anchor = set(admitted(set(anchor_order)))
+        anchor_keys = [key for key in anchor_order if key in kept_anchor and key[0] in scope.extractions]
+        if anchor_keys:
+            anchor = _anchor_hit(repository, scope, anchor_keys)
+            result.manifest["anchor_keys"] = [list(key) for key in anchor_keys]
+    anchor_source = anchor.source_id if anchor is not None else None
+
+    # Counterparts: every source in scope (CA3: the named ones), one shared
+    # query embedding.
     started = time.monotonic()
     vectors: dict[str, Any] | None = None
     if vault.config.embedding.enabled or embedder is not None:
@@ -250,7 +298,16 @@ def _compare_sources(
         result.manifest["query_embedding"] = embedding
     per_source: dict[str, list[SpanHit]] = {}
     searches: dict[str, Any] = {}
-    sources = _by_source(scope)
+    if named or anchor_source is not None:
+        # The anchor's book is its passage (never searched again); named books
+        # narrow discovery to themselves, and the rest are only listed.
+        compared_ids = [source_id for source_id in sources
+                        if source_id != anchor_source and (not named or source_id in named)]
+        others = {source_id: ids for source_id, ids in sources.items()
+                  if source_id != anchor_source and source_id not in compared_ids}
+        sources = {source_id: sources[source_id] for source_id in compared_ids}
+    else:
+        others = {}
     # Facet targeting (§9.1): the facets' teaching links rank as one more list
     # per source, and verification is told what the passages should bear on.
     facet_list, facet_labels = facet_lists(vault, repository, facet_ids)
@@ -287,6 +344,13 @@ def _compare_sources(
                           source_title=extraction.title, text=block.text, block_type=block.block_type,
                           section_path=[], page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})
             per_source.setdefault(extraction.source_id, []).insert(0, hit)
+
+    if others:
+        # CA3 (Q13): the books not named, with a passage on the question, are
+        # listed (one key to add), unchecked and never sent to a model.
+        listed = _also_in(vault, repository, query, scope, others)
+        if listed:
+            result.also_discussed_in.extend(listed)
 
     # What retrieval found passes the same rule before the verification and
     # comparison models read it.
@@ -342,8 +406,14 @@ def _compare_sources(
     result.manifest["verification"] = {"status": verification_status, "verified_sources": len(verified),
                                        "sources_with_hits": len(per_source), "sources_in_scope": len(sources)}
 
+    if anchor is not None:
+        # CA3: the anchor is its book's passage (the learner chose it), first.
+        verified[anchor.source_id] = anchor
+        verdicts[anchor.source_id] = "anchor"
+        ordered_sources.insert(0, anchor.source_id)
     # As many verified sources as fit the prompt-size bound; the rest are listed.
-    ranked = sorted(verified, key=lambda sid: (0 if verdicts[sid] == "answers" else 1, ordered_sources.index(sid)))
+    ranked = sorted(verified, key=lambda sid: (0 if verdicts[sid] in ("anchor", "answers") else 1,
+                                               ordered_sources.index(sid)))
     budget_chars = config.compare_max_prompt_tokens * 4
     used = len(query) + 2000
     compared: list[str] = []
@@ -369,7 +439,7 @@ def _compare_sources(
             deliver(vault, repository, searches[sid], [verified[sid].key])
     if len(compared) < 2:
         result.status = "too_few_sources"
-        result.sources = [_source_entry(verified[sid], f"s{i}") for i, sid in enumerate(compared, start=1)]
+        result.sources = [_entry(verified[sid], f"s{i}", anchor) for i, sid in enumerate(compared, start=1)]
         result.missing_perspectives = list(requested_perspectives) if not compared else []
         return result
 
@@ -398,7 +468,7 @@ def _compare_sources(
                       price_setting="source_service.llm_price_per_million")
     if skip is not None:
         result.status = skip
-        result.sources = [_source_entry(hit, ref) for ref, hit in refs.items()]
+        result.sources = [_entry(hit, ref, anchor) for ref, hit in refs.items()]
         return result
     if client is None:
         client, problem = resolve_client(vault, route)
@@ -406,7 +476,7 @@ def _compare_sources(
         problem = transport_problem(route, client)
     if client is None or problem is not None:
         result.status = f"unavailable: {problem}"
-        result.sources = [_source_entry(hit, ref) for ref, hit in refs.items()]
+        result.sources = [_entry(hit, ref, anchor) for ref, hit in refs.items()]
         return result
     caps = SpendCaps(max_candidates=len(refs), max_pairs=len(refs) ** 2, max_retries=1, max_calls=2,
                      max_total_tokens=400_000, max_estimated_usd=config.compare_max_cost_usd)
@@ -431,7 +501,7 @@ def _compare_sources(
         return result
 
     passages = {ref: hit.text for ref, hit in refs.items()}
-    entries = {ref: _source_entry(hit, ref) for ref, hit in refs.items()}
+    entries = {ref: _entry(hit, ref, anchor) for ref, hit in refs.items()}
     for line in answer.contributions:
         if line.source_ref not in passages or not _quote_in(line.quote, passages[line.source_ref]):
             result.dropped_lines.append({"kind": "contribution", "source_ref": line.source_ref,
@@ -477,6 +547,57 @@ def _compare_sources(
                 repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
                 source_kind="source_review", amount=1.0, basis="compare_sources:post_attempt", clock=clock)
     return result
+
+
+def _ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]:
+    """``_span_keys`` in the given order (an anchor's first block names it)."""
+
+    ordered: list[tuple[str, str]] = []
+    for value in values:
+        ordered.extend(sorted(_span_keys([value])))
+    return ordered
+
+
+def _anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> SpanHit:
+    """The anchor as one passage: its blocks of the first block's extraction,
+    in the learner's order, joined (cut to the prompt bound as any passage)."""
+
+    first = keys[0]
+    same = [key for key in keys if key[0] == first[0]]
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        blocks = blocks_by_key(connection, same)
+    text = " ".join(blocks[key].text for key in same if key in blocks)
+    extraction = scope.extractions[first[0]]
+    block = blocks[first]
+    return SpanHit(extraction_id=first[0], span_id=first[1], source_id=extraction.source_id,
+                   source_title=extraction.title, text=text[:PASSAGE_CHARS], block_type=block.block_type,
+                   section_path=[], page=block.page, ordinal=block.ordinal, ranks={"anchor": 1})
+
+
+def _also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope,
+             others: Mapping[str, list[str]]) -> list[dict[str, Any]]:
+    """The other books with a keyword passage on the question (CA3, Q13): one
+    unchecked hit each, exam material withheld, never sent to a model."""
+
+    found: list[dict[str, Any]] = []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        for source_id, extraction_ids in sorted(others.items()):
+            hits = search_blocks(connection, query, extraction_ids=extraction_ids, limit=5)
+            keys = [(hit.extraction_id, hit.span_id) for hit in hits if scope.allows(hit.extraction_id, hit.span_id)]
+            withheld = exam_withheld(vault, repository, keys) if keys else frozenset()
+            key = next((key for key in keys if key not in withheld), None)
+            if key is None:
+                continue
+            found.append({"source_id": source_id, "source_title": scope.extractions[key[0]].title,
+                          "extraction_id": key[0], "span_id": key[1], "label": "also discussed in (not compared)"})
+    return found
+
+
+def _entry(hit: SpanHit, ref: str, anchor: SpanHit | None) -> dict[str, Any]:
+    entry = _source_entry(hit, ref)
+    if anchor is not None and hit.key == anchor.key:
+        entry["anchor"] = True
+    return entry
 
 
 def _source_entry(hit: SpanHit, ref: str) -> dict[str, Any]:

@@ -614,6 +614,8 @@ fn main() {
             reader_library_ask_tutor,
             reader_library_job,
             reader_library_job_cancel,
+            reader_compare_scope,
+            reader_compare_scope_correction,
             reader_exercise_candidates,
             reader_find_exercises,
             reader_library_compare_keep,
