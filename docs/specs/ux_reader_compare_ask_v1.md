@@ -887,6 +887,15 @@ read, note, promotion or queue can show it; an earlier attempt's help opened on 
 workbench when the draft moves into steps (its carried hints); and a question a workbench binds counts in the
 item's window whatever its practice session, as a bound Reader question does (`hint_window.workbench_bound`).
 
+*As built (CA5a, branch `reader/ca5a-find-section`, `docs/reviews/reader-ca5a-find-section.md`):* the Guide
+footer's *find this section in my other books ▸* runs a quiet read first (`search_fallback` off) and shows only
+when no coverage has been judged and the section is not protected. Pressed, it lists the unchecked hits by book.
+Peek renders in the rail through the library peek's span read, go there is the library hit's source detour, and
+compare is the library compare path (an ask anchored on the section, both passages pinned, the organizer's notes
+left to be asked for). *Not about this* is C0a's correction once per LO of the open section, with undo. The
+detour-strip crumb for a peek and §6.5's salience events are deferred to CA5. The new `[reader.correspondence]`
+section is the switch, and the prompt contract carries it only while `curriculum.enabled` is on too.
+
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---

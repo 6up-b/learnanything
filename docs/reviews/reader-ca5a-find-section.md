@@ -73,6 +73,42 @@ No migration, no successor, no model call. CA5's judged list and CA6 are not bui
 6. **The `x` key** and its clash check against the PDF surface and `LiveMarkdownEditor` belong to CA5 (the
    expanded one-line entry). CA5a's keys are scoped to the list.
 
+7. **Cost of the quiet read.** It runs on each crossing into a new Guide section (not on scroll). C0a's
+   `Library` reads every readable reading, so on a large library this read is not free on the serial
+   sidecar. CA5's one-line entry needs the same read. If it shows up in use, a per-section cache keyed by the
+   coverage state would be the fix (C0a's side).
+
 ## Gate (targeted; the full suite runs once at landing)
 
-Recorded at the end of the stage; see the structured result for counts.
+Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: 36 kept, 0 broken.
+- **Targeted pytest** (`-n 6`) over 78 files: the new `tests/test_reader_ca5a_find_section.py`; C0a's
+  `test_section_coverage.py`, `_review.py` and `_rpcs.py`; every test file naming the prompt contract
+  (`test_compare_keep_switch_off`, `test_compare_sources_keep`, `test_figure_*`, `test_figures_*`,
+  `test_library_ask_review`, `test_library_exercises`, `test_mobile_allowlist`, `test_reader_dialogue`,
+  `test_reader_find_sources_callers`, `test_reader_inquiry_kill_switch`, `test_reader_intent`,
+  `test_reader_tutor_offers`, `test_reader_tutor_switch_off`, `test_reading_paths`, `test_rw4_kill_switches`,
+  `test_sidecar_reader`, `test_sidecar_serializer_snapshot`); every test file naming the default snapshots,
+  fingerprints or the parameter registry (`test_architecture`, `test_config_refactor`, `test_registry_audit`,
+  `test_table_roles`, every `test_mvp0*_upgrade`, the successor and landing pins, among others); plus
+  `test_desktop_rpc_contract`, `test_vault_template`, `test_cli_help_snapshot`.
+  First run: 1610 passed, 9 failed, 12 skipped, 3 xfailed. The nine failures were earlier stages'
+  byte-for-byte contract pins seeing the new key, which is on by default. Each now registers it the way
+  earlier stages registered theirs (switched off, or popped with its value asserted). The five files rerun
+  with the new test: 96 passed.
+- **Frontend** (`apps/learnloop-tauri`): `npm install`; `npm run typecheck` clean; vitest (`--maxWorkers=4`)
+  on `findSection.test.tsx` (16) and `findSectionReader.test.tsx` (5), plus 19 files touching the Guide rail,
+  the library ask/compare hook and pane, and the Reader's guide (`classicIsBase`, `compareKeep`,
+  `compareKeepSwitchOff`, `figures/advancedPanels`, `figures/libraryOfferSettle`, `libraryAsk`,
+  `libraryAskJobs`, `libraryAskSwitchOff`, `libraryExercises`, `libraryExercisesReader`, `libraryRoles`,
+  `readerHooks.parity`, `ReadingPathCard`, `readingPathsRefresh`, `readingPathsReader`,
+  `readingPathsSwitchOff`, `splitRails`, `ReaderScreen.guide`, `attentionBudget`): 146 passed.
+  `npm run frontend:build` ok.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok (two passthroughs added).
+- DB/config reference: `db_generate_reference.py` regenerated it (the new `Config - reader` note, plus a
+  section-function line in the generator). The hand-written leaf counts in `Configuration.md` and
+  `Database.md` were moved to 1066. `db_validate_reference.py`: errors [].
+- No paid or live call was made. The ad hoc Python (snapshot recomputation, reference scripts) ran under
+  `env -i` with empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR.
