@@ -13,6 +13,8 @@ import type {
   ReadingPathDepth,
   ReadingPathDto,
   CorrespondentsDto,
+  CorrespondentOperationDto,
+  CorrespondentPeekDto,
   CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
@@ -1640,6 +1642,13 @@ export const api = {
     call<CorrespondentsDto>("reader_correspondents", { input }),
   curriculumCoverageCorrect: (input: { extractionId: string; sectionId: string; learningObjectId: string; choice: CoverageCorrectionChoice; text?: string | null }) =>
     call<{ correction: Record<string, unknown> }>("curriculum_coverage_correct", { input }),
+  // CA5a's peek at a hit (its own section's first blocks, protection read now,
+  // each block shown recorded as exposure) and "not about this" as one
+  // operation (undoOf: its undo), idempotent by the client's operation id.
+  readerCorrespondentPeek: (input: { extractionId: string; sectionId: string }) =>
+    call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
+  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
+    call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>

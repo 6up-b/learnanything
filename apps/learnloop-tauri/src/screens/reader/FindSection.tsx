@@ -2,20 +2,30 @@
 // §6.2, §6.3, X7). A pressed action in the Guide's footer over C0a's
 // reader.correspondents: for a section with no judged coverage, the live search
 // hits grouped by book, each line "found by search, not checked" and never a
-// treatment word. Peek opens the section's first blocks in the rail, go there
-// opens the book at the section (a detour: Alt+← comes back), compare runs the
-// library compare path on both sections' passages, and "not about this" is
-// C0a's correction (one learner row per LO of this section, with undo).
+// treatment word. Peek opens the section's first blocks in the rail
+// (reader.correspondent_peek: protection read again, the hit's own section's
+// blocks only, each one shown recorded as exposure: Codex review F1, F2), go
+// there opens the book at the section (a detour: Alt+← comes back), compare
+// runs the library compare path on both sections' passages, and "not about
+// this" is one durable operation (reader.correspondent_dismiss: C0a's learner
+// row per LO of this section and a section-pair verdict, in one transaction,
+// idempotent by its operation id, with an undo of its own; a section with no
+// LO gets the pair verdict only: Codex review F3, F6).
+//
+// Every request is tied to the section (and, for a search, the press) it was
+// made from: a late answer for another section, a folded list or an older
+// press never lands (Codex review F4, F7).
 //
 // Hidden when the section already has judged coverage (its one-line entry is
 // CA5's, not built yet), when it is protected, and whenever the quiet read
 // fails. Pressing it is the only read that searches; nothing here calls a
-// model, and the correction is the only write. Unchecked hits never appear
-// unasked (§6.5). Off (no `correspondence` in the prompt contract) the Reader
-// never mounts this, so the Guide is exactly as before.
+// model, and the correction and the peek's exposure record are the only
+// writes. Unchecked hits never appear unasked (§6.5). Off (no
+// `correspondence` in the prompt contract) the Reader never mounts this, so
+// the Guide is exactly as before.
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../../api/client";
-import type { CorrespondentSectionDto, CorrespondentsDto, SpanViewDto } from "../../api/dto";
+import type { CorrespondentPeekDto, CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
 import { clip } from "./readerShared";
@@ -69,11 +79,17 @@ type Pressed =
 interface Peek {
   key: string;
   hit: CorrespondentSectionDto;
-  view: SpanViewDto | null;
+  view: CorrespondentPeekDto | null;
 }
 
 export function hitKey(hit: Pick<CorrespondentSectionDto, "extractionId" | "sectionId">): string {
   return `${hit.extractionId}/${hit.sectionId}`;
+}
+
+/** A client name for one correction (kept until it is answered, so a retry is the same operation). */
+export function newOperationId(): string {
+  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `ca5a_${id.replace(/[^A-Za-z0-9_-]/g, "")}`;
 }
 
 const LINK: CSSProperties = {
@@ -88,18 +104,26 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
   const [quiet, setQuiet] = useState<{ sectionId: string; show: boolean } | null>(null);
   const [pressed, setPressed] = useState<Pressed | null>(null);
   const [peek, setPeek] = useState<Peek | null>(null);
-  // Hits the learner said are not about this section: key → the LOs corrected (for undo).
-  const [dismissed, setDismissed] = useState<Map<string, { hit: CorrespondentSectionDto; los: string[] }>>(new Map());
+  // Hits the learner said are not about this section: key → the operation (for undo).
+  const [dismissed, setDismissed] = useState<Map<string, { hit: CorrespondentSectionDto; operationId: string }>>(new Map());
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [why, setWhy] = useState(false);
   const lineRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // The section's generation (every request made for a section checks it on
+  // landing) and the search's (a press, a fold or a new section bumps it).
   const token = useRef(0);
+  const search = useRef(0);
+  // An unanswered correction's operation id, per origin section, hit and act:
+  // pressed again, it is the same operation (the server answers it once).
+  const pendingOps = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const mine = ++token.current;
+    search.current += 1;
     setPressed(null);
     setPeek(null);
     setDismissed(new Map());
+    setBusyKey(null);
     setWhy(false);
     if (!sectionId) {
       setQuiet(null);
@@ -120,10 +144,12 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
   const press = useCallback(() => {
     if (!sectionId) return;
     const mine = token.current;
+    const searching = ++search.current;
+    const live = () => token.current === mine && search.current === searching;
     setPressed({ sectionId, phase: "pending", view: null });
     setPeek(null);
     api.readerCorrespondents({ extractionId, sectionId, searchFallback: true }).then((view) => {
-      if (token.current !== mine) return;
+      if (!live()) return;
       if (view.status === "judged" || view.status === "withheld") {
         // Coverage was judged meanwhile (or the section is protected now): CA5's, not this list.
         setQuiet({ sectionId, show: false });
@@ -132,17 +158,18 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
       }
       setPressed({ sectionId, phase: "landed", view });
     }).catch(() => {
-      if (token.current === mine) setPressed({ sectionId, phase: "failed", view: null });
+      if (live()) setPressed({ sectionId, phase: "failed", view: null });
     });
   }, [extractionId, sectionId]);
 
   const fold = useCallback(() => {
+    // A search still on its way never reopens the list (Codex review F7).
+    search.current += 1;
     setPressed(null);
     setPeek(null);
   }, []);
 
   const view = pressed?.phase === "landed" ? pressed.view : null;
-  const correctable = view?.search?.correctableLearningObjectIds ?? [];
   const sources = (view?.search?.sources ?? []).map((source) => ({
     ...source, sections: source.sections.filter((hit) => hit.by === "search"),
   })).filter((source) => source.sections.length > 0);
@@ -154,11 +181,15 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
   const openPeek = useCallback(async (hit: CorrespondentSectionDto) => {
     const key = hitKey(hit);
     if (!hit.jump.spanId) return;
+    const mine = token.current;
     setPeek({ key, hit, view: null });
     try {
-      const { spanView } = await api.getSpanView({ extractionId: hit.jump.extractionId, spanId: hit.jump.spanId, context: "library" });
-      setPeek((current) => (current?.key === key ? { key, hit, view: spanView } : current));
+      // The hit's own section, protection read now; what it shows is recorded.
+      const { peek: shown } = await api.readerCorrespondentPeek({ extractionId: hit.extractionId, sectionId: hit.sectionId });
+      if (token.current !== mine) return;
+      setPeek((current) => (current?.key === key ? { key, hit, view: shown } : current));
     } catch (error) {
+      if (token.current !== mine) return;
       onError(errorMessage(error));
       setPeek((current) => (current?.key === key ? null : current));
     }
@@ -175,48 +206,58 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     onGoThere({ sourceId: hit.sourceId, extractionId: hit.jump.extractionId, spanId: hit.jump.spanId });
   }, [onGoThere]);
 
-  const notAbout = useCallback(async (hit: CorrespondentSectionDto) => {
-    const key = hitKey(hit);
-    if (correctable.length === 0 || busyKey) return;
+  /** One correction as one operation; it lands only on the section it was made from (F4). */
+  const runOperation = useCallback(async (key: string, act: string, request: (operationId: string) => Promise<unknown>, landed: () => void) => {
+    if (!sectionId || busyKey) return;
+    const mine = token.current;
+    const opKey = `${extractionId}/${sectionId}|${key}|${act}`;
+    const operationId = pendingOps.current.get(opKey) ?? newOperationId();
+    pendingOps.current.set(opKey, operationId);
     setBusyKey(key);
-    const done: string[] = [];
     try {
-      for (const lo of correctable) {
-        await api.curriculumCoverageCorrect({ extractionId: hit.extractionId, sectionId: hit.sectionId, learningObjectId: lo, choice: "not_about" });
-        done.push(lo);
-      }
-      setDismissed((current) => new Map(current).set(key, { hit, los: done }));
-      if (peek?.key === key) setPeek(null);
+      await request(operationId);
+      pendingOps.current.delete(opKey);
+      if (token.current === mine) landed();
     } catch (error) {
-      onError(errorMessage(error));
-      // A correction half made is taken back, so the line means one thing.
-      for (const lo of done) {
-        await api.curriculumCoverageCorrect({ extractionId: hit.extractionId, sectionId: hit.sectionId, learningObjectId: lo, choice: "none" }).catch(() => undefined);
-      }
+      // Not answered: the line stays as it was, and pressing again resends the
+      // same operation (if it was committed after all, the server says so).
+      if (token.current === mine) onError(errorMessage(error));
     } finally {
-      setBusyKey(null);
+      if (token.current === mine) setBusyKey(null);
     }
-  }, [correctable, busyKey, onError, peek]);
+  }, [extractionId, sectionId, busyKey, onError]);
+
+  const notAbout = useCallback(async (hit: CorrespondentSectionDto) => {
+    if (!sectionId) return;
+    const key = hitKey(hit);
+    let recorded: string | null = null;
+    await runOperation(key, "not_about", async (operationId) => {
+      const { operation } = await api.readerCorrespondentDismiss({
+        extractionId, sectionId, targetExtractionId: hit.extractionId, targetSectionId: hit.sectionId, operationId,
+      });
+      recorded = operation.operationId;
+    }, () => {
+      const operationId = recorded;
+      if (!operationId) return;
+      setDismissed((current) => new Map(current).set(key, { hit, operationId }));
+      setPeek((current) => (current?.key === key ? null : current));
+    });
+  }, [extractionId, sectionId, runOperation]);
 
   const undo = useCallback(async (key: string) => {
     const entry = dismissed.get(key);
-    if (!entry || busyKey) return;
-    setBusyKey(key);
-    try {
-      for (const lo of entry.los) {
-        await api.curriculumCoverageCorrect({ extractionId: entry.hit.extractionId, sectionId: entry.hit.sectionId, learningObjectId: lo, choice: "none" });
-      }
+    if (!entry || !sectionId) return;
+    await runOperation(key, `undo:${entry.operationId}`, (operationId) => api.readerCorrespondentDismiss({
+      extractionId, sectionId, targetExtractionId: entry.hit.extractionId, targetSectionId: entry.hit.sectionId,
+      operationId, undoOf: entry.operationId,
+    }), () => {
       setDismissed((current) => {
         const next = new Map(current);
         next.delete(key);
         return next;
       });
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusyKey(null);
-    }
-  }, [dismissed, busyKey, onError]);
+    });
+  }, [extractionId, sectionId, dismissed, runOperation]);
 
   const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
@@ -320,9 +361,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
                       {onCompare ? (
                         <button type="button" onClick={() => onCompare(hit)} style={LINK} aria-label={`${FIND_COPY.compare} with ${source.sourceTitle} ${hit.title}`}>{FIND_COPY.compare}</button>
                       ) : null}
-                      {correctable.length > 0 ? (
-                        <button type="button" onClick={() => void notAbout(hit)} disabled={busyKey === key} style={LINK} aria-label={`${FIND_COPY.notAbout}: ${source.sourceTitle} ${hit.title}`}>⋯ {FIND_COPY.notAbout}</button>
-                      ) : null}
+                      <button type="button" onClick={() => void notAbout(hit)} disabled={busyKey === key} style={LINK} aria-label={`${FIND_COPY.notAbout}: ${source.sourceTitle} ${hit.title}`}>⋯ {FIND_COPY.notAbout}</button>
                     </div>
                   </div>
                 );
@@ -340,8 +379,9 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
           </div>
           {peek.view ? (
             <SourceVoice source={peek.hit.sourceTitle} locator={peek.view.page !== null ? `p.${peek.view.page}` : null}>
-              {[peek.view.text, ...peek.view.nextSpans.map((span) => span.text)].slice(0, 3).map((text, index) => (
-                <p key={index} style={{ margin: "0 0 6px", ...(index === 0 ? { outline: `1px solid ${COLOR.borderStrong}`, outlineOffset: 2 } : {}) }}>{clip(text, 700)}</p>
+              {/* The blocks start at the jump locator: the first is the one outlined. */}
+              {peek.view.blocks.map((block, index) => (
+                <p key={block.spanId} data-peek-span={block.spanId} style={{ margin: "0 0 6px", ...(index === 0 ? { outline: `1px solid ${COLOR.borderStrong}`, outlineOffset: 2 } : {}) }}>{clip(block.text, 700)}</p>
               ))}
             </SourceVoice>
           ) : (

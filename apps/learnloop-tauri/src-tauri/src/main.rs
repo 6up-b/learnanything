@@ -625,6 +625,8 @@ fn main() {
             reader_reading_path_override,
             reader_correspondents,
             curriculum_coverage_correct,
+            reader_correspondent_peek,
+            reader_correspondent_dismiss,
             reader_figure_request,
             figure_request,
             reader_figure_revise,

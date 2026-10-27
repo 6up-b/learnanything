@@ -181,6 +181,61 @@ def build_span_view(
     }
 
 
+def record_span_exposures(
+    repo: Repository,
+    extraction_id: str,
+    span_ids: list[str],
+    *,
+    context: str = "other",
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    clock: Clock | None = None,
+) -> list[str]:
+    """Record a ``source_exposure`` event for each of these spans, in one
+    transaction: the passages a surface DISPLAYED, not only the one it was
+    asked for (Reader CA5a's peek shows a section's first blocks: Codex
+    review F2). The same ledger and row shape as :func:`build_span_view`'s,
+    so the coldness receipt's exposure scan matches each span exactly."""
+
+    if context not in _VALID_CONTEXTS:
+        context = "other"
+    ir = repo.load_document_ir(extraction_id)
+    if ir is None:
+        raise SpanViewError("extraction_not_found", f"No extraction IR for '{extraction_id}'.")
+    blocks = []
+    for span_id in span_ids:
+        block = ir.block_by_span(span_id)
+        if block is None:
+            raise SpanViewError("span_not_found", f"Span '{span_id}' not found in extraction '{extraction_id}'.")
+        blocks.append(block)
+    run = repo.get_extraction_run(extraction_id)
+    revision_id = run.get("revision_id") if run else None
+    revision = repo.get_source_revision(revision_id) if revision_id else None
+    source_id = revision.get("source_id") if revision else None
+
+    from learnloop.ingest.locators import format_block_span
+
+    ids: list[str] = []
+    with repo.atomic():
+        for block in blocks:
+            ids.append(repo.insert_source_exposure_event(
+                {
+                    "context": context,
+                    "extraction_id": extraction_id,
+                    "span_id": block.span_id,
+                    "revision_id": revision_id,
+                    "source_id": source_id,
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "page": block.page,
+                    "locator": format_block_span(extraction_id, block.span_id),
+                    "section_path": list(block.section_path),
+                },
+                clock=clock,
+            ))
+    return ids
+
+
 def _original_pdf_path(
     repo: Repository, revision: dict[str, Any] | None, fallback_uri: str | None
 ) -> Path | None:

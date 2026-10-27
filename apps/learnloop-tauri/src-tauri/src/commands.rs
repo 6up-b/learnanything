@@ -1407,6 +1407,8 @@ sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override
 // C0a's "not about this" correction): desktop only.
 sidecar_passthrough!(reader_correspondents, "reader.correspondents");
 sidecar_passthrough!(curriculum_coverage_correct, "curriculum.coverage_correct");
+sidecar_passthrough!(reader_correspondent_peek, "reader.correspondent_peek");
+sidecar_passthrough!(reader_correspondent_dismiss, "reader.correspondent_dismiss");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
 // figures, predictions and "what changed?"): desktop only.
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");

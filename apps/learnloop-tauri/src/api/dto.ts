@@ -6813,6 +6813,29 @@ export interface CorrespondentsDto {
 }
 
 export type CoverageCorrectionChoice = "is_about" | "not_about" | "none";
+
+/** CA5a's peek: the hit's own section's first blocks (never the next unit's). */
+export interface CorrespondentPeekDto {
+  extractionId: string;
+  sectionId: string;
+  sourceId: string;
+  sourceTitle: string;
+  title: string;
+  jumpSpanId: string;
+  page: number | null;
+  blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  exposureEventIds: string[];
+}
+
+/** CA5a's "not about this" (or its undo), one durable operation. */
+export interface CorrespondentOperationDto {
+  operationId: string;
+  choice: "not_about" | "none";
+  learningObjectIds: string[];
+  undoOf: string | null;
+  replayed: boolean;
+  createdAt: string;
+}
 /** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
 export interface CompareKeepContractDto {
   /** A library ask's comparison (the library answer is on). */
