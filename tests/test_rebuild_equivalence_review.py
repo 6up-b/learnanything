@@ -249,8 +249,8 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    # Reader CA2's mvp-0.35 follows it as the latest since the batch landing (and keeps it).
-    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.35"
+    # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36 as the latest (both keep it).
+    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.36"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
     assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
@@ -329,7 +329,7 @@ def test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain(tmp
     assert not refused.upgraded and load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    # The bare upgrade targets the latest (Reader CA2's mvp-0.35 since the batch landing), through this tag.
+    # The bare upgrade targets the latest (the kept replaced claims' mvp-0.36), through this tag.
     invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output

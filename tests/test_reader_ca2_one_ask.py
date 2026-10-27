@@ -97,9 +97,10 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
     from learnloop.params.parameter_registry import classify_config_path
 
     # Built after RW7b's mvp-0.32 as mvp-0.34; the batch landing renumbered it after rebuild equivalence's mvp-0.34.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == TAG == "mvp-0.35"
-    assert SUCCESSOR_CHAIN[-2] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG})
+    # The kept replaced claims' mvp-0.36 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-2] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.36"
+    assert SUCCESSOR_CHAIN[-3] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True
     for key in ("ask.panel_enabled", "ask.cold_help_converts"):

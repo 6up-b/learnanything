@@ -232,7 +232,7 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
-    # Reader CA2's one Ask (mvp-0.35) is the latest since the batch landing.
+    # The kept replaced claims (mvp-0.36, after Reader CA2's mvp-0.35) is the latest.
     from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
 
     assert f"{PREDECESSOR} -> {ONE_ASK_ALGORITHM_VERSION}" in result.output
