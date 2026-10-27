@@ -106,3 +106,74 @@ Every test command ran under `systemd-run --user --scope --quiet -p MemoryMax=5G
 - No paid calls and no live calls. No owner-vault copies; synthetic vaults only.
 
 The full suite runs at landing.
+
+## Verify 2 fixes
+
+The Codex verify of the fixes above (gpt-6.1-sol, job `20261027-143802-PmhjQw`) found two Mediums and one Low.
+All three reproduced and all three are fixed. The invariant they protect: a line may be counted twice until the
+next upgrade, but it is never lost or hidden from the live count.
+
+| id | severity | title | verdict | commit | test |
+|---|---|---|---|---|---|
+| V2-F1 | Medium | A failed mark archives the whole live log, a successor's denial included | fixed | `adedc67e3` (tests `f76db66b2`) | `test_v2_f1_an_unmarked_upgrade_leaves_the_log_live` |
+| V2-W | Medium | `_fsync_write` ignores a short `os.write`; a split can then lose complete lines | fixed | `adedc67e3` (tests `f76db66b2`) | `test_v2_a_short_write_that_resumes_completes_every_byte[archive,staging]`, `test_v2_a_failed_write_keeps_the_live_log_and_removes_what_it_created[archive,staging]`, `test_v2_a_failed_archival_never_touches_an_existing_archive` |
+| V2-F2 | Low | `summary` falls back to unlocked reads and can report a line both live and archived | fixed | `adedc67e3` (tests `f76db66b2`) | `test_v2_f2_a_report_without_the_lock_does_not_count_archives` |
+
+### Reproduction (before the fix)
+
+The tests were committed first (`f76db66b2`) and run against the unchanged module. All 7 failed; the 16
+earlier tests passed.
+
+- **V2-F1.** `cutover_mark` is patched to raise, and the upgrade is wrapped so a successor's denial is appended
+  after it returns. The command archived the whole log, the successor's line included, and the live count was 0.
+- **V2-W.** `os.write` is patched so one call writes a 64-byte prefix and returns 64. Later calls either write
+  normally ("resume") or raise `EFBIG` ("fail"), as under `RLIMIT_FSIZE` or a full disk. Each case runs on the
+  archive write and on the staging write of a split.
+  - Resume, archive: the archive held 64 bytes of the two marked lines, and the live log was replaced by the
+    later line. The marked lines were lost.
+  - Resume, staging: the live log was replaced by 64 bytes of the later line. That line was lost.
+  - Fail, archive: the live log survived, but a partial archive and the staging file were left behind.
+  - Fail, staging: the call did not raise, and the live log was replaced by the truncated tail.
+  - Fail beside an existing archive: the call did not raise.
+- **V2-F2.** `_log_lock` is patched to raise `PermissionError`. Between the live read and the archive listing,
+  the test renames the live log to an archive, as another process's archival would. The report gave
+  `denials: 2` and `archived_denials: 2` for the same two lines.
+
+### The fix
+
+- **No mark, no archive.** Without a mark, the archival cannot tell the lines from before the upgrade from a
+  successor's. `archive_denial_log(mark=None)` returns None and leaves the log live. The CLI says so on stderr,
+  as on the other archive-failure path: "AD guard denial log not archived (it could not be marked at the
+  upgrade's start); ad report counts its earlier lines until the next upgrade". The upgrade still succeeds.
+  The owner's clear-at-upgrade rule waits for the next upgrade on this degraded path, which errs toward showing
+  a denial. This replaces the "Mark failure" bullet above.
+- **Every byte, or a clean failure.**
+  - `_fsync_write` loops until every byte is written. A call that writes nothing raises `EIO`.
+  - On any failure after its open, `_fsync_write` removes the file it opened. That file is one it created
+    (`O_EXCL`) or the archival's own staging file. A failed exclusive open (a name already taken) leaves that
+    file alone, so an existing archive is never touched.
+  - In a split, a failure of the staging write or of `os.replace` removes the staging file and the new archive,
+    then re-raises. The live log is replaced only by the last step, so it is untouched.
+  - The CLI's existing handler names the failure on stderr, and the upgrade still succeeds. If an unlink itself
+    fails, the file stays: its lines are counted twice, never hidden.
+- **A report without the lock.** If the lock cannot be taken, `summary` gives the live count and its count by
+  entry point. It sets `archived` and `archived_denials` to None, with `archived_unavailable` naming why. The
+  markdown says "in the live log (archive counts unavailable: ...)" and omits the archived line. The live
+  count is never withheld. There is no retry, because a read-only directory would not change within one.
+
+There is no migration, no successor and no new parameter. The CLI help text is unchanged.
+
+### Gate
+
+Every test command ran under `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, with
+`-n 6`, one at a time.
+
+- `uv run --no-sync lint-imports --no-cache`: 36 kept, 0 broken.
+- `tests/test_ad_denial_log.py` alone, four runs: 23 passed each time.
+- Targeted pytest, the AD and contract files listed in the first gate: **6091 passed** (574s). That is the
+  earlier 6084 plus the 7 new tests.
+- Targeted pytest, every test file that invokes the CLI `upgrade` command (the list in the first gate): **975
+  passed, 12 skipped, 1 xfailed** (876s).
+- Not run, because nothing they cover changed: the durability lane, frontend, cargo and the DB reference
+  scripts.
+- No paid calls and no live calls. No owner-vault copies; synthetic vaults only.
