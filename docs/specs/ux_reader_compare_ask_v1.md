@@ -887,6 +887,18 @@ read, note, promotion or queue can show it; an earlier attempt's help opened on 
 workbench when the draft moves into steps (its carried hints); and a question a workbench binds counts in the
 item's window whatever its practice session, as a bound Reader question does (`hint_window.workbench_bound`).
 
+*As built (CA3, branch `reader/ca3-compare-anywhere`, `docs/reviews/reader-ca3-compare-anywhere.md`):* one
+request for every door on `reader.library_compare` (a door with no library answer opens its comparison's own
+`library_asks` row, no retrieval; an anchor without pins; named books that only narrow), the selection verb
+`compare_books` in Transfer beside *where else*, `compare_scope` as a decider-only route (one request of typed
+questions: the intent, one yes/no per book, the topic and an unknown name as spans of the learner's own words;
+pressed only; capped and time-boxed), chips with `×`, *+ add a book* and *change* (both `learner_card` rows), the
+refine box (`/`: books or a view) with *previous ▸*, *compare these books ▸*, and the tutor's offer opening the
+same comparison beside the book. Rendered through today's comparison view (CA4 redraws it by point). No migration,
+no successor: comparisons stay display and retrieval. Two deviations, recorded there: with the Decider
+unavailable the ask box answers as today's library ask and offers *compare all your books on "…" ▸* (one press)
+rather than running a paid comparison of every book unasked; and the pending line is one line, not two stages.
+
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---
