@@ -340,3 +340,39 @@ def figure_numbers(text: str | None) -> set[str]:
 
     return {number.group(0).lower() for match in _FIGURE_REFERENCE_RE.finditer(text or "")
             for number in _NUMBER_IN_RE.finditer(match.group("numbers"))}
+
+
+# --- what a figure's recorded role means -------------------------------------
+#
+# Reader CA1 (the Astra redesign; Sol verify of 788241756): the import's
+# figure-role validation (``exercise_authoring._figure_roles``) and the
+# print's overlap rule (``reader.as_printed.shows_unsafe``) read ONE
+# predicate, so a refusal the validator adds can't silently fall out of the
+# unsafe set. Every rejection reason it emits is classified here.
+
+#: Roles that say a figure is some exercise's answer or solution.
+FIGURE_ANSWER_ROLES = frozenset({"answer", "worked"})
+#: The validator's rejection reasons for a ``stimulus`` claim.
+FIGURE_REJECTED_ANOTHER_ANSWER = "another_exercise_answer"
+FIGURE_REJECTED_NUMBER_MISMATCH = "figure_number_mismatch"
+#: Whether each rejection makes the figure unsafe content. A figure another
+#: item calls its answer is an answer. A figure whose number contradicts the
+#: statement's is not the problem's input and may be anything; in the case
+#: that found the rule (F5: "Use Figure 1" with only Figure 2 selected) it
+#: was the completed answer, so it counts as unsafe (the cost is only a
+#: withheld free crop where it overlaps the problem).
+FIGURE_REJECTION_UNSAFE: dict[str, bool] = {
+    FIGURE_REJECTED_ANOTHER_ANSWER: True,
+    FIGURE_REJECTED_NUMBER_MISMATCH: True,
+}
+
+
+def figure_is_unsafe(role: str | None, rejected: str | None) -> bool:
+    """Whether a figure's recorded role makes it unsafe content: an answer
+    or worked role, or a refused stimulus claim whose reason says so (an
+    unknown reason does: fail closed). ``unrelated`` and an unrefused
+    ``stimulus`` are not."""
+
+    if role in FIGURE_ANSWER_ROLES:
+        return True
+    return rejected is not None and FIGURE_REJECTION_UNSAFE.get(rejected, True)

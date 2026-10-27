@@ -44,7 +44,12 @@ from learnloop.content.authoring.ai_contracts import (
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.ingest.block_roles import figure_numbers
+from learnloop.ingest.block_roles import (
+    FIGURE_ANSWER_ROLES,
+    FIGURE_REJECTED_ANOTHER_ANSWER,
+    FIGURE_REJECTED_NUMBER_MISMATCH,
+    figure_numbers,
+)
 from learnloop.ingest.ir import is_figure_block, selection_region
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.substrate.activity_patterns import (
@@ -243,8 +248,9 @@ def _item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str]
 
 #: The figure role shown with the problem (``ai_contracts.FigureRole``).
 STIMULUS = "stimulus"
-#: Roles that say a figure is some exercise's answer or solution.
-_SOLUTION_FIGURE_ROLES = frozenset({"answer", "worked"})
+#: Roles that say a figure is some exercise's answer or solution (shared with
+#: the print's overlap rule: ``ingest.block_roles.figure_is_unsafe``).
+_SOLUTION_FIGURE_ROLES = FIGURE_ANSWER_ROLES
 
 
 #: How strongly a claim keeps a figure from being shown: on several claims
@@ -300,9 +306,9 @@ def _figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None],
         if role == STIMULUS:
             own_numbers = figure_numbers(text)
             if span in claimed_elsewhere:
-                rejected = "another_exercise_answer"
+                rejected = FIGURE_REJECTED_ANOTHER_ANSWER
             elif named and own_numbers and not named & own_numbers:
-                rejected = "figure_number_mismatch"
+                rejected = FIGURE_REJECTED_NUMBER_MISMATCH
         roles[span] = (role, rejected)
     return roles
 

@@ -395,9 +395,50 @@ lies inside a retained figure's own box shows with that figure. Examples:
 the inset probe's inset inside Figure 4's box, or a solution box drawn over
 a validated-stimulus or legacy-owned graph. A check cannot open the page,
 and painting would erase input the learner needs, as Sol's (c) showed. The
-owner's bar ranks an unanswerable problem as unacceptable, and the free crop
-still withholds in exactly these cases. A neutral block overlapping a crop
-shows where it overlaps; it is not a solution by any recorded signal.
+owner's bar ranks an unanswerable problem as unacceptable. The free crop
+withholds these cases whenever the overlapping content is recorded as unsafe:
+a solution by span, role or heading; a figure that
+`ingest.block_roles.figure_is_unsafe` marks, which since the round below
+includes every refusal the import validation emits; or a sub-box remainder.
+An answer that no signal records (for example, a figure the author left
+`unrelated`) is neutral. It shows where it overlaps a retained area, as on
+main.
+
+**Sol verify of `788241756` (job `20261027-054305-6KQdvu`): one High,
+closed.**
+
+* The bug: the unsafe collector read only the literal roles `answer` and
+  `worked`. A figure refused because a sibling calls it its answer is stored
+  as `figure_role = "stimulus"` with `figure_role_rejected =
+  "another_exercise_answer"` and `owned = false`, so it counted as neutral.
+  A retained figure overlapping it gave a free crop with 7,910 answer
+  pixels.
+* The fix is one predicate, `ingest.block_roles.figure_is_unsafe(role,
+  rejected)`. It sits next to the rejection reasons, which are now constants
+  that the validator itself uses, and the `FIGURE_REJECTION_UNSAFE` table
+  classifies each reason. An unknown reason counts as unsafe (fail closed).
+  The print's unsafe set reads only this predicate, and the import shares
+  `FIGURE_ANSWER_ROLES` with it.
+* `figure_number_mismatch` is **unsafe**. Such a figure is not the
+  problem's input and could be anything, and in the case that produced the
+  rule (F5, "Use Figure 1" with only Figure 2 selected) it was the
+  completed answer. The cost is only a withheld free crop where it overlaps
+  the problem.
+* Tests:
+  - `test_a_siblings_answer_overlapping_a_retained_figure_gives_no_free_crop`
+    (Codex's probe: retained `(20,100,200,250)`, sibling's answer
+    `(150,150,230,230)`) gives `NO_CROP`, so 0 answer pixels. It showed a
+    free crop on `788241756`.
+  - `test_every_rejection_reason_the_validator_emits_is_classified` runs
+    the validator over every combination of claim, statement and sibling.
+    It checks that the emitted reasons equal the table's keys, that the
+    validator holds no reason literal, and that an unclassified reason
+    fails closed. On `788241756` it failed: the table did not exist.
+  - `test_and_a_check_on_your_own_keeps_the_problems_figure` checks that
+    the problem stays answerable during a check.
+* Gate for this round: `lint-imports` 36 kept, 0 broken. Targeted
+  `pytest -n 6` over the same 74 files: **2,044 passed, 5 skipped, 0 failed**
+  (3 min 31 s).
 
 Gate for this round: `lint-imports` 36 kept, 0 broken. Targeted
 `pytest -n 6` over the same 74 files: **2,041 passed, 5 skipped, 0 failed**

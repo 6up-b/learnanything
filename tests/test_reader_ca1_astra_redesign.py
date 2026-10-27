@@ -99,6 +99,11 @@ LAYOUT = (
     ("s7", "Text", 7, [72.0, 20.0, 540.0, 60.0], RED, "Read y at x = 2 from the plot."),
     ("gp", "Figure", 7, [72.0, 80.0, 300.0, 260.0], GREEN, "The plot of y against x."),
     ("lb", "Text", 7, [100.0, 240.0, 200.0, 255.0], GREY, "0 1 2 3"),
+    # Sol verify of 788241756: a sibling's answer figure overlapping a retained figure.
+    ("tq", "Text", 13, [20.0, 20.0, 540.0, 60.0], RED, "Find the slope of the line in Figure 7."),
+    ("tz", "Text", 13, [20.0, 300.0, 540.0, 340.0], RED, "Sketch the completed graph."),
+    ("fs", "Figure", 13, [20.0, 100.0, 200.0, 250.0], GREEN, "Figure 7. A line."),
+    ("fx", "Figure", 13, [150.0, 150.0, 230.0, 230.0], BLUE, "Figure 8. The completed sketch."),
 ) + tuple(
     # Sol verify ruling: a problem's box inside an excluded box, once per
     # exclusion reason (pages 8-12): (P) the problem, (E) the enclosing box.
@@ -121,7 +126,7 @@ INSETS = ((2, [80.0, 180.0, 100.0, 210.0]), (5, [85.0, 105.0, 95.0, 120.0]),
 H1_REGION = {"spanId": "h1", "page": 2, "bbox": [10.0, 120.0, 40.0, 150.0]}
 FA_REGION = {"spanId": "fa", "page": 5, "bbox": [0.0, 100.0, 80.0, 200.0]}
 A_REGION = {"spanId": "fA", "page": 6, "bbox": [0.0, 100.0, 100.0, 200.0]}
-PAGES = 13
+PAGES = 14
 
 
 def _seed(root, repository) -> None:
@@ -691,3 +696,66 @@ def test_and_in_a_check_on_your_own(seeded, cold):
                               roles={"gp": "stimulus"})
     view = _view(ctx, item_id)
     assert view["kind"] == "figure" and _share(_image(view["crops"][0]["image"]), GREEN) > 0.8
+
+
+# -- Sol verify of 788241756: one predicate for an unsafe figure -------------------------------------------
+
+
+def _sibling_answer_import(paths, repository) -> str:
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
+    from tests.test_exercise_authoring import FakeClient, _item, _write_facet_registry
+
+    _write_facet_registry(paths.root.parent)
+    raw = {"nodes": [{"spanId": span, "quote": _text(span)} for span in ("tq", "fs", "fx", "tz")]}
+    client = FakeClient(ExerciseAuthoring(items=[
+        _item(statement_md="Find the slope of the line in Figure 7.", title="Exercise 1",
+              figure_roles=[FigureRolePayload(span_id="fs", role="stimulus"),
+                            FigureRolePayload(span_id="fx", role="stimulus")]),
+        _item(statement_md="Sketch the completed graph.", title="Exercise 2",
+              figure_roles=[FigureRolePayload(span_id="fx", role="answer")]),
+    ]))
+    first, _second = (summary["practice_item_id"] for summary in EX.import_exercises(
+        paths.root, repository, client, extraction_id=EXT, raw_selection=raw, source_id="src_rd")["items"])
+    return first
+
+
+def test_a_siblings_answer_overlapping_a_retained_figure_gives_no_free_crop(seeded, warm):
+    paths, ctx, repository = seeded
+    item_id = _sibling_answer_import(paths, repository)
+    ref = _refs(paths, item_id)["fx"]
+    assert (ref["figure_role"], ref["figure_role_rejected"], ref["owned"]) == (
+        "stimulus", "another_exercise_answer", False)
+    view = _view(ctx, item_id)
+    _no_free_crop(view, "tq")                                            # no crop: 0 answer pixels
+
+
+def test_and_a_check_on_your_own_keeps_the_problems_figure(seeded, cold):
+    paths, ctx, repository = seeded
+    view = _view(ctx, _sibling_answer_import(paths, repository))
+    assert view["kind"] == "figure" and len(view["crops"]) == 1         # answerable (the residual: fx's ink in fs's box)
+
+
+def test_every_rejection_reason_the_validator_emits_is_classified():
+    import inspect
+    import itertools
+
+    from learnloop.content.authoring import exercise_authoring as EX
+    from learnloop.ingest.block_roles import FIGURE_REJECTION_UNSAFE, figure_is_unsafe
+
+    emitted: set[str] = set()
+    figures = {"n": "Figure 2. A graph.", "u": "A graph."}
+    for statement, elsewhere, role in itertools.product(
+            ("Use Figure 1.", "Use the graph.", "Use Figure 2."), (set(), {"n"}, {"u"}, {"n", "u"}),
+            ("stimulus", "answer", "worked", "unrelated")):
+        for _role, rejected in EX._figure_roles({"n": role, "u": role}, figures, statement,
+                                                claimed_elsewhere=elsewhere).values():
+            if rejected is not None:
+                emitted.add(rejected)
+    assert emitted == set(FIGURE_REJECTION_UNSAFE)                       # every reason it emits is classified
+    # ...and the validator names no reason outside the shared table.
+    assert 'rejected = "' not in inspect.getsource(EX._figure_roles)
+    assert all(figure_is_unsafe("stimulus", reason) for reason in FIGURE_REJECTION_UNSAFE)
+    assert figure_is_unsafe("stimulus", "a_reason_added_later")         # an unclassified reason fails closed
+    assert figure_is_unsafe("answer", None) and figure_is_unsafe("worked", None)
+    assert not figure_is_unsafe("stimulus", None) and not figure_is_unsafe("unrelated", None)

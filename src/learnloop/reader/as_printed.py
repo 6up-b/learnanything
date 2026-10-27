@@ -18,8 +18,10 @@ The rules held here, on the server:
   only where boxes overlap. One rule settles that (Sol verify ruling,
   2026-10-27; :func:`shows_unsafe`): when a retained area overlaps
   *unsafe* content (a block on the problem's pages excluded as a solution
-  by span, role or heading, a figure refused as an answer or worked, or the
-  rest of a sub-box-selected block's box), the free crop is ``NO_CROP``,
+  by span, role or heading, a figure the import recorded as unsafe by
+  ``ingest.block_roles.figure_is_unsafe`` (an answer, worked, or a refused
+  claim such as another exercise's answer), or the rest of a
+  sub-box-selected block's box), the free crop is ``NO_CROP``,
   the charged original page offered. A neutral block overlapping (a scale
   label over a graph) is not ambiguity. During a check on your own a
   retained figure still shows (the problem must stay answerable): the
@@ -106,6 +108,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from learnloop.ingest.block_roles import figure_is_unsafe
 from learnloop.ingest.ir import DocumentBlock, is_figure_block, page_region, selection_region
 
 #: Reads blocks' effective roles over a connection, keyed (extraction, span)
@@ -209,7 +212,7 @@ def shows_unsafe(
     its selected sub-box) overlaps unsafe content (Sol verify ruling,
     2026-10-27): the box of a block in ``unsafe`` that is not retained (a
     book-solution span, a solution role, a heading-led solution, a figure
-    refused as an answer or worked), or the rest of a sub-box-selected
+    ``figure_is_unsafe`` marks), or the rest of a sub-box-selected
     block's box. Then no free crop can be shown without it (``NO_CROP``).
     Neutral blocks overlapping a crop (a scale label over a graph) are not
     ambiguity: a crop shows its retained area, whole."""
@@ -270,8 +273,8 @@ class PrintedOrigin:
     #: :func:`_problem_only`; None: the figures among ``span_ids``.
     figure_span_ids: tuple[str, ...] | None = None
     #: The unsafe blocks on the problem's pages (:func:`shows_unsafe`): solution
-    #: blocks by span, role or heading, and figures refused as an answer or
-    #: worked. Set by :func:`_problem_only`.
+    #: blocks by span, role or heading, and figures ``figure_is_unsafe``
+    #: marks. Set by :func:`_problem_only`.
     unsafe_span_ids: tuple[str, ...] = ()
 
     @property
@@ -644,8 +647,12 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
                 or (not is_figure_block(block) and _answer_heading(block.text) == "solution"))
 
     dropped = {span for span, block in blocks.items() if is_solution(span, block)}
+    # A figure the import's validation recorded as an answer, worked, or
+    # refused for a reason that means so (Sol verify of 788241756: a
+    # sibling's answer is stored as a refused "stimulus"), by the one
+    # predicate the validation's reasons are classified in.
     refused = {span for extraction, span, ref in _block_refs(item) if extraction == origin.extraction_id
-               and _ref_field(ref, "figure_role") in ("answer", "worked")}
+               and figure_is_unsafe(_ref_field(ref, "figure_role"), _ref_field(ref, "figure_role_rejected"))}
     unsafe = tuple(sorted({span for span, block in on_pages.items() if is_solution(span, block)} | refused))
     # The original page outlines the problem: never a solution or a refused figure.
     located = tuple(span for span in origin.located_by if span not in dropped and span not in refused) \
