@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 224
+schema_head: 225
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad23_fakes.py`
+- `tests/background_owners.py`
 - `tests/test_ad23_fix_r5.py`
 - `tests/test_build_study_map_routing.py`
 - `tests/test_capture_desktop.py`
@@ -134,7 +135,6 @@ None found by exact static reference scan.
 - `tests/test_reader_reconstruct.py`
 - `tests/test_reading_hardening_2_fixes.py`
 - `tests/test_reading_hardening_landing.py`
-- `tests/test_reading_hardening_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 224
+schema_head: 225
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"

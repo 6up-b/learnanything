@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 224
+schema_head: 225
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -84,6 +84,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._record_attempt_practice_item_state()`
 - `Repository._upsert_practice_item_state_record()`
 - `Repository.deactivate_practice_item_serving()`
 - `Repository.find_record()`
@@ -141,6 +142,7 @@ Indexes and uniqueness:
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
+- `tests/test_attempt_content_state_race.py`
 - `tests/test_attempts.py`
 - `tests/test_card_lineage.py`
 - `tests/test_causal_factor_deferral.py`
@@ -155,7 +157,6 @@ Indexes and uniqueness:
 - `tests/test_evaluation.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_exam_seeding.py`
-- `tests/test_family_memory_projection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

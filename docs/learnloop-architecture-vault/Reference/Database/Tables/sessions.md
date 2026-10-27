@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 224
+schema_head: 225
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
+  - "src/learnloop/db/stores/session_ownership.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -45,7 +45,7 @@ tags:
 
 ## Why it exists
 
-Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `started_at`, `energy`, `sleep_quality`, making the operational relationship explicit. ^table-purpose
+Tracks learning-session lifecycle state. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `owner_device_id`, `started_at`, `energy`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
@@ -54,7 +54,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`, `161_collection_contract.sql`.
+- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`, `161_collection_contract.sql`, `225_session_ownership.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -71,6 +71,8 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `available_minutes` | `INTEGER` | no | — | — | Stored value |
 | `notes_md_path` | `TEXT` | no | — | — | Stored value |
 | `updated_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `owner_device_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `owner_generation` | `INTEGER` | yes | `0` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -100,11 +102,13 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/session_ownership.py`
 
 ### Upstream callers of the repository access surface
 
@@ -112,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
@@ -127,7 +132,6 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/reader_tutor.py`
-- `src/learnloop_sidecar/handlers/sessions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -179,7 +183,7 @@ CREATE TABLE sessions (
   available_minutes INTEGER CHECK (available_minutes IS NULL OR available_minutes >= 0),
   notes_md_path TEXT,
   updated_at TEXT
-);
+, owner_device_id TEXT, owner_generation INTEGER NOT NULL DEFAULT 0);
 ```
 
 ## Related notes

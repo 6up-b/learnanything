@@ -178,7 +178,7 @@ def test_the_tables_are_classified() -> None:
 def test_head_fixture_at_head_with_214_in_rollback_mode() -> None:
     # RW2d's 219 landed on this head after AD2+AD3 (its landing rebuilt the fixture with only 219 applied),
     # then local retrieval P1's 220 (the same, with only 220 applied).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 224
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 225
     assert {213, 214, 215, 216, 217, 218, 219, 220} <= applied_versions(HEAD)
     header = HEAD.read_bytes()[:20]
     assert (header[18], header[19]) == (1, 1)  # rollback journal, no WAL companion
@@ -202,7 +202,7 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     apply_migrations(database, migrations_dir=through)
     # Since curriculum C0a's 222 the head is 222: such a vault holds 215-222 without 214.
-    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 224
+    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 225
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)

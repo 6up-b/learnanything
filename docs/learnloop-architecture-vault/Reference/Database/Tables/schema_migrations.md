@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 224
+schema_head: 225
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -111,8 +111,8 @@ None found by exact static reference scan.
 - `tests/test_practice_index_adapters.py`
 - `tests/test_reader_inquiry_status.py`
 - `tests/test_secondary_attach.py`
+- `tests/test_session_ownership_migration.py`
 - `tests/test_sqlite_wal.py`
-- `tests/test_sqlite_wal_lifecycle.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "mobile_devices"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef8338e85e75167fb6e87dbbcd994bd7fe2b6a3"
-source_commit_timestamp: "2026-10-26T21:57:18-04:00"
+source_commit: "3d7dd4b116294c885c097ab498fc25532ad57d25"
+source_commit_timestamp: "2026-10-27T10:21:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_devices"
   - "table mobile_devices"
-schema_head: 224
+schema_head: 225
 table_name: "mobile_devices"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/171_mobile_capture.sql"
   - "src/learnloop/capture/devices.py"
+  - "src/learnloop/db/stores/session_ownership.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -46,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/171_mobile_capture.sql`.
-- **Schema touched by:** `171_mobile_capture.sql`.
+- **Schema touched by:** `171_mobile_capture.sql`, `225_session_ownership.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -83,6 +84,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/capture/devices.py`
+- `src/learnloop/db/stores/session_ownership.py`
 
 ### Direct SQL writers
 
@@ -99,6 +101,7 @@ None found by exact static reference scan.
 
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_mobile_pairing.py`
+- `tests/test_session_ownership.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
