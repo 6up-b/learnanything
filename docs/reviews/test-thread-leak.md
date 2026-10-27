@@ -195,3 +195,61 @@ They are mostly whole upgrade chains (`test_mvp0NN_upgrade.py`, `test_method_exp
 * **CLAUDE.md.** The Tests section says `conftest.py` "does three things that surprise people". It now does two more: the thread-leak guard (`tests/thread_guard.py`) and closing the background owners test code constructs (`tests/background_owners.py`). This stage did not edit CLAUDE.md. The owner may want a line there.
 * **The idle sidecar's pollers.** Idle, the reading sweep and the three post-attempt slots each wake every 30 s for a 3–16 ms pass (§1.2). That is not a busy loop (the test pins it), but the post-attempt slots could block until a notify or the next lease or backoff time instead of polling. Left as is: it is not needed for the leak, and it would change when the queue is reconciled.
 * **Other worktrees.** The fix helps a suite only once that branch has it. The CA1 landing's runs during this stage (in `learnanything-merge2`) still showed the leak: a worker at 677–737 threads, load average up to 214, and a stall at the end.
+
+## 7. Landing (2026-10-27)
+
+**Merge.** Branch `merge/tleak-onto-main` in `learnanything-merge3`: `git merge --no-ff fix/test-thread-leak` (tip `661ed806e`) onto main `680bb9e18` (the batch landing: CA2, RW5d P1, LR P2, mvp-0.35, migrations 223/224; CA1 before it) is `af9ec88af`. No conflicts. No migration, successor or config key; the root `.gitignore` is unchanged; only `.py` and `.md` files change against main (no database or binary).
+
+### 7.1 The guard on code that landed after the guard's base
+
+Code that reached main after `497169069` had never run under `tests/thread_guard.py`: CA1, and the batch (CA2's workbench, RW5d's figure requests and the QuickJS sketch tier, LR P2's query student). Rebuild equivalence and mobile PR-2 are in the base. Survey: every test file `git diff --name-only 497169069 680bb9e18 -- tests/` names (75), plus the test files for the modules those landings touched (found by file name and with `grep` for `student_encoder`, `student_server`, `query_student`, the figures service and routes, the sketch tier, `reader_tutor`, the workbench and figures handlers, and the local-embeddings launcher and worker): 141 files in four chunks, each `flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G -- pytest -n 6` in report mode with the real 2 s grace.
+
+One source, a test double, in three tests:
+
+| Threads | Thread | Created at | Tests |
+|---|---|---|---|
+| 3 | `Thread-N (serve_forever)` | `tests/query_student_fakes.py` `thread_spawn` | `test_query_student.py`: `..._starts_lazily_serves_and_queues_the_teacher_replay`, `..._kill_switches_take_the_student_and_the_replay_out`, `..._resolver_serves_the_adopted_student_...` |
+
+**Cause.** `thread_spawn` stands in for the query process: it runs the real `student_server.serve_forever` on a thread and nothing stopped it, so each one served until its 5 s idle exit, after its test had finished. Production does not have this problem: the real student is a separate process that exits when idle or on a `shutdown` request (`yield_gpu_students`), and `StudentEncoder` starts no thread.
+
+**Fix (`008a59fe2`).** `thread_spawn` records each service and its socket. The new `stop_thread_servers()` sends each one the `shutdown` request the real process obeys, joins it within a bound, and asserts that none is left. The file's autouse `_fresh` fixture calls it before it removes the runtime directory that holds the sockets. No test was skipped, xfailed or loosened. `ALLOWED` stays empty.
+
+Nothing else leaked: CA1, CA2, RW5d (figure requests, the sketch tier) and the rest of LR P2 left no thread alive. The LR P2 torch lane (below) also ran its trainer and meter tests under the guard and passed.
+
+Survey failures that were not leaks: `pypdfium2` was missing because `uv sync --extra dev --extra mobile` removes it, as in §5 (`test_marker_pdfium_worker.py` ×9, the CA1 crop tests ×10, `test_span_view.py::test_span_view_renders_available_local_pdf_page`). All of them pass after `uv pip install pypdfium2`. `test_reader_tutor_retrieval.py::test_without_a_ready_verification_nothing_is_retrieved_or_claimed` failed every time, alone too, because of a stale ChatGPT-plan sign-in store from 2026-10-15 under the worktree's ignored `.pytest_tmp/global_settings_isolated/chatgpt_plan/`. Some earlier run on another branch had written it there, and the conftest's isolated `LEARNLOOP_CONFIG_DIR` persists across sessions, so `verification_route` found a "ready" plan client. The store was moved aside, unread, to `.pytest_tmp/stale-20261015/`, and the file then passed 23/23. The full suite below did not recreate the store. That is an environment artifact, not a regression (see 7.3).
+
+### 7.2 Gate (at `008a59fe2`)
+
+All runs used `env -i` with an empty, existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR (plus `UV_CACHE_DIR`), and pytest ran only in the memory-capped scopes.
+
+* `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`.
+* `uv run lint-imports --no-cache`: **36 kept, 0 broken.**
+* Targeted (the 141 files of 7.1, guard on): only the leak above and the environment failures it lists; all pass after the fix and the environment repair. The rerun of the six affected files had 131 passed and 8 skipped (torch), and the remaining failure was the stale-store one, which then passed.
+* Durability lane (`-m durability`, 5G, `-n 6`): **138 passed, 1 skipped** in 53 s.
+* LR P2 torch lane (temporary `uv sync --extra dev --extra mobile --extra pdf`; `tests/test_query_student.py tests/test_query_student_gpu.py`): **51 passed, 1 skipped** (the GPU smoke, opt-in through `LEARNLOOP_GPU_SMOKE=1`) in 25 s. The standard extras and `pypdfium2` were then restored.
+* **The full suite, once:** `flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=10G -p MemorySwapMax=2G -- uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=...`: **10 failed, 21,937 passed, 89 skipped, 41 xfailed in 1,929.9 s (32 min 10 s)**, wall 1,934 s. No hang, no faulthandler dump, and no test failed the thread-leak guard. The 10 failures are the Codex CLI 0.164.0 break listed in §4.2 (`test_codex_isolation_mcp_check.py` ×3, `test_codex_lockdown_round2.py` ×3, `test_codex_lockdown_round3.py` ×3, `test_diagnosis_isolation.py::test_configured_mcp_servers_are_listed_and_disabled`). `test_plan_first_transport_offer_grants.py::test_p1_...` passed in the suite (56 s) and again alone at load ~6 (46 s).
+  * **Compared with earlier runs:** 55 min for this stage's own suite on its base (§4.2). The batch landing's three runs on main had a hang, a second hang, and a 41 min run. The ~2 h runs before the fix, one of which stalled for 4 h.
+  * **Threads per process** (sampled every 2 s from `/proc/<pid>/status`, 964 samples): worker peaks were **94, 65, 50, 39, 39, 36, 36, 34**, against 33 at idle (native pools). The controller peaked at 49, and a `multiprocessing` child at 35. All live pytest processes together peaked at 383 threads.
+  * **Load average (1 min):** peak **11.1**, against 88.5 in §4.2's run and 400+ before the fix.
+  * **The 10 slowest tests:**
+
+```
+167.27s call     tests/test_evsi_multisim.py::test_cli_multisim_quick_fits_every_family_and_reports_claims
+120.30s call     tests/test_ad23_successor.py::test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest
+115.91s call     tests/test_mvp011_upgrade.py::test_existing_vaults_keep_their_version_until_the_owner_upgrades
+101.15s call     tests/test_batch3_landing.py::test_upgrade_to_mvp035_works_from_every_supported_version[mvp-0.9]
+ 98.37s call     tests/test_recurrence_commands.py::test_the_upgrade_command_defaults_to_the_latest
+ 97.38s call     tests/test_recurrence_commands.py::test_the_upgrade_command_prints_the_advisory_guard_status
+ 91.61s call     tests/test_method_explicit_upgrade.py::test_upgrade_through_the_chain_from_earlier_successors
+ 85.37s call     tests/test_e0_relabel_round.py::test_a_reused_run_resends_only_the_changed_requests_and_keeps_its_own_results
+ 83.64s setup    tests/test_sim_teach_back.py::test_runner_completes_session_with_teach_back_item
+ 80.02s call     tests/test_e0_review_round1.py::test_f4_f11_the_paid_cli_keeps_receipts_in_its_own_repository_and_resumes
+```
+
+* **Model receipts:** nothing ran outside pytest except `uv sync`, `uv pip install` and `lint-imports`, none of which opens a vault. No vault or database was created outside pytest, and the empty HOME, CODEX_HOME and config directories hold no receipt or database, so no `model_call_receipts` were written outside pytest.
+* No frontend, Rust, schema or config change: vitest, `cargo check` and the DB reference were not needed.
+
+### 7.3 Open items from the landing
+
+* **The persistent isolated config directory.** `tests/conftest.py` points `LEARNLOOP_CONFIG_DIR` at a fixed `.pytest_tmp/global_settings_isolated` that is never cleared, so state one session writes there (here a ChatGPT-plan sign-in store from 2026-10-15) changes later sessions' results. Today's suite wrote none. A per-session directory, or a check that fails a test which writes a sign-in store there, would close this. It is left for the owner, since it changes test infrastructure that all xdist workers share.
+* The CLAUDE.md line from §6 still stands.
