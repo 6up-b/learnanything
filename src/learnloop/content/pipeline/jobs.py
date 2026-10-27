@@ -3968,8 +3968,17 @@ class DurableIngestJobs:
         poll_interval_seconds: float = 1.0,
         background: bool | None = None,
         reader_synth_client_factory: Any = None,
+        sweep_abandoned_synthesis: bool = True,
     ) -> None:
-        """Attach the wrapper to a loaded vault. Called from SidecarContext.load."""
+        """Attach the wrapper to a loaded vault. Called from SidecarContext.load.
+
+        ``sweep_abandoned_synthesis`` (mobile PR-3, ``spec_mobile_tailnet_v1``
+        §3.3): only a primary host finalizes leaseless synthesis runs older
+        than the lease cutoff when it first binds. A secondary host (the
+        mobile host's restricted runner, M3) binds with False: it fences
+        expired leases and leaves a synchronous run the primary may still be
+        executing alone. The default keeps the primary's behaviour.
+        """
 
         with self._lock:
             self._reader_synth_client_factory = reader_synth_client_factory
@@ -4019,7 +4028,7 @@ class DurableIngestJobs:
             self._reading_sweep_wake.set()
         # Recover anything a prior process left mid-flight before draining.
         if not same_vault:
-            runner.recover_stale_leases()
+            runner.recover_stale_leases(sweep_abandoned_synthesis=sweep_abandoned_synthesis)
         # Jobs that finished before this bind are already reflected in the vault
         # load that accompanies it; only jobs completing AFTER this point should
         # trigger a reload from the batch-polling handlers.

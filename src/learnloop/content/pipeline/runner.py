@@ -718,7 +718,7 @@ class IngestRunner:
 
     # -- recovery / drive --------------------------------------------------
 
-    def recover_stale_leases(self) -> list[str]:
+    def recover_stale_leases(self, *, sweep_abandoned_synthesis: bool = True) -> list[str]:
         """Startup recovery (§6.2), run when a host opens the vault.
 
         Expired ``running`` leases become ``failed(interrupted)`` and their
@@ -726,6 +726,13 @@ class IngestRunner:
         process are finalized. Returns the recovered job ids. When another
         writer holds the vault lock past ``_LEASE_LOCK_TIMEOUT_S``, recovery is
         skipped and returns ``[]``; the drain expires leases on its next tick.
+
+        ``sweep_abandoned_synthesis=False`` (mobile PR-3,
+        ``spec_mobile_tailnet_v1`` §3.3): a secondary host fences expired
+        leases only. The sweep cannot tell an abandoned synchronous synthesis
+        run from one the primary (the desktop's RPC or a CLI command) is still
+        executing, because those runs hold no lease; only the primary, which
+        knows it just started, may treat them as abandoned.
         """
 
         try:
@@ -733,7 +740,8 @@ class IngestRunner:
                 self.vault_root, purpose="ingest_lease_recovery", timeout_s=_LEASE_LOCK_TIMEOUT_S
             ):
                 recovered = self._expire_stale_leases_locked()
-                self._finalize_abandoned_synthesis_runs_locked()
+                if sweep_abandoned_synthesis:
+                    self._finalize_abandoned_synthesis_runs_locked()
         except VaultLockTimeout:
             _LOG.warning("Skipped ingest lease recovery: the vault lock is busy", exc_info=True)
             return []
