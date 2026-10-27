@@ -524,3 +524,49 @@ def test_v2_f2_a_report_without_the_lock_does_not_count_archives(tmp_path, monke
     text = render_markdown(report)
     assert "refused 2 read(s) or write(s)" in text and "archive counts unavailable" in text
     assert "are archived" not in text
+
+
+def test_v3_an_interrupt_after_the_replace_keeps_the_archive(tmp_path, monkeypatch):
+    """Verify 3 (Medium): the replace commits and an interrupt arrives before it returns. The
+    live log now holds only the later lines, so the archive must stay; deleting it would lose
+    the marked lines for good. Counting them twice is accepted, hiding them is not."""
+
+    import os
+
+    sqlite_path = tmp_path / "state.sqlite"
+    log = D.denial_log_path(sqlite_path)
+    mark, before = _split_log(sqlite_path)
+    real_replace = os.replace
+
+    def replace_then_interrupt(src, dst):
+        real_replace(src, dst)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(D.os, "replace", replace_then_interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark)
+    monkeypatch.undo()
+    archives = D.archived_logs(sqlite_path)
+    assert len(archives) == 1, "the archive survives a replace that committed"
+    assert archives[0].read_bytes() + log.read_bytes() == before, "every line is in the archive or the live log"
+
+
+def test_v3_a_replace_that_fails_without_effect_still_cleans_up(tmp_path, monkeypatch):
+    import errno
+    import os
+
+    sqlite_path = tmp_path / "state.sqlite"
+    log = D.denial_log_path(sqlite_path)
+    mark, before = _split_log(sqlite_path)
+
+    def failing_replace(src, dst):
+        raise OSError(errno.EIO, "replace failed")
+
+    monkeypatch.setattr(D.os, "replace", failing_replace)
+    with pytest.raises(OSError):
+        D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=mark)
+    monkeypatch.undo()
+    assert log.read_bytes() == before, "the live log is untouched"
+    assert D.archived_logs(sqlite_path) == [], "no archive left beside an untouched live log"
+    assert not log.with_name(D.LOG_NAME + ".tmp").exists(), "no staging file"
+    assert os.path.exists(log)

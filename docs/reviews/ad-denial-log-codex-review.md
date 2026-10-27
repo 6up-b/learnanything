@@ -177,3 +177,17 @@ Every test command ran under `systemd-run --user --scope --quiet -p MemoryMax=5G
 - Not run, because nothing they cover changed: the durability lane, frontend, cargo and the DB reference
   scripts.
 - No paid calls and no live calls. No owner-vault copies; synthetic vaults only.
+
+## Verify 3 (job 20261027-151040-xekeGc)
+
+- **Confirmed fixed:** all three round-2 items, V2-F1, V2-W and V2-F2.
+- **New Medium:** an interrupt such as SIGINT after `os.replace(staged, live)` committed reached the shared
+  `except BaseException` cleanup. That cleanup removed the archive. The live log then held only the later lines,
+  so the marked lines were lost.
+- **Fix (orchestrator):** the replace now has its own `try`.
+  - On any exception it removes the staging file and the archive only when the live log is provably still the
+    original file (same device and inode as the mark). Otherwise the archive stays.
+  - This accepts double counting and never risks loss.
+- **Tests:** `test_v3_an_interrupt_after_the_replace_keeps_the_archive` failed before the fix.
+  `test_v3_a_replace_that_fails_without_effect_still_cleans_up` pins the cleanup when the replace had no effect.
+- **Gate:** test_ad_denial_log plus the AD guard, CLI help and architecture files: 95 passed.

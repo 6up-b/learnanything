@@ -280,10 +280,24 @@ def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, 
         staged = live.with_name(LOG_NAME + ".tmp")
         try:
             _fsync_write(staged, tail, exclusive=False)
-            os.replace(staged, live)
         except BaseException:
             _remove(staged)
             _remove(target)
+            raise
+        try:
+            os.replace(staged, live)
+        except BaseException:
+            # An interrupt can arrive after the replace committed. The archive is removed only when
+            # the live log is provably still the original file; otherwise it holds the only copy of
+            # the marked lines.
+            try:
+                current = os.stat(live)
+                untouched = (current.st_dev, current.st_ino) == mark.identity
+            except OSError:
+                untouched = False
+            if untouched:
+                _remove(staged)
+                _remove(target)
             raise
         return target
 
