@@ -220,6 +220,15 @@ it("a diagnostic block: no original page and no crop of the page, only what the 
 // Codex review F4: a problem imported from a Reader selection (no canonical
 // exercise) keeps its print on the practice screen: the page, the original
 // page counted once, the crop.
+it("an empty exercise label leaves no dangling separator, and an untitled book is 'your book' (CA1 polish)", async () => {
+  api.practiceAsPrinted.mockResolvedValue({ ...PAGE_VIEW, locator: { sourceTitle: null, exerciseLabel: null, pageLabel: "297" } });
+  await open("classic", { canonicalExercise: { ...item().canonicalExercise, label: "  ", sourceTitle: "" } });
+  const header = await screen.findByTestId("canonical-exercise");
+  await waitFor(() => expect(header.textContent).toContain("p.297"));
+  expect(header.textContent).toMatch(/^From your book · p\.297/);
+  expect(header.textContent).not.toContain(":");
+});
+
 it("a selection import: the page's locator and the original page, counted as the book", async () => {
   await open("classic", { canonicalExercise: null });
   const line = await screen.findByTestId("printed-locator");
