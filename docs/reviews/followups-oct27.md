@@ -30,12 +30,14 @@ caught the drain thread still running.
   no longer depends on timing:
   - it drains until no job of this runner is `queued` or `running` (a claim deferred by a busy vault lock is
     retried);
-  - a hang guard (900 s, labelled `keep`: it is not a pass/fail timing) only stops a drain that never ends, after
-    its current job;
-  - the thread is always joined;
-  - it then asserts that nothing is still pending.
+  - a hang guard (900 s, labelled `keep`: it is not a pass/fail timing) only stops a drain that never ends. Past
+    it, the drain cancels every pending batch through the runner's own cancellation, gives the worker a bounded
+    grace (60 s, `keep`) to return, and fails. A job blocked where no cancellation reaches it fails the drain
+    naming the worker's stack, instead of an unbounded join (corrected after review F1, see
+    `followups-oct27-codex-review.md`);
+  - a finished drain then asserts that nothing is still pending.
 
-  A slow drain can no longer turn into a `KeyError` or a leaked thread.
+  A slow drain can no longer turn into a `KeyError` or a leaked thread, and a stuck one fails bounded.
 - The harness fixture gives `vault_lock` an `os` proxy whose `fsync` does nothing. Coverage is unchanged: the holder
   file is still written, and every grant check runs as before.
 - Alone: P1 now takes 36 s, down from ~52 s, and the whole file 48 s.
@@ -70,8 +72,9 @@ and arxiv_v2 hold neither.
   - It asserted `(plans, blocks) == (0, 0)` after the plan RPCs, but the copy already holds the owner's plans.
   - Now `_plan_rows` returns every plan row and planned block, whole, and the test asserts they are equal before and
     after the calls.
-  - This is stronger than before: no row may change, not only none be added. On a vault with no plans it is the same
-    `([], [])`.
+  - No row may change, not only none be added. On a vault with no plans it is the same `([], [])`. The snapshot is
+    taken before the first disabled Today read and compared after the last one (corrected after review F2: the
+    first version took it after the first read and compared before the last).
 - `test_router_r2a_serving::test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_copies`
   - `_plan_trace` read every planned block, including the owner's 3. Those were built by the owner's router at
     mvp-0.31, so their detail carries `router`/`staged_frame`, and the "off has no router detail" assertion failed.
