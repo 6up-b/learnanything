@@ -220,9 +220,16 @@ class TeacherService:
         return [list(map(float, row[0])) for row in self.model.encode_queries(list(texts))]
 
 
+# Every in-thread query service ``thread_spawn`` started, with its socket, until a test's teardown
+# stops it (``stop_thread_servers``): the real process exits on idle or a ``shutdown`` request,
+# and a thread left serving would outlive its test (tests/thread_guard.py).
+_SERVERS: list[tuple[threading.Thread, Path]] = []
+
+
 def thread_spawn(service: Any, canaries: Mapping[str, Any] | None = None):
     """A ``spawn`` for :class:`StudentEncoder`: the real ``serve_forever`` in a thread, the status file
-    written as the real process writes it. Returns ``(spawn, threads)``."""
+    written as the real process writes it. Returns ``(spawn, threads)``. The caller's teardown calls
+    :func:`stop_thread_servers`."""
 
     from learnloop.local_embeddings import student_server
 
@@ -242,9 +249,30 @@ def thread_spawn(service: Any, canaries: Mapping[str, Any] | None = None):
                                   kwargs={"idle_s": 5.0, "timeout_s": 0.2, "ready": ready}, daemon=True)
         thread.start()
         threads.append(thread)
+        _SERVERS.append((thread, Path(job["socket_path"])))
         return type("P", (), {"pid": __import__("os").getpid()})()
 
     return spawn, threads
+
+
+def stop_thread_servers(timeout_s: float = 5.0) -> None:
+    """Stop every service ``thread_spawn`` started as the real query process is stopped: a
+    ``shutdown`` request on its socket (``yield_gpu_students``' path), then a bounded join."""
+
+    from learnloop.source_retrieval import student_encoder
+
+    servers = list(_SERVERS)
+    del _SERVERS[:]
+    for thread, socket_path in servers:
+        if thread.is_alive():
+            try:
+                student_encoder.request(socket_path, {"op": "shutdown"}, timeout_s=1.0)
+            except (OSError, ValueError):
+                pass  # already gone (idle exit) or not yet listening: the join below decides
+    for thread, _socket_path in servers:
+        thread.join(timeout_s)
+    alive = [thread.name for thread, _socket_path in servers if thread.is_alive()]
+    assert not alive, f"in-thread query services still running after shutdown: {alive}"
 
 
 def unit(vector) -> np.ndarray:

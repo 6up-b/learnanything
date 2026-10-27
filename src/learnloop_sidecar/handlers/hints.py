@@ -47,6 +47,7 @@ from learnloop.ai import plan_fallback
 from learnloop.hints import service as hint_service
 from learnloop.hints.map_builder import schedule_merge_after_hint
 from learnloop.hints.service import HintRequestError, HintRequestV1, adaptive_enabled
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -115,7 +116,13 @@ class HintJobs:
         stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
         _plan_fallback.note_unit("job", job.job_id)
 
+        owned = background_jobs(ctx)
+        epoch = owned.epoch()
+
         def cancelled() -> bool:
+            # ``practice.cancel_hint``, or the context's close (test-thread-leak review F1).
+            if owned.closed_since(epoch):
+                return True
             with job.lock:
                 return job.cancelled
 
@@ -142,7 +149,7 @@ class HintJobs:
         if getattr(ctx, "hints_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"hint-{job.job_id}", daemon=True).start()
+            owned.spawn(run, name=f"hint-{job.job_id}", epoch=epoch)
         return job
 
     def get(self, job_id: str) -> _HintJob | None:

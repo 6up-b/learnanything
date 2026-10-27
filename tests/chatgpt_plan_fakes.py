@@ -278,6 +278,9 @@ class FakeChatGPT:
         self.used_refresh_tokens: set[str] = set()
         self._counter = 0
         self._lock = threading.Lock()
+        # Set by close(): a stalled reply stops stalling, so its handler
+        # thread ends with the server instead of outliving the test.
+        self._closing = threading.Event()
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -479,8 +482,8 @@ class FakeChatGPT:
                         self.wfile.flush()
                     except OSError:
                         return
-                    if reply.stall and index == 0:
-                        time.sleep(reply.stall)
+                    if reply.stall and index == 0 and fake._closing.wait(reply.stall):
+                        return
                 if reply.chunked:
                     try:
                         self.wfile.write(b"0\r\n\r\n")
@@ -528,6 +531,7 @@ class FakeChatGPT:
         self.access_tokens.clear()
 
     def close(self) -> None:
+        self._closing.set()
         self._server.shutdown()
         self._server.server_close()
 

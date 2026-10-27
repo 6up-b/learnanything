@@ -39,6 +39,7 @@ from pydantic import Field
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -242,7 +243,9 @@ class LibraryJobs:
         if getattr(ctx, "library_ask_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"library-{kind}-{job.job_id}", daemon=True).start()
+            # Owned by the context: its close cancels the job's further requests
+            # and joins it, bounded (test-thread-leak review F1).
+            background_jobs(ctx).spawn(run, name=f"library-{kind}-{job.job_id}")
         return job
 
     def get(self, job_id: str) -> _Job | None:

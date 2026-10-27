@@ -38,6 +38,7 @@ from tests.query_student_fakes import (
     default_bank,
     find_gold,
     set_up_bases,
+    stop_thread_servers,
     student_vault,
     thread_spawn,
     write_bank,
@@ -54,6 +55,7 @@ def _fresh(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(short))
     E._ENCODERS.clear()
     yield short
+    stop_thread_servers()  # before the runtime directory (its sockets) goes
     clear_cache()
     E._ENCODERS.clear()
     shutil.rmtree(short, ignore_errors=True)

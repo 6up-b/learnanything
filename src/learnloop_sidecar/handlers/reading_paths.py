@@ -25,6 +25,7 @@ from typing import Any
 
 from learnloop.reader import reader_dialogue as RD
 from learnloop.source_retrieval import reading_paths as RP
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -143,7 +144,9 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
     if getattr(ctx, "reading_path_inline", False):
         run()
     else:
-        threading.Thread(target=run, name=f"reading-path-{extraction_id}-{depth}", daemon=True).start()
+        # Owned by the context: its close cancels the job's further requests
+        # and joins it, bounded (test-thread-leak review F1).
+        background_jobs(ctx).spawn(run, name=f"reading-path-{extraction_id}-{depth}")
 
 
 def _readmit(ctx: SidecarContext, vault: Any, repository: Any, state_key: tuple[str, str, str],
