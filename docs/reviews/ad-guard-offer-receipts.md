@@ -319,3 +319,17 @@ Existing, covering the changed modules (`protected_tables`, `column_classes`, `m
 - **The log has no entry point.** It does not record which operation was denied, so the 3 owner-side
   operations cannot be attributed. Recording `op.guard.entry` in each line is a small follow-up, not
   done here.
+
+## 10. Landing ruling (orchestrator, 2026-10-27)
+
+- **F1 (Medium, Sol review 20261027-102834-TuL62U): accepted in place, no successor.** This ruling is under the
+  owner's proportionate-protection bar: block only on realistic learner-visible harm or unapproved spend.
+  - On the affected shape, the old state was a refusal: `ad report` and `rebuild-derived-state` crashed, and the
+    upgrade chain could not finish. It was not a served algorithm worth preserving.
+  - The restored behaviour is the one mvp-0.30 specifies.
+  - Vaults without the shape rebuild row-identically.
+  - The vault's six AD2+AD3 switches restore incumbent-only serving, as the stage's test pins.
+- **Record.** The next successor (the learner-report successor, mvp-0.36) names this change in its version note.
+- **Owner questions carried to the checkpoint:**
+  - Should `ad_guard_denials.jsonl` be rotated or archived at upgrade? `ad report` counts its historical lines.
+  - Should each denial line record its `op.guard.entry`?
