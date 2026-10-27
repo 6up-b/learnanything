@@ -142,6 +142,15 @@ def _creation_site(stack: traceback.StackSummary) -> str:
     return "?"
 
 
+def _alive(thread: threading.Thread) -> bool:
+    # A Thread subclass that shadows one of Thread's private methods makes
+    # is_alive() raise: the guard must still report, never crash the run.
+    try:
+        return thread.is_alive()
+    except Exception:  # noqa: BLE001
+        return not getattr(thread, "_is_stopped", False)
+
+
 def _allowed(origin: _Origin) -> Allowed | None:
     frames = [f"{frame.filename}:{frame.name}" for frame in origin.stack]
     return next((entry for entry in ALLOWED if any(entry.site in frame for frame in frames)), None)
@@ -161,12 +170,15 @@ def _survivors(threads: list[threading.Thread]) -> list[threading.Thread]:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
-        thread.join(remaining)
-    return [thread for thread in threads if thread.is_alive()]
+        try:
+            thread.join(remaining)
+        except Exception:  # noqa: BLE001 - see _alive
+            pass
+    return [thread for thread in threads if _alive(thread)]
 
 
 def _check(owned: list[tuple[threading.Thread, _Origin]], owner_label: str, item) -> None:
-    candidates = [(t, o) for t, o in owned if t.is_alive() and not o.reported and _allowed(o) is None]
+    candidates = [(t, o) for t, o in owned if _alive(t) and not o.reported and _allowed(o) is None]
     if not candidates:
         return
     alive = set(_survivors([t for t, _ in candidates]))
@@ -179,6 +191,7 @@ def _check(owned: list[tuple[threading.Thread, _Origin]], owner_label: str, item
     records = [
         {
             "name": thread.name,
+            "native_id": thread.native_id,
             "daemon": thread.daemon,
             "target": _target_name(thread),
             "site": _creation_site(origin.stack),
@@ -269,7 +282,7 @@ def pytest_runtest_teardown(item, nextitem):
             for thread, _ in owned:
                 _origins.pop(thread, None)
             # Forget threads that finished (their owners' checks passed).
-            for thread in [t for t in _origins if not t.is_alive()]:
+            for thread in [t for t in _origins if not _alive(t)]:
                 del _origins[thread]
         _current_nodeid = None
     if _pending_failures:
@@ -285,8 +298,8 @@ def pytest_sessionfinish(session, exitstatus):
         return
     rows = []
     for thread, nodeid, site, cpu_then in _reported:
-        cpu_now = _thread_cpu_seconds(thread) if thread.is_alive() else None
-        rows.append({"name": thread.name, "test": nodeid, "site": site, "alive": thread.is_alive(),
+        cpu_now = _thread_cpu_seconds(thread) if _alive(thread) else None
+        rows.append({"name": thread.name, "test": nodeid, "site": site, "alive": _alive(thread),
                      "cpu_at_leak": cpu_then, "cpu_at_end": cpu_now})
     with open(report_path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps({"session_end": True, "worker": os.environ.get("PYTEST_XDIST_WORKER"),
