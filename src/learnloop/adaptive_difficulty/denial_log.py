@@ -8,14 +8,29 @@ refusal (``verb``, ``table``, ``why``, ``reader``), the protection ``epoch`` and
 or the caller chain an unnamed operation was opened from). Lines written before then have no
 ``entry``; they stay readable and are grouped as :data:`UNRECORDED`.
 
-**Cleared at upgrade (owner decision 2026-10-27).** When ``learnloop upgrade --to <version>``
-succeeds (once per command, after its final step, journal included, has completed) the live log is
-renamed to a dated archive beside it, ``ad_guard_denials.archived-<from>-to-<to>-<UTC>.jsonl``, so
-``ad report`` counts only the denials since the last upgrade. The rename is atomic; an archive is
-never overwritten (a name already taken gets a counter) and never deleted. A failed or refused
-upgrade leaves the log where it is; no log, nothing to archive. A process that dies after the
-upgrade completed but before the rename leaves the log live (its lines are still counted until the
-next upgrade archives them).
+**Cleared at upgrade (owner decision 2026-10-27).** ``learnloop upgrade --to <version>`` marks the
+live log when the command starts (:func:`cutover_mark`: the file's identity and length). When the
+upgrade succeeds (once per command, after its final step) the lines the log held at that mark move
+to a dated archive beside it, ``ad_guard_denials.archived-<from>-to-<to>-<UTC>.jsonl``; a line
+appended after the mark (a sidecar's denial during or after the upgrade) stays live. So ``ad report``
+counts the denials recorded since the last upgrade began, and an AD failure under the successor is
+never moved out of the count (Codex review F1, 2026-10-27). When nothing was appended since the mark
+the archive is the live file renamed (atomic, byte-identical). An archive is never overwritten (a
+name already taken gets a counter) and never deleted. A failed or refused upgrade leaves the log
+where it is; no log at the mark, nothing to archive.
+
+**One lock (Codex review F1/F2).** Appends, the mark, the archival and :func:`summary` each run
+under an exclusive ``flock`` on ``ad_guard_denials.lock`` beside the log, and an append opens, writes
+and closes the live file inside it: no append handle spans an archival, and a report never sees a
+line both live and archived. It is a leaf lock: nothing else is acquired while it is held, so it
+sits after the vault mutation lock and SQLite's locks in every order. Without ``fcntl`` (non-POSIX)
+it degrades to no lock.
+
+Crash windows (best effort, never a hidden line): a process that dies after the upgrade completed
+but before the archival leaves the marked lines live (counted until the next upgrade archives
+them); one that dies while splitting a log appended to after the mark (archive written, live file
+not yet replaced) leaves the marked lines both archived and live (counted twice until the next
+upgrade).
 
 The log is a diagnostic file, not persisted meaning: no migration and no algorithm successor.
 """
@@ -25,12 +40,20 @@ from __future__ import annotations
 import json
 import os
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+try:  # POSIX advisory locks, as learnloop.vault_lock.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX degradation
+    fcntl = None  # type: ignore[assignment]
+
 LOG_NAME = "ad_guard_denials.jsonl"
+LOCK_NAME = "ad_guard_denials.lock"
 _ARCHIVE_PREFIX = "ad_guard_denials.archived-"
 
 #: The group of a line written before the entry was recorded (or one with no entry).
@@ -45,13 +68,46 @@ def denial_log_path(sqlite_path: Any) -> Path:
     return Path(sqlite_path).with_name(LOG_NAME)
 
 
+@contextmanager
+def _log_lock(sqlite_path: Any) -> Iterator[None]:
+    """The log's leaf lock (see the module docstring). Raises OSError when it cannot be opened."""
+
+    if fcntl is None:  # pragma: no cover - non-POSIX degradation
+        yield
+        return
+    fd = os.open(Path(sqlite_path).with_name(LOCK_NAME), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 def append_denials(sqlite_path: Any, denials: Iterable[Mapping[str, Any]], *, epoch: Any,
                    entry: str | None) -> None:
-    """Append one line per denial, with the operation's epoch and entry point. Raises OSError."""
+    """Append one line per denial, with the operation's epoch and entry point. Raises OSError.
 
-    with denial_log_path(sqlite_path).open("a", encoding="utf-8") as handle:
-        for denial in denials:
-            handle.write(json.dumps({**denial, "epoch": epoch, "entry": entry or None}, sort_keys=True) + "\n")
+    Under the log lock, opened and closed inside it. A torn tail (a writer that died mid-line) is
+    ended first, so the new lines never join it."""
+
+    text = "".join(json.dumps({**denial, "epoch": epoch, "entry": entry or None}, sort_keys=True) + "\n"
+                   for denial in denials)
+    if not text:
+        return
+    path = denial_log_path(sqlite_path)
+    with _log_lock(sqlite_path), path.open("ab") as handle:
+        if handle.tell() and not _ends_with_newline(path):
+            text = "\n" + text
+        handle.write(text.encode("utf-8"))
+
+
+def _ends_with_newline(path: Path) -> bool:
+    with path.open("rb") as handle:
+        handle.seek(-1, os.SEEK_END)
+        return handle.read(1) == b"\n"
 
 
 def _lines(path: Path) -> list[str]:
@@ -62,7 +118,7 @@ def _lines(path: Path) -> list[str]:
 
 
 def denial_count(sqlite_path: Any) -> int:
-    """The live log's lines (denials since the last upgrade); 0 without a log."""
+    """The live log's lines (denials since the last upgrade began); 0 without a log."""
 
     return len(_lines(denial_log_path(sqlite_path)))
 
@@ -88,14 +144,46 @@ def archived_logs(sqlite_path: Any) -> list[Path]:
         return []
 
 
-def summary(sqlite_path: Any) -> dict[str, Any]:
-    """``ad report``'s guard block: the live log's count and its count by entry point, and the
-    archives' counts (file names and line counts only; a line's content is never shown)."""
-
+def _snapshot(sqlite_path: Any) -> dict[str, Any]:
     lines = _lines(denial_log_path(sqlite_path))
     archives = [{"file": path.name, "denials": len(_lines(path))} for path in archived_logs(sqlite_path)]
     return {"denials": len(lines), "by_entry": dict(sorted(Counter(map(_entry_of, lines)).items())),
             "archived": archives, "archived_denials": sum(a["denials"] for a in archives)}
+
+
+def summary(sqlite_path: Any) -> dict[str, Any]:
+    """``ad report``'s guard block: the live log's count and its count by entry point, and the
+    archives' counts (file names and line counts only; a line's content is never shown).
+
+    Read under the log lock, so an archival never lands between the live read and the archive
+    listing (Codex review F2). A lock that cannot be opened (a read-only directory) reads without
+    it: nothing can archive there either."""
+
+    try:
+        with _log_lock(sqlite_path):
+            return _snapshot(sqlite_path)
+    except OSError:
+        return _snapshot(sqlite_path)
+
+
+@dataclass(frozen=True)
+class Cutover:
+    """The live log as an upgrade command found it: its identity and length (``None``/0: no log)."""
+
+    identity: tuple[int, int] | None
+    length: int
+
+
+def cutover_mark(sqlite_path: Any) -> Cutover:
+    """Mark the live log at an upgrade command's start (under the log lock, so the length ends at a
+    whole append). Raises OSError."""
+
+    with _log_lock(sqlite_path):
+        try:
+            stat = os.stat(denial_log_path(sqlite_path))
+        except FileNotFoundError:
+            return Cutover(identity=None, length=0)
+        return Cutover(identity=(stat.st_dev, stat.st_ino), length=stat.st_size)
 
 
 def _stamp(now: datetime | None) -> str:
@@ -107,26 +195,53 @@ def _safe(version: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ".-_" else "_" for ch in str(version)) or "unknown"
 
 
-def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str,
-                       now: datetime | None = None) -> Path | None:
-    """Rename the live log to a dated archive beside it; None when there is no log.
+def _fsync_write(path: Path, data: bytes, *, exclusive: bool) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if exclusive else os.O_TRUNC)
+    fd = os.open(path, flags, 0o644)
+    try:
+        os.write(fd, data)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
-    Called once a successful upgrade has completed, under the vault mutation lock (so two upgrades
-    never pick the same name). The rename is atomic; a taken name gets a counter, so an archive is
-    never overwritten."""
+
+def archive_denial_log(sqlite_path: Any, *, from_version: str, to_version: str, mark: Cutover | None,
+                       now: datetime | None = None) -> Path | None:
+    """Move the lines the live log held at ``mark`` to a dated archive beside it; None when the mark
+    found no log, or the log there now is a later one (another archival moved the marked lines).
+
+    ``mark`` None (the command could not mark the log at its start) archives the whole live log.
+    Under the log lock: appends wait, and two archivals never pick the same name. A taken name gets
+    a counter, so an archive is never overwritten."""
 
     live = denial_log_path(sqlite_path)
-    if not live.is_file():
-        return None
-    base = f"{_ARCHIVE_PREFIX}{_safe(from_version)}-to-{_safe(to_version)}-{_stamp(now)}"
-    target = live.with_name(base + ".jsonl")
-    counter = 1
-    while target.exists():
-        counter += 1
-        target = live.with_name(f"{base}-{counter}.jsonl")
-    os.rename(live, target)
-    return target
+    with _log_lock(sqlite_path):
+        try:
+            stat = os.stat(live)
+        except FileNotFoundError:
+            return None
+        if mark is not None and (mark.identity != (stat.st_dev, stat.st_ino) or not mark.length):
+            return None  # every line here was appended after the command started
+        cut = stat.st_size if mark is None else min(mark.length, stat.st_size)
+        base = f"{_ARCHIVE_PREFIX}{_safe(from_version)}-to-{_safe(to_version)}-{_stamp(now)}"
+        target = live.with_name(base + ".jsonl")
+        counter = 1
+        while target.exists():
+            counter += 1
+            target = live.with_name(f"{base}-{counter}.jsonl")
+        if cut == stat.st_size:
+            os.rename(live, target)
+            return target
+        data = live.read_bytes()
+        head, tail = data[:cut], data[cut:]
+        # The marked lines into the archive first, then the later ones as the live log: a crash in
+        # between counts the marked lines twice, never hides one.
+        _fsync_write(target, head, exclusive=True)
+        staged = live.with_name(LOG_NAME + ".tmp")
+        _fsync_write(staged, tail, exclusive=False)
+        os.replace(staged, live)
+        return target
 
 
-__all__ = ["LOG_NAME", "UNREADABLE", "UNRECORDED", "append_denials", "archive_denial_log", "archived_logs",
-           "denial_count", "denial_log_path", "summary"]
+__all__ = ["LOCK_NAME", "LOG_NAME", "UNREADABLE", "UNRECORDED", "Cutover", "append_denials", "archive_denial_log",
+           "archived_logs", "cutover_mark", "denial_count", "denial_log_path", "summary"]

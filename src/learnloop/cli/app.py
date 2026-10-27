@@ -234,6 +234,9 @@ def upgrade(
         upgrade_to_mvp011,
     )
 
+    # The AD guard's denial log as the command found it: only these lines are archived after a
+    # successful upgrade; a denial logged after this stays counted (Codex review F1, 2026-10-27).
+    denial_mark = _mark_ad_denial_log(_root(vault))
     if to == "mvp-0.7":
         result = upgrade_to_mvp07(_root(vault))
     elif to == "mvp-0.8":
@@ -350,36 +353,54 @@ def upgrade(
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
         for note in result.notes:
             typer.echo(f"  - {note}")
-        _archive_ad_denial_log(_root(vault), result.from_version, result.to_version)
+        _archive_ad_denial_log(_root(vault), result.from_version, result.to_version, denial_mark)
         return
     typer.echo(f"Vault not upgraded (currently {result.from_version}):")
     for problem in result.problems:
         typer.echo(f"  - {problem}")
     raise typer.Exit(code=1)
 
-def _archive_ad_denial_log(root: Path, from_version: str, to_version: str) -> None:
+def _ad_denial_log_database(root: Path) -> Path:
+    loaded = load_vault(root)
+    return VaultPaths(loaded.root, loaded.config).sqlite_path
+
+
+def _mark_ad_denial_log(root: Path) -> Any:
+    """Mark the AD guard's denial log at the upgrade command's start (its identity and length;
+    ``learnloop.adaptive_difficulty.denial_log.cutover_mark``). None when it cannot be marked (the
+    vault does not load here): the archival then takes the whole live log, as before the mark."""
+
+    from learnloop.adaptive_difficulty.denial_log import cutover_mark
+
+    try:
+        return cutover_mark(_ad_denial_log_database(root))
+    except Exception:  # noqa: BLE001 - diagnostic file; the upgrade decides for itself
+        return None
+
+
+def _archive_ad_denial_log(root: Path, from_version: str, to_version: str, mark: Any) -> None:
     """Archive the AD guard's denial log once a successful upgrade has completed (owner decision
     2026-10-27; ``learnloop.adaptive_difficulty.denial_log``).
 
     Once per command, after the final step: every upgrade (each link of a chain included) has
-    returned, its activation journal completed and removed. A failed or refused upgrade never gets
-    here. Under the vault mutation lock, so two upgrades never pick the same archive name. A failure
-    to archive never fails the upgrade (the vault is upgraded); the log stays live and is named."""
+    returned. A failed or refused upgrade never gets here. Only the lines the log held at ``mark``
+    (the command's start) move; a denial logged since stays live. Under the log's own leaf lock,
+    which every append takes too, so two archivals never pick the same name and no append writes
+    into an archive. A failure to archive never fails the upgrade (the vault is upgraded); the log
+    stays live and is named."""
 
     from learnloop.adaptive_difficulty.denial_log import archive_denial_log
-    from learnloop.vault_lock import vault_mutation_lock
 
     try:
-        loaded = load_vault(root)
-        sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
-        with vault_mutation_lock(root, purpose="ad_denial_log_archive"):
-            archived = archive_denial_log(sqlite_path, from_version=from_version, to_version=to_version)
+        archived = archive_denial_log(_ad_denial_log_database(root), from_version=from_version,
+                                      to_version=to_version, mark=mark)
     except Exception as exc:  # noqa: BLE001 - diagnostic file; the upgrade itself has succeeded
         typer.echo(f"  - AD guard denial log not archived ({type(exc).__name__}); "
                    "ad report counts its earlier lines until the next upgrade", err=True)
         return
     if archived is not None:
-        typer.echo(f"  - AD guard denial log archived as {archived.name}; ad report counts denials from now")
+        typer.echo(f"  - AD guard denial log archived as {archived.name}; ad report counts denials from the "
+                   "upgrade's start")
 
 
 @app.command("add-subject")

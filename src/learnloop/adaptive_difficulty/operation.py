@@ -37,8 +37,9 @@ prohibited"). AD's fail-closed paths turn that into "AD unavailable for this ope
 incumbent serves (owner decision 2026-10-21). Each denial is logged beside the database
 (``ad_guard_denials.jsonl``) and counted (``learnloop ad report``'s ``guard`` block); no UI notice.
 Each line names the refused operation's entry point (``entry``: the guard's ``entry``), and a
-successful ``learnloop upgrade`` archives the log beside it, so the report counts the denials since
-the last upgrade (owner decision 2026-10-27; :mod:`learnloop.adaptive_difficulty.denial_log`).
+successful ``learnloop upgrade`` archives the lines the log held when the command started, so the
+report counts the denials since the last upgrade began (owner decision 2026-10-27;
+:mod:`learnloop.adaptive_difficulty.denial_log`, whose leaf lock every append takes).
 
 With adaptive difficulty off, no operation opens and nothing here runs.
 """

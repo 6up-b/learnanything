@@ -152,13 +152,16 @@ def test_an_archive_name_already_taken_gets_a_counter(tmp_path):
     now = datetime(2026, 10, 27, 12, 0, 0, tzinfo=UTC)
     log = D.denial_log_path(sqlite_path)
     log.write_text("first\n", encoding="utf-8")
-    first = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", now=now)
+    first = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=D.cutover_mark(sqlite_path),
+                                 now=now)
     log.write_text("second\n", encoding="utf-8")
-    second = D.archive_denial_log(sqlite_path, from_version="a", to_version="b", now=now)
+    second = D.archive_denial_log(sqlite_path, from_version="a", to_version="b",
+                                  mark=D.cutover_mark(sqlite_path), now=now)
     assert first.name == "ad_guard_denials.archived-a-to-b-20261027T120000Z.jsonl"
     assert second.name == "ad_guard_denials.archived-a-to-b-20261027T120000Z-2.jsonl"
     assert first.read_text(encoding="utf-8") == "first\n" and second.read_text(encoding="utf-8") == "second\n"
-    assert D.archive_denial_log(sqlite_path, from_version="a", to_version="b", now=now) is None, "no log: no-op"
+    assert D.archive_denial_log(sqlite_path, from_version="a", to_version="b", mark=D.cutover_mark(sqlite_path),
+                                now=now) is None, "no log: no-op"
 
 
 # -- 2. each line names the refused operation -------------------------------------------------------
@@ -326,10 +329,7 @@ def test_f1_the_archival_waits_for_an_append_holding_the_log_lock(tmp_path):
     worker = threading.Thread(target=archive)
     with D._log_lock(sqlite_path):
         worker.start()
-        try:
-            assert not done.wait(0.3), "the archival ran while the log lock was held"
-        finally:
-            pass
+        assert not done.wait(0.3), "the archival ran while the log lock was held"
     worker.join(30)
     assert done.is_set() and out[0] is not None and D.denial_count(sqlite_path) == 0
 

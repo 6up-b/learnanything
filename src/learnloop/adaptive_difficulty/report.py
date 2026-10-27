@@ -589,9 +589,10 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                        "withheld_items": len(view.withheld_item_ids)},
         # The AD guard's refusals (owner decision 2026-10-21: logged, counted here, no UI notice;
         # each left AD unavailable for its operation, and the incumbent served). Owner decision
-        # 2026-10-27: the count is the live log's, the denials since the last upgrade (a successful
-        # upgrade archives the log beside it), grouped by the refused operation's entry point (lines
-        # from before the entry was recorded: "unrecorded"); the archives by file and count only.
+        # 2026-10-27: the count is the live log's, the denials since the last upgrade began (a
+        # successful upgrade archives the lines the log held at its start), grouped by the refused
+        # operation's entry point (lines from before the entry was recorded: "unrecorded"); the
+        # archives by file and count only, read with the live log under its lock (one snapshot).
         "guard": DL.summary(repository.sqlite_path),
         # Option B (round 8): the readings the withheld material touches are absent for AD's reading
         # signals; how many, and how many reading events on them AD did not use. No UI notice.
