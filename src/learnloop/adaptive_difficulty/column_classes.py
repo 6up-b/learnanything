@@ -496,6 +496,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "expected_information_gain readiness_factor algorithm_version created_at chosen_at "
         "selection_propensity exploration_flag selection_temperature propensity_kind",
         "components_json reward_debug_json target_scope_json plain_english_json"),
+    # The offer's candidate ids are a JSON list of ids; its entry surface is classified as
+    # ``submission_intents``' is.
+    "scheduler_offer_receipts": (
+        "slate_id returned_candidate_ids_json collection_version created_at",
+        "entry_surface"),
     "schema_migrations": (
         "version name applied_at",
         ""),
