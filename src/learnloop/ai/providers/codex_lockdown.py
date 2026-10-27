@@ -12,8 +12,10 @@ pure here and wired in by :mod:`learnloop.ai.providers.codex`:
   the environment the app server inherits from this process;
 * **features** (:func:`feature_violations`): what ``codex features list`` may
   still report on. Only the reviewed non-tool features of codex-cli 0.163.0
-  (:data:`PERMITTED_FEATURES`); any other feature reported on is switched off
-  by the caller and must then read off, or the turn is refused;
+  (:data:`PERMITTED_FEATURES`), and the reviewed flags codex-cli 0.164.0
+  retired (:data:`REVIEWED_RETIRED_FEATURES`, only at stage ``removed``); any
+  other feature reported on is switched off by the caller and must then read
+  off, or the turn is refused, naming the CLI version (:func:`feature_refusal`);
 * **model metadata** (:func:`model_metadata_violations`): what ``codex debug
   models --bundled`` (the catalog in the binary: no network, no model call)
   advertises for the turn's model. A tool the configuration removes or
@@ -71,12 +73,17 @@ ISOLATED_PROFILE = f"learnloop_isolated_turn_{secrets.token_hex(8)}"
 #: Tools and integrations that run outside the command sandbox, bring outside
 #: context, or offer the model a tool, all off in every locked-down turn
 #: (codex-cli 0.163.0 ``features list``; each key checked to take effect under
-#: ``-c features.<key>=false``). Unknown keys are ignored by Codex.
+#: ``-c features.<key>=false``; 0.164.0's three new defaults checked the same
+#: way, 2026-10-27). Unknown keys are ignored by Codex, and so are retired ones
+#: (:data:`REVIEWED_RETIRED_FEATURES`).
 LOCKDOWN_DISABLED_FEATURES = (
     "apps",
     "auth_elicitation",
     "agent_message_board",
     "artifact",
+    # codex-cli 0.164.0, on by default (2026-10-27): Amazon Bedrock sign-in
+    # onboarding in the TUI; no turn needs it.
+    "bedrock_setup_wizard",
     "browser_annotation_api",
     "browser_use",
     "browser_use_external",
@@ -99,6 +106,13 @@ LOCKDOWN_DISABLED_FEATURES = (
     "in_app_local_automation",
     "in_app_updates",
     "in_app_voice",
+    # codex-cli 0.164.0, on by default: tool definitions sent as incremental
+    # context updates. Off keeps the turn's tool declaration as on 0.163.0;
+    # the readback still renders it on (READBACK_OVERRIDES), to list every tool.
+    "incremental_tools",
+    # codex-cli 0.164.0, on by default: OAuth refresh for MCP servers, none of
+    # which an isolated turn has.
+    "mcp_oauth_refresh_coordination",
     "memories",
     "multi_agent",
     "multi_agent_v2",
@@ -171,6 +185,32 @@ PERMITTED_FEATURES = frozenset({
     "unified_exec",
     "write_stdin_approval",
 })
+#: The stage ``codex features list`` prints for a retired flag.
+REMOVED_STAGE = "removed"
+#: Switched-off features Codex has since retired, reviewed one by one: on a
+#: CLI that lists one at stage ``removed`` it may read on, because Codex no
+#: longer reads its switch and what it once gated offers this turn nothing.
+#: On any other stage it must read off like the rest of
+#: :data:`LOCKDOWN_DISABLED_FEATURES` (where each stays, for the CLIs whose
+#: switch still works, 0.163.0 among them). An unreviewed feature reported on
+#: at stage ``removed`` still refuses the turn: retired is no review.
+#:
+#: Reviewed on codex-cli 0.164.0 (2026-10-27, docs/reviews/codex-cli-0164-lockdown.md):
+#: ``features/src/lib.rs`` ``Features::apply_map`` skips both keys
+#: (``"tui_app_server" | "worktrees" | "realtime_conversation" => continue``),
+#: so ``-c features.<key>=false`` and ``--disable`` cannot change them, and no
+#: code reads ``Feature::Worktrees`` or ``Feature::RealtimeConversation``.
+REVIEWED_RETIRED_FEATURES: dict[str, str] = {
+    "realtime_conversation": (
+        "voice sessions start only on a client's thread/realtime/start request, which LearnLoop's client never "
+        "sends; the turn's model gets no realtime tool (the prompt-input readback declares none)"
+    ),
+    "worktrees": (
+        "the managed-worktree tools (create_worktree, list_worktrees, get_worktree_creation_status) are dynamic "
+        "tools the TUI registers as a client; LearnLoop registers none, declines every dynamic tool call, and the "
+        "prompt-input readback declares no tool"
+    ),
+}
 
 
 def lockdown_config_overrides() -> list[str]:
@@ -232,20 +272,68 @@ def permitted_features(*, shell: bool) -> frozenset[str]:
     return PERMITTED_FEATURES | (frozenset(SHELL_FEATURES) if shell else frozenset())
 
 
-def feature_violations(states: Mapping[str, bool], *, shell: bool) -> list[str]:
+def retired_features_permitted(stages: Mapping[str, str]) -> frozenset[str]:
+    """The reviewed retired features (:data:`REVIEWED_RETIRED_FEATURES`) ``stages`` lists as ``removed``."""
+
+    return frozenset(feature for feature in REVIEWED_RETIRED_FEATURES if stages.get(feature) == REMOVED_STAGE)
+
+
+def feature_violations(
+    states: Mapping[str, bool], *, shell: bool, stages: Mapping[str, str] | None = None,
+) -> list[str]:
     """Features ``states`` (``features list``) shows on that a locked-down turn may not have.
 
     A feature this list switches off, or one the CLI requires to know
     (:data:`REQUIRED_OFF_FEATURES`), that does not read exactly ``false``; and
-    any feature on that is not permitted (:func:`permitted_features`)."""
+    any feature on that is not permitted (:func:`permitted_features`). A
+    reviewed retired feature may read on only where ``stages`` (the same
+    listing's stage column) says ``removed``; without stages, none may."""
 
-    allowed = permitted_features(shell=shell)
+    allowed = permitted_features(shell=shell) | retired_features_permitted(stages or {})
     named = [feature for feature in REQUIRED_OFF_FEATURES if states.get(feature) is not False]
     # Everything else on must be permitted. ``unified_exec`` is switched off
     # and permitted at once: codex-cli 0.163.0 ignores its override, and it
     # offers no tool without ``shell_tool`` (which must read off).
     named += sorted(feature for feature, on in states.items() if on and feature not in allowed and feature not in named)
     return named
+
+
+def feature_refusal(left_on: Iterable[str], stages: Mapping[str, str], cli_version: str | None) -> str:
+    """The launch check's refusal for features that stay on, naming what the owner has to review.
+
+    Fail closed and nothing more: it names the CLI version, each feature with
+    the stage the CLI reports, and where a feature is classified; it never
+    tolerates one."""
+
+    names = list(left_on)
+    shown = ", ".join(f"{name} ({stages[name]})" if stages.get(name) else name for name in names)
+    message = (
+        f"Codex ({cli_version or 'version unknown'}) does not report feature {shown} off under the isolated "
+        "turn's overrides (a tool, connector, plugin or sub-agent could load); refusing the isolated turn."
+    )
+    retired = [name for name in names if stages.get(name) == REMOVED_STAGE]
+    if retired:
+        message += (
+            f" Codex no longer reads the switch of a removed feature ({', '.join(retired)}), so no override "
+            "turns it off."
+        )
+    unreviewed = [name for name in names if name not in REQUIRED_OFF_FEATURES]
+    if unreviewed:
+        message += (
+            f" Isolated Codex turns stay refused on this CLI until {', '.join(unreviewed)} "
+            f"{'is' if len(unreviewed) == 1 else 'are'} reviewed for it and classified in "
+            "learnloop/ai/providers/codex_lockdown.py (PERMITTED_FEATURES for a non-tool feature, "
+            "REVIEWED_RETIRED_FEATURES for a removed flag that offers the turn nothing)."
+        )
+    return message
+
+
+def cli_version_text(stdout: str) -> str | None:
+    """``codex --version``'s first line (``codex-cli 0.164.0``) when it looks like one, else ``None``."""
+
+    lines = (stdout or "").strip().splitlines()
+    line = lines[0].strip() if lines else ""
+    return line if re.fullmatch(r"[\w.+-]{1,40} [\w.+-]{1,40}", line) else None
 
 
 def unclassified_features_on(states: Mapping[str, bool], *, shell: bool) -> list[str]:
@@ -1154,7 +1242,9 @@ __all__ = [
     "ISOLATED_PROFILE",
     "LOCKDOWN_DISABLED_FEATURES",
     "PERMITTED_FEATURES",
+    "REMOVED_STAGE",
     "REQUIRED_OFF_FEATURES",
+    "REVIEWED_RETIRED_FEATURES",
     "SHELL_ENVIRONMENT_ALLOWLIST",
     "SHELL_FEATURES",
     "TEXT_ITEMS",
@@ -1165,7 +1255,9 @@ __all__ = [
     "catalog_violations",
     "check_fingerprint",
     "clear_check_cache",
+    "cli_version_text",
     "disabled_features",
+    "feature_refusal",
     "feature_violations",
     "install_on_sdk",
     "item_kind",
@@ -1177,6 +1269,7 @@ __all__ = [
     "refuse_legacy_http_transport",
     "resolve_codex_home",
     "resolve_executable",
+    "retired_features_permitted",
     "shell_environment_overrides",
     "unclassified_features_on",
 ]
