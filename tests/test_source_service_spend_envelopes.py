@@ -60,16 +60,17 @@ def test_one_import_is_bounded_by_its_cap_across_all_its_operations(tmp_path):
     """Before: the solution match, authoring, the ladder and the family judge
     each got a fresh budget (authoring none at all), so one import could spend
     several caps. At $10 per million the solution match reserves about $0.04,
-    authoring about $0.26 (its prompt grew with the criteria-by-fact rule,
-    method-explicit items) and the span-support check $0.04: each fits a
-    $0.31 cap alone, the three together do not."""
+    authoring about $0.27 (its prompt grew with the criteria-by-fact rule,
+    method-explicit items, and its schema with figure roles, the Astra
+    redesign) and the span-support check $0.04: each fits a $0.32 cap
+    alone, the three together do not."""
 
-    paths, repository, spans = _metered_vault(tmp_path, import_max_cost_usd=0.31, max_daily_cost_usd=10.0)
+    paths, repository, spans = _metered_vault(tmp_path, import_max_cost_usd=0.32, max_daily_cost_usd=10.0)
     llm = MeteredServiceLLM()
     result = _import(paths, repository, spans["exercises"][1], llm)
     assert [name for _purpose, name in llm.calls] == ["SolutionMatch", "ExerciseAuthoring"]
     assert result["status"] == "written" and result["key_status"] == "model_answer"
-    assert _reserved_usd(repository) <= 0.31
+    assert _reserved_usd(repository) <= 0.32
     # The same import under a wide cap makes the third request.
     paths2, repository2, spans2 = _metered_vault(tmp_path / "wide", import_max_cost_usd=5.0, max_daily_cost_usd=10.0)
     wide = MeteredServiceLLM()
@@ -78,9 +79,10 @@ def test_one_import_is_bounded_by_its_cap_across_all_its_operations(tmp_path):
 
 
 def test_the_daily_cap_refuses_a_request_before_it_is_sent(tmp_path):
-    # $0.28: one import's reservations fit (authoring's prompt grew with the
-    # criteria-by-fact rule, method-explicit items); a second's do not.
-    paths, repository, spans = _metered_vault(tmp_path, max_daily_cost_usd=0.28, import_max_cost_usd=5.0)
+    # $0.29: one import's reservations fit (authoring's prompt grew with the
+    # criteria-by-fact rule, method-explicit items, and its schema with
+    # figure roles); a second's do not.
+    paths, repository, spans = _metered_vault(tmp_path, max_daily_cost_usd=0.29, import_max_cost_usd=5.0)
     llm = MeteredServiceLLM()
     assert _import(paths, repository, spans["exercises"][1], llm)["status"] == "written"
     first = len(llm.calls)
@@ -89,7 +91,7 @@ def test_the_daily_cap_refuses_a_request_before_it_is_sent(tmp_path):
     second = _import(paths, repository, spans["exercises"][2], llm)
     assert second["status"] == "failed" and "max_daily_cost_usd" in second["reason"], second
     assert [name for _purpose, name in llm.calls[first:]] == ["SolutionMatch"]
-    assert _reserved_usd(repository) <= 0.28
+    assert _reserved_usd(repository) <= 0.29
 
 
 def test_a_harvest_never_passes_its_max_cost(tmp_path):
