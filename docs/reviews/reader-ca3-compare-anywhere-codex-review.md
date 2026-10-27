@@ -82,7 +82,8 @@ All commands inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p Memor
 
 - `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2`: done.
 - `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
-- Targeted pytest, `uv run pytest -n 6` over the 91 files below: **2005 passed, 10 skipped, 3 xfailed, 1 failed**; the one failure is the known load flake  (named in the launch notes), which **passed** rerun alone (1 passed).
+- Targeted pytest, `uv run pytest -n 6` over the 91 files below: **2005 passed, 10 skipped, 3 xfailed, 1 failed**; the one failure is the known load flake
+  `test_plan_first_transport_offer_grants.py::test_p1_after_a_yes_to_one_method_only_its_requests_and_units_use_openrouter` (named in the launch notes), which **passed** rerun alone (1 passed).
 - Frontend (`apps/learnloop-tauri`): `npm install`: done; `npm run typecheck`:
   **clean**; `npx vitest run --maxWorkers=4 src/screens/reader src/screens/ReaderScreen`:
   **88 files, 823 passed**; `npx vitest run --maxWorkers=4 src/app/classicIsBase.test.ts`
