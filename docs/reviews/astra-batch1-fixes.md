@@ -622,3 +622,162 @@ Pytest files run:
   text); old-rule marks on a non-solution block outside the statement now
   give `NO_CROP` (containment); the short-answer matcher is no longer used,
   so "Exercise 12" with answer 12 crops.
+
+## Landing
+
+Branch `fix/astra-batch1` in `learnanything-astrafix`, tip `9e7cafc82` before
+this record. It already contains main `9de12c2c1`, and main had not moved at
+landing time, so nothing was merged. Main was neither fast-forwarded nor
+pushed. **No migration, no successor.**
+
+### Gate
+
+Every step ran under `env -i PATH=$PATH` with empty, existing `HOME`,
+`CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` in `fixtures-local/landing/`.
+Afterwards `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were still empty, and
+`HOME` held only the uv and npm caches. Logs are in
+`fixtures-local/landing/logs/`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `lint-imports --no-cache` | **36 kept**, 0 broken |
+| durability (`-m durability -n 6`, 5G scope) | **138 passed**, 1 skipped (54 s) |
+| `npm install`; `npm run typecheck` (5G scopes) | ok; clean (exit 0) |
+| `npx vitest run --maxWorkers=4` (whole vitest) | **221 files, 1,919 tests passed** (41 s) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| owner lane (`-m owner_vaults -n 6`, fresh backup-API copies of the three mvp030 backups in `fixtures-local/landing/owner-lane/`) | 83 passed, **6 failed: exactly the 6 known**, pre-existing failures (`test_doctor` pre-044, `test_migrate_fresh` 153, `test_goal_decay_projection`, `test_sidecar_contract` recent ingests, `test_activity_backfill`, `test_placement_fixture_copies[arxiv_v2]`) |
+| full suite (`flock`, 10G / 2G-swap scope, `pytest -n 8 --dist worksteal`) | **wall 32 min 10 s**. **22,072 passed, 14 failed**, 89 skipped, 41 xfailed, no hang |
+| worktree | `git status` clean apart from `fixtures-local/` |
+
+The 14 full-suite failures fall into two classes:
+
+* **10: installed Codex CLI 0.164.0** ("Codex does not report feature
+  realtime_conversation, worktrees off ..."). These are the known ten:
+  `test_codex_isolation_mcp_check` ×3, `test_codex_lockdown_round2` ×3,
+  `test_codex_lockdown_round3` ×3 and
+  `test_diagnosis_isolation::test_configured_mcp_servers_are_listed_and_disabled`.
+* **4: the gate's environment, not the code.** These are
+  `test_query_student.py`: `test_the_adopted_student_starts_lazily_…`,
+  `test_the_kill_switches_take_the_student_…`,
+  `test_the_resolver_serves_the_adopted_student_…` and
+  `test_a_resident_gpu_student_yields_…`. Run alone under the gate's wrapper,
+  they failed 3/3 with `OSError: AF_UNIX path too long`. The wrapper set
+  `TMPDIR` to a long path in `fixtures-local/landing/tmp`, and the tests put
+  the student's socket under `tmp_path`, which pushed it past the 108-byte
+  socket limit. With the default `TMPDIR` (still `env -i`, the same empty
+  dirs) they **passed 3/3 alone** (4 passed each time, 3.3 s). The product
+  path puts the socket in `$XDG_RUNTIME_DIR/learnloop-student/<sha16>/`, so
+  this cannot happen there. The branch touches no retrieval code.
+
+Top-10 durations: `test_evsi_multisim::test_cli_multisim_quick_…` 164.9 s;
+`test_ad23_successor::test_the_upgrade_takes_the_predecessor_…` 120.1 s;
+`test_mvp011_upgrade::test_existing_vaults_keep_their_version_…` 116.5 s;
+`test_batch3_landing::test_upgrade_to_mvp035_…[mvp-0.9]` 101.1 s;
+`test_recurrence_commands::test_the_upgrade_command_defaults_…` 98.0 s;
+`test_recurrence_commands::test_the_upgrade_command_prints_…` 97.9 s;
+`test_sim_teach_back::test_runner_completes_…` (setup) 84.6 s;
+`test_e0_relabel_round::test_a_reused_run_resends_…` 84.1 s;
+`test_mvp015_upgrade::test_upgrade_command_defaults_…` 81.9 s;
+`test_e0_review_round1::test_f4_f11_…` 81.9 s.
+
+### Parity (backup-API copies of the mvp030 backups; no real model call)
+
+**Setup** (`fixtures-local/landing/parity/scripts/`, the CA1 landing's kit
+re-pathed, plus `setup.sh`, `pa.sh`, `pi.sh`, `pi2.sh`, `imp_probe.py`):
+
+* `code_main` and `code_branch` are `git archive` exports of `9de12c2c1` and
+  `9e7cafc82`.
+* `u35` is linear_algebra and probability brought to **mvp-0.35 with main's
+  code**: every route sent to a `127.0.0.1:9` blackhole, `upgrade --to
+  mvp-0.35`, then `rebuild-derived-state` twice.
+* Every run used `env -i` with empty dirs. `run.py`'s audit hook refuses any
+  Codex process start and any non-loopback socket. Its log was never
+  written, so there was no process start and no connection.
+
+**(a) The as_printed view writes nothing** (`pa.sh`). Each vault had four
+copies of u35: main and branch, each as `ref` and `probe`. Each copy got its
+own code's primary sidecar load. Then each `probe` answered
+`practice.as_printed` for **every practice item**, twice: the header read
+and `render: true`. linear_algebra has 99 items, probability 77.
+
+* Every pair is **row-identical** on both vaults: 358 tables (18,810 and
+  8,199 rows), with no schema or row differences. The pairs were ref vs
+  probe on main, ref vs probe on the branch, main ref vs branch ref, and
+  main probe vs branch probe.
+* `foreign_key_check` is 0, integrity is ok and `model_call_receipts` is 0.
+* The answers are the same kinds on both sides: LA 96 `none/no_print` and 3
+  `page/no_geometry`; probability 69 and 8. There were no errors and no crop
+  images. The one difference in content is the intended CA1 polish: the
+  header names the book ("as printed (Sheldon Axler Linear Algebra Done
+  Right p.10)", and Blitzstein & Hwang p.38) where main says "your book".
+
+**(b) The import path writes nothing beyond what main writes** (`pi.sh`,
+`pi2.sh`). On linear_algebra copies of u35, `import_exercises` ran with a
+fake author (frozen clock, fixed ids) on extraction
+`ext_01KY2ZX9193YPC73DT6HXFFNDC`, main against the branch. There were four
+cases:
+
+* A: exercise 10 (`s183`+`s184`), the author's statement left in the
+  block's Unicode, so it is a paraphrase;
+* B: `s168` plus the figure `s170`, with no `figure_roles`;
+* C: as B, with the author calling `s170` `stimulus` (branch only);
+* D: as A, with the author echoing the converted (LaTeX) text, so the
+  statement is verbatim.
+
+The results:
+
+* **Database: main and the branch are row-identical after the import** in
+  A, B and D: 358 tables and 18,811 rows, with no schema diff. Branch B and
+  C are also row-identical. Against the un-imported ref, each side adds the
+  same one `interaction_events` row.
+* **Only the item YAML differs** (`provenance.source_refs`). A paraphrase
+  (A, B) now owns no block (`owned: false`, by design: Owner decision
+  bullet 1). B's figure ref gains `figure_role: unrelated`, and C's gains
+  `figure_role: stimulus` with `owned: true`. In D the YAML is
+  byte-identical to main's (both blocks owned).
+* **The view after the import writes nothing.** Each imported copy got a
+  primary load alone (control) or a primary load plus `practice.as_printed`
+  on all 100 items. The two are row-identical in all 7 cases (main A/B/D,
+  branch A/B/C/D), with `model_call_receipts` 0.
+
+**Receipts and calls.** The 41 databases with a `model_call_receipts` table
+under `fixtures-local/landing/` (the owner lane, parity and the import
+copies) hold **0 receipts**. **Spend: $0.** Nothing under `~/learnloop-vaults`
+was opened or listed. The mvp030 backups were read only through the backup
+API.
+
+### Landing finding (Medium, learner-visible, fails safe): no free crop for an exercise whose text was converted from Unicode math
+
+In case D the author's statement is verbatim and both blocks are owned, yet
+the branch answers `page/no_geometry`: the original page with "the crop
+isn't available", and no crop. Main answers `page/ok` with the crop. The
+cause is in containment (rule 2): `_contained` compares the **raw IR block
+text** ("10 Explain why there does not exist ∈ such that") with the
+**prompt**. The import made that prompt by passing each part through
+`unicode_math_to_latex` ("... exist $\in$ such that",
+`exercise_authoring.py`, the "converted Unicode math" warning). So the
+block's words never place inside the statement, and the block is treated as
+doubt. The equation block `s184` places (contained, as expected).
+
+Nothing leaks: the free crop is withheld, and the page sits behind its usual
+hint-equivalent before Submit. But every new import from a book whose
+extraction carries Unicode math (the owner's Axler extraction does) loses
+the free crop that main gives.
+
+A likely fix is to apply the same deterministic transform to the block text
+before containment and coverage: `contains_unicode_math` →
+`unicode_math_to_latex`, as the import did. That needs its own test and a
+verify, because it touches the verified predicate. **It is not changed in
+this landing**, and the decision is left to the orchestrator or owner.
+
+### Open items
+
+* The Unicode-math containment finding above.
+* `test_query_student.py` builds its socket path under `tmp_path`. It fails
+  when `TMPDIR` is long (the gate's was 81 characters). A short per-test
+  runtime dir would make it independent of the runner's `TMPDIR`.
+* The owners' current imported items are unchanged by the branch: all 3 (LA)
+  and 8 (probability) are still `page/no_geometry` on both sides.
+* Carried from above: the legacy residual and the warm `NO_CROP` stimulus
+  figure (Redesign, owner questions 1 and 2).
