@@ -18,6 +18,7 @@ hint has one, else the round-2 task list): Codex's five round-3 scenarios
 """
 from __future__ import annotations
 
+import os
 import threading
 from typing import Any, Callable
 
@@ -134,13 +135,57 @@ class Harness:
         assert "result" in self.call("ai_use_fallback", {"provider": "openrouter", "stop": True})
 
     def drain(self) -> None:
-        thread = threading.Thread(target=self.runner.drain)
+        """Run every queued job on a worker thread, as the sidecar's ingest worker does: off any request.
+
+        Load-robust (Oct 27 flake: at load ~17 P1's ~900 jobs overran a 60 s join, the test read
+        ``seen`` before the drain had run and the thread guard caught the drain still running). No
+        timing decides the outcome: the worker drains until no job of this runner is queued or
+        running (a claim the vault lock deferred is retried), and the hang guard only stops a drain
+        that never ends, after its current job, so the thread is always joined."""
+
+        stop = threading.Event()
+
+        def pending() -> list[dict[str, Any]]:
+            return [job for job in self.runner.repo.ingest_jobs_by_types(tuple(self.runner.handlers))
+                    if job["status"] in ("queued", "running")]
+
+        def work() -> None:
+            while not stop.is_set() and (self.runner.drain(max_jobs=_DRAIN_CHUNK) or pending()):
+                pass
+
+        thread = threading.Thread(target=work, name="t1-landing-d-drain")
         thread.start()
-        thread.join(60)
+        thread.join(_DRAIN_HANG_GUARD_S)
+        hung = thread.is_alive()
+        stop.set()
+        thread.join()
+        assert not hung, f"the drain did not finish within {_DRAIN_HANG_GUARD_S} s"
+        assert pending() == []
+
+
+#: keep: a hang guard, not a pass/fail timing; a drain this long means it is stuck, not slow.
+_DRAIN_HANG_GUARD_S = 900
+#: keep: how many jobs the drain runs between stop checks (any positive size checks the same).
+_DRAIN_CHUNK = 25
+
+
+class _OsWithoutFsync:
+    """``os`` for the vault lock without the holder file's fsync (crash diagnostics these tests never
+    read): P1 takes the lock twice per job, ~1800 fsyncs, the slowest I/O of the drain under load."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(os, name)
+
+    @staticmethod
+    def fsync(_fd: int) -> None:
+        return None
 
 
 @pytest.fixture
 def harness(tmp_path, monkeypatch, fake_openai):
+    from learnloop import vault_lock
+
+    monkeypatch.setattr(vault_lock, "os", _OsWithoutFsync())
     return Harness(tmp_path, monkeypatch)
 
 
