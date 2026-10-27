@@ -47,6 +47,7 @@ from learnloop.ai import plan_fallback
 from learnloop.hints import service as hint_service
 from learnloop.hints.map_builder import schedule_merge_after_hint
 from learnloop.hints.service import HintRequestError, HintRequestV1, adaptive_enabled
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -114,8 +115,6 @@ class HintJobs:
         grant, origin = _plan_fallback.unit_token(_vault.root), _plan_fallback.unit_origin()
         stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
         _plan_fallback.note_unit("job", job.job_id)
-
-        from learnloop_sidecar.background_jobs import background_jobs
 
         owned = background_jobs(ctx)
         epoch = owned.epoch()

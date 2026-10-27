@@ -49,6 +49,7 @@ from learnloop.reader import reader_guidance as RG
 from learnloop.reader import reader_intent as RI
 from learnloop.reader import reader_quick_check as RQC
 from learnloop.substrate.activities import log_interaction_event
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -248,8 +249,6 @@ class IntentRoutings:
         else:
             # Owned by the context: its close cancels the job's further requests
             # and joins it, bounded (test-thread-leak review F1).
-            from learnloop_sidecar.background_jobs import background_jobs
-
             background_jobs(ctx).spawn(run, name=f"reader-intent-{routing_id}")
         return running
 

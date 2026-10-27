@@ -60,6 +60,7 @@ from pydantic import Field
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.reader import reader_cues as RCU
 from learnloop.source_retrieval import passage_cues as PC
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -279,7 +280,6 @@ class CueDiscoveryJobs:
 
     def start(self, ctx: SidecarContext, extraction_id: str, source_open_id: str) -> _Job:
         from learnloop.ids import new_ulid
-        from learnloop_sidecar.background_jobs import background_jobs
 
         provider = ctx.loaded_vault
         owned = background_jobs(ctx)

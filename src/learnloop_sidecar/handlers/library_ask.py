@@ -39,6 +39,7 @@ from pydantic import Field
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
+from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -244,8 +245,6 @@ class LibraryJobs:
         else:
             # Owned by the context: its close cancels the job's further requests
             # and joins it, bounded (test-thread-leak review F1).
-            from learnloop_sidecar.background_jobs import background_jobs
-
             background_jobs(ctx).spawn(run, name=f"library-{kind}-{job.job_id}")
         return job
 
