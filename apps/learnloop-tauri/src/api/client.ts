@@ -1640,7 +1640,9 @@ export const api = {
     call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
   readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
     call<ReadingPathDto>("reader_reading_path_override", { input }),
-  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
+  /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
+   *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
+  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>
     call<LibraryJobDto<T>>("reader_library_job", { input }),

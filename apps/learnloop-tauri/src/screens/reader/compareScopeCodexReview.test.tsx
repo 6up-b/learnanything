@@ -270,7 +270,8 @@ it("F5: compare these books has refine, previous and the tutor over the compared
   fireEvent.change(tutor, { target: { value: "which is simpler?" } });
   fireEvent.keyDown(tutor, { key: "Enter", ctrlKey: true });
   await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
-  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toEqual({ askId: "la_c", pinnedSpanKeys: ["ext_a:a1", "ext_s:s1"], question: "which is simpler?" });
+  // Re-review F10: the stored comparison is named; the server reads its passages.
+  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toEqual({ askId: "la_c", pinnedSpanKeys: [], comparisonId: "scmp_1", question: "which is simpler?" });
   expect(await within(pane).findByText("from the compared passages")).toBeTruthy();
 
   // Refined (add Lay): previous ▸ shows the earlier table.
@@ -282,7 +283,9 @@ it("F5: compare these books has refine, previous and the tutor over the compared
 });
 
 it("F5: a comparison's tutor uses every block of an anchor of several blocks", async () => {
+  // Not stored (no comparisonId): its passages are sent, every block of the anchor.
   api.readerLibraryCompare.mockResolvedValue(done(table({
+    comparisonId: null,
     rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: "ext_m:m1", spanKeys: ["ext_m:m1", "ext_m:m2"] }, table().rows[1]],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: ["ext_m:m1", "ext_m:m2"] },
   })));
@@ -379,4 +382,67 @@ it("F9: after a refinement, an × corrects the refinement's reading and change t
   await waitFor(() => expect(api.readerCompareScopeCorrection).toHaveBeenCalledWith({ judgmentId: "jl_9", sourceIds: ["src_axler", "src_lay"] }));
   fireEvent.click(within(pane).getByRole("button", { name: SCOPE_COPY.change }));
   await waitFor(() => expect(api.readerCompareScopeCorrection).toHaveBeenLastCalledWith({ judgmentId: "jl_1", sourceIds: null }));
+});
+
+it("re-review F10: a stored comparison of any size reaches the tutor by its id, and what the budget left out is said", async () => {
+  const blocks = Array.from({ length: 20 }, (_, n) => `ext_m:m${n + 1}`);
+  api.readerLibraryCompare.mockResolvedValue(done(table({
+    rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: blocks[0], spanKeys: blocks }, table().rows[1]],
+    scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: blocks },
+  })));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  select(await screen.findByText(PROSE));
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.click(within(palette).getByRole("button", { name: "how do my other books treat this?" }));
+  const pane = await screen.findByRole("region", { name: "compare your books" });
+  await within(pane).findByRole("table", { name: "how your sources treat this" });
+  api.readerLibraryAskTutor.mockResolvedValue(done({ ...tutorAnswer("from the whole comparison"), groundedKeys: blocks.slice(0, 18),
+    droppedPins: [
+      { extractionId: "ext_m", spanId: "m19", reason: "over the tutor's context budget" },
+      { extractionId: "ext_m", spanId: "m20", reason: "over the tutor's context budget" },
+      { extractionId: "ext_s", spanId: "s1", reason: "it is exam material" },
+    ] }, "tutor"));
+  fireEvent.keyDown(within(pane).getByRole("textbox", { name: "your question for the tutor about this comparison" }), { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
+  // 21 passages: never expanded into a request bounded for pins.
+  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toMatchObject({ askId: "la_c", comparisonId: "scmp_1", pinnedSpanKeys: [] });
+  expect(await within(pane).findByText("from the whole comparison")).toBeTruthy();
+  expect(within(pane).getByText(
+    `${SCOPE_COPY.tutorLeftOut(2, "over the tutor's context budget")} · ${SCOPE_COPY.tutorLeftOut(1, "it is exam material")}`)).toBeTruthy();
+});
+
+it("re-review F11: the focused comparison region takes / and Ctrl+Enter", async () => {
+  const pane = await openAskBox("how do Axler and Strang treat eigenvalues");
+  expect(pane.getAttribute("tabindex")).toBe("-1");
+  pane.focus();
+  expect(document.activeElement).toBe(pane);
+  fireEvent.keyDown(pane, { key: "/" });
+  const box = within(pane).getByRole("textbox", { name: "refine this comparison" });
+  expect(document.activeElement).toBe(box);
+  fireEvent.keyDown(box, { key: "Escape" });
+  api.readerLibraryAskTutor.mockResolvedValue(done(tutorAnswer("asked from the region"), "tutor"));
+  pane.focus();
+  fireEvent.keyDown(pane, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
+  expect(await within(pane).findByText("asked from the region")).toBeTruthy();
+});
+
+it("re-review F11: in a library answer the shared controls are focusable and carry the shortcuts", async () => {
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  select(await screen.findByText(PROSE));
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.click(within(palette).getByRole("button", { name: "where else is this explained?" }));
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  fireEvent.click(await within(pane).findByRole("button", { name: SCOPE_COPY.compareBooks }));
+  await within(pane).findByRole("table", { name: "how your sources treat this" });
+  const controls = pane.querySelector("[data-compare-controls]") as HTMLElement;
+  expect(controls.getAttribute("tabindex")).toBe("-1");
+  controls.focus();
+  expect(document.activeElement).toBe(controls);
+  fireEvent.keyDown(controls, { key: "/" });
+  expect(document.activeElement).toBe(within(pane).getByRole("textbox", { name: "refine this comparison" }));
 });

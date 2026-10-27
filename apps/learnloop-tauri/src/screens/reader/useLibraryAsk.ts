@@ -104,6 +104,8 @@ export const SCOPE_COPY = {
   previousLabel: "the earlier comparison",
   askTutor: "ask the tutor about this comparison",
   askTutorNote: "answers only from these passages",
+  /** Codex re-review F10: what the tutor's context budget (or a filter) left out, said. */
+  tutorLeftOut: (count: number, reason: string) => `left out ${count === 1 ? "1 passage" : `${count} passages`}: ${reason}`,
   /** Codex review F2: every book was removed, so nothing is compared until one is chosen. */
   noBooks: "no books chosen · add one to compare",
   /** Codex review F8: the stored-size bound on views (a `keep` guardrail, §5.4), shown only when reached. */
@@ -680,24 +682,27 @@ export function useLibraryAsk({
 
   /** The tutor over the pins, or (CA3, `about: "comparison"`) over the
    *  comparison shown: its passages, every block of an anchor (Codex review F4,
-   *  F5), whatever is pinned. A comparison with no library answer asks about it. */
+   *  F5), whatever is pinned. A comparison with no library answer asks about it.
+   *  A stored comparison is named by its id (Codex re-review F10): the server
+   *  reads every passage it compared, however many, so none is cut to fit the
+   *  request; one not stored (fewer than two books) sends its passages. */
   const askTutor = useCallback(async (question: string, about?: "pins" | "comparison") => {
     const current = stateRef.current;
     if (!current) return;
     const basis = about ?? (current.pinned.length || !current.direct ? "pins" : "comparison");
     const shown = basis === "comparison" ? current.compare.value : null;
-    const pins = basis === "comparison"
-      ? [...new Set((shown?.rows ?? []).flatMap((row) => (row.spanKeys?.length ? row.spanKeys : [row.key])))]
-      : current.pinned;
+    const comparisonId = shown?.comparisonId ?? null;
+    const pins = basis !== "comparison" ? current.pinned : comparisonId ? []
+      : [...new Set((shown?.rows ?? []).flatMap((row) => (row.spanKeys?.length ? row.spanKeys : [row.key])))];
     const askIdOf = basis === "comparison" ? shown?.askId ?? null : current.ask.value?.askId ?? null;
-    if (!askIdOf || pins.length === 0) return;
+    if (!askIdOf || (pins.length === 0 && !comparisonId)) return;
     const key = current.key;
     update(key, () => ({ tutor: { phase: "pending", value: null, failure: null }, tutorBasis: basis }));
     const askId = askIdOf;
     const pinnedSpanKeys = pins;
     try {
       const answer = await runJob("tutor", () => api.readerLibraryAskTutor({
-        askId, pinnedSpanKeys, question: question.trim() || null,
+        askId, pinnedSpanKeys, ...(comparisonId ? { comparisonId } : {}), question: question.trim() || null,
       }));
       if (answer === null) return;
       update(key, () => ({ tutor: { phase: "landed", value: answer, failure: null } }));

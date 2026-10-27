@@ -429,6 +429,14 @@ def reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> 
     return _start(ctx, "notes", params.ask_id, work)
 
 
+#: An anchor's blocks: the selection a comparison may start from. It is also
+#: the most passages a comparison that is not stored can show (fewer than two
+#: books compared: the anchor's blocks, or one passage), so the tutor about
+#: such a comparison takes as many keys (Codex re-review F10); a stored one is
+#: named by its id instead and has no request bound. A request-size guardrail.
+ANCHOR_SPANS_MAX = 40
+
+
 class _PinnedCompareInput(ParamsModel):
     """RW4a/RW4d's request, exactly: what the RPC takes while
     ``reader_compare.scope_enabled`` is off (CA3 off = today)."""
@@ -471,7 +479,7 @@ class LibraryCompareInput(ParamsModel):
     question: str | None = Field(default=None, max_length=4000)
     #: The anchor's source (the open book) and its passage.
     extraction_id: str | None = None
-    anchor_span_ids: list[str] = Field(default_factory=list, max_length=40)
+    anchor_span_ids: list[str] = Field(default_factory=list, max_length=ANCHOR_SPANS_MAX)
     #: The books named or chosen (they only narrow the scope).
     source_ids: list[str] = Field(default_factory=list, max_length=40)
     #: The tutor's offer this comparison answers (recorded on its ask row).
@@ -610,11 +618,12 @@ class LibraryAskTutorInput(ParamsModel):
     reads every passage it compared from the stored comparison (Codex
     re-review F10), so a comparison larger than a pin set (an anchor of many
     blocks and one passage per book) is answered from whole, the tutor's
-    context budget saying what it left out; ``pinned_span_keys`` stays the pin
-    set's bound and adds to it."""
+    context budget saying what it left out. ``pinned_span_keys``: the pins, or
+    the passages of a comparison that was not stored (fewer than two books:
+    at most an anchor's blocks, hence its bound); added to a named one."""
 
     ask_id: str
-    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=ANCHOR_SPANS_MAX)
     question: str | None = Field(default=None, max_length=4000)
     comparison_id: str | None = None
 

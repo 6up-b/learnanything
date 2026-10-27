@@ -2,11 +2,12 @@
 
 A comparison can hold more passages than a pin set: an anchor of up to 40
 blocks (the selection's own bound) and one passage per compared book. The
-tutor about that comparison names it (``comparisonId``): the server reads
+tutor about a stored comparison names it (``comparisonId``): the server reads
 every passage it compared from the stored comparison, so its size never meets
-the pins' bound, and the tutor's context budget says what it left out. A
-comparison id that is not the ask's own is refused; while CA3 is off the
-tutor's request is today's exactly.
+a request bound, and the tutor's context budget says what it left out. One
+that was not stored (fewer than two books) shows at most an anchor's blocks,
+the bound the request's keys take. A comparison id that is not the ask's own
+is refused; while CA3 is off the tutor's request is today's exactly.
 
 Every model is a fake (no network).
 """
@@ -80,9 +81,23 @@ def test_f10_the_tutor_reads_every_passage_of_a_comparison_larger_than_a_pin_set
     prompt = tutor.prompts[0]
     spans = json.loads(prompt[prompt.index("{"):])["context"]["source_spans"]
     assert {f"{s['extraction_id']}:{s['span_id']}" for s in spans} == given
-    # The pins' bound is unchanged: a pin set is still at most twenty.
+    # Keys sent in the request keep a bound: an anchor's (the most an unstored comparison shows).
     with pytest.raises(ValidationError):
-        call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "pinnedSpanKeys": shown[:21]})
+        call(ctx, "reader.library_ask_tutor", {"askId": table["askId"],
+                                               "pinnedSpanKeys": [f"ext_long:x{n}" for n in range(41)]})
+
+
+def test_f10_a_comparison_of_one_book_is_asked_about_by_its_passages(library):
+    _paths, ctx, _repository, blocks, _tutor = library
+    # Only the open book named: the anchor alone, fewer than two books, nothing stored.
+    table = call(ctx, "reader.library_compare", {
+        "door": "selection", "question": QUESTION, "extractionId": "ext_long", "anchorSpanIds": blocks,
+        "sourceIds": ["src_long"]})
+    assert table["status"] == "too_few_sources" and not table.get("comparisonId")
+    shown = _shown_keys(table)
+    assert len(shown) == BLOCKS > 20
+    answer = call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "pinnedSpanKeys": shown})
+    assert set(answer["groundedKeys"]) | _left_out(answer) == set(shown)
 
 
 def test_f10_the_tutors_context_budget_says_what_it_left_out(library):
@@ -118,5 +133,7 @@ def test_f10_while_ca3_is_off_the_tutor_request_is_todays(library):
     ctx = context(paths.root)
     with pytest.raises((SidecarError, ValidationError)):
         call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "comparisonId": table["comparisonId"]})
+    with pytest.raises(ValidationError):  # today's pin bound, too
+        call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "pinnedSpanKeys": _shown_keys(table) * 11})
     answer = call(ctx, "reader.library_ask_tutor", {"askId": table["askId"], "pinnedSpanKeys": [table["rows"][0]["key"]]})
     assert answer["groundedKeys"]

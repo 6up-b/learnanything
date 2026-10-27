@@ -55,6 +55,16 @@ const chipStyle = {
 
 const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" as const };
 
+/** The tutor's left-out passages, counted by reason. */
+function leftOut(dropped: Array<Record<string, unknown>>): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const pin of dropped) {
+    const reason = String(pin.reason ?? "not available");
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  return [...counts];
+}
+
 /** The books the line shows: the chosen ones, else (every book with a match)
  *  the books the comparison found, without the anchor's own (it is "your passage"). */
 export function shownBooks(chips: ScopeChips, table: CompareTableDto | null): LibraryBookDto[] {
@@ -254,10 +264,13 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   Table: ComponentType<{ table: CompareTableDto }>;
 }) {
+  // Codex re-review F11: the focusable region carries the shortcuts (`/`,
+  // Ctrl+↵); the body it holds shares its state and leaves the keys to it.
+  const controls = useCompareControls(ctl);
   const state = ctl.state;
   if (!state?.chips) return null;
   return (
-    <section aria-label="compare your books" data-compare-scope="" tabIndex={-1}
+    <section aria-label="compare your books" data-compare-scope="" tabIndex={-1} onKeyDown={controls.onKeyDown}
       style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
         <span style={headStyle}>{SCOPE_COPY.title}</span>
@@ -265,37 +278,19 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
         <button type="button" onClick={onClose} style={linkStyle}>{LIBRARY_COPY.close}</button>
       </div>
       <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
-      <CompareScopeBody ctl={ctl} onReword={onReword} onPracticePick={onPracticePick} Table={Table} />
+      <CompareScopeBody ctl={ctl} onReword={onReword} onPracticePick={onPracticePick} Table={Table} controls={controls} />
     </section>
   );
 }
 
-/** Every door's comparison controls (Codex review F5): the routed line, the
- *  table, refine, previous, the tutor about the comparison shown, practice. */
-export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practice = true,
-  kept = "Your question and the books are kept." }: {
-  ctl: LibraryAskController;
-  onReword: ((words: string) => void) | null;
-  onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
-  Table: ComponentType<{ table: CompareTableDto }>;
-  /** "practice this" and its items (absent where the host offers its own: a library answer). */
-  practice?: boolean;
-  kept?: string;
-}) {
+/** The comparison controls' own state and shortcuts: `/` opens refine,
+ *  Ctrl+↵ asks the tutor about the comparison shown. Whoever is focusable
+ *  carries `onKeyDown` (Codex re-review F11): the region, or the controls. */
+export function useCompareControls(ctl: LibraryAskController) {
   const [refineOpen, setRefineOpen] = useState(false);
   const [showPrevious, setShowPrevious] = useState(false);
   const [question, setQuestion] = useState("");
-  const state = ctl.state;
-  if (!state?.chips) return null;
-  const table = state.compare.value;
-  const previous = state.previous ?? [];
-  const earlier = previous[previous.length - 1] ?? null;
-  // The tutor's answer here is the one about this comparison (F5, F6).
-  const tutor = state.tutorBasis === "comparison" ? state.tutor : null;
-  const reword = onReword && state.chips.words !== null ? () => {
-    const words = ctl.reword();
-    if (words !== null) onReword(words);
-  } : null;
+  const table = ctl.state?.chips ? ctl.state.compare.value : null;
   const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     const typing = Boolean(target.closest("input, textarea, select"));
@@ -312,8 +307,45 @@ export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practic
       setRefineOpen(true);
     }
   };
+  return { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown };
+}
+
+export type CompareControls = ReturnType<typeof useCompareControls>;
+
+/** Every door's comparison controls (Codex review F5): the routed line, the
+ *  table, refine, previous, the tutor about the comparison shown, practice. */
+export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practice = true,
+  kept = "Your question and the books are kept.", controls }: {
+  ctl: LibraryAskController;
+  onReword: ((words: string) => void) | null;
+  onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
+  Table: ComponentType<{ table: CompareTableDto }>;
+  /** "practice this" and its items (absent where the host offers its own: a library answer). */
+  practice?: boolean;
+  kept?: string;
+  /** The host's controls, when the host's focusable region carries the shortcuts
+   *  (CompareScopeView); absent, these controls are focusable and carry them. */
+  controls?: CompareControls;
+}) {
+  const own = useCompareControls(ctl);
+  const hosted = controls !== undefined;
+  const { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown } = controls ?? own;
+  const state = ctl.state;
+  if (!state?.chips) return null;
+  const table = state.compare.value;
+  const previous = state.previous ?? [];
+  const earlier = previous[previous.length - 1] ?? null;
+  // The tutor's answer here is the one about this comparison (F5, F6).
+  const tutor = state.tutorBasis === "comparison" ? state.tutor : null;
+  const reword = onReword && state.chips.words !== null ? () => {
+    const words = ctl.reword();
+    if (words !== null) onReword(words);
+  } : null;
   return (
-    <div data-compare-controls="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    // Codex re-review F11: focusability and the shortcuts stay together, on
+    // the host's region (hosted) or on these controls.
+    <div data-compare-controls="" {...(hosted ? {} : { onKeyDown, tabIndex: -1 })}
+      style={{ display: "flex", flexDirection: "column", gap: 12, outline: "none" }}>
       <ScopeLine chips={state.chips} table={table} library={state.library ?? []} onBooks={ctl.setBooks} onReword={reword} />
       {earlier ? (
         // F7: the earlier table, whatever the state of the one replacing it.
@@ -389,6 +421,12 @@ export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practic
             <ModelVoice first note={tutor.value.label}>
               <MarkdownMath value={tutor.value.answerMd ?? ""} />
             </ModelVoice>
+          ) : null}
+          {tutor.value?.droppedPins?.length ? (
+            // Codex re-review F10: a passage the tutor's context budget (or a filter) left out is said.
+            <MeaningLabel style={{ fontSize: 11 }}>
+              {leftOut(tutor.value.droppedPins).map(([reason, count]) => SCOPE_COPY.tutorLeftOut(count, reason)).join(" · ")}
+            </MeaningLabel>
           ) : null}
         </ModelActionState>
       ) : null}
