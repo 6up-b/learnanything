@@ -284,14 +284,8 @@ export function useLibraryAsk({
     return state.pinned.length >= 2 && sources.size >= 2;
   })();
 
-  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
-  const compare = useCallback(async (perspectives: string[] = []) => {
-    const current = stateRef.current;
-    if (!current?.ask.value || !settings?.compare) return;
-    const key = current.key;
+  const runCompare = useCallback(async (key: number, askId: string, pinnedSpanKeys: string[], perspectives: string[] = []) => {
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
-    const askId = current.ask.value.askId;
-    const pinnedSpanKeys = current.pinned;
     const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : [];
     try {
       const table = await runJob("compare", () => api.readerLibraryCompare(
@@ -302,7 +296,42 @@ export function useLibraryAsk({
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, keep, openSourceId, runJob, update]);
+  }, [keep, openSourceId, runJob, update]);
+
+  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
+  const compare = useCallback(async (perspectives: string[] = []) => {
+    const current = stateRef.current;
+    if (!current?.ask.value || !settings?.compare) return;
+    await runCompare(current.key, current.ask.value.askId, current.pinned, perspectives);
+  }, [settings, runCompare]);
+
+  /** Reader CA5a: compare two sections' passages through this same path. The
+   *  ask is anchored on the open section (its title is the question), both
+   *  passages are pinned, and the comparison runs once the ask lands. The
+   *  organizer's notes wait to be asked for ("write the notes"): the learner
+   *  asked to compare, so no other model call is made for them. */
+  const compareWith = useCallback(async (request: LibraryAskRequest, pins: string[]) => {
+    if (!enabled || !settings?.compare || pins.length < 2) return;
+    for (const stage of JOB_STAGES) cancelStage(stage);
+    const key = ++keyRef.current;
+    const personalized = settings.personalizedDefault ?? true;
+    setState({
+      key, request, personalized, ask: { phase: "pending", value: null, failure: null }, notes: CANCELLED, pinned: pins,
+      compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
+    });
+    try {
+      const ask = await runJob("ask", () => api.readerLibraryAsk({
+        query: request.query, entry: request.entry, extractionId: request.extractionId,
+        spanIds: request.spanIds, personalized,
+      }));
+      if (keyRef.current !== key || ask === null) return;
+      update(key, () => ({ ask: { phase: "landed", value: ask, failure: null } }));
+      await runCompare(key, ask.askId, pins);
+    } catch (error) {
+      if (keyRef.current !== key) return;
+      update(key, () => ({ ask: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't look in your books.") } }));
+    }
+  }, [enabled, settings, cancelStage, runJob, runCompare, update]);
 
   const askTutor = useCallback(async (question: string) => {
     const current = stateRef.current;
@@ -393,7 +422,7 @@ export function useLibraryAsk({
 
   return {
     enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
-    compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
+    compare, compareWith, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
   };
 }
 

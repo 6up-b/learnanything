@@ -623,6 +623,8 @@ fn main() {
             reader_reading_path,
             reader_reading_path_set_depth,
             reader_reading_path_override,
+            reader_correspondents,
+            curriculum_coverage_correct,
             reader_figure_request,
             figure_request,
             reader_figure_revise,

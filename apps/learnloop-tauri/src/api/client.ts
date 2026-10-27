@@ -12,6 +12,8 @@ import type {
   ReadingPathChoice,
   ReadingPathDepth,
   ReadingPathDto,
+  CorrespondentsDto,
+  CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -1632,6 +1634,12 @@ export const api = {
     call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
   readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
     call<ReadingPathDto>("reader_reading_path_override", { input }),
+  // Reader CA5a: the other books' sections for one section (no model call, no
+  // write), and C0a's "not about this" correction on one of them.
+  readerCorrespondents: (input: { extractionId: string; sectionId: string; searchFallback?: boolean }) =>
+    call<CorrespondentsDto>("reader_correspondents", { input }),
+  curriculumCoverageCorrect: (input: { extractionId: string; sectionId: string; learningObjectId: string; choice: CoverageCorrectionChoice; text?: string | null }) =>
+    call<{ correction: Record<string, unknown> }>("curriculum_coverage_correct", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>

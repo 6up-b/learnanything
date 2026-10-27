@@ -88,6 +88,8 @@ export interface GuideRailProps {
   header?: ReactNode;
   /** RW7a: the reading path card, in place of the goal card (absent when off: today's Guide). */
   path?: ReactNode;
+  /** Reader CA5a: "find this section in my other books", in the footer (absent when off: today's Guide). */
+  findSection?: ReactNode;
 }
 
 export function GuideRail({
@@ -136,6 +138,7 @@ export function GuideRail({
   footer = null,
   header = null,
   path = null,
+  findSection = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
   // Without a read count (an older caller) the bar follows the reading marker.
@@ -371,6 +374,7 @@ export function GuideRail({
           </Card>
         </>
       ) : null}
+      {findSection}
       {footer}
     </div>
   );
