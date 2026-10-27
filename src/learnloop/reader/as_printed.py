@@ -13,16 +13,19 @@ The rules held here, on the server:
   retained region (a text block's box, or a figure's box clipped to the
   learner's selected sub-box) is its own crop, in reading order, never
   merged with another (the Astra redesign, F6: a union rectangle can take in
-  pixels of a block or sub-box that was left out). Boxes can still overlap,
-  so every rendered crop is **masked** (Sol verify 3): each crop is painted
-  white over every excluded area it overlaps, which is every block on the
-  page not retained (a dropped solution, a neighbour, an owned figure held
-  back) and, for a retained block shown by its selected sub-box, the rest
-  of its box. No crop then shows a pixel of excluded content, whatever
-  overlaps; a retained box loses only what it shares with excluded content.
-  An excluded box holding a whole crop is that block's container (a figure
-  group around its figure) and is not painted over it. The DTO is
-  unchanged. No padding, no tolerance constant. A
+  pixels of a block or sub-box that was left out). A crop shows its
+  retained area whole and nothing else, so excluded content can reach it
+  only where boxes overlap. One rule settles that (Sol verify ruling,
+  2026-10-27; :func:`shows_unsafe`): when a retained area overlaps
+  *unsafe* content (a block on the problem's pages excluded as a solution
+  by span, role or heading, a figure refused as an answer or worked, or the
+  rest of a sub-box-selected block's box), the free crop is ``NO_CROP``,
+  the charged original page offered. A neutral block overlapping (a scale
+  label over a graph) is not ambiguity. During a check on your own a
+  retained figure still shows (the problem must stay answerable): the
+  residual is unsafe ink inside a stimulus or legacy-owned figure's own
+  box. Nothing is painted, and the DTO is unchanged. No padding, no
+  tolerance constant. A
   block without a page or a box crops nothing, and a crop that cannot be
   made is reported as such, never replaced by the whole page; the original
   page is still offered when the block's page is known (F5).
@@ -99,7 +102,7 @@ The rules held here, on the server:
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -196,51 +199,34 @@ def _outside(outer: Box, inner: Box) -> list[Box]:
     return [part for part in parts if part[2] > part[0] and part[3] > part[1]]
 
 
-#: An excluded area, and whether it is a block's whole box (which may be a
-#: container around a retained block: :func:`_masks_for`).
-Excluded = tuple[Box, bool]
-
-
-def excluded_areas(
+def shows_unsafe(
     retained: Sequence[DocumentBlock],
     on_pages: Sequence[DocumentBlock],
+    unsafe: Collection[str],
     regions: Mapping[str, tuple[int, Box]] | None = None,
-) -> dict[int, list[Excluded]]:
-    """Per page, the areas no crop may show (Sol verify 3): the box of every
-    block on the page that is not ``retained``, and for a retained block
-    shown by its selected sub-box (``regions``), the rest of its box. The
-    renderer paints them white in each crop (:func:`_masks_for`)."""
+) -> bool:
+    """Whether a retained display area (a crop: a retained block's box, or
+    its selected sub-box) overlaps unsafe content (Sol verify ruling,
+    2026-10-27): the box of a block in ``unsafe`` that is not retained (a
+    book-solution span, a solution role, a heading-led solution, a figure
+    refused as an answer or worked), or the rest of a sub-box-selected
+    block's box. Then no free crop can be shown without it (``NO_CROP``).
+    Neutral blocks overlapping a crop (a scale label over a graph) are not
+    ambiguity: a crop shows its retained area, whole."""
 
     retained_ids = {block.span_id for block in retained}
-    areas: dict[int, list[Excluded]] = {}
+    crops, _skipped = crop_boxes(retained, regions)
+    areas: dict[int, list[Box]] = {}
     for block in on_pages:
         box = _box(block)
-        if block.page is not None and box is not None and block.span_id not in retained_ids:
-            areas.setdefault(int(block.page), []).append((box, True))
+        if block.page is not None and box is not None and block.span_id in unsafe and block.span_id not in retained_ids:
+            areas.setdefault(int(block.page), []).append(box)
     for block in retained:
         box, region = _box(block), (regions or {}).get(block.span_id)
-        if block.page is None or box is None or region is None or int(region[0]) != int(block.page):
-            continue
-        shown = _overlap(region[1], box)
-        rest = _outside(box, shown) if shown is not None else [box]
-        areas.setdefault(int(block.page), []).extend((part, False) for part in rest)
-    return areas
-
-
-def _contains(outer: Box, inner: Box) -> bool:
-    return outer[0] <= inner[0] and outer[1] <= inner[1] and inner[2] <= outer[2] and inner[3] <= outer[3]
-
-
-def _masks_for(crop: Box, areas: Sequence[Excluded]) -> list[list[float]]:
-    """The excluded areas one crop paints white: those overlapping it, except
-    a block's box holding the whole crop. That is a container the extractor
-    drew around the retained block (a figure group around its figure); its
-    other members are blocks of their own, masked by their own boxes, and
-    painting it would blank the retained block (a required graph lost cold).
-    The rest of a sub-box's block is always painted."""
-
-    return [list(part) for area, block_box in areas if not (block_box and _contains(area, crop))
-            for part in [_overlap(area, crop)] if part is not None]
+        if block.page is not None and box is not None and region is not None and int(region[0]) == int(block.page):
+            shown = _overlap(region[1], box)
+            areas.setdefault(int(block.page), []).extend(_outside(box, shown) if shown is not None else [box])
+    return any(_overlap(area, crop.bbox) is not None for crop in crops for area in areas.get(crop.page, []))
 
 
 def _pdf_path(repository: Any, extraction_id: str) -> Any:
@@ -283,6 +269,10 @@ class PrintedOrigin:
     #: The figures a check on your own shows (§15 Q10), set by
     #: :func:`_problem_only`; None: the figures among ``span_ids``.
     figure_span_ids: tuple[str, ...] | None = None
+    #: The unsafe blocks on the problem's pages (:func:`shows_unsafe`): solution
+    #: blocks by span, role or heading, and figures refused as an answer or
+    #: worked. Set by :func:`_problem_only`.
+    unsafe_span_ids: tuple[str, ...] = ()
 
     @property
     def located_by(self) -> tuple[str, ...]:
@@ -629,10 +619,17 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
     wanted = list(dict.fromkeys((*origin.located_by, *origin.span_ids)))
     try:
         blocks = {block.span_id: block for block in repository.document_blocks(origin.extraction_id, wanted)}
+        # The rest of the problem's pages: an unsafe block there that a crop
+        # overlaps withholds the free crop (:func:`shows_unsafe`).
+        pages = sorted({int(block.page) for block in blocks.values() if block.page is not None})
+        on_pages = {block.span_id: block for block in (repository.document_blocks_on_pages(origin.extraction_id, pages)
+                                                         if pages else [])}
+        on_pages.update(blocks)
         with repository.connection() as connection:
             solution = _solution_span_ids(connection, str(getattr(item, "id", "")), origin.extraction_id)
-            role_of = (dict(roles(connection, [(origin.extraction_id, span) for span in blocks])) if roles is not None
-                       else {(origin.extraction_id, span): block.role_hint for span, block in blocks.items()})
+            role_of = (dict(roles(connection, [(origin.extraction_id, span) for span in on_pages]))
+                       if roles is not None
+                       else {(origin.extraction_id, span): block.role_hint for span, block in on_pages.items()})
     except Exception:  # noqa: BLE001 - fail closed: no free crop, the page still offered
         import logging
 
@@ -642,10 +639,17 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
     # Rule 1: solution blocks leave, whatever the marks say. The heading test
     # reads text blocks only (Sol verify 2: a graph titled "Solution
     # concentration ..." is the problem's input).
-    dropped = {span for span, block in blocks.items()
-               if span in solution or role_of.get((origin.extraction_id, span)) == "solution"
-               or (not is_figure_block(block) and _answer_heading(block.text) == "solution")}
-    located = tuple(span for span in origin.located_by if span not in dropped) or origin.located_by
+    def is_solution(span: str, block: DocumentBlock) -> bool:
+        return (span in solution or role_of.get((origin.extraction_id, span)) == "solution"
+                or (not is_figure_block(block) and _answer_heading(block.text) == "solution"))
+
+    dropped = {span for span, block in blocks.items() if is_solution(span, block)}
+    refused = {span for extraction, span, ref in _block_refs(item) if extraction == origin.extraction_id
+               and _ref_field(ref, "figure_role") in ("answer", "worked")}
+    unsafe = tuple(sorted({span for span, block in on_pages.items() if is_solution(span, block)} | refused))
+    # The original page outlines the problem: never a solution or a refused figure.
+    located = tuple(span for span in origin.located_by if span not in dropped and span not in refused) \
+        or origin.located_by
     own = [span for span in origin.span_ids if span in blocks and span not in dropped]
     figures = [span for span in own if is_figure_block(blocks[span])]
     text = [span for span in own if span not in figures]
@@ -670,10 +674,10 @@ def _problem_only(repository: Any, item: Any, origin: PrintedOrigin, *,
                                                      for span in free_figures)) if part is not None]
     if not text or not all(inside for inside, _part in placed) or not _covers(printed, statement):
         return replace(no_crop, page_span_ids=located, figure_span_ids=tuple(figures),
-                       regions=kept_regions(figures))
+                       regions=kept_regions(figures), unsafe_span_ids=unsafe)
     shown = tuple(span for span in own if span in text or span in free_figures)
     return replace(origin, span_ids=shown, regions=kept_regions((*shown, *figures)), page_span_ids=located,
-                   figure_span_ids=tuple(figures))
+                   figure_span_ids=tuple(figures), unsafe_span_ids=unsafe)
 
 
 def printed_origin(repository: Any, item: Any, *, roles: RoleReader | None = None) -> PrintedOrigin | None:
@@ -721,9 +725,6 @@ def printed_crops(
     if not blocks:
         return {"status": "not_found", "crops": [], "skipped_span_ids": []}
     boxes, skipped = crop_boxes(blocks, regions)
-    pages = sorted({box.page for box in boxes})
-    neighbours = repository.document_blocks_on_pages(extraction_id, pages) if pages else []
-    masks = excluded_areas(blocks, neighbours, regions)
     if not boxes:
         return {"status": "no_geometry", "crops": [], "skipped_span_ids": [] if figure_only else skipped}
     pdf_path = _pdf_path(repository, extraction_id)
@@ -736,9 +737,7 @@ def printed_crops(
         for index, box in enumerate(boxes):
             by_page.setdefault(box.page, []).append(index)
         for page, indices in by_page.items():
-            made, _size = SV._local_pdf_crops(pdf_path, page, [list(boxes[i].bbox) for i in indices],
-                                              masks=[_masks_for(boxes[i].bbox, masks.get(page, []))
-                                                     for i in indices])
+            made, _size = SV._local_pdf_crops(pdf_path, page, [list(boxes[i].bbox) for i in indices])
             for index, image in zip(indices, made):
                 images[index] = image
         if not any(images):
@@ -756,6 +755,22 @@ def printed_crops(
             "image": image,
         })
     return {"status": status, "crops": crops, "skipped_span_ids": skipped}
+
+
+def _overlaps_unsafe(repository: Any, origin: PrintedOrigin) -> bool:
+    """Whether the free crop would overlap unsafe content (:func:`shows_unsafe`);
+    a read that fails says yes (fail closed: ``NO_CROP``, the page offered)."""
+
+    try:
+        retained = repository.document_blocks(origin.extraction_id, list(origin.span_ids))
+        pages = sorted({int(block.page) for block in retained if block.page is not None})
+        on_pages = repository.document_blocks_on_pages(origin.extraction_id, pages) if pages else []
+        return shows_unsafe(retained, on_pages, set(origin.unsafe_span_ids), origin.regions)
+    except Exception:  # noqa: BLE001 - fail closed
+        import logging
+
+        logging.getLogger(__name__).exception("Could not read what overlaps the crop of %s", origin.extraction_id)
+        return True
 
 
 def _label(label: str | None) -> str | None:
@@ -846,7 +861,7 @@ def item_as_printed(
                 return _none("cold_check", cold=True)
             return {"enabled": True, "kind": KIND_FIGURE, "cold": True, "label": FIGURE_LABEL,
                     "status": figures["status"], "crops": figures["crops"]}
-        if not origin.span_ids:
+        if not origin.span_ids or _overlaps_unsafe(repository, origin):
             return _page_without_crop(repository, origin, source_title=source_title, cold=cold)
         printed = printed_crops(repository, extraction_id=origin.extraction_id, span_ids=origin.span_ids,
                                 render=render, regions=origin.regions)

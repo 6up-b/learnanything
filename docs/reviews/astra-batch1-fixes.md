@@ -332,42 +332,76 @@ three. The design is unchanged; each fix tightens one of its rules.
      Fail-before: `kind == "none"` cold, and the crop was `[["c9"]]`
      without the graph. Every existing "Solution"-led text case still drops.
 3. **High: overlapping boxes could still show excluded pixels (F6).**
-   * Fix: every rendered crop is **masked**. `excluded_areas` lists, per
-     page, two kinds of area:
-     - the box of every block not retained (a dropped solution, a neighbour,
-       an owned figure held back);
-     - for a retained block shown by its sub-box, the rest of its box.
-   * `span_view._local_pdf_crops(masks=)` paints those areas white in each
-     crop, widened outward to whole pixels. The DTO is unchanged and no crop
-     is withheld, so a stimulus figure stays answerable during a check on
-     your own.
-   * One exemption: a block's box that holds a whole crop is that block's
-     container (a figure group around its figure) and is not painted over it,
-     since painting it would blank a required graph. The rest of a sub-box's
-     block is never exempt.
-   * Tests: `test_an_overlapping_figure_box_never_shows_another_figures_excluded_inset`
-     (Codex's probe: the inset at (85,105,95,120) outside Figure 3's
-     sub-box, inside Figure 4's box (80,100,180,200)),
-     `test_and_in_a_check_on_your_own_where_both_figures_stay`,
-     `test_a_box_overlapping_a_dropped_solution_block_never_shows_it`, and
-     `test_a_container_around_a_retained_figure_is_not_painted_over_it`.
-     Fail-before: blue (excluded) pixels in Figure 4's crop warm and cold,
-     and in the problem's crop where it overlaps its solution block.
+   The first fix (`3bbd0c538`) masked excluded areas in each crop and
+   exempted containers. The Sol verify of `3bbd0c538` (job
+   `20261027-052851-Bf60oF`) reopened it twice:
+   * an enclosing solution, answer or worked box went unpainted (852
+     answer pixels, status ok);
+   * the remainder mask of figure A blanked a retained stimulus figure B
+     (100% white during a check, so the problem was unanswerable).
 
-Residuals:
+   Replaced, per the coordinator's ruling under the owner's bar, by **one
+   rule**, with no masks and no exemptions (`as_printed.shows_unsafe`):
+   * **R:** the retained display areas, which are the crops. Each is a
+     retained text block's box, or a retained figure's selected sub-box or
+     full box.
+   * **U, unsafe:** the boxes, on the problem's pages, of blocks excluded as
+     a solution by book-solution span, solution role or heading; of figures
+     refused as `answer` or `worked`; and the rest of a
+     sub-box-selected figure's box. `_problem_only` computes U for every
+     block on the problem's pages, not only the selection, and carries it
+     on the origin as `unsafe_span_ids`.
+   * **N:** every other non-retained block. It is neutral: a scale label
+     over a graph is not ambiguity.
+   * Nothing is ever painted. A crop shows its retained area whole.
+   * **If any U area overlaps any R area,** the free crop is `NO_CROP`
+     with the charged original page. This is the owner's fallback, and it
+     fails closed if it cannot be read.
+   * **During a check on your own,** retained figures still show whole, so
+     the problem stays answerable. Retained text never shows during a
+     check.
+   * Refused figures also leave the original page's outline.
+   * The renderer's `masks` parameter, `excluded_areas` and `_masks_for`
+     (the container exemption) are deleted.
+   * Tests (all in the redesign file):
+     - `test_a_problem_inside_an_excluded_box_gets_no_free_crop[solution_span,
+       solution_role, solution_heading, answer_figure, worked_figure]`:
+       Codex's enclosing-box probe, giving `NO_CROP`, no crops and no
+       answer pixel.
+     - `test_and_a_check_on_your_own_shows_nothing_of_it`.
+     - `test_a_retained_figure_under_another_figures_excluded_rest_shows_whole_in_a_check`
+       (Codex's (c): B fully green) and
+       `test_and_outside_a_check_the_rule_withholds_the_free_crop` (U ∩ R
+       is non-empty, so `NO_CROP`).
+     - `test_a_scale_label_over_a_graph_is_neutral_and_the_graph_stays`
+       (the label pixels are kept), and the same during a check.
+     - The earlier F6 tests (`test_f6_*`, the Astra review's inset)
+       unchanged.
+     - The inset probe rewritten:
+       `test_an_overlapping_figure_box_over_another_figures_excluded_rest_gives_no_free_crop`
+       and `test_in_a_check_on_your_own_both_figures_stay_whole`.
+     - `test_a_box_overlapping_a_dropped_solution_block_gives_no_free_crop`.
+     - The container-exemption unit test is deleted, together with the
+       exemption.
+   * Fail-before on `3bbd0c538` (11 tests):
+     - the five enclosing probes showed a free crop;
+     - the inset and solution-overlap cases showed a free crop;
+     - B was blanked during a check;
+     - the masked Figure 4 was only 79% green;
+     - the scale label was painted out (0 pixels).
 
-* A retained box loses the pixels it shares with excluded content. For
-  example, a figure's axis label extracted as a separate unselected block
-  is painted out. This costs legibility, not safety.
-* A non-retained block whose box wholly encloses a retained one is treated
-  as its container and is not painted over it.
+Residual, with its reasoning. During a check on your own, unsafe ink that
+lies inside a retained figure's own box shows with that figure. Examples:
+the inset probe's inset inside Figure 4's box, or a solution box drawn over
+a validated-stimulus or legacy-owned graph. A check cannot open the page,
+and painting would erase input the learner needs, as Sol's (c) showed. The
+owner's bar ranks an unanswerable problem as unacceptable, and the free crop
+still withholds in exactly these cases. A neutral block overlapping a crop
+shows where it overlaps; it is not a solution by any recorded signal.
 
 Gate for this round: `lint-imports` 36 kept, 0 broken. Targeted
-`pytest -n 6` over the 74 files naming as_printed, span_view,
-exercise_authoring, import_exercises, block_original_region or
-source_exercise, plus the contract tests and the spend envelopes:
-**2,030 passed, 5 skipped, 0 failed** (3 min 17 s). Same rules as the gate
-below.
+`pytest -n 6` over the same 74 files: **2,041 passed, 5 skipped, 0 failed**
+(3 min 13 s). The first fix's gate was 2,030 passed.
 
 ### Gate (redesign)
 

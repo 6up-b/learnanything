@@ -40,6 +40,7 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.test_reader_ca1_as_printed import (  # noqa: F401 - fixtures
     BLUE,
     GREEN,
+    GREY,
     RED,
     _call,
     _image,
@@ -90,14 +91,37 @@ LAYOUT = (
     ("fb", "Figure", 5, [80.0, 100.0, 180.0, 200.0], GREEN, "Figure 4. A parabola."),
     ("p8", "Text", 5, [72.0, 300.0, 540.0, 350.0], RED, "Exercise 8. Compute 5+5."),
     ("r8", "Text", 5, [72.0, 340.0, 540.0, 380.0], BLUE, "Solution. The sum is 10."),
+    # Sol verify ruling: Figure A's unselected rest covers a retained Figure B.
+    ("ta", "Text", 6, [0.0, 20.0, 300.0, 60.0], RED, "Compare Figure 5 with Figure 6."),
+    ("fA", "Figure", 6, [0.0, 90.0, 240.0, 230.0], GREEN, "Figure 5. A line."),
+    ("fB", "Figure", 6, [120.0, 100.0, 220.0, 200.0], GREEN, "Figure 6. A parabola."),
+    # A scale label extracted as its own block over a retained graph.
+    ("s7", "Text", 7, [72.0, 20.0, 540.0, 60.0], RED, "Read y at x = 2 from the plot."),
+    ("gp", "Figure", 7, [72.0, 80.0, 300.0, 260.0], GREEN, "The plot of y against x."),
+    ("lb", "Text", 7, [100.0, 240.0, 200.0, 255.0], GREY, "0 1 2 3"),
+) + tuple(
+    # Sol verify ruling: a problem's box inside an excluded box, once per
+    # exclusion reason (pages 8-12): (P) the problem, (E) the enclosing box.
+    entry for page, (number, kind, text) in enumerate([
+        ("6", "Text", "The sum is twelve."),                     # a book-solution span
+        ("7", "Text", "The sum is fourteen."),                   # a solution role
+        ("8", "Text", "Solution. The sum is 16."),               # a heading-led solution
+        ("9", "Figure", "A completed graph."),                   # a figure refused as an answer
+        ("4", "Figure", "The worked construction."),             # a figure refused as worked
+    ], start=8)
+    for entry in ((f"E{page}", kind, page, [10.0, 30.0, 260.0, 200.0], BLUE, text),
+                  (f"P{page}", "Text", page, [40.0, 60.0, 220.0, 130.0], RED,
+                   f"Exercise {page}. Compute {number}+{number}."))
 )
 #: F6: the answer inset inside h1's block, and the learner's sub-box of h1
 #: leaving it out; Sol verify 3: the inset inside Figure 3 (fa) that its
 #: sub-box leaves out and Figure 4's box (fb) overlaps.
-INSETS = ((2, [80.0, 180.0, 100.0, 210.0]), (5, [85.0, 105.0, 95.0, 120.0]))
+INSETS = ((2, [80.0, 180.0, 100.0, 210.0]), (5, [85.0, 105.0, 95.0, 120.0]),
+          *((page, [200.0, 110.0, 215.0, 125.0]) for page in range(8, 13)))   # E's ink inside P's box
 H1_REGION = {"spanId": "h1", "page": 2, "bbox": [10.0, 120.0, 40.0, 150.0]}
 FA_REGION = {"spanId": "fa", "page": 5, "bbox": [0.0, 100.0, 80.0, 200.0]}
-PAGES = 6
+A_REGION = {"spanId": "fA", "page": 6, "bbox": [0.0, 100.0, 100.0, 200.0]}
+PAGES = 13
 
 
 def _seed(root, repository) -> None:
@@ -552,39 +576,118 @@ def test_a_solution_lead_is_a_heading_not_a_word_starting_a_sentence(text, kind)
 # -- Sol verify 3: no crop shows excluded pixels where boxes overlap --------------------------------------
 
 
-def test_an_overlapping_figure_box_never_shows_another_figures_excluded_inset(seeded, warm):
+def test_an_overlapping_figure_box_over_another_figures_excluded_rest_gives_no_free_crop(seeded, warm):
+    """Sol verify 3 probe, under the ruling: Figure 4's box overlaps the rest
+    of Figure 3's box the learner's sub-box leaves out (the inset), so the
+    free crop is withheld and the page offered (rewritten: it pinned masks)."""
+
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["t8", "fa", "fb"], "Compare Figure 3 with Figure 4.", "one curves",
+                              roles={"fa": "stimulus", "fb": "stimulus"}, region=FA_REGION)
+    _no_free_crop(_view(ctx, item_id), "t8")
+
+
+def test_in_a_check_on_your_own_both_figures_stay_whole(seeded, cold):
+    """The problem stays answerable: each retained figure shows its own area
+    whole. The residual (the review's): the inset lies inside Figure 4's own
+    box, so it shows in that figure's crop."""
+
     paths, ctx, repository = seeded
     item_id, _calls = _import(paths, repository, ["t8", "fa", "fb"], "Compare Figure 3 with Figure 4.", "one curves",
                               roles={"fa": "stimulus", "fb": "stimulus"}, region=FA_REGION)
     view = _view(ctx, item_id)
-    _blue_free(view)
-    assert _crop_spans(view) == [["t8"], ["fa"], ["fb"]]
-    figure_b = _image(view["crops"][2]["image"])
-    assert _share(figure_b, GREEN) > 0.7                                 # Figure 4 itself still shows
+    assert view["kind"] == "figure" and len(view["crops"]) == 2
+    first, second = (_image(crop["image"]) for crop in view["crops"])
+    assert _share(first, GREEN) > 0.9 and _share(first, BLUE) == 0      # Figure 3: its sub-box only
+    assert _share(second, GREEN) > 0.9
 
 
-def test_and_in_a_check_on_your_own_where_both_figures_stay(seeded, cold):
-    paths, ctx, repository = seeded
-    item_id, _calls = _import(paths, repository, ["t8", "fa", "fb"], "Compare Figure 3 with Figure 4.", "one curves",
-                              roles={"fa": "stimulus", "fb": "stimulus"}, region=FA_REGION)
-    view = _view(ctx, item_id)
-    _blue_free(view)
-    assert view["kind"] == "figure" and len(view["crops"]) == 2       # still answerable: both figures show
-
-
-def test_a_box_overlapping_a_dropped_solution_block_never_shows_it(seeded, warm):
+def test_a_box_overlapping_a_dropped_solution_block_gives_no_free_crop(seeded, warm):
     paths, ctx, repository = seeded
     item_id, _calls = _import(paths, repository, ["p8", "r8"], "Compute 5+5.", "10")
+    _no_free_crop(_view(ctx, item_id), "p8")
+
+
+# -- the Sol verify ruling: one rule for overlapping boxes ------------------------------------------------
+
+
+def _enclosed(paths, repository, monkeypatch, page: int) -> str:
+    """The problem P{page} selected with the box E{page} that encloses it,
+    E excluded for that page's reason."""
+
+    number = _text(f"P{page}").split("Compute ", 1)[1].rstrip(".")
+    roles = {8 + 3: {f"E{page}": "answer"}, 8 + 4: {f"E{page}": "worked"}}.get(page)
+    item_id, _calls = _import(paths, repository, [f"P{page}", f"E{page}"], f"Compute {number}.", "even",
+                              roles=roles)
+    if page == 8:
+        _record_solution(paths, repository, item_id, [f"P{page}", f"E{page}"], [f"E{page}"])
+    if page == 9:
+        import learnloop_sidecar.handlers.as_printed as handler
+
+        real = handler.block_roles
+
+        def roles_with_solution(connection, keys):
+            found = dict(real(connection, keys))
+            found.update({key: "solution" for key in keys if key[1] == f"E{page}"})
+            return found
+
+        monkeypatch.setattr(handler, "block_roles", roles_with_solution)
+    return item_id
+
+
+@pytest.mark.parametrize("page", [8, 9, 10, 11, 12],
+                         ids=["solution_span", "solution_role", "solution_heading", "answer_figure", "worked_figure"])
+def test_a_problem_inside_an_excluded_box_gets_no_free_crop(seeded, warm, monkeypatch, page):
+    paths, ctx, repository = seeded
+    item_id = _enclosed(paths, repository, monkeypatch, page)
     view = _view(ctx, item_id)
-    _blue_free(view)
-    assert _crop_spans(view) == [["p8"]] and _share(_image(view["crops"][0]["image"]), RED) > 0.7
+    _no_free_crop(view, f"P{page}")                                      # no crop: no answer pixel anywhere
 
 
-def test_a_container_around_a_retained_figure_is_not_painted_over_it():
-    from learnloop.reader.as_printed import _masks_for
+@pytest.mark.parametrize("page", [8, 10, 11])
+def test_and_a_check_on_your_own_shows_nothing_of_it(seeded, cold, monkeypatch, page):
+    paths, ctx, repository = seeded
+    item_id = _enclosed(paths, repository, monkeypatch, page)
+    assert _view(ctx, item_id)["kind"] == "none"                         # the retained problem is text
 
-    figure = (0.0, 100.0, 100.0, 200.0)
-    group = ((0.0, 90.0, 120.0, 230.0), True)                          # a figure group around the figure
-    rest_of_sub_box_block = ((0.0, 80.0, 200.0, 300.0), False)        # never spared
-    assert _masks_for(figure, [group]) == []
-    assert _masks_for(figure, [rest_of_sub_box_block]) == [list(figure)]
+
+def test_a_retained_figure_under_another_figures_excluded_rest_shows_whole_in_a_check(seeded, cold):
+    """Sol verify (c): Figure 5's unselected rest covers retained Figure 6.
+    Retained content is never painted, so Figure 6 shows whole."""
+
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["ta", "fA", "fB"], "Compare Figure 5 with Figure 6.", "one curves",
+                              roles={"fA": "stimulus", "fB": "stimulus"}, region=A_REGION)
+    view = _view(ctx, item_id)
+    assert view["kind"] == "figure" and len(view["crops"]) == 2
+    assert all(_share(_image(crop["image"]), GREEN) > 0.9 for crop in view["crops"])
+
+
+def test_and_outside_a_check_the_rule_withholds_the_free_crop(seeded, warm):
+    from learnloop.reader.as_printed import shows_unsafe
+
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["ta", "fA", "fB"], "Compare Figure 5 with Figure 6.", "one curves",
+                              roles={"fA": "stimulus", "fB": "stimulus"}, region=A_REGION)
+    blocks = repository.document_blocks(EXT, ["ta", "fA", "fB"])
+    on_page = repository.document_blocks_on_pages(EXT, [6])
+    assert shows_unsafe(blocks, on_page, set(), {"fA": (6, (0.0, 100.0, 100.0, 200.0))})   # U ∩ R is not empty
+    _no_free_crop(_view(ctx, item_id), "ta")
+
+
+def test_a_scale_label_over_a_graph_is_neutral_and_the_graph_stays(seeded, warm):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["s7", "gp"], "Read y at x = 2 from the plot.", "4",
+                              roles={"gp": "stimulus"})
+    view = _view(ctx, item_id)
+    assert _crop_spans(view) == [["s7"], ["gp"]]
+    graph = _image(view["crops"][1]["image"])
+    assert _share(graph, GREEN) > 0.8 and _share(graph, GREY) > 0      # the label is kept, never painted
+
+
+def test_and_in_a_check_on_your_own(seeded, cold):
+    paths, ctx, repository = seeded
+    item_id, _calls = _import(paths, repository, ["s7", "gp"], "Read y at x = 2 from the plot.", "4",
+                              roles={"gp": "stimulus"})
+    view = _view(ctx, item_id)
+    assert view["kind"] == "figure" and _share(_image(view["crops"][0]["image"]), GREEN) > 0.8

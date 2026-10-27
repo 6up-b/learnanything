@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import base64
 import io
-import math
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -296,15 +295,11 @@ def _local_pdf_block_crop(
 
 
 def _local_pdf_crops(
-    path: Path | None, page: int | None, boxes: list[list[float]],
-    masks: list[list[list[float]]] | None = None,
+    path: Path | None, page: int | None, boxes: list[list[float]]
 ) -> tuple[list[str | None], list[float] | None]:
     """Reader CA1: several crops of one PDF page, the page rendered once. Each
     box is in PDF-point space, as :func:`_local_pdf_block_crop`'s; a box that
-    crops nothing gives None in its place (never the page). ``masks``: per
-    box, areas (PDF points) painted white in that crop, so it shows none of
-    them (``reader.as_printed.excluded_areas``); each is widened to whole
-    pixels outward, so not even an edge row survives."""
+    crops nothing gives None in its place (never the page)."""
 
     if path is None or page is None or not boxes:
         return [None for _ in boxes], None
@@ -317,7 +312,7 @@ def _local_pdf_crops(
             try:
                 image = bitmap.to_pil()
                 crops: list[str | None] = []
-                for index, bbox in enumerate(boxes):
+                for bbox in boxes:
                     if not bbox or len(bbox) != 4:
                         crops.append(None)
                         continue
@@ -329,19 +324,8 @@ def _local_pdf_crops(
                     if right <= left or bottom <= top:
                         crops.append(None)
                         continue
-                    crop = image.crop((left, top, right, bottom))
-                    areas = masks[index] if masks is not None and index < len(masks) else []
-                    if areas:
-                        from PIL import ImageDraw
-
-                        draw = ImageDraw.Draw(crop)
-                        for area in areas:
-                            ax0, ay0, ax1, ay1 = (float(v) * _CROP_SCALE for v in area)
-                            draw.rectangle((math.floor(min(ax0, ax1)) - left, math.floor(min(ay0, ay1)) - top,
-                                            math.ceil(max(ax0, ax1)) - left, math.ceil(max(ay0, ay1)) - top),
-                                           fill="white")
                     output = io.BytesIO()
-                    crop.save(output, format="PNG", optimize=True)
+                    image.crop((left, top, right, bottom)).save(output, format="PNG", optimize=True)
                     crops.append("data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii"))
             finally:
                 bitmap.close()
