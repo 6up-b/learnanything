@@ -246,6 +246,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "fallback_reason"),
     # A calibration model's provenance and evidence manifest name its policy, bundle and evidence
     # counts (``attempts.grader_calibration``), never an answer or an item: metadata.
+    # Its alphas are numbers keyed by emission, as the model's reliability bins are.
+    "grader_calibration_alphas": (
+        "id model_id true_class alpha_json created_at",
+        ""),
     "grader_calibration_models": (
         "id grading_prompt_version grader_output_schema_version grader_identity_hash semver "
         "parent_model_id content_hash scope_level outcome_schema_id outcome_schema_version domain "

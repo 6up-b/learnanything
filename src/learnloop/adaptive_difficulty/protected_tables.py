@@ -88,6 +88,11 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("forecast_receipts", PROTECTED),
     ("grade_adjudications", DENIED),
     ("grade_interpretations", DENIED),
+    # A grader calibration model's Dirichlet alphas (migration 066): its numbers, immutable with it
+    # and neutral as it is. Field's effective observations read them, inside the rules, for an
+    # interpretation recorded before its shared certainty LCB was (the reachable-reads audit,
+    # 2026-10-27: unclassified, they poisoned the replay over such an interpretation).
+    ("grader_calibration_alphas", NEUTRAL),
     ("grader_calibration_models", NEUTRAL),
     ("grading_evidence", DENIED),
     ("hypothesis_recurrence_groups", DENIED),

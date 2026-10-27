@@ -1115,6 +1115,20 @@ class MaterialView:
         return {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)
                 if str(entry["attempt_id"]) in visible}
 
+    def measurement_masses(self, connection: Any, ledger: Mapping[str, Mapping[str, Any]]) -> dict[str, float]:
+        """Whether each visible graded answer measures anything (``field.outcomes.measurement_masses``
+        over :meth:`ledger`'s entries), resolved here, in the rules: an interpretation recorded before
+        its shared certainty LCB was is resolved from its raw grade event, its grader model's pooled
+        alphas and the grader channel prior (``raw_grade_events`` and ``fitted_parameters`` are the
+        incumbent's state, never read raw inside an operation; the reachable-reads audit,
+        2026-10-27). :meth:`field_rows` resolves the same references here too."""
+
+        from learnloop.field.outcomes import measurement_masses
+
+        if not self.available:
+            return {}
+        return measurement_masses(connection, self.vault, ledger.values())
+
     def graded_counts(self, connection: Any) -> dict[str, int]:
         """Each LO's visible graded answers (the replay's window-closing cohort): the evidence count
         AD's commissioned path gives the rung selection instead of the incumbent's (fix round 10)."""
