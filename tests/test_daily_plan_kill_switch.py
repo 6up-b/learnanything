@@ -97,10 +97,13 @@ def test_plan_off_is_dl0_on_fixture_copies(tmp_path, monkeypatch, fixture):
     off, off_root = _copy(tmp_path, fixture, "off", version="mvp-0.14", toml="[plan]\nenabled = false\n")
     baseline = _today_reads(dl0)
     assert baseline["queue"]["totalItems"] > 0
-    assert _today_reads(off) == baseline
-    # The plan RPCs answer "off" and write nothing (an owner copy keeps the plans the
-    # owner already made: none is added and none changes).
+    # Nothing the off vault answers writes a plan: the snapshot is taken before its first read
+    # and compared after its last (an owner copy keeps the plans the owner already made: none
+    # is added and none changes).
     plans_before = _plan_rows(off_root)
+    assert _today_reads(off) == baseline
+    assert _plan_rows(off_root) == plans_before
+    # The plan RPCs answer "off" and write nothing.
     for name, params in (
         ("get_daily_plan", {}),
         ("next_plan_item", {}),
@@ -113,8 +116,9 @@ def test_plan_off_is_dl0_on_fixture_copies(tmp_path, monkeypatch, fixture):
         assert _call(off, name, params)["enabled"] is False, name
     assert _call(off, "get_today_headline", {})["enabled"] is False
     assert _plan_rows(off_root) == plans_before
-    # Still DL0 after those calls.
+    # Still DL0 after those calls, and that last read wrote nothing either.
     assert _today_reads(off) == baseline
+    assert _plan_rows(off_root) == plans_before
 
 
 def test_the_plan_needs_the_successor_version(tmp_path, monkeypatch):
