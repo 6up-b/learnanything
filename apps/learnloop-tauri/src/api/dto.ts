@@ -8998,6 +8998,8 @@ export interface CompareTableDto {
     contributes: CompareCellDto[];
     assumes: CompareCellDto[];
     differs: CompareCellDto[];
+    /** Reader CA3 (Codex review F4): every block of an anchor of several blocks (absent: `key` alone). */
+    spanKeys?: string[];
   }>;
   alsoDiscussedIn: Array<Record<string, unknown>>;
   /** Sources whose passages could not be checked: possible matches, not compared. */
@@ -9047,6 +9049,8 @@ export interface CompareRequestDto {
   openSourceId?: string | null;
   requestedPerspectives?: string[];
   toolCallId?: string | null;
+  /** The bound workbench session the request comes from (Codex review F1): the server derives its policy. */
+  workbenchSessionId?: string | null;
 }
 
 /** reader.compare_scope: the Decider's reading of the ask box's (or refine box's) words. */

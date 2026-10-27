@@ -21,15 +21,17 @@
 // Reader CA3 (libraryAsk.compareScope on): a comparison with no library answer
 // renders as CompareScopeView; the ask box's reading shows its pending line;
 // an answer offers "compare these books ▸" (its books, no pins), and a reading
-// that failed offers comparing all the books on the words; the compare stage
-// carries the routed line (chips, + add a book). Off, the answer is RW4a's/RW4d's.
+// that failed offers comparing all the books on the words; that comparison
+// has every door's controls (CompareScopeBody: the routed line, refine,
+// previous, the tutor about the comparison shown; Codex review F5), while
+// pins keep RW4a's/RW4d's table and their tutor. Off, the answer is RW4a's/RW4d's.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
-import { CompareScopeView, ScopeLine } from "./CompareScope";
+import { CompareScopeBody, CompareScopeView } from "./CompareScope";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { hitRoleLabel } from "./roleLabel";
@@ -294,6 +296,9 @@ export function LibraryAnswer({
     );
   }
   const ask = state.ask.value;
+  // CA3: a comparison of the answer's books (not its pins) shows every door's controls (F5).
+  const scopedCompare = ctl.scopeOn && Boolean(state.chips) && Boolean(state.lastCompare)
+    && state.lastCompare?.door !== "pins";
   // CA3: the answer's own books, for "compare these books ▸".
   const answerSources = new Set((ask?.hits ?? []).flatMap((hit) => (hit.sourceId ? [hit.sourceId] : [])));
   const notes = new Map((state.notes.value?.notes ?? []).map((note) => [note.key, note]));
@@ -350,7 +355,7 @@ export function LibraryAnswer({
     if (target.closest("input, textarea, select")) {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && state.pinned.length) {
         event.preventDefault();
-        void ctl.askTutor(question);
+        void ctl.askTutor(question, "pins");
       }
       return;
     }
@@ -368,7 +373,7 @@ export function LibraryAnswer({
     if (event.ctrlKey || event.metaKey || event.altKey) {
       if (event.key === "Enter" && state.pinned.length) {
         event.preventDefault();
-        void ctl.askTutor(question);
+        void ctl.askTutor(question, "pins");
       }
       return;
     }
@@ -540,12 +545,12 @@ export function LibraryAnswer({
                   <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button>
                 </div>
                 <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↑↓ move · space peek · p pin · o open · c compare pinned · ctrl+↵ ask the tutor about pinned</span>
-                {ctl.scopeOn && state.chips && state.compare.phase !== "idle" && state.lastCompare?.door !== "pins" ? (
-                  // CA3: the routed line, as soon as the books are known (§4.2).
-                  <ScopeLine chips={state.chips} table={state.compare.value} library={state.library ?? []}
-                    onBooks={ctl.setBooks} onReword={null} />
-                ) : null}
-                {state.compare.phase !== "idle" ? (
+                {scopedCompare ? (
+                  // CA3: "compare these books" has every door's controls (F5); the
+                  // routed line shows as soon as the books are known (§4.2).
+                  <CompareScopeBody ctl={ctl} onReword={null} onPracticePick={onPracticePick} Table={CompareTable}
+                    practice={false} kept="Your question and the books are kept." />
+                ) : state.compare.phase !== "idle" ? (
                   <ModelActionState
                     phase={state.compare.phase}
                     verb={LIBRARY_COPY.comparing}
@@ -564,7 +569,7 @@ export function LibraryAnswer({
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void ctl.askTutor(question);
+                      void ctl.askTutor(question, "pins");
                     }}
                     style={{ display: "flex", flexDirection: "column", gap: 6 }}
                   >
@@ -583,7 +588,7 @@ export function LibraryAnswer({
                     </MeaningLabel>
                   </form>
                 ) : null}
-                {state.tutor.phase !== "idle" ? (
+                {state.tutor.phase !== "idle" && state.tutorBasis !== "comparison" ? (
                   <ModelActionState
                     phase={state.tutor.phase}
                     verb={LIBRARY_COPY.tutorWriting}
@@ -591,7 +596,7 @@ export function LibraryAnswer({
                     kept="Your question is kept."
                     capRoute="tutor"
                     onCancel={ctl.cancelTutor}
-                    onRetry={() => void ctl.askTutor(question)}
+                    onRetry={() => void ctl.askTutor(question, "pins")}
                   >
                     {state.tutor.value ? (
                       <ModelVoice first note={state.tutor.value.label}>

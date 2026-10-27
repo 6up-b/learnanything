@@ -104,7 +104,20 @@ export const SCOPE_COPY = {
   previousLabel: "the earlier comparison",
   askTutor: "ask the tutor about this comparison",
   askTutorNote: "answers only from these passages",
+  /** Codex review F2: every book was removed, so nothing is compared until one is chosen. */
+  noBooks: "no books chosen · add one to compare",
+  /** Codex review F8: the stored-size bound on views (a `keep` guardrail, §5.4), shown only when reached. */
+  viewLimit: (max: number) => `${countWord(max)} views is the most a comparison keeps · remove one to add this`,
+  removeView: (view: string, pending: string) => `remove “${view}” and add “${pending}”`,
+  keepViews: "keep these",
+  /** Codex review F1: the selection verb while a problem is open in the workbench. */
+  waitsForWork: "Your comparison opens beside the book. Leave for now (your steps are kept) and it starts.",
 } as const;
+
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+function countWord(n: number): string {
+  return COUNT_WORDS[n] ?? String(n);
+}
 
 /** What one comparison request asks (every door builds one; K12). */
 export interface CompareRequest {
@@ -118,6 +131,8 @@ export interface CompareRequest {
   openSourceId?: string | null;
   requestedPerspectives?: string[];
   toolCallId?: string | null;
+  /** The bound workbench session the request comes from (Codex review F1). */
+  workbenchSessionId?: string | null;
 }
 
 /** The one payload every door sends (C1, K12): the same keys, whatever the door. */
@@ -133,6 +148,7 @@ export function comparePayload(request: CompareRequest): Required<CompareRequest
     openSourceId: request.openSourceId ?? null,
     requestedPerspectives: request.requestedPerspectives ?? [],
     toolCallId: request.toolCallId ?? null,
+    workbenchSessionId: request.workbenchSessionId ?? null,
   };
 }
 
@@ -144,10 +160,17 @@ export interface ScopeChips {
   anchored: boolean;
   topic: string | null;
   unmatched: string | null;
-  /** The reading these chips came from (its `change` is a learner correction). */
+  /** The reading the current books came from: the ask box's, or a refinement's
+   *  (Codex review F9); an `×` or "+ add a book" is a learner correction of it. */
   judgmentId: string | null;
+  /** The ask box's reading of the learner's words: "change" (rewording them)
+   *  corrects it, whichever reading set the books since (F9). */
+  askJudgmentId?: string | null;
   /** The learner's own words, kept for "change". */
   words: string | null;
+  /** The learner removed every book: nothing is compared until one is chosen
+   *  (an empty choice, never "every book": Codex review F2). */
+  emptied?: boolean;
 }
 
 export type SourceCaller = { kind: "reader"; ref: string | null };
@@ -216,6 +239,11 @@ export interface LibraryAskState {
   refine?: Stage<CompareScopeReadingDto>;
   /** CA3: the ask box couldn't read the words: comparing them all is one press away. */
   compareAllWords?: string | null;
+  /** What the tutor's answer is about: the pins, or the comparison shown (Codex
+   *  review F5, F6: an answer about a comparison is cleared when it is re-run). */
+  tutorBasis?: "pins" | "comparison" | null;
+  /** Codex review F8: a view asked for at the bound, waiting on the learner's choice of one to remove. */
+  viewLimit?: { pending: string; views: string[] } | null;
 }
 
 /** The organizer's status as a state: notes landed, capped, unreachable or failed. */
@@ -234,6 +262,13 @@ export function comparePhase(status: string): ModelActionPhase {
   if (status.startsWith("unavailable") || status.startsWith("skipped")) return "unreachable";
   if (status === "cancelled") return "idle";
   return "failed";
+}
+
+/** The books a comparison compares now: the chips, else the table's own books. */
+function shownCompared(current: LibraryAskState): string[] {
+  if (current.chips?.books.length) return current.chips.books.map((book) => book.sourceId);
+  const table = current.compare.value ?? current.previous?.[current.previous.length - 1] ?? null;
+  return [...new Set((table?.rows ?? []).flatMap((row) => (row.sourceId ? [row.sourceId] : [])))];
 }
 
 export function useLibraryAsk({
@@ -392,10 +427,15 @@ export function useLibraryAsk({
 
   /** CA3: run one comparison request in the compare stage (every door, chips and refine). */
   const runCompare = useCallback(async (key: number, request: CompareRequest) => {
+    // Codex review F6: a tutor answer about the comparison being replaced is
+    // about other passages: its job is cancelled and its answer cleared.
+    const about = stateRef.current?.key === key ? stateRef.current.tutorBasis : null;
+    if (about === "comparison") cancelStage("tutor");
     update(key, (s) => ({
-      compare: { phase: "pending", value: null, failure: null }, lastCompare: request,
+      compare: { phase: "pending", value: null, failure: null }, lastCompare: request, viewLimit: null,
       // The table being replaced stays one key away (never paid for twice).
       previous: s.compare.value ? [...(s.previous ?? []), s.compare.value] : s.previous ?? [],
+      ...(s.tutorBasis === "comparison" ? { tutor: IDLE, tutorBasis: null } : {}),
     }));
     try {
       const table = await runJob("compare", () => api.readerLibraryCompare(comparePayload(request)));
@@ -408,7 +448,7 @@ export function useLibraryAsk({
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these books.") } }));
     }
-  }, [runJob, update]);
+  }, [cancelStage, runJob, update]);
 
   /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
   const compare = useCallback(async (perspectives: string[] = []) => {
@@ -479,7 +519,7 @@ export function useLibraryAsk({
         sourceIds: reading.sourceIds }, {
         books: reading.sourceIds.map((sourceId) => ({ sourceId, title: titles.get(sourceId) ?? sourceId })),
         anchored: false, topic: reading.topic || request.query, unmatched: reading.unmatched,
-        judgmentId: reading.judgmentId, words: request.query,
+        judgmentId: reading.judgmentId, askJudgmentId: reading.judgmentId, words: request.query,
       }, reading.library ?? []);
       return;
     }
@@ -512,33 +552,63 @@ export function useLibraryAsk({
     void runCompare(current.key, { door: "library_answer", askId: ask.askId, sourceIds: books.map((book) => book.sourceId), openSourceId });
   }, [scopeOn, update, runCompare, openSourceId]);
 
+  /** The comparison's own row (once its first table landed), else the library answer's. */
+  const comparisonAskId = (current: LibraryAskState): string | null =>
+    current.compare.value?.askId ?? [...(current.previous ?? [])].reverse().find((table) => table.askId)?.askId
+      ?? current.ask.value?.askId ?? null;
+
+  /** CA3: compare these books (the chips, or a refinement's change). An empty
+   *  choice stops the comparison and keeps the picker: it never means "every
+   *  book" (Codex review F2). */
+  const compareChosen = useCallback((current: LibraryAskState, books: LibraryBookDto[],
+                                     chips: Partial<ScopeChips> = {}, perspectives?: string[]) => {
+    const key = current.key;
+    const last = current.lastCompare ?? current.direct ?? null;
+    if (books.length === 0) {
+      cancelStage("compare");
+      update(key, (s) => ({
+        chips: s.chips ? { ...s.chips, ...chips, books: [], emptied: true } : s.chips,
+        compare: IDLE, viewLimit: null,
+        previous: s.compare.value ? [...(s.previous ?? []), s.compare.value] : s.previous ?? [],
+        ...(s.tutorBasis === "comparison" ? { tutor: IDLE, tutorBasis: null } : {}),
+      }));
+      if (current.tutorBasis === "comparison") cancelStage("tutor");
+      return;
+    }
+    update(key, (s) => ({ chips: s.chips ? { ...s.chips, ...chips, books, emptied: false } : s.chips }));
+    const askId = comparisonAskId(current);
+    const sourceIds = books.map((book) => book.sourceId);
+    const requestedPerspectives = perspectives ?? last?.requestedPerspectives ?? [];
+    if (askId) {
+      void runCompare(key, { door: "refine", askId, sourceIds, openSourceId, requestedPerspectives,
+        workbenchSessionId: last?.workbenchSessionId ?? null });
+    } else if (current.direct) {
+      // The first comparison has not landed (no row yet): start it again with these books.
+      const base = stateRef.current?.chips ?? current.chips;
+      compareFrom({ ...current.direct, sourceIds }, base ? { ...base, ...chips, books, emptied: false } : null);
+    }
+  }, [cancelStage, update, runCompare, compareFrom, openSourceId]);
+
   /** CA3: the chips changed (× or "+ add a book"): the same request re-runs with those books. */
   const setBooks = useCallback((books: LibraryBookDto[]) => {
     const current = stateRef.current;
     if (!current?.chips || !scopeOn) return;
+    // The learner's change corrects the reading that set the books shown (F9).
     const judgmentId = current.chips.judgmentId;
     if (judgmentId) {
       void api.readerCompareScopeCorrection({ judgmentId, sourceIds: books.map((book) => book.sourceId) }).catch(() => undefined);
     }
-    update(current.key, (s) => ({ chips: s.chips ? { ...s.chips, books } : s.chips }));
-    const askId = current.compare.value?.askId ?? current.ask.value?.askId ?? null;
-    const last = current.lastCompare ?? current.direct ?? null;
-    const sourceIds = books.map((book) => book.sourceId);
-    if (askId) {
-      void runCompare(current.key, { door: "refine", askId, sourceIds, openSourceId,
-        requestedPerspectives: last?.requestedPerspectives ?? [] });
-    } else if (current.direct) {
-      // The first comparison has not landed (no row yet): start it again with these books.
-      compareFrom({ ...current.direct, sourceIds }, { ...current.chips, books });
-    }
-  }, [scopeOn, update, runCompare, compareFrom, openSourceId]);
+    compareChosen(current, books);
+  }, [scopeOn, compareChosen]);
 
   /** CA3: "change": the learner rewords the ask box (a learner correction of the reading). */
   const reword = useCallback((): string | null => {
     const current = stateRef.current;
     const chips = current?.chips;
-    if (chips?.judgmentId) {
-      void api.readerCompareScopeCorrection({ judgmentId: chips.judgmentId, sourceIds: null }).catch(() => undefined);
+    // Rewording corrects the ask box's reading of the words (F9), not a refinement's.
+    const judgmentId = chips?.askJudgmentId ?? null;
+    if (judgmentId) {
+      void api.readerCompareScopeCorrection({ judgmentId, sourceIds: null }).catch(() => undefined);
     }
     return chips?.words ?? current?.request.query ?? null;
   }, []);
@@ -560,39 +630,69 @@ export function useLibraryAsk({
     } catch {
       if (keyRef.current !== key) return;
     }
-    const askId = stateRef.current?.compare.value?.askId ?? current.ask.value?.askId ?? null;
-    if (reading?.status === "read" && reading.intent === "books" && reading.change && askId) {
+    const now = stateRef.current?.key === key ? stateRef.current : null;
+    const askId = now ? comparisonAskId(now) : null;
+    if (now && reading?.status === "read" && reading.intent === "books" && reading.change && askId) {
       const titles = new Map([...(reading.library ?? []), ...compared].map((book) => [book.sourceId, book.title]));
       const named = reading.sourceIds;
       const ids = reading.change === "add" ? [...new Set([...compared.map((book) => book.sourceId), ...named])]
         : reading.change === "only" ? named : compared.map((book) => book.sourceId).filter((id) => !named.includes(id));
       const books = ids.map((sourceId) => ({ sourceId, title: titles.get(sourceId) ?? sourceId }));
-      update(key, (s) => ({ refine: { phase: "landed", value: reading, failure: null },
-        chips: s.chips ? { ...s.chips, books, unmatched: reading?.unmatched ?? null } : s.chips }));
-      void runCompare(key, { door: "refine", askId, sourceIds: ids, openSourceId,
-        requestedPerspectives: stateRef.current?.lastCompare?.requestedPerspectives ?? [] });
+      update(key, () => ({ refine: { phase: "landed", value: reading, failure: null } }));
+      // The books now come from this reading: a later × corrects it, not the
+      // ask box's (Codex review F9); "change" still rewords the ask box's.
+      compareChosen(now, books, { unmatched: reading.unmatched ?? null,
+        judgmentId: reading.judgmentId ?? now.chips?.judgmentId ?? null });
       return;
     }
-    if (reading?.status === "read" && reading.intent === "views" && askId && keep?.perspectives) {
-      const before = stateRef.current?.lastCompare?.requestedPerspectives ?? [];
-      const requested = [...before.filter((value) => value !== text), text].slice(-keep.maxPerspectives);
+    if (now && reading?.status === "read" && reading.intent === "views" && askId && keep?.perspectives) {
+      const before = now.lastCompare?.requestedPerspectives ?? [];
+      if (!before.includes(text) && before.length >= keep.maxPerspectives) {
+        // Codex review F8 (§5.4): at the bound nothing is dropped unasked; the
+        // learner chooses which view to remove for this one.
+        update(key, () => ({ refine: IDLE, viewLimit: { pending: text, views: before } }));
+        return;
+      }
+      const requested = [...before.filter((value) => value !== text), text];
       update(key, () => ({ refine: { phase: "landed", value: reading, failure: null } }));
       void runCompare(key, { door: "refine", askId, sourceIds: compared.map((book) => book.sourceId), openSourceId,
-        requestedPerspectives: requested });
+        requestedPerspectives: requested, workbenchSessionId: now.lastCompare?.workbenchSessionId ?? null });
       return;
     }
     update(key, () => ({ refine: { phase: "failed", value: reading, failure: SCOPE_COPY.refineMissed } }));
-  }, [scopeOn, keep, update, runJob, runCompare, openSourceId]);
+  }, [scopeOn, keep, update, runJob, runCompare, compareChosen, openSourceId]);
 
-  const askTutor = useCallback(async (question: string) => {
+  /** Codex review F8: at the bound, the learner removes one view and the waiting one is added. */
+  const replaceView = useCallback((remove: string) => {
     const current = stateRef.current;
-    // CA3: a comparison with no library answer asks about its compared passages.
-    const direct = current?.direct && current.compare.value ? current.compare.value : null;
-    const pins = current?.pinned.length ? current.pinned : direct ? direct.rows.map((row) => row.key) : [];
-    const askIdOf = current?.ask.value?.askId ?? direct?.askId ?? null;
-    if (!current || !askIdOf || pins.length === 0) return;
+    const limit = current?.viewLimit;
+    const askId = current ? comparisonAskId(current) : null;
+    if (!current?.chips || !limit || !askId || !limit.views.includes(remove)) return;
+    const compared = shownCompared(current);
+    void runCompare(current.key, { door: "refine", askId, sourceIds: compared, openSourceId,
+      requestedPerspectives: [...limit.views.filter((view) => view !== remove), limit.pending],
+      workbenchSessionId: current.lastCompare?.workbenchSessionId ?? null });
+  }, [runCompare, openSourceId]);
+  const keepViews = useCallback(() => {
+    const current = stateRef.current;
+    if (current?.viewLimit) update(current.key, () => ({ viewLimit: null }));
+  }, [update]);
+
+  /** The tutor over the pins, or (CA3, `about: "comparison"`) over the
+   *  comparison shown: its passages, every block of an anchor (Codex review F4,
+   *  F5), whatever is pinned. A comparison with no library answer asks about it. */
+  const askTutor = useCallback(async (question: string, about?: "pins" | "comparison") => {
+    const current = stateRef.current;
+    if (!current) return;
+    const basis = about ?? (current.pinned.length || !current.direct ? "pins" : "comparison");
+    const shown = basis === "comparison" ? current.compare.value : null;
+    const pins = basis === "comparison"
+      ? [...new Set((shown?.rows ?? []).flatMap((row) => (row.spanKeys?.length ? row.spanKeys : [row.key])))]
+      : current.pinned;
+    const askIdOf = basis === "comparison" ? shown?.askId ?? null : current.ask.value?.askId ?? null;
+    if (!askIdOf || pins.length === 0) return;
     const key = current.key;
-    update(key, () => ({ tutor: { phase: "pending", value: null, failure: null } }));
+    update(key, () => ({ tutor: { phase: "pending", value: null, failure: null }, tutorBasis: basis }));
     const askId = askIdOf;
     const pinnedSpanKeys = pins;
     try {
@@ -690,6 +790,7 @@ export function useLibraryAsk({
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
     // CA3 (absent in effect while scopeOn is false: each returns without a call).
     scopeOn, askBox, compareFrom, compareBooks, compareAll, setBooks, reword, refine, retryCompare,
+    replaceView, keepViews,
   };
 }
 

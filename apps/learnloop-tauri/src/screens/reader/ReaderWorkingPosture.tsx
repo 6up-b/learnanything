@@ -30,6 +30,7 @@ export function ReaderWorkingPosture({
   onPeekPassage,
   onError,
   askWaiting = null,
+  compareWaiting = null,
 }: {
   wbCtl: ReaderWorkbench;
   active: ActiveWorkbench;
@@ -48,6 +49,11 @@ export function ReaderWorkingPosture({
    *  problem is open. Ask sits beside the book, which this posture hides, so
    *  a line says how to get there; leaving is the learner's call. */
   askWaiting?: { onDismiss: () => void } | null;
+  /** Reader CA3, Codex review F1: the selection's "how do my other books treat
+   *  this?" while this problem is open. The comparison would read the books
+   *  under the reading policy beside a hidden pane, so nothing runs (nothing is
+   *  paid for) until the learner leaves; a line says so. */
+  compareWaiting?: { text: string; onDismiss: () => void } | null;
 }) {
   // Reader CA2 (§7.1, §7.6): asking about a step no longer means leaving the
   // problem. With the panel on and the problem bound to an item, Ask opens
@@ -130,6 +136,18 @@ export function ReaderWorkingPosture({
           >
             <span style={{ flex: 1 }}>{WORKING_ASK_WAITS}</span>
             <button type="button" aria-label="Dismiss" onClick={askWaiting.onDismiss} style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO }}>
+              ×
+            </button>
+          </div>
+        ) : null}
+        {compareWaiting ? (
+          <div
+            role="status"
+            data-testid="workbench-compare-waiting"
+            style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "10px 14px 0", padding: "8px 10px", border: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}
+          >
+            <span style={{ flex: 1 }}>{compareWaiting.text}</span>
+            <button type="button" aria-label="Dismiss" onClick={compareWaiting.onDismiss} style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO }}>
               ×
             </button>
           </div>

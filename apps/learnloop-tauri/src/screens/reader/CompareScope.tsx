@@ -8,11 +8,16 @@
 // * `AddBook`: "+ add a book" opens a short picker of the library's books
 //   (type-ahead; ↵ adds the first match; Esc closes).
 // * `CompareScopeView`: a comparison with no library answer (the selection
-//   verb, the ask box's comparison, the tutor's offer): the routed line, the
-//   table at once (today's comparison view; CA4 redraws it by point), the
+//   verb, the ask box's comparison, the tutor's offer): its header and
+//   question over `CompareScopeBody`.
+// * `CompareScopeBody`, every door's comparison controls (Codex review F5: a
+//   library answer's "compare these books" has them too): the routed line,
+//   the table at once (today's comparison view; CA4 redraws it by point), the
 //   refine box (`/`: other books change the chips, a view becomes a requested
-//   perspective), "previous ▸" (the earlier table, never paid for twice), the
-//   tutor about this comparison (Ctrl+↵) and "practice this".
+//   perspective; at the views' bound the learner picks one to remove, F8),
+//   "previous ▸" (the earlier table, never paid for twice, shown whatever the
+//   state of the one replacing it: pending, failed or cancelled, F7), the tutor
+//   about this comparison (Ctrl+↵, over the passages shown) and "practice this".
 //
 // Nothing here takes focus unasked, animates or counts things to read (G54-G58).
 // The refine box and the picker take the cursor only on the learner's own key.
@@ -54,6 +59,8 @@ const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em"
  *  the books the comparison found, without the anchor's own (it is "your passage"). */
 export function shownBooks(chips: ScopeChips, table: CompareTableDto | null): LibraryBookDto[] {
   if (chips.books.length) return chips.books;
+  // Every book removed is an empty choice, never "every book" (Codex review F2).
+  if (chips.emptied) return [];
   const books: LibraryBookDto[] = [];
   for (const row of table?.rows ?? []) {
     if (!row.sourceId || (chips.anchored && row.isOpenSource)) continue;
@@ -62,12 +69,17 @@ export function shownBooks(chips: ScopeChips, table: CompareTableDto | null): Li
   return books;
 }
 
-export function AddBook({ library, chosen, onAdd }: {
+export function AddBook({ library, chosen, onAdd, keepOpen = false }: {
   library: LibraryBookDto[];
   chosen: string[];
   onAdd: (book: LibraryBookDto) => void;
+  /** The learner removed every book (their press): the picker stays open (F2). */
+  keepOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(keepOpen);
+  useEffect(() => {
+    if (keepOpen) setOpen(true);
+  }, [keepOpen]);
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -148,7 +160,8 @@ export function ScopeLine({ chips, table, library, onBooks, onReword }: {
         <span aria-hidden="true">→</span>
         <span>{SCOPE_COPY.comparing}</span>
         {chips.anchored ? <span style={chipStyle}>{SCOPE_COPY.yourPassage}</span> : null}
-        {books.length === 0 && !table ? <span>· {SCOPE_COPY.allBooks}</span> : null}
+        {books.length === 0 && !table && !chips.emptied ? <span>· {SCOPE_COPY.allBooks}</span> : null}
+        {chips.emptied ? <span data-scope-empty="">· {SCOPE_COPY.noBooks}</span> : null}
         {books.map((book) => (
           <span key={book.sourceId} data-scope-chip={book.sourceId} style={chipStyle}>
             {book.title}
@@ -162,7 +175,7 @@ export function ScopeLine({ chips, table, library, onBooks, onReword }: {
             </button>
           </span>
         ))}
-        <AddBook library={offer} chosen={chosen} onAdd={(book) => onBooks([...books, book])} />
+        <AddBook library={offer} chosen={chosen} onAdd={(book) => onBooks([...books, book])} keepOpen={Boolean(chips.emptied)} />
         {chips.topic ? <span>· {SCOPE_COPY.on} {chips.topic}</span> : null}
         {onReword ? <button type="button" style={linkStyle} onClick={onReword}>{SCOPE_COPY.change}</button> : null}
       </span>
@@ -181,6 +194,7 @@ export function RefineBox({ ctl, open, onClose }: { ctl: LibraryAskController; o
     if (open) inputRef.current?.focus({ preventScroll: true });
   }, [open]);
   const refine = ctl.state?.refine;
+  const limit = ctl.state?.viewLimit ?? null;
   return (
     <div data-refine="" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {open ? (
@@ -212,6 +226,21 @@ export function RefineBox({ ctl, open, onClose }: { ctl: LibraryAskController; o
       ) : null}
       {refine?.phase === "pending" ? <ModelActionState phase="pending" verb={SCOPE_COPY.refining} /> : null}
       {refine?.phase === "failed" && refine.failure ? <MeaningLabel style={{ fontSize: 11 }}>{refine.failure}</MeaningLabel> : null}
+      {limit ? (
+        // Codex review F8 (§5.4): the bound, shown only when reached; nothing is removed unasked.
+        <div data-view-limit="" role="group" aria-label="choose a view to remove" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <MeaningLabel style={{ fontSize: 11 }}>{SCOPE_COPY.viewLimit(limit.views.length)}</MeaningLabel>
+          <span style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+            {limit.views.map((view) => (
+              <button key={view} type="button" style={{ ...linkStyle, textDecoration: "none", fontSize: 11 }}
+                aria-label={SCOPE_COPY.removeView(view, limit.pending)} onClick={() => ctl.replaceView(view)}>
+                × {view}
+              </button>
+            ))}
+            <button type="button" style={linkStyle} onClick={ctl.keepViews}>{SCOPE_COPY.keepViews}</button>
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -225,6 +254,34 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   Table: ComponentType<{ table: CompareTableDto }>;
 }) {
+  const state = ctl.state;
+  if (!state?.chips) return null;
+  return (
+    <section aria-label="compare your books" data-compare-scope="" tabIndex={-1}
+      style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <span style={headStyle}>{SCOPE_COPY.title}</span>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onClose} style={linkStyle}>{LIBRARY_COPY.close}</button>
+      </div>
+      <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
+      <CompareScopeBody ctl={ctl} onReword={onReword} onPracticePick={onPracticePick} Table={Table} />
+    </section>
+  );
+}
+
+/** Every door's comparison controls (Codex review F5): the routed line, the
+ *  table, refine, previous, the tutor about the comparison shown, practice. */
+export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practice = true,
+  kept = "Your question and the books are kept." }: {
+  ctl: LibraryAskController;
+  onReword: ((words: string) => void) | null;
+  onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
+  Table: ComponentType<{ table: CompareTableDto }>;
+  /** "practice this" and its items (absent where the host offers its own: a library answer). */
+  practice?: boolean;
+  kept?: string;
+}) {
   const [refineOpen, setRefineOpen] = useState(false);
   const [showPrevious, setShowPrevious] = useState(false);
   const [question, setQuestion] = useState("");
@@ -233,6 +290,8 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
   const table = state.compare.value;
   const previous = state.previous ?? [];
   const earlier = previous[previous.length - 1] ?? null;
+  // The tutor's answer here is the one about this comparison (F5, F6).
+  const tutor = state.tutorBasis === "comparison" ? state.tutor : null;
   const reword = onReword && state.chips.words !== null ? () => {
     const words = ctl.reword();
     if (words !== null) onReword(words);
@@ -242,54 +301,66 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
     const typing = Boolean(target.closest("input, textarea, select"));
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && table) {
       event.preventDefault();
-      void ctl.askTutor(question);
+      event.stopPropagation();
+      void ctl.askTutor(question, "comparison");
       return;
     }
     if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === "/" && table) {
       event.preventDefault();
+      event.stopPropagation();
       setRefineOpen(true);
     }
   };
   return (
-    <section aria-label="compare your books" data-compare-scope="" onKeyDown={onKeyDown} tabIndex={-1}
-      style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <span style={headStyle}>{SCOPE_COPY.title}</span>
-        <span style={{ flex: 1 }} />
-        <button type="button" onClick={onClose} style={linkStyle}>{LIBRARY_COPY.close}</button>
-      </div>
-      <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
+    <div data-compare-controls="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ScopeLine chips={state.chips} table={table} library={state.library ?? []} onBooks={ctl.setBooks} onReword={reword} />
-      <ModelActionState
-        phase={state.compare.phase}
-        verb={SCOPE_COPY.pending}
-        failure={state.compare.failure ?? undefined}
-        kept="Your question and the books are kept."
-        capRoute="comparison"
-        fallback="Reading the passages"
-        onCancel={ctl.cancelCompare}
-        onRetry={ctl.retryCompare}
-      >
-        {showPrevious && earlier ? (
+      {earlier ? (
+        // F7: the earlier table, whatever the state of the one replacing it.
+        showPrevious ? (
           <div data-previous-comparison="" aria-label={SCOPE_COPY.previousLabel} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <button type="button" style={linkStyle} onClick={() => setShowPrevious(false)}>{SCOPE_COPY.hidePrevious}</button>
             <Table table={earlier} />
           </div>
-        ) : table ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Table table={table} />
-            {ctl.keep ? <CompareKeep table={table} target={{ askId: table.askId }} /> : null}
-          </div>
-        ) : null}
-      </ModelActionState>
-      {table ? (
+        ) : (
+          <span>
+            <button type="button" style={linkStyle} onClick={() => setShowPrevious(true)}>{SCOPE_COPY.previous}</button>
+          </span>
+        )
+      ) : null}
+      {showPrevious && earlier ? null : (
+        <>
+          <ModelActionState
+            phase={state.compare.phase}
+            verb={SCOPE_COPY.pending}
+            failure={state.compare.failure ?? undefined}
+            kept={kept}
+            capRoute="comparison"
+            fallback="Reading the passages"
+            onCancel={ctl.cancelCompare}
+            onRetry={ctl.retryCompare}
+          >
+            {table ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Table table={table} />
+                {ctl.keep ? <CompareKeep table={table} target={{ askId: table.askId }} /> : null}
+              </div>
+            ) : null}
+          </ModelActionState>
+          {state.compare.cancelled && state.lastCompare ? (
+            <MeaningLabel style={{ fontSize: 11 }}>
+              cancelled ·{" "}
+              <button type="button" style={linkStyle} onClick={ctl.retryCompare}>compare again ↵</button>
+            </MeaningLabel>
+          ) : null}
+        </>
+      )}
+      {table && !showPrevious ? (
         <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
           <RefineBox ctl={ctl} open={refineOpen} onClose={() => setRefineOpen(false)} />
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline" }}>
             {!refineOpen ? <button type="button" style={linkStyle} onClick={() => setRefineOpen(true)}>/ refine</button> : null}
-            {earlier && !showPrevious ? <button type="button" style={linkStyle} onClick={() => setShowPrevious(true)}>{SCOPE_COPY.previous}</button> : null}
-            <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button>
+            {practice ? <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button> : null}
           </div>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={headStyle}>{SCOPE_COPY.askTutor}</span>
@@ -302,46 +373,46 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
             />
           </label>
           <MeaningLabel style={{ fontSize: 10 }}>{SCOPE_COPY.askTutorNote} · ctrl+↵ ask · {SCOPE_COPY.refineKeys}</MeaningLabel>
-          {state.tutor.phase !== "idle" ? (
-            <ModelActionState
-              phase={state.tutor.phase}
-              verb={LIBRARY_COPY.tutorWriting}
-              failure={state.tutor.failure ?? undefined}
-              kept="Your question is kept."
-              capRoute="tutor"
-              onCancel={ctl.cancelTutor}
-              onRetry={() => void ctl.askTutor(question)}
-            >
-              {state.tutor.value ? (
-                <ModelVoice first note={state.tutor.value.label}>
-                  <MarkdownMath value={state.tutor.value.answerMd ?? ""} />
-                </ModelVoice>
-              ) : null}
-            </ModelActionState>
-          ) : null}
-          {state.practice.phase !== "idle" ? (
-            <ModelActionState phase={state.practice.phase} verb={LIBRARY_COPY.practiceLooking}
-              failure={state.practice.failure ?? undefined} onRetry={() => void ctl.practice()}>
-              {state.practice.value?.items.length ? (
-                <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16 }}>
-                  {state.practice.value.items.map((item) => (
-                    <li key={item.practiceItemId} style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                      {item.prompt}{" "}
-                      {onPracticePick ? (
-                        <button type="button" style={linkStyle} onClick={() => onPracticePick(item, state.practice.value?.proposalId ?? null)}>
-                          practice this ▸
-                        </button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <MeaningLabel style={{ fontSize: 11 }}>{LIBRARY_COPY.practiceNothing}</MeaningLabel>
-              )}
-            </ModelActionState>
-          ) : null}
         </div>
       ) : null}
-    </section>
+      {tutor && tutor.phase !== "idle" ? (
+        <ModelActionState
+          phase={tutor.phase}
+          verb={LIBRARY_COPY.tutorWriting}
+          failure={tutor.failure ?? undefined}
+          kept="Your question is kept."
+          capRoute="tutor"
+          onCancel={ctl.cancelTutor}
+          onRetry={() => void ctl.askTutor(question, "comparison")}
+        >
+          {tutor.value ? (
+            <ModelVoice first note={tutor.value.label}>
+              <MarkdownMath value={tutor.value.answerMd ?? ""} />
+            </ModelVoice>
+          ) : null}
+        </ModelActionState>
+      ) : null}
+      {practice && state.practice.phase !== "idle" ? (
+        <ModelActionState phase={state.practice.phase} verb={LIBRARY_COPY.practiceLooking}
+          failure={state.practice.failure ?? undefined} onRetry={() => void ctl.practice()}>
+          {state.practice.value?.items.length ? (
+            <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16 }}>
+              {state.practice.value.items.map((item) => (
+                <li key={item.practiceItemId} style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+                  {item.prompt}{" "}
+                  {onPracticePick ? (
+                    <button type="button" style={linkStyle} onClick={() => onPracticePick(item, state.practice.value?.proposalId ?? null)}>
+                      practice this ▸
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <MeaningLabel style={{ fontSize: 11 }}>{LIBRARY_COPY.practiceNothing}</MeaningLabel>
+          )}
+        </ModelActionState>
+      ) : null}
+    </div>
   );
 }

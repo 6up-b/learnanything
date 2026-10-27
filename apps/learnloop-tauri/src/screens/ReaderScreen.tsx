@@ -98,7 +98,7 @@ import { FiguresUnder } from "./reader/figures/FigureInline";
 import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
 import type { ShowMeLine } from "./reader/figures/showMe";
 import type { FigurePassageDto, FigureViewDto } from "../api/dto";
-import { useLibraryAsk } from "./reader/useLibraryAsk";
+import { SCOPE_COPY, useLibraryAsk, type CompareRequest } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
@@ -1810,6 +1810,23 @@ export function ReaderScreen({
     setAskWaitsForWork(false);
     revealAskRef.current();
   }, [working, askWaitsForWork]);
+  // Reader CA3, Codex review F1: the selection verb while a problem is open.
+  // The comparing posture is hidden while working, so nothing runs (nothing is
+  // paid for) then; a line in the workbench says so, and the comparison opens
+  // beside the book once the learner leaves (the same book only).
+  const [compareWaitsForWork, setCompareWaitsForWork] = useState<CompareRequest | null>(null);
+  const startCompareRef = useRef<(request: CompareRequest) => void>(() => undefined);
+  startCompareRef.current = (request) => {
+    if (!render || offline || render.extractionId !== request.extractionId) return;
+    setLibraryCompose(null);
+    libraryCtl.compareFrom(request);
+  };
+  useEffect(() => {
+    if (working || !compareWaitsForWork) return;
+    const request = compareWaitsForWork;
+    setCompareWaitsForWork(null);
+    startCompareRef.current(request);
+  }, [working, compareWaitsForWork]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -2600,11 +2617,22 @@ export function ReaderScreen({
         // anchored on the selection, every other book, no pins (§4.1).
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", ...meta });
         if (!render || offline) return;
-        setLibraryCompose(null);
-        libraryCtl.compareFrom({
-          door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
-          extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
-        });
+        {
+          // The bound workbench session, when one is active, goes with the
+          // request (the server derives its practice policy: Codex review F1).
+          const bound = wbCtl.active?.session.practiceItemId ? wbCtl.active.session.sessionId : null;
+          const request: CompareRequest = {
+            door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
+            extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
+            workbenchSessionId: bound,
+          };
+          if (working) {
+            // Started once the learner leaves, under the policy then in force.
+            setCompareWaitsForWork({ ...request, workbenchSessionId: null });
+            return;
+          }
+          startCompareRef.current(request);
+        }
         return;
       case "reading_path":
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
@@ -3065,6 +3093,7 @@ export function ReaderScreen({
             onPeekPassage={peekWorkbenchPassage}
             onError={onError}
             askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
+            compareWaiting={compareWaitsForWork ? { text: SCOPE_COPY.waitsForWork, onDismiss: () => setCompareWaitsForWork(null) } : null}
           />
         ) : null}
         {comparing && render ? (
