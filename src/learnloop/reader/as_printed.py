@@ -35,18 +35,23 @@ The rules held here, on the server:
   import before this rule marked every block it was given), a block on the
   item's book-solution spans (its import's check found them) or with a
   solution role (its effective role, or a "Solution" lead) is never cropped.
-  A block that holds the stem and its solution together (a solution or
-  proof lead inside it, or text beside the statement that gives the
-  expected answer away) leaves no free crop at all (``NO_CROP``: never a
-  partial print); the original page, one hint before Submit, is still
-  offered. A guard that cannot be read fails closed the same way.
+  The crop is free only when every own text block is affirmatively the stem
+  (Codex review of the Astra fixes, F1): the statement places it and its
+  other words all come before the statement (a label). Words after the
+  statement in its block, a block the statement does not place, a solution
+  or proof lead inside it, words beside it that give the expected answer
+  away, or a solution block that also holds statement words (F3) leave no
+  free crop at all (``NO_CROP``: never a partial print); the original page,
+  one hint before Submit, is still offered. A guard that cannot be read
+  fails closed the same way.
 * **The cold rule** (D46, spec G61). During a check on your own (a due
   "Check once", a cold follow-up, an active diagnostic presentation; the
   caller reads which, F1) the view
   carries no locator, page, label, link, photo or crop, except the
   figure-only exception (§15 Q10): a figure block the problem was imported
   with is part of its stimulus, so it is cropped to the figure alone, with
-  no caption, number, page or box.
+  no caption, number, page or box; kept whether or not the statement echoes
+  the figure's text and when the text gives no free crop (F2).
 * **A variant is not the book's problem.** An item varied from a textbook
   exercise (``relation = "variant_of"``) has no print of its own: none is
   shown (the parent's print would be another problem, and its neighbours).
