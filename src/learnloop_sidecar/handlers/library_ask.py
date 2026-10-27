@@ -242,7 +242,11 @@ class LibraryJobs:
         if getattr(ctx, "library_ask_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"library-{kind}-{job.job_id}", daemon=True).start()
+            # Owned by the context: its close cancels the job's further requests
+            # and joins it, bounded (test-thread-leak review F1).
+            from learnloop_sidecar.background_jobs import background_jobs
+
+            background_jobs(ctx).spawn(run, name=f"library-{kind}-{job.job_id}")
         return job
 
     def get(self, job_id: str) -> _Job | None:

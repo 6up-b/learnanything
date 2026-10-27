@@ -181,16 +181,21 @@ class PostAttemptWorker:
         clients = self.gap_clients(vault) if self.gap_clients is not None else None
         while len(outcomes) < max_jobs and not self._stop.is_set():
             result = self._with_busy_retry(
-                lambda: process_next_gap_job(vault.root, repository, owner=self.owner, clients=clients, clock=clock)
+                # Shutdown stops before the next paid request (review F2): the
+                # text's budget asks it, and a job it stops is released with
+                # its checkpoint for the next start (the daily cap still holds).
+                lambda: process_next_gap_job(vault.root, repository, owner=self.owner, clients=clients, clock=clock,
+                                             cancelled=self._stop.is_set)
             )
             if result is None:
                 break
             outcomes.append(result)
             with self._changed:
                 self._changed.notify_all()
-            # ``deferred``: the daily cap or a spend stop; the rest waits.
-            # One text backing off (``retry_later``) does not stop the drain.
-            if result.state in ("deferred", "lease_lost"):
+            # ``deferred``: the daily cap or a spend stop; the rest waits;
+            # ``released``: shutdown stopped it. One text backing off
+            # (``retry_later``) does not stop the drain.
+            if result.state in ("deferred", "released", "lease_lost"):
                 break
         return outcomes
 

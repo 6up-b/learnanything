@@ -246,7 +246,11 @@ class IntentRoutings:
         if getattr(ctx, "reader_intent_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"reader-intent-{routing_id}", daemon=True).start()
+            # Owned by the context: its close cancels the job's further requests
+            # and joins it, bounded (test-thread-leak review F1).
+            from learnloop_sidecar.background_jobs import background_jobs
+
+            background_jobs(ctx).spawn(run, name=f"reader-intent-{routing_id}")
         return running
 
     def get(self, routing_id: str) -> _Running | None:

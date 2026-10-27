@@ -279,8 +279,11 @@ class CueDiscoveryJobs:
 
     def start(self, ctx: SidecarContext, extraction_id: str, source_open_id: str) -> _Job:
         from learnloop.ids import new_ulid
+        from learnloop_sidecar.background_jobs import background_jobs
 
         provider = ctx.loaded_vault
+        owned = background_jobs(ctx)
+        epoch = owned.epoch()  # before the snapshot: a close from here on cancels this job
         vault, generation = provider.snapshot()
         _vault, repository = ctx.require_vault()
         if vault is None:
@@ -304,11 +307,13 @@ class CueDiscoveryJobs:
 
         def cancelled() -> bool:
             """Asked before each target and each request (Codex review F1):
-            the job ends on a cancel, shutdown, a reload or a vault switch
+            the job ends on a cancel, shutdown, the context's close (EOF
+            included: test-thread-leak review F1), a reload or a vault switch
             (the generation it started on is no longer the published one),
             or once discovery is switched off in the vault loaded now."""
 
-            if job.cancelled or ctx.shutdown_requested or not provider.admit(generation):
+            if (job.cancelled or ctx.shutdown_requested or owned.closed_since(epoch)
+                    or not provider.admit(generation)):
                 return True
             current = provider()
             return current is None or not PC.discovery_enabled(current)
@@ -349,7 +354,7 @@ class CueDiscoveryJobs:
         if getattr(ctx, "cue_discovery_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"cue-discovery-{job.job_id}", daemon=True).start()
+            owned.spawn(run, name=f"cue-discovery-{job.job_id}", epoch=epoch)
         return job
 
     def get(self, job_id: str) -> _Job | None:

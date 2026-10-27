@@ -31,7 +31,7 @@ _TESTS_DIR = str(Path(__file__).resolve().parent) + "/"
 OWNERS: tuple[tuple[str, str, str, tuple[tuple[str, str], ...]], ...] = (
     ("learnloop_sidecar.context", "SidecarContext", "close", (
         ("ingest_jobs", "shutdown"), ("post_attempt_worker", "shutdown"),
-        ("exam_grading", "shutdown"), ("map_builds", "close"))),
+        ("exam_grading", "shutdown"), ("map_builds", "close"), ("background_jobs", "close"))),
     ("learnloop.content.pipeline.jobs", "DurableIngestJobs", "shutdown", ()),
     ("learnloop_sidecar.post_attempt_worker", "PostAttemptWorker", "shutdown", ()),
     ("learnloop_sidecar.exam_grading", "ExamGradingManager", "shutdown", ()),

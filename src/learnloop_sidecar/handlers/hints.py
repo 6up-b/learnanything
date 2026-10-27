@@ -115,7 +115,15 @@ class HintJobs:
         stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
         _plan_fallback.note_unit("job", job.job_id)
 
+        from learnloop_sidecar.background_jobs import background_jobs
+
+        owned = background_jobs(ctx)
+        epoch = owned.epoch()
+
         def cancelled() -> bool:
+            # ``practice.cancel_hint``, or the context's close (test-thread-leak review F1).
+            if owned.closed_since(epoch):
+                return True
             with job.lock:
                 return job.cancelled
 
@@ -142,7 +150,7 @@ class HintJobs:
         if getattr(ctx, "hints_inline", False):
             run()
         else:
-            threading.Thread(target=run, name=f"hint-{job.job_id}", daemon=True).start()
+            owned.spawn(run, name=f"hint-{job.job_id}", epoch=epoch)
         return job
 
     def get(self, job_id: str) -> _HintJob | None:

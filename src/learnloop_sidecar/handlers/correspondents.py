@@ -219,7 +219,11 @@ def _run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning
     if getattr(ctx, "coverage_inline", False):
         run()
     else:
-        threading.Thread(target=run, name=f"coverage-{job_id}", daemon=True).start()
+        # Owned by the context: its close cancels the job's further requests
+        # and joins it, bounded (test-thread-leak review F1).
+        from learnloop_sidecar.background_jobs import background_jobs
+
+        background_jobs(ctx).spawn(run, name=f"coverage-{job_id}")
 
 
 class CoverInput(ParamsModel):

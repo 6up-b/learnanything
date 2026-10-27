@@ -9,7 +9,8 @@ machine's load average passed 400. These pin the production half of the fix:
   worker's slots) block on their wake events while there is no work: over a
   quiet window they use no CPU;
 * ``SidecarContext.close`` (the ``shutdown`` RPC and EOF) stops every one of
-  them within its bounded join;
+  these idle owners within its bounded join (jobs in flight, the Reader's and
+  the gaps slot's, are cancelled too: tests/test_sidecar_close_cancels_jobs.py);
 * the source service's lease heartbeat ends as soon as its last lease is
   dropped, not a whole beat later.
 
@@ -83,7 +84,7 @@ def test_an_idle_sidecars_background_threads_sleep_and_stop_on_close(tmp_path):
     assert time.monotonic() - started < 5.0
 
 
-def test_the_shutdown_rpc_stops_every_background_thread(tmp_path):
+def test_the_shutdown_rpc_stops_the_idle_background_owners(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     ctx = context(paths.root)
     ctx.post_attempt_worker.notify()

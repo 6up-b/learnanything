@@ -37,6 +37,7 @@ from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop_sidecar.dto import to_camel, versioned
+from learnloop_sidecar.background_jobs import BackgroundJobs
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
 from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
@@ -97,6 +98,10 @@ class SidecarContext:
     # starts belong to the loaded vault. Opening another vault, shutdown and
     # EOF drain them (bounded) and fence their late writes.
     map_builds: BackgroundBuilds = field(default_factory=BackgroundBuilds, repr=False)
+    # test-thread-leak review F1: the jobs a request starts on a thread of its
+    # own (Reader cue discovery, library asks, reading-path judgments, intent
+    # routings, hints, coverage). ``close`` cancels and joins them (bounded).
+    background_jobs: BackgroundJobs = field(default_factory=BackgroundJobs, repr=False)
     # Adaptive difficulty AD1 (fix round 5, V1): bumped every time the loaded
     # vault object is replaced (a load, a reload, a re-read after recovery or
     # adoption). A background job's protection check reads it before and
@@ -410,18 +415,26 @@ class SidecarContext:
         RPC, EOF, and whoever else ends a context: a test's teardown, a host
         that drops it).
 
-        The ingest drain, its quick checks and the reading sweep, the exam
-        graders, the post-attempt worker's three slots and the approach-map
+        The jobs requests started (:attr:`background_jobs`: Reader cue
+        discovery, library asks, reading-path judgments, intent routings,
+        hints, coverage) are cancelled first, before anything is joined: none
+        sends another model request from then on (review F1). Then the ingest
+        drain, its quick checks and the reading sweep, the exam graders, the
+        post-attempt worker's three slots (a gap or diagnosis job in flight
+        stops before its next paid request, review F2) and the approach-map
         builds are each told to stop and joined for a bounded time (never
-        hangs). A thread that outlived its context kept polling the vault it
-        was started for: in one test process that was hundreds of threads
-        (test-thread-leak). Idempotent; a later ``load`` or submit starts the
-        owners again, as after ``shutdown``."""
+        hangs), and last the cancelled jobs are joined, bounded too. A thread
+        that outlived its context kept polling the vault it was started for:
+        in one test process that was hundreds of threads (test-thread-leak).
+        Idempotent; a later ``load``, request or submit starts work again, as
+        after ``shutdown``."""
 
+        self.background_jobs.cancel()
         self.exam_grading.shutdown()
         self.ingest_jobs.shutdown()
         self.post_attempt_worker.shutdown()
         self.close_background_builds()
+        self.background_jobs.close()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
