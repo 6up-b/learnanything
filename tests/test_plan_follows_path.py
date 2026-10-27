@@ -129,7 +129,7 @@ def test_the_successor_is_one_constant_after_rw2d():
     assert TAG == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PREDECESSOR) + 1]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.37"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
-    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", LATEST_ALGORITHM_VERSION})
+    assert READING_PATH_PLAN_VERSIONS == frozenset({TAG, "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
@@ -447,7 +447,7 @@ def test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the
 
 # -- G47 on fixture copies -----------------------------------------------------------------------------
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_226"
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 

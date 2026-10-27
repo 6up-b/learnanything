@@ -99,7 +99,7 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
     # Built after RW7b's mvp-0.32 as mvp-0.34; the batch landing renumbered it after rebuild equivalence's mvp-0.34.
     # The kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-3] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.37"
-    assert SUCCESSOR_CHAIN[-3] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
+    assert SUCCESSOR_CHAIN[-4] == PREDECESSOR == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
     assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True

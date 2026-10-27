@@ -40,7 +40,7 @@ from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION, ONE_ASK_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION, SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.test_state_sync_scheduling_race import (
@@ -228,11 +228,11 @@ def test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row(tmp_path):
 
 
 def test_below_the_tag_the_retiring_sync_is_still_undone_as_the_predecessor(tmp_path, monkeypatch):
-    """The control for the gate: an mvp-0.35 vault writes the whole row, so the
+    """The control for the gate: an mvp-0.36 vault writes the whole row, so the
     retiring sync committed while the answer was graded is undone (the race
     the successor closes)."""
 
-    paths, repository = _fresh_vault(tmp_path, ONE_ASK_ALGORITHM_VERSION)
+    paths, repository = _fresh_vault(tmp_path, SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
     stale = load_vault(paths.root)
     _edit_item(paths.root, status="retired")
     seen = _sync_before_the_attempt_commits(monkeypatch, _sync_in_this_process(paths.root, paths.sqlite_path))

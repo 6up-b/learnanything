@@ -2967,7 +2967,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader RW5d P1's [figures] show_me_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
-    "mvp-0.35": "2d0f2bb94b88f01d35cfd375721c4bf87ade8d9aba1c21a5a4695410258e159a",
+    "mvp-0.35": "cdb30c11050175e2737e9311325496ef9344227727ba0a3792b8c4377396b367",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -2981,7 +2981,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until mobile
     # PR-4's successor landed.
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
-    "mvp-0.36": "8c2f91f6d1359c05de3752bc3d838605b0e411ef41bd92e52dfe1d0314d9779c",
+    "mvp-0.36": "d16f755bf79cf92c75a7279467cee9d8d149bb6f3aff3e9458ab00733c4984a3",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -2997,7 +2997,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # vaults reach it by `learnloop upgrade` (default target) from mvp-0.36,
     # or from mvp-0.9 onwards through the chain. New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.37": "0000000000000000000000000000000000000000000000000000000000000000",
+    "mvp-0.37": "54ec8b7c89d2a99218dbbe7ae76825283c4f3c43afdaedb9d4c8453462da5387",
 }
 
 

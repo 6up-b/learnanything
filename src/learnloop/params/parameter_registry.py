@@ -1221,7 +1221,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the rebuild-equivalence successor: replay reads the recent-attempt windows and the "
         "canonical facet cache bounded at the replayed attempt, as its live write saw them; off, replay reads "
         "the whole ledger as the predecessor did. Never read by a live write."),
-    # Mobile PR-4 (mvp-0.36, docs/reviews/mobile-pr3-pr4.md, Codex review
+    # Mobile PR-4 (mvp-0.37, docs/reviews/mobile-pr3-pr4.md, Codex review
     # F4): the kill switch of the successor whose live attempt writes only its
     # item row's scheduling columns. A boolean (classified so every new key
     # has a rule); which columns a write owns is structural, never a weight.

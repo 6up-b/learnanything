@@ -75,7 +75,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_226"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 TARGET = METHOD_EXPLICIT_ALGORITHM_VERSION
 
@@ -85,7 +85,7 @@ def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     # Regrade contracts (mvp-0.26) followed it and keep it.
     assert SUCCESSOR_CHAIN[16] == TARGET and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.37"
     assert SUCCESSOR_CHAIN[15] == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", LATEST_ALGORITHM_VERSION})
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", LATEST_ALGORITHM_VERSION})
     # The chain is linear: it means every predecessor's semantics PLUS its own.
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,

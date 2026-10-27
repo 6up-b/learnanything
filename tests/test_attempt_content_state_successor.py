@@ -1,4 +1,5 @@
-"""Mobile PR-4's successor (mvp-0.36): a live attempt writes only its scheduling columns.
+"""Mobile PR-4's successor (mvp-0.37; mvp-0.36 on its branch, renumbered at landing after the kept
+replaced claims' mvp-0.36): a live attempt writes only its scheduling columns.
 
 Codex review F4 (``docs/reviews/mobile-pr3-pr4-codex-review.md``): the PR-4
 race fix (``tests/test_attempt_content_state_race.py``) also changes serving
@@ -12,7 +13,7 @@ kill switch:
 
 * at the tag with ``practice.attempt_keeps_content_state`` on, the attempt
   keeps the closed row closed and its content hash as content sync wrote it;
-* off, or below the tag (an mvp-0.35 vault), the attempt writes the whole
+* off, or below the tag (an mvp-0.36 vault), the attempt writes the whole
   row exactly as the predecessor (the row reopens and the item is served);
 * replay keeps its full upsert, so a same-version rebuild reproduces the live
   row at every setting (rebuild equivalence);
@@ -35,6 +36,7 @@ from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
 )
 from learnloop.attempts.attempts import (
     AttemptDraft,
@@ -52,7 +54,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, append_config_toml, create_placement_vault
 
 TAG = ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION
-PREDECESSOR = ONE_ASK_ALGORITHM_VERSION
+PREDECESSOR = SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 ITEM = "pi_svd_define_001"
 CLOCK = FrozenClock(NOW + timedelta(hours=1))
 
@@ -135,13 +137,14 @@ def _closed_then_answered(paths):
 # -- the chain -------------------------------------------------------------------------------------
 
 
-def test_mvp036_is_one_constant_after_mvp035_and_the_latest():
+def test_mvp037_is_one_constant_after_mvp036_and_the_latest():
     from learnloop.attempt_content_state_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.schema import PracticeConfig
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36")
+    # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
+    assert SUCCESSOR_CHAIN[-3:] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
     assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
     assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG})
     assert PracticeConfig().attempt_keeps_content_state is True
@@ -202,8 +205,8 @@ def test_a_same_version_rebuild_reproduces_the_live_row(tmp_path, version, switc
 # -- the upgrade -------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.33", "mvp-0.34", "mvp-0.35"])
-def test_upgrade_to_mvp036_works_from_supported_versions(tmp_path, start):
+@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36"])
+def test_upgrade_to_mvp037_works_from_supported_versions(tmp_path, start):
     from learnloop.cli import app
 
     paths = _vault_at(tmp_path, "v", start)
@@ -213,7 +216,7 @@ def test_upgrade_to_mvp036_works_from_supported_versions(tmp_path, start):
     assert _version(paths) == TAG and _activated(paths) and not _journal(paths).exists()
 
 
-def test_a_bare_upgrade_targets_mvp036(tmp_path):
+def test_a_bare_upgrade_targets_mvp037(tmp_path):
     from learnloop.cli import app
 
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
@@ -240,7 +243,7 @@ def _interrupted(tmp_path, name):
     return paths
 
 
-def test_the_next_cli_command_completes_an_interrupted_mvp036_activation(tmp_path):
+def test_the_next_cli_command_completes_an_interrupted_mvp037_activation(tmp_path):
     from learnloop.attempt_content_state_upgrade import upgrade_to_attempt_content_state
     from learnloop.cli import app
 
@@ -278,13 +281,68 @@ def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_pa
     assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
 
 
-def test_an_mvp035_journal_is_handed_to_its_own_upgrade_then_the_tag_activates(tmp_path):
+def test_an_mvp035_journal_is_handed_down_the_chain_then_the_tag_activates(tmp_path):
+    """An interrupted Reader CA2 (mvp-0.35) activation: this link hands it to
+    the kept replaced claims' completion, which hands it to CA2's own."""
+
     from learnloop.attempt_content_state_upgrade import complete_interrupted_activation, upgrade_to_attempt_content_state
     from tests.test_batch3_landing import _interrupted as ca2_interrupted
 
     paths = ca2_interrupted(tmp_path, "ca2")
-    assert _version(paths) == PREDECESSOR and _journal(paths).exists()
-    assert complete_interrupted_activation(paths.root) == PREDECESSOR
+    assert _version(paths) == ONE_ASK_ALGORITHM_VERSION and _journal(paths).exists()
+    assert complete_interrupted_activation(paths.root) == ONE_ASK_ALGORITHM_VERSION
     assert not _journal(paths).exists() and complete_interrupted_activation(paths.root) is None
     result = upgrade_to_attempt_content_state(paths.root)
     assert result.upgraded and _version(paths) == TAG and not _journal(paths).exists()
+    assert _activated(paths, PREDECESSOR) and _activated(paths)
+
+
+def _interrupted_predecessor(tmp_path, name):
+    """An mvp-0.36 activation (the kept replaced claims) that died after its
+    publication and before its commit: the label names mvp-0.36 over an
+    mvp-0.35 database, with that link's journal."""
+
+    paths = _vault_at(tmp_path, name, ONE_ASK_ALGORITHM_VERSION)
+    _journal(paths).write_text(
+        json.dumps({"predecessor": ONE_ASK_ALGORITHM_VERSION, "target": PREDECESSOR}), encoding="utf-8")
+    rewrite_algorithm_version(paths.root / "learnloop.toml", ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, durable=True)
+    assert not _activated(paths, PREDECESSOR)
+    return paths
+
+
+def test_landing_ii_an_interrupted_mvp036_activation_then_upgrade_to_mvp037_completes_it(tmp_path):
+    """Landing interaction (ii): `learnloop upgrade --to mvp-0.37` over an
+    interrupted mvp-0.36 activation. The CLI's opener (this link's completion,
+    the chain's latest) hands the mvp-0.36 journal to its own link, which
+    completes it; the upgrade then activates mvp-0.37 from mvp-0.36."""
+
+    from learnloop.cli import app
+
+    paths = _interrupted_predecessor(tmp_path, "interrupted036")
+    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    assert f"{PREDECESSOR} -> {TAG}" in result.output
+    assert _version(paths) == TAG and not _journal(paths).exists()
+    assert _activated(paths, PREDECESSOR) and _activated(paths)
+
+
+def test_landing_ii_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_it(tmp_path, monkeypatch):
+    """Landing interaction (ii), without an installed completion: an attach
+    refuses with mvp-0.36's upgrade message and changes nothing (the journal
+    is never skipped), and the mvp-0.37 upgrade itself completes the mvp-0.36
+    activation first (it reads every link's journal before the version), then
+    activates mvp-0.37."""
+
+    from learnloop import activation_journal
+    from learnloop.attempt_content_state_upgrade import upgrade_to_attempt_content_state
+
+    paths = _interrupted_predecessor(tmp_path, "refused036")
+    monkeypatch.setattr(activation_journal, "_COMPLETER", None)
+    with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {PREDECESSOR}"):
+        Repository(paths.sqlite_path)
+    assert _version(paths) == PREDECESSOR and _journal(paths).exists()
+    assert not _activated(paths, PREDECESSOR) and not _activated(paths)
+
+    result = upgrade_to_attempt_content_state(paths.root)
+    assert result.upgraded and result.from_version == PREDECESSOR and _version(paths) == TAG
+    assert not _journal(paths).exists() and _activated(paths, PREDECESSOR) and _activated(paths)

@@ -252,7 +252,7 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 as the latest (all keep it).
     assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.37"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
-    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", LATEST_ALGORITHM_VERSION})
+    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR] == defaults_fingerprint_for_version(PREDECESSOR)
 

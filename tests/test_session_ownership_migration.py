@@ -1,4 +1,4 @@
-"""Mobile PR-4: migration 225 (spec_mobile_tailnet_v1 §6.5, §8).
+"""Mobile PR-4: migration 226 (spec_mobile_tailnet_v1 §6.5, §8; 225 on its branch, renumbered at landing).
 
 ``sessions`` gains ``owner_device_id`` (NULL is the desktop) and
 ``owner_generation`` (0); every existing row keeps its values and reads as a
@@ -18,8 +18,8 @@ from learnloop.db.migrate import discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_225" / "state.sqlite"
-#: Every schema object 225 adds, and the table it alters: the earlier
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_226" / "state.sqlite"
+#: Every schema object 226 adds, and the table it alters: the earlier
 #: migrations' "nothing else changed" diffs on the way to head read these.
 PR4_ADDED_OBJECTS = frozenset({
     "session_handoffs", "sqlite_autoindex_session_handoffs_1", "idx_session_handoffs_session",
@@ -41,9 +41,10 @@ CREATE TABLE sessions (
 """
 
 
-def test_225_is_the_session_ownership_migration_and_the_handoffs_are_receipts():
+def test_226_is_the_session_ownership_migration_and_the_handoffs_are_receipts():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[225] == "225_session_ownership.sql"
+    assert names[226] == "226_session_ownership.sql"
+    assert names[225] == "225_learner_claim_superseded_by.sql"
     assert role_for_table("session_handoffs") == TableRole.RECEIPT
     assert role_for_table("sessions") == TableRole.WORKFLOW
 
@@ -57,7 +58,7 @@ def test_existing_sessions_keep_their_rows_and_read_as_desktop_sessions(tmp_path
         ]
         connection.executemany("INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
         connection.commit()
-        connection.executescript((MIGRATIONS / "225_session_ownership.sql").read_text(encoding="utf-8"))
+        connection.executescript((MIGRATIONS / "226_session_ownership.sql").read_text(encoding="utf-8"))
         after = connection.execute("SELECT * FROM sessions ORDER BY id").fetchall()
         assert [row[:8] for row in after] == rows
         assert {row[8:] for row in after} == {(None, 0)}
@@ -68,7 +69,7 @@ def test_the_handoff_receipt_is_append_only_and_checked(tmp_path):
     with closing(sqlite3.connect(tmp_path / "state.sqlite")) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(_SESSIONS_BEFORE)
-        connection.executescript((MIGRATIONS / "225_session_ownership.sql").read_text(encoding="utf-8"))
+        connection.executescript((MIGRATIONS / "226_session_ownership.sql").read_text(encoding="utf-8"))
         connection.execute("INSERT INTO sessions (id, started_at) VALUES ('s1', '2026-10-27T00:00:00Z')")
         insert = ("INSERT INTO session_handoffs (id, session_id, kind, from_device_id, to_device_id, generation, "
                   "checkpoint_json, at) VALUES (?, ?, ?, NULL, 'dev_phone', ?, NULL, '2026-10-27T00:00:01Z')")
@@ -82,12 +83,12 @@ def test_the_handoff_receipt_is_append_only_and_checked(tmp_path):
             connection.execute("DELETE FROM session_handoffs")
 
 
-def test_the_head_fixture_holds_exactly_225s_objects_in_rollback_mode():
+def test_the_head_fixture_holds_exactly_226s_objects_in_rollback_mode():
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert PR4_ADDED_OBJECTS <= names
         columns = [row[1] for row in connection.execute("PRAGMA table_info(sessions)")]
         assert columns[-2:] == ["owner_device_id", "owner_generation"]
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 225
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 226
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM session_handoffs").fetchone()[0] == 0

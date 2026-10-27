@@ -37,6 +37,32 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Mobile PR-4 (migration 226), landing of stage `mobile-pr3-pr4`, 2026-10-27
+
+Renamed from `migration_head_225` at the landing of mobile PR-3/PR-4 onto
+main `a25e9b45d` (`docs/reviews/mobile-pr3-pr4.md`, "Landing onto main"). The
+branch built its session-ownership migration as 225 on `5c6a0834f`; the
+learner-report successor's 225 landed first, so it is 226 here and the
+branch's own `migration_head_225` was dropped. Rebuilt from main's tracked,
+sanitized `migration_head_225/state.sqlite`: a backup-API copy with only
+`226_session_ownership.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 226 (mobile PR-4, `spec_mobile_tailnet_v1` §6.5) adds
+  `sessions.owner_device_id` (NULL: the desktop) and
+  `sessions.owner_generation` (0) to the existing table, and the RECEIPT
+  `session_handoffs` (its autoindex, one index and two append-only
+  triggers), with no row.
+
+No other object changed definition, and only `schema_migrations` gained a
+row (226). The fixture's two sessions keep every value and read `(NULL, 0)`
+in the new columns; every other table's rows are identical, so the sanitized
+content carries over (every companion file is byte-identical to main's).
+
 ## Replaced learner claims kept (migration 225), branch `lp/learner-report-superseded`, 2026-10-27
 
 Renamed from `migration_head_224` on the successor mvp-0.36's branch
@@ -100,12 +126,13 @@ built from the tracked copy). The C0a branch's own head (222 on 220, without
 ## History
 
 This is a copy of the small conic-sections vault upgraded through migration
-225, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+226, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
 landing, 220 on that one at local contextual retrieval P1's landing, 221 on
 that one on the LP-min (a) claim-fixes branch, 222 on that one at
 curriculum C0a's landing, 223 then 224 on that one at the batch landing of
-Reader CA2 and RW5d P1, and 225 on that one on the mvp-0.36 branch). Migration 167 adds the learner-field F1 read model
+Reader CA2 and RW5d P1, 225 on that one on the mvp-0.36 branch, and 226 on
+that one at mobile PR-4's landing). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,

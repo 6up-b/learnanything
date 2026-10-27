@@ -1,7 +1,7 @@
 -- Mobile PR-4: atomic session operations and ownership
 -- (docs/specs/spec_mobile_tailnet_v1.md §6.5, §8; docs/reviews/mobile-pr3-pr4.md).
--- Numbered 225 as the next free number on its base; another stage may take
--- 225 first (the runner is set-based, so the number is confirmed at landing).
+-- Numbered 225 on its base and renumbered 226 at its landing, after the
+-- learner-report successor's 225_learner_claim_superseded_by.
 --
 -- sessions gains its owner: owner_device_id names the mobile_devices row
 -- that owns the session (NULL is the desktop, so every existing session and

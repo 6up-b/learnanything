@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_225/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_226/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_225" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_226" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 225
+SCHEMA_HEAD = 226
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -1360,12 +1360,12 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "recorded primed flag, never this switch."
     ),
     "practice.attempt_keeps_content_state": (
-        "Kill switch for mobile PR-4's successor (mvp-0.36; learnloop.attempt_content_state_upgrade). On, a "
+        "Kill switch for mobile PR-4's successor (mvp-0.37; learnloop.attempt_content_state_upgrade). On, a "
         "live attempt's write to its item's existing practice_item_state row takes only the scheduling "
         "columns and the last-attempt time: active can only close (a diagnostic probe's single use still "
         "lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync "
         "closed (one committed while the answer was graded, or a parked, superseded or deactivated item). "
-        "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.35. "
+        "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
         "Dormant below the successor; replay never reads it."
     ),
     "replay.ledger_bounded": (
@@ -2084,7 +2084,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_225/state.sqlite",
+                "fixtures/migration_head_226/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

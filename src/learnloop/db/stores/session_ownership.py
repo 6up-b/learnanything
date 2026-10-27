@@ -1,4 +1,4 @@
-"""Mobile PR-4: atomic session operations and ownership (migration 225).
+"""Mobile PR-4: atomic session operations and ownership (migration 226).
 
 ``spec_mobile_tailnet_v1`` §6.5. One session is open at a time, because the
 session-scoped caps are counted per session id. Two processes (the desktop

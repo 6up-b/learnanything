@@ -492,7 +492,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # retrieval context only, replay never reads it; append-only by trigger.
     ("section_coverage", TableRole.WORKFLOW),
     ("session_checkpoints", TableRole.WORKFLOW),
-    # Mobile PR-4 (migration 225; spec_mobile_tailnet_v1 §6.5, §8): one
+    # Mobile PR-4 (migration 226; spec_mobile_tailnet_v1 §6.5, §8): one
     # append-only receipt per session handoff (an adopt, or a replace that
     # keeps the replaced session's checkpoint and draft). Never evidence;
     # replay never reads it.
