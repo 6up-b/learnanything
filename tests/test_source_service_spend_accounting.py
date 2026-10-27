@@ -397,26 +397,35 @@ def test_concurrent_admission_counts_the_unreconciled_receipt(tmp_path):
     _dies(repository, handle)
     barrier = threading.Barrier(8)
     admitted: list[bool] = []
+    held: list[tuple[object, object]] = []
     lock = threading.Lock()
 
     def process() -> None:
         envelope = _process(vault, repository)
         barrier.wait()
         try:
-            envelope.reserve(Decimal("0.125"))
+            handle = envelope.reserve(Decimal("0.125"))
             outcome = True
         except SpendLimitExceeded:
             outcome = False
         with lock:
             admitted.append(outcome)
+            if outcome:
+                held.append((envelope, handle))
 
     threads = [threading.Thread(target=process) for _ in range(8)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
-    assert admitted.count(True) == 4, admitted
-    assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(1.0)
+    try:
+        assert admitted.count(True) == 4, admitted
+        assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(1.0)
+    finally:
+        # The admitted requests finish: this process stops renewing their
+        # leases (the heartbeat thread ends with its last lease).
+        for envelope, handle in held:
+            envelope.settle(handle, Decimal("0.125"))
 
 
 # Separate OS processes (spawned: each its own interpreter, connections, heartbeat
