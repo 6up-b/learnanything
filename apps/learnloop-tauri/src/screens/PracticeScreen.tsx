@@ -1759,14 +1759,15 @@ export function PracticeScreen({
             // DL2 (D46, G61): during a check on your own, the book's name only:
             // no exercise number, page, section, link or why until feedback.
             <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
-              <Faint>From {item.canonicalExercise.sourceTitle ?? "your book"}</Faint>
+              <Faint>From {item.canonicalExercise.sourceTitle?.trim() || "your book"}</Faint>
             </div>
           ) : item.canonicalExercise ? (
             // Canonical sources S1: where this exercise comes from and how far
             // its answer key has been checked, said plainly.
             <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
               <Faint>
-                From {item.canonicalExercise.sourceTitle ?? "your book"}: {item.canonicalExercise.label}
+                From {item.canonicalExercise.sourceTitle?.trim() || "your book"}
+                {item.canonicalExercise.label?.trim() ? `: ${item.canonicalExercise.label.trim()}` : ""}
                 {item.canonicalExercise.relation === "variant_of" ? " (a variant)" : ""}
                 {printedPageLabel(asPrinted) ? ` · ${printedPageLabel(asPrinted)}` : ""}
                 {item.canonicalExercise.keyLabel ? ` · ${item.canonicalExercise.keyLabel}` : ""}
@@ -1783,7 +1784,7 @@ export function PracticeScreen({
             // selection has no canonical exercise, but its page is the book's:
             // the same locator and original page, as the server allows them.
             <div className="queue-meta" data-testid="printed-locator" style={{ fontSize: 11 }}>
-              <Faint>From {asPrinted.locator.sourceTitle ?? "your book"} · {printedPageLabel(asPrinted)}</Faint>
+              <Faint>From {asPrinted.locator.sourceTitle?.trim() || "your book"} · {printedPageLabel(asPrinted)}</Faint>
               {originalPageOffered && !stepsMode ? (
                 <>
                   {" · "}

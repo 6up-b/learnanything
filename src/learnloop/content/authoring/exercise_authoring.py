@@ -171,20 +171,33 @@ def _anchor_statement(selection_text: str, statement: str) -> str | None:
 
 
 def _owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None,
-                 ranges: Sequence[tuple[int, int] | None], index: int) -> set[str]:
-    """Reader CA1 (Codex re-review F9, final verify F9): the blocks one item
-    of a split selection is printed from, when they are its alone.
+                 ranges: Sequence[tuple[int, int] | None], index: int, *,
+                 span_ids: Sequence[str] = (), text_length: int | None = None) -> set[str]:
+    """Reader CA1 (Codex re-review F9, final verify F9; Astra batch review,
+    owner 2026-10-26): the blocks one item is printed from, when they are its
+    alone. A single-exercise import is no exception: its blocks are the ones
+    its anchored statement covers, never every block selected (a selection
+    holding the problem and its solution in separate blocks owns only the
+    problem's).
 
     An item's blocks are the parts its statement's slice overlaps. They are
     its own only when no other item of the split overlaps any of them: a
     block holding two exercises belongs to neither, and an item with one
     such block owns none (its crop would show the other exercise, or only
-    part of its own). Empty when ownership can't be read: a selection-level
-    edit replaced the text, or a sibling's statement could not be anchored
-    (it may sit in any block)."""
+    part of its own). Empty when ownership can't be read: a statement or a
+    sibling's statement could not be anchored (a paraphrase: the full
+    selection became the prompt, or it may sit in any block), or a
+    selection-level edit replaced the text so no part maps to a block, except
+    that one item whose statement is the whole edited text is printed from
+    the whole selection (``span_ids``; the capture editor's OCR fix of the
+    passage the learner selected). Solution blocks are never cropped, whatever
+    is marked here (``reader.as_printed``, read time)."""
 
-    if part_ranges is None or any(found is None for found in ranges):
+    if any(found is None for found in ranges):
         return set()
+    if part_ranges is None:
+        whole = len(ranges) == 1 and text_length is not None and ranges[0] == (0, text_length)
+        return set(span_ids) if whole else set()
 
     def blocks(found: tuple[int, int]) -> set[str]:
         start, end = found
@@ -544,9 +557,9 @@ def author_exercises(
                           warnings=warnings, anchor_status=str(translation.get("status") or "exact"))
     skipped = batch.skipped
 
-    split = len(result.items) > 1
     # Every item's slice, skipped ones too: a sibling's place decides which
-    # blocks are an item's alone (final verify F9).
+    # blocks are an item's alone (final verify F9); a single item's slice
+    # decides its own (Astra batch review).
     anchored = [_anchor_range(exercise_text, entry.statement_md) for entry in result.items]
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
@@ -694,7 +707,8 @@ def author_exercises(
             "hints": hints,
             "provenance": {"origin": "canonical_extract", "source_refs": _item_refs(
                 source_refs, span_ids,
-                owned=_owned_spans(part_ranges, anchored, ordinal - 1) if split else set(span_ids))},
+                owned=_owned_spans(part_ranges, anchored, ordinal - 1, span_ids=span_ids,
+                                   text_length=len(exercise_text)))},
             "created_at": now,
             "updated_at": now,
         }

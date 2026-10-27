@@ -482,12 +482,21 @@ def _canonical_exercise_dto(repository: Repository, item: Any) -> dict[str, Any]
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_service import KEY_STATUS_LABELS, effective_key_status
 
+    from learnloop.content.pipeline.add_source import learner_title
+
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         status = effective_key_status(connection, item)
-        row = connection.execute("SELECT display_title FROM source_artifacts WHERE id=?",
-                                 (canonical.source_id,)).fetchone()
+        artifact = connection.execute("SELECT * FROM source_artifacts WHERE id=?",
+                                      (canonical.source_id,)).fetchone()
+        revision_id = canonical.revision_id or (artifact["current_revision_id"] if artifact is not None else None)
+        revision = (connection.execute("SELECT * FROM source_revisions WHERE id=?", (revision_id,)).fetchone()
+                    if revision_id else None)
+    # Reader CA1 polish: the book's learner title (its file name in words when
+    # it has no display title), as the Library names it.
+    title = learner_title(dict(artifact), dict(revision) if revision is not None else None).strip() \
+        if artifact is not None else ""
     return {"canonical_exercise": {
-        **canonical.model_dump(mode="json"), "source_title": row[0] if row is not None else None,
+        **canonical.model_dump(mode="json"), "source_title": title or None,
         "key_status": status, "key_label": KEY_STATUS_LABELS.get(status, status),
         "authorship": "the statement is the book's; the answer key and rubric are LearnLoop's"}}
 

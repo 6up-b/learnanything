@@ -30,6 +30,16 @@ The rules held here, on the server:
   only those are cropped; where that is not known (a selection-level edit,
   or a split written before the mark) no crop is free, and the original
   page (one hint before Submit) is still offered (Codex re-review F9).
+* **Never the solution** (Astra batch review; owner 2026-10-26: "i would
+  hope that crop excludes the solution"). Whatever the stored marks say (an
+  import before this rule marked every block it was given), a block on the
+  item's book-solution spans (its import's check found them) or with a
+  solution role (its effective role, or a "Solution" lead) is never cropped.
+  A block that holds the stem and its solution together (a solution or
+  proof lead inside it, or text beside the statement that gives the
+  expected answer away) leaves no free crop at all (``NO_CROP``: never a
+  partial print); the original page, one hint before Submit, is still
+  offered. A guard that cannot be read fails closed the same way.
 * **The cold rule** (D46, spec G61). During a check on your own (a due
   "Check once", a cold follow-up, an active diagnostic presentation; the
   caller reads which, F1) the view
@@ -49,8 +59,9 @@ The rules held here, on the server:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Any
 
@@ -302,22 +313,170 @@ def _selection_origin(repository: Any, item: Any) -> PrintedOrigin | None:
                          page_span_ids=tuple(spans))
 
 
+#: The leads that start a worked answer inside a block that began as the
+#: stem ("... Solution: x = 2", "Prove that ... Proof. ..."): such a block
+#: holds the stem and its solution together.
+_ANSWER_LEADS = frozenset({"solution", "proof"})
+#: Where a block's text is cut to read the lead of each part: a line break,
+#: or the space after a sentence or clause ends.
+_PART_BREAK = re.compile(r"\n+|(?<=[.!?:;)])\s+")
+
+
+def _tokens(text: str | None) -> list[str]:
+    return str(text or "").split()
+
+
+def _find(tokens: list[str], part: list[str]) -> int:
+    """Where ``part`` sits in ``tokens`` as a run of whole words, or -1."""
+
+    width = len(part)
+    for start in range(len(tokens) - width + 1):
+        if tokens[start:start + width] == part:
+            return start
+    return -1
+
+
+def _outside_statement(block_text: str, statement: str) -> str | None:
+    """The words of a block that are not the item's statement, or None when
+    the two share no run of words (the block is not the statement's, or the
+    learner reworded it). The statement may sit inside the block, the block
+    inside the statement, or the two overlap at an edge (a statement over
+    several blocks); compared as whole words."""
+
+    block, stem = _tokens(block_text), _tokens(statement)
+    if not block or not stem:
+        return None
+    if _find(stem, block) >= 0:
+        return ""
+    at = _find(block, stem)
+    if at >= 0:
+        return " ".join(block[:at] + block[at + len(stem):])
+    for size in range(min(len(block), len(stem)) - 1, 0, -1):
+        if block[-size:] == stem[:size]:
+            return " ".join(block[:-size])
+        if block[:size] == stem[-size:]:
+            return " ".join(block[size:])
+    return None
+
+
+def _holds_its_solution(block_text: str, statement: str, expected_answer: Any) -> bool:
+    """Whether a block of the stem also holds the stem's solution: a solution
+    or proof lead starts one of its later parts, or its text beside the
+    statement gives the expected answer away (the tutor's leak matcher,
+    ``tutor_qa.span_leaks_expected``) while the statement itself does not."""
+
+    from learnloop.ingest.block_roles import lead_role
+
+    parts = [part for part in _PART_BREAK.split(str(block_text or "")) if part.strip()]
+    if any(lead_role(part) in _ANSWER_LEADS for part in parts[1:]):
+        return True
+    rest = _outside_statement(block_text, statement)
+    if rest is None:
+        rest = " ".join(_tokens(block_text))
+    if not rest or expected_answer in (None, "", {}):
+        return False
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    return span_leaks_expected(rest, expected_answer) and not span_leaks_expected(statement, expected_answer)
+
+
+def _solution_span_ids(connection: Any, item_id: str, extraction_id: str) -> set[str]:
+    """The book-solution blocks the item's import checks found (each import
+    row's ``verification``: ``book_solution``, ``solution_search``)."""
+
+    from learnloop.db.stores.source_service import imports_for_item
+
+    found: set[str] = set()
+    for row in imports_for_item(connection, item_id):
+        verification = row.get("verification") or {}
+        for key in ("book_solution", "solution_search"):
+            entry = verification.get(key) or {}
+            if not isinstance(entry, Mapping) or entry.get("extraction_id") not in (None, extraction_id):
+                continue
+            found.update(str(span) for span in entry.get("span_ids") or () if span)
+    return found
+
+
+def _without_solutions(repository: Any, item: Any, origin: PrintedOrigin) -> PrintedOrigin:
+    """The origin with no solution in its free crop (module docstring, "Never
+    the solution"): solution blocks leave the crop's own blocks (and the
+    original page's outline); a block holding the stem and its solution
+    leaves no free crop. Fails closed: a guard that cannot be read leaves no
+    free crop, the original page still offered."""
+
+    if not origin.span_ids:
+        return origin
+    no_crop = replace(origin, span_ids=(), regions={}, page_span_ids=origin.located_by)
+    try:
+        from learnloop.ingest.block_roles import lead_role
+        from learnloop.source_retrieval.corpus import block_roles
+
+        blocks = {block.span_id: block for block in repository.document_blocks(origin.extraction_id,
+                                                                               list(origin.located_by))}
+        with repository.connection() as connection:
+            solution = _solution_span_ids(connection, str(getattr(item, "id", "")), origin.extraction_id)
+            roles = block_roles(connection, [(origin.extraction_id, span) for span in blocks])
+    except Exception:  # noqa: BLE001 - fail closed: no free crop, the page still offered
+        import logging
+
+        logging.getLogger(__name__).exception("Could not read the solution blocks of %s", getattr(item, "id", "?"))
+        return no_crop
+
+    statement = str(getattr(item, "prompt", "") or "")
+    expected = getattr(item, "expected_answer", None)
+
+    def solution_kind(span: str) -> str | None:
+        """``"solution"``: a block of the book's solution (on its spans, or
+        led by "Solution"; a block in a solution region the statement does
+        not share). ``"unsure"``: a solution region's block the statement
+        shares words with (an exercise printed straight after the previous
+        one's solution reads as its body). None: not a solution."""
+
+        block = blocks.get(span)
+        if span in solution or (block is not None and lead_role(block.text) == "solution"):
+            return "solution"
+        if roles.get((origin.extraction_id, span)) != "solution":
+            return None
+        shared = block is not None and _outside_statement(block.text, statement) is not None
+        return "unsure" if shared else "solution"
+
+    kinds = {span: solution_kind(span) for span in origin.located_by}
+    dropped = {span for span, kind in kinds.items() if kind == "solution"}
+    own = tuple(span for span in origin.span_ids if span not in dropped)
+    located = tuple(span for span in origin.located_by if span not in dropped) or origin.located_by
+    if not own or any(kinds.get(span) == "unsure" for span in own) or any(
+            _holds_its_solution(blocks[span].text, statement, expected)
+            for span in own if span in blocks and not is_figure_block(blocks[span])):
+        return replace(no_crop, page_span_ids=located)
+    if not dropped:
+        return origin
+    return replace(origin, span_ids=own, regions={span: box for span, box in origin.regions.items() if span in own},
+                   page_span_ids=located)
+
+
 def printed_origin(repository: Any, item: Any) -> PrintedOrigin | None:
-    """The item's print, or None (pasted text, a generated card, a photo card)."""
+    """The item's print, or None (pasted text, a generated card, a photo card).
+    Its own blocks never include a solution (:func:`_without_solutions`)."""
 
     canonical = getattr(item, "canonical_exercise", None)
     if canonical is not None:
-        return PrintedOrigin(extraction_id=canonical.extraction_id, span_ids=tuple(canonical.span_ids),
-                             source_id=canonical.source_id, label=canonical.label, relation=canonical.relation)
-    if repository is None:
+        origin: PrintedOrigin | None = PrintedOrigin(
+            extraction_id=canonical.extraction_id, span_ids=tuple(canonical.span_ids),
+            source_id=canonical.source_id, label=canonical.label, relation=canonical.relation)
+    elif repository is None:
         return None
-    try:
-        return _selection_origin(repository, item)
-    except Exception:  # noqa: BLE001 - an unreadable origin shows no print, never an error
-        import logging
+    else:
+        try:
+            origin = _selection_origin(repository, item)
+        except Exception:  # noqa: BLE001 - an unreadable origin shows no print, never an error
+            import logging
 
-        logging.getLogger(__name__).exception("Could not read where %s was imported from", getattr(item, "id", "?"))
-        return None
+            logging.getLogger(__name__).exception("Could not read where %s was imported from",
+                                                  getattr(item, "id", "?"))
+            return None
+    if origin is None or repository is None:
+        return origin
+    return _without_solutions(repository, item, origin)
 
 
 def printed_crops(
@@ -376,6 +535,14 @@ def printed_crops(
     return {"status": status, "crops": crops, "skipped_span_ids": skipped}
 
 
+def _label(label: str | None) -> str | None:
+    """CA1 polish: an exercise label with no text is no label (the header
+    then names the book and page only, no empty part)."""
+
+    text = (label or "").strip()
+    return text or None
+
+
 def _none(reason: str, *, cold: bool) -> dict[str, Any]:
     return {"enabled": True, "kind": KIND_NONE, "cold": cold, "reason": reason}
 
@@ -412,7 +579,7 @@ def _page_without_crop(repository: Any, origin: PrintedOrigin, *, source_title: 
         "enabled": True, "kind": KIND_PAGE, "cold": False,
         "label": f"as printed ({source_title or 'your book'} p.{label_text})",
         "status": "no_geometry", "crops": [],
-        "locator": {"source_title": source_title, "exercise_label": origin.label, "page_label": label_text},
+        "locator": {"source_title": source_title, "exercise_label": _label(origin.label), "page_label": label_text},
         "transcription_report": True,
         "original_page": {"extraction_id": origin.extraction_id, "span_id": first_span,
                           "outline_span_ids": on_page, "source_id": origin.source_id},
@@ -466,7 +633,7 @@ def item_as_printed(
         view: dict[str, Any] = {
             "enabled": True, "kind": KIND_PAGE, "cold": False, "label": label,
             "status": printed["status"], "crops": printed["crops"],
-            "locator": {"source_title": source_title, "exercise_label": origin.label,
+            "locator": {"source_title": source_title, "exercise_label": _label(origin.label),
                         "page_label": first["page_label"]},
             "transcription_report": True,
             "original_page": None,

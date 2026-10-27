@@ -197,7 +197,10 @@ def _import_selection(paths, repository, *, region=None) -> str:
                      {"spanId": "f1", "quote": "block f1"}]}
     if region is not None:
         raw["region"] = region
-    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="block e1", title="Exercise 6.1.12")]))
+    # The statement runs over every block selected (Astra batch review: a
+    # single item owns the blocks its statement covers, no more).
+    client = FakeClient(ExerciseAuthoring(items=[_item(statement_md="block e1 block e2 block f1",
+                                                       title="Exercise 6.1.12")]))
     result = EX.import_exercises(paths.root, repository, client, extraction_id=EXTRACTION, raw_selection=raw,
                                  source_id="src_ca1")
     (summary,) = result["items"]

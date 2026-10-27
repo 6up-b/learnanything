@@ -73,15 +73,28 @@ def cold_now(vault: Any, repository: Any, practice_item_id: str) -> bool:
 
 
 def _source_title(repository: Any, source_id: str | None, extraction_id: str) -> str | None:
+    """The book's learner title (``add_source.learner_title``: its display
+    title, else its file name in words), so a book imported without a title
+    is named as the Library names it rather than "your book"."""
+
+    from learnloop.content.pipeline.add_source import learner_title
+
     with repository.connection() as connection:
         row = None
         if source_id:
-            row = connection.execute("SELECT display_title FROM source_artifacts WHERE id = ?", (source_id,)).fetchone()
+            row = connection.execute("SELECT id, current_revision_id FROM source_artifacts WHERE id = ?",
+                                     (source_id,)).fetchone()
         if row is None:
             row = connection.execute(
-                "SELECT a.display_title FROM source_extraction_runs r JOIN source_revisions v ON v.id = r.revision_id "
+                "SELECT a.id, r.revision_id FROM source_extraction_runs r JOIN source_revisions v ON v.id = r.revision_id "
                 "JOIN source_artifacts a ON a.id = v.source_id WHERE r.id = ?", (extraction_id,)).fetchone()
-    return str(row[0]) if row is not None and row[0] else None
+    if row is None:
+        return None
+    artifact = repository.get_source_artifact(str(row[0]))
+    if artifact is None:
+        return None
+    revision = repository.get_source_revision(str(row[1])) if row[1] else None
+    return learner_title(artifact, revision).strip() or None
 
 
 @method("practice.as_printed", AsPrintedInput)

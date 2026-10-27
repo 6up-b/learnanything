@@ -445,7 +445,7 @@ export function PrintedAfterFeedback({
   const [page, setPage] = useState<OriginalPageTarget | null>(null);
   if (!view || !practiceItemId || view.kind === "none") return null;
   const locator = view.kind === "page" && view.locator
-    ? [view.locator.exerciseLabel, `${view.locator.sourceTitle ?? "your book"} p.${view.locator.pageLabel}`].filter(Boolean).join(" · ")
+    ? [view.locator.exerciseLabel?.trim(), `${view.locator.sourceTitle?.trim() || "your book"} p.${view.locator.pageLabel}`].filter(Boolean).join(" · ")
     : null;
   return (
     <div data-testid="feedback-as-printed" style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 10, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
