@@ -186,3 +186,129 @@ was opened.
   `surface_novelty = fail` as evidence (not blocking), exactly as a first pick could.
 - **An assisted cold follow-up that is not yet due** (practised before the check fell due) is outside the owner's
   decision: it is practice before the check, withdrawn at the next serve as before.
+
+## Landing onto main (2026-10-27)
+
+Landed in `learnanything-dl2` on `sched/cold-retry-after-assist` (stage tip `ed3677743`, base `1bcde2096`) by merging
+`main` twice: `dbc1559e7` (the Oct 27 follow-ups: tests and docs only) and then `d2f10ef55` (the Reader RW5c design
+spec: docs only). Main was neither fast-forwarded nor pushed. The successor stays **mvp-0.38** after mvp-0.37, with no
+migration.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `4fab205a2` | `--no-ff` merge of `main` `dbc1559e7`. **No conflicts.** The follow-ups' test files merged as they are: `test_field_workbench_signals.py` keeps the branch's chain pin (latest `mvp-0.38`, the version set with it) beside main's own-workbench-history change. `tests/test_rebuild_closed_row_answer.py` still **fails strictly at mvp-0.38** (3 xfailed): this stage does not touch the LO-lifecycle replay gap it pins. |
+| `569d2212a` | The DB reference regenerated. Only one note changed in content: `Tables/forecast_receipts.md` now lists `tests/test_cold_retry_reschedule.py`, which comes from the stage's own F2 fix. The ~430 notes whose only change was the `source_commit` stamp were left as they were. |
+| `3d4560898` | `--no-ff` merge of `main` `d2f10ef55` (docs only). **No conflicts.** No `src/` or `tests/` file changed, so the gate was not rerun. `db_validate_reference.py` still gives errors `[]`. |
+
+`git diff main` lists no binary, no tracked database and nothing under `fixtures-local/`, and `.gitignore` is unchanged.
+
+### Regeneration
+
+- DB reference: `db_generate_reference.py`, then `db_validate_reference.py`: **errors []**, both after the first merge and after the second.
+- The defaults fingerprints were not recomputed: the merges changed nothing under `src/`.
+- The CLI help snapshot, the sidecar serializer snapshot and the sidecar contract pass as merged. Nothing needed regenerating, and no RPC or serializer changed.
+- The targeted run after the first merge covered the follow-ups' 9 test files, the two snapshot tests and the closed-row file: **175 passed, 17 skipped, 3 xfailed** (80 s).
+
+### Gate (at `569d2212a`; `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (5G scope); `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,330 passed, 0 failed**, 89 skipped, 47 xfailed. pytest time 2,229.7 s (37:10); wall time 37 min 12 s, with no lock wait. No reruns were needed, there was no faulthandler dump, and no parity ran alongside. |
+| durability (`-m durability`, the same flock and 10G scope) | **176 passed**, 1 skipped (61.4 s; wall 63 s) |
+| owner lane (`-m owner_vaults`, 5G scope, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/landing-cr38/owner-lane/`) | 83 passed, **2 failed**, 4 skipped (56 s). These are exactly the two expected after the follow-ups: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`. The skips are the early vaults that have no copy (`conic-sections`, `arxiv` x2, `linear_algebra_legacy`). |
+| frontend / Tauri | not run: nothing under `apps/` changed |
+
+### Parity (fresh backup-API copies of the same mvp035 owner copies; `fixtures-local/landing-cr38/`, scripts in `scripts/cr38_*.sh`)
+
+Setup: `base/` holds the copies, all at mvp-0.35. Every route goes to the `127.0.0.1:9` blackhole (65 tasks). The only
+other route is the opt-in `embedding` route, which is off and has no key. `code_main` is `git archive dbc1559e7` and
+`code_branch` is `git archive 569d2212a`. Every run went through `env -i` with empty dirs. `run.py`'s audit hooks
+refuse Codex process starts and non-loopback sockets; they logged nothing.
+
+**No owner copy holds a due `cold_retry`.** linear_algebra has two open treatment episodes, probability has one and
+arxiv_v2 has none. So the live runs (`live_cold.py`) create the case on real data:
+
+1. A primed attempt on the episode's primed item schedules the lane's `cold_retry`.
+2. A day and an hour later, the retry is due, and the learner takes help on it (`hints_used = 1`).
+3. Ten more self-graded attempts follow (30% hinted).
+
+- **(a) `upgrade --to mvp-0.37`, main's code vs the branch's** (then a primary load; a second main copy is the noise control).
+  - Every row is identical: 18,814 / 10,301 / 23,714 rows in 358 tables.
+  - The only raw differences are the activation timestamps in 3 tables (`derived_state_rebuilds`, `parameter_registry`, `parameter_registry_manifests`). Main's second copy shows the same 3.
+  - Integrity is ok, foreign keys 0, schema SQL identical.
+  - `rebuild --shadow` right after the upgrade: mastery 21 / 18 / 34, facet 0, schedule 0, identical on both sides. This is the `algorithm_version` stamp only, as at every earlier landing.
+  - After `rebuild-derived-state` on each side: **0/0/0** on both.
+  - A normalized row comparison (ULIDs and times masked) of main vs branch then shows **no differing table**: 19,121 / 10,373 / 23,556 rows.
+  - `doctor` is identical: 57 / 1, 102 / 48 and 76 / 47 (issues / errors), all known content errors.
+- **(b) `upgrade --to mvp-0.38`** (branch code, on copies of (a)'s branch vaults). It prints "mvp-0.37 -> mvp-0.38" and leaves no journal.
+  - **0 LOs and 0 item schedules moved.**
+  - The cold lane (`followup_tasks`, episodes, opportunities and decisions, cold outcomes, coldness and forecast receipts) is **identical before and after**: the activation moves nothing.
+  - Rows are preserved. The only changes are the projection activation's rewrite of the facet rows (36 / 1 / 2 `facet_capability_evidence`, 76 / 2 / 4 `facet_recall_state`), the `parameter_registry` refresh (352), and +1 `derived_state_rebuilds` and +1 `parameter_registry_manifests`.
+  - **Serving: no change.** Today and the certification/curve dumps are identical after the version stamp. The daily plan picks the same blocks and items. Only the router card's `card_hash` / `snapshot_hash` (and its `detail_json`) move, because the card carries the version.
+  - Shadow right after the upgrade: the stamp only (21 / 18 / 34). After `rebuild-derived-state`: **0/0/0**.
+  - **Live, after the rebuild: 12 attempts on each copy, then shadow 0/0/0 on all three.** Without the rebuild, the live shadow is the activation's stamp only.
+  - On linear_algebra and probability, the help on the due retry did what §2 says:
+    - The retry was expired with `unmeasurable_no_held_out_surface` (`stage = submit`, `cold_check_help_taken`).
+    - One fresh `cold_retry` was scheduled on another surface: `pi_compute_with_complex_numbers_teach_back_ya8r73` on linear_algebra, `pi_three_independent_birthd` on probability.
+    - Its `not_before` is the assisted attempt + 1 day and its `expires_at` is 30 days after that.
+    - The `assisted_cold_retry` opportunity was decided `scheduled / independent_surface_selected`.
+    - The episode stays `cold_scheduled`, with `cold_item_id` moved to the fresh surface. The fresh task has its own forecast receipt (+1).
+  - A last run on copies of the rebuilt vaults ran the live post-attempt pipeline after each attempt. It kept the fresh item out of the random attempts and answered it unassisted once due (`cr38_b_consume.sh`). The retry was consumed and the episode `completed`; shadow **0/0/0**.
+    - On probability, the final coldness receipt is **`cold_success`**, `qualifies_as_cold_retrieval = true`, no hard exposure, and `qualifies_as_repair_effect_verification = false`. That is honest: help came in between.
+    - On linear_algebra, the outcome is `missing_chain` (cold retrieval true). That episode is a legacy one with no causal chain. The control shows the same `missing_chain` at mvp-0.37: main's code, the original retry answered unassisted, no help (`cr38_ctl.sh`). It is a property of the episode, not of this change.
+  - The bare `upgrade` goes from mvp-0.37 to mvp-0.38. From mvp-0.35 it chains through to mvp-0.38. In both cases the shadow after `rebuild-derived-state` is 0/0/0.
+- **(c) The kill switch off reproduces mvp-0.37.**
+  - The copies:
+    - `c37main`: mvp-0.37, main's code;
+    - `c37`: mvp-0.37, branch code;
+    - `c38off`: mvp-0.38 with `practice.reschedule_cold_after_assist = false`;
+    - `c38on`: mvp-0.38 with the switch on.
+  - Each ran the same 12 live attempts (the primed attempt, then help on the due retry).
+  - The whole cold lane is **identical for c37main, c37 and c38off**, both after the live run and after a Today read. The assisted retry is left open; nothing is withdrawn at submit and nothing is rescheduled.
+  - c38on alone withdraws the retry and schedules the fresh one.
+  - Mastery, schedules and Today are identical across all four after the version stamp: the rule changes no learner state.
+- **(d) An interrupted mvp-0.38 activation** (`os._exit(17)` after the config publication) on all three copies:
+  - `upgrade --to mvp-0.38` completes it ("completed the interrupted activation of mvp-0.38"; run again: "vault is already mvp-0.38").
+  - The desktop start completes it.
+  - Both equal the clean upgrade: 0 LOs moved.
+  - `Repository` and `open_vault_repository` without a completer refuse with "The upgrade to mvp-0.38 did not finish ... run `learnloop upgrade --to mvp-0.38`". The secondary attach and the remote schema check refuse too. Each leaves the vault as it was, and the upgrade then completes it.
+  - Plain `doctor --json` is a read-only attach and refuses too, with `InterruptedActivation`; the journal stays. This is as at the earlier landings.
+- **(e) `ad report --json`: no new denials.**
+  - linear_algebra and arxiv_v2: 0 throughout.
+  - probability: 6 live denials at mvp-0.35, its historical lines.
+    - (a)'s `--to mvp-0.37` archived them once per command (one archive in each of a_main, a_main2 and a_branch).
+    - `--to mvp-0.38` from mvp-0.37 found an empty log and archived nothing new.
+    - The bare chained upgrade from mvp-0.35 archived them **once**, as `…archived-mvp-0.35-to-mvp-0.38-…`.
+    - After the live run: 0 live and 6 archived.
+- **Receipts and calls.** No run wrote a `model_call_receipts` row:
+  - the 55 linear_algebra and arxiv_v2 copies hold 0;
+  - the probability copies hold the source's 56 historical receipts;
+  - the empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` stayed empty.
+
+  **Spend: $0.** Nothing under `~/learnloop-vaults`, `~/learnloop-retired` or `~/learnloop-books` was opened or listed.
+
+**Harness note (not this stage).** In the first live runs, the post-attempt pipeline did not run, and attempts went
+straight to `complete_self_graded_attempt` with no serve. In that harness, an unassisted attempt on a follow-up's item
+after earlier practice can consume the follow-up, because the serve-time withdrawal (practised since scheduled) never
+runs. This is the same at mvp-0.37: c37main's original retry was consumed this way. The app always serves first.
+
+### Owner notes
+
+1. Back up the vaults.
+2. Close the desktop app, the MCP server and the phone page.
+3. Run `learnloop upgrade --to mvp-0.38` on each vault. From mvp-0.35 it chains through mvp-0.36 and mvp-0.37, and the bare `learnloop upgrade` does the same.
+4. The activation moves no LO, schedule or follow-up task. An interrupted one is completed by the next CLI command or the desktop start.
+
+Kill switch: `[practice] reschedule_cold_after_assist = false` restores mvp-0.37's behaviour for new attempts, with no
+downgrade. The owner's vaults are still at mvp-0.35.
+
+### Open items
+
+- Owner questions from §8 (still open):
+  - **Replacement surface selection:** the lane's rule excludes the primed and assisted surfaces and anything shown, not every surface ever attempted.
+  - **Help on a not-yet-due follow-up:** outside the decision; it is withdrawn at the next serve as before.
+  - **Certification probes not rescheduled:** one probe per certificate, ever (§3).
+- The LO-lifecycle replay gap (`tests/test_rebuild_closed_row_answer.py`, main's follow-ups (3)) is unchanged at mvp-0.38 and still needs its own successor.
