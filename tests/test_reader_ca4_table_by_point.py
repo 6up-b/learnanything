@@ -302,6 +302,36 @@ def test_a_cell_names_the_anchor_block_that_holds_its_quote(textbook):
     assert anchor["quote"] in text
 
 
+def test_a_quote_across_two_anchor_blocks_is_not_shown_as_one_blocks_words(textbook):
+    """Codex review F5: a quote verified against the joined anchor but held by
+    neither block alone names no block (Peek/Open would show part of it and
+    Keep could not cite it): the cell is not addressed and listed as dropped."""
+
+    paths, repository, _spans = textbook
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        first, second = [row[0] for row in connection.execute(
+            "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_text' AND block_type = 'Text' "
+            "ORDER BY ordinal LIMIT 2")]
+        blocks = blocks_by_key(connection, [("ext_text", first), ("ext_text", second)])
+    across = " ".join(blocks[("ext_text", first)].text.split()[-3:] + blocks[("ext_text", second)].text.split()[:3])
+
+    class CrossBlockLLM(FakeServiceLLM):
+        def _SourceComparisonV2(self, request, context):
+            cells = [PointCell(source_ref=src["ref"], status="quoted", line="joins them",
+                               quote=across if across in " ".join(src["passage"].split())
+                               else " ".join(src["passage"].split()[:5])) for src in context["sources"]]
+            return SourceComparisonV2(points=[ComparisonPoint(label="the seam", perspective="", cells=cells,
+                                                              relations=[])])
+
+    llm = CrossBlockLLM()
+    result = compare_sources(loaded(paths), repository, QUESTION, caller=CallerContext(kind="reader"), by_point=True,
+                             anchor_span_keys=[f"ext_text:{first}", f"ext_text:{second}"], client=llm,
+                             verify_client=llm)
+    anchor = next(cell for point in result.points for cell in point["cells"] if cell["ref"] == "s1")
+    assert anchor["status"] == "not_addressed"
+    assert any(entry["kind"] == "cell" and entry["source_ref"] == "s1" for entry in result.dropped_lines)
+
+
 # -- the Reader: the table by point, v1 compatibility, the switch ---------------------------------------------
 
 
@@ -513,6 +543,35 @@ def test_reopening_a_keep_by_point_shows_what_was_kept_and_its_hidden_rows(libra
     set_config(paths, "reader_compare", by_point=False)
     by_book = call(context(paths.root), "reader.library_compare_reopen", {"askId": asked["askId"]})
     assert "points" not in by_book and by_book["rows"]
+
+
+def test_switched_off_a_hidden_row_sharing_a_quote_stays_hidden_by_book(tmp_path, monkeypatch):
+    """Codex review F1: two rows quote the same sentence of one book with
+    different lines; the second is hidden. Reopened by book (switch off),
+    only the kept cell's line shows: the filter is the kept cell (its row and
+    passage), not the quote's text."""
+
+    class SameQuoteLLM(FakeServiceLLM):
+        def _SourceComparisonV2(self, request, context):
+            result = super()._SourceComparisonV2(request, context)
+            first = result.points[1].cells[0]
+            result.points[1].cells[0] = PointCell(source_ref=first.source_ref, status="quoted",
+                                                  quote=result.points[0].cells[0].quote,
+                                                  line="a different gloss on the same sentence")
+            return result
+
+    paths, repository, _spans = build_library_vault(tmp_path / "vault")
+    ctx = context(paths.root)
+    _fake_service(monkeypatch, SameQuoteLLM())
+    asked, table = _compared((paths, ctx, repository, None, None))
+    main, hidden = table["points"][0], table["points"][1]
+    assert _quoted(main)[0]["quote"] == _quoted(hidden)[0]["quote"]
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "hiddenPoints": [hidden["id"]]})
+    set_config(paths, "reader_compare", by_point=False)
+    by_book = call(context(paths.root), "reader.library_compare_reopen", {"askId": asked["askId"]})
+    lines = [entry["line"] for row in by_book["rows"] for entry in row["contributes"]]
+    assert "a different gloss on the same sentence" not in lines
+    assert len(lines) == len(_quoted(main))
 
 
 def test_switched_off_rows_and_row_takes_are_refused(tmp_path, monkeypatch):

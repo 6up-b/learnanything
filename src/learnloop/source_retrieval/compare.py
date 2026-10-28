@@ -712,8 +712,16 @@ def _verified_points(answer: SourceComparisonV2, refs: Mapping[str, SpanHit], pa
                                 "reason": "its quote is not in that source's passage"})
                 cells[ref] = {"ref": ref, "status": "not_addressed"}
                 continue
-            block = next(((e, s) for e, s, text in holders.get(ref, ()) if _quote_in(cell.quote, text)),
-                         (refs[ref].extraction_id, refs[ref].span_id))
+            # The block that holds the whole quote (Codex review F5): a quote
+            # that runs across two of an anchor's blocks is in the joined
+            # passage but in neither block, so Peek/Open could show only part
+            # of it and Keep could not cite it; it is not shown as quoted.
+            block = next(((e, s) for e, s, text in holders.get(ref, ()) if _quote_in(cell.quote, text)), None)
+            if block is None:
+                dropped.append({"kind": "cell", "point": index, "source_ref": ref,
+                                "reason": "its quote runs across two blocks of the passage"})
+                cells[ref] = {"ref": ref, "status": "not_addressed"}
+                continue
             cells[ref] = {"ref": ref, "status": "quoted", "quote": cell.quote, "line": " ".join(cell.line.split()),
                           "span_key": f"{block[0]}:{block[1]}", "authorship": "ai"}
         ordered = [cells.get(ref) or {"ref": ref, "status": "not_addressed"} for ref in refs]

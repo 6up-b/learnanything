@@ -1405,20 +1405,37 @@ def _reopen_by_book(stored: Mapping[str, Any], kept: Mapping[str, Any], *,
     # Only what was kept: its claims with their kept lines, its kept relations
     # (a keep by point holds several claims per passage: their quotes together).
     quotes: dict[str, set[str]] = {}
+    # A keep by point (Reader CA4, Codex review F1): a line is shown only when
+    # its own cell (passage and row) was kept. Two rows can quote the same
+    # sentence with different lines; matching by quote would show a hidden
+    # row's line again.
+    cells_kept = {str(obj["cell"]) for obj in kept.get("objects") or () if obj.get("cell")}
     for obj in kept.get("objects") or ():
         quotes.setdefault(obj["key"], set()).update(obj.get("quotes") or ())
+
+    def shown_line(entry: Mapping[str, Any], line: Mapping[str, Any]) -> bool:
+        passage = _key_str(_key(entry))
+        if kept.get("layout") == BY_POINT_LAYOUT and line.get("point_id") is not None:
+            return cell_key(passage, str(line.get("point_id"))) in cells_kept
+        return line.get("quote") in quotes.get(passage, set())
+
     sources = []
     for entry in _sources(stored, sorted(shown)):
-        lines = [line for line in entry.get("contributions") or ()
-                 if line.get("quote") in quotes.get(_key_str(_key(entry)), set())]
+        lines = [line for line in entry.get("contributions") or () if shown_line(entry, line)]
         sources.append({**entry, "contributions": lines})
-    # Each kept relation exactly (endpoints, label, statement and both quotes),
-    # once each: a same-labelled relation on the same pair that failed Keep's
-    # recheck is not shown again.
-    wanted = Counter(_relation_signature(rel, rel.get("fine")) for rel in kept.get("relations") or ())
+    # Each kept relation exactly (endpoints, label, statement and both quotes,
+    # and its row on a keep by point), once each: a same-labelled relation on
+    # the same pair that failed Keep's recheck, or one on a hidden row, is not
+    # shown again.
+    by_point = kept.get("layout") == BY_POINT_LAYOUT
+
+    def row_of(rel: Mapping[str, Any]) -> Any:
+        return rel.get("point_id") if by_point else None
+
+    wanted = Counter((row_of(rel), *_relation_signature(rel, rel.get("fine"))) for rel in kept.get("relations") or ())
     relations = []
     for rel in _relations(stored, {entry.get("ref") for entry in sources}):
-        signature = _relation_signature(rel, rel.get("relation"))
+        signature = (row_of(rel), *_relation_signature(rel, rel.get("relation")))
         if wanted[signature] > 0:
             wanted[signature] -= 1
             relations.append(rel)
