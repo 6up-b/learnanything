@@ -18,13 +18,13 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
-from tests.owner_vaults import owner_vault, owner_vaults
+from tests.owner_vaults import owner_vaults, require_owner_vault
 
 # The golden below is pinned to the FROZEN vault, not the live one. Pointing it
 # at `fixtures/linear_algebra` made the suite fail the moment anyone practised
 # or created a goal in the working vault — which is what that vault is for.
-# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py).
-FIXTURE_VAULT = owner_vault("linear_algebra_legacy")
+# A backup-API copy in the owner_vaults lane since S0 (tests/owner_vaults.py):
+# ``linear_algebra_legacy``, read through require_owner_vault.
 
 
 def _add_application_item(root) -> None:
@@ -140,7 +140,7 @@ def test_linear_algebra_fixture_golden_projection(tmp_path):
     """Pinned golden over the real fixture vault (state.sqlite as committed)."""
 
     root = tmp_path / "linear_algebra"
-    shutil.copytree(FIXTURE_VAULT, root)
+    shutil.copytree(require_owner_vault("linear_algebra_legacy"), root)
     vault = load_vault(root)
     repository = open_vault_repository(root, root / "state.sqlite")
     now = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)

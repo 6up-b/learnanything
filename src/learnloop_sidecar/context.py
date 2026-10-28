@@ -700,7 +700,7 @@ class SidecarContext:
 
 
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.37 too).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.38 too).
 
     Installed for the desktop sidecar (``learnloop.activation_journal``): the
     opener in :meth:`SidecarContext.load` completes it before anything serves
@@ -709,8 +709,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # The chain's latest upgrade completes its own journal and hands an
     # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
     # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
-    # mobile PR-4's mvp-0.37).
-    from learnloop.attempt_content_state_upgrade import complete_interrupted_activation
+    # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38).
+    from learnloop.cold_retry_reschedule_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

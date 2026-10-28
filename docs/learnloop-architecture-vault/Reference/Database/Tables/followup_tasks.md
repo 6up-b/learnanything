@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0843991f2b18f27dbcfa32509c74e214a072eab8"
-source_commit_timestamp: "2026-10-27T17:51:02-04:00"
+source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
+source_commit_timestamp: "2026-10-27T18:06:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/058_remediation_episodes.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/cold_retry_reschedule_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
-  - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -156,6 +156,7 @@ Indexes and uniqueness:
 - `tests/ad23_fakes.py`
 - `tests/mcp_world.py`
 - `tests/test_causal_cold_outcomes.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_intent_fix_round4.py`
@@ -172,7 +173,6 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
-- `tests/test_guided_redo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -249,10 +249,11 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.replay_ledger_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 as the latest (all keep it).
-    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.37"
+    # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37 and the
+    # cold-retry reschedule's mvp-0.38 as the latest (all keep it).
+    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.38"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
-    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", LATEST_ALGORITHM_VERSION})
+    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", "mvp-0.37", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR] == defaults_fingerprint_for_version(PREDECESSOR)
 

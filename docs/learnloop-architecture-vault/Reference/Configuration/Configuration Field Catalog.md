@@ -3,15 +3,15 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0843991f2b18f27dbcfa32509c74e214a072eab8"
-source_commit_timestamp: "2026-10-27T17:51:02-04:00"
+source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
+source_commit_timestamp: "2026-10-27T18:06:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 75
+section_count: 74
 field_count: 1066
 field_status_counts: {"ACTIVE": 1040, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
@@ -109,11 +109,10 @@ Every one of the 1066 effective leaves has a semantic Function, a runtime/refact
 | [[Config - library_exercises|`library_exercises`]] | 2 | Runtime configuration |
 | [[Config - figures|`figures`]] | 9 | Runtime configuration |
 | [[Config - reader_compare|`reader_compare`]] | 2 | Runtime configuration |
-| [[Config - practice|`practice`]] | 2 | Runtime configuration |
+| [[Config - practice|`practice`]] | 3 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |
 | [[Config - reading_paths|`reading_paths`]] | 3 | Runtime configuration |
 | [[Config - curriculum|`curriculum`]] | 4 | Runtime configuration |
-| [[Config - reader|`reader`]] | 1 | Runtime configuration |
 | [[Config - reader_tutor|`reader_tutor`]] | 2 | Runtime configuration |
 | [[Config - proof_check|`proof_check`]] | 1 | Runtime configuration |
 | [[Config - voi_stopping|`voi_stopping`]] | 8 | Runtime configuration |

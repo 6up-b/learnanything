@@ -2646,10 +2646,23 @@ class PracticeConfig(BaseModel):
     reopens it). Off, or below the tag: the attempt writes the whole row from
     the vault it graded against, exactly as the predecessor. Replay never
     reads it (replay rebuilds the whole row and re-closes what was closed).
+
+    ``reschedule_cold_after_assist`` is the kill switch of the successor
+    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`` (owner decision 2026-10-25,
+    Reader CA2 follow-up Q4; ``docs/reviews/cold-retry-after-assist.md``). At
+    that tag or later, with it on (and ``ask.cold_help_converts`` on, which
+    admits the assisted attempt at all): help taken on a due repair
+    ``cold_retry`` withdraws that retry in the attempt's own step and
+    schedules one fresh cold retry for the same repair on another independent
+    surface, timed by the lane's existing delay; a fresh retry that is itself
+    assisted spawns none. Off, or below the tag: the assisted retry is left to
+    the next serve's withdrawal, exactly as the predecessor. Replay never
+    reads it (replay schedules nothing).
     """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
     attempt_keeps_content_state: bool = True
+    reschedule_cold_after_assist: bool = True
 
 
 class RolesConfig(BaseModel):

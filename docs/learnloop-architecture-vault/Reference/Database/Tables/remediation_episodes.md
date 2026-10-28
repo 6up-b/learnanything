@@ -3,8 +3,8 @@ title: "remediation_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0843991f2b18f27dbcfa32509c74e214a072eab8"
-source_commit_timestamp: "2026-10-27T17:51:02-04:00"
+source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
+source_commit_timestamp: "2026-10-27T18:06:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 
 - `tests/mcp_world.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_migrations.py`

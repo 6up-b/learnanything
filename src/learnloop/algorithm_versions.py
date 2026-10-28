@@ -568,6 +568,28 @@ SUPERSEDED_CLAIMS_ALGORITHM_VERSION = "mvp-0.36"
 # predecessor).
 ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 
+# mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner decision
+# 2026-10-25, Reader CA2 follow-up Q4; docs/reviews/cold-retry-after-assist.md),
+# on top of mvp-0.37 (mobile PR-4; the chain stays linear: mvp-0.38 means
+# everything mvp-0.37 means PLUS this). Below the tag, help taken on a due
+# repair ``cold_retry`` converts the attempt to practice with help (mvp-0.35)
+# and leaves the measurement to be withdrawn at the next serve, so the repair
+# ends unmeasurable. From the tag on, the live attempt step withdraws that
+# retry at once (the same typed disposition) and schedules ONE fresh cold
+# retry for the same repair on another independent surface, timed by the
+# lane's existing rule (``remediation.COLD_RETRIEVAL_DELAY`` after the
+# attempt that took the help, open for ``remediation.COLD_RETRY_WINDOW``). A
+# fresh retry that is itself assisted is withdrawn and spawns nothing (one
+# fresh retry per chain: a structural bound). A certification cold probe is
+# not rescheduled (one probe per certificate, ever: §5.7 and migration 139's
+# unique index). That changes which cold checks are scheduled and served, never
+# evidence, FSRS, the projection or replay (replay passes no vault and
+# schedules nothing; ``followup_tasks`` is workflow state), so it is a
+# successor by the 2026-10-17 eligibility rule. Kill switch:
+# ``practice.reschedule_cold_after_assist`` (off, or below the tag: exactly
+# the predecessor).
+COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -604,6 +626,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ONE_ASK_ALGORITHM_VERSION,
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
+    COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
 )
 
 
@@ -771,6 +794,11 @@ SUPERSEDED_CLAIMS_VERSIONS: frozenset[str] = successors_from(SUPERSEDED_CLAIMS_A
 # ``practice.attempt_keeps_content_state``; mobile PR-4). Every later successor
 # keeps it; gates must use this set, never equality.
 ATTEMPT_CONTENT_STATE_VERSIONS: frozenset[str] = successors_from(ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION)
+
+# Versions whose live attempt step schedules one fresh repair cold retry after
+# help was taken on a due one (behind ``practice.reschedule_cold_after_assist``).
+# Every later successor keeps it; gates must use this set, never equality.
+COLD_RETRY_RESCHEDULE_VERSIONS: frozenset[str] = successors_from(COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

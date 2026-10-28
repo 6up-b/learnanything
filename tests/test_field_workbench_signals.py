@@ -501,11 +501,11 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
 
     # Reader workbench RW7b's mvp-0.32, LP-min (a)'s mvp-0.33, rebuild equivalence's mvp-0.34 and Reader
     # CA2's mvp-0.35, the kept replaced claims' mvp-0.36 and mobile PR-4's mvp-0.37 (the latest) follow it and keep it.
-    assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.37"
+    assert TAG == SUCCESSOR_CHAIN[21] and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.38"
     # Landed after adaptive difficulty AD2+AD3: its mvp-0.30 is the predecessor (the landing renumber).
     assert UPGRADE_PREDECESSOR == PREDECESSOR == ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30"
     assert TAG == "mvp-0.31"
-    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37"})
+    assert WORKBENCH_FIELD_SIGNALS_VERSIONS == frozenset({TAG, "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
@@ -753,10 +753,12 @@ WORKING_FIXTURES = working_vault_params()
 FROZEN = datetime(2026, 10, 12, 9, 30, tzinfo=UTC)
 
 
-def _fixture_copy(tmp_path, fixture, name, *, version, toml=None):
+def _fixture_copy(tmp_path, fixture, name, *, version, toml=None, seed=True):
     from tests.test_daily_plan_kill_switch import _copy
 
     ctx, root = _copy(tmp_path, fixture, name, version=version, toml=toml)
+    if not seed:
+        return ctx, root
     item = sorted(ctx.vault.practice_items)[0]
     path = root / "state.sqlite"
     # The same workbench history on every copy: a stuck step and early help.
@@ -774,11 +776,15 @@ def _reads(ctx):
 
     reads = _today_reads(ctx)
     reads["plan"] = _served(_call(ctx, "get_daily_plan", {}))
+    reads["signals"], reads["blocking"] = _ctx_signals(ctx)
+    return reads
+
+
+def _ctx_signals(ctx):
     with closing(connect(ctx.repository.sqlite_path, read_only=True)) as connection:
         answers = load_answers(connection)
-        reads["signals"] = load_interaction_signals(connection, ctx.vault, _attempt_rows(answers))
-        reads["blocking"] = blocking_signals_by_lo(connection, ctx.vault, answers)
-    return reads
+        return (load_interaction_signals(connection, ctx.vault, _attempt_rows(answers)),
+                blocking_signals_by_lo(connection, ctx.vault, answers))
 
 
 _ULID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
@@ -819,4 +825,10 @@ def test_g41_off_is_the_predecessor_on_fixture_copies(tmp_path, monkeypatch, fix
     on, _ = _fixture_copy(tmp_path, fixture, "on", version=TAG)
     signals = _reads(on)["signals"]
     assert tuple(s for s in signals if not is_workbench_signal(s)) == baseline["signals"]
-    assert {s.signal_id for s in signals if is_workbench_signal(s)} == {"workbench_stuck:st_g41", "workbench_help:wb_g41h"}
+    # An owner copy can hold the owner's own workbench history (a real stuck session):
+    # its signals come through unchanged, beside exactly the two this history adds.
+    own = {s.signal_id for s in _ctx_signals(_fixture_copy(tmp_path, fixture, "on-own", version=TAG, seed=False)[0])[0]
+           if is_workbench_signal(s)}
+    seeded = {"workbench_stuck:st_g41", "workbench_help:wb_g41h"}
+    assert not own & seeded
+    assert {s.signal_id for s in signals if is_workbench_signal(s)} == own | seeded

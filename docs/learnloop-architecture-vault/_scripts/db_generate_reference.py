@@ -1369,6 +1369,17 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
         "Dormant below the successor; replay never reads it."
     ),
+    "practice.reschedule_cold_after_assist": (
+        "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
+        "learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
+        "(with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the "
+        "attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules "
+        "one fresh cold retry for the same repair on another independent surface, due the lane's "
+        "COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself "
+        "assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the "
+        "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
+        "successor; replay never reads it (replay schedules nothing)."
+    ),
     "replay.ledger_bounded": (
         "Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). "
         "On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt "
