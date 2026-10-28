@@ -398,3 +398,66 @@ def test_f6_dismissing_is_off_with_the_presentations_switch_and_refuses_protecte
     with pytest.raises(SidecarError) as refused:
         _dismiss(ctx, {"extractionId": "ext_lay", "sectionId": "lay_held"}, "op_held_00001")
     assert refused.value.code == "withheld" and table_counts(repository) == before
+
+
+# -- Landing onto mvp-0.38: the peek and the cold-retry reschedule -----------------------------------------
+
+
+def test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule(
+        tmp_path, monkeypatch):
+    """The cold-retry reschedule (mvp-0.38, its Codex review F1) skips a candidate
+    surface already hard-contaminated since the primed attempt, through the
+    final receipt's own exposure scan. A correspondent peek shows a paragraph,
+    records it (Codex review F2), and that row must reach the scan: the repair's
+    one spare surface was authored from the peeked paragraph, so help on the due
+    cold retry withdraws it and schedules nothing on that surface."""
+
+    import json
+    from datetime import timedelta
+
+    from learnloop import clock as clock_module
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.models import Provenance, SourceRef
+    from learnloop.vault.writer import upsert_source_set
+    from tests.helpers import NOW
+    from tests.section_coverage_fixtures import LAY
+    from tests.source_retrieval_fakes import seed_source
+    from tests.test_cold_retry_reschedule import ASSISTED_AT, _answer, _repair, _spare, _table, _tasks
+    from tests.ux_phase1_support import set_config
+
+    vault, repository, episode, _primed, cold_item = _repair(tmp_path)
+    spare = _spare(repository, episode)
+    [old] = _tasks(repository, episode["id"])
+    seed_source(repository, source_id="src_lay", revision_id="rev_lay", extraction_id="ext_lay", title="Lay",
+                units=LAY, furniture=False)
+    upsert_source_set(vault.root, {"id": "sset_lay", "subject_id": "linear-algebra", "title": "Lay",
+                                   "members": [{"source_id": "src_lay", "revision_id": "rev_lay",
+                                                "default_role": "primary_textbook"}]})
+    set_config(vault.root, {("curriculum", "enabled"): True, ("tutor_qa", "reader_enabled"): True})
+    vault = load_vault(vault.root)
+    # The spare surface was authored from lay_char's paragraph s6 (the peek's jump is its heading s5).
+    vault.practice_items[spare] = vault.practice_items[spare].model_copy(update={"provenance": Provenance(
+        origin="canonical_extract",
+        source_refs=[SourceRef(ref_type="canonical_source", ref_id="src_lay", extraction_id="ext_lay",
+                               span_ids=["s6"])],
+    )})
+
+    # The peek, between the primed attempt and the assisted cold retry.
+    with monkeypatch.context() as patch:
+        patch.setattr(clock_module.SystemClock, "now", lambda _self: NOW + timedelta(hours=12))
+        peek = call(context(vault.root, coverage_inline=True), "reader.correspondent_peek", LAY_CHAR)["peek"]
+    assert [block["spanId"] for block in peek["blocks"]] == ["s5", "s6"]
+    shown_s6 = peek["exposureEventIds"][1]
+
+    _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
+    [withdrawn] = _tasks(repository, episode["id"])
+    assert withdrawn["id"] == old["id"] and withdrawn["status"] == "expired"
+    [decision] = _table(repository, "SELECT d.* FROM cold_measurement_opportunity_decisions d JOIN "
+                                    "cold_measurement_opportunities o ON o.id = d.measurement_opportunity_id "
+                                    f"WHERE o.trigger_kind = 'assisted_cold_retry' AND o.trigger_ref = '{old['id']}'")
+    assert (decision["decision"], decision["reason"]) == ("structurally_refused", "no_uncontaminated_surface")
+    summary = json.loads(decision["candidate_summary_json"])
+    assert summary["cold_item_id"] is None
+    assert summary["contaminated"] == {spare: {"reason": "cold_item_answer_revealed_post_primed",
+                                               "event_ids": [shown_s6]}}
+    assert repository.remediation_episode(episode["id"])["cold_item_id"] == cold_item
