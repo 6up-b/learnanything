@@ -899,6 +899,20 @@ no successor: comparisons stay display and retrieval. Two deviations, recorded t
 unavailable the ask box answers as today's library ask and offers *compare all your books on "…" ▸* (one press)
 rather than running a paid comparison of every book unasked; and the pending line is one line, not two stages.
 
+*As built (CA4, branch `reader/ca4-table-by-point`, `docs/reviews/reader-ca4-table-by-point.md`):*
+`source_compare.v2` on the same route in one call (points with labels; per compared source a cell, verified quote
+and LearnLoop's line, or not addressed; per point its pairs' relations from the unchanged `RELATIONS`; requested
+perspectives as points in the learner's words), every cell's quote verified in code, stored in
+`source_comparisons.comparison_json` with each cell also as its source's v1 contribution (no migration) and cached
+under its own identity; the grid by point (chips exactly as returned, pairs on ↵, the *› you* column and a take
+on the whole comparison, perspectives as rows with *not here* / *not found in your library*, hide row, §5.5's
+keys), cards by point below 1,040 px or in a pane too narrow for two columns, the comparing posture stacking and
+re-clamping on resize, *by book* remembered per device; v1 comparisons render by book as today, with *compare
+again by point ▸* (one comparison, said on the button) where a library question hosts it. Keep maps a kept row to
+proposals one claim per cell (the row's label in `content_json`); hiding a kept row supersedes its proposals and
+showing it proposes it again. `reader_compare.max_perspectives = 4` is a `keep` config key. Kill switch
+`reader_compare.by_point` (off: v1 requested, by book, today's keep). No successor.
+
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---

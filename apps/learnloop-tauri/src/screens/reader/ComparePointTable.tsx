@@ -311,6 +311,8 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     };
     switch (event.key) {
       case " ":
+        // Space is the grid's peek: it never scrolls the pane, peekable or not.
+        event.preventDefault();
         if (cell?.spanKey && actions.onPeek) {
           handled();
           actions.onPeek({ spanKey: cell.spanKey, sourceTitle: columns[column!]?.sourceTitle ?? null });
@@ -551,7 +553,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
             <span role="columnheader" style={{ ...headStyle, ...stickyHead }}><span aria-hidden="true">◇ </span>{POINT_COPY.pointHead}</span>
             {columns.map((column) => (
               <span role="columnheader" key={column.key} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
-                <span aria-hidden="true">§ </span>{column.isOpenSource && table.scope?.anchorKeys?.length ? "your passage · " : ""}{column.sourceTitle ?? "a source"}{column.page !== null ? ` p.${column.page}` : ""}
+                <span aria-hidden="true">§ </span>{column.isOpenSource ? "your passage · " : ""}{column.sourceTitle ?? "a source"}{column.page !== null ? ` p.${column.page}` : ""}
               </span>
             ))}
             <span role="columnheader" style={headStyle}><span aria-hidden="true">› </span>{POINT_COPY.you}</span>
