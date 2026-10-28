@@ -538,6 +538,21 @@ def _chosen_checks(result: Mapping[str, Any]) -> list[tuple[dict[str, Any], dict
     return out
 
 
+def _marginal(section: Mapping[str, Any], check: Mapping[str, Any]) -> dict[str, float] | None:
+    """P(E) under the problem's prior for a later pick, whose receipt values it
+    conditionally (S5 records P(E) for every chosen check, §11.4 item 1):
+    the sum the valuation's own ``_predicted`` takes, over the persisted
+    point table. A record of the receipt's numbers, never a value."""
+
+    prior = (section.get("problem") or {}).get("prior") or {}
+    table = check.get("likelihood") or {}
+    if not prior or not table:
+        return None
+    emissions = sorted({e for row in table.values() for e in row})
+    return {e: round(sum(float(prior[h]) * float((table.get(h) or {}).get(e, 0.0)) for h in prior), 6)
+            for e in emissions}
+
+
 def _question_outcome(result: Mapping[str, Any], chosen: Sequence[Any]) -> dict[str, Any]:
     if result.get("status") != "ok":
         return {"outcome": "unavailable", "reason": result.get("reason") or result.get("status")}
@@ -706,7 +721,7 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                 "probe_eig": check.get("robust_eig_nats"), "evsi_assignment": check.get("evsi"),
                 "point_eig_nats": check.get("point_eig_nats"), "value_minutes_lcb": check.get("value_minutes_lcb"),
                 "expected_minutes": check.get("expected_minutes"),
-                "predicted_outcomes": check.get("predicted_outcomes"),
+                "predicted_outcomes": check.get("predicted_outcomes") or _marginal(section, check),
                 "why": why_text(question.purpose, check, mode),
             })
         receipt_questions.append(entry)
