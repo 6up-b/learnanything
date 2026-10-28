@@ -813,7 +813,12 @@ export function useLibraryAsk({
     if (pinnedSpanKeys.length < 2) return;
     const requested = keep?.perspectives ? (table.requestedPerspectives ?? []).slice(0, keep.maxPerspectives) : [];
     if (scopeOn) {
-      void runCompare(current.key, { door: "pins", askId: table.askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
+      // The books shown, and only those (Codex review F6): pins alone don't
+      // narrow discovery, so a comparison the learner narrowed to two books
+      // would widen to every book with a passage.
+      const sourceIds = [...new Set(table.rows.map((row) => row.sourceId).filter((id): id is string => Boolean(id)))];
+      void runCompare(current.key, { door: "pins", askId: table.askId, pinnedSpanKeys, sourceIds, openSourceId,
+        requestedPerspectives: requested });
       return;
     }
     const key = current.key;
@@ -832,6 +837,20 @@ export function useLibraryAsk({
     })();
   }, [byPoint, settings, keep, scopeOn, runCompare, openSourceId, update, runJob]);
 
+  /** CA4 (§5.4, Codex review F7): "where else is this explained? ▸" on a view
+   *  no book fills: a library ask (the palette's verb) on the comparison's
+   *  question in that view's words, from the same open book and passage, so
+   *  the server derives the same caller. It may find a passage the
+   *  comparison's scope left out. */
+  const whereElse = useCallback((words: string, asked: string | null = null) => {
+    const current = stateRef.current;
+    const view = words.trim();
+    if (!current || !byPoint || !view) return;
+    const question = (asked ?? current.compare.value?.scope?.question ?? current.compare.value?.query ?? current.request.query ?? "").trim();
+    void run({ query: question ? `${question}: ${view}` : view, entry: "where_else_explained",
+      extractionId: current.request.extractionId, spanIds: current.request.spanIds }, current.personalized);
+  }, [byPoint, run]);
+
   return {
     enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
@@ -839,7 +858,7 @@ export function useLibraryAsk({
     scopeOn, askBox, compareFrom, compareBooks, compareAll, setBooks, reword, refine, retryCompare,
     replaceView, keepViews,
     // CA4 (absent in effect while byPoint is false).
-    byPoint, compareAgain,
+    byPoint, compareAgain, whereElse,
   };
 }
 

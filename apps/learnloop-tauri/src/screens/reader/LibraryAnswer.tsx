@@ -310,6 +310,7 @@ export function LibraryAnswer({
     onPeek: ({ spanKey, sourceTitle }) => void ctl.peek(spanKey, sourceTitle),
     onOpen: onOpenHit ? ({ sourceId, extractionId, spanId }) => onOpenHit({ sourceId, extractionId, spanId } as LibraryHitDto) : undefined,
     onCompareAgain: ctl.compareAgain,
+    onWhereElse: ctl.whereElse,
   } : null;
   if (state.direct) {
     // CA3: a comparison from a door with no library answer.

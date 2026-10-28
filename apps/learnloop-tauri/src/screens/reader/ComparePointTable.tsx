@@ -72,8 +72,8 @@ export interface CompareGridActions {
   onPeek?: (target: { spanKey: string; sourceTitle: string | null }) => void;
   /** o: open the book at this passage in the left pane (with a crumb). */
   onOpen?: (target: { sourceId: string | null; extractionId: string; spanId: string }) => void;
-  /** A view no book fills: a library ask on it. */
-  onWhereElse?: (words: string) => void;
+  /** A view no book fills: a library ask on it (its words, the comparison's question). */
+  onWhereElse?: (words: string, question: string | null) => void;
   /** §5.3: re-run a v1 comparison by point (one paid comparison, named first). */
   onCompareAgain?: (table: CompareTableDto) => void;
 }
@@ -157,9 +157,21 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   }, [takeOpen]);
   const paneWidth = useWidth(frameRef);
   const windowWidth = useWindowWidth();
+  // Hide row (Codex review F3): the rows the learner wants hidden now
+  // (`desired`, changed at once by every press), the server's after the last
+  // reply (`confirmed`), and one request at a time, each sending the latest
+  // wanted set; a reply shows only when no later hide is waiting.
+  const desired = useRef<string[]>(hidden);
+  const confirmed = useRef<string[]>(hidden);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const hidesWaiting = useRef(0);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
   useEffect(() => {
     setKept(table.kept ?? null);
     setHidden(table.kept?.hiddenPoints ?? []);
+    desired.current = table.kept?.hiddenPoints ?? [];
+    confirmed.current = table.kept?.hiddenPoints ?? [];
   }, [table.kept, table.comparisonId]);
   const cards = layout === "by_point" && cardsByPoint(paneWidth, windowWidth);
   // Keep is the library answer's (or a kept comparison's), as CompareKeep's rule.
@@ -169,12 +181,26 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   // The roving focus: rows are points (by point) or books (by book).
   const byBook = layout === "by_book";
   const shownPoints = points.filter((point) => !hidden.includes(point.id));
-  const rowCount = byBook ? columns.length : points.length;
+  // By book (Codex review F4): one card per book, then the learner's card
+  // (their take on each point), so `t` there has a box to open.
+  const youCard = byBook && Boolean(keepCtx);
+  const rowCount = byBook ? columns.length + (youCard ? 1 : 0) : points.length;
   const colsOf = (row: number) => {
     if (byBook) return 1 + shownPoints.length;
     const point = points[row];
     return point && hidden.includes(point.id) ? 1 : 2 + columns.length;
   };
+  useEffect(() => {
+    // Codex review F8: the roving focus always names a cell that is there (a
+    // row hidden, a layout switched, a reply that changed the rows); when the
+    // focused cell went away, the grid's focus follows to the clamped cell.
+    const row = Math.min(focus.row, Math.max(rowCount - 1, 0));
+    const col = Math.min(focus.col, Math.max(colsOf(row) - 1, 0));
+    if (row === focus.row && col === focus.col) return;
+    const active = document.activeElement;
+    if (!active || active === document.body || frameRef.current?.contains(active)) moved.current = true;
+    setFocus({ row, col });
+  });
   useEffect(() => {
     // Focus moves only after the learner's key (never on a table landing).
     if (!moved.current) return;
@@ -189,18 +215,37 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
 
   const takesOf = (target: Target) => (kept?.takes ?? []).filter((take) => (target === "comparison" ? take.about === "comparison" : take.pointId === target));
 
-  const send = async (input: { takes?: KeepTakeDto[]; hiddenPoints?: string[] }, fallback: string) => {
+  /** One keep request at a time, in the order pressed (Codex review F3). */
+  const serial = <T,>(job: () => Promise<T>): Promise<T> => {
+    const next = queue.current.then(job, job);
+    queue.current = next.catch(() => undefined);
+    return next;
+  };
+
+  const send = async (input: { takes?: KeepTakeDto[]; hiddenPoints?: string[] }, fallback: string, hide = false) => {
     if (!comparisonId) return false;
     setPhase("pending");
     setFailure(null);
     try {
       const result = await api.readerLibraryCompareKeep({ askId: table.askId, comparisonId, ...input });
       setKept(result.kept);
-      if (result.kept.hiddenPoints) setHidden(result.kept.hiddenPoints);
+      if (result.kept.hiddenPoints) confirmed.current = result.kept.hiddenPoints;
+      if (hide) hidesWaiting.current -= 1;
+      if (result.kept.hiddenPoints && hidesWaiting.current === 0) {
+        // No later hide is waiting: the server's rows are the learner's.
+        desired.current = result.kept.hiddenPoints;
+        setHidden(result.kept.hiddenPoints);
+      }
       setPhase("idle");
       keepCtx?.onChanged();
       return true;
     } catch (error) {
+      if (hide) {
+        // The rows go back to the server's; a hide still waiting sends nothing.
+        hidesWaiting.current -= 1;
+        desired.current = confirmed.current;
+        setHidden(confirmed.current);
+      }
       setPhase("failed");
       setFailure(errorMessage(error, fallback));
       return false;
@@ -209,9 +254,39 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
 
   const keep = async () => {
     if (!canKeep || kept) return;
-    const takes: KeepTakeDto[] = Object.entries(drafts).filter(([, text]) => text.trim()).map(([target, text]) =>
+    // A take written on a row that is hidden now stays in its row, unsent
+    // (Codex review F2): Keep leaves that row out, so its take would have
+    // nothing kept to sit on. Showing the row sends it.
+    const rowsHidden = desired.current;
+    const entries = Object.entries(drafts).filter(([, text]) => text.trim());
+    const sent = entries.filter(([target]) => target === "comparison" || !rowsHidden.includes(target));
+    const takes: KeepTakeDto[] = sent.map(([target, text]) =>
       (target === "comparison" ? { text: text.trim(), about: "comparison" as const } : { text: text.trim(), pointId: target }));
-    if (await send({ takes, hiddenPoints: hidden }, "Couldn't keep this comparison. Nothing was saved; try again.")) setDrafts({});
+    if (await serial(() => send({ takes, hiddenPoints: rowsHidden }, "Couldn't keep this comparison. Nothing was saved; try again."))) {
+      setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([target]) => !sent.some(([done]) => done === target))));
+    }
+  };
+
+  /** After a keep: send the latest wanted rows (skipped when they are the
+   *  server's already), with the takes waiting on rows shown again. */
+  const syncHidden = () => {
+    hidesWaiting.current += 1;
+    void serial(async () => {
+      const want = desired.current;
+      const before = confirmed.current;
+      if (want.length === before.length && want.every((id) => before.includes(id))) {
+        hidesWaiting.current -= 1;
+        if (hidesWaiting.current === 0) setHidden(before);
+        return;
+      }
+      const shownAgain = before.filter((id) => !want.includes(id) && (draftsRef.current[id] ?? "").trim());
+      const takes: KeepTakeDto[] = shownAgain.map((id) => ({ text: draftsRef.current[id].trim(), pointId: id }));
+      const ok = await send(takes.length ? { hiddenPoints: want, takes } : { hiddenPoints: want },
+        "Couldn't change that row; the comparison is as it was.", true);
+      if (ok && shownAgain.length) {
+        setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([target]) => !shownAgain.includes(target))));
+      }
+    });
   };
 
   const remove = async () => {
@@ -230,13 +305,12 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   };
 
   const toggleHidden = (pointId: string) => {
-    const next = hidden.includes(pointId) ? hidden.filter((id) => id !== pointId) : [...hidden, pointId];
-    if (kept && canKeep) {
-      // After a keep, hiding supersedes the row's proposals; showing proposes it again.
-      void send({ hiddenPoints: next }, "Couldn't change that row; the comparison is as it was.");
-    } else {
-      setHidden(next);
-    }
+    const base = desired.current;
+    const next = base.includes(pointId) ? base.filter((id) => id !== pointId) : [...base, pointId];
+    desired.current = next;
+    setHidden(next);
+    // After a keep, hiding supersedes the row's proposals; showing proposes it again.
+    if (kept && canKeep) syncHidden();
   };
 
   const openTake = (target: Target) => {
@@ -253,7 +327,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     }
     if (kept && canKeep) {
       const take: KeepTakeDto = target === "comparison" ? { text, about: "comparison" } : { text, pointId: target };
-      if (await send({ takes: [take] }, "Couldn't keep your take; it is still in the box.")) {
+      if (await serial(() => send({ takes: [take] }, "Couldn't keep your take; it is still in the box."))) {
         setTakeOpen(null);
         setTakeText("");
       }
@@ -270,7 +344,8 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   /** What the focused cell is: a row header, a book's cell, or the learner's column. */
   const cellAt = (at: CellPosition): { point: ComparePointDto | null; column: number | null } => {
     if (byBook) {
-      return { point: at.col > 0 ? shownPoints[at.col - 1] ?? null : null, column: at.col > 0 ? at.row : null };
+      const book = at.col > 0 && at.row < columns.length ? at.row : null;
+      return { point: at.col > 0 ? shownPoints[at.col - 1] ?? null : null, column: book };
     }
     const point = points[at.row] ?? null;
     return { point, column: at.col >= 1 && at.col <= columns.length ? at.col - 1 : null };
@@ -342,6 +417,9 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
       case "-":
         if (point && !byBook) {
           handled();
+          // Hiding collapses the row to its header: the focus goes there (F8).
+          moved.current = true;
+          setFocus({ row: focus.row, col: 0 });
           toggleHidden(point.id);
         }
         return;
@@ -484,7 +562,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
         </div>
         {chips(point)}
         {notFound(point) && actions.onWhereElse ? (
-          <button type="button" tabIndex={-1} style={linkStyle} onClick={() => actions.onWhereElse?.(point.label)}>{POINT_COPY.whereElse}</button>
+          <button type="button" tabIndex={-1} style={linkStyle} onClick={() => actions.onWhereElse?.(point.label, question)}>{POINT_COPY.whereElse}</button>
         ) : null}
         <button type="button" tabIndex={-1} style={{ ...quietStyle, alignSelf: "flex-start" }} onClick={() => toggleHidden(point.id)}
           aria-label={`${POINT_COPY.hide}: ${point.label}`}>- {POINT_COPY.hide}</button>
@@ -531,6 +609,13 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     );
   };
 
+  /** The learner's cell on a row: their takes, or a pressable "add your take" (F4). */
+  const youOrAdd = (point: ComparePointDto, empty: ReactNode = null): ReactNode => youCell(point.id) ?? (
+    keepCtx && !notFound(point) ? (
+      <button type="button" tabIndex={-1} style={{ ...quietStyle, alignSelf: "flex-start" }} data-add-take={point.id}
+        aria-label={`${KEEP_COPY.addTake}: ${point.label}`} onClick={() => openTake(point.id)}>› {KEEP_COPY.addTake}</button>
+    ) : empty);
+
   const hiddenRow = (point: ComparePointDto, row: number) => (
     <div role="row" key={point.id} data-point={point.id} data-hidden="" style={{ padding: "4px 0", borderTop: `1px solid ${COLOR.border}` }}>
       <div role="rowheader" {...cellProps(row, 0, `${POINT_COPY.hidden(point.label)}. Press minus to show it.`)}>
@@ -565,7 +650,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
                 {columns.map((column, index) => (
                   <div role="gridcell" key={column.key} {...cellProps(row, index + 1, cellLabel(point, index))}>{bookCell(point, index)}</div>
                 ))}
-                <div role="gridcell" {...cellProps(row, columns.length + 1, `your take on ${point.label}`)}>{youCell(point.id)}</div>
+                <div role="gridcell" {...cellProps(row, columns.length + 1, `your take on ${point.label}`)}>{youOrAdd(point)}</div>
               </div>
               {pairsBand(point)}
             </div>
@@ -588,7 +673,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
             </div>
           ))}
           <div role="gridcell" {...cellProps(row, columns.length + 1, `your take on ${point.label}`)}>
-            {youCell(point.id) ?? <MeaningLabel style={{ fontSize: 10 }}>› {POINT_COPY.you}</MeaningLabel>}
+            {youOrAdd(point, <MeaningLabel style={{ fontSize: 10 }}>› {POINT_COPY.you}</MeaningLabel>)}
           </div>
         </div>
       )))}
@@ -613,6 +698,21 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
           ))}
         </div>
       ))}
+      {youCard ? (
+        <div role="row" data-book-you="" style={{ border: `1px solid ${COLOR.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <span role="rowheader" {...cellProps(columns.length, 0, POINT_COPY.you)} style={{ ...headStyle, outlineOffset: 1 }}>
+            <span aria-hidden="true">› </span>{POINT_COPY.you}
+          </span>
+          {shownPoints.map((point, index) => (
+            <div role="gridcell" key={point.id} {...cellProps(columns.length, index + 1, `your take on ${point.label}`)} style={{ display: "flex", flexDirection: "column", gap: 3, outlineOffset: 1 }}>
+              <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: point.labelVoice === "learner" ? COLOR.amber : COLOR.purpleText }}>
+                <span aria-hidden="true">{point.labelVoice === "learner" ? "› " : "◇ "}</span>{point.label}
+              </span>
+              {youOrAdd(point, <MeaningLabel style={{ fontSize: 10 }}>—</MeaningLabel>)}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 

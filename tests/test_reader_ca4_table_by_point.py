@@ -482,6 +482,27 @@ def test_a_row_hidden_before_keep_is_left_out(library):
         call(ctx, "reader.library_compare_keep", {"askId": table["askId"], "hiddenPoints": ["p99"]})
 
 
+def test_a_take_waiting_on_a_hidden_row_goes_with_showing_it(library):
+    """Codex review F2: the client keeps a hidden row's take out of Keep (Keep
+    would refuse it: the row has nothing kept) and sends it with the request
+    that shows the row again; the row is proposed again, then the take sits
+    on its claims."""
+
+    _paths, ctx, repository, _llm, _seen = library
+    asked, table = _compared(library)
+    main = table["points"][0]["id"]
+    with pytest.raises(SidecarError):
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "hiddenPoints": [main],
+                                                  "takes": [{"text": "mine", "pointId": main}]})
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "hiddenPoints": [main]})
+    shown = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "hiddenPoints": [],
+                                                      "takes": [{"text": "mine", "pointId": main}]})
+    assert shown["kept"]["hiddenPoints"] == [] and shown["addedTakes"] == 1
+    stored = _kept_json(repository, asked["askId"])
+    take = next(entry for entry in stored["takes"] if entry.get("point_id") == main)
+    assert take["learner_text"] == "mine"
+
+
 def test_hiding_a_kept_row_supersedes_its_proposals_and_showing_it_proposes_it_again(library):
     _paths, ctx, repository, _llm, _seen = library
     asked, table = _compared(library)
