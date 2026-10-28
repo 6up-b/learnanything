@@ -429,8 +429,10 @@ export function LibraryAnswer({
     }
   };
   return (
-    <CompareGridActionsContext.Provider value={gridActions}>
+    // The section stays the root whichever stage shows (its node is kept), the
+    // grid's actions inside it.
     <section aria-label="ask your library" data-library-answer="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+    <CompareGridActionsContext.Provider value={gridActions}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <span style={headStyle}>{LIBRARY_COPY.title}</span>
         <span style={{ flex: 1 }} />
@@ -661,7 +663,7 @@ export function LibraryAnswer({
           </div>
         ) : null}
       </ModelActionState>
-    </section>
     </CompareGridActionsContext.Provider>
+    </section>
   );
 }
