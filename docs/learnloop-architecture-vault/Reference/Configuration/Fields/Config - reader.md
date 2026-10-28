@@ -3,8 +3,8 @@ title: "Config - reader"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0843991f2b18f27dbcfa32509c74e214a072eab8"
-source_commit_timestamp: "2026-10-27T17:51:02-04:00"
+source_commit: "48333b2928dae8bd2e2eedfe896015cdb782ad76"
+source_commit_timestamp: "2026-10-27T20:22:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader"
@@ -51,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader.correspondence.enabled` | `true` | boolean | modeled default or validator seed | Turns correspondence behavior on or off within reader CA5a (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books, the Guide footer's pressed action over reader.correspondents' unchecked search hits by book (found by search, not checked; peek, go there, compare, not about this as a C0a correction), hidden when judged coverage exists: the presentation's kill switch, respecting curriculum.enabled (navigation and display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2773`; `src/learnloop_sidecar/handlers/correspondents.py:63` |
+| `reader.correspondence.enabled` | `true` | boolean | modeled default or validator seed | Turns correspondence behavior on or off within reader CA5a (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books, the Guide footer's pressed action over reader.correspondents' unchecked search hits by book (found by search, not checked; peek, go there, compare, not about this as a C0a correction), hidden when judged coverage exists: the presentation's kill switch, respecting curriculum.enabled (navigation and display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2786`; `src/learnloop_sidecar/handlers/correspondents.py:75` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
