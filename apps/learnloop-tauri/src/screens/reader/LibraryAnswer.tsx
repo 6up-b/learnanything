@@ -25,13 +25,19 @@
 // has every door's controls (CompareScopeBody: the routed line, refine,
 // previous, the tutor about the comparison shown; Codex review F5), while
 // pins keep RW4a's/RW4d's table and their tutor. Off, the answer is RW4a's/RW4d's.
+// Reader CA4 (libraryAsk.compareByPoint on): a comparison by point (v2) renders
+// as ComparePointTable (a row per point, a column per book); a v1 comparison
+// renders by book as today, with "compare again by point ▸" where a library
+// question can re-run it; the grid's Space and o peek and open a cell's passage.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
-import { CompareScopeBody, CompareScopeView } from "./CompareScope";
+import { CompareScopeBody, CompareScopeView, PeekPanel } from "./CompareScope";
+import { CompareGridActionsContext, ComparePointTable, useCompareGridActions, type CompareGridActions } from "./ComparePointTable";
+import { byPoint } from "./comparePoints";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { hitRoleLabel } from "./roleLabel";
@@ -186,15 +192,32 @@ function uncheckedBecause(verification: CompareTableDto["verification"]): string
   return null;
 }
 
+/** The comparison table: by point (Reader CA4, a v2 comparison) or by book (today's). */
+export function CompareTable({ table }: { table: CompareTableDto }) {
+  if (byPoint(table)) return <ComparePointTable table={table} />;
+  return <CompareTableByBook table={table} />;
+}
+
+export const COMPARE_AGAIN_COPY = { again: "compare again by point ▸", cost: "runs one comparison" } as const;
+
 /** W10, display only (RW4d adds keep): one row per source; differences kept. A
  *  source whose passages could not be checked is a possible match, never read
- *  as "one source" (Codex review F9). */
-export function CompareTable({ table }: { table: CompareTableDto }) {
+ *  as "one source" (Codex review F9). Reader CA4: the layout of a v1
+ *  comparison (§5.3), which no label calls old; where a library question can
+ *  re-run it by point, "compare again by point ▸" says it runs one comparison. */
+export function CompareTableByBook({ table }: { table: CompareTableDto }) {
   const unverified = table.unverifiedSources ?? [];
   const because = uncheckedBecause(table.verification);
+  const { onCompareAgain } = useCompareGridActions();
   return (
     <div data-compare-table="" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <span style={headStyle}>compare · {table.rows.length} sources · {table.header}</span>
+      {onCompareAgain && table.status === "ok" && table.rows.length >= 2 ? (
+        <span data-compare-again="">
+          <button type="button" style={linkStyle} onClick={() => onCompareAgain(table)}>{COMPARE_AGAIN_COPY.again}</button>
+          <MeaningLabel style={{ fontSize: 10 }}> · {COMPARE_AGAIN_COPY.cost}</MeaningLabel>
+        </span>
+      ) : null}
       {table.requestedPerspectives?.length ? (
         // RW4d: the perspectives asked for, and those no source covers.
         <span data-perspectives="" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -281,9 +304,20 @@ export function LibraryAnswer({
   const [reopened, setReopened] = useState<string | null>(null);
   const state = ctl.state;
   if (!state) return null;
+  // CA4: what the grid's keys reach (Space peeks, o opens, a view no book
+  // fills asks the library, a v1 table re-runs by point); absent while off.
+  const gridActions: CompareGridActions | null = ctl.byPoint ? {
+    onPeek: ({ spanKey, sourceTitle }) => void ctl.peek(spanKey, sourceTitle),
+    onOpen: onOpenHit ? ({ sourceId, extractionId, spanId }) => onOpenHit({ sourceId, extractionId, spanId } as LibraryHitDto) : undefined,
+    onCompareAgain: ctl.compareAgain,
+  } : null;
   if (state.direct) {
     // CA3: a comparison from a door with no library answer.
-    return <CompareScopeView ctl={ctl} onClose={onClose} onReword={onReword} onPracticePick={onPracticePick} Table={CompareTable} />;
+    return (
+      <CompareGridActionsContext.Provider value={gridActions}>
+        <CompareScopeView ctl={ctl} onClose={onClose} onReword={onReword} onPracticePick={onPracticePick} Table={CompareTable} />
+      </CompareGridActionsContext.Provider>
+    );
   }
   if (state.scope?.phase === "pending") {
     // CA3: the ask box's words are being read for named books (pressed, so it may take a moment).
@@ -395,6 +429,7 @@ export function LibraryAnswer({
     }
   };
   return (
+    <CompareGridActionsContext.Provider value={gridActions}>
     <section aria-label="ask your library" data-library-answer="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <span style={headStyle}>{LIBRARY_COPY.title}</span>
@@ -498,22 +533,7 @@ export function LibraryAnswer({
               </div>
             ))}
             {state.peek ? (
-              <div data-library-peek="" style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <span style={headStyle}>peek</span>
-                  <span style={{ flex: 1 }} />
-                  <button type="button" onClick={ctl.closePeek} style={linkStyle}>close peek</button>
-                </div>
-                {state.peek.view ? (
-                  <SourceVoice source={hits.get(state.peek.key)?.sourceTitle} locator={state.peek.view.page !== null ? `p.${state.peek.view.page}` : null}>
-                    {[...state.peek.view.previousSpans.map((span) => span.text), state.peek.view.text, ...state.peek.view.nextSpans.map((span) => span.text)].map((text, index) => (
-                      <p key={index} style={{ margin: "0 0 6px", fontWeight: index === state.peek!.view!.previousSpans.length ? 600 : 400 }}>{clip(text, 700)}</p>
-                    ))}
-                  </SourceVoice>
-                ) : (
-                  <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> opening the passage…</MeaningLabel>
-                )}
-              </div>
+              <PeekPanel peek={state.peek} title={state.peek.title ?? hits.get(state.peek.key)?.sourceTitle ?? null} onClose={ctl.closePeek} />
             ) : null}
             {ask.hits.length > 0 ? (
               <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -642,5 +662,6 @@ export function LibraryAnswer({
         ) : null}
       </ModelActionState>
     </section>
+    </CompareGridActionsContext.Provider>
   );
 }

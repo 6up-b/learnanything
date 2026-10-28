@@ -3,10 +3,14 @@
 // remembered on this device (never under 480 px). Ctrl+Shift+F opens it with
 // an ask box (the learner's key, so the box may take focus); Esc peels one
 // layer (the peek, then the posture). The source keeps its place.
+// Reader CA4 (`libraryAsk.compareByPoint`): below the app's 1,040 px
+// breakpoint the posture stacks (`stacked`: the comparison above the book, as
+// UX §3.1 asks), and a resized window re-clamps the remembered width; off, the
+// pane is RW4a's (side by side, its width computed once at mount).
 import { useEffect, useRef, useState } from "react";
 import type { LibraryHitDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
-import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
+import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth, isNarrow } from "../workbench/splitWidth";
 import { LibraryAnswer, type ExplorableOutcome, type LibraryExercisesProps } from "./LibraryAnswer";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { screenLeavesKey } from "../../app/keymap";
@@ -30,6 +34,20 @@ function writeWidth(width: number): void {
   }
 }
 
+/** Reader CA4: whether the comparing posture stacks now (the window below the
+ *  breakpoint), re-read on resize; always false while `enabled` is false. */
+export function useComparingStacked(enabled: boolean): boolean {
+  const [narrow, setNarrow] = useState(() => isNarrow(window.innerWidth));
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onResize = () => setNarrow(isNarrow(window.innerWidth));
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [enabled]);
+  return enabled && narrow;
+}
+
 export function LibraryPane({
   ctl,
   compose,
@@ -41,7 +59,10 @@ export function LibraryPane({
   exercises = null,
   onMakeExplorable = null,
   onReword = null,
+  stacked = false,
 }: {
+  /** CA4: stacked above the book (the window below the breakpoint). */
+  stacked?: boolean;
   ctl: LibraryAskController;
   /** The ask box's text while composing (null: an answer is shown). */
   compose: string | null;
@@ -59,6 +80,14 @@ export function LibraryPane({
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const reclamp = ctl.byPoint;
+  useEffect(() => {
+    // CA4: a resized window re-clamps the pane (RW4a computed it once, at mount).
+    if (!reclamp) return undefined;
+    const onResize = () => setWidth((current) => clampSplitWidth(current, window.innerWidth));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [reclamp]);
   const composing = compose !== null;
   useEffect(() => {
     // Ctrl+Shift+F was the learner's key: the ask box takes the cursor.
@@ -82,7 +111,7 @@ export function LibraryPane({
   };
   return (
     <>
-      <div
+      {stacked ? null : <div
         role="separator"
         aria-orientation="vertical"
         aria-label="resize the library answer"
@@ -108,8 +137,11 @@ export function LibraryPane({
           window.addEventListener("mouseup", onUp);
         }}
         style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
-      />
-      <div data-comparing-pane="" className="ll-scroll" style={{ width, flexShrink: 0, minHeight: 0, height: "100%", overflowY: "auto" }}>
+      />}
+      <div data-comparing-pane="" data-layout={stacked ? "stacked" : "split"} className="ll-scroll"
+        style={stacked
+          ? { width: "100%", order: 0, flex: "1 1 50%", minHeight: 0, overflowY: "auto", borderBottom: `1px solid ${COLOR.border}` }
+          : { width, flexShrink: 0, minHeight: 0, height: "100%", overflowY: "auto" }}>
         {composing ? (
           <form
             onSubmit={(event) => {

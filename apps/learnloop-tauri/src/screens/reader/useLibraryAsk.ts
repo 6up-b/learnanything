@@ -30,6 +30,11 @@
 // (`×`, "+ add a book") and the refine box (`/`, `refine`) re-run the same
 // request; the earlier table stays one key away (`previous`). Off, none of it
 // exists and every call is RW4a's/RW4d's.
+//
+// Reader CA4 (`libraryAsk.compareByPoint`): `byPoint` says the table is drawn
+// by point; `peek` reaches any compared passage (a cell's, not only a library
+// hit's); `compareAgain` re-runs a v1 comparison by point (one comparison,
+// named before it runs). Off, `byPoint` is false and neither is offered.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -224,7 +229,7 @@ export interface LibraryAskState {
   compare: Stage<CompareTableDto>;
   tutor: Stage<LibraryTutorDto>;
   practice: Stage<FindPracticeResultDto>;
-  peek: { key: string; phase: ModelActionPhase; view: SpanViewDto | null } | null;
+  peek: { key: string; phase: ModelActionPhase; view: SpanViewDto | null; title?: string | null } | null;
   /** CA3: a comparison opened with no library answer (its request), else null. */
   direct?: CompareRequest | null;
   /** CA3: the ask box's reading of named books (pending while read). */
@@ -289,6 +294,8 @@ export function useLibraryAsk({
   const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null;
   // CA3: compare from anywhere (absent while reader_compare.scope_enabled is off).
   const scopeOn = Boolean(settings?.compare && settings?.compareScope);
+  // CA4: the table by point (absent while reader_compare.by_point is off).
+  const byPoint = Boolean(settings?.compare && settings?.compareByPoint);
   const [state, setState] = useState<LibraryAskState | null>(null);
   const keyRef = useRef(0);
   const stateRef = useRef<LibraryAskState | null>(null);
@@ -742,20 +749,25 @@ export function useLibraryAsk({
   }, [update]);
 
   /** Peek: the passage with its neighbours, in the pane (Esc closes it). */
-  const peek = useCallback(async (hitKey: string) => {
+  const peek = useCallback(async (hitKey: string, title: string | null = null) => {
     const current = stateRef.current;
     const hit = current?.ask.value?.hits.find((h) => h.key === hitKey);
-    if (!current || !hit) return;
+    // CA4: a compared passage that is not a library hit (a cell of the table) is
+    // named by its own key; only while the table is by point.
+    const at = hitKey.indexOf(":");
+    const target = hit ? { extractionId: hit.extractionId, spanId: hit.spanId }
+      : byPoint && at > 0 ? { extractionId: hitKey.slice(0, at), spanId: hitKey.slice(at + 1) } : null;
+    if (!current || !target) return;
     const key = current.key;
-    update(key, () => ({ peek: { key: hitKey, phase: "pending", view: null } }));
+    update(key, () => ({ peek: { key: hitKey, phase: "pending", view: null, title } }));
     try {
-      const { spanView } = await api.getSpanView({ extractionId: hit.extractionId, spanId: hit.spanId, context: "library" });
-      update(key, (s) => (s.peek?.key === hitKey ? { peek: { key: hitKey, phase: "landed", view: spanView } } : {}));
+      const { spanView } = await api.getSpanView({ extractionId: target.extractionId, spanId: target.spanId, context: "library" });
+      update(key, (s) => (s.peek?.key === hitKey ? { peek: { key: hitKey, phase: "landed", view: spanView, title } } : {}));
     } catch (error) {
       onError(errorMessage(error));
       update(key, (s) => (s.peek?.key === hitKey ? { peek: null } : {}));
     }
-  }, [onError, update]);
+  }, [onError, update, byPoint]);
 
   const closePeek = useCallback(() => {
     const current = stateRef.current;
@@ -792,12 +804,42 @@ export function useLibraryAsk({
     if (current && last) void runCompare(current.key, last);
   }, [runCompare]);
 
+  /** CA4 (§5.3): "compare again by point ▸" on a v1 comparison: its passages
+   *  compared again (one paid comparison, said on the button), by point. */
+  const compareAgain = useCallback((table: CompareTableDto) => {
+    const current = stateRef.current;
+    if (!current || !byPoint || !settings?.compare) return;
+    const pinnedSpanKeys = table.rows.map((row) => row.key).filter((key) => key.includes(":"));
+    if (pinnedSpanKeys.length < 2) return;
+    const requested = keep?.perspectives ? (table.requestedPerspectives ?? []).slice(0, keep.maxPerspectives) : [];
+    if (scopeOn) {
+      void runCompare(current.key, { door: "pins", askId: table.askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
+      return;
+    }
+    const key = current.key;
+    update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
+    void (async () => {
+      try {
+        const next = await runJob("compare", () => api.readerLibraryCompare(
+          requested.length ? { askId: table.askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested }
+            : { askId: table.askId, pinnedSpanKeys, openSourceId }));
+        if (next === null) return;
+        const phase = comparePhase(next.status);
+        update(key, () => ({ compare: { phase, value: next, failure: phase === "failed" ? "Couldn't compare these passages." : null } }));
+      } catch (error) {
+        update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
+      }
+    })();
+  }, [byPoint, settings, keep, scopeOn, runCompare, openSourceId, update, runJob]);
+
   return {
     enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
     // CA3 (absent in effect while scopeOn is false: each returns without a call).
     scopeOn, askBox, compareFrom, compareBooks, compareAll, setBooks, reword, refine, retryCompare,
     replaceView, keepViews,
+    // CA4 (absent in effect while byPoint is false).
+    byPoint, compareAgain,
   };
 }
 

@@ -1623,7 +1623,7 @@ export const api = {
   readerCompareScopeCorrection: (input: { judgmentId: string; sourceIds: string[] | null }) =>
     call<{ judgmentId: string }>("reader_compare_scope_correction", { input }),
   // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
-  readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
+  readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[]; hiddenPoints?: string[] }) =>
     call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
   readerLibraryCompareRemove: (input: { askId: string; comparisonId?: string | null }) =>
     call<{ askId: string; kept: null; removed: boolean }>("reader_library_compare_remove", { input }),
