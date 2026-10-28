@@ -8807,6 +8807,46 @@ export interface ReaderRecapDemonstratedDto {
   attemptId: string | null;
 }
 
+// ── Reader workbench RW6b part 1: cold follow-ups ("Coming up") ───────────
+// spec_reader_workbench_v1 §9.3; UX §4.8-4.9, S15, D36. A dated timeline,
+// never a count; each line has its purpose, "why" (LearnLoop's estimate) and undo.
+
+export type ReaderFollowupPurpose = "discriminating" | "retention";
+
+export interface ReaderFollowupLineDto {
+  commitmentId: string;
+  digestId: string;
+  extractionId: string;
+  purpose: ReaderFollowupPurpose;
+  novelty: string | null;
+  noveltyLabel: string | null;
+  purposeText: string;
+  expectedMinutes: number | null;
+  why: string;
+  /** YYYY-MM-DD, the plan's local day (pending lines). */
+  date?: string | null;
+  actions: string[];
+  /** Retired lines (good news). */
+  retiredAt?: string | null;
+  reason?: string | null;
+  solvedAt?: string | null;
+  text?: string;
+}
+
+export interface ReaderComingUpDto {
+  next: ReaderFollowupLineDto[];
+  later: ReaderFollowupLineDto[];
+  undoAll: Array<{ digestId: string }>;
+  scale: string;
+  enabled: boolean;
+}
+
+export interface ReaderFollowupsDto extends ReaderComingUpDto {
+  version: number;
+  followupsVersion: string;
+  retired: ReaderFollowupLineDto[];
+}
+
 export interface ReaderRecapCardDto {
   recapVersion: string;
   extractionId: string;
@@ -8819,6 +8859,8 @@ export interface ReaderRecapCardDto {
     demonstrated: ReaderRecapDemonstratedDto[];
     checksRetired: Array<{ commitmentId: string; retiredAt: string; solvedAttemptId?: string | null }>;
   };
+  /** RW6b: the source's scheduled checks (absent before RW6b's sidecar). */
+  comingUp?: ReaderComingUpDto;
 }
 
 export interface ReaderRecapDto {
@@ -8868,6 +8910,8 @@ export interface ReaderWrapUpDto {
   resolved: ReaderWrapUpInquiryLineDto[];
   stillOpen: ReaderWrapUpInquiryLineDto[];
   worthReinforcing: ReaderWrapUpReinforceLineDto[];
+  /** RW6b: worth reinforcing also lists the checks coming up with their dates. */
+  comingUp?: ReaderComingUpDto;
 }
 
 export interface ReaderWrapUpOfferDto {

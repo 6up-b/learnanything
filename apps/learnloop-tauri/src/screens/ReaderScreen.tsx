@@ -3234,6 +3234,11 @@ export function ReaderScreen({
                     wrapUp={recapCtl.wrapUpOpen}
                     where="reader"
                     onClose={recapCtl.closeWrapUp}
+                    followups={{
+                      onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
+                      onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
+                      onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
+                    }}
                     isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
                     onAction={async (line, action) => {
                       const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
@@ -3260,6 +3265,11 @@ export function ReaderScreen({
                     onRevisit={(rootId) => void recapRevisit(rootId)}
                     revisited={recapRevisited}
                     onResume={(sessionId) => void wbCtl.resume(sessionId)}
+                    // RW6b: the card keeps the undone line ("undone · keep it
+                    // after all") until it is next read, so an undo can be taken back.
+                    onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
+                    onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
+                    onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
                   />
                 ) : null}
               </>

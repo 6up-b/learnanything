@@ -84,7 +84,17 @@ export function WrapUpOffer({ armed, onError }: WrapUpOfferProps) {
   if (panel) {
     return (
       <div style={{ padding: "8px 16px 0" }} {...keyScope("wrap-up")}>
-        <WrapUpPanel wrapUp={panel} where="destination" onAction={act} onClose={close} />
+        <WrapUpPanel
+          wrapUp={panel}
+          where="destination"
+          onAction={act}
+          onClose={close}
+          followups={{
+            onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
+            onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
+            onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
+          }}
+        />
       </div>
     );
   }
