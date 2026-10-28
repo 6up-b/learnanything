@@ -74,6 +74,9 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     if scope_enabled(vault):
         # Reader CA3: compare from anywhere (absent while off: RW4a's contract).
         fields["compare_scope"] = True
+    if KC.by_point_enabled(vault):
+        # Reader CA4: the table by point (absent while off: by book, as today).
+        fields["compare_by_point"] = True
     return {"library_ask": fields}
 
 
@@ -577,11 +580,12 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
     row = _ask_row(repository, ask_id)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
     keep = KC.keep_enabled(vault)
-    perspectives = KC.clean_perspectives(params.requested_perspectives)
+    perspectives = KC.clean_perspectives(params.requested_perspectives, limit=KC.max_perspectives(vault))
     if perspectives and not keep:
         raise SidecarError("reader_compare_keep_disabled",
                            "Requested perspectives are switched off (reader_compare.keep_enabled is false).")
     scope = _door_scope(repository, row, params) if scoped else None
+    by_point = KC.by_point_enabled(vault)
     jobs = _jobs(ctx)
     #: The job this request runs as (given before its work starts).
     running: dict[str, _Job] = {}
@@ -616,7 +620,9 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
             table = LA.compare(vault, worker_repo, ask_id, pinned_keys=params.pinned_span_keys,
                                compare_sources=bound_compare, record_shown=shown,
                                open_source_id=params.open_source_id, requested_perspectives=perspectives,
-                               **({"scope": scope, "bind": bind} if scope is not None else {}))
+                               **({"scope": scope, "bind": bind} if scope is not None else {}),
+                               # Reader CA4: v2 by point (off: v1, by book, as today).
+                               **({"by_point": True} if by_point else {}))
         except PolicyRefused as exc:
             raise SidecarError(exc.code, "That book isn't one this comparison may read here."
                                if exc.code == "scope_refused" else str(exc)) from exc

@@ -56,6 +56,21 @@ on", the table's keep state, the card, ``reader.source_objects`` and the
 proposal inbox) leaves such a comparison out whole: no object, line,
 relation, statement or take derived from it is returned. Ledger rows stay.
 
+Reader CA4 (ux_reader_compare_ask_v1 §5.2, §12.2): a comparison by point
+(``source_compare.v2``), kept while ``reader_compare.by_point`` is on, maps
+each row to today's proposals **one claim per cell**: every quoted cell of a
+row that isn't hidden is one ``source_objects`` row (its quote rechecked
+against the block as it is now, the row's label and kind in its
+``content_json``), and each verified relation of the row is a relation
+between that row's two claims, by the same :data:`RELATION_MAP`. A take is on
+a row (``point_id``: a learner's relation on that row's first two claims) or
+on the whole comparison (``about = "comparison"``). Hiding a row before Keep
+leaves it out; hiding it after Keep supersedes that row's proposals (claims,
+relations and takes; never deleted, each successor recorded on the keep's
+``hidden_rows`` history, which :func:`relation_lineage` reads too); showing
+it again proposes it again. A v1 comparison, or any keep while the switch is
+off, is kept by source as before.
+
 Nothing here writes a concept edge, facet merge, prerequisite, learning-object
 change, attempt, evidence, mastery or plan; replay never reads these rows.
 Reviewing a proposal is P3's existing path; nothing here promotes one. Kill
@@ -79,7 +94,7 @@ from learnloop.db.stores.source_block_fts import block_content_hashes, blocks_by
 from learnloop.db.stores.source_service import comparison_row, tool_call, tool_call_runs
 from learnloop.ids import new_ulid
 from learnloop.reader import source_objects as SO
-from learnloop.source_retrieval.compare import COMPARE_PROMPT_VERSION, _quote_in
+from learnloop.source_retrieval.compare import COMPARE_PROMPT_VERSION, COMPARE_PROMPT_VERSION_V2, _quote_in
 from learnloop.source_retrieval.corpus import block_roles
 from learnloop.source_retrieval.library_ask import (
     LibraryAskError,
@@ -107,9 +122,12 @@ TAKE_RELATION = SO.CONNECT_IT_RELATION
 #: Bounds on what the learner types (display sizes, not learning thresholds).
 MAX_TAKE_CHARS = 1000
 MAX_TAKES = 12
-#: Requested perspectives the compare field accepts (prompt-size bounds).
-MAX_PERSPECTIVES = 4
+#: Requested perspectives: the most a comparison asks for and keeps is the
+#: ``reader_compare.max_perspectives`` config key (a ``keep`` guardrail, a
+#: stored-size bound; Reader CA4, §12.2), and each view's length a display size.
 MAX_PERSPECTIVE_CHARS = 80
+#: Reader CA4: a keep of a comparison by point (one claim per cell).
+BY_POINT_LAYOUT = "by_point"
 KEPT_VERSION = 1
 #: Salience-only reader events RW4d's sidecar writes (never evidence).
 EVENTS: tuple[str, ...] = ("comparison_kept", "comparison_removed", "comparison_reopened")
@@ -143,15 +161,27 @@ def coarse_relation(fine: str, left_type: str, right_type: str) -> str | None:
     return RELATION_MAP.get(fine)
 
 
-def clean_perspectives(values: Sequence[str] | None) -> list[str]:
-    """The requested perspectives as typed: trimmed, distinct, bounded."""
+def max_perspectives(vault: LoadedVault) -> int:
+    """The most views a comparison asks for and keeps (``reader_compare.max_perspectives``)."""
+
+    return int(vault.config.reader_compare.max_perspectives)
+
+
+def by_point_enabled(vault: LoadedVault) -> bool:
+    """Reader CA4 is on: its switch and the comparison it builds on."""
+
+    return compare_enabled(vault) and bool(vault.config.reader_compare.by_point)
+
+
+def clean_perspectives(values: Sequence[str] | None, *, limit: int) -> list[str]:
+    """The requested perspectives as typed: trimmed, distinct, at most ``limit``."""
 
     kept: list[str] = []
     for value in values or ():
         text = " ".join(str(value or "").split())[:MAX_PERSPECTIVE_CHARS]
         if text and text.casefold() not in {k.casefold() for k in kept}:
             kept.append(text)
-    return kept[:MAX_PERSPECTIVES]
+    return kept[:max(0, int(limit))]
 
 
 def _withheld_rows(vault: LoadedVault, repository: Repository,
@@ -328,6 +358,143 @@ def _plan(vault: LoadedVault, repository: Repository, stored: Mapping[str, Any],
     return {"passages": kept_claims, "relations": relations, "not_kept": not_kept}
 
 
+def is_by_point(stored: Mapping[str, Any]) -> bool:
+    """A stored comparison by point (``source_compare.v2``, with its points)."""
+
+    comparison = stored.get("comparison") or {}
+    return comparison.get("contract") == COMPARE_PROMPT_VERSION_V2 and isinstance(comparison.get("points"), list)
+
+
+def _points(stored: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return [dict(point) for point in (stored.get("comparison") or {}).get("points") or () if point.get("id")]
+
+
+def cell_key(passage_key: str, point_id: str) -> str:
+    """A kept cell's key: its passage and its row (a passage holds one cell per row)."""
+
+    return f"{passage_key}#{point_id}"
+
+
+def _plan_by_point(vault: LoadedVault, repository: Repository, stored: Mapping[str, Any],
+                   sources: Sequence[Mapping[str, Any]], *, hidden: set[str],
+                   only: set[str] | None = None) -> dict[str, Any]:
+    """Reader CA4: what a keep by point would write (no writes), one claim per
+    quoted cell of every row not hidden (``only``: just those rows), each
+    quote rechecked against the block of its passage as it is now, and each
+    row's verified relations between that row's two kept claims."""
+
+    keys = list(dict.fromkeys(key for entry in sources for key in _entry_keys(entry)))
+    with repository.connection() as connection:
+        blocks = blocks_by_key(connection, keys)
+        roles = block_roles(connection, keys)
+        hashes = {key: (block_content_hashes(connection, key[0], [key[1]]) or [None])[0] for key in keys}
+    passages: dict[str, dict[str, Any]] = {}
+    not_kept: list[dict[str, Any]] = []
+    for entry in sources:
+        key = _key(entry)
+        own = _entry_keys(entry)
+        run = repository.get_extraction_run(key[0]) if key in blocks else None
+        if any(part not in blocks for part in own) or run is None or not run.get("revision_id"):
+            not_kept.append({"key": _key_str(key), "reason": "the passage is no longer in this reading"})
+            continue
+        passages[str(entry.get("ref") or "")] = {
+            "ref": str(entry.get("ref") or ""), "key": key, "entry": dict(entry), "block": blocks[key],
+            "blocks": {part: blocks[part] for part in own}, "revision_id": str(run["revision_id"]),
+            "hashes": {part: hashes.get(part) for part in own},
+            "object_type": "definition" if roles.get(key) == "definition" else "claim"}
+    cells: dict[str, dict[str, Any]] = {}
+    relations: list[dict[str, Any]] = []
+    for point in _points(stored):
+        point_id = str(point["id"])
+        if point_id in hidden or (only is not None and point_id not in only):
+            continue
+        row: dict[str, dict[str, Any]] = {}
+        for cell in point.get("cells") or ():
+            passage = passages.get(str(cell.get("ref") or ""))
+            if cell.get("status") != "quoted" or passage is None:
+                continue
+            quote = str(cell.get("quote") or "")
+            if _holder(passage, quote) is None:
+                not_kept.append({"key": _key_str(passage["key"]), "point_id": point_id,
+                                 "reason": "a cell's quote is no longer in the passage"})
+                continue
+            claim = {**passage, "point_id": point_id, "point_label": str(point.get("label") or ""),
+                     "point_kind": str(point.get("kind") or "point"), "quote": quote,
+                     "line": str(cell.get("line") or ""),
+                     "cell": cell_key(_key_str(passage["key"]), point_id)}
+            row[claim["ref"]] = claim
+            cells[claim["cell"]] = claim
+        for relation in point.get("relations") or ():
+            left, right = row.get(str(relation.get("left_ref"))), row.get(str(relation.get("right_ref")))
+            if left is None or right is None:
+                continue
+            fine = str(relation.get("relation") or "")
+            coarse = coarse_relation(fine, left["object_type"], right["object_type"])
+            ok = (coarse is not None and left["ref"] != right["ref"]
+                  and _holder(left, str(relation.get("left_quote") or "")) is not None
+                  and _holder(right, str(relation.get("right_quote") or "")) is not None)
+            if not ok:
+                not_kept.append({"keys": [left["cell"], right["cell"]], "point_id": point_id,
+                                 "reason": "a relation's quote is no longer in its passage" if coarse
+                                 else f"unknown relation {fine!r}"})
+                continue
+            relations.append({**relation, "relation_type": coarse, "fine": fine, "point_id": point_id,
+                              "left_cell": left["cell"], "right_cell": right["cell"]})
+    return {"cells": cells, "relations": relations, "not_kept": not_kept}
+
+
+def _write_cells(repository: Repository, *, ask: Mapping[str, Any], stored: Mapping[str, Any],
+                 plan: Mapping[str, Any], provenance: Mapping[str, Any],
+                 clock: Clock | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Reader CA4: the proposals of a keep by point (one claim per cell, the
+    row's label in ``content_json``; each row's relations between its claims)."""
+
+    objects: list[dict[str, Any]] = []
+    object_ids: dict[str, str] = {}
+    for cell, claim in plan["cells"].items():
+        entry = claim["entry"]
+        cited = _holder(claim, claim["quote"]) or claim["key"]
+        line = {"kind": "cell", "text": claim["line"], "quote": claim["quote"], "authorship": "ai",
+                "label": "LearnLoop's reading (AI-written), quoting the source"}
+        written = SO.author_source_object(
+            repository, source_id=str(entry.get("source_id")), revision_id=claim["revision_id"],
+            object_type=claim["object_type"], exact_text=claim["quote"],
+            content={"kept_from": "source_comparison", "comparison_id": stored["id"], "ask_id": ask["id"],
+                     "query": stored.get("query_md"), "lines": [line],
+                     "point": {"id": claim["point_id"], "label": claim["point_label"], "kind": claim["point_kind"]},
+                     "source_label": "source-authored", "source_title": entry.get("source_title")},
+            citations=[{"revision_id": claim["revision_id"], "span_id": cited[1],
+                        "block_content_hash": claim["hashes"].get(cited), "exact_quote": claim["quote"]}],
+            authorship="ai", status="proposed", model_provenance=dict(provenance), clock=clock,
+        )
+        object_ids[cell] = written["source_object_id"]
+        objects.append({"id": written["source_object_id"], "version_id": written["version_id"], "ref": claim["ref"],
+                        "key": _key_str(claim["key"]), "cell": cell, "point_id": claim["point_id"],
+                        "extraction_id": claim["key"][0], "span_id": claim["key"][1],
+                        "source_id": entry.get("source_id"), "source_title": entry.get("source_title"),
+                        "page": entry.get("page"), "object_type": claim["object_type"],
+                        "revision_id": claim["revision_id"], "quotes": [claim["quote"]],
+                        **({"span_ids": [part[1] for part in claim["blocks"]]} if len(claim["blocks"]) > 1 else {})})
+    relations: list[dict[str, Any]] = []
+    for relation in plan["relations"]:
+        link = SO.link_relation(repository, source_object_id=object_ids[relation["left_cell"]],
+                                related_object_id=object_ids[relation["right_cell"]],
+                                relation_type=relation["relation_type"], authorship="ai", clock=clock)
+        relations.append({
+            "id": link["relation_id"], "relation_type": relation["relation_type"], "fine": relation["fine"],
+            "point_id": relation["point_id"], "left_ref": relation["left_ref"], "right_ref": relation["right_ref"],
+            "left_cell": relation["left_cell"], "right_cell": relation["right_cell"],
+            "left_object_id": object_ids[relation["left_cell"]], "right_object_id": object_ids[relation["right_cell"]],
+            "statement": relation.get("statement"), "left_quote": relation.get("left_quote"),
+            "right_quote": relation.get("right_quote"), "authorship": "ai",
+            "label": "LearnLoop's inferred relation (AI-written)"})
+    return objects, relations
+
+
+def _passage_keys(objects: Sequence[Mapping[str, Any]]) -> list[str]:
+    return list(dict.fromkeys(str(obj["key"]) for obj in objects))
+
+
 def _quote_of(claim: Mapping[str, Any], relations: Sequence[Mapping[str, Any]]) -> str:
     if claim["lines"]:
         return str(claim["lines"][0]["quote"])
@@ -344,6 +511,23 @@ def _take_parts(take: Mapping[str, Any]) -> tuple[list[str], str]:
     return [str(key) for key in dict.fromkeys(take.get("keys") or ())], text
 
 
+def _take_target(take: Mapping[str, Any]) -> str | None:
+    """Reader CA4: what a take by point is about: ``point:<id>`` (a row) or
+    ``comparison`` (the whole table); None for a take on passages (v1)."""
+
+    if take.get("about") == "comparison":
+        return "comparison"
+    if take.get("point_id"):
+        return f"point:{take['point_id']}"
+    return None
+
+
+def _point_take_key(take: Mapping[str, Any]) -> str:
+    target = _take_target(take)
+    keys, text = _take_parts(take)
+    return take_key([target] if target is not None else keys, text)
+
+
 def take_key(keys: Sequence[str], text: str) -> str:
     """A take's idempotency key: its passages (in order) and its words, as kept.
     The same take sent again (a retry after a lost response) is the same take."""
@@ -354,6 +538,61 @@ def take_key(keys: Sequence[str], text: str) -> str:
 
 def _kept_take_key(take: Mapping[str, Any]) -> str:
     return str(take.get("take_key") or take_key(take.get("keys") or (), str(take.get("learner_text") or "")))
+
+
+def _resolve_point_take(take: Mapping[str, Any], objects: Sequence[Mapping[str, Any]]) -> tuple[str, str | None, str, list[str]]:
+    """A take by point: the row's first two kept claims (by column), or for the
+    whole comparison its first two claims from different books; one alone when
+    that is all there is. Refused when it names no kept row."""
+
+    _keys, text = _take_parts(take)
+    if not text:
+        raise LibraryAskError("validation_error", "Your take is empty.")
+    if len(text) > MAX_TAKE_CHARS:
+        raise LibraryAskError("validation_error", f"Your take is longer than {MAX_TAKE_CHARS} characters.")
+    target = _take_target(take)
+    if target is not None and _keys:
+        raise LibraryAskError("validation_error", "Your take names a row of this comparison or the whole of it.")
+    if target is None:
+        # A take on passages (the by-book view): each passage's first kept claim.
+        if not 1 <= len(_keys) <= 2:
+            raise LibraryAskError("validation_error", "Your take names a row of this comparison or the whole of it.")
+        chosen = [next((obj for obj in objects if obj.get("key") == key), None) for key in _keys]
+        if any(obj is None for obj in chosen):
+            raise LibraryAskError("validation_error", "Your take names a passage that isn't kept in this comparison.")
+        return (str(chosen[0]["id"]), str(chosen[1]["id"]) if len(chosen) > 1 else None, text,
+                [str(obj["cell"]) for obj in chosen])
+    if target == "comparison":
+        chosen: list[Mapping[str, Any]] = []
+        for obj in objects:
+            if not chosen or (len(chosen) == 1 and obj.get("source_id") != chosen[0].get("source_id")):
+                chosen.append(obj)
+    else:
+        point_id = target.split(":", 1)[1]
+        chosen = [obj for obj in objects if obj.get("point_id") == point_id][:2]
+    if not chosen:
+        raise LibraryAskError("validation_error", "That row has nothing kept to put your take on.")
+    return (str(chosen[0]["id"]), str(chosen[1]["id"]) if len(chosen) > 1 else None, text,
+            [str(obj["cell"]) for obj in chosen])
+
+
+def _check_point_takes(takes: Sequence[Mapping[str, Any]], objects: Sequence[Mapping[str, Any]], *,
+                       kept_takes: Sequence[Mapping[str, Any]] = ()) -> list[Mapping[str, Any]]:
+    """``_check_takes`` for a keep by point: every take names a kept row (or the
+    whole comparison); the ones not kept yet, within the limit."""
+
+    for take in takes:
+        _resolve_point_take(take, objects)
+    seen = {_kept_take_key(take) for take in kept_takes}
+    new: list[Mapping[str, Any]] = []
+    for take in takes:
+        key = _point_take_key(take)
+        if key not in seen:
+            seen.add(key)
+            new.append(take)
+    if len(kept_takes) + len(new) > MAX_TAKES:
+        raise LibraryAskError("validation_error", f"A comparison keeps at most {MAX_TAKES} takes.")
+    return new
 
 
 def _resolve_take(take: Mapping[str, Any], objects: Mapping[str, Mapping[str, Any]]) -> tuple[str, str | None, str]:
@@ -390,6 +629,10 @@ def _check_takes(takes: Sequence[Mapping[str, Any]], keys: Sequence[str], *,
 
 def _add_takes(repository: Repository, kept: dict[str, Any], takes: Sequence[Mapping[str, Any]], *,
                clock: Clock | None) -> list[dict[str, Any]]:
+    if kept.get("layout") == BY_POINT_LAYOUT:
+        return _add_point_takes(repository, kept, takes, clock=clock)
+    if any(_take_target(take) is not None for take in takes):
+        raise LibraryAskError("validation_error", "Your take names the passages it is about.")
     objects = {entry["key"]: entry for entry in kept["objects"]}
     new = _check_takes(takes, list(objects), kept_takes=kept.get("takes") or ())
     resolved = [(take, *_resolve_take(take, objects)) for take in new]
@@ -403,6 +646,128 @@ def _add_takes(repository: Repository, kept: dict[str, Any], takes: Sequence[Map
                       "authorship": "learner", "created_at": utc_now_iso(clock)})
     kept["takes"] = [*(kept.get("takes") or []), *added]
     return added
+
+
+def _add_point_takes(repository: Repository, kept: dict[str, Any], takes: Sequence[Mapping[str, Any]], *,
+                     clock: Clock | None) -> list[dict[str, Any]]:
+    objects = list(kept.get("objects") or ())
+    new = _check_point_takes(takes, objects, kept_takes=kept.get("takes") or ())
+    resolved = [(take, *_resolve_point_take(take, objects)) for take in new]
+    added = []
+    for take, left, right, text, cells in resolved:
+        link = SO.link_relation(repository, source_object_id=left, related_object_id=right,
+                                relation_type=TAKE_RELATION, learner_text=text, authorship="learner", clock=clock)
+        target = _take_target(take)
+        about: dict[str, Any] = ({"about": "comparison"} if target == "comparison"
+                                 else {"point_id": target.split(":", 1)[1]} if target else {})
+        added.append({"id": link["relation_id"], "relation_type": TAKE_RELATION, "learner_text": text,
+                      "keys": cells, "take_key": _point_take_key(take), "authorship": "learner",
+                      "created_at": utc_now_iso(clock), **about})
+    kept["takes"] = [*(kept.get("takes") or []), *added]
+    return added
+
+
+def _learning_objects_of(vault: LoadedVault, repository: Repository, objects: Sequence[Mapping[str, Any]],
+                         learning_object_ids: Sequence[str]) -> list[str]:
+    """The LOs the card reads a keep under: the question's own (its anchor, or
+    the tutor request's), then each kept passage's provenance-linked LOs."""
+
+    learning_objects: list[str] = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
+    for obj in objects:
+        for lo_id in anchor_learning_objects(vault, repository, extraction_id=obj["extraction_id"],
+                                             span_ids=list(obj.get("span_ids") or [obj["span_id"]])):
+            if lo_id not in learning_objects:
+                learning_objects.append(lo_id)
+    return learning_objects
+
+
+def _write_by_point(vault: LoadedVault, repository: Repository, *, ask: Mapping[str, Any],
+                    stored: Mapping[str, Any], plan: Mapping[str, Any], caller: str, clock: Clock | None,
+                    hidden: Sequence[str], learning_object_ids: Sequence[str] = ()) -> dict[str, Any]:
+    """Reader CA4: write a keep by point and return its kept_json."""
+
+    provenance = {"comparison_id": stored["id"], "model": stored.get("model"),
+                  "prompt_version": stored.get("prompt_version") or COMPARE_PROMPT_VERSION_V2,
+                  "ledger_ids": list(stored.get("ledger_ids") or []), "kept_by": "learner", "caller": caller}
+    objects, relations = _write_cells(repository, ask=ask, stored=stored, plan=plan, provenance=provenance,
+                                      clock=clock)
+    return {"version": KEPT_VERSION, "layout": BY_POINT_LAYOUT, "comparison_id": stored["id"], "caller": caller,
+            "kept_at": utc_now_iso(clock), "objects": objects, "relations": relations, "takes": [],
+            "not_kept": list(plan["not_kept"]), "keys": _passage_keys(objects),
+            "learning_object_ids": _learning_objects_of(vault, repository, objects, learning_object_ids),
+            "requested_perspectives": list(stored.get("requested_perspectives") or []),
+            "points": [{"id": point["id"], "label": point.get("label"), "kind": point.get("kind") or "point"}
+                       for point in _points(stored)],
+            "hidden_points": sorted(set(hidden))}
+
+
+def _set_hidden(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], kept: dict[str, Any],
+                hidden: Sequence[str], *, clock: Clock | None) -> dict[str, int]:
+    """Reader CA4 (§5.2): hide or show rows of a keep by point. A row hidden
+    now has its proposals superseded (its claims, relations and takes: never
+    deleted; each relation's successor recorded on ``hidden_rows``); a row
+    shown again is proposed again from the stored comparison, its quotes
+    rechecked. Returns how many rows were hidden and shown."""
+
+    known = {str(point["id"]) for point in kept.get("points") or ()}
+    wanted = {str(point_id) for point_id in hidden}
+    if wanted - known:
+        raise LibraryAskError("validation_error", "That row isn't in this comparison.")
+    before = set(kept.get("hidden_points") or ())
+    newly_hidden, newly_shown = wanted - before, before - wanted
+    history = list(kept.get("hidden_rows") or [])
+    for point_id in sorted(newly_hidden):
+        objects = [obj for obj in kept.get("objects") or () if obj.get("point_id") == point_id]
+        ids = {obj["id"] for obj in objects}
+        relations = [rel for rel in kept.get("relations") or () if rel.get("point_id") == point_id]
+        takes = [take for take in kept.get("takes") or () if take.get("point_id") == point_id]
+        for obj in objects:
+            SO.review_source_object(repository, source_object_id=obj["id"], status="superseded", clock=clock)
+        successors = []
+        for relation in [*relations, *takes]:
+            successor = SO.supersede_relation(repository, relation_id=relation["id"], clock=clock)
+            successors.append({"relation_id": successor["relation_id"], "supersedes": successor["supersedes"]})
+        # A take on the whole comparison that rests on this row's claims moves
+        # with them (superseded too, so no take points at a superseded claim).
+        resting = [take for take in kept.get("takes") or () if take.get("about") == "comparison"
+                   and ids & set(_take_object_ids(repository, take))]
+        for take in resting:
+            successor = SO.supersede_relation(repository, relation_id=take["id"], clock=clock)
+            successors.append({"relation_id": successor["relation_id"], "supersedes": successor["supersedes"]})
+        gone = {take["id"] for take in [*takes, *resting]}
+        history.append({"point_id": point_id, "hidden_at": utc_now_iso(clock), "objects": sorted(ids),
+                        "relation_successors": successors,
+                        "kept": {"objects": objects, "relations": relations,
+                                 "takes": [take for take in kept.get("takes") or () if take["id"] in gone]}})
+        kept["objects"] = [obj for obj in kept.get("objects") or () if obj["id"] not in ids]
+        kept["relations"] = [rel for rel in kept.get("relations") or () if rel.get("point_id") != point_id]
+        kept["takes"] = [take for take in kept.get("takes") or () if take["id"] not in gone]
+    if newly_shown:
+        stored = _stored(repository, kept.get("comparison_id"))
+        plan = _plan_by_point(vault, repository, stored, _sources(stored), hidden=set(), only=newly_shown)
+        provenance = {"comparison_id": stored["id"], "model": stored.get("model"),
+                      "prompt_version": stored.get("prompt_version") or COMPARE_PROMPT_VERSION_V2,
+                      "ledger_ids": list(stored.get("ledger_ids") or []), "kept_by": "learner",
+                      "caller": kept.get("caller") or "learner"}
+        objects, relations = _write_cells(repository, ask=ask, stored=stored, plan=plan, provenance=provenance,
+                                          clock=clock)
+        kept["objects"] = [*(kept.get("objects") or []), *objects]
+        kept["relations"] = [*(kept.get("relations") or []), *relations]
+        kept["not_kept"] = [*(kept.get("not_kept") or []), *plan["not_kept"]]
+        for point_id in sorted(newly_shown):
+            history.append({"point_id": point_id, "shown_at": utc_now_iso(clock),
+                            "objects": [obj["id"] for obj in objects if obj["point_id"] == point_id]})
+    kept["hidden_points"] = sorted(wanted)
+    kept["hidden_rows"] = history
+    kept["keys"] = _passage_keys(kept.get("objects") or ())
+    return {"hidden": len(newly_hidden), "shown": len(newly_shown)}
+
+
+def _take_object_ids(repository: Repository, take: Mapping[str, Any]) -> list[str]:
+    relation = repository.source_object_relation(str(take["id"]))
+    if relation is None:
+        return []
+    return [str(value) for value in (relation.get("source_object_id"), relation.get("related_object_id")) if value]
 
 
 def _write(vault: LoadedVault, repository: Repository, *, ask: Mapping[str, Any], stored: Mapping[str, Any],
@@ -480,14 +845,21 @@ def kept_state(kept: Mapping[str, Any] | None, *, kept_at: str | None) -> dict[s
     return {
         "kept_at": kept_at,
         "objects": [{"id": obj["id"], "key": obj["key"], "object_type": obj["object_type"],
-                     "source_title": obj.get("source_title")} for obj in kept.get("objects") or ()],
+                     "source_title": obj.get("source_title"),
+                     **({"point_id": obj["point_id"]} if obj.get("point_id") else {})}
+                    for obj in kept.get("objects") or ()],
         "relations": [{"id": rel["id"], "relation_type": rel["relation_type"], "fine": rel["fine"]}
                       for rel in kept.get("relations") or ()],
-        "takes": [{"id": take["id"], "keys": take["keys"], "learner_text": take["learner_text"]}
+        "takes": [{"id": take["id"], "keys": take["keys"], "learner_text": take["learner_text"],
+                   **({"point_id": take["point_id"]} if take.get("point_id") else {}),
+                   **({"about": take["about"]} if take.get("about") else {})}
                   for take in kept.get("takes") or ()],
         "not_kept": len(kept.get("not_kept") or ()),
         "status": "proposed",
         "label": "kept as proposals · nothing changes your map until you review them",
+        # Reader CA4: a keep by point names its layout, each claim's row and the rows hidden.
+        **({"layout": BY_POINT_LAYOUT, "hidden_points": list(kept.get("hidden_points") or ())}
+           if kept.get("layout") == BY_POINT_LAYOUT else {}),
     }
 
 
@@ -522,7 +894,8 @@ def _contributors(repository: Repository, kept: Mapping[str, Any], *, ask_id: st
 
 def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *, shown: Sequence[str] | None,
           takes: Sequence[Mapping[str, Any]], caller: str, clock: Clock | None,
-          question_event_id: str | None = None, acting_ask_id: str | None = None) -> dict[str, Any]:
+          question_event_id: str | None = None, acting_ask_id: str | None = None,
+          hidden_points: Sequence[str] | None = None) -> dict[str, Any]:
     # Every passage that contributed to the comparison, as the union across
     # its reuse (every ask and tutor question that has shown, kept or added a
     # take to it, the one acting now included) is readable now, before
@@ -537,6 +910,15 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
         # Kept already (a second press, or a take added after keeping): the
         # proposals stay as they are; only new takes are written.
         kept = dict(ask["kept"])
+        rows = {"hidden": 0, "shown": 0}
+        if hidden_points is not None:
+            # Reader CA4: hiding a row after keeping supersedes its proposals;
+            # showing it again proposes it again (before any take on it).
+            if kept.get("layout") != BY_POINT_LAYOUT:
+                if list(hidden_points):
+                    raise LibraryAskError("validation_error", "This comparison has no rows to hide.")
+            else:
+                rows = _set_hidden(vault, repository, ask, kept, hidden_points, clock=clock)
         added = _add_takes(repository, kept, takes, clock=clock) if takes else []
         if added:
             # Whoever added it (another ask, the tutor's question) is recorded
@@ -544,20 +926,42 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
             kept["contributors"] = _contributors(repository, kept, ask_id=str(ask["id"]),
                                                  acting_ask_id=acting_ask_id,
                                                  question_event_id=question_event_id)
+        if added or rows["hidden"] or rows["shown"]:
             _save(repository, ask["id"], kept, kept_at=ask["kept_at"])
         return {"ask_id": ask["id"], "kept": {**(kept_state(kept, kept_at=ask["kept_at"]) or {}), "ask_id": ask["id"]},
                 "added_takes": len(added), "already_kept": True}
     stored = _stored(repository, ask.get("comparison_id"))
     sources = _sources(stored, shown)
-    plan = _plan(vault, repository, stored, sources)
-    if len(plan["passages"]) < 1:
-        raise LibraryAskError("validation_error", "Nothing in this comparison could be kept: no checked line is left.")
-    takes = _check_takes(takes, [_key_str(claim["key"]) for claim in plan["passages"].values()])
-    kept = _write(vault, repository, ask=ask, stored=stored, plan=plan, caller=caller, clock=clock,
-                  learning_object_ids=_question_learning_objects(repository, ask))
+    if by_point_enabled(vault) and is_by_point(stored):
+        # Reader CA4: one claim per cell of every row not hidden.
+        hidden = {str(point_id) for point_id in hidden_points or ()}
+        if hidden - {str(point["id"]) for point in _points(stored)}:
+            raise LibraryAskError("validation_error", "That row isn't in this comparison.")
+        plan = _plan_by_point(vault, repository, stored, sources, hidden=hidden)
+        if not plan["cells"]:
+            raise LibraryAskError("validation_error", "Nothing in this comparison could be kept: no checked line is "
+                                  "left in a row you kept shown.")
+        _check_point_takes(takes, [{"id": cell, "cell": cell, "point_id": claim["point_id"],
+                                    "key": _key_str(claim["key"]), "source_id": claim["entry"].get("source_id")}
+                                   for cell, claim in plan["cells"].items()])
+        kept = _write_by_point(vault, repository, ask=ask, stored=stored, plan=plan, caller=caller, clock=clock,
+                               hidden=sorted(hidden), learning_object_ids=_question_learning_objects(repository, ask))
+    else:
+        if hidden_points:
+            raise LibraryAskError("validation_error", "This comparison has no rows to hide.")
+        plan = _plan(vault, repository, stored, sources)
+        if len(plan["passages"]) < 1:
+            raise LibraryAskError("validation_error",
+                                  "Nothing in this comparison could be kept: no checked line is left.")
+        takes = _check_takes(takes, [_key_str(claim["key"]) for claim in plan["passages"].values()])
+        kept = _write(vault, repository, ask=ask, stored=stored, plan=plan, caller=caller, clock=clock,
+                      learning_object_ids=_question_learning_objects(repository, ask))
     if (ask.get("kept") or {}).get("removed"):
         # Kept again after a remove: the earlier keep's history stays on the row.
         kept["removed"] = list(ask["kept"]["removed"])
+    if (ask.get("kept") or {}).get("hidden_rows"):
+        # CA4: so do the earlier keep's hidden rows (their relation successors).
+        kept["hidden_rows"] = list(ask["kept"]["hidden_rows"])
     kept["contributors"] = _contributors(repository, ask.get("kept") or {}, ask_id=str(ask["id"]),
                                          acting_ask_id=acting_ask_id, question_event_id=question_event_id)
     if takes:
@@ -645,7 +1049,7 @@ def live_keep_of(repository: Repository, comparison_id: str | None, *,
 
 def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,
          takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None,
-         guard: RowGuard | None = None) -> dict[str, Any]:
+         guard: RowGuard | None = None, hidden_points: Sequence[str] | None = None) -> dict[str, Any]:
     """Keep a library ask's comparison (the learner pressed *keep comparison*),
     or add a take to it once kept.
 
@@ -658,7 +1062,11 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
 
     ``guard`` is asked about the row that will be written, inside the
     transaction and before anything is written: an existing keep is checked
-    by its own persisted caller (a tutor keep by the tutor's rules)."""
+    by its own persisted caller (a tutor keep by the tutor's rules).
+
+    ``hidden_points`` (Reader CA4, a keep by point): the rows the learner
+    hid. Before Keep they are left out; after it, a row newly hidden has its
+    proposals superseded and a row shown again is proposed again."""
 
     with repository.atomic():
         row = _row(repository, ask_id)
@@ -694,7 +1102,7 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
         if guard is not None:
             guard(row)
         return _keep(vault, repository, row, shown=None, takes=takes, caller=str(row.get("caller") or "learner"),
-                     clock=clock, acting_ask_id=ask_id)
+                     clock=clock, acting_ask_id=ask_id, hidden_points=hidden_points)
 
 
 def compare_kept_state(vault: LoadedVault, repository: Repository, ask_id: str,
@@ -778,6 +1186,8 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
 #: What a removal's history keeps of the keep it removed (for the card's ``as_of``).
 _SNAPSHOT_FIELDS = ("comparison_id", "caller", "kept_at", "objects", "relations", "takes", "keys",
                     "learning_object_ids", "contributors")
+#: Reader CA4: what it keeps of a keep by point too (absent from a v1 keep's snapshot).
+_POINT_SNAPSHOT_FIELDS = ("layout", "points", "hidden_points")
 
 
 def remove(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,
@@ -807,7 +1217,9 @@ def remove(vault: LoadedVault, repository: Repository, ask_id: str, *, compariso
         history = list(kept.get("removed") or [])
         history.append({"removed_at": utc_now_iso(clock), "kept_at": row["kept_at"], "objects": superseded,
                         "relation_successors": successors,
-                        "kept": {field: kept.get(field) for field in _SNAPSHOT_FIELDS} | {"kept_at": row["kept_at"]}})
+                        "kept": {field: kept.get(field) for field in _SNAPSHOT_FIELDS}
+                        | {field: kept.get(field) for field in _POINT_SNAPSHOT_FIELDS
+                           if kept.get("layout") == BY_POINT_LAYOUT} | {"kept_at": row["kept_at"]}})
         _save(repository, ask_id, {**kept, "removed": history}, kept_at=None)
         _event(repository, "comparison_removed", {"extraction_id": row.get("extraction_id"),
                                                   "claim_count": len(superseded), "relations": len(successors)},
@@ -824,11 +1236,15 @@ def _with_keeps(repository: Repository) -> list[dict[str, Any]]:
 
 def relation_lineage(repository: Repository) -> dict[str, str]:
     """Each superseded successor relation id -> the relation id it supersedes
-    (RW4d's removals are the only writer of relation successors)."""
+    (RW4d's removals and CA4's hidden rows are the only writers of relation
+    successors)."""
 
     lineage: dict[str, str] = {}
     for row in _with_keeps(repository):
-        for entry in (row.get("kept") or {}).get("removed") or ():
+        kept = row.get("kept") or {}
+        # Reader CA4: a row hidden after keeping supersedes its relations too.
+        entries = [*(kept.get("removed") or ()), *(kept.get("hidden_rows") or ())]
+        for entry in entries:
             for successor in entry.get("relation_successors") or ():
                 if isinstance(successor, Mapping) and successor.get("relation_id") and successor.get("supersedes"):
                     lineage[str(successor["relation_id"])] = str(successor["supersedes"])
@@ -916,9 +1332,81 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
     # Withheld whole while any passage that contributed to it is held out now.
     _refuse_comparison(vault, repository, kept.get("comparison_id"), ask_id=str(row["id"]), keys=keys)
     stored = _stored(repository, kept.get("comparison_id"))
+    if kept.get("layout") == BY_POINT_LAYOUT and is_by_point(stored) and by_point_enabled(vault):
+        table = _reopen_by_point(stored, kept, open_source_id=open_source_id)
+    else:
+        table = _reopen_by_book(stored, kept, open_source_id=open_source_id)
     shown = set(kept.get("keys") or ())
-    # Only what was kept: its claims with their kept lines, its kept relations.
-    quotes = {obj["key"]: set(obj.get("quotes") or ()) for obj in kept.get("objects") or ()}
+    perspectives = list(stored.get("requested_perspectives") or [])
+    if perspectives:
+        table["requested_perspectives"] = perspectives
+        table["missing_perspectives"] = list((stored.get("comparison") or {}).get("missing_perspectives") or [])
+    _event(repository, "comparison_reopened", {"extraction_id": row.get("extraction_id"), "claim_count": len(shown)},
+           subject_id=row.get("extraction_id"), clock=clock)
+    return {"ask_id": ask_id, **table, "kept": {**(kept_state(kept, kept_at=row["kept_at"]) or {}), "ask_id": ask_id},
+            "query": row.get("query"), "kept_relations": [
+                {"fine": rel["fine"], "relation_type": rel["relation_type"], "statement": rel.get("statement")}
+                for rel in kept.get("relations") or ()]}
+
+
+def _reopen_by_point(stored: Mapping[str, Any], kept: Mapping[str, Any], *,
+                     open_source_id: str | None) -> dict[str, Any]:
+    """Reader CA4: a keep by point reopened by point. A kept row shows only its
+    kept cells (one per claim) and kept relations; a hidden row stays hidden,
+    with its stored (verified) cells, so *show* can propose it again."""
+
+    hidden = set(kept.get("hidden_points") or ())
+    cells_kept = {str(obj.get("cell")) for obj in kept.get("objects") or ()}
+    wanted = Counter((rel.get("point_id"), *_relation_signature(rel, rel.get("fine")))
+                     for rel in kept.get("relations") or ())
+    entries = {str(entry.get("ref")): entry for entry in _sources(stored)}
+    points, used = [], set()
+    for point in _points(stored):
+        point_id = str(point["id"])
+        cells = []
+        for cell in point.get("cells") or ():
+            entry = entries.get(str(cell.get("ref")))
+            if entry is None:
+                continue
+            quoted = cell.get("status") == "quoted" and (
+                point_id in hidden or cell_key(_key_str(_key(entry)), point_id) in cells_kept)
+            cells.append(dict(cell) if quoted else {"ref": cell.get("ref"), "status": "not_addressed"})
+            if quoted:
+                used.add(str(cell.get("ref")))
+        relations = []
+        for rel in point.get("relations") or ():
+            signature = (point_id, *_relation_signature(rel, rel.get("relation")))
+            if point_id in hidden:
+                relations.append(rel)
+            elif wanted[signature] > 0:
+                wanted[signature] -= 1
+                relations.append(rel)
+        points.append({**point, "cells": cells, "relations": relations})
+    sources = []
+    for ref, entry in entries.items():
+        if ref not in used:
+            continue
+        lines = [line for line in entry.get("contributions") or ()
+                 if line.get("point_id") in hidden or cell_key(_key_str(_key(entry)), str(line.get("point_id"))) in cells_kept]
+        sources.append({**entry, "contributions": lines})
+    payload = {"status": "ok", "comparison_id": stored["id"], "sources": sources,
+               "relations": [{**rel, "point_id": point["id"]} for point in points for rel in point["relations"]],
+               "points": points, "contract": COMPARE_PROMPT_VERSION_V2, "manifest": {}, "also_discussed_in": [],
+               "unverified_sources": [], "dropped_pins": [], "dropped_lines": []}
+    return compare_table(payload, first_source_id=open_source_id, by_point=True)
+
+
+def _reopen_by_book(stored: Mapping[str, Any], kept: Mapping[str, Any], *,
+                    open_source_id: str | None) -> dict[str, Any]:
+    """A keep reopened by book (RW4d's table): its claims with their kept
+    lines and its kept relations."""
+
+    shown = set(kept.get("keys") or ())
+    # Only what was kept: its claims with their kept lines, its kept relations
+    # (a keep by point holds several claims per passage: their quotes together).
+    quotes: dict[str, set[str]] = {}
+    for obj in kept.get("objects") or ():
+        quotes.setdefault(obj["key"], set()).update(obj.get("quotes") or ())
     sources = []
     for entry in _sources(stored, sorted(shown)):
         lines = [line for line in entry.get("contributions") or ()
@@ -937,17 +1425,7 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
     payload = {"status": "ok", "comparison_id": stored["id"], "sources": sources, "relations": relations,
                "manifest": {}, "also_discussed_in": [], "unverified_sources": [], "dropped_pins": [],
                "dropped_lines": []}
-    table = compare_table(payload, first_source_id=open_source_id)
-    perspectives = list(stored.get("requested_perspectives") or [])
-    if perspectives:
-        table["requested_perspectives"] = perspectives
-        table["missing_perspectives"] = list((stored.get("comparison") or {}).get("missing_perspectives") or [])
-    _event(repository, "comparison_reopened", {"extraction_id": row.get("extraction_id"), "claim_count": len(shown)},
-           subject_id=row.get("extraction_id"), clock=clock)
-    return {"ask_id": ask_id, **table, "kept": {**(kept_state(kept, kept_at=row["kept_at"]) or {}), "ask_id": ask_id},
-            "query": row.get("query"), "kept_relations": [
-                {"fine": rel["fine"], "relation_type": rel["relation_type"], "statement": rel.get("statement")}
-                for rel in kept.get("relations") or ()]}
+    return compare_table(payload, first_source_id=open_source_id)
 
 
 def compared_on(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> list[dict[str, Any]]:
@@ -1064,7 +1542,11 @@ def kept_comparisons_for_card(vault: LoadedVault, repository: Repository, *, lea
 
 __all__ = [
     "EVENTS",
-    "MAX_PERSPECTIVES",
+    "BY_POINT_LAYOUT",
+    "by_point_enabled",
+    "cell_key",
+    "is_by_point",
+    "max_perspectives",
     "RELATION_MAP",
     "RowGuard",
     "TAKE_RELATION",

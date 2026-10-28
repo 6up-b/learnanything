@@ -1270,6 +1270,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for comparing from anywhere (one comparison request for every door, an anchor without "
         "pins, named books that only narrow the scope) / the ask box's reading deadline / the route's daily "
         "Decider call cap; display, latency and spend bounds, no measurement, scheduling or serving authority."),
+    # Reader CA4: the table by point. The kill switch (a boolean, classified so
+    # every new key has a rule) and the most views a comparison asks for and
+    # keeps: a stored-size bound labelled a `keep` guardrail (§12.2), never a
+    # learned constant (the views only pick which display rows exist).
+    _ConfigRule(_exact(
+        "reader_compare.by_point",
+        "reader_compare.max_perspectives",
+    ), "structural", "display",
+        "kill switch for the comparison table by point (source_compare.v2, the grid, chips, the learner's "
+        "column, hide row, narrow cards, by book) / keep: the most requested views a comparison asks for and "
+        "keeps (a stored-size bound); display and proposals only, no measurement, scheduling or serving "
+        "authority."),
     # Reader workbench RW4a: the library answer's organizer (one listwise call
     # per ask; notes are display, verdicts go to judgment_ledger, never
     # evidence): its metered spend a UTC day.

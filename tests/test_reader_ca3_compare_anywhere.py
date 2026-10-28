@@ -252,7 +252,10 @@ def test_the_four_doors_send_one_request_shape(library):
     assert len(seen) == 4
     for request in seen:
         assert "policy" not in request and request["pinned_span_keys"] == []
-        assert set(request) - {"query", "caller", "pinned_span_keys", "anchor_span_keys", "source_ids"} == set()
+        # Reader CA4 (reader_compare.by_point, on by default) asks every door's comparison by point.
+        assert set(request) - {"query", "caller", "pinned_span_keys", "anchor_span_keys", "source_ids",
+                               "by_point"} == set()
+        assert request["by_point"] is True
     assert seen[1]["source_ids"] == ["src_text", "src_book"] and seen[1]["query"] == "determinant sign"
     assert seen[3]["query"] == QUESTION  # the library answer's own question
     tutor_row = next(row for row in ask_rows(repository) if json.loads(row["manifest_json"]).get("door") == "tutor_offer")
@@ -299,7 +302,8 @@ def test_an_exam_anchor_is_refused_before_anything_is_read(library):
 
 def test_switched_off_the_rpc_is_todays_exactly(library):
     paths, _ctx, seen = library
-    set_config(paths, "reader_compare", scope_enabled=False)
+    # CA4 builds on CA3 (it shares the request): both off is today's request.
+    set_config(paths, "reader_compare", scope_enabled=False, by_point=False)
     ctx = context(paths.root)
     asked = call(ctx, "reader.library_ask", {"query": QUESTION, "extractionId": "ext_text", "spanIds": ["t3"]})
     # A door's request, an anchor and one pin are refused as today refuses them.

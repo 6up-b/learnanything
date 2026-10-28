@@ -83,6 +83,9 @@ def _fake_service(monkeypatch, llm=None):
 @pytest.fixture
 def library(tmp_path):
     paths, repository, spans = build_library_vault(tmp_path / "vault")
+    # RW4d's keep by source (Reader CA4's keep by point is pinned in
+    # tests/test_reader_ca4_table_by_point.py): the comparison is v1's.
+    set_config(paths, "reader_compare", by_point=False)
     ctx = context(paths.root)
     asked = call(ctx, "reader.library_ask", {"query": QUESTION, "extractionId": "ext_text", "spanIds": ["t3"],
                                              "learningObjectIds": ["lo_matrices"]})
