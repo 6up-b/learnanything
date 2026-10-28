@@ -36,6 +36,7 @@ from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.goals import _nearest_active_goal
+from learnloop_sidecar.handlers.reader_followups import prepare_followups
 from learnloop_sidecar.handlers.serializers import (
     _due_status,
     latest_scheduler_explanation_dto,
@@ -118,6 +119,10 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
     # commitment's own disposition; serving already reads it so). A no-op
     # without commitments or with intent.enabled off.
     settle_answered_checks(vault, repository)
+    # Reader RW6b: re-value the pending cold follow-ups before the day's plan
+    # (no model call) and plan any ended reader session in the background.
+    # A no-op with followups.enabled off.
+    prepare_followups(ctx, vault, repository)
     _wait_for_session_diagnoses(ctx, vault, repository, session_id)
 
 

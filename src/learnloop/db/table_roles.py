@@ -449,6 +449,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_path_depths", TableRole.WORKFLOW),
     ("reader_path_sections", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
+    # Reader workbench RW6b (migration 227; spec §9.4): one row per reader
+    # session follow-ups were planned for: the typed summary, the commitments
+    # created and the valuation receipt (a paid relevance step behind it, so
+    # never re-run on rebuild; replay never re-values). Never evidence.
+    ("reader_session_digests", TableRole.WORKFLOW),
     # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
     ("recurrence_escalations", TableRole.RECEIPT),
     # The guard's registered planted cases (an M1 run's); required inputs of
