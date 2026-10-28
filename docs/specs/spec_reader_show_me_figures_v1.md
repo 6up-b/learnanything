@@ -79,7 +79,7 @@ One service, every host: the Reader (selection, intent box, Ask), the Ask panel 
   - learned prebuilding ahead of need, quiet, on the plan, on mains power, and reused by input hash when the learner asks.
 
 **Non-goals**
-- N-a. "Matches the book's equation (checked)". That claim stays RW5c's, designed and reviewed before code (`spec_reader_workbench_v1.md` §8.3 amendment). Nothing in RW5d says a figure matches the book.
+- N-a. "Matches the book's equation (checked)". That claim stays RW5c's, designed and reviewed before code (`spec_reader_workbench_v1.md` §8.3 amendment). Nothing in RW5d says a figure matches the book. *(RW5c's design, pending owner review, is `spec_reader_rw5c_checked_labels_v1.md`. Only grammar-tier figures are checked there, and RW5d's tiers keep* not checked against the book *until its deferred P3.)*
 - N-b. Generated HTML, CSS or DOM **in the app's page**. A sketch never touches the page; it returns data. *(Rev 2 amendment.)* A `js_animation` does write HTML, CSS and DOM, but only inside its own opaque-origin frame. It has no reach into the app's document, its IPC or the network (§9b.2).
 - N-c. Figures as certification, or any numeric update of a posterior from exploration (W1 tier 2; the numeric weak-observation row in §17 of the parent stays deferred).
 - N-d. Learner-adaptive figure content. The figure author receives no learner state (§10.4 explains, and the teacher is the route for state). *(Rev 2.)* A gap prebuild's goal is written from one open gap's statement (§10b.2, Q23). That is like a teacher's goal: state reaches the author only as a goal sentence, never as history or scores.
