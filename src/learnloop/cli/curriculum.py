@@ -77,8 +77,8 @@ def curriculum_report(
     reports sections read, path completion, time on the page or in-session answers as
     success."""
 
-    from learnloop.db.repositories import Repository
     from learnloop.source_retrieval.deliverable_path import report
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.source_retrieval.section_coverage import CoverageError, enabled
 
     try:
@@ -87,7 +87,7 @@ def curriculum_report(
         loaded = load_vault(vault)
         if not enabled(loaded):
             raise ValueError("the deliverable curriculum is off (curriculum.enabled = false)")
-        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         result = report(loaded, repository)
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error, CoverageError) as exc:

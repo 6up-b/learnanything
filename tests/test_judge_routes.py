@@ -166,7 +166,12 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "tier1_decider", "learner_gap_decider", "reader_intent",
                            "library_organizer", "approach_map", "hint_chooser", "hint_writer",
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
-                           "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author"}
+                           "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
+                           "deliverable_scope_resolver", "deliverable_path_judge"}
+    # Curriculum C0b: the resolver reads the learner's scope words; the path judge their reading context.
+    assert "your words in order" in judges["deliverable_scope_resolver"]["disclosure"]
+    assert "never material held out for an exam" in judges["deliverable_scope_resolver"]["disclosure"]
+    assert "No passage text" in judges["deliverable_path_judge"]["disclosure"]
     # Reader RW7a: the path judge sends statuses and titles, never passage text or the learner's words.
     assert "No passage text, nothing you wrote" in judges["reading_path_judge"]["disclosure"]
     # Reader RW5a: the figure author receives a learner's "not right?" note.
