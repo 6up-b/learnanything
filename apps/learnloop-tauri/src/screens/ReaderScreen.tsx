@@ -1380,6 +1380,11 @@ export function ReaderScreen({
   const sbsPanes = sbs.panes && !comparing;
   const sbsPanesRef = useRef(false);
   sbsPanesRef.current = sbsPanes;
+  // What the learner sees of side by side now (a comparison hides it): Esc,
+  // F6 and Ctrl+Shift+L act only on what is shown, so Esc in a comparison
+  // closes the comparison and side by side comes back.
+  const sbsShownRef = useRef(false);
+  sbsShownRef.current = sbsPanes || (sbs.sheet && !comparing);
   const sbsRef = useRef(sbs);
   sbsRef.current = sbs;
   // Esc never closes the second pane while it is clearing something of the main pane's (a selection, a menu).
@@ -1427,21 +1432,22 @@ export function ReaderScreen({
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
       const ctl = sbsRef.current;
       const open = ctl.panes || ctl.sheet;
+      const shown = sbsShownRef.current;
       const mod = event.ctrlKey || event.metaKey;
       if (mod && !event.altKey && !event.shiftKey && event.key === "\\") {
         event.preventDefault();
         if (open) ctl.close();
         else void ctl.openFirst();
-      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes) {
+      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes && shown) {
         event.preventDefault();
         ctl.toggleFollow();
-      } else if (event.key === "F6" && !mod && !event.altKey && ctl.panes) {
+      } else if (event.key === "F6" && !mod && !event.altKey && ctl.panes && shown) {
         event.preventDefault();
         const side = sbsPaneRef.current;
         const inSide = target instanceof Element && Boolean(target.closest("[data-side-by-side-pane]"));
         if (inSide) bodyRef.current?.focus({ preventScroll: true });
         else side?.focus({ preventScroll: true });
-      } else if (event.key === "Escape" && !mod && !event.altKey && open && !event.defaultPrevented && !sbsEscBusyRef.current) {
+      } else if (event.key === "Escape" && !mod && !event.altKey && shown && !event.defaultPrevented && !sbsEscBusyRef.current) {
         // Esc closes the second pane when it is aimed at either pane (never a
         // field, a menu or the rail's own Esc).
         const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target));

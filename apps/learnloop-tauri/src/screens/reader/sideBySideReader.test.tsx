@@ -260,3 +260,55 @@ it("CA3's selection verb in the second pane anchors there and names the main pan
     question: "Axler says 5.A Invariant subspaces.",
   });
 });
+
+// -- Codex review fixes (F2, F7) ----------------------------------------------------------------------
+
+it("F2: after F6, PageDown in the main pane makes it lead", async () => {
+  fireEvent.click(await openList());
+  await waitFor(() => expect(pane()).toBeTruthy());
+  // The second pane leads (the learner scrolled it).
+  fireEvent.wheel(pane()!.querySelector("[data-sbs-body]")!);
+  await waitFor(() => expect(pane()!.querySelector("[data-sbs-lead]")).toBeTruthy());
+  // F6 to the main pane, then the keyboard scrolls it.
+  const sideBody = pane()!.querySelector<HTMLElement>("[data-sbs-body]")!;
+  sideBody.focus();
+  fireEvent.keyDown(sideBody, { key: "F6" });
+  const main = document.querySelector<HTMLElement>("[data-sbs-main]")!;
+  expect(document.activeElement).toBe(main);
+  fireEvent.keyDown(main, { key: "PageDown" });
+  await waitFor(() => expect(document.querySelector("[data-sbs-main-header] [data-sbs-lead]")).toBeTruthy());
+  expect(pane()!.querySelector("[data-sbs-lead]")).toBeNull();
+});
+
+async function compareFromSidePane() {
+  const text = await within(await waitFor(() => pane()!)).findByText("Axler says 5.A Invariant subspaces.");
+  const range = document.createRange();
+  range.selectNodeContents(text);
+  const selection = window.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+  fireEvent.mouseUp(pane()!.querySelector("[data-sbs-body]")!);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: "how do my other books treat this?" }));
+  selection.removeAllRanges();
+}
+
+it("F7: comparing a passage of the second pane keeps its reading position; Esc ends the comparison, not side by side", async () => {
+  state.contract = { ...ON, libraryAsk: { ...LIBRARY, compareScope: true } };
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_c", state: "done",
+    result: { askId: "la_c", status: "ok", comparisonId: null, rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
+      droppedLineCount: 0, header: "", verification: { status: null, stopped: null, verifiedSources: null }, exposureEventIds: [], library: [] } });
+  fireEvent.click(await openList());
+  await within(await waitFor(() => pane()!)).findByText("Axler says 5.A Invariant subspaces.");
+  // The learner reads midway through the second pane's section.
+  const body = pane()!.querySelector<HTMLElement>("[data-sbs-body]")!;
+  body.scrollTop = 340;
+  fireEvent.scroll(body);
+  await compareFromSidePane();
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
+  await waitFor(() => expect(pane()).toBeNull());
+  // Esc closes the comparison (the visible thing); side by side comes back where the learner was.
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  await waitFor(() => expect(pane()).toBeTruthy());
+  expect(pane()!.querySelector<HTMLElement>("[data-sbs-body]")!.scrollTop).toBe(340);
+  expect(within(pane()!).getByText("Axler says 5.A Invariant subspaces.")).toBeTruthy();
+});
