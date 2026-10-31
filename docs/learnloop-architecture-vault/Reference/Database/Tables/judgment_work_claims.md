@@ -3,8 +3,8 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "423464b380cd6dd56b564ec186dadd50a539c6f5"
-source_commit_timestamp: "2026-10-27T17:45:05-04:00"
+source_commit: "48333b2928dae8bd2e2eedfe896015cdb782ad76"
+source_commit_timestamp: "2026-10-27T20:22:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
@@ -93,7 +93,6 @@ None found by exact static reference scan.
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/db/stores/judgment_claims.py`
 - `src/learnloop/reader/reader_intent.py`
-- `src/learnloop/source_retrieval/compare_scope.py`
 
 ### Direct SQL writers
 

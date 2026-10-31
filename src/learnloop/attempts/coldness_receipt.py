@@ -1585,6 +1585,44 @@ def _hard_contamination(scan: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def repair_surface_hard_contamination(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    source_attempt: Mapping[str, Any] | None,
+    cold_item_id: str,
+    case_ref: str | None,
+    until: str,
+) -> dict[str, Any] | None:
+    """The hard contamination a repair cold retry on ``cold_item_id`` would
+    already carry if it were scheduled now: the final receipt's own scan
+    (:func:`_scan_exposures`, repair lane) from the primed ``source_attempt``
+    to ``until``, read through :func:`_hard_contamination` (the item's answer
+    revealed, or its surface group administered, since the primed attempt).
+
+    The cold-retry reschedule (``mvp-0.38``, Codex review F1) picks a fresh
+    retry that keeps the episode's primed source attempt, so a surface the
+    learner answered in between is already unusable when chosen; this lets it
+    skip such a surface instead of spending an answer on a measurement the
+    final receipt would hard-fail. None when clean, or when there is no
+    interval to scan."""
+
+    interval_start = str((source_attempt or {}).get("created_at") or "") or None
+    if source_attempt is None or not interval_start or not until or interval_start >= until:
+        return None
+    scan = _scan_exposures(
+        vault,
+        repository,
+        interval_start=interval_start,
+        interval_end=until,
+        source_attempt=source_attempt,
+        cold_item_id=cold_item_id,
+        case_ref=case_ref,
+        exclude_attempt_ids={str(source_attempt.get("id") or "")} - {""},
+    )
+    return _hard_contamination(scan)
+
+
 def _evaluate(
     vault: LoadedVault,
     repository: Repository,
@@ -2102,4 +2140,5 @@ __all__ = [
     "record_certification_administration_snapshot",
     "record_final_receipt",
     "record_schedule_refusal_receipt",
+    "repair_surface_hard_contamination",
 ]

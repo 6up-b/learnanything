@@ -28,6 +28,7 @@ import type {
   ReaderPromptContractDto,
   LibraryAskEntry,
   LibraryHitDto,
+  CorrespondentSectionDto,
   ProposedItemDto,
   ReaderRenderBlockDto,
   ReaderRenderViewDto,
@@ -111,6 +112,7 @@ import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReade
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
+import { FindSection } from "./reader/FindSection";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -2227,6 +2229,19 @@ export function ReaderScreen({
     }
     return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
+  // Reader CA5a: compare a section found in another book with the one in view,
+  // through the library compare path (an ask anchored on this section, its
+  // title the question, both passages pinned). The passage in view stands for
+  // this section when it is in it, else the section's first passage.
+  const compareFoundSection = (hit: CorrespondentSectionDto) => {
+    if (!render || offline || !currentGuideSection || !hit.jump.spanId) return;
+    const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId;
+    setLibraryCompose(null);
+    void libraryCtl.compareWith(
+      { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here] },
+      [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],
+    );
+  };
   // RW5b: an offered figure's press (see offeredFigure above). It resolves to
   // how the press ended: built, or why nothing was (fix round 2, F9).
   const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome> => {
@@ -3309,6 +3324,17 @@ export function ReaderScreen({
                 ) : null}
               </>
             ) : null}
+            findSection={contract?.correspondence?.findSection && !offline && !working ? (
+              <FindSection
+                extractionId={render.extractionId}
+                section={currentGuideSection
+                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+                  : null}
+                onGoThere={(target) => void openLibraryHit(target)}
+                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                onError={onError}
+              />
+            ) : undefined}
             footer={cueCtl.cues ? (
               <CueFooter
                 density={cueCtl.cues.density}

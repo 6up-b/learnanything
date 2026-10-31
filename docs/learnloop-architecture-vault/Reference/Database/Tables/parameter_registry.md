@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "423464b380cd6dd56b564ec186dadd50a539c6f5"
-source_commit_timestamp: "2026-10-27T17:45:05-04:00"
+source_commit: "48333b2928dae8bd2e2eedfe896015cdb782ad76"
+source_commit_timestamp: "2026-10-27T20:22:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/registry.py"
+  - "src/learnloop/cold_retry_reschedule_upgrade.py"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/repositories.py"
@@ -123,6 +124,7 @@ Indexes and uniqueness:
 - `tests/test_ad23_successor.py`
 - `tests/test_architecture.py`
 - `tests/test_attempt_content_state_successor.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figures_show_me_codex_review.py`
@@ -137,7 +139,6 @@ Indexes and uniqueness:
 - `tests/test_reader_rw2b_review.py`
 - `tests/test_reading_paths.py`
 - `tests/test_rebuild_equivalence_review.py`
-- `tests/test_registry_audit.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

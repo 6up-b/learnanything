@@ -64,6 +64,8 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # Reader CA3 (landed after this golden too): off, so its contract key
         # and "how do my other books treat this?" are absent; these pins are RW1c's.
         set_config(paths, "reader_compare", scope_enabled=False)
+        # Reader CA5a (after this golden too): off, so its contract key is absent.
+        set_config(paths, "reader.correspondence", enabled=False)
     ctx = context(paths.root)
     tutor = tool_tutor(answer_md="The determinant vanishes there, so t is a root.")
 

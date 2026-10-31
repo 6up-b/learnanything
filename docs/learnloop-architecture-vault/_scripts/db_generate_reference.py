@@ -903,6 +903,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
     "curriculum": "deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6): section coverage, one judged row per (section, learning object) from one listwise call per LO over its candidate sections across the library (provenance, one search per source, the learner's own links; ai.routing.section_coverage_judge, plan-first), and reader.correspondents, the other books' sections that treat the same LOs (no model call; unchecked search hits when none is judged); exam and held-out material never a candidate: the kill switch, the judge's daily metered cap, the owner-run cover batch's cap and the prompt bound (display and retrieval context only, no successor)",
+    "reader": "reader CA5a (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books, the Guide footer's pressed action over reader.correspondents' unchecked search hits by book (found by search, not checked; peek, go there, compare, not about this as a C0a correction), hidden when judged coverage exists: the presentation's kill switch, respecting curriculum.enabled (navigation and display only, no successor)",
     "replay": "rebuild equivalence (mvp-0.34): the kill switch of replay reading the ledger as each live write saw it (the recent-attempt windows and the canonical facet cache bounded at the replayed attempt), so a rebuild reproduces live state; live writes never read it",
     "teacher": "teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor)",
 }
@@ -1367,6 +1368,17 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "closed (one committed while the answer was graded, or a parked, superseded or deactivated item). "
         "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
         "Dormant below the successor; replay never reads it."
+    ),
+    "practice.reschedule_cold_after_assist": (
+        "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
+        "learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
+        "(with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the "
+        "attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules "
+        "one fresh cold retry for the same repair on another independent surface, due the lane's "
+        "COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself "
+        "assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the "
+        "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
+        "successor; replay never reads it (replay schedules nothing)."
     ),
     "replay.ledger_bounded": (
         "Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). "

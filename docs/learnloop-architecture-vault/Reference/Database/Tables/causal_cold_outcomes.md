@@ -3,8 +3,8 @@ title: "causal_cold_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "423464b380cd6dd56b564ec186dadd50a539c6f5"
-source_commit_timestamp: "2026-10-27T17:45:05-04:00"
+source_commit: "48333b2928dae8bd2e2eedfe896015cdb782ad76"
+source_commit_timestamp: "2026-10-27T20:22:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_outcomes"
@@ -132,6 +132,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_causal_cold_outcomes.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_guided_redo.py`
 - `tests/test_serve_eligibility.py`

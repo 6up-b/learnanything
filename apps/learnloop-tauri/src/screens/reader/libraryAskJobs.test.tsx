@@ -126,3 +126,114 @@ it("a job that starts after the Reader is gone is cancelled and never read (F13)
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 500)); });
   expect(api.readerLibraryJob).not.toHaveBeenCalled();
 });
+
+// Reader CA5a Codex review F5: a comparison started from "find this section in
+// my other books" stays a comparison of the same pins when its ask is retried
+// or the personalization chip runs it again, and never starts the notes.
+const PINS = ["ext_a:a1", "ext_b:b7"];
+const TABLE = { askId: "la_1", status: "ok", rows: [], exposureEventIds: [] };
+
+it("F5: retrying a failed compare reruns the comparison with the same pins and no notes", async () => {
+  api.readerLibraryAsk.mockReset();
+  api.readerLibraryAsk
+    .mockRejectedValueOnce({ code: "internal", message: "the sidecar hiccuped" })
+    .mockResolvedValue(job("ljob_ask", "ask", "done", ASK));
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  expect(hook.result.current.state?.ask.phase).toBe("failed");
+  expect(api.readerLibraryCompare).not.toHaveBeenCalled();
+  await act(async () => { hook.result.current.retry(); await later(null); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1);
+  expect(api.readerLibraryCompare).toHaveBeenCalledWith({ askId: "la_1", pinnedSpanKeys: PINS, openSourceId: null });
+  expect(hook.result.current.state?.pinned).toEqual(PINS);
+  expect(hook.result.current.state?.intent).toEqual({ kind: "compare", pins: PINS });
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+  expect(hook.result.current.state?.notes.cancelled).toBe(true);
+});
+
+it("F5: the personalization chip reruns the comparison, not an ordinary answer with notes", async () => {
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  await act(async () => { hook.result.current.setPersonalized(false); await later(null); });
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryAsk).toHaveBeenLastCalledWith(expect.objectContaining({ personalized: false }));
+  expect(api.readerLibraryCompare).toHaveBeenLastCalledWith({ askId: "la_1", pinnedSpanKeys: PINS, openSourceId: null });
+  expect(hook.result.current.state?.pinned).toEqual(PINS);
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+});
+
+it("F5: an ordinary ask's retry is still an ordinary ask (its notes follow)", async () => {
+  api.readerLibraryAsk.mockReset();
+  api.readerLibraryAsk
+    .mockRejectedValueOnce({ code: "internal", message: "hiccup" })
+    .mockResolvedValue(job("ljob_ask", "ask", "done", ASK));
+  const hook = mountHook();
+  await act(async () => { hook.result.current.ask(REQUEST); await later(null); });
+  await waitFor(() => expect(hook.result.current.state?.ask.phase).toBe("failed"));
+  await act(async () => { hook.result.current.retry(); await later(null); });
+  await waitFor(() => expect(api.readerLibraryAskNotes).toHaveBeenCalled());
+  expect(api.readerLibraryCompare).not.toHaveBeenCalled();
+  expect(hook.result.current.state?.intent).toEqual({ kind: "ask" });
+});
+
+// Reader CA5a Codex re-review F8: the comparison's intent follows the
+// learner's pins after it starts (a changed pin, an explicit compare), so the
+// personalization chip or a retry never brings back a pin the learner removed.
+const NEW_PINS = ["ext_a:a1", "ext_c:c3"];
+
+it("F8: after B is replaced by C and compared, the chip reruns A/C, not the obsolete A/B", async () => {
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  act(() => hook.result.current.togglePin("ext_b:b7"));
+  act(() => hook.result.current.togglePin("ext_c:c3"));
+  await act(async () => { await hook.result.current.compare(); });
+  expect(api.readerLibraryCompare).toHaveBeenLastCalledWith({ askId: "la_1", pinnedSpanKeys: NEW_PINS, openSourceId: null });
+  expect(hook.result.current.state?.intent).toEqual({ kind: "compare", pins: NEW_PINS });
+  await act(async () => { hook.result.current.setPersonalized(false); await later(null); });
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(3));
+  expect(api.readerLibraryCompare).toHaveBeenLastCalledWith({ askId: "la_1", pinnedSpanKeys: NEW_PINS, openSourceId: null });
+  expect(hook.result.current.state?.pinned).toEqual(NEW_PINS);
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+});
+
+it("F8: a pin changed without pressing compare is what a retry compares", async () => {
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  act(() => hook.result.current.togglePin("ext_b:b7"));
+  act(() => hook.result.current.togglePin("ext_c:c3"));
+  await act(async () => { hook.result.current.retry(); await later(null); });
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompare).toHaveBeenLastCalledWith({ askId: "la_1", pinnedSpanKeys: NEW_PINS, openSourceId: null });
+  expect(hook.result.current.state?.pinned).toEqual(NEW_PINS);
+});
+
+it("F8: with one pin left the chip asks again and keeps that pin, comparing nothing", async () => {
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  act(() => hook.result.current.togglePin("ext_b:b7"));
+  await act(async () => { hook.result.current.setPersonalized(false); await later(null); });
+  await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(hook.result.current.state?.ask.phase).toBe("landed"));
+  expect(hook.result.current.state?.personalized).toBe(false);
+  expect(hook.result.current.state?.pinned).toEqual(["ext_a:a1"]);
+  expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1);
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+});
+
+it("F8: an ordinary ask's pins never turn its chip into a comparison", async () => {
+  const hook = mountHook();
+  act(() => hook.result.current.ask(REQUEST));
+  await waitFor(() => expect(hook.result.current.state?.ask.phase).toBe("landed"));
+  act(() => hook.result.current.togglePin("ext_a:a1"));
+  expect(hook.result.current.state?.intent).toEqual({ kind: "ask" });
+});
