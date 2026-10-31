@@ -105,15 +105,14 @@ NOT_SHOWN_REASON = "Not shown on your own yet, so it stays on your path."
 #: The lines code writes (every other stored reason is the model's).
 CODE_REASONS: frozenset[str] = frozenset({DEFAULT_REASON, PREREQUISITE_REASON, NOT_SHOWN_REASON})
 
-# "Am I ready?" dates (§8.5, TE §13). Each a labelled prior or a guardrail, never a weight.
-#: The retrievability a check is due at: a seeded prior, basis ``published`` (FSRS's default
-#: desired retention, TE §13); RW6b's valuation replaces it when it lands (one producer).
-READY_TARGET_RETRIEVABILITY = 0.9
-READY_TARGET_PRIOR_BASIS = "published"
-#: Used only while the LO has no FSRS state: a seeded fallback, basis ``legacy`` (RW6b's
-#: retention fallback, TE §13).
-READY_FALLBACK_DAYS = 3
-READY_FALLBACK_PRIOR_BASIS = "legacy"
+# "Am I ready?" dates (§8.5, TE §13). No new number (Codex review F13): the retrievability a
+# check is due at, and the delay of a check on an LO with no FSRS state, are DL2's own
+# registered decision parameters, read from the vault's configuration where they are
+# governed (``intent.recall_targets.<preset>``, the recall target DL2 maintains the
+# check's depth preset at; ``capture.test_me_later_days``, the delay DL2 gives any Check
+# once without a date). RW6b's valuation replaces both when it lands (one producer).
+#: The depth preset a readiness check is created with (DL2's lightest; its recall target dates it).
+READY_DEPTH_PRESET = "keep_in_touch"
 #: ``keep``: nothing waits longer (RW6b's ``max_wait_days``): a promised check is never
 #: silently dropped. A guardrail, not a model parameter.
 READY_MAX_WAIT_DAYS = 14
@@ -210,12 +209,25 @@ class PathInputs:
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def _minutes(reading: Any, section: Any) -> int:
-    words = sum(len(str(reading.texts.get(span, "")).split()) for span in section.span_ids)
-    return max(1, math.ceil(words / WORDS_PER_MINUTE))
+def reading_pace(vault: Any) -> int:
+    """DL1's reading pace (``plan.read_words_per_minute``, spec_daily_loop_v1 §6.4): the
+    path's minutes, the minutes available and the report's estimates are all DL1's, so
+    they are comparable (Codex review F11, F14)."""
+
+    plan = getattr(getattr(vault, "config", None), "plan", None)
+    return max(1, int(getattr(plan, "read_words_per_minute", 0) or WORDS_PER_MINUTE))
+
+
+def section_words(reading: Any, section: Any) -> int:
+    return sum(len(str(reading.texts.get(span, "")).split()) for span in section.span_ids)
+
+
+def _minutes(reading: Any, section: Any, pace: int = WORDS_PER_MINUTE) -> int:
+    return max(1, math.ceil(section_words(reading, section) / max(1, pace)))
 
 
 def _treatments(library: SC.Library, entries: Mapping[tuple[str, str], SC.Standing]) -> tuple[Treatment, ...]:
+    pace = reading_pace(library.vault)
     out = []
     for entry in sorted(entries.values(), key=SC._order):
         if not entry.about or entry.treatment is None:
@@ -228,7 +240,7 @@ def _treatments(library: SC.Library, entries: Mapping[tuple[str, str], SC.Standi
             extraction_id=entry.extraction_id, section_id=entry.section_id,
             learning_object_id=entry.learning_object_id, treatment=entry.treatment, roles=tuple(entry.roles),
             notation=entry.notation, rank=entry.rank, source_id=section.source_id, source_title=section.source_title,
-            title=section.title, start_span_id=section.start_span_id, minutes=_minutes(reading, section),
+            title=section.title, start_span_id=section.start_span_id, minutes=_minutes(reading, section, pace),
             assumes=tuple(entry.assumes)))
     return tuple(out)
 
@@ -271,10 +283,93 @@ def prerequisite_closure(vault: Any, needed: Sequence[str], depth: str) -> dict[
     return out
 
 
+def _didnt_help(repository: Repository, library: SC.Library, refs: set[str]) -> list[dict[str, Any]]:
+    """RW1c's "that didn't help" (a ``remediate`` follow-on): the path's sections among the
+    passages the answer it followed had shown. Only sections still readable (the
+    library's own map), and only the path's (the digest moves only with them)."""
+
+    from learnloop.source_retrieval.reader_tutor import shown_span_keys
+
+    try:
+        answers = repository.reader_interaction_events(kind="reader_answer_submitted")
+    except Exception:  # noqa: BLE001 - no reader events: nothing said
+        return []
+    by_id = {str(event["id"]): event.get("payload") or {} for event in answers}
+    found: dict[str, dict[str, Any]] = {}
+    for payload in by_id.values():
+        tutor = payload.get("tutor") if isinstance(payload, Mapping) else None
+        if not isinstance(tutor, Mapping) or tutor.get("intent") != "remediate":
+            continue
+        parent = by_id.get(str(payload.get("parent_exchange_id") or ""))
+        if not parent:
+            continue
+        for key in shown_span_keys([parent]):
+            extraction_id, _sep, span_id = key.partition(":")
+            section_id = library.section_of(extraction_id, span_id)
+            ref = f"{extraction_id}/{section_id}"
+            if section_id is None or ref not in refs or ref in found:
+                continue
+            section = library.section(extraction_id, section_id)
+            if section is not None:
+                found[ref] = {"ref": ref, "book": section.source_title, "section": section.title}
+    return [found[ref] for ref in sorted(found)]
+
+
+def _kept(vault: Any, repository: Repository, library: SC.Library, lo_ids: Sequence[str]) -> list[dict[str, Any]]:
+    """RW4d's kept comparisons on these LOs (protection-filtered by their reader): the
+    books they compared, the relations kept and how many takes the learner wrote."""
+
+    from learnloop.source_retrieval.kept_comparisons import kept_comparisons_for_card
+
+    try:
+        entries = kept_comparisons_for_card(vault, repository, learning_object_ids=list(lo_ids))
+    except Exception:  # noqa: BLE001 - unreadable keeps: none in the context
+        return []
+    titles = {source_id: next((library.extractions[e].title for e in extraction_ids
+                               if getattr(library.extractions.get(e), "title", None)), source_id)
+              for source_id, extraction_ids in library.by_source().items()}
+    out = []
+    for entry in entries:
+        books = sorted({titles[str(obj.get("source_id"))] for obj in entry.get("sources") or ()
+                        if str(obj.get("source_id")) in titles})
+        if not books:
+            continue  # a book no longer in the readable library is not named
+        out.append({"topics": sorted({getattr(vault.learning_objects.get(lo), "title", lo)
+                                      for lo in entry.get("learning_object_ids") or ()}),
+                    "books": books, "relations": sorted({str(rel.get("fine") or rel.get("relation_type"))
+                                                          for rel in entry.get("relations") or ()}),
+                    "takes": int(entry.get("takes") or 0)})
+    return sorted(out, key=lambda entry: json.dumps(entry, sort_keys=True))
+
+
+def daily_minutes(vault: Any, repository: Repository) -> int:
+    """DL1's daily reading-and-practice budget (spec_daily_loop_v1 §6.6's remembered
+    minutes): the latest plan's, else the last session's, else ``plan.default_minutes``."""
+
+    from learnloop.db.stores import daily_plans as plans
+
+    try:
+        with repository.connection() as connection:
+            latest = plans.latest_plan(connection) if plans.daily_plan_tables_present(connection) else None
+        if latest is not None and int(latest.get("remembered_minutes") or 0) > 0:
+            return int(latest["remembered_minutes"])
+        last = repository.latest_session_minutes()
+        if last is not None and int(last[0]) > 0:
+            return int(last[0])
+    except Exception:  # noqa: BLE001 - no plan tables: the default budget
+        pass
+    plan = getattr(vault.config, "plan", None)
+    return int(getattr(plan, "default_minutes", 0) or 0)
+
+
 def learner_context(vault: Any, repository: Repository, library: SC.Library, goal_id: str,
-                    depth: str, due_at: str | None, *, clock: Clock | None = None) -> dict[str, Any]:
+                    depth: str, due_at: str | None, *, refs: Iterable[str] = (), lo_ids: Sequence[str] = (),
+                    clock: Clock | None = None) -> dict[str, Any]:
     """What the judge reads of the learner, as text (§7.2): the books they have been
-    reading, their earlier choices on this deliverable, and the days left.
+    reading, the path's passages they said didn't help (RW1c), their kept comparisons
+    and takes on these LOs (RW4d), their earlier choices on this deliverable, the days
+    left and the minutes available before the deadline (DL1's daily budget times the
+    days left; Codex review F11).
 
     The books are named, not counted: the context is part of the path's cache key, and a
     count would make every section read a new judgment (one paid call per section on the
@@ -311,7 +406,10 @@ def learner_context(vault: Any, repository: Repository, library: SC.Library, goa
         now = parse_utc(utc_now_iso(clock))
         if due is not None and now is not None:
             days_left = max(0, (due - now).days)
-    return {"reading": reading, "choices": choices, "days_left": days_left}
+    minutes_available = None if days_left is None else daily_minutes(vault, repository) * days_left
+    return {"reading": reading, "choices": choices, "days_left": days_left,
+            "minutes_available": minutes_available, "didnt_help": _didnt_help(repository, library, set(refs)),
+            "kept": _kept(vault, repository, library, lo_ids) if lo_ids else []}
 
 
 def path_inputs(vault: Any, repository: Repository, goal_id: str, *, library: SC.Library | None = None,
@@ -356,7 +454,9 @@ def path_inputs(vault: Any, repository: Repository, goal_id: str, *, library: SC
                           required_by=tuple(sorted(closure[lo_id]))))
     return PathInputs(goal_id=goal_id, goal_title=goal.title, sentence=goal.intent_sentence or goal.title,
                       due_at=goal.due_at, depth=depth, resolution_id=str(resolution["id"]), los=tuple(los),
-                      context=learner_context(vault, repository, library, goal_id, depth, goal.due_at, clock=clock),
+                      context=learner_context(vault, repository, library, goal_id, depth, goal.due_at,
+                                              refs=readable, lo_ids=[entry.learning_object_id for entry in los],
+                                              clock=clock),
                       readable=frozenset(readable))
 
 
@@ -387,8 +487,10 @@ _INSTRUCTIONS = (
     "Choose a learner's reading path across ALL their books for one deliverable (an exam, a quest or a project). "
     "For EACH topic that has sections, pick exactly one primary section, by its ref, from that topic's own "
     "sections: the treatment that gets THIS learner to do what the deliverable asks, in the time left, building on "
-    "what they have read ('your_reading') and on their earlier choices ('your_choices'). Prefer a shorter treatment "
-    "when days_left is small. Prefer a section that introduces or develops the topic. Give a one-line reason (at "
+    "what they have read ('your_reading'), on their earlier choices ('your_choices') and on the comparisons they "
+    "kept ('your_comparisons'); never pick as primary a section listed in 'didnt_help' (the learner said it didn't "
+    "help) unless it is the topic's only section. Prefer a shorter treatment when days_left or minutes_available "
+    "is small. Prefer a section that introduces or develops the topic. Give a one-line reason (at "
     "most 20 words) addressed to the learner ('proves it the way your exam asks, and you've been reading Axler'). "
     "List other good treatments as alternates with a one-line difference. Order the entries so that each "
     "prerequisite topic comes before the topics it is background for. Depths: get_the_idea wants definitions, "
@@ -398,28 +500,58 @@ _INSTRUCTIONS = (
 )
 
 
-def build_prompt(inputs: PathInputs) -> str:
+#: How a prompt over the bound is made smaller (Codex review F12), in order, each step
+#: keeping every topic and its primary-eligible sections (the only ones a primary may be):
+#: ``full``; ``plain`` (no roles or notation lines); ``eligible`` (only introducing or
+#: developing sections: the others could only be alternates, which code fills from
+#: coverage when the model names none). A prompt over the bound at the last step is not
+#: sent: ``too_large``.
+PROMPT_LEVELS: tuple[str, ...] = ("full", "plain", "eligible")
+
+
+def build_prompt(inputs: PathInputs, level: str = "full") -> str:
     titles = {entry.learning_object_id: entry.title for entry in inputs.los}
+
+    def section(t: Treatment) -> dict[str, Any]:
+        out: dict[str, Any] = {"ref": t.ref, "book": t.source_title, "title": t.title, "treatment": t.treatment,
+                               "minutes": t.minutes}
+        if level == "full":
+            out.update(roles=list(t.roles), notation=t.notation or "")
+        return out
+
     context = {
         "deliverable": {"sentence": inputs.sentence, "deadline": (inputs.due_at or "")[:10]},
         "depth": inputs.depth, "depth_means": RP.DEPTH_MEANS.get(inputs.depth, ""),
         "days_left": inputs.context.get("days_left"),
+        "minutes_available": inputs.context.get("minutes_available"),
         "topics": [
             {
                 "id": entry.learning_object_id, "title": entry.title, "kind": entry.kind, "phrase": entry.phrase,
                 "status": entry.status.status,
                 "background_for": [titles.get(lo, lo) for lo in entry.required_by],
-                "sections": [{"ref": t.ref, "book": t.source_title, "title": t.title, "treatment": t.treatment,
-                              "roles": list(t.roles), "notation": t.notation or "", "minutes": t.minutes}
-                             for t in entry.treatments],
+                "sections": [section(t) for t in entry.treatments if level != "eligible" or t.primary_eligible],
             }
             for entry in inputs.los if entry.treatments
         ],
         "your_reading": list(inputs.context.get("reading") or ()),
         "your_choices": list(inputs.context.get("choices") or ()),
+        "didnt_help": list(inputs.context.get("didnt_help") or ()),
+        "your_comparisons": list(inputs.context.get("kept") or ()),
     }
     return render_structured_prompt("Deliverable path", PROMPT_VERSION,
                                     {"instructions": _INSTRUCTIONS, "context": context})
+
+
+def bounded_prompt(vault: Any, inputs: PathInputs) -> str | None:
+    """The prompt within ``curriculum.max_prompt_tokens`` (Codex review F12), made smaller
+    by :data:`PROMPT_LEVELS` in order; None when even the smallest is over (not sent)."""
+
+    bound = int(vault.config.curriculum.max_prompt_tokens) * DL._CHARS_PER_TOKEN
+    for level in PROMPT_LEVELS:
+        prompt = build_prompt(inputs, level)
+        if len(prompt) <= bound:
+            return prompt
+    return None
 
 
 def _one_line(text: Any) -> str:
@@ -576,7 +708,8 @@ def exercise_view(vault: Any, repository: Repository, extraction_id: str, lead_s
 
 @dataclass
 class JudgeResult:
-    #: ready | fresh | unavailable | no_scope | no_sections (no needed LO has a section yet)
+    #: ready | fresh | unavailable | no_scope | no_sections (no needed LO has a section yet) |
+    #: stale (protection changed while it ran: nothing kept)
     status: str
     state_key: str | None = None
     reason: str | None = None
@@ -587,11 +720,22 @@ def _ledger_question(goal_id: str, depth: str) -> str:
     return f"{goal_id}:{depth}"
 
 
+TOO_LARGE_MESSAGE = ("This deliverable's path names more sections than LearnLoop reads in one call "
+                     "(curriculum.max_prompt_tokens). Narrow its scope, or raise the bound.")
+
+
 def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | None = None,
-          clock: Clock | None = None, inputs: PathInputs | None = None) -> JudgeResult:
+          clock: Clock | None = None, inputs: PathInputs | None = None,
+          live_vault: Callable[[], Any] | None = None) -> JudgeResult:
     """Choose the deliverable's path at its depth: no call when the current state was
     judged; otherwise one call, the honest-label rules, the exercises, then the ledger
-    verdicts and the rows in one transaction. Never raises for a model failure."""
+    verdicts and the rows in one transaction. Never raises for a model failure.
+
+    The prompt is held to ``curriculum.max_prompt_tokens`` (:func:`bounded_prompt`; over
+    it, nothing is sent: ``too_large``). Every section it names is checked against
+    protection as it is then (C0a's :class:`SC.CoverageGuard`, ``live_vault``) before each
+    attempt and physical request and again inside the write: a change keeps nothing
+    (``stale``, Codex review F1)."""
 
     inputs = inputs or path_inputs(vault, repository, goal_id, clock=clock)
     if inputs is None:
@@ -609,14 +753,20 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     problem = route.problem()
     if problem is not None:
         return JudgeResult("unavailable", state_key=key, reason=problem.reason, message=problem.message)
-    prompt = build_prompt(inputs)
+    prompt = bounded_prompt(vault, inputs)
+    if prompt is None:
+        return JudgeResult("unavailable", state_key=key, reason="too_large", message=TOO_LARGE_MESSAGE)
+    library = SC.Library(vault, repository)
+    sent = sorted({(t.extraction_id, t.section_id) for entry in inputs.los for t in entry.treatments})
+    guard = SC.CoverageGuard(library, sent, live_vault=live_vault)
     try:
         output = route.ask(prompt, DeliverablePathOutputV1, owner_id=f"{goal_id}:{inputs.depth}:{key[:16]}",
-                           prompt_version=PROMPT_VERSION)
+                           prompt_version=PROMPT_VERSION, guard=guard)
     except DL.RouteUnavailable as exc:
         return JudgeResult("unavailable", state_key=key, reason=exc.reason, message=exc.message)
+    except SC.ProtectionChanged:
+        return JudgeResult("stale", state_key=key, reason="protection_changed", message=SC.STALE_MESSAGE)
     lines = validate(output, inputs)
-    library = SC.Library(vault, repository)
     exercises = {line.learning_object_id: exercise_for(vault, repository, library, line.primary.extraction_id,
                                                        line.primary.section_id)
                  for line in lines if line.label in ("core", "prerequisite")}
@@ -628,6 +778,7 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
             connection = repository.connection()
             if store.judged(connection, goal_id, inputs.depth, key):
                 return JudgeResult("fresh", state_key=key)
+            guard.check("recording the path")  # the last check, inside the write transaction
             for line in lines:
                 ledger_id = append_judgment(
                     connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT,
@@ -649,6 +800,8 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
                         **base, "id": "dps_" + new_ulid(), "extraction_id": treatment.extraction_id,
                         "section_id": treatment.section_id, "label": "alternate", "reason": difference,
                         "exercise_span_id": None})
+    except SC.ProtectionChanged:
+        return JudgeResult("stale", state_key=key, reason="protection_changed", message=SC.STALE_MESSAGE)
     except Exception as exc:  # noqa: BLE001 - a lost write race reads the winner's rows
         import sqlite3
 
@@ -665,8 +818,8 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
 def check_due(vault: Any, repository: Repository, learning_object_id: str, *, due_at: str | None,
               clock: Clock | None = None) -> str:
     """The day a check on the LO is due (``YYYY-MM-DD``; §8.5, TE §13): the first day its
-    predicted retrievability falls to :data:`READY_TARGET_RETRIEVABILITY` (FSRS on the
-    LO's most recently answered item), else :data:`READY_FALLBACK_DAYS` from now; never
+    predicted retrievability falls to DL2's recall target for the check's preset (FSRS on
+    the LO's most recently answered item), else DL2's Check once delay from now; never
     before tomorrow, never more than :data:`READY_MAX_WAIT_DAYS` away, never after the
     deadline."""
 
@@ -677,13 +830,13 @@ def check_due(vault: Any, repository: Repository, learning_object_id: str, *, du
     item_ids = {item.id for item in vault.practice_items.values() if item.learning_object_id == learning_object_id}
     states = [state for item_id, state in repository.practice_item_states().items()
               if item_id in item_ids and getattr(state, "stability", None) and getattr(state, "last_attempt_at", None)]
-    when = now + timedelta(days=READY_FALLBACK_DAYS)
+    target, fallback_days = ready_parameters(vault)
+    when = now + timedelta(days=fallback_days)
     if states:
         latest = max(states, key=lambda state: str(state.last_attempt_at))
         from learnloop.params.fitted_params import resolve_fsrs_weights
 
-        days = interval_for_retention(float(latest.stability), READY_TARGET_RETRIEVABILITY,
-                                      resolve_fsrs_weights(repository))
+        days = interval_for_retention(float(latest.stability), target, resolve_fsrs_weights(repository))
         answered = parse_utc(str(latest.last_attempt_at)) or now
         when = answered + timedelta(days=float(days))
     when = max(when, now + timedelta(days=1))
@@ -692,6 +845,21 @@ def check_due(vault: Any, repository: Repository, learning_object_id: str, *, du
     if deadline is not None:
         when = min(when, max(deadline, now))
     return when.strftime("%Y-%m-%d")
+
+
+def ready_parameters(vault: Any) -> tuple[float, int]:
+    """``(retrievability target, fallback days)`` for a readiness check: DL2's
+    ``intent.recall_targets[READY_DEPTH_PRESET]`` and ``capture.test_me_later_days``,
+    as the vault's configuration has them now (Codex review F13)."""
+
+    from learnloop.config.schema import DEFAULT_RECALL_TARGETS
+
+    intent = getattr(vault.config, "intent", None)
+    targets = dict(getattr(intent, "recall_targets", None) or DEFAULT_RECALL_TARGETS)
+    target = float(targets.get(READY_DEPTH_PRESET, DEFAULT_RECALL_TARGETS[READY_DEPTH_PRESET]))
+    capture = getattr(vault.config, "capture", None)
+    days = int(getattr(capture, "test_me_later_days", 7))
+    return target, days
 
 
 def pending_checks(repository: Repository) -> dict[str, list[dict[str, Any]]]:
@@ -781,7 +949,7 @@ def create_check(vault: Any, repository: Repository, goal: Any, learning_object_
     title = vault.learning_objects[learning_object_id].title
     commitment = C.create_commitment(
         repository, action="test_me_later", intent_text=f"check on your own later: {title}", targets=[target],
-        depth_preset="keep_in_touch", client_idempotency_key=key, due_hint=due,
+        depth_preset=READY_DEPTH_PRESET, client_idempotency_key=key, due_hint=due,
         reason="a cold check you asked for", provenance={"via": via, "goal_id": goal.id,
                                                          "learning_object_id": learning_object_id},
         clock=clock)
@@ -817,16 +985,22 @@ def override(vault: Any, repository: Repository, goal_id: str, learning_object_i
     if lo is None:
         raise DL.DeliverableError("validation_error", "That topic is not on this deliverable's path.")
     rows, _fresh = _current_rows(repository, inputs)
-    primary = next((row for row in rows if row["learning_object_id"] == learning_object_id
-                    and row["label"] != "alternate"), None)
-    if primary is None:
+    line = next((entry for entry in effective_lines(vault, repository, inputs, rows)
+                 if entry.learning_object_id == learning_object_id), None)
+    if line is None:
         raise DL.DeliverableError("validation_error", "That topic has no section on the path yet.")
-    extraction_id, section_id = str(primary["extraction_id"]), str(primary["section_id"])
-    label = str(primary["label"])
+    primary = {"ordinal": line.ordinal, "reason": line.reason, "exercise_span_id": line.exercise_span_id}
+    extraction_id, section_id = line.primary.extraction_id, line.primary.section_id
+    label = line.label
     if choice == "use_instead":
         chosen = lo.treatment(str(section_ref or ""))
         if chosen is None:
             raise DL.DeliverableError("validation_error", "That section is not another treatment of this topic.")
+        if not chosen.primary_eligible:
+            # §7.1: the section read for an LO introduces or develops it (Codex review F10).
+            raise DL.DeliverableError("validation_error", (
+                f"That section only {SC.TREATMENT_WORDS.get(chosen.treatment, chosen.treatment)}: it doesn't "
+                "introduce or develop this topic, so it can't be the one you read for it. Open it as another way."))
         extraction_id, section_id = chosen.extraction_id, chosen.section_id
         label = honest_label(lo)[0]
     now = utc_now_iso(clock)
@@ -865,7 +1039,9 @@ def _section_view(treatment: Treatment, *, read: bool) -> dict[str, Any]:
     return {"extraction_id": treatment.extraction_id, "section_id": treatment.section_id, "title": treatment.title,
             "book": treatment.source_title, "source_id": treatment.source_id,
             "start_span_id": treatment.start_span_id, "minutes": treatment.minutes, "treatment": treatment.treatment,
-            "treatment_words": SC.TREATMENT_WORDS.get(treatment.treatment, treatment.treatment), "read": read}
+            "treatment_words": SC.TREATMENT_WORDS.get(treatment.treatment, treatment.treatment), "read": read,
+            # *use this one instead* only on a section that may be read for the LO (§7.1; F10).
+            "can_use_instead": treatment.primary_eligible}
 
 
 def _read(repository: Repository) -> Any:
@@ -925,20 +1101,27 @@ def effective_lines(vault: Any, repository: Repository, inputs: PathInputs,
         if judge_primary is None:
             continue
         primary = lo.treatment(f"{judge_primary['extraction_id']}/{judge_primary['section_id']}")
+        # §7.1's core rule again at display (Codex review F10): a primary whose coverage
+        # no longer introduces or develops the LO is replaced by code's choice.
+        reselected = primary is not None and not primary.primary_eligible
+        if reselected or primary is None:
+            primary = _fallback_primary(lo)
+            reselected = primary is not None
         choice_row = chosen.get(lo_id)
         choice = None if choice_row is None or choice_row["learner_override"] == "none" else str(
             choice_row["learner_override"])
         if choice == "use_instead":
             swapped = lo.treatment(f"{choice_row['extraction_id']}/{choice_row['section_id']}")
-            if swapped is not None:
+            if swapped is not None and swapped.primary_eligible:
                 primary = swapped
             else:
-                choice = None  # the chosen treatment is gone: the judge's choice stands
+                choice = None  # the chosen treatment is gone or no longer eligible: the judge's choice stands
         if primary is None:
-            continue  # its section is not readable now
+            continue  # no readable eligible section now: not on the path ("not in your books yet")
         label, _changed = honest_label(lo)
         stored = str(judge_primary["label"])
-        code_wrote = held_back or str(judge_primary["reason"]) in CODE_REASONS or choice == "use_instead"
+        code_wrote = (held_back or reselected or str(judge_primary["reason"]) in CODE_REASONS
+                      or choice == "use_instead")
         if label == "already_shown":
             reason, by = _one_line(f"You've shown this on your own: {lo.title}."), "code"
         elif label == "assumed":
@@ -970,15 +1153,61 @@ def effective_lines(vault: Any, repository: Repository, inputs: PathInputs,
             treatment = lo.treatment(f"{row['extraction_id']}/{row['section_id']}")
             if treatment is not None and treatment.ref != primary.ref:
                 alternates.append((treatment, "" if held_back else str(row["reason"] or "")))
-        if choice == "use_instead":
+        if choice == "use_instead" or reselected:
             judged = lo.treatment(f"{judge_primary['extraction_id']}/{judge_primary['section_id']}")
             if judged is not None and judged.ref != primary.ref and all(t.ref != judged.ref for t, _ in alternates):
                 alternates.insert(0, (judged, ""))
         out.append(EffectiveLine(
             learning_object_id=lo_id, kind=lo.kind, primary=primary, label=label, effective=effective, reason=reason,
             reason_by=by, override=choice, alternates=tuple(alternates), ordinal=int(judge_primary["ordinal"]),
-            exercise_span_id=(judge_primary.get("exercise_span_id") if choice != "use_instead" else None),
+            exercise_span_id=(judge_primary.get("exercise_span_id") if choice != "use_instead" and not reselected
+                              else None),
             check=check, judgment_row_id=str(judge_primary["id"]),
+            override_row_id=str(choice_row["id"]) if choice_row is not None else None))
+    if rows:
+        out.extend(_unjudged_lines(repository, inputs, chosen, placed={line.learning_object_id for line in out},
+                                   start=1 + max((line.ordinal for line in out), default=-1)))
+    return out
+
+
+def _unjudged_lines(repository: Repository, inputs: PathInputs, chosen: Mapping[str, Mapping[str, Any]], *,
+                    placed: set[str], start: int) -> list[EffectiveLine]:
+    """The scope's LOs that have an eligible section but no line in the judgment shown
+    (a topic added since: Codex review F9), each on code's first eligible section with
+    code's line, until the next judgment places it. Never a model line."""
+
+    out: list[EffectiveLine] = []
+    for entry in inputs.los:
+        if entry.learning_object_id in placed:
+            continue
+        primary = _fallback_primary(entry)
+        if primary is None:
+            continue
+        choice_row = chosen.get(entry.learning_object_id)
+        choice = None if choice_row is None or choice_row["learner_override"] == "none" else str(
+            choice_row["learner_override"])
+        if choice == "use_instead":
+            swapped = entry.treatment(f"{choice_row['extraction_id']}/{choice_row['section_id']}")
+            if swapped is not None and swapped.primary_eligible:
+                primary = swapped
+            else:
+                choice = None
+        label, _changed = honest_label(entry)
+        effective, check = label, None
+        if choice == "read_anyway":
+            effective = "core" if entry.kind == "needed" else "prerequisite"
+        elif choice == "skip":
+            effective = "skipped"
+        elif choice == "check_later":
+            state = commitment_state(repository, choice_row.get("commitment_id"))
+            check = {"commitment_id": choice_row.get("commitment_id"), "state": state}
+            effective = "check_pending" if state == "one_check_pending" else label
+        reason = PREREQUISITE_REASON if entry.kind == "prerequisite" else DEFAULT_REASON
+        alternates = tuple((t, "") for t in entry.treatments if t.primary_eligible and t.ref != primary.ref)
+        out.append(EffectiveLine(
+            learning_object_id=entry.learning_object_id, kind=entry.kind, primary=primary, label=label,
+            effective=effective, reason=reason, reason_by="code", override=choice, alternates=alternates,
+            ordinal=start + len(out), exercise_span_id=None, check=check, judgment_row_id="",
             override_row_id=str(choice_row["id"]) if choice_row is not None else None))
     return out
 
@@ -1005,9 +1234,12 @@ PATH_STATUSES: tuple[str, ...] = ("ask_depth", "no_scope", "no_sections", "pendi
 
 
 def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapping[str, Any] | None = None,
-              covering: bool = False, clock: Clock | None = None) -> dict[str, Any]:
+              covering: bool = False, coverage_failure: Mapping[str, Any] | None = None,
+              clock: Clock | None = None) -> dict[str, Any]:
     """What the deliverable's path shows. ``judging``: the background judgment's state
-    for the current key; ``covering``: coverage is being checked for its topics now."""
+    for the current key; ``covering``: coverage is being checked for its topics now;
+    ``coverage_failure``: that check failed (Codex review F6): a path that is not current
+    shows ``failed`` with its reason and *try again*, never a quiet "no sections"."""
 
     goal = DL.goal_of(vault, goal_id)
     depth = DL.depth_of(repository, goal_id)
@@ -1030,13 +1262,20 @@ def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapp
     uncovered = [{"learning_object_id": entry.learning_object_id, "title": entry.title, "phrase": entry.phrase}
                  for entry in inputs.los if entry.kind == "needed" and not any(t.primary_eligible
                                                                               for t in entry.treatments)]
+    failed_cover = None if covering or not coverage_failure else {
+        "state": "failed", "reason": coverage_failure.get("reason"), "message": coverage_failure.get("message")}
     if not inputs.choosable:
+        if failed_cover is not None:
+            return {**base, "status": "failed", "uncovered": uncovered, "reason": failed_cover["reason"],
+                    "message": failed_cover["message"]}
         return {**base, "status": "no_sections", "uncovered": uncovered}
     key = inputs.state_key()
     rows, fresh = _current_rows(repository, inputs)
     lines = effective_lines(vault, repository, inputs, rows)
     done = _read(repository)
     views = [_line_view(vault, repository, line, inputs, done) for line in lines]
+    if not fresh and (judging or {}).get("state") != "running" and failed_cover is not None:
+        judging = failed_cover
     status = "ready" if fresh else "judging" if (judging or {}).get("state") == "running" else (
         "failed" if (judging or {}).get("state") == "failed" else "stale" if rows else "pending")
     minutes = sum(view["section"]["minutes"] for view in views
@@ -1047,8 +1286,8 @@ def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapp
 
 
 def coverage_owed(vault: Any, repository: Repository, goal_id: str) -> list[str]:
-    """The deliverable's LOs (needed, and prerequisites not demonstrated or assumed) whose
-    coverage has never been judged: the scope change's background coverage judges them."""
+    """The deliverable's LOs (needed, and prerequisites not demonstrated or assumed) with no
+    coverage judgment of their current statement: the background coverage judges them."""
 
     try:
         inputs = path_inputs(vault, repository, goal_id)
@@ -1065,7 +1304,18 @@ def coverage_owed(vault: Any, repository: Repository, goal_id: str) -> list[str]
         if not coverage_store.table_present(connection):
             return ids
         states = coverage_store.judged_states(connection, ids)
-    return [lo_id for lo_id in ids if not states.get(lo_id)]
+    # Owed by the current statement (Codex review F5): a judgment of an older title or
+    # statement (``lo_hash``) is one ``SC.standing`` no longer reads, so it owes a new one.
+    return [lo_id for lo_id in ids if not any(
+        all(row.get("lo_hash") == coverage_key(vault, lo_id) for row in rows) for rows in states.get(lo_id, ()))]
+
+
+def coverage_key(vault: Any, learning_object_id: str) -> str | None:
+    """What C0a's judge read of the LO (its ``lo_hash``): the key an attempt is remembered
+    by, so a statement changed since is tried again (Codex review F5)."""
+
+    learning_object = vault.learning_objects.get(learning_object_id)
+    return SC.lo_hash(learning_object) if learning_object is not None else None
 
 
 # ---------------------------------------------------------------------------
@@ -1095,7 +1345,7 @@ def guide_goal(vault: Any, repository: Repository, extraction_id: str) -> Any | 
 
 def guide_slice(vault: Any, repository: Repository, extraction_id: str, *,
                 judging: Mapping[str, Any] | None = None, covering: bool = False,
-                clock: Clock | None = None) -> dict[str, Any]:
+                coverage_failure: Mapping[str, Any] | None = None, clock: Clock | None = None) -> dict[str, Any]:
     """What the Guide's path card shows for this reading when a deliverable's path names
     it: its lines here (core, prerequisite, alternate), its other-book lines ("on your
     path in Strang §6.1"), and this book's sections of no needed LO ("not needed for
@@ -1104,7 +1354,8 @@ def guide_slice(vault: Any, repository: Repository, extraction_id: str, *,
     goal = guide_goal(vault, repository, extraction_id)
     if goal is None:
         return {"extraction_id": extraction_id, "status": "none"}
-    view = path_view(vault, repository, goal.id, judging=judging, covering=covering, clock=clock)
+    view = path_view(vault, repository, goal.id, judging=judging, covering=covering,
+                     coverage_failure=coverage_failure, clock=clock)
     if view["status"] in ("no_scope",):
         return {"extraction_id": extraction_id, "status": "none"}
     here, elsewhere = [], []
@@ -1244,39 +1495,78 @@ def report(vault: Any, repository: Repository) -> dict[str, Any]:
             counts[str(row["learner_override"])] = counts.get(str(row["learner_override"]), 0) + 1
     choice.update(path_lines=len(lines), choices=dict(sorted(counts.items())))
     choice["swap_share"] = round(counts.get("use_instead", 0) / len(lines), 4) if lines else None
-    time_rows = []
-    for goal in DL.deliverable_goals(vault, repository):
-        try:
-            inputs = path_inputs(vault, repository, goal.id)
-        except SC.CoverageError:
-            continue
-        if inputs is None:
-            continue
-        current, _fresh = _current_rows(repository, inputs)
-        path_minutes = sum(line.primary.minutes for line in effective_lines(vault, repository, inputs, current)
-                           if line.effective in ("core", "prerequisite"))
-        books = {t.extraction_id for entry in inputs.los for t in entry.treatments}
-        book_minutes = _book_order_minutes(vault, repository, books)
-        time_rows.append({"goal_id": goal.id, "title": goal.title, "depth": inputs.depth,
-                          "path_minutes": path_minutes, "book_order_minutes": book_minutes,
-                          "label": "an estimate: words at 200 a minute, the path's sections against every section "
-                                   "of the books that treat its topics"})
-    return {"coverage": coverage, "choice": choice, "time": time_rows,
+    time_rows = [time_row(vault, repository, goal) for goal in DL.deliverable_goals(vault, repository)]
+    return {"coverage": coverage, "choice": choice, "time": [row for row in time_rows if row is not None],
             "never_success": ["sections read", "path completion", "time on the page", "in-session answers"]}
 
 
-def _book_order_minutes(vault: Any, repository: Repository, extraction_ids: Iterable[str]) -> int:
+TIME_LABEL = ("minutes_read is recorded (the Reader's active minutes in the path's books since the deliverable was "
+              "made; the Reader records time per book, not per section); every other number is DL1's estimate "
+              "(words left at plan.read_words_per_minute). book_order_minutes_left is DL1's estimate for reading each "
+              "path book in order up to its last path section: the path's sections plus the ones it left out")
+
+
+def time_row(vault: Any, repository: Repository, goal: Any) -> dict[str, Any] | None:
+    """§11's time row for one deliverable (Codex review F14): the minutes the learner read
+    (recorded) against DL1's estimate for book order. Each section is counted once (a
+    section primary for two LOs is one section to read); estimates are words left at
+    DL1's pace (``reader_section_progress``'s share of spans seen), never minutes read."""
+
     try:
         library = SC.Library(vault, repository)
+        inputs = path_inputs(vault, repository, goal.id, library=library)
     except SC.CoverageError:
-        return 0
-    total = 0
-    for extraction_id in sorted(extraction_ids):
+        return None
+    if inputs is None:
+        return None
+    current, _fresh = _current_rows(repository, inputs)
+    on_path = {(line.primary.extraction_id, line.primary.section_id)
+               for line in effective_lines(vault, repository, inputs, current)
+               if line.effective in ("core", "prerequisite")}
+    pace = reading_pace(vault)
+    progress: dict[str, dict[str, Mapping[str, Any]]] = {}
+
+    def left(extraction_id: str, section: Any, reading: Any) -> float:
+        if extraction_id not in progress:
+            try:
+                rows = repository.reader_section_progress_for(extraction_id)
+            except Exception:  # noqa: BLE001 - no progress: nothing seen
+                rows = []
+            progress[extraction_id] = {str(row["section_id"]): row for row in rows}
+        row = progress[extraction_id].get(section.section_id) or {}
+        count, seen = int(row.get("span_count") or 0), int(row.get("spans_seen") or 0)
+        share = 0.0 if row.get("completed_at") else (1.0 if count <= 0 else max(0.0, 1 - seen / count))
+        return section_words(reading, section) * share / pace
+
+    path_left = left_out = 0.0
+    for extraction_id in sorted({extraction_id for extraction_id, _section in on_path}):
         reading = library.reading(extraction_id)
         if reading is None:
             continue
-        total += sum(_minutes(reading, section) for section in reading.sections.values())
-    return total
+        ordered = sorted(reading.sections.values(), key=lambda section: section.ordinal)
+        last = max((section.ordinal for section in ordered if (extraction_id, section.section_id) in on_path),
+                   default=-1)
+        for section in ordered:
+            if section.ordinal > last:
+                break
+            minutes = left(extraction_id, section, reading)
+            if (extraction_id, section.section_id) in on_path:
+                path_left += minutes
+            else:
+                left_out += minutes
+    books = sorted({extraction_id for extraction_id, _section in on_path})
+    read_seconds = 0.0
+    try:
+        for event in repository.reader_interaction_events(kind="reader_view_closed", since=goal.created_at):
+            payload = event.get("payload") or {}
+            if str(payload.get("extraction_id") or "") in books:
+                read_seconds += float(payload.get("active_seconds") or 0)
+    except Exception:  # noqa: BLE001 - no reader events: nothing recorded
+        read_seconds = 0.0
+    return {"goal_id": goal.id, "title": goal.title, "depth": inputs.depth, "sections_on_path": len(on_path),
+            "minutes_read": round(read_seconds / 60, 1), "path_minutes_left": round(path_left, 1),
+            "left_out_minutes": round(left_out, 1), "book_order_minutes_left": round(path_left + left_out, 1),
+            "label": TIME_LABEL}
 
 
 __all__ = [
@@ -1292,13 +1582,13 @@ __all__ = [
     "PROMPT_VERSION",
     "PathInputs",
     "PathLo",
-    "READY_FALLBACK_DAYS",
+    "READY_DEPTH_PRESET",
     "READY_MAX_WAIT_DAYS",
-    "READY_TARGET_RETRIEVABILITY",
     "Treatment",
     "build_prompt",
     "check_due",
     "check_item",
+    "coverage_key",
     "coverage_owed",
     "effective_lines",
     "guide_goal",
@@ -1311,6 +1601,8 @@ __all__ = [
     "prerequisite_closure",
     "readiness",
     "ready_checks",
+    "ready_parameters",
     "report",
+    "time_row",
     "validate",
 ]

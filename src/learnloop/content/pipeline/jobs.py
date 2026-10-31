@@ -2336,20 +2336,22 @@ def queue_coverage_on_extract(ctx: JobContext, config: Any, extraction_id: str) 
     so the new reading's sections join their coverage (quiet: the plan only).
 
     Only while ``curriculum.enabled`` and ``curriculum.coverage_on_extract`` are on,
-    only when some LO is covered, and never while one is live (one job judges every
-    covered LO, coalesced per LO). Its failure never fails the import: coverage is
+    and only when some LO is covered. **Coalesced only with a job still queued** (Codex
+    review F7): a queued job reads the library when it starts, so it sees this
+    extraction; a running one read it already, so an extraction completed while it runs
+    queues one more pass (at most one queued and one running). One job judges every
+    covered LO, coalesced per LO. Its failure never fails the import: coverage is
     display and retrieval context, and the next extraction or a pressed check judges
     again. Returns the batch id, or None."""
 
     from learnloop.source_retrieval.section_coverage import ON_EXTRACT_JOB, covered_learning_objects, on_extract_reason
-    from learnloop.source_retrieval.source_vectors import LIVE_JOB_STATUSES
 
     if on_extract_reason(config) is not None:
         return None
     try:
         if not covered_learning_objects(ctx.repo):
             return None
-        if any(job.get("status") in LIVE_JOB_STATUSES for job in ctx.repo.ingest_jobs_by_types((ON_EXTRACT_JOB,))):
+        if any(job.get("status") == "queued" for job in ctx.repo.ingest_jobs_by_types((ON_EXTRACT_JOB,))):
             return None
         return ctx.enqueue_batch(ON_EXTRACT_JOB, [JobSpec(ON_EXTRACT_JOB, {"extraction_id": extraction_id})])
     except JobCancelled:

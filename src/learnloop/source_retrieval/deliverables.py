@@ -36,7 +36,8 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -44,7 +45,7 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.ai.execution import call_labels, content_key
+from learnloop.ai.execution import call_labels, content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
 from learnloop.ai.transport import render_structured_prompt
@@ -177,7 +178,13 @@ class ChatRoute:
             return RouteUnavailable("capped", capped_message(self.vault))
         return None
 
-    def ask(self, prompt: str, result_model: type[WireModel], *, owner_id: str, prompt_version: str) -> Any:
+    def ask(self, prompt: str, result_model: type[WireModel], *, owner_id: str, prompt_version: str,
+            guard: SC.CoverageGuard | None = None) -> Any:
+        """One call. ``guard`` (Codex review F1): protection read again, from the vault as
+        it is now, before each attempt and each physical request (a retry or a
+        provider's follow-up too); a change raises :class:`SC.ProtectionChanged`, which
+        no layer here retries or relabels."""
+
         problem = self.problem()
         if problem is not None:
             raise problem
@@ -190,9 +197,14 @@ class ChatRoute:
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=self.subscription)
         self.calls = PaidCalls(route=self.route, budget=budget,
                                price_per_million=self.vault.config.source_retrieval.llm_price_per_million,
-                               repository=self.repository, owner_kind=self.task, owner_id=owner_id)
+                               repository=self.repository, owner_kind=self.task, owner_id=owner_id,
+                               admit=None if guard is None else (lambda _estimate: guard.check("attempt")))
         try:
-            with spend_envelopes(self.envelope), call_labels(judge="llm", question_set_version=prompt_version):
+            with ExitStack() as stack:
+                if guard is not None:
+                    stack.enter_context(gate_model_requests(guard))
+                stack.enter_context(spend_envelopes(self.envelope))
+                stack.enter_context(call_labels(judge="llm", question_set_version=prompt_version))
                 return self.calls.call(self.client, purpose=self.task, prompt=prompt, result_model=result_model,
                                        output_tokens=self.route.output_tokens,
                                        metadata={"prompt_version": prompt_version})
@@ -245,6 +257,103 @@ def _write_goals(path: Path, data: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+# -- the publication journal (Codex review F8) ---------------------------------------------------
+#
+# A deliverable's canonical scope lives in goals.yaml and its receipt in SQLite; no
+# rename makes the two one atomic write. Every publication that touches both is
+# journalled under the vault mutation lock: the journal entry first (the whole intent),
+# then the SQLite commit (the receipt: the point of no return), then goals.yaml, then
+# the entry is removed. A process that stops between the steps leaves its entry, and
+# :func:`recover_publications` (every curriculum RPC and resolution runs it first)
+# finishes it forward when its receipt committed, or drops it when nothing did. A
+# learner's own edit of a goal is never overwritten: only an unfinished entry is.
+
+def _journal_dir(root: Path | str) -> Path:
+    return Path(root) / ".learnloop" / "curriculum-journal"
+
+
+def _journal_write(root: Path | str, entry: Mapping[str, Any]) -> Path:
+    directory = _journal_dir(root)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{entry['id']}.json"
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(entry), sort_keys=True))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
+    return path
+
+
+def _goal_entry_update(vault_root: Path | str, goal_id: str, *, scope: Mapping[str, Any] | None = None,
+                       append: Mapping[str, Any] | None = None, now: str) -> None:
+    """goals.yaml: one goal's facet scope replaced, or a new goal appended (validated)."""
+
+    from learnloop.vault.models import Goal
+    from learnloop.vault.yaml_io import read_yaml
+
+    # VaultPaths.goals_path (profile/goals.yaml) depends on the root alone.
+    path = Path(vault_root) / "profile" / "goals.yaml"
+    data = read_yaml(path) if path.exists() else {"schema_version": 2, "goals": []}
+    goals = data.setdefault("goals", [])
+    if append is not None:
+        if any(isinstance(goal, dict) and goal.get("id") == append["id"] for goal in goals):
+            return
+        Goal.model_validate(dict(append))
+        goals.append(dict(append))
+    else:
+        entry = next((goal for goal in goals if isinstance(goal, dict) and goal.get("id") == goal_id), None)
+        if entry is None:
+            raise DeliverableError("not_found", f"No goal {goal_id!r}.")
+        entry["facet_scope"] = dict(scope or {})
+        entry["updated_at"] = now
+        Goal.model_validate(entry)
+    data["schema_version"] = 2
+    _write_goals(path, data)
+
+
+def recover_publications(vault_root: Path | str, repository: Repository) -> bool:
+    """Finish or drop every unfinished publication (see the journal above).
+
+    True when goals.yaml changed (the caller reloads). Runs under the vault mutation
+    lock, so it never sees a live publication's entry, only a stopped one's."""
+
+    from learnloop.vault_lock import vault_mutation_lock
+
+    directory = _journal_dir(vault_root)
+    if not directory.is_dir() or not any(directory.glob("*.json")):
+        return False
+    changed = False
+    with vault_mutation_lock(Path(vault_root), purpose="curriculum_recover"):
+        for path in sorted(directory.glob("*.json")):
+            try:
+                entry = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                path.unlink(missing_ok=True)  # never written whole: nothing after it ran
+                continue
+            with repository.connection() as connection:
+                if entry.get("kind") == "create":
+                    committed = any(row["id"] == entry["input_id"] for row in store.inputs(connection, entry["goal_id"]))
+                    receipt = None
+                else:
+                    receipt = store.resolution(connection, str(entry.get("resolution_id")))
+                    committed = receipt is not None
+                    latest = store.latest_resolution(connection, str(entry.get("goal_id")))
+            if committed:
+                try:
+                    if entry.get("kind") == "create":
+                        _goal_entry_update(vault_root, entry["goal_id"], append=entry["goal"], now=entry["at"])
+                        changed = True
+                    elif latest is not None and receipt is not None and latest["id"] == receipt["id"]:
+                        _goal_entry_update(vault_root, entry["goal_id"], scope=receipt.get("facet_scope") or {},
+                                           now=entry["at"])
+                        changed = True
+                except DeliverableError:
+                    pass  # the goal is gone (the learner deleted it): nothing to finish
+            path.unlink(missing_ok=True)
+    return changed
+
+
 def _normalize_due(due_at: str) -> str:
     value = due_at.strip()
     if len(value) == 10:
@@ -278,10 +387,11 @@ def create_deliverable(vault: Any, repository: Repository, sentence: str, *, due
                        exam: bool = False, clock: Clock | None = None) -> dict[str, Any]:
     """A new learner goal from the learner's sentence, and the sentence as its first scope input.
 
+    Journalled (Codex review F8): the input row commits first, then the goal is
+    appended; a stop between the two is finished by :func:`recover_publications`.
     The caller reloads the vault (the goal lives in ``goals.yaml``) and then resolves."""
 
     from learnloop.vault.models import Goal
-    from learnloop.vault.yaml_io import read_yaml
     from learnloop.vault_lock import vault_mutation_lock
 
     words = " ".join(str(sentence or "").split())
@@ -300,30 +410,28 @@ def create_deliverable(vault: Any, repository: Repository, sentence: str, *, due
         "exam": {"enabled": bool(exam), "item_count": 20}, "created_at": now, "updated_at": now,
     }
     Goal.model_validate(entry)
-    path = _goals_path(vault)
-    with vault_mutation_lock(Path(vault.root), purpose="curriculum_deliverable"):
-        data = read_yaml(path) if path.exists() else {"schema_version": 2, "goals": []}
-        data.setdefault("goals", []).append(entry)
-        data["schema_version"] = 2
-        _write_goals(path, data)
+    row = _input_row(goal_id, "text", words, now=now)
+    root = Path(vault.root)
+    recover_publications(root, repository)
+    with vault_mutation_lock(root, purpose="curriculum_deliverable"):
+        journal = _journal_write(root, {"id": "dpj_" + new_ulid(), "kind": "create", "goal_id": goal_id,
+                                        "input_id": row["id"], "goal": entry, "at": now})
         with repository.atomic():
-            store.insert_input(repository.connection(), _input_row(goal_id, "text", words, now=now))
+            store.insert_input(repository.connection(), row)
+        _goal_entry_update(root, goal_id, append=entry, now=now)
+        journal.unlink(missing_ok=True)
     return {"goal_id": goal_id, "due_at": due, "exam": bool(exam)}
 
 
-def write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning_object_ids: Sequence[str], *,
-                      clock: Clock | None = None) -> dict[str, list[str]]:
-    """The goal's ``facet_scope`` from the resolved LOs, under the vault mutation lock (§5.3).
+def scope_for(vault: Any, repository: Repository, learning_object_ids: Sequence[str]) -> dict[str, list[str]]:
+    """The goal's ``facet_scope`` for the resolved LOs (§5.3).
 
     It names the LOs' canonical scope facets (DL2's ``set_deadline`` rule, Codex review F8):
     a concept would pull in every other LO on it, which the learner did not ask for; a
     facet is exactly as narrow as the LO. An LO with no facet is named by its concept, the
-    only handle it has. The caller reloads."""
+    only handle it has."""
 
     from learnloop.learner.facet_diagnostics import scope_facets
-    from learnloop.vault.models import Goal
-    from learnloop.vault.yaml_io import read_yaml
-    from learnloop.vault_lock import vault_mutation_lock
 
     facets: set[str] = set()
     concepts: set[str] = set()
@@ -337,20 +445,40 @@ def write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning
             # An LO with no evidence facet can be named only by its concept (§5.3: "the
             # concepts of the resolved LOs, plus facets where narrower").
             concepts.add(vault.learning_objects[lo_id].concept)
-    scope = {"concepts": sorted(concepts), "facets": sorted(facets)}
-    path = _goals_path(vault)
+    return {"concepts": sorted(concepts), "facets": sorted(facets)}
+
+
+def write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning_object_ids: Sequence[str], *,
+                      clock: Clock | None = None) -> dict[str, list[str]]:
+    """The goal's ``facet_scope`` from the resolved LOs, under the vault mutation lock
+    (no receipt; :func:`resolve` and :func:`decide_unmatched` publish with theirs).
+    The caller reloads."""
+
+    from learnloop.vault_lock import vault_mutation_lock
+
+    scope = scope_for(vault, repository, learning_object_ids)
     with vault_mutation_lock(Path(vault.root), purpose="curriculum_set_scope"):
-        data = read_yaml(path) if path.exists() else {"schema_version": 2, "goals": []}
-        goals = data.setdefault("goals", [])
-        entry = next((goal for goal in goals if isinstance(goal, dict) and goal.get("id") == goal_id), None)
-        if entry is None:
-            raise DeliverableError("not_found", f"No goal {goal_id!r}.")
-        entry["facet_scope"] = scope
-        entry["updated_at"] = utc_now_iso(clock)
-        Goal.model_validate(entry)
-        data["schema_version"] = 2
-        _write_goals(path, data)
+        _goal_entry_update(vault.root, goal_id, scope=scope, now=utc_now_iso(clock))
     return scope
+
+
+def _publish(vault: Any, repository: Repository, goal_id: str, row: dict[str, Any], ledger: Mapping[str, Any], *,
+             now: str) -> dict[str, Any]:
+    """One resolution receipt and the goal's scope, journalled (Codex review F8). The
+    caller holds the vault mutation lock and has checked the head (F2)."""
+
+    root = Path(vault.root)
+    journal = _journal_write(root, {"id": "dpj_" + new_ulid(), "kind": "scope", "goal_id": goal_id,
+                                    "resolution_id": row["id"], "at": now})
+    with repository.atomic():
+        connection = repository.connection()
+        row["ledger_id"] = append_judgment(connection, **ledger)
+        store.insert_resolution(connection, row)
+        written = store.resolution(connection, row["id"])
+    _goal_entry_update(root, goal_id, scope=json.loads(row["facet_scope_json"]), now=now)
+    journal.unlink(missing_ok=True)
+    assert written is not None
+    return written
 
 
 # ---------------------------------------------------------------------------
@@ -566,11 +694,16 @@ def validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dic
 
 @dataclass
 class ScopeResult:
-    #: ready (resolved now) | fresh (same inputs over the same LOs, no call) | unavailable | no_inputs
+    #: ready (resolved now) | fresh (same inputs over the same LOs, no call) | unavailable | no_inputs |
+    #: superseded (the learner added words while this was being resolved: the newer state stands)
     status: str
     resolution: dict[str, Any] | None = None
     reason: str | None = None
     message: str | None = None
+
+
+SUPERSEDED_MESSAGE = ("You changed this deliverable's scope while LearnLoop was reading it, so your newer words "
+                      "stand.")
 
 
 def latest_resolution(repository: Repository, goal_id: str) -> dict[str, Any] | None:
@@ -591,14 +724,61 @@ def needed_learning_objects(vault: Any, repository: Repository, goal_id: str) ->
             is not None and vault.learning_objects[str(entry["learning_object_id"])].status == "active"]
 
 
+def passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[str, Any]], *,
+                  live_vault: Callable[[], Any] | None = None) -> SC.CoverageGuard | None:
+    """C0a's :class:`SC.CoverageGuard` over the sections the passage inputs read (Codex
+    review F1): protection is read again, from the vault as it is now (``live_vault``,
+    the sidecar's generation-bound provider; else its files), before every physical
+    request and before the receipt. None when no input is a passage (nothing of a book
+    is sent). An unreadable predicate raises ``DeliverableError("exam_material")``."""
+
+    passages = [row for row in inputs if row.get("kind") == "passage"]
+    if not passages:
+        return None
+    try:
+        library = SC.Library(vault, repository)
+    except SC.CoverageError as exc:
+        raise DeliverableError("exam_material", EXAM_REFUSAL) from exc
+    keys: list[tuple[str, str]] = []
+    for row in passages:
+        extraction_id = str(row.get("extraction_id") or "")
+        reading = library.reading(extraction_id)
+        if reading is None:
+            raise DeliverableError("exam_material", EXAM_REFUSAL)
+        for span in row.get("span_ids") or ():
+            section_id = reading.all_spans.get(str(span))
+            if section_id is not None:
+                keys.append((extraction_id, section_id))
+    return SC.CoverageGuard(library, keys, live_vault=live_vault)
+
+
+def _superseded_ledger(goal_id: str, prompt: ScopePrompt, needs: Any, unmatched: Any, model: str, now: str,
+                       head: str) -> dict[str, Any]:
+    return dict(task=SCOPE_LEDGER_TASK, left_kind="goal", left_id=goal_id, right_kind="scope_resolution",
+                right_id="superseded_" + new_ulid(), judge="llm", judge_model=model,
+                prompt_version=SCOPE_PROMPT_VERSION, input_hash=prompt.state_key, verdict="superseded",
+                rationale=json.dumps({"needs": needs, "unmatched": unmatched, "superseded_by": head}, sort_keys=True),
+                created_at=now)
+
+
 def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | None = None,
-            clock: Clock | None = None) -> ScopeResult:
+            clock: Clock | None = None, live_vault: Callable[[], Any] | None = None) -> ScopeResult:
     """One resolver call over the inputs in order (none when this state was resolved),
     the resolution row and its ledger verdict, then the goal's facet scope.
+
+    **Published only over the head it read** (Codex review F2): under the vault
+    mutation lock, after the call, the goal's inputs and newest resolution are read
+    again. An input added meanwhile makes this answer obsolete: its ledger verdict
+    (``superseded``) keeps the paid answer, and nothing is activated (``superseded``).
+    A resolution of this same state published meanwhile stands (``fresh``). Protection
+    is checked before every request and the receipt (F1, ``passage_guard``).
 
     Never raises for a model failure (``unavailable`` with the reason). The caller reloads
     the vault afterwards (the scope lives in ``goals.yaml``)."""
 
+    from learnloop.vault_lock import vault_mutation_lock
+
+    recover_publications(vault.root, repository)
     goal = goal_of(vault, goal_id)
     with repository.connection() as connection:
         rows = [row for row in store.inputs(connection, goal_id) if row["kind"] in SCOPE_KINDS]
@@ -612,32 +792,50 @@ def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | N
         return ScopeResult("fresh", resolution=latest)
     route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
                       envelope=daily_envelope(vault, repository, clock=clock), label="your deliverable's scope")
+    guard = passage_guard(vault, repository, rows, live_vault=live_vault)
     if cached is None:
         try:
             output = route.ask(prompt.text, ScopeResolutionV1, owner_id=f"{goal_id}:{prompt.state_key[:16]}",
-                               prompt_version=SCOPE_PROMPT_VERSION)
+                               prompt_version=SCOPE_PROMPT_VERSION, guard=guard)
         except RouteUnavailable as exc:
             return ScopeResult("unavailable", reason=exc.reason, message=exc.message)
+        except SC.ProtectionChanged:
+            return ScopeResult("unavailable", reason="protection_changed", message=SC.STALE_MESSAGE)
         needs, unmatched = validate_resolution(vault, output)
         model = route.model
     else:  # resolved before, then decided on: the resolver's answer is read again, no call
         needs, unmatched, model = list(cached["learning_objects"]), list(cached["unmatched"]), str(cached["model"])
-    scope = write_facet_scope(vault, repository, goal_id, [entry["learning_object_id"] for entry in needs],
-                              clock=clock)
-    now = utc_now_iso(clock)
-    row = {"id": "dsr_" + new_ulid(), "goal_id": goal_id, "origin": "resolver",
-           "input_ids_json": json.dumps(list(prompt.input_ids)), "learning_objects_json": json.dumps(needs),
-           "unmatched_json": json.dumps(unmatched), "facet_scope_json": json.dumps(scope, sort_keys=True),
-           "state_key": prompt.state_key, "model": model, "prompt_version": SCOPE_PROMPT_VERSION, "created_at": now}
-    with repository.atomic():
-        connection = repository.connection()
-        row["ledger_id"] = append_judgment(
-            connection, task=SCOPE_LEDGER_TASK, left_kind="goal", left_id=goal_id, right_kind="scope_resolution",
-            right_id=row["id"], judge="llm", judge_model=model, prompt_version=SCOPE_PROMPT_VERSION,
-            input_hash=prompt.state_key, verdict="resolved",
-            rationale=json.dumps({"needs": needs, "unmatched": unmatched}, sort_keys=True), created_at=now)
-        store.insert_resolution(connection, row)
-        written = store.resolution(connection, row["id"])
+    scope = scope_for(vault, repository, [entry["learning_object_id"] for entry in needs])
+    with vault_mutation_lock(Path(vault.root), purpose="curriculum_publish_scope"):
+        now = utc_now_iso(clock)
+        with repository.connection() as connection:
+            head_inputs = tuple(str(row["id"]) for row in store.inputs(connection, goal_id)
+                                if row["kind"] in SCOPE_KINDS)
+            head = store.latest_resolution(connection, goal_id)
+        moved = (head or {}).get("id") != (latest or {}).get("id")
+        if head_inputs != prompt.input_ids or (moved and head is not None and head["state_key"] == prompt.state_key):
+            if cached is None:  # a paid answer is kept, never activated
+                with repository.atomic():
+                    append_judgment(repository.connection(), **_superseded_ledger(
+                        goal_id, prompt, needs, unmatched, model, now, str((head or {}).get("id") or "")))
+            if head_inputs != prompt.input_ids:
+                return ScopeResult("superseded", resolution=head, reason="superseded", message=SUPERSEDED_MESSAGE)
+            return ScopeResult("fresh", resolution=head)
+        if guard is not None:
+            try:
+                guard.check("recording the scope")
+            except SC.ProtectionChanged:
+                return ScopeResult("unavailable", reason="protection_changed", message=SC.STALE_MESSAGE)
+        row = {"id": "dsr_" + new_ulid(), "goal_id": goal_id, "origin": "resolver",
+               "input_ids_json": json.dumps(list(prompt.input_ids)), "learning_objects_json": json.dumps(needs),
+               "unmatched_json": json.dumps(unmatched), "facet_scope_json": json.dumps(scope, sort_keys=True),
+               "state_key": prompt.state_key, "model": model, "prompt_version": SCOPE_PROMPT_VERSION,
+               "created_at": now}
+        ledger = dict(task=SCOPE_LEDGER_TASK, left_kind="goal", left_id=goal_id, right_kind="scope_resolution",
+                      right_id=row["id"], judge="llm", judge_model=model, prompt_version=SCOPE_PROMPT_VERSION,
+                      input_hash=prompt.state_key, verdict="resolved",
+                      rationale=json.dumps({"needs": needs, "unmatched": unmatched}, sort_keys=True), created_at=now)
+        written = _publish(vault, repository, goal_id, row, ledger, now=now)
     return ScopeResult("ready", resolution=written)
 
 
@@ -648,62 +846,62 @@ def decide_unmatched(vault: Any, repository: Repository, goal_id: str, phrase: s
     *add it* creates the proposed LO through ``create_goal_lo`` (the learner's request is
     the decision; ``origin = codex_proposal``, ``mechanism = deliverable_scope_v1``), adds
     it to the needed LOs and writes the scope again; *no* declines the phrase. Either is a
-    ``learner`` resolution row (a ``learner_card`` verdict) copied forward from the newest."""
+    ``learner`` resolution row (a ``learner_card`` verdict) copied forward from the newest,
+    published under the vault mutation lock over the head it read (F2) and journalled (F8)."""
 
     from learnloop.goals import goal_lo as GL
+    from learnloop.vault_lock import vault_mutation_lock
 
+    recover_publications(vault.root, repository)
     goal_of(vault, goal_id)
     if decision not in ("create", "decline"):
         raise DeliverableError("validation_error", f"unknown decision {decision!r}")
-    latest = latest_resolution(repository, goal_id)
-    if latest is None:
-        raise DeliverableError("validation_error", "This deliverable has no resolution yet.")
-    unmatched = [dict(entry) for entry in latest.get("unmatched") or ()]
-    key = " ".join(str(phrase).split()).casefold()
-    entry = next((item for item in unmatched if item["phrase"].casefold() == key and item["status"] == "open"), None)
-    if entry is None:
-        raise DeliverableError("validation_error", "That phrase is not waiting for a decision.")
-    needs = [dict(item) for item in latest.get("learning_objects") or ()]
-    scope = latest.get("facet_scope") or {}
-    created: dict[str, Any] | None = None
-    if decision == "create":
-        subject = subject_id or _subject_for(vault, needs)
-        if subject is None:
-            raise DeliverableError("no_subject", "Choose the subject this new topic belongs to.")
-        try:
-            created = GL.create_goal_lo(vault.root, repository, GL.GoalLoRequest(
-                goal_id=goal_id, phrase=entry["phrase"], title=entry["proposed_title"],
-                statement=entry["proposed_statement"], subject_id=subject), clock=clock)
-        except GL.GoalLoError as exc:
-            raise DeliverableError(exc.code, str(exc)) from exc
-        from learnloop.vault.loader import load_vault
+    with vault_mutation_lock(Path(vault.root), purpose="curriculum_scope_decide"):
+        latest = latest_resolution(repository, goal_id)
+        if latest is None:
+            raise DeliverableError("validation_error", "This deliverable has no resolution yet.")
+        unmatched = [dict(entry) for entry in latest.get("unmatched") or ()]
+        key = " ".join(str(phrase).split()).casefold()
+        entry = next((item for item in unmatched if item["phrase"].casefold() == key and item["status"] == "open"),
+                     None)
+        if entry is None:
+            raise DeliverableError("validation_error", "That phrase is not waiting for a decision.")
+        needs = [dict(item) for item in latest.get("learning_objects") or ()]
+        scope = latest.get("facet_scope") or {}
+        created: dict[str, Any] | None = None
+        if decision == "create":
+            subject = subject_id or _subject_for(vault, needs)
+            if subject is None:
+                raise DeliverableError("no_subject", "Choose the subject this new topic belongs to.")
+            try:
+                created = GL.create_goal_lo(vault.root, repository, GL.GoalLoRequest(
+                    goal_id=goal_id, phrase=entry["phrase"], title=entry["proposed_title"],
+                    statement=entry["proposed_statement"], subject_id=subject), clock=clock)
+            except GL.GoalLoError as exc:
+                raise DeliverableError(exc.code, str(exc)) from exc
+            from learnloop.vault.loader import load_vault
 
-        vault = load_vault(vault.root)
-        entry.update(status="created", created_learning_object_id=created["learning_object_id"])
-        needs.append({"learning_object_id": created["learning_object_id"], "phrase": entry["phrase"]})
-        scope = write_facet_scope(vault, repository, goal_id, [item["learning_object_id"] for item in needs],
-                                  clock=clock)
-    else:
-        entry["status"] = "declined"
-    unmatched = [entry if item["phrase"].casefold() == key and item["status"] == "open" else item
-                 for item in unmatched]
-    now = utc_now_iso(clock)
-    row = {"id": "dsr_" + new_ulid(), "goal_id": goal_id, "origin": "learner",
-           "input_ids_json": json.dumps(list(latest.get("input_ids") or ())),
-           "learning_objects_json": json.dumps(needs), "unmatched_json": json.dumps(unmatched),
-           "facet_scope_json": json.dumps(scope, sort_keys=True), "state_key": str(latest["state_key"]),
-           "model": "learner", "prompt_version": DECISION_VERSION, "created_at": now}
-    with repository.atomic():
-        connection = repository.connection()
-        row["ledger_id"] = append_judgment(
-            connection, task=SCOPE_LEDGER_TASK, left_kind="goal", left_id=goal_id, right_kind="scope_phrase",
-            right_id=content_key(key)[:24], judge="learner_card", verdict=decision,
-            input_hash=content_key({"phrase": key, "decision": decision, "resolution": latest["id"]}),
-            rationale=json.dumps({"phrase": entry["phrase"], "decision": decision,
-                                  "created_learning_object_id": (created or {}).get("learning_object_id")},
-                                 sort_keys=True), created_at=now)
-        store.insert_resolution(connection, row)
-        written = store.resolution(connection, row["id"])
+            vault = load_vault(vault.root)
+            entry.update(status="created", created_learning_object_id=created["learning_object_id"])
+            needs.append({"learning_object_id": created["learning_object_id"], "phrase": entry["phrase"]})
+            scope = scope_for(vault, repository, [item["learning_object_id"] for item in needs])
+        else:
+            entry["status"] = "declined"
+        unmatched = [entry if item["phrase"].casefold() == key and item["status"] == "open" else item
+                     for item in unmatched]
+        now = utc_now_iso(clock)
+        row = {"id": "dsr_" + new_ulid(), "goal_id": goal_id, "origin": "learner",
+               "input_ids_json": json.dumps(list(latest.get("input_ids") or ())),
+               "learning_objects_json": json.dumps(needs), "unmatched_json": json.dumps(unmatched),
+               "facet_scope_json": json.dumps(scope, sort_keys=True), "state_key": str(latest["state_key"]),
+               "model": "learner", "prompt_version": DECISION_VERSION, "created_at": now}
+        ledger = dict(task=SCOPE_LEDGER_TASK, left_kind="goal", left_id=goal_id, right_kind="scope_phrase",
+                      right_id=content_key(key)[:24], judge="learner_card", verdict=decision,
+                      input_hash=content_key({"phrase": key, "decision": decision, "resolution": latest["id"]}),
+                      rationale=json.dumps({"phrase": entry["phrase"], "decision": decision,
+                                            "created_learning_object_id": (created or {}).get("learning_object_id")},
+                                           sort_keys=True), created_at=now)
+        written = _publish(vault, repository, goal_id, row, ledger, now=now)
     return {"resolution": written, "created": created}
 
 
@@ -726,7 +924,8 @@ def _subject_for(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None:
 # ---------------------------------------------------------------------------
 
 def also_about(vault: Any, repository: Repository, extraction_id: str, section_id: str, text: str, *,
-               client: Any | None = None, clock: Clock | None = None) -> dict[str, Any]:
+               client: Any | None = None, clock: Clock | None = None,
+               live_vault: Callable[[], Any] | None = None) -> dict[str, Any]:
     """Resolve the learner's words to one LO and write C0a's ``is_about`` correction.
 
     ``{"status": "corrected", "correction", "learning_object_id"}``, or ``unmatched`` with
@@ -754,14 +953,22 @@ def also_about(vault: Any, repository: Repository, extraction_id: str, section_i
                                       {"instructions": _ALSO_ABOUT, "context": context})
     route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
                       envelope=daily_envelope(vault, repository, clock=clock), label="what this section is about")
+    # The section's title and book are sent: the same request-time check as every route (F1).
+    guard = SC.CoverageGuard(library, [(extraction_id, section_id)], live_vault=live_vault)
     try:
         output = route.ask(prompt, ScopeResolutionV1, owner_id=f"{extraction_id}/{section_id}",
-                           prompt_version=SCOPE_PROMPT_VERSION)
+                           prompt_version=SCOPE_PROMPT_VERSION, guard=guard)
     except RouteUnavailable as exc:
         return {"status": "unavailable", "reason": exc.reason, "message": exc.message}
+    except SC.ProtectionChanged:
+        return {"status": "unavailable", "reason": "protection_changed", "message": SC.STALE_MESSAGE}
     needs, unmatched = validate_resolution(vault, output)
     now = utc_now_iso(clock)
     lo_id = needs[0]["learning_object_id"] if needs else None
+    try:
+        guard.check("recording the correction")
+    except SC.ProtectionChanged:
+        return {"status": "unavailable", "reason": "protection_changed", "message": SC.STALE_MESSAGE}
     with repository.atomic():
         append_judgment(
             repository.connection(), task=SCOPE_LEDGER_TASK, left_kind="reader_section",
@@ -848,8 +1055,11 @@ __all__ = [
     "kind_of",
     "latest_resolution",
     "needed_learning_objects",
+    "passage_guard",
     "passage_texts",
+    "recover_publications",
     "resolve",
+    "scope_for",
     "scope_view",
     "topic_records",
     "validate_resolution",

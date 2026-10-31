@@ -77,6 +77,11 @@ def _require(ctx: SidecarContext) -> tuple[Any, Any]:
     vault, repository = ctx.require_vault()
     if not DL.enabled(vault):
         raise SidecarError("curriculum_disabled", "The deliverable curriculum is off (curriculum.enabled = false).")
+    # A publication a stopped process left half done (goals.yaml and its receipt) is
+    # finished first (Codex review F8); goals.yaml changed, the vault is read again.
+    if DL.recover_publications(vault.root, repository):
+        ctx.reload(maintenance=False)
+        vault, repository = ctx.require_vault()
     return vault, repository
 
 
@@ -100,9 +105,11 @@ class _Work:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.covering: dict[str, dict[str, Any]] = {}
-        #: The LOs this sidecar already tried to cover per goal: an LO with no candidate
-        #: writes no row, so without this every read would search for it again.
-        self.attempted: dict[str, set[str]] = {}
+        #: The (LO, statement key) pairs this sidecar already tried to cover per goal: an
+        #: LO with no candidate writes no row, so without this every read would search
+        #: for it again. Keyed by the statement (``DP.coverage_key``): a changed LO is
+        #: tried again (Codex review F5).
+        self.attempted: dict[str, set[tuple[str, str | None]]] = {}
         self.judging: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.offers: dict[Any, dict[str, Any]] = {}
 
@@ -147,14 +154,15 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
     work = _work(ctx)
     with work.lock:
         attempted = set(work.attempted.get(goal_id, ()))
-    owed = [lo for lo in DP.coverage_owed(vault, repository, goal_id) if lo not in attempted]
+    owed = [lo for lo in DP.coverage_owed(vault, repository, goal_id)
+            if (lo, DP.coverage_key(vault, lo)) not in attempted]
     if not owed:
         return
     with work.lock:
         if (work.covering.get(goal_id) or {}).get("state") == "running":
             return
         work.covering[goal_id] = {"state": "running", "learning_object_ids": owed}
-        work.attempted.setdefault(goal_id, set()).update(owed)
+        work.attempted.setdefault(goal_id, set()).update((lo, DP.coverage_key(vault, lo)) for lo in owed)
     grant, origin, stamp = _unit(vault, f"deliverable-coverage:{goal_id}")
     live_vault = ctx.loaded_vault
     root = Path(vault.root).resolve()
@@ -182,7 +190,8 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
                         result = SC.judge(current, worker, lo_id, library=library, client=client, embedder=embedder,
                                           live_vault=live_vault)
                         if result.status in SC.STOPPING:
-                            failure = {"reason": result.reason, "message": result.message}
+                            reason = str(result.reason or result.status).split(":", 1)[0]
+                            failure = {"reason": reason, "message": result.message or SC.STALE_MESSAGE}
                             break
             except SC.CoverageError as exc:
                 failure = {"reason": "protection_unreadable", "message": str(exc)}
@@ -209,6 +218,8 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
     grant, origin, stamp = _unit(vault, f"deliverable-path:{goal_id}:{depth}")
     client = getattr(ctx, "deliverable_path_client", None)
     sqlite_path = repository.sqlite_path
+    live_vault = ctx.loaded_vault
+    root = Path(vault.root).resolve()
 
     def run() -> None:
         from learnloop.ai import plan_fallback
@@ -218,11 +229,18 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
         outcome: dict[str, Any] | None
         with plan_fallback.unit(grant, origin, stamp) as offers:
             try:
-                worker = Repository.attach(sqlite_path)
-                with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id=f"curriculum.path:{goal_id}:{depth}"):
-                    result = DP.judge(vault, worker, goal_id, client=client)
-                outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
-                    "state": "failed", "reason": result.reason, "message": result.message}
+                # The vault as it is when the job runs, not when it was spawned (Codex
+                # review F1); protection is checked again before every request and the write.
+                current = live_vault()
+                if current is None or Path(current.root).resolve() != root:
+                    outcome = {"state": "failed", "reason": "vault_switched", "message": SC.STALE_MESSAGE}
+                else:
+                    worker = Repository.attach(sqlite_path)
+                    with record_model_calls(worker, owner_kind="sidecar_rpc",
+                                            owner_id=f"curriculum.path:{goal_id}:{depth}"):
+                        result = DP.judge(current, worker, goal_id, client=client, live_vault=live_vault)
+                    outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
+                        "state": "failed", "reason": result.reason, "message": result.message}
             except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
                 LOG.warning("deliverable path judgment failed: %s", type(exc).__name__, exc_info=exc)
                 outcome = {"state": "failed", "reason": "judge_failed",
@@ -248,35 +266,64 @@ def _relay(work: _Work, key: Any) -> None:
         plan_fallback.relay_hint(offer)
 
 
+def _readmit_coverage(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,
+                      current: dict[str, Any]) -> dict[str, Any]:
+    """A coverage admission refusal (capped, unpriced, unrouted, models off) holds only
+    while its condition does (RW7a's rule; Codex review F6): asked again on each read,
+    before any call. Lifted, the failure and the attempts it marked are dropped, so the
+    coverage starts again; still refused, today's wording is kept."""
+
+    try:
+        problem = SC.admission_problem(vault, repository, client=getattr(ctx, "coverage_judge_client", None))
+    except Exception:  # noqa: BLE001 - an unreadable check keeps the refusal shown
+        LOG.warning("deliverable coverage admission check failed", exc_info=True)
+        return current
+    work = _work(ctx)
+    with work.lock:
+        if work.covering.get(goal_id) != current:
+            return dict(work.covering.get(goal_id) or {})  # changed meanwhile: that state stands
+        if problem is None:
+            work.covering.pop(goal_id, None)
+            work.attempted.pop(goal_id, None)
+            return {}
+        refreshed = {"state": "failed", "reason": problem[0], "message": problem[1]}
+        work.covering[goal_id] = refreshed
+        return dict(refreshed)
+
+
 def _path_state(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, *, judge: bool,
-                retry: bool) -> tuple[dict[str, Any] | None, bool]:
-    """``(judging, covering)`` for the deliverable now, starting what it owes: the
-    coverage of its LOs first, then (once no coverage is running) the path judgment."""
+                retry: bool) -> tuple[dict[str, Any] | None, bool, dict[str, Any] | None]:
+    """``(judging, covering, coverage failure)`` for the deliverable now, starting what it
+    owes: the coverage of its LOs first, then (once no coverage is running) the path
+    judgment. A failed coverage check is returned so the view shows it with *try again*
+    (Codex review F6); ``retry`` drops it and starts again."""
 
     work = _work(ctx)
-    if judge:
-        with work.lock:
-            covering_state = dict(work.covering.get(goal_id) or {})
-            if retry and covering_state.get("state") == "failed":
-                work.covering.pop(goal_id, None)
-                work.attempted.pop(goal_id, None)
-                covering_state = {}
-        if covering_state.get("state") != "running" and covering_state.get("state") != "failed":
-            _cover(ctx, vault, repository, goal_id)
+    with work.lock:
+        covering_state = dict(work.covering.get(goal_id) or {})
+        if retry and covering_state.get("state") == "failed":
+            work.covering.pop(goal_id, None)
+            work.attempted.pop(goal_id, None)
+            covering_state = {}
+    if covering_state.get("state") == "failed" and covering_state.get("reason") in DL.ADMISSION_REASONS:
+        covering_state = _readmit_coverage(ctx, vault, repository, goal_id, covering_state)
+    if judge and covering_state.get("state") not in ("running", "failed"):
+        _cover(ctx, vault, repository, goal_id)
     with work.lock:
         covering_state = dict(work.covering.get(goal_id) or {})
     covering = covering_state.get("state") == "running"
-    if covering_state.get("state") == "failed":
+    failure = covering_state if covering_state.get("state") == "failed" else None
+    if failure is not None:
         _relay(work, ("cover", goal_id))
     depth = DL.depth_of(repository, goal_id)
     if depth is None:
-        return None, covering
+        return None, covering, failure
     try:
         inputs = DP.path_inputs(vault, repository, goal_id)
     except SC.CoverageError:
-        return None, covering
+        return None, covering, failure
     if inputs is None:
-        return None, covering
+        return None, covering, failure
     state_key = inputs.state_key()
     key = (goal_id, depth, state_key)
     with work.lock:
@@ -304,7 +351,7 @@ def _path_state(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
             current = dict(work.judging.get(key) or {})
     if current.get("state") == "failed":
         _relay(work, key)
-    return (current or None), covering
+    return (current or None), covering, failure
 
 
 def _likely(vault: Any, repository: Any) -> Any:
@@ -359,7 +406,8 @@ def curriculum_create_deliverable(ctx: SidecarContext, params: CreateDeliverable
     except DL.DeliverableError as exc:
         raise _error(exc) from exc
     vault, repository = _reload(ctx)
-    result = DL.resolve(vault, repository, created["goal_id"], client=getattr(ctx, "deliverable_scope_client", None))
+    result = DL.resolve(vault, repository, created["goal_id"], client=getattr(ctx, "deliverable_scope_client", None),
+                        live_vault=ctx.loaded_vault)
     return versioned({"goal_id": created["goal_id"], **_after_scope(ctx, created["goal_id"], result)})
 
 
@@ -389,7 +437,8 @@ def curriculum_set_scope(ctx: SidecarContext, params: SetScopeInput) -> dict[str
     try:
         DL.add_input(vault, repository, params.goal_id, params.kind, text=params.text, extraction_id=extraction_id,
                      span_ids=params.span_ids, context=params.context)
-        result = DL.resolve(vault, repository, params.goal_id, client=getattr(ctx, "deliverable_scope_client", None))
+        result = DL.resolve(vault, repository, params.goal_id, client=getattr(ctx, "deliverable_scope_client", None),
+                            live_vault=ctx.loaded_vault)
     except DL.DeliverableError as exc:
         raise _error(exc) from exc
     return versioned(_after_scope(ctx, params.goal_id, result))
@@ -453,8 +502,8 @@ def curriculum_set_depth(ctx: SidecarContext, params: SetDepthInput) -> dict[str
 
 def _path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, *, judge: bool, retry: bool) -> dict[str, Any]:
     try:
-        judging, covering = _path_state(ctx, vault, repository, goal_id, judge=judge, retry=retry)
-        return DP.path_view(vault, repository, goal_id, judging=judging, covering=covering)
+        judging, covering, failure = _path_state(ctx, vault, repository, goal_id, judge=judge, retry=retry)
+        return DP.path_view(vault, repository, goal_id, judging=judging, covering=covering, coverage_failure=failure)
     except DL.DeliverableError as exc:
         raise _error(exc) from exc
 
@@ -499,8 +548,9 @@ def curriculum_guide_slice(ctx: SidecarContext, params: GuideSliceInput) -> dict
     goal = DP.guide_goal(vault, repository, resolved)
     if goal is None:
         return versioned({"extraction_id": resolved, "status": "none"})
-    judging, covering = _path_state(ctx, vault, repository, goal.id, judge=params.judge, retry=params.retry)
-    return versioned(DP.guide_slice(vault, repository, resolved, judging=judging, covering=covering))
+    judging, covering, failure = _path_state(ctx, vault, repository, goal.id, judge=params.judge, retry=params.retry)
+    return versioned(DP.guide_slice(vault, repository, resolved, judging=judging, covering=covering,
+                                    coverage_failure=failure))
 
 
 class PathOverrideInput(ParamsModel):
@@ -567,7 +617,8 @@ def curriculum_also_about(ctx: SidecarContext, params: AlsoAboutInput) -> dict[s
         raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
     try:
         return versioned(DL.also_about(vault, repository, resolved, params.section_id, params.text,
-                                       client=getattr(ctx, "deliverable_scope_client", None)))
+                                       client=getattr(ctx, "deliverable_scope_client", None),
+                                       live_vault=ctx.loaded_vault))
     except DL.DeliverableError as exc:
         raise _error(exc) from exc
 

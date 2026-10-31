@@ -72,8 +72,8 @@ def curriculum_report(
 
     Coverage: the learner's corrections per judged (section, topic) row, each a
     labelled error. Choice: "use this one instead" swaps and skips per path line.
-    Time: the path's minutes against every section of the books that treat its
-    topics (an estimate: words at 200 a minute). Read-only, no model call. Never
+    Time: the minutes read in the path's books (recorded) against DL1's estimate
+    for reading those books in order (each section once). Read-only, no model call. Never
     reports sections read, path completion, time on the page or in-session answers as
     success."""
 

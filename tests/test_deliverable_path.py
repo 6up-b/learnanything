@@ -221,10 +221,10 @@ def test_check_due_is_bounded_by_tomorrow_fourteen_days_and_the_deadline(tmp_pat
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     clock = FrozenClock(datetime(2026, 10, 31, 9, tzinfo=UTC))
-    assert DP.check_due(vault, repository, "lo_eigen", due_at=None, clock=clock) == "2026-11-03"  # no state: 3 days
+    # No FSRS state: DL2's Check once delay (capture.test_me_later_days, 7 by default).
+    assert DP.check_due(vault, repository, "lo_eigen", due_at=None, clock=clock) == "2026-11-07"
     assert DP.check_due(vault, repository, "lo_eigen", due_at="2026-11-01T23:59:59Z", clock=clock) == "2026-11-01"
-    assert DP.READY_MAX_WAIT_DAYS == 14 and DP.READY_TARGET_RETRIEVABILITY == 0.9
-    assert DP.READY_TARGET_PRIOR_BASIS == "published" and DP.READY_FALLBACK_PRIOR_BASIS == "legacy"
+    assert DP.READY_MAX_WAIT_DAYS == 14 and DP.ready_parameters(vault) == (0.80, 7)
 
 
 def test_am_i_ready_creates_one_check_per_untested_lo_never_an_exam_reserved_item(tmp_path):
@@ -278,7 +278,7 @@ def test_the_report_rows_are_aggregates_only(scoped):
     assert out["coverage"]["judged_rows"] >= 3 and out["choice"]["path_lines"] == 1
     assert out["choice"]["choices"] == {"skip": 1} and out["choice"]["swap_share"] == 0.0
     time_row = out["time"][0]
-    assert time_row["goal_id"] == goal_id and time_row["book_order_minutes"] >= time_row["path_minutes"]
+    assert time_row["goal_id"] == goal_id and time_row["book_order_minutes_left"] >= time_row["path_minutes_left"]
     assert "sections read" in out["never_success"]
 
 

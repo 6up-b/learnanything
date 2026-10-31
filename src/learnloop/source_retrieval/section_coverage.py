@@ -1075,6 +1075,11 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None or learning_object.status != "active":
         raise CoverageError("validation_error", f"No active learning object {learning_object_id!r}.")
+    if not enabled(vault):
+        # The kill switch, for every caller (C0b Codex review F3): off, nothing is searched,
+        # called or written, whoever asks (a queued job included).
+        return JudgeResult("unavailable", learning_object_id, reason="curriculum_disabled",
+                           message="The deliverable curriculum is off (curriculum.enabled = false).")
     library = library or Library(vault, repository)
     with spend_envelopes(_daily_if_inactive(vault, repository, clock)):
         return _judge(vault, repository, learning_object, library=library, client=client, embedder=embedder,
@@ -1234,31 +1239,46 @@ def rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *
     most once, and a state already judged (nothing new among its candidates) is ``fresh``
     and pays nothing. Quiet (``plan_fallback.quiet``): the plan only, no OpenRouter offer
     and no grant honoured; when the plan cannot run, the job stops ``waiting`` and the
-    next extraction or a pressed check judges again. Protection is read again before each
-    LO from the vault's files (:func:`protection_on_disk`)."""
+    next extraction or a pressed check judges again.
+
+    **Both switches are read when the job runs and again before each LO** (Codex review
+    F3), from the vault's files (:func:`vault_on_disk`), as protection is: a learner who
+    turns ``curriculum.enabled`` or ``curriculum.coverage_on_extract`` off after the job
+    was queued stops it (``switched_off``), with nothing searched, called or written after."""
 
     from learnloop.ai import plan_fallback
 
-    learning_objects = [lo for lo in covered_learning_objects(repository) if _active(vault, lo)]
     out: dict[str, Any] = {"job": ON_EXTRACT_JOB, "extraction_id": extraction_id, "status": "done",
-                           "learning_objects": learning_objects, "results": []}
+                           "learning_objects": [], "results": []}
+    reason = on_extract_reason(vault.config)
+    if reason is not None:
+        return {**out, "status": "switched_off", "reason": reason}
+    learning_objects = [lo for lo in covered_learning_objects(repository) if _active(vault, lo)]
+    out["learning_objects"] = learning_objects
     if not learning_objects:
         return out
     with plan_fallback.quiet():
-        try:
-            library = Library(vault, repository, protection=protection_on_disk(vault, repository))
-        except CoverageError as exc:
-            return {**out, "status": "withheld", "reason": str(exc)}
+        library: Library | None = None
         for lo_id in learning_objects:
             if cancelled():
                 out["status"] = "cancelled"
                 break
             try:
-                library = library.refreshed(protection=protection_on_disk(vault, repository))
+                current = vault_on_disk(vault.root)
+                reason = on_extract_reason(current.config)
+                if reason is not None:
+                    out.update(status="switched_off", reason=reason)
+                    break
+                protection = read_protection(current, repository)
+                library = (Library(current, repository, protection=protection) if library is None
+                           else library.refreshed(current, protection=protection))
             except CoverageError as exc:
                 out.update(status="withheld", reason=str(exc))
                 break
-            result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder, clock=clock)
+            if not _active(current, lo_id):
+                continue
+            result = judge(current, repository, lo_id, library=library, client=client, embedder=embedder,
+                           clock=clock)
             out["results"].append(result.as_dict())
             if result.status in STOPPING:
                 out.update(status="waiting" if result.status in ("unavailable", "capped") else result.status,
