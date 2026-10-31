@@ -192,3 +192,52 @@ one at a time, pytest at `-n 6` at most and vitest at `--maxWorkers=4`.
 - `figure_sketch_verify:_TICK_EVERY`.
 
 `TABLE_PAGE` (desktop, display) is labelled `keep` in place. None of them is a model or decision parameter.
+
+## Re-review (Codex job 20261031-161149-XHPVFU, verdict REOPENED)
+
+The re-review confirmed F1 and F3 fixed, reopened F2 and raised F11. Both were reproduced by
+failing tests before the fix (5 tests failed on `42e57aeb4`), then fixed in `80c3efd21`.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | verification held every scene of both runs | confirmed fixed (no change) | `1b1dfbef7` | re-review: the largest-grid memory and 40,000-point output-budget tests pass |
+| F2 | High | claim checks unbounded: pairs claims charged at the series' index reach, pairs loops never looked at the clock | fixed | `80c3efd21` | `test_a_pairs_claim_is_charged_for_its_probes_own_x` (the 4,000-pairs x=10,000 reproduction, now refused before it runs), `test_a_small_pairs_claim_is_charged_at_least_its_evaluations`, `test_a_pairs_claim_loop_stops_at_the_deadline` (expired deadline, 40 pairs), `test_claim_loops_look_at_the_clock_by_work_not_only_by_entry_count` |
+| F3 | Medium | a series bound to a line claimed the drawn x values | confirmed fixed (no change) | `24a766791` | re-review: the displaced-x reproduction gives a probe-only check |
+| F11 | Medium | an element that changes type between settings got a false attribute label | fixed | `80c3efd21` | `test_an_element_that_changes_type_gets_no_attribute_label` (polyline at the default and heat cells elsewhere: no label and the line listed not covered; heat cells at every setting keeps the `values` label) |
+
+**F2 fix.** `sketch.claim_entry_work` now takes the probe shape. A series index keeps its declared
+reach from `var_from` by `var_step`. A pairs probe's x is its own first coordinate, so statically
+a sum over it is charged its most terms (`MAX_SUM_TERMS`). At check time
+`sketch_verify.check_claim` charges each pairs check at the least and greatest x that point read
+actually has, before anything is evaluated: the reproduction is charged about 1.7e9 steps and
+refused against the 20,000,000-step budget. Every claim loop (series, pairs and the RK4 runs of
+`follows`) now calls `_Budget.before(index, work)`. It looks at the clock on the first iteration,
+then every 256 iterations, and whenever 4,096 charged steps have run since the last look (the new
+`keep` constant `figure_sketch_verify:_TICK_WORK`, classified in the registry). A single grammar
+evaluation still can't be interrupted. It was charged first, though, so it is at most the claim-work
+cap (a few seconds), well inside the 60 s wall clock.
+
+**F11 fix.** A bound element gets a check-line label only when it has exactly one scope at every
+tested setting: either one attribute, or the whole element. Mixed scopes (`y` at some settings,
+`values` at others; or whole at some and an attribute at others) leave the element out of the
+check. The check line then speaks for the probe, and the element is listed as not covered.
+
+### Re-review gate
+
+| command | result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| reproduction before the fix: `uv run pytest -q tests/test_sketch_verify.py -k "pairs or changes_type or clock_by_work"` | 5 failed, 1 passed (as expected) |
+| `uv run pytest -q tests/test_sketch_verify.py` (after the fix) | 68 passed |
+| `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6` on the files below | **396 passed** |
+
+Every pytest ran inside the 5G memory-capped scope. The frontend, src-tauri, migrations and schema
+are unchanged, so no npm, vitest, cargo, durability or DB-reference run was needed. Following the
+owner's 2026-10-17 rule, the full suite was not run; it runs once, in the landing gate.
+
+**Targeted pytest files:** `tests/test_sketch_verify.py` (changed), `tests/test_sketch_hostile.py`,
+`tests/test_sketch_service.py`, `tests/test_sketch_engine.py`, `tests/test_sketch_parity.py`,
+`tests/test_sketch_scene_parity.py`, `tests/test_figure_verification.py`, `tests/test_figures_show_me.py`,
+`tests/test_figures_show_me_codex_review.py`, `tests/test_figure_grammar.py`, `tests/test_registry_audit.py`
+(1 new `keep` constant), `tests/test_architecture.py`, `tests/test_public_tip_guards.py`.
