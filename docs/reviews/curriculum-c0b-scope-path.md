@@ -84,8 +84,10 @@ unchanged rule, the RW1b reconstruct precedent), C0a coverage rows and ledger ve
    §5.4's `INTENT_DEPTH` mapping has nothing to read. The depth is asked once (`curriculum.set_depth`).
 5. **The learner context** sent to the path judge is the books read (named, not counted: the context is in the
    cache key, and a count would re-judge the path after every section), the earlier *use this one instead* /
-   *skip* choices and the days left. RW1c's "that didn't help" rows, kept comparisons and DL1's minute estimates
-   are not sent yet; minutes are RW7a's words-at-200-a-minute. Noted for C1, which reads the path daily.
+   *skip* choices, the days left and, since the Codex review (F11), the path's sections the learner said didn't
+   help (RW1c's `remediate` follow-ons), their kept comparisons and takes on these LOs (RW4d), and the minutes
+   available before the deadline (DL1's remembered daily minutes times the days left). Section minutes are DL1's
+   (`plan.read_words_per_minute`), so the path's and the available minutes are comparable.
 6. **"Am I ready?" creates the checks when pressed** and answers with the lines (one button, never a prompt). The
    item rule is TE §13's minus two conditions with nothing to read on main: "never served to a chat host" (no
    chat-host serve record yet) and "not from a family shown on the path's exercises" (the path's exercises are
@@ -101,20 +103,25 @@ unchanged rule, the RW1b reconstruct precedent), C0a coverage rows and ledger ve
 11. **Passage inputs are built in C0** (the C0 row names text and topic lists) so that G-C2 is enforced and tested
     now; the `syllabus` source role stays C3's.
 12. **The report has no "alternates opened" count** (nothing records an open yet).
-13. **No frontend for creating a deliverable or reviewing its scope lines**: the RPCs and client calls exist
-    (`curriculum.create_deliverable`, `scope`, `scope_decide`, `set_scope`); where creation lives (the Goals
-    screen, the Guide) is an open question below. The slice's *not what I need…* box already reaches the resolver.
+13. **Creating a deliverable and reviewing its scope live in the Guide** (Codex review F4): under the path card,
+    while no deliverable names the open book, *learning this for something?* (the learner's sentence, an optional
+    topic list, a deadline, exam) and *your deliverables* (each one's topics with their phrases, *add it* / *no*
+    on phrases not in the library, *not this…* / *add…* text boxes, the receipt, the depth); on the slice, *what
+    it covers* opens the same panel. The Goals screen could host it too later.
 
 ## Constants
 
 Structural bounds, each labelled in its module: `INPUT_CHARS`, `PHRASE_CHARS`, `STATEMENT_CHARS`,
 `PROPOSAL_CHARS`, `REASON_CHARS`, the prompt's chars-per-token and overhead (as `compare_sources`), the paid-call
 runaway caps (as RW7a). `CLOSURE_DEPTH` (1 / 2 / 2) is `keep`, with RW7a's depth semantics as the reason.
-`EXPLICIT_GOAL_ALLOWANCE = 1` is `keep` (TE §11.5's "by one a day", a burden guardrail). "Am I ready?" dates:
-`READY_TARGET_RETRIEVABILITY = 0.9` (a seeded prior, `prior_basis` published: FSRS's default; RW6b replaces it),
-`READY_FALLBACK_DAYS = 3` (seeded, `legacy`: RW6b's retention fallback), `READY_MAX_WAIT_DAYS = 14` (`keep`: a
-promised check is never dropped). Config: one switch (`coverage_on_extract`, classified structural); the two
-routes add no number (they share C0a's `keep` caps). No weight, margin or threshold.
+`EXPLICIT_GOAL_ALLOWANCE = 1` is `keep` (TE §11.5's "by one a day", a burden guardrail). "Am I ready?" dates
+(Codex review F13): no new number. The retrievability target is DL2's `intent.recall_targets.keep_in_touch` (the
+check's own depth preset) and the no-state delay DL2's `capture.test_me_later_days`, both registered decision
+parameters read from the vault's configuration; `READY_MAX_WAIT_DAYS = 14` stays `keep` (a promised check is never
+dropped). The path judge's prompt bound is `curriculum.max_prompt_tokens` (F12), made smaller by structural steps
+(`PROMPT_LEVELS`: drop roles and notation, then non-eligible sections), never by a number. Config: one switch
+(`coverage_on_extract`, classified structural); the two routes add no number (they share C0a's `keep` caps). No
+weight, margin or threshold.
 
 ## Gate (this step; targeted, memory-capped)
 
@@ -155,14 +162,13 @@ were **not** run (owner rule 2026-10-17: once, at landing).
 
 ## Open questions
 
-1. Where does a learner **create a deliverable and review its scope lines** (the topics with *not this* / *add*,
-   §5.3's "what the learner sees")? The RPCs exist; the frontend has only the Guide's slice and its
-   *not what I need…* box. The Goals screen is the natural home.
+1. ~~Where does a learner create a deliverable and review its scope lines?~~ Built in the Guide by the Codex
+   review fixes (F4, decision 13); the Goals screen could host the same panel later.
 2. Should the slice also show where the Guide has **no path card** (`reading_paths.enabled` off)? Today it does
    not: the goal card stays, exactly.
 3. The spec names `reader.reading_path` as the origin of a Guide-started path judgment's OpenRouter offer; here it
    is `curriculum.guide_slice` (decision 3). A grant given on one does not cover the other.
 4. Should **DL2's intent** gain a goal scope, so the depth and the deliverable's intent are one setting (§5.4,
    §8.4)? Not built: that changes DL2's commitments.
-5. The learner context omits RW1c's "that didn't help" rows, kept comparisons and DL1's minute estimates
-   (decision 5). Worth adding before C1, which re-judges daily?
+5. ~~The learner context omits RW1c's rows, kept comparisons and DL1's minutes.~~ Added by the Codex review fixes
+   (F11, decision 5).
