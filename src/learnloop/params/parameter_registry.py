@@ -1459,6 +1459,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
         "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
         "no measurement, scheduling or serving authority (no algorithm successor)."),
+    # Reader CA5 (ux_reader_compare_ask_v1 §6.2): the learner's off switch on
+    # the Guide's "also in your books" line (hide everywhere, hide for these
+    # books). A boolean and a list of source ids (classified so every new key
+    # has a rule): preferences, with no weight, margin or threshold.
+    _ConfigRule(_exact(
+        "reader.correspondence.hide_everywhere",
+        "reader.correspondence.hidden_sources",
+    ), "structural", "operational",
+        "the learner's own hide preferences for Reader CA5's also in your books line (everywhere / for these "
+        "books); display only, no measurement, scheduling or serving authority (no algorithm successor)."),
     # Deliverable curriculum C0b: the on-extract coverage job's switch (a
     # boolean, classified so every new key has a rule). The scope resolver
     # and the path judge add no number: they share the C0a caps above.
