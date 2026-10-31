@@ -6760,7 +6760,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean; /** RW5d P2: the sketch tier (figures.sketch_enabled, engine ready). */ sketch?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -7111,7 +7111,10 @@ export interface ReaderActivityEvent {
     | "tutor_offer_shown"
     | "tutor_offer_pressed"
     | "figure_opened"
-    | "figure_animated";
+    | "figure_animated"
+    /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */
+    | "sketch_paused"
+    | "sketch_error";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -9153,7 +9156,8 @@ export interface FigurePredictionResultDto {
 export interface FigurePredictionDto {
   index: number;
   prompt: string;
-  kind: "direction" | "area";
+  /** RW5d P2 adds "choice" (a sketch: which entry of a series probe is largest). */
+  kind: "direction" | "area" | "choice";
   choices: Array<{ value: string; label: string }>;
   answered: FigurePredictionResultDto | null;
 }
@@ -9190,6 +9194,33 @@ export interface FigureViewDto {
   grounding?: FigureGrounding;
   /** The passages found in the learner's books it was built from (grounding "retrieved"). */
   passages?: FigurePassageDto[];
+  /** RW5d P2 (present only while figures.sketch_enabled is on): a declarative figure or a sketch. */
+  tier?: "grammar" | "sketch";
+  /** A shown sketch's code-owned check lines and the engine it was verified under (specJson is its SketchProgramV1). */
+  sketch?: FigureSketchDto | null;
+}
+
+/** RW5d P2: one check code ran on a sketch (spec §9.5); the Reader words it from these closed fields. */
+export interface FigureSketchCheckDto {
+  claim: number;
+  kind: "equals" | "follows" | "invariant" | "distribution";
+  probe: string;
+  /** The drawn elements (ids) bound to the probe: what the check speaks for. */
+  elements: string[];
+  /** The stated equation as the grammar parsed it (AI-stated), or an invariant's property. */
+  statement: string;
+  settings: number;
+}
+
+export interface FigureSketchDto {
+  engineSha256: string;
+  /** The verified sample's seed (the first one drawn). */
+  seed: number;
+  checks: FigureSketchCheckDto[];
+  /** Drawn elements no check covers (ids). */
+  notCovered: string[];
+  unnamedElements: number;
+  settings: number;
 }
 
 export type FigureGrounding = "anchor" | "retrieved" | "none";

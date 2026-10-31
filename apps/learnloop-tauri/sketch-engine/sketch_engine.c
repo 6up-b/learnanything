@@ -291,6 +291,15 @@ SK_EXPORT(sk_load) int32_t sk_load(uint32_t len)
     JS_DeleteProperty(sk_ctx, math, random, 0);
     JS_FreeAtom(sk_ctx, random);
     JS_FreeValue(sk_ctx, math);
+    /* No deferred work and no shared memory: queueMicrotask's jobs would never
+     * run (the host never drains the job queue) and SharedArrayBuffer has no
+     * other thread to share with; both are removed so nothing pretends. */
+    static const char *const REMOVED[] = {"queueMicrotask", "SharedArrayBuffer", "Atomics"};
+    for (size_t i = 0; i < sizeof REMOVED / sizeof REMOVED[0]; i++) {
+        JSAtom name = JS_NewAtom(sk_ctx, REMOVED[i]);
+        JS_DeleteProperty(sk_ctx, global, name, 0);
+        JS_FreeAtom(sk_ctx, name);
+    }
     JS_SetPropertyStr(sk_ctx, global, "rand", JS_NewCFunction(sk_ctx, js_sketch_rand, "rand", 0));
 
     begin_call();

@@ -80,6 +80,16 @@ INVARIANT_PROPERTIES = ("finite", "bounded", "nonnegative", "sums_to_one", "mono
 #: Names a sketch's claims may bind: the clock's time.
 TIME_NAME = "t"
 _ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,39}\Z")
+#: The wording rule (spec §9.5): the only model-written words that reach the
+#: frame's code-owned check lines are identifiers (parameter, probe and
+#: variable names, element ids), so none may carry the words the badge slot
+#: and the check lines use: a name can't impersonate a check.
+CHECK_WORDS = ("check", "verif", "learnloop", "sandbox", "book", "tested", "proof", "correct")
+
+
+def impersonates(name: str) -> bool:
+    folded = str(name).lower()
+    return any(word in folded for word in CHECK_WORDS)
 _IDENT = re.compile(r"[A-Za-z][A-Za-z0-9]{0,31}\Z")
 
 
@@ -269,7 +279,7 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
     params: set[str] = set()
     for parameter in program.parameters:
         name = parameter.name
-        if not G.is_name(name) or name in G.RESERVED or name == TIME_NAME:
+        if not G.is_name(name) or name in G.RESERVED or name == TIME_NAME or impersonates(name):
             problems.append(f"parameter {name!r} is not a usable name")
         if name in params:
             problems.append(f"parameter {name!r} is defined twice")
@@ -292,7 +302,7 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
             problems.append(f"clock: t_max / dt is more than {SKETCH_MAX_CLOCK_STEPS} steps")
     probes: dict[str, Probe] = {}
     for probe in program.probes:
-        if not _IDENT.match(probe.name) or probe.name in G.RESERVED:
+        if not _IDENT.match(probe.name) or probe.name in G.RESERVED or impersonates(probe.name):
             problems.append(f"probe {probe.name!r} is not a usable name (letters and digits)")
         if probe.name in probes:
             problems.append(f"probe {probe.name!r} is declared twice")
@@ -310,7 +320,8 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
         if claim.kind == "equals":
             var_names: set[str] = set()
             if probe.shape != "scalar":
-                if not claim.var or not G.is_name(claim.var) or claim.var in G.RESERVED or claim.var in allowed:
+                if (not claim.var or not G.is_name(claim.var) or claim.var in G.RESERVED or claim.var in allowed
+                        or impersonates(claim.var)):
                     problems.append(f"{where}: a {probe.shape} probe needs var, a free name for its index or x")
                     continue
                 var_names = {claim.var}
@@ -327,7 +338,8 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
                 problems.append(f"{where}: follows needs a pairs probe (the path's points)")
                 continue
             names = set(claim.vars)
-            if len(names) != 2 or any(not G.is_name(n) or n in G.RESERVED or n in allowed for n in names):
+            if len(names) != 2 or any(not G.is_name(n) or n in G.RESERVED or n in allowed or impersonates(n)
+                                      for n in names):
                 problems.append(f"{where}: vars must be two free names")
                 continue
             if claim.h is None or not math.isfinite(claim.h) or claim.h <= 0:
@@ -365,7 +377,7 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
         claims.append(compiled)
     element_ids: set[str] = set()
     for binding in program.bindings:
-        if not _ID.match(binding.element_id):
+        if not _ID.match(binding.element_id) or impersonates(binding.element_id):
             problems.append(f"binding {binding.element_id!r}: element ids are letters, digits, - and _")
         if binding.element_id in element_ids:
             problems.append(f"binding {binding.element_id!r} is bound twice")
@@ -503,8 +515,9 @@ def scene_problems(scene: Any, *, parameters: Sequence[str] = ()) -> list[str]:
             continue
         element_id = element.get("id")
         if element_id is not None or kind == "handle":
-            if not isinstance(element_id, str) or not _ID.match(element_id):
-                problems.add(f"{where}: id must be letters, digits, - and _ (at most {MAX_ID})")
+            if not isinstance(element_id, str) or not _ID.match(element_id) or impersonates(element_id):
+                problems.add(f"{where}: id must be letters, digits, - and _ (at most {MAX_ID}), "
+                             "and may not use LearnLoop's check words")
             elif element_id in ids:
                 problems.add(f"{where}: id {element_id!r} is used twice")
             else:
@@ -635,6 +648,7 @@ def element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
 
 
 __all__ = [
+    "CHECK_WORDS",
     "CLAIM_REL_TOL",
     "COLORS",
     "Claim",
@@ -658,6 +672,7 @@ __all__ = [
     "SketchProgramV1",
     "clock_steps",
     "element_index",
+    "impersonates",
     "parse_sketch",
     "probe_numbers",
     "probe_problems",

@@ -44,7 +44,7 @@ LOCK_PATH = Path(__file__).resolve().parents[3] / "apps" / "learnloop-tauri" / "
 #: The pinned digest of the artifact (``engine.lock.json``'s ``output.sha256``;
 #: a test keeps the two equal). A stored sketch records the digest it was
 #: verified under; a different one re-verifies it (spec §8.5).
-ENGINE_SHA256 = "f6bb52fdad6fda05ecd929330a979a2a900287026689bf710abb31768e583e23"
+ENGINE_SHA256 = "564207205f358c907beea820b1b12dd7813992260fc805fdb4e84ac03a638706"
 #: The runtime version a figure records beside the digest.
 ENGINE_VERSION = "sketch-engine-v1"
 

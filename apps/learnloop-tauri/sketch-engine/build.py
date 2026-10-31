@@ -134,7 +134,8 @@ def build(lock: dict, cache: Path, output: Path, *, clang: str, wasm_ld: str) ->
         subprocess.run([wasm_ld, str(lib / "crt1-reactor.o"), str(obj), str(lib / "libc.a"), str(paths["builtins"]),
                         *flags["ldflags"], "-o", str(built)], check=True, cwd=build_dir)
         output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(built, output)
+        shutil.copyfile(built, output)
+        output.chmod(0o644)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -165,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
                   "nothing written (--update-pin to accept)", file=sys.stderr)
             return 1
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(out, target)
+        shutil.copyfile(out, target)
+        target.chmod(0o644)
     if args.update_pin:
         lock["output"]["sha256"] = got
         lock["output"]["bytes"] = target.stat().st_size

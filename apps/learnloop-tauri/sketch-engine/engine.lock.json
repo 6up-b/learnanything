@@ -46,7 +46,7 @@
   },
   "output": {
     "path": "src/screens/reader/figures/sketch/sketch-engine.wasm",
-    "sha256": "f6bb52fdad6fda05ecd929330a979a2a900287026689bf710abb31768e583e23",
-    "bytes": 869089
+    "sha256": "564207205f358c907beea820b1b12dd7813992260fc805fdb4e84ac03a638706",
+    "bytes": 869346
   }
 }

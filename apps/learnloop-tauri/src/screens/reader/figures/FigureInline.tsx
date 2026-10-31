@@ -92,6 +92,8 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
 }
 
 import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFigures";
+import { SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
+import { parseProgram } from "./sketch/sketchScene";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -125,7 +127,7 @@ const PLAY_STEPS = 40;
 const PLAY_MS = 150;
 const REDUCED_STEPS = 20;
 
-const linkStyle: CSSProperties = {
+export const linkStyle: CSSProperties = {
   border: 0,
   background: "transparent",
   color: COLOR.amberLink,
@@ -137,7 +139,7 @@ const linkStyle: CSSProperties = {
   textUnderlineOffset: 2,
 };
 
-function prefersReducedMotion(): boolean {
+export function prefersReducedMotion(): boolean {
   try {
     return typeof window !== "undefined" && typeof window.matchMedia === "function"
       && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -174,7 +176,7 @@ export function FigurePendingLine({ pending }: { pending: FigurePending }) {
   );
 }
 
-function PredictionBlock({
+export function PredictionBlock({
   figure,
   prediction,
   ctl,
@@ -230,7 +232,7 @@ function PredictionBlock({
   );
 }
 
-function PredictionResult({ figure, prediction, ctl, format }: { figure: FigureViewDto; prediction: FigurePredictionDto; ctl: FiguresCtl; format: "number" | "percent" }) {
+export function PredictionResult({ figure, prediction, ctl, format }: { figure: FigureViewDto; prediction: FigurePredictionDto; ctl: FiguresCtl; format: "number" | "percent" }) {
   const answered = prediction.answered;
   const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
@@ -467,14 +469,17 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
 export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: FiguresCtl }) {
   const shown = figure.verification === "verified" || figure.verification === "illustrative";
   const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
+  // RW5d P2: a sketch's specJson is its SketchProgramV1, drawn by SketchFigure.
+  const isSketch = figure.tier === "sketch";
   const compiled = useMemo(() => {
-    if (!shown || !figure.specJson) return null;
+    if (!shown || !figure.specJson || isSketch) return null;
     try {
       return compileSpec(figure.specJson);
     } catch {
       return null;
     }
-  }, [shown, figure.specJson]);
+  }, [shown, figure.specJson, isSketch]);
+  const program = useMemo(() => (shown && isSketch ? parseProgram(figure.specJson) : null), [shown, isSketch, figure.specJson]);
   if (!shown) {
     return (
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
@@ -497,7 +502,9 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
       </div>
     );
   }
-  const checks = frameChecks(figure.propertyChecks);
+  const checks = isSketch
+    ? (figure.sketch?.checks.length ? [`${figure.sketch.checks.length} check${figure.sketch.checks.length === 1 ? "" : "s"}, listed inside`] : [])
+    : frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
     ctl.setExpanded(expanded ? null : figure);
@@ -509,16 +516,18 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {FIGURE_COPY.collapsed} ·{" "}
           {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
-          <span data-figure-badge="">{frameBadge(figure.verification, figure.grounding)}</span>
+          <span data-figure-badge="">{isSketch ? sketchBadge(figure) : frameBadge(figure.verification, figure.grounding)}</span>
         </button>
         <FigurePassages figure={figure} />
         {checks.length ? (
-          <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
+          <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{isSketch ? SKETCH_FRAME.checksLead : FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
         ) : null}
         {expanded ? <button type="button" style={linkStyle} onClick={() => ctl.setExpanded(null)}>{FIGURE_COPY.close}</button> : null}
       </div>
       {expanded ? (
-        compiled ? <FigureBody figure={figure} ctl={ctl} compiled={compiled} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>
+        isSketch
+          ? (program ? <SketchFigure figure={figure} ctl={ctl} program={program} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>)
+          : compiled ? <FigureBody figure={figure} ctl={ctl} compiled={compiled} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>
       ) : null}
     </div>
   );
