@@ -1,0 +1,84 @@
+// Reader RW5d P2: one engine, two hosts (spec_reader_show_me_figures_v1 G-SM9, G-SM11, G-SM13).
+//
+// The parity corpus holds the text the sidecar's wasmtime runner returned
+// for each read; the desktop's engine host (the same bytes under V8's
+// WebAssembly) must return the same text, byte for byte. The hostile corpus
+// gets the same outcome here as in the sidecar. A tampered engine is refused.
+import { describe, expect, it } from "vitest";
+import parity from "./sketchParityCorpus.json";
+// Read as text and JSON.parse'd: a JSON module import would turn the polluted
+// case's "__proto__" key into a prototype (a JSON.parse keeps it an own key).
+import hostileText from "./sketchHostileCorpus.json?raw";
+import { ENGINE_SHA256, SKETCH_FUEL_PER_CALL, SKETCH_MEMORY_BYTES, SketchEngineHost, SketchRunError } from "./sketchEngine";
+import { ENGINE_BYTES, newHost, nodeDigest } from "./engineForTests";
+
+const hostile = JSON.parse(hostileText) as { cases: Array<{ name: string; code: string; call: string; expect: { status: string; result?: unknown } }> };
+
+type Call = { op: "init" | "step" | "view" | "probes"; params: Record<string, number>; seed?: number; dt?: number; index?: number; count?: number; expect?: string };
+
+describe("the pinned engine", () => {
+  it("hashes to the pin the sidecar uses", async () => {
+    expect(await nodeDigest(ENGINE_BYTES)).toBe(ENGINE_SHA256);
+    expect(parity.engine_sha256).toBe(ENGINE_SHA256);
+  });
+
+  it("reports the caps compiled into it", async () => {
+    const host = await newHost();
+    const limits = host.limits();
+    expect(limits.memory_bytes).toBe(SKETCH_MEMORY_BYTES);
+    expect(limits.ticks_per_call).toBe(SKETCH_FUEL_PER_CALL);
+  });
+
+  it("refuses an engine whose digest is not the pin (G-SM13)", async () => {
+    const tampered = new Uint8Array(ENGINE_BYTES);
+    tampered[tampered.length - 1] ^= 1;
+    await expect(SketchEngineHost.create(tampered, { digest: nodeDigest })).rejects.toThrow(/not the pinned/);
+  });
+});
+
+describe("the parity corpus (G-SM9)", () => {
+  for (const testCase of parity.cases) {
+    it(`returns the sidecar's text for ${testCase.name}`, async () => {
+      const host = await newHost();
+      host.load(testCase.code);
+      let reads = 0;
+      for (const call of testCase.calls as Call[]) {
+        if (call.op === "init") host.init(call.params, call.seed ?? 1);
+        else if (call.op === "step") host.step(call.params, call.dt ?? 0, call.index ?? 0, call.count ?? 1);
+        else {
+          const text = call.op === "view" ? host.viewText(call.params, call.index ?? 0) : host.probesText(call.params, call.index ?? 0);
+          expect(text).toBe(call.expect);
+          reads += 1;
+        }
+      }
+      expect(reads).toBeGreaterThan(0);
+    });
+  }
+});
+
+describe("the hostile corpus (G-SM11)", () => {
+  for (const testCase of hostile.cases) {
+    it(`${testCase.name}: ${testCase.expect.status}`, async () => {
+      const host = await newHost();
+      let outcome: { status: string; result?: unknown };
+      try {
+        host.load(testCase.code);
+        host.init({}, 1);
+        outcome = { status: "ok", result: testCase.call === "probes" ? host.probes({}, 0) : host.view({}, 0) };
+      } catch (caught) {
+        outcome = { status: caught instanceof SketchRunError ? caught.kind : "thrown" };
+      }
+      expect(outcome.status).toBe(testCase.expect.status);
+      if ("result" in testCase.expect) expect(outcome.result).toEqual(testCase.expect.result);
+    });
+  }
+
+  it("parses a polluted result as plain data in this realm", async () => {
+    const host = await newHost();
+    host.load("function init(){return 1} function view(){return {}} function probes(){ return JSON.parse('{\"__proto__\": {\"isAdmin\": true}}'); }");
+    host.init({}, 1);
+    const probes = host.probes({}, 0) as Record<string, unknown>;
+    expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+    expect(Object.getPrototypeOf(probes)).toBe(Object.prototype);
+  });
+});

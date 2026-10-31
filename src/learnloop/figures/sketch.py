@@ -436,9 +436,15 @@ def _finite(value: Any) -> bool:
 
 
 def _describe(value: Any) -> str:
+    """How a non-number is named in a problem (``sketchScene.ts``'s ``describe`` words it the same)."""
+
     if isinstance(value, str) and value in ("NaN", "Infinity", "-Infinity"):
         return value
-    return type(value).__name__ if not isinstance(value, (int, float)) else repr(value)
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, (int, float)):
+        return repr(value) if isinstance(value, int) or not value.is_integer() else repr(int(value))
+    return {"str": "str", "NoneType": "NoneType", "list": "list", "dict": "dict"}.get(type(value).__name__, "object")
 
 
 class _Problems(list):
@@ -470,7 +476,7 @@ def scene_problems(scene: Any, *, parameters: Sequence[str] = ()) -> list[str]:
         return ["view() must return an object {viewport, elements}"]
     extra = sorted(set(scene) - {"viewport", "elements", "axes"})
     if extra:
-        problems.add(f"the scene has unknown keys {extra}")
+        problems.add(f"the scene has unknown keys {json.dumps(extra)}")
     viewport = scene.get("viewport")
     if not isinstance(viewport, dict) or set(viewport) != {"x", "y"}:
         problems.add("viewport must be {x: [min, max], y: [min, max]}")
@@ -506,12 +512,12 @@ def scene_problems(scene: Any, *, parameters: Sequence[str] = ()) -> list[str]:
             continue
         kind = element.get("type")
         if kind not in _ELEMENT_KEYS:
-            problems.add(f"{where}: type {str(kind)[:40]!r} is not one of {', '.join(ELEMENT_KINDS)}")
+            problems.add(f"{where}: type '{str(kind)[:40]}' is not one of {', '.join(ELEMENT_KINDS)}")
             continue
         where = f"element {index} ({kind})"
         extra = sorted(set(element) - _ELEMENT_KEYS[kind])
         if extra:
-            problems.add(f"{where}: unknown keys {extra}")
+            problems.add(f"{where}: unknown keys {json.dumps(extra)}")
             continue
         element_id = element.get("id")
         if element_id is not None or kind == "handle":
@@ -519,7 +525,7 @@ def scene_problems(scene: Any, *, parameters: Sequence[str] = ()) -> list[str]:
                 problems.add(f"{where}: id must be letters, digits, - and _ (at most {MAX_ID}), "
                              "and may not use LearnLoop's check words")
             elif element_id in ids:
-                problems.add(f"{where}: id {element_id!r} is used twice")
+                problems.add(f"{where}: id '{element_id}' is used twice")
             else:
                 ids.add(element_id)
         style = element.get("style")
@@ -614,21 +620,21 @@ def probe_problems(values: Any, probes: Mapping[str, Probe]) -> list[str]:
         return ["probes() must return an object of the declared probes"]
     for name, probe in probes.items():
         if name not in values:
-            problems.add(f"probe {name!r} is missing")
+            problems.add(f"probe '{name}' is missing")
             continue
         value = values[name]
         if probe.shape == "scalar":
             if not _finite(value):
-                problems.add(f"probe {name!r} is not a finite number ({_describe(value)})")
+                problems.add(f"probe '{name}' is not a finite number ({_describe(value)})")
         elif probe.shape == "series":
-            _numbers(problems, f"probe {name!r}", value, limit=SKETCH_MAX_SERIES)
+            _numbers(problems, f"probe '{name}'", value, limit=SKETCH_MAX_SERIES)
         else:
             if not isinstance(value, list) or len(value) > SKETCH_MAX_SERIES:
-                problems.add(f"probe {name!r} must be a list of [x, y] pairs (at most {SKETCH_MAX_SERIES})")
+                problems.add(f"probe '{name}' must be a list of [x, y] pairs (at most {SKETCH_MAX_SERIES})")
                 continue
             for index, pair in enumerate(value):
                 if not (isinstance(pair, list) and len(pair) == 2 and _finite(pair[0]) and _finite(pair[1])):
-                    problems.add(f"probe {name!r}[{index}] is not a pair of finite numbers")
+                    problems.add(f"probe '{name}'[{index}] is not a pair of finite numbers")
                     break
     return list(problems)
 

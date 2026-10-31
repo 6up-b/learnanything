@@ -362,7 +362,7 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
         ) : null}
         <button type="button" style={linkStyle} aria-expanded={showHow} onClick={() => setShowHow((value) => !value)}>{SKETCH_COPY.howItRunsLink}</button>
       </div>
-      {showHow ? <MeaningLabel data-sketch-how="">{SKETCH_COPY.howItRuns}</MeaningLabel> : null}
+      {showHow ? <span data-sketch-how=""><MeaningLabel>{SKETCH_COPY.howItRuns}</MeaningLabel></span> : null}
       {state.kind === "paused" ? (
         <div data-sketch-paused="" style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
           <MeaningLabel>{SKETCH_COPY.paused}</MeaningLabel>

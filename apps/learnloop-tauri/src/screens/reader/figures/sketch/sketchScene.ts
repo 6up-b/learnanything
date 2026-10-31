@@ -86,10 +86,12 @@ function finite(value: unknown): value is number {
 
 function describe(value: unknown): string {
   if (value === "NaN" || value === "Infinity" || value === "-Infinity") return value;
+  if (typeof value === "boolean") return value ? "True" : "False";
   if (typeof value === "number") return String(value);
-  if (value === null) return "NoneType";
+  if (value === null || value === undefined) return "NoneType";
   if (Array.isArray(value)) return "list";
-  return typeof value === "string" ? "str" : typeof value;
+  if (typeof value === "string") return "str";
+  return typeof value === "object" ? "dict" : "object";
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -189,7 +191,7 @@ export function sceneProblems(scene: unknown, parameters: readonly string[] = []
     }
     const kind = element.type;
     if (typeof kind !== "string" || !Object.prototype.hasOwnProperty.call(ELEMENT_KEYS, kind)) {
-      problems.add(`${where}: type '${String(kind).slice(0, 40)}' is not one of ${ELEMENT_KINDS.join(", ")}`);
+      problems.add(`${where}: type '${(kind === undefined || kind === null ? "None" : String(kind)).slice(0, 40)}' is not one of ${ELEMENT_KINDS.join(", ")}`);
       continue;
     }
     where = `element ${index} (${kind})`;
