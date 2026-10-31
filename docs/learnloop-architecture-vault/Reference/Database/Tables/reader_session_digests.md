@@ -3,8 +3,8 @@ title: "reader_session_digests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0272008a8841a175f5a228139bb4fdf20f65ce71"
-source_commit_timestamp: "2026-10-31T13:54:21-04:00"
+source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
+source_commit_timestamp: "2026-10-31T15:33:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_session_digests"
@@ -19,8 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/227_reader_session_digests.sql"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/stores/reader_digests.py"
   - "src/learnloop/instructional/reader_followups.py"
+  - "src/learnloop/reader_followups_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -107,7 +109,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_architecture.py`
 - `tests/test_reader_followups.py`
+- `tests/test_reader_followups_review.py`
+- `tests/test_reader_followups_successor.py`
 - `tests/test_reader_session_digests_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0272008a8841a175f5a228139bb4fdf20f65ce71"
-source_commit_timestamp: "2026-10-31T13:54:21-04:00"
+source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
+source_commit_timestamp: "2026-10-31T15:33:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -121,7 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
-- `src/learnloop/instructional/reader_followups.py`
+- `src/learnloop/scheduling/intent/followup_gate.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers
@@ -165,6 +165,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_reader_ca1_codex_review.py`
 - `tests/test_reader_followups.py`
+- `tests/test_reader_followups_review.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_voi_forecasts.py`
@@ -173,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_certification_cold_probe.py`
 - `tests/test_compare_methods.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
-- `tests/test_diagnostic_probe_freshness.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
