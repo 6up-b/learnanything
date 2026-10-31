@@ -37,7 +37,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
 import { logCorrespondentAct } from "./correspondenceEvents";
 import { quietCorrespondents } from "./correspondentsRead";
-import { FIND_COPY, hitKey, newOperationId, type FindSectionOrigin } from "./FindSection";
+import { FIND_COPY, bookShort, hitKey, newOperationId, peekCrumb, sectionShort, type FindSectionOrigin, type PeekCrumb } from "./FindSection";
 import { clip } from "./readerShared";
 import { MeaningLabel, SourceVoice, SpokenOnly } from "./voices";
 
@@ -48,6 +48,8 @@ export const ALSO_COPY = {
   treatment: { introduces: "introduces it", develops: "develops it", applies: "uses it", mentions: "mentions it" } as Record<string, string>,
   linkedByYou: "you linked it",
   notationSpoken: "LearnLoop's note (AI-written)",
+  /** The peek header's roles (§12.3), the coverage judge's and RW4e's proposals: the model's reading. */
+  rolesLabel: "model's reading",
   kept: "you compared these",
   read: "read",
   alsoOn: "also:",
@@ -73,18 +75,6 @@ export const ALSO_COPY = {
 /** The collapsed line's names, in characters (a display bound: one rail line at the Guide's size). */
 const LINE_CHARS = 46;
 
-/** The section's own number ("5.A", "5.1"), else its title clipped (the book's words). */
-export function sectionShort(title: string): string {
-  const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "");
-  const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed);
-  return match ? match[1] : clip(trimmed, 22);
-}
-
-/** A book's name as the line shows it: its title before any subtitle, clipped. */
-export function bookShort(title: string): string {
-  const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim();
-  return head.length > 20 ? `${head.slice(0, 20).trimEnd()}…` : head;
-}
 
 /** "you compared these: different notation" from what the learner kept (RW4d's fine labels). */
 export function keptWords(kept: CorrespondentKeptDto[] | undefined): string | null {
@@ -137,6 +127,17 @@ export function alsoGroups(view: CorrespondentsDto | null): AlsoGroup[] {
   return groups;
 }
 
+/** A judged line's roles in plain words ("worked example"), each once; none: null. */
+export function roleWords(roles: string[] | undefined): string | null {
+  const words = [...new Set((roles ?? []).map((role) => role.trim().replace(/_/g, " ")).filter(Boolean))];
+  return words.length ? words.join(", ") : null;
+}
+
+/** A correction's name for its retry: the operation, its section pair and every LO it names (Codex review F1). */
+export function notAboutAct(line: AlsoLine): string {
+  return `not_about:${[...new Set(line.learningObjectIds)].sort().join(",")}`;
+}
+
 /** The collapsed line's names and whether some did not fit ("and others"). */
 export function lineNames(lines: AlsoLine[]): { names: string[]; more: boolean } {
   const names: string[] = [];
@@ -151,9 +152,9 @@ export function lineNames(lines: AlsoLine[]): { names: string[]; more: boolean }
   return { names, more: false };
 }
 
-export interface AlsoPeekCrumb {
-  label: string;
-}
+// Shared with CA5a's list (one crumb for either list's peek).
+export { bookShort, sectionShort };
+export type AlsoPeekCrumb = PeekCrumb;
 
 export interface AlsoInBooksProps {
   extractionId: string;
@@ -211,7 +212,8 @@ export function AlsoInBooks({
   const [answer, setAnswer] = useState<{ sectionId: string; view: CorrespondentsDto } | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [peek, setPeek] = useState<Peek | null>(null);
-  const [gone, setGone] = useState<Map<string, { line: AlsoLine; operationId: string }>>(new Map());
+  // Lines corrected away, with the operation (for undo) and the LO's title they were listed under.
+  const [gone, setGone] = useState<Map<string, { line: AlsoLine; operationId: string; title: string }>>(new Map());
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [menuKey, setMenuKey] = useState<string | null>(null);
   const [blockMenu, setBlockMenu] = useState(false);
@@ -254,7 +256,7 @@ export function AlsoInBooks({
 
   // The detour strip's crumb follows the peek; it goes with the component.
   useEffect(() => {
-    peekChange.current?.(peek ? { label: `peek ${bookShort(peek.hit.sourceTitle)} §${sectionShort(peek.hit.title)}` } : null);
+    peekChange.current?.(peek ? peekCrumb(peek.hit) : null);
   }, [peek]);
   useEffect(() => () => peekChange.current?.(null), []);
 
@@ -262,7 +264,12 @@ export function AlsoInBooks({
   const groups = useMemo(() => alsoGroups(view), [view]);
   const lines = useMemo(() => groups.flatMap((group) => group.lines), [groups]);
   const liveLines = lines.filter((line) => !gone.has(line.key));
-  const visible = Boolean(section) && !hidden && lines.length > 0;
+  // A line corrected away keeps its undo even when a reread (after "also
+  // about…") no longer lists it (Codex review F3): drawn under the LO it was
+  // listed under, or after the groups when that LO is gone from the answer.
+  const listed = useMemo(() => new Set(lines.map((line) => line.key)), [lines]);
+  const orphans = [...gone.entries()].filter(([key]) => !listed.has(key));
+  const visible = Boolean(section) && !hidden && (lines.length > 0 || gone.size > 0);
 
   // Hidden leaves nothing behind: no list, no peek, no crumb.
   useEffect(() => {
@@ -383,7 +390,7 @@ export function AlsoInBooks({
     if (!sectionId) return;
     let recorded: string | null = null;
     setMenuKey(null);
-    await runOperation(line.key, "not_about", async (operationId) => {
+    await runOperation(line.key, notAboutAct(line), async (operationId) => {
       const { operation } = await api.readerCorrespondentDismiss({
         extractionId, sectionId, targetExtractionId: line.hit.extractionId, targetSectionId: line.hit.sectionId,
         operationId, learningObjectIds: line.learningObjectIds,
@@ -392,10 +399,11 @@ export function AlsoInBooks({
     }, () => {
       const operationId = recorded;
       if (!operationId) return;
-      setGone((current) => new Map(current).set(line.key, { line, operationId }));
+      const title = groups.find((group) => group.learningObjectId === line.learningObjectId)?.title ?? "";
+      setGone((current) => new Map(current).set(line.key, { line, operationId, title }));
       setPeek((current) => (current?.key === line.key ? null : current));
     });
-  }, [extractionId, sectionId, runOperation]);
+  }, [extractionId, sectionId, groups, runOperation]);
 
   const undo = useCallback(async (key: string) => {
     const entry = gone.get(key);
@@ -409,8 +417,10 @@ export function AlsoInBooks({
         next.delete(key);
         return next;
       });
+      // A line the last read no longer lists comes back with a fresh read.
+      if (!listed.has(key)) read(token.current, sectionId);
     });
-  }, [extractionId, sectionId, gone, runOperation]);
+  }, [extractionId, sectionId, gone, listed, runOperation, read]);
 
   const sendAlsoAbout = useCallback(async (line: AlsoLine, text: string) => {
     const words = text.trim();
@@ -521,6 +531,31 @@ export function AlsoInBooks({
     );
   }
 
+  const goneRow = (key: string, entry: { line: AlsoLine }) => {
+    const { hit } = entry.line;
+    return (
+      <div key={key} role="listitem" data-also-gone={key} style={{ paddingLeft: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
+        <MeaningLabel>{bookShort(hit.sourceTitle)} § {clip(hit.title, 40)} · {ALSO_COPY.notAbout}</MeaningLabel>
+        <button type="button" onClick={() => void undo(key)} disabled={busyKey === key} style={LINK}>{ALSO_COPY.undo}</button>
+        <button type="button" onClick={() => setWhy((open) => (open === key ? null : key))} aria-expanded={why === key} style={LINK}>{ALSO_COPY.whereThisGoes}</button>
+        {why === key ? <MeaningLabel style={{ flexBasis: "100%" }}>{ALSO_COPY.whereThisGoesText}</MeaningLabel> : null}
+      </div>
+    );
+  };
+  const peekRoles = peek ? roleWords(peek.hit.roles) : null;
+  const groupIds = new Set(groups.map((group) => group.learningObjectId));
+  // Orphans whose LO left the answer, by the LO they were listed under.
+  const strayGroups: Array<{ learningObjectId: string; title: string; rows: Array<[string, { line: AlsoLine }]> }> = [];
+  for (const [key, entry] of orphans) {
+    if (groupIds.has(entry.line.learningObjectId)) continue;
+    let stray = strayGroups.find((group) => group.learningObjectId === entry.line.learningObjectId);
+    if (!stray) {
+      stray = { learningObjectId: entry.line.learningObjectId, title: entry.title, rows: [] };
+      strayGroups.push(stray);
+    }
+    stray.rows.push([key, entry]);
+  }
+
   const keyHints = [
     ALSO_COPY.keys.peek, ALSO_COPY.keys.go,
     ...(onSideBySide ? [ALSO_COPY.keys.side] : []),
@@ -545,16 +580,7 @@ export function AlsoInBooks({
             {group.lines.map((line) => {
               const { key, hit } = line;
               const removed = gone.get(key);
-              if (removed) {
-                return (
-                  <div key={key} role="listitem" data-also-gone={key} style={{ paddingLeft: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
-                    <MeaningLabel>{bookShort(hit.sourceTitle)} § {clip(hit.title, 40)} · {ALSO_COPY.notAbout}</MeaningLabel>
-                    <button type="button" onClick={() => void undo(key)} disabled={busyKey === key} style={LINK}>{ALSO_COPY.undo}</button>
-                    <button type="button" onClick={() => setWhy((open) => (open === key ? null : key))} aria-expanded={why === key} style={LINK}>{ALSO_COPY.whereThisGoes}</button>
-                    {why === key ? <MeaningLabel style={{ flexBasis: "100%" }}>{ALSO_COPY.whereThisGoesText}</MeaningLabel> : null}
-                  </div>
-                );
-              }
+              if (removed) return goneRow(key, removed);
               const focused = focusedKey === key;
               const peeking = peek?.key === key;
               const kept = keptWords(hit.kept);
@@ -658,6 +684,13 @@ export function AlsoInBooks({
                 </div>
               );
             })}
+            {orphans.filter(([, entry]) => entry.line.learningObjectId === group.learningObjectId).map(([key, entry]) => goneRow(key, entry))}
+          </div>
+        ))}
+        {strayGroups.map((group) => (
+          <div key={group.learningObjectId} role="group" aria-label={group.title} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>{group.title}</span>
+            {group.rows.map(([key, entry]) => goneRow(key, entry))}
           </div>
         ))}
         <MeaningLabel>{keyHints}</MeaningLabel>
@@ -667,6 +700,12 @@ export function AlsoInBooks({
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={HEAD}>{ALSO_COPY.peekHead}</span>
             <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(peek.hit.title, 50)}</span>
+            {peekRoles ? (
+              // The roles the section plays (§12.3): the coverage judge's and RW4e's proposals, the model's reading.
+              <span data-also-peek-roles="" data-voice="model" style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.purpleText }}>
+                {peekRoles} ({ALSO_COPY.rolesLabel})
+              </span>
+            ) : null}
           </div>
           {peek.view ? (
             <SourceVoice source={peek.hit.sourceTitle} locator={peek.view.page !== null ? `p.${peek.view.page}` : null}>

@@ -658,6 +658,9 @@ export function ReaderScreen({
   const [alsoExpandToken, setAlsoExpandToken] = useState(0);
   const [alsoClosePeekToken, setAlsoClosePeekToken] = useState(0);
   const [alsoPeek, setAlsoPeek] = useState<AlsoPeekCrumb | null>(null);
+  // CA5a's pressed list peeks too (Codex review F4): one display-only crumb for either list.
+  const [findPeek, setFindPeek] = useState<AlsoPeekCrumb | null>(null);
+  const peekCrumbShown = alsoPeek ?? findPeek;
   const [coverageRefresh, setCoverageRefresh] = useState(0);
   // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
   // re-reads on, a landed progress save included.
@@ -1778,7 +1781,8 @@ export function ReaderScreen({
 
   // Reader CA5's `x`: only while its line is there to open.
   const alsoKeyRef = useRef<() => boolean>(() => false);
-  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !intentBox.open;
+  // Not while comparing either (Codex review F5): the comparing posture hides the Guide's rail.
+  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !comparing && !intentBox.open;
   // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
   // tabs; \ collapses or expands the rail (remembered on this device); x opens
   // "also in your books" (CA5).
@@ -2906,8 +2910,8 @@ export function ReaderScreen({
           }}
           // Reader CA5: a peek at another book's section from the Guide is a crumb
           // only (never a return-stack entry, so Alt+→ never opens that book).
-          peek={alsoPeek ? {
-            label: alsoPeek.label,
+          peek={peekCrumbShown ? {
+            label: peekCrumbShown.label,
             origin: currentGuideSection?.label ?? sourceTitle ?? "where I was",
             onClose: () => setAlsoClosePeekToken((token) => token + 1),
           } : null}
@@ -3427,6 +3431,8 @@ export function ReaderScreen({
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
                 onError={onError}
                 refreshKey={coverageRefresh}
+                onPeekChange={setFindPeek}
+                closePeekToken={alsoClosePeekToken}
               />
             ) : undefined}
             alsoInBooks={alsoOn && !working ? (
@@ -3747,7 +3753,7 @@ export function ReaderScreen({
           // RW6a: once the session has something to wrap up (UX W1).
           ...(recapCtl.wrapUpOffered && !working ? [{ key: "w", label: "wrap up" }] : []),
           // Reader CA5: while the Guide has its "also in your books" line.
-          ...(inquiry && alsoOn && alsoAvailable && !alsoHidden && !working ? [{ key: "x", label: "also in your books" }] : []),
+          ...(inquiry && alsoOn && alsoAvailable && !alsoHidden && !working && !comparing ? [{ key: "x", label: "also in your books" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />

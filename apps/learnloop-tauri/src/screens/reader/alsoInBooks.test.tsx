@@ -390,3 +390,122 @@ it("a late answer for the section left behind never lands", async () => {
   await flush();
   expect(collapsed()).toBeNull();
 });
+
+// -- Codex review (fix round) ----------------------------------------------------------------------
+
+it("F1: a retried 'not about this' whose line gained an LO is a new operation, not the earlier one", async () => {
+  const { onError } = await mount();
+  await expand();
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" }));
+  // Committed on the server, but the answer is lost.
+  api.readerCorrespondentDismiss.mockRejectedValueOnce(new Error("lost"));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.notAbout }));
+  await flush();
+  expect(onError).toHaveBeenCalled();
+  // "also about…" links Axler to the characteristic polynomial too: the refreshed line names both LOs.
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.alsoAbout }));
+  const box = screen.getByRole("textbox");
+  fireEvent.change(box, { target: { value: "the characteristic polynomial" } });
+  api.curriculumAlsoAbout.mockResolvedValueOnce({ status: "corrected", learningObjectId: "lo_charpoly", title: "the characteristic polynomial" });
+  const both = { ...AXLER, alsoLearningObjectIds: ["lo_charpoly"] };
+  api.readerCorrespondents.mockResolvedValueOnce(judged({ learningObjects: [
+    { learningObjectId: "lo_eigen", title: "eigenvalues of a linear map", sources: [{ sourceId: "src_axler", sourceTitle: "Axler", sections: [both] }] },
+  ] }));
+  fireEvent.keyDown(box, { key: "Enter" });
+  await flush();
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" }));
+  api.readerCorrespondentDismiss.mockResolvedValueOnce(operation("op_new", { learningObjectIds: ["lo_eigen", "lo_charpoly"] }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.notAbout }));
+  await flush();
+  const [first, second] = api.readerCorrespondentDismiss.mock.calls.map((call) => call[0]);
+  expect(first.learningObjectIds).toEqual(["lo_eigen"]);
+  expect(second.learningObjectIds).toEqual(["lo_eigen", "lo_charpoly"]);
+  expect(second.operationId).not.toBe(first.operationId);
+});
+
+it("F3: a reread after 'also about…' that omits a dismissed section keeps its undo, and undo reads again", async () => {
+  await mount();
+  await expand();
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Lay 5.2 The characteristic equation" }));
+  api.readerCorrespondentDismiss.mockResolvedValueOnce(operation("op_1", { learningObjectIds: ["lo_eigen", "lo_charpoly"] }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.notAbout }));
+  await flush();
+  expect(document.querySelector('[data-also-gone="ext_lay/lay52"]')).toBeTruthy();
+  // "also about…" on another line; the server's reread no longer lists Lay §5.2 at all.
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Lay 5.3 Diagonalization" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.alsoAbout }));
+  const box = screen.getByRole("textbox");
+  fireEvent.change(box, { target: { value: "orthogonal projection" } });
+  api.curriculumAlsoAbout.mockResolvedValueOnce({ status: "corrected", learningObjectId: "lo_proj", title: "orthogonal projection" });
+  const withoutLay52 = judged({ learningObjects: [
+    { learningObjectId: "lo_eigen", title: "eigenvalues of a linear map", sources: [
+      { sourceId: "src_axler", sourceTitle: "Axler", sections: [AXLER] },
+      { sourceId: "src_lay", sourceTitle: "Lay", sections: [LAY_51] },
+    ] },
+    { learningObjectId: "lo_charpoly", title: "the characteristic polynomial", sources: [{ sourceId: "src_lay", sourceTitle: "Lay", sections: [LAY_53] }] },
+  ] });
+  api.readerCorrespondents.mockResolvedValueOnce(withoutLay52);
+  fireEvent.keyDown(box, { key: "Enter" });
+  await flush();
+  const gone = document.querySelector<HTMLElement>('[data-also-gone="ext_lay/lay52"]');
+  expect(gone).toBeTruthy();
+  // Still under the LO it was listed under.
+  const group = screen.getByRole("group", { name: "eigenvalues of a linear map" });
+  expect(group.contains(gone)).toBe(true);
+  // Undo still works, and the list is read again so the section comes back.
+  api.readerCorrespondentDismiss.mockResolvedValueOnce(operation("op_2", { choice: "none", undoOf: "op_1" }));
+  api.readerCorrespondents.mockResolvedValueOnce(judged());
+  fireEvent.click(within(gone!).getByRole("button", { name: ALSO_COPY.undo }));
+  await flush();
+  expect(api.readerCorrespondentDismiss.mock.calls[1][0]).toMatchObject({ undoOf: "op_1", targetSectionId: "lay52" });
+  expect(api.readerCorrespondents).toHaveBeenCalledTimes(3);
+  expect(document.querySelector('[data-also-gone="ext_lay/lay52"]')).toBeNull();
+  expect(title(LAY_52)).toBeTruthy();
+});
+
+it("F3: the last line corrected away and a reread that finds nothing judged still keeps its undo", async () => {
+  await mount({}, judged({ learningObjects: [
+    { learningObjectId: "lo_eigen", title: "eigenvalues of a linear map", sources: [{ sourceId: "src_axler", sourceTitle: "Axler", sections: [AXLER] }] },
+    { learningObjectId: "lo_charpoly", title: "the characteristic polynomial", sources: [{ sourceId: "src_lay", sourceTitle: "Lay", sections: [LAY_53] }] },
+  ] }));
+  await expand();
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" }));
+  api.readerCorrespondentDismiss.mockResolvedValueOnce(operation("op_1"));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.notAbout }));
+  await flush();
+  fireEvent.click(screen.getByRole("button", { name: "⋯ Lay 5.3 Diagonalization" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.alsoAbout }));
+  const box = screen.getByRole("textbox");
+  fireEvent.change(box, { target: { value: "orthogonal projection" } });
+  api.curriculumAlsoAbout.mockResolvedValueOnce({ status: "corrected", learningObjectId: "lo_proj", title: "orthogonal projection" });
+  api.readerCorrespondents.mockResolvedValueOnce(judged({ status: "none", learningObjects: [] }));
+  fireEvent.keyDown(box, { key: "Enter" });
+  await flush();
+  expect(document.querySelector('[data-also-gone="ext_axler/ax5a"]')).toBeTruthy();
+});
+
+it("F6: the peek header names the section's roles, labelled as the model's", async () => {
+  const worked = { ...AXLER, roles: ["definition", "worked_example"] };
+  const bare = { ...LAY_51, roles: [] };
+  await mount({}, judged({ learningObjects: [{ learningObjectId: "lo_eigen", title: "eigenvalues of a linear map", sources: [
+    { sourceId: "src_axler", sourceTitle: "Axler", sections: [worked] },
+    { sourceId: "src_lay", sourceTitle: "Lay", sections: [bare] },
+  ] }] }));
+  await expand();
+  api.readerCorrespondentPeek.mockResolvedValueOnce(peekOf(AXLER, ["Invariant subspaces…"]));
+  fireEvent.click(title(AXLER));
+  await flush();
+  const roles = document.querySelector<HTMLElement>("[data-also-peek-roles]")!;
+  expect(roles).toBeTruthy();
+  expect(roles.dataset.voice).toBe("model");
+  expect(roles.textContent).toContain("definition, worked example");
+  expect(roles.textContent).toContain(ALSO_COPY.rolesLabel);
+  // A section with no roles shows no roles line.
+  fireEvent.keyDown(title(AXLER), { key: "Escape" });
+  api.readerCorrespondentPeek.mockResolvedValueOnce(peekOf(LAY_51, ["An eigenvector…"]));
+  fireEvent.click(title(LAY_51));
+  await flush();
+  expect(document.querySelector('[data-also-peek="ext_lay/lay51"]')).toBeTruthy();
+  expect(document.querySelector("[data-also-peek-roles]")).toBeNull();
+});

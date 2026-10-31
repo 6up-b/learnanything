@@ -221,3 +221,48 @@ it("switched off entirely (no correspondence key), nothing is read", async () =>
   expect(line()).toBeNull();
   expect(api.readerCorrespondents).not.toHaveBeenCalled();
 });
+
+// -- Codex review (fix round) ----------------------------------------------------------------------
+
+it("F4: a peek from CA5a's pressed list puts the same crumb in the detour strip, and the crumb closes it", async () => {
+  api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? PRESSED : QUIET));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
+  fireEvent.click(await screen.findByRole("button", { name: "peek at Axler 5.A Invariant subspaces" }));
+  await screen.findByText("Invariant subspaces are…");
+  const strip = screen.getByRole("navigation", { name: "Detour" });
+  expect(strip.textContent).toContain("peek Axler §5.A");
+  fireEvent.click(screen.getByRole("button", { name: "close peek" }));
+  await waitFor(() => expect(screen.queryByText("Invariant subspaces are…")).toBeNull());
+  expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
+});
+
+function keyBarOffersX() {
+  return Array.from(document.querySelectorAll("span")).some((node) => node.textContent === "x" && node.nextElementSibling?.textContent === "also in your books");
+}
+
+it("F5: x is neither offered nor acts while the comparing posture hides the Guide", async () => {
+  const ask = {
+    askId: "la_1", query: "6.1 Symmetric matrices", entry: "where_else_explained", status: "ok", policy: "reading",
+    personalized: false, basis: "keyword", learningObjectIds: [], extractionId: view.extractionId, anchorSpanIds: [], hits: [],
+    groups: { sources: [], expansions: [] }, expansions: [], expandGraph: false, sourceCount: 0, passageCount: 0,
+  };
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: ask });
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_1", state: "done",
+    result: { askId: "la_1", status: "ok", rows: [], exposureEventIds: [] } });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  await waitFor(() => expect(line()).toBeTruthy());
+  expect(keyBarOffersX()).toBe(true);
+  fireEvent.click(line()!);
+  const title = await screen.findByTitle("Axler · 5.A Invariant subspaces");
+  act(() => { title.focus(); });
+  fireEvent.keyDown(title, { key: "c" });
+  await waitFor(() => expect(document.querySelector("[data-comparing-pane]")).toBeTruthy());
+  // Folded behind the comparison, x neither shows in the key bar nor opens the hidden list.
+  fireEvent.click(screen.getByRole("button", { name: `${ALSO_COPY.title}: fold`, hidden: true }));
+  await waitFor(() => expect(document.querySelector("[data-also-expanded]")).toBeNull());
+  expect(keyBarOffersX()).toBe(false);
+  fireEvent.keyDown(document.body, { key: "x" });
+  await act(async () => { await Promise.resolve(); });
+  expect(document.querySelector("[data-also-expanded]")).toBeNull();
+});

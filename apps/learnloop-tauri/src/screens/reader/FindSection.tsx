@@ -78,6 +78,10 @@ export interface FindSectionProps {
   onError: (message: string) => void;
   /** Reader CA5: a change asks the quiet read again (the section's coverage was corrected). */
   refreshKey?: number;
+  /** Reader CA5 (Codex review F4): the detour strip's `› peek Axler §5.A` (null when no peek is open). */
+  onPeekChange?: (crumb: PeekCrumb | null) => void;
+  /** The detour strip's crumb: each new nonzero value closes the peek. */
+  closePeekToken?: number;
 }
 
 type Pressed =
@@ -89,6 +93,28 @@ interface Peek {
   key: string;
   hit: CorrespondentSectionDto;
   view: CorrespondentPeekDto | null;
+}
+
+/** The section's own number ("5.A", "5.1"), else its title clipped (the book's words). */
+export function sectionShort(title: string): string {
+  const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "");
+  const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed);
+  return match ? match[1] : clip(trimmed, 22);
+}
+
+/** A book's name as a line shows it: its title before any subtitle, clipped. */
+export function bookShort(title: string): string {
+  const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim();
+  return head.length > 20 ? `${head.slice(0, 20).trimEnd()}…` : head;
+}
+
+/** The detour strip's display-only crumb for a peek (`› peek Axler §5.A`, §6.3). */
+export interface PeekCrumb {
+  label: string;
+}
+
+export function peekCrumb(hit: Pick<CorrespondentSectionDto, "sourceTitle" | "title">): PeekCrumb {
+  return { label: `peek ${bookShort(hit.sourceTitle)} §${sectionShort(hit.title)}` };
 }
 
 export function hitKey(hit: Pick<CorrespondentSectionDto, "extractionId" | "sectionId">): string {
@@ -107,7 +133,9 @@ const LINK: CSSProperties = {
 };
 const HEAD: CSSProperties = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" };
 
-export function FindSection({ extractionId, section, onGoThere, onCompare, onError, refreshKey = 0 }: FindSectionProps) {
+export function FindSection({
+  extractionId, section, onGoThere, onCompare, onError, refreshKey = 0, onPeekChange, closePeekToken = 0,
+}: FindSectionProps) {
   const sectionId = section?.id ?? null;
   // The quiet read (no search): whether the action may show for this section.
   const [quiet, setQuiet] = useState<{ sectionId: string; show: boolean } | null>(null);
@@ -210,6 +238,21 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     setPeek(null);
     if (key) focusLine(key);
   }, [peek]);
+
+  // The detour strip's crumb follows the peek (display only: never a
+  // return-stack entry), and the strip's close closes it; it goes with the list.
+  const peekChange = useRef(onPeekChange);
+  peekChange.current = onPeekChange;
+  useEffect(() => {
+    peekChange.current?.(peek ? peekCrumb(peek.hit) : null);
+  }, [peek]);
+  useEffect(() => () => peekChange.current?.(null), []);
+  const seenClose = useRef(closePeekToken);
+  useEffect(() => {
+    if (closePeekToken === seenClose.current) return;
+    seenClose.current = closePeekToken;
+    if (peek) closePeek();
+  }, [closePeekToken, peek, closePeek]);
 
   const goThere = useCallback((hit: CorrespondentSectionDto) => {
     if (!hit.jump.spanId) return;
