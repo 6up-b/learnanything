@@ -377,3 +377,48 @@ def test_peeked_and_opened_are_salience_only_client_events_with_ids_only(tmp_pat
         assert row["authority_class"] == "salience_only"
         assert row["target_section_id"] == "lay_eigen" and row["by"] == "judged" and row["via"] == "also_list"
         assert "title" not in row, "no title or learner text survives"
+
+
+# -- Codex review (fix round) ------------------------------------------------------------------------
+
+
+def test_an_operation_id_reused_for_another_lo_set_is_refused_and_writes_nothing(tmp_path):
+    """Codex review F1: a retried id binds its whole payload, the LOs included."""
+
+    _paths, repository, ctx, _judge = _judged(tmp_path, two=True)
+    first = _dismiss(ctx, ("ext_lay", "lay_char"), "op_retry_0001", los=["lo_eigen"])
+    before = table_counts(repository)
+    # The same id, the same LOs (any order, repeated): the recorded operation, nothing written.
+    again = _dismiss(ctx, ("ext_lay", "lay_char"), "op_retry_0001", los=["lo_eigen", "lo_eigen"])
+    assert again["operationId"] == first["operationId"] and again["learningObjectIds"] == ["lo_eigen"]
+    # The same id naming another LO set is another correction: refused, nothing written.
+    for los in (["lo_charpoly"], ["lo_eigen", "lo_charpoly"]):
+        with pytest.raises(SidecarError) as caught:
+            _dismiss(ctx, ("ext_lay", "lay_char"), "op_retry_0001", los=los)
+        assert caught.value.code == "validation_error", los
+    assert table_counts(repository) == before
+    assert ("lo_charpoly", "src_lay", "lay_char") in _lines(call(ctx, "reader.correspondents", QUIET))
+
+
+def test_hide_preferences_from_a_stale_context_keep_another_writers_changes(tmp_path):
+    """Codex review F2: each change applies to the config as it is on disk now."""
+
+    paths, _repository = build_coverage_vault(tmp_path / "vault")
+    first, second = _ctx(paths), _ctx(paths)
+    assert _shown(first)["hiddenSources"] == [] and _shown(second)["hiddenSources"] == []
+    _prefs(first, source_id="src_book", hide_source=True)
+    # The second context still holds hidden_sources = [] in memory.
+    out = _prefs(second, source_id="src_lay", hide_source=True)
+    assert sorted(entry["sourceId"] for entry in out["hiddenSources"]) == ["src_book", "src_lay"]
+    # Showing a book the stale context never saw hidden still shows it.
+    out = _prefs(second, source_id="src_book", hide_source=False)
+    assert [entry["sourceId"] for entry in out["hiddenSources"]] == ["src_lay"]
+    # And the first context, stale in turn, keeps the second's change.
+    _prefs(first, hide_everywhere=True)
+    out = _prefs(first, source_id="src_exam", hide_source=True)
+    assert sorted(entry["sourceId"] for entry in out["hiddenSources"]) == ["src_exam", "src_lay"]
+    assert out["hideEverywhere"] is True
+    assert _shown(second)["hideEverywhere"] is False  # not reloaded yet: in-memory only
+    out = _prefs(second, hide_everywhere=False)
+    assert out["hideEverywhere"] is False
+    assert sorted(entry["sourceId"] for entry in out["hiddenSources"]) == ["src_exam", "src_lay"]

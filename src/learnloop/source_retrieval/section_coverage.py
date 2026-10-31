@@ -1836,7 +1836,13 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
         existing = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(operation_id),)).fetchone()
         if existing is not None:
             record = _operation_view(existing, replayed=True)
-            if not same_question(existing) or record["undo_of"] != undo_of:
+            # The id binds the whole correction: its pair, what it undoes and,
+            # when the caller names them, its LOs (Codex review F1: a retry
+            # after "also about…" must not acknowledge the earlier LO set).
+            reused = not same_question(existing) or record["undo_of"] != undo_of
+            if undo_of is None and learning_object_ids is not None:
+                reused = reused or set(record["learning_object_ids"]) != set(chosen)
+            if reused:
                 raise CoverageError("validation_error", "That operation id was used for another correction.")
             return record
         supersedes: str | None = None

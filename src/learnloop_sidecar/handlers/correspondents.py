@@ -520,31 +520,65 @@ def reader_set_correspondence_preferences(ctx: SidecarContext,
     change, no write."""
 
     from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+    from learnloop.vault_lock import VaultLockError, vault_mutation_lock
 
     vault, repository = ctx.require_vault()
     if not find_section_enabled(vault):
         raise SidecarError("correspondence_disabled",
                            "Also in your books is off (reader.correspondence.enabled = false).")
-    updates: dict[tuple[str, ...], Any] = {}
-    if params.hide_source is not None:
-        source_id = str(params.source_id or "").strip()
-        if not source_id:
-            raise SidecarError("validation_error", "Hiding the line for a book names the book.")
-        current = hidden_sources(vault)
-        if params.hide_source and source_id not in current:
-            updates[("reader", "correspondence", "hidden_sources")] = [*current, source_id]
-        elif not params.hide_source and source_id in current:
-            updates[("reader", "correspondence", "hidden_sources")] = [entry for entry in current if entry != source_id]
-    if params.hide_everywhere is not None and bool(params.hide_everywhere) != hidden_everywhere(vault):
-        updates[("reader", "correspondence", "hide_everywhere")] = bool(params.hide_everywhere)
-    if updates:
-        try:
-            apply_config_updates(vault.root / "learnloop.toml", updates)
-        except SettingsStoreError as exc:
-            raise SidecarError(exc.code, str(exc)) from exc
+    source_id = str(params.source_id or "").strip()
+    if params.hide_source is not None and not source_id:
+        raise SidecarError("validation_error", "Hiding the line for a book names the book.")
+    config_path = vault.root / "learnloop.toml"
+    try:
+        # The change applies to the config as it is on disk now, under the
+        # vault's mutation lock (Codex review F2): another sidecar, a CLI or
+        # Settings may have hidden or shown a book since this context loaded,
+        # and a stale in-memory list must never overwrite it.
+        with vault_mutation_lock(vault.root, purpose="reader_correspondence_preferences"):
+            current, everywhere = _on_disk_preferences(config_path)
+            updates: dict[tuple[str, ...], Any] = {}
+            if params.hide_source is not None:
+                if params.hide_source and source_id not in current:
+                    updates[("reader", "correspondence", "hidden_sources")] = [*current, source_id]
+                elif not params.hide_source and source_id in current:
+                    updates[("reader", "correspondence", "hidden_sources")] = [
+                        entry for entry in current if entry != source_id]
+            if params.hide_everywhere is not None and bool(params.hide_everywhere) != everywhere:
+                updates[("reader", "correspondence", "hide_everywhere")] = bool(params.hide_everywhere)
+            if updates:
+                apply_config_updates(config_path, updates)
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    except VaultLockError as exc:
+        raise SidecarError("vault_busy", f"The vault is busy; try again ({exc}).") from exc
+    # Reloaded whenever the file may differ from this context's copy (another
+    # writer's change shows here too), not only after this call's own write.
+    if updates or current != hidden_sources(vault) or everywhere != hidden_everywhere(vault):
         ctx.reload(maintenance=False)
         vault, repository = ctx.require_vault()
     return versioned(_preferences(vault, repository))
+
+
+def _on_disk_preferences(config_path: Any) -> tuple[list[str], bool]:
+    """``[reader.correspondence]``'s hide keys as the file holds them now (absent: the defaults)."""
+
+    import tomllib
+
+    from learnloop.ops.settings_store import SettingsStoreError
+
+    try:
+        document = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SettingsStoreError("config_missing", f"{config_path} does not exist") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise SettingsStoreError("config_unreadable", f"{config_path} is not valid TOML: {exc}") from exc
+    reader = document.get("reader")
+    section = reader.get("correspondence") if isinstance(reader, dict) else None
+    section = section if isinstance(section, dict) else {}
+    sources = section.get("hidden_sources") or []
+    listed = [str(entry) for entry in sources] if isinstance(sources, list) else []
+    return list(dict.fromkeys(listed)), bool(section.get("hide_everywhere", False))
 
 
 __all__ = ["ALSO_IN_BOOKS_RPCS", "CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "find_section_enabled",
