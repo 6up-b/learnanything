@@ -10,9 +10,14 @@
 // in it) and when it found no matching section and stays put. Nothing in it
 // animates or takes focus on its own (C5): a follow-along move swaps the
 // section and puts the pane at its top, instantly. Selecting in it offers
-// CA3's selection verb, naming the other pane's book.
+// highlight and note, which go to this pane's own book (reader.capture on its
+// reading), and CA3's selection verb, naming the other pane's book. The
+// learner's own highlights and notes in this book are marked in the margin.
 import { forwardRef, useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { api } from "../../api/client";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { errorMessage } from "../../errors";
+import { newActivityId } from "./activity";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { clip } from "./readerShared";
 import { MeaningLabel } from "./voices";
@@ -27,6 +32,8 @@ const LINK: CSSProperties = {
 export interface PaneSelection {
   spanIds: string[];
   quote: string;
+  /** Per passage, the words selected in it (a capture's anchor). */
+  nodes: Array<{ spanId: string; quote: string }>;
 }
 
 export interface SideBySidePaneProps {
@@ -37,6 +44,47 @@ export interface SideBySidePaneProps {
   onCompareSelection: ((selection: PaneSelection) => void) | null;
   /** The pane's share of the width (two panes, a flex grow against the main pane's); ignored by the sheet. */
   grow?: number;
+  /** Highlight and note on a selection here, saved to this pane's book (null: not offered, as in the peek sheet). */
+  onCaptured?: ((kind: "highlight" | "annotate") => void) | null;
+  onError?: (message: string) => void;
+}
+
+export const SIDE_PANE_COPY = {
+  highlight: "highlight",
+  note: "note",
+  notePlaceholder: "a note on this passage (↵ saves, esc cancels)",
+  saved: (title: string) => `saved to ${title}`,
+  marked: "your highlight or note",
+} as const;
+
+/** The learner's highlights and notes in this book, by passage (the margin marks). */
+function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean): [Map<string, string>, () => void] {
+  const [marks, setMarks] = useState<Map<string, string>>(new Map());
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!enabled || !sourceId || !extractionId) {
+      setMarks(new Map());
+      return undefined;
+    }
+    let live = true;
+    Promise.resolve()
+      .then(() => api.readerSourceAnnotations({ sourceId, extractionId }))
+      .then((result) => {
+        if (!live) return;
+        const next = new Map<string, string>();
+        for (const row of (result?.annotations as Array<Record<string, unknown>> | undefined) ?? []) {
+          const version = (row.version as Record<string, unknown>) ?? {};
+          for (const segment of (row.segments as Array<Record<string, unknown>>) ?? []) {
+            const spanId = String(segment.spanId ?? "");
+            if (spanId && !next.has(spanId)) next.set(spanId, String(version.learnerText ?? ""));
+          }
+        }
+        setMarks(next);
+      })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [sourceId, extractionId, enabled, tick]);
+  return [marks, () => setTick((value) => value + 1)];
 }
 
 function selectionIn(root: HTMLElement | null): PaneSelection | null {
@@ -47,20 +95,33 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
   const quote = sel.toString().replace(/\s+/g, " ").trim();
   if (!quote) return null;
   const spans: string[] = [];
+  const nodes: PaneSelection["nodes"] = [];
   root.querySelectorAll<HTMLElement>("[data-sbs-span]").forEach((node) => {
-    if (range.intersectsNode(node) && node.dataset.sbsSpan) spans.push(node.dataset.sbsSpan);
+    if (!range.intersectsNode(node) || !node.dataset.sbsSpan) return;
+    spans.push(node.dataset.sbsSpan);
+    const part = document.createRange();
+    part.selectNodeContents(node);
+    if (part.compareBoundaryPoints(Range.START_TO_START, range) < 0) part.setStart(range.startContainer, range.startOffset);
+    if (part.compareBoundaryPoints(Range.END_TO_END, range) > 0) part.setEnd(range.endContainer, range.endOffset);
+    const words = part.toString().replace(/\s+/g, " ").trim();
+    if (words) nodes.push({ spanId: node.dataset.sbsSpan, quote: words });
   });
-  return spans.length ? { spanIds: spans, quote } : null;
+  return spans.length ? { spanIds: spans, quote, nodes: nodes.length ? nodes : [{ spanId: spans[0], quote }] } : null;
 }
 
 export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(
-  { ctl, otherTitle, onCompareSelection, grow = 1 },
+  { ctl, otherTitle, onCompareSelection, grow = 1, onCaptured = null, onError },
   bodyRef,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState<PaneSelection | null>(null);
+  const [noting, setNoting] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const target = ctl.target;
   const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null;
+  const canCapture = Boolean(onCaptured && section?.revisionId);
+  const [marks, refreshMarks] = useOwnMarks(section?.sourceId ?? null, section?.extractionId ?? null, Boolean(onCaptured));
   const sheet = ctl.sheet;
   const leads = ctl.panes && ctl.leader === "side";
 
@@ -73,7 +134,32 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
     const node = scrollRef.current;
     if (node) node.scrollTop = sectionKey ? scrollFor(sectionKey) : 0;
     setSelection(null);
+    setNoting(null);
+    setSaved(false);
   }, [sectionKey, scrollFor]);
+
+  // Highlight or note: the ordinary capture, on this pane's own book.
+  const capture = async (kind: "highlight" | "annotate", picked: PaneSelection, learnerText: string) => {
+    if (!section?.revisionId || saving) return;
+    setSaving(true);
+    try {
+      await api.readerCapture({
+        sourceId: section.sourceId, revisionId: section.revisionId, extractionId: section.extractionId,
+        action: kind, clientIdempotencyKey: newActivityId(), renderViewId: null,
+        rawSelection: { nodes: picked.nodes }, learnerText,
+      });
+      onCaptured?.(kind);
+      setSelection(null);
+      setNoting(null);
+      setSaved(true);
+      window.getSelection()?.removeAllRanges();
+      refreshMarks();
+    } catch (error) {
+      onError?.(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     scrollRef.current = node;
@@ -142,8 +228,12 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
         onMouseDown={touch}
         onMouseUp={() => {
           const picked = selectionIn(scrollRef.current);
-          if (picked) touch();
+          if (picked) {
+            touch();
+            setSaved(false);
+          }
           setSelection(picked);
+          if (!picked) setNoting(null);
         }}
         style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 24px", display: "flex", flexDirection: "column", gap: 10, outline: "none" }}
       >
@@ -153,7 +243,16 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           <MeaningLabel>{SIDE_BY_SIDE_COPY.loading}</MeaningLabel>
         ) : (
           section.blocks.map((block) => (
-            <div key={block.spanId} data-sbs-span={block.spanId} style={block.blockType === "SectionHeader" ? { fontWeight: 600 } : undefined}>
+            <div
+              key={block.spanId}
+              data-sbs-span={block.spanId}
+              {...(marks.has(block.spanId) ? { "data-sbs-marked": "", title: marks.get(block.spanId) || SIDE_PANE_COPY.marked } : {})}
+              style={{
+                ...(block.blockType === "SectionHeader" ? { fontWeight: 600 } : {}),
+                // The learner's own highlight or note here: a quiet margin mark, as in the main pane.
+                ...(marks.has(block.spanId) ? { borderLeft: `2px solid ${COLOR.amber}`, paddingLeft: 8, marginLeft: -10 } : {}),
+              }}
+            >
               <MarkdownMath value={block.text} />
             </div>
           ))
@@ -173,12 +272,48 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           </div>
         ) : null}
       </div>
-      {selection && onCompareSelection && section ? (
-        <div data-sbs-selection="" style={{ display: "flex", gap: 8, alignItems: "baseline", padding: "6px 14px", borderTop: `1px solid ${COLOR.border}` }}>
-          <button type="button" onClick={() => { onCompareSelection(selection); setSelection(null); }} style={LINK}>
-            how do my other books treat this?
-          </button>
-          <MeaningLabel>{otherTitle}</MeaningLabel>
+      {selection && section && noting !== null ? (
+        <div data-sbs-note="" style={{ display: "flex", gap: 8, alignItems: "baseline", padding: "6px 14px", borderTop: `1px solid ${COLOR.border}` }}>
+          <input
+            autoFocus
+            aria-label={SIDE_PANE_COPY.note}
+            placeholder={SIDE_PANE_COPY.notePlaceholder}
+            value={noting}
+            onChange={(event) => setNoting(event.target.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Enter" && noting.trim()) {
+                event.preventDefault();
+                void capture("annotate", selection, noting.trim());
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setNoting(null);
+              }
+            }}
+            style={{ flex: 1, minWidth: 0, fontFamily: FONT_MONO, fontSize: 11, background: "transparent", color: COLOR.text, border: `1px solid ${COLOR.border}`, padding: "2px 6px" }}
+          />
+          <MeaningLabel>{target.sourceTitle}</MeaningLabel>
+        </div>
+      ) : selection && section && (canCapture || onCompareSelection) ? (
+        <div data-sbs-selection="" style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "6px 14px", borderTop: `1px solid ${COLOR.border}`, flexWrap: "wrap" }}>
+          {canCapture ? (
+            <>
+              <button type="button" disabled={saving} onClick={() => void capture("highlight", selection, "")} style={LINK}>{SIDE_PANE_COPY.highlight}</button>
+              <button type="button" disabled={saving} onClick={() => setNoting("")} style={LINK}>{SIDE_PANE_COPY.note}</button>
+            </>
+          ) : null}
+          {onCompareSelection ? (
+            <>
+              <button type="button" onClick={() => { onCompareSelection(selection); setSelection(null); }} style={LINK}>
+                how do my other books treat this?
+              </button>
+              <MeaningLabel>{otherTitle}</MeaningLabel>
+            </>
+          ) : null}
+        </div>
+      ) : saved && section ? (
+        <div data-sbs-saved="" style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}>
+          <MeaningLabel>{SIDE_PANE_COPY.saved(target.sourceTitle)}</MeaningLabel>
         </div>
       ) : null}
       {sheet ? null : <div style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}><MeaningLabel>{SIDE_BY_SIDE_COPY.keys}</MeaningLabel></div>}

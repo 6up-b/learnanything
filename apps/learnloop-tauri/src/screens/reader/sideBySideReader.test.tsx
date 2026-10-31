@@ -13,6 +13,7 @@ import type { CorrespondentsDto, SideBySideSectionDto, SourceLibraryCard } from 
 import { resetReaderActivityForTests } from "./activity";
 import { FIND_COPY } from "./FindSection";
 import { SIDE_BY_SIDE_COPY } from "./useSideBySide";
+import { SIDE_PANE_COPY } from "./SideBySidePane";
 
 const SPAN_IDS = view.blocks.map((block) => block.spanId!).filter(Boolean);
 
@@ -21,7 +22,7 @@ const { api, plan, state } = vi.hoisted(() => ({
     readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
     readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
     readerLogActivity: vi.fn(), readerSetMode: vi.fn(), readerCorrespondents: vi.fn(), readerCorrespondentPeek: vi.fn(), readerCorrespondentDismiss: vi.fn(),
-    readerSideBySideSection: vi.fn(),
+    readerSideBySideSection: vi.fn(), readerCapture: vi.fn(),
     getSpanView: vi.fn(), readerLibraryAsk: vi.fn(), readerLibraryAskNotes: vi.fn(), readerLibraryCompare: vi.fn(),
     readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(), readerSaveProgress: vi.fn(),
   },
@@ -76,7 +77,7 @@ function section(sectionId: string, title: string): SideBySideSectionDto {
   return {
     extractionId: "ext_axler", sectionId, sourceId: "src_axler", sourceTitle: "Axler", title, jumpSpanId: `${sectionId}_1`, page: 120,
     blocks: [{ spanId: `${sectionId}_1`, blockType: "Text", page: 120, text: `Axler says ${title}.` }],
-    previous: null, next: { sectionId: "ax5b", title: "5.B Eigenvectors" }, exposureEventIds: ["x1"],
+    previous: null, next: { sectionId: "ax5b", title: "5.B Eigenvectors" }, exposureEventIds: ["x1"], revisionId: "rev_axler",
   };
 }
 
@@ -311,4 +312,42 @@ it("F7: comparing a passage of the second pane keeps its reading position; Esc e
   await waitFor(() => expect(pane()).toBeTruthy());
   expect(pane()!.querySelector<HTMLElement>("[data-sbs-body]")!.scrollTop).toBe(340);
   expect(within(pane()!).getByText("Axler says 5.A Invariant subspaces.")).toBeTruthy();
+});
+
+function selectInPane(text: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(text);
+  const selection = window.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+  fireEvent.mouseUp(pane()!.querySelector("[data-sbs-body]")!);
+}
+
+it("F1: with CA3 off, a selection in the second pane offers highlight and note, saved to that pane's own book and marked there", async () => {
+  api.readerCapture.mockResolvedValue({ annotationId: "ann_1", outboxId: "o1", interactionEventId: "ie1", anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "" });
+  fireEvent.click(await openList());
+  const text = await within(await waitFor(() => pane()!)).findByText("Axler says 5.A Invariant subspaces.");
+  // The main reader's annotations are its own book's; the pane reads Axler's.
+  await waitFor(() => expect(api.readerSourceAnnotations).toHaveBeenCalledWith({ sourceId: "src_axler", extractionId: "ext_axler" }));
+  selectInPane(text);
+  expect(within(pane()!).queryByRole("button", { name: "how do my other books treat this?" })).toBeNull();
+  api.readerSourceAnnotations.mockResolvedValue({ annotations: [{ annotation: { id: "ann_1" }, version: { learnerText: "", annotationType: "highlight" }, segments: [{ spanId: "ax5a_1" }] }] });
+  fireEvent.click(within(pane()!).getByRole("button", { name: SIDE_PANE_COPY.highlight }));
+  await waitFor(() => expect(api.readerCapture).toHaveBeenCalledTimes(1));
+  expect(api.readerCapture.mock.calls[0][0]).toMatchObject({
+    sourceId: "src_axler", revisionId: "rev_axler", extractionId: "ext_axler", action: "highlight",
+    rawSelection: { nodes: [{ spanId: "ax5a_1", quote: "Axler says 5.A Invariant subspaces." }] },
+  });
+  await waitFor(() => expect(pane()!.querySelector('[data-sbs-span="ax5a_1"]')?.hasAttribute("data-sbs-marked")).toBe(true));
+  expect(within(pane()!).getByText(SIDE_PANE_COPY.saved("Axler"))).toBeTruthy();
+  // A note: the words typed, to the same book.
+  selectInPane(text);
+  fireEvent.click(within(pane()!).getByRole("button", { name: SIDE_PANE_COPY.note }));
+  const input = within(pane()!).getByRole("textbox", { name: SIDE_PANE_COPY.note });
+  fireEvent.change(input, { target: { value: "compare with Strang 6.2" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(api.readerCapture).toHaveBeenCalledTimes(2));
+  expect(api.readerCapture.mock.calls[1][0]).toMatchObject({ sourceId: "src_axler", extractionId: "ext_axler", action: "annotate", learnerText: "compare with Strang 6.2" });
+  // The side pane still open (Enter and the note's keys never reach the Reader's).
+  expect(pane()).toBeTruthy();
 });

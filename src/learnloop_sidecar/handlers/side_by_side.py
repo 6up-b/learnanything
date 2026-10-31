@@ -8,7 +8,9 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   never shown), with its neighbouring readable sections so the pane can move
   on. Every block returned is a delivered passage: one ``source_exposure`` row
   each (context ``library``, as CA5a's peek), recorded before the text is
-  returned (``span_view.record_span_exposures``).
+  returned (``span_view.record_span_exposures``). It also names the reading's
+  revision, so a highlight or note made in the second pane goes to its own
+  book through the ordinary ``reader.capture``.
 
 Which section the pane opens on and where *follow along* takes it are the
 Reader's, from ``reader.correspondents`` (judged coverage only for following:
@@ -88,6 +90,10 @@ def reader_side_by_side_section(ctx: SidecarContext, params: SideBySideSectionIn
         view = SC.section_text(vault, repository, resolved, params.section_id)
     except SC.CoverageError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
+    # The reading's revision, so a highlight or note made in the second pane
+    # goes to its own book (reader.capture needs it; Codex review F1).
+    run = repository.get_extraction_run(resolved)
+    view["revision_id"] = run.get("revision_id") if run else None
     # Every block shown is a delivered passage, recorded before it is returned.
     try:
         view["exposure_event_ids"] = record_span_exposures(

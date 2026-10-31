@@ -6848,6 +6848,8 @@ export interface SideBySideSectionDto {
   previous: { sectionId: string; title: string } | null;
   next: { sectionId: string; title: string } | null;
   exposureEventIds: string[];
+  /** The reading's revision (a highlight or note made in the pane goes to its own book). */
+  revisionId?: string | null;
 }
 
 /** CA5a's "not about this" (or its undo), one durable operation. */

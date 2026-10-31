@@ -3274,6 +3274,9 @@ export function ReaderScreen({
               ctl={sbs}
               otherTitle={sourceTitle ?? "this book"}
               grow={1 - sbsSplit}
+              // Highlights and notes in the second pane go to its own book (§6.4).
+              onCaptured={(kind) => logReaderAction("action_invoked", { ...visitPayload(), action_kind: kind === "annotate" ? "note" : "highlight", entry: "side_by_side" })}
+              onError={onError}
               onCompareSelection={libraryCtl.scopeOn && render ? (picked) => {
                 // CA3's selection verb in the second pane: anchored there, the source the main pane's book.
                 if (!sbs.section) return;

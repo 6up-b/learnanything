@@ -223,3 +223,24 @@ def test_a_side_by_side_session_keeps_its_id_and_minutes_for_the_evaluation(tmp_
     closed = rows["side_by_side_closed"]
     assert (closed["side_by_side_id"], closed["seconds_open"], closed["via"]) == ("sbs1", 1200, "close")
     assert "quote" not in closed
+
+
+def test_a_highlight_made_in_the_second_pane_goes_to_its_own_book(tmp_path):
+    """Codex review F1: "notes and highlights go to their own book". The
+    section read names the reading's revision, so the second pane's highlight
+    or note is the ordinary reader.capture on that book."""
+
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    ctx = _ctx(paths)
+    section = call(ctx, "reader.side_by_side_section", LAY_CHAR)["section"]
+    run = repository.get_extraction_run("ext_lay")
+    assert section["revisionId"] == run["revision_id"]
+    receipt = call(ctx, "reader.capture", {
+        "source_id": section["sourceId"], "revision_id": section["revisionId"], "extraction_id": section["extractionId"],
+        "action": "annotate", "client_idempotency_key": "sbs-note-1", "learner_text": "compare with 6.2",
+        "raw_selection": {"nodes": [{"spanId": "s5", "quote": section["blocks"][0]["text"][:20]}]},
+    })
+    assert receipt["annotationId"]
+    listed = call(ctx, "reader.source_annotations", {"source_id": "src_lay", "extraction_id": "ext_lay"})["annotations"]
+    assert [row["annotation"]["id"] for row in listed] == [receipt["annotationId"]]
+    assert {segment["spanId"] for segment in listed[0]["segments"]} == {"s5"}
