@@ -530,3 +530,142 @@ def test_f14_the_time_row_counts_each_section_once_and_minutes_read_are_recorded
     book = view["lines"][0]["section"]["extraction_id"]
     assert read["minutes_read"] == (10.0 if book == "ext_book" else 0.0)
     assert json.dumps(read)  # aggregates only
+
+
+# -- Codex re-review ------------------------------------------------------------------------------
+#
+# Each written to fail on the re-reviewed head ``a97cb4864``: protection checked before
+# every write of a resolver answer (F1 reopened), journal recovery that never overwrites
+# a later learner edit (F15), and the subject a new topic joins offered when it cannot be
+# inferred (F16; the panel's selector is pinned in DeliverableSliceCard.test.tsx).
+
+
+def _ledger_count(repository, goal_id):
+    return _count(repository, "SELECT COUNT(*) FROM judgment_ledger WHERE task = 'deliverable_scope' "
+                              "AND left_id = ?", (goal_id,))
+
+
+def test_f1_reopened_a_superseded_answer_keeps_nothing_when_its_passage_was_protected_meanwhile(tmp_path):
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    goal_id = DL.create_deliverable(load_vault(paths.root), repository, "my syllabus")["goal_id"]
+    vault = load_vault(paths.root)
+    DL.add_input(vault, repository, goal_id, "passage", extraction_id="ext_lay",
+                 span_ids=[_lay_char_span(vault, repository)])
+
+    def protect_and_correct(_fake):
+        hold_out(repository, "lay_char")
+        DL.add_input(load_vault(paths.root), repository, goal_id, "text", text="and determinants")
+
+    before = _ledger_count(repository, goal_id)
+    fake = Hooked(protect_and_correct, on="scope", unmatched=("jordan form",))
+    result = DL.resolve(load_vault(paths.root), repository, goal_id, client=fake)
+    assert fake.calls == 1 and result.status == "unavailable" and result.reason == "protection_changed"
+    assert _ledger_count(repository, goal_id) == before  # no superseded verdict with the answer's phrases
+    assert DL.latest_resolution(repository, goal_id) is None
+
+
+class _StopBeforeUnlink:
+    """A journal path whose removal never happens (the process stops just before it)."""
+
+    def __init__(self, path):
+        self.path = path
+
+    def unlink(self, missing_ok=False):
+        raise KeyboardInterrupt("the process stops here")
+
+
+def _stop_after_goals_yaml(monkeypatch, paths, repository, goal_id):
+    real = DL._journal_write
+    monkeypatch.setattr(DL, "_journal_write", lambda root, entry: _StopBeforeUnlink(real(root, entry)))
+    with pytest.raises(KeyboardInterrupt):
+        DL.resolve(load_vault(paths.root), repository, goal_id, client=DeliverableFake())
+    monkeypatch.setattr(DL, "_journal_write", real)
+    assert list(DL._journal_dir(paths.root).glob("*.json"))
+
+
+def _edit_goal(paths, goal_id, **fields):
+    path = paths.root / "profile" / "goals.yaml"
+    data = read_yaml(path)
+    entry = next(goal for goal in data["goals"] if goal["id"] == goal_id)
+    entry.update(fields)
+    write_yaml(path, data)
+
+
+def test_f15_recovery_keeps_a_learner_scope_edit_made_after_the_publication(tmp_path, monkeypatch):
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    goal_id = DL.create_deliverable(load_vault(paths.root), repository, "eigenvalues and determinants")["goal_id"]
+    _stop_after_goals_yaml(monkeypatch, paths, repository, goal_id)
+    receipt = DL.latest_resolution(repository, goal_id)
+    assert _goal_entry(paths, goal_id)["facet_scope"] == receipt["facet_scope"]
+    mine = {"concepts": ["determinants_c"], "facets": []}
+    _edit_goal(paths, goal_id, facet_scope=mine, updated_at="2099-01-01T00:00:00Z")
+    assert DL.recover_publications(paths.root, repository) is False
+    entry = _goal_entry(paths, goal_id)
+    assert entry["facet_scope"] == mine and entry["updated_at"] == "2099-01-01T00:00:00Z"
+    assert not list(DL._journal_dir(paths.root).glob("*.json"))
+
+
+def test_f15_a_publication_already_on_disk_is_recognized_and_not_written_again(tmp_path, monkeypatch):
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    goal_id = DL.create_deliverable(load_vault(paths.root), repository, "eigenvalues")["goal_id"]
+    _stop_after_goals_yaml(monkeypatch, paths, repository, goal_id)
+    goals_yaml = paths.root / "profile" / "goals.yaml"
+    text = goals_yaml.read_text(encoding="utf-8")
+    assert DL.recover_publications(paths.root, repository) is False
+    assert goals_yaml.read_text(encoding="utf-8") == text
+    assert not list(DL._journal_dir(paths.root).glob("*.json"))
+
+
+def test_f15_a_stop_before_goals_yaml_then_a_learner_edit_keeps_the_edit(tmp_path, monkeypatch):
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    goal_id = DL.create_deliverable(load_vault(paths.root), repository, "eigenvalues")["goal_id"]
+    real = DL._goal_entry_update
+
+    def stop(*args, **kwargs):
+        raise KeyboardInterrupt("the process stops here")
+
+    monkeypatch.setattr(DL, "_goal_entry_update", stop)
+    with pytest.raises(KeyboardInterrupt):
+        DL.resolve(load_vault(paths.root), repository, goal_id, client=DeliverableFake())
+    monkeypatch.setattr(DL, "_goal_entry_update", real)
+    mine = {"concepts": ["determinants_c"], "facets": []}
+    _edit_goal(paths, goal_id, facet_scope=mine, updated_at="2099-01-01T00:00:00Z")
+    assert DL.recover_publications(paths.root, repository) is False
+    assert _goal_entry(paths, goal_id)["facet_scope"] == mine
+
+
+def _second_subject(paths, subject_id="statistics", title="Statistics"):
+    source = paths.subject_dir("linear-algebra")
+    target = paths.subject_dir(subject_id)
+    target.mkdir(parents=True)
+    text = paths.subject_markdown_path("linear-algebra").read_text(encoding="utf-8")
+    text = text.replace("id: linear-algebra", f"id: {subject_id}")
+    text = "\n".join(f"title: {title}" if line.startswith("title:") else line for line in text.splitlines()) + "\n"
+    (target / "subject.md").write_text(text, encoding="utf-8")
+    graph = read_yaml(source / "concept-graph.yaml")
+    graph["subject_id"] = subject_id
+    graph["nodes"], graph["edges"] = [], []
+    write_yaml(target / "concept-graph.yaml", graph)
+
+
+def test_f16_an_ambiguous_subject_is_offered_and_the_chosen_one_creates_the_topic(tmp_path):
+    from learnloop_sidecar.errors import SidecarError
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    _second_subject(paths)
+    assert set(load_vault(paths.root).subjects) == {"linear-algebra", "statistics"}
+    ctx = context(paths.root, deliverable_inline=True,
+                  deliverable_scope_client=DeliverableFake(needs=(), unmatched=("bayes rule",)))
+    created = call(ctx, "curriculum.create_deliverable", {"sentence": "bayes rule for my quiz"})
+    scope = created["scope"]
+    assert [entry["status"] for entry in scope["unmatched"]] == ["open"] and scope["topics"] == []
+    assert scope["subjectId"] is None
+    assert [entry["subjectId"] for entry in scope["subjects"]] == ["linear-algebra", "statistics"]
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "curriculum.scope_decide", {"goal_id": created["goalId"], "phrase": "bayes rule",
+                                              "decision": "create"})
+    assert refused.value.code == "no_subject"
+    out = call(ctx, "curriculum.scope_decide", {"goal_id": created["goalId"], "phrase": "bayes rule",
+                                                "decision": "create", "subject_id": "statistics"})
+    lo_id = out["created"]["learningObjectId"]
+    assert load_vault(paths.root).learning_objects[lo_id].subjects == ["statistics"]

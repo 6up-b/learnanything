@@ -266,7 +266,12 @@ def _write_goals(path: Path, data: dict[str, Any]) -> None:
 # the entry is removed. A process that stops between the steps leaves its entry, and
 # :func:`recover_publications` (every curriculum RPC and resolution runs it first)
 # finishes it forward when its receipt committed, or drops it when nothing did. A
-# learner's own edit of a goal is never overwritten: only an unfinished entry is.
+# learner's own edit of a goal is never overwritten (Codex re-review F15): a scope
+# entry records the goal's revision it expects to replace (``before``: the facet scope
+# and ``updated_at`` it read under the lock) and the scope it writes (``scope``).
+# Recovery writes only over that same revision; a goal already showing the intended
+# scope is a finished publication (nothing written); anything else is the learner's
+# later edit, and it stands.
 
 def _journal_dir(root: Path | str) -> Path:
     return Path(root) / ".learnloop" / "curriculum-journal"
@@ -344,14 +349,59 @@ def recover_publications(vault_root: Path | str, repository: Repository) -> bool
                     if entry.get("kind") == "create":
                         _goal_entry_update(vault_root, entry["goal_id"], append=entry["goal"], now=entry["at"])
                         changed = True
-                    elif latest is not None and receipt is not None and latest["id"] == receipt["id"]:
-                        _goal_entry_update(vault_root, entry["goal_id"], scope=receipt.get("facet_scope") or {},
-                                           now=entry["at"])
+                    elif (latest is not None and receipt is not None and latest["id"] == receipt["id"]
+                          and _finish_scope(vault_root, entry, receipt)):
                         changed = True
                 except DeliverableError:
                     pass  # the goal is gone (the learner deleted it): nothing to finish
             path.unlink(missing_ok=True)
     return changed
+
+
+def _goal_revision(vault_root: Path | str, goal_id: str) -> dict[str, Any] | None:
+    """The goal's facet scope and ``updated_at`` as goals.yaml has them now (None: no such goal)."""
+
+    from learnloop.vault.yaml_io import read_yaml
+
+    path = Path(vault_root) / "profile" / "goals.yaml"
+    data = read_yaml(path) if path.exists() else {}
+    entry = next((goal for goal in (data or {}).get("goals") or () if isinstance(goal, dict)
+                  and goal.get("id") == goal_id), None)
+    if entry is None:
+        return None
+    return {"facet_scope": _scope_key(entry.get("facet_scope")), "updated_at": entry.get("updated_at")}
+
+
+def _scope_key(scope: Any) -> dict[str, list[str]]:
+    """A facet scope compared by content (key order and list order are not edits)."""
+
+    if not isinstance(scope, Mapping):
+        return {}
+    return {str(key): sorted(str(item) for item in (value or ())) for key, value in scope.items()
+            if isinstance(value, (list, tuple)) and value}
+
+
+def _finish_scope(vault_root: Path | str, entry: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
+    """Finish one stopped scope publication without overwriting a later learner edit (F15).
+
+    True when goals.yaml was written. The goal already showing the intended scope is a
+    finished publication; the goal still at the revision the entry read is finished
+    forward; any other state is the learner's own later edit, which stands."""
+
+    goal_id = str(entry.get("goal_id"))
+    current = _goal_revision(vault_root, goal_id)
+    if current is None:
+        return False  # the goal is gone (the learner deleted it): nothing to finish
+    intended = entry.get("scope") if isinstance(entry.get("scope"), Mapping) else receipt.get("facet_scope")
+    if current["facet_scope"] == _scope_key(intended):
+        return False  # published before the stop: only its journal entry was left
+    before = entry.get("before")
+    if not isinstance(before, Mapping):
+        return False  # no revision recorded: never write over a goal it cannot tell apart
+    if current != {"facet_scope": _scope_key(before.get("facet_scope")), "updated_at": before.get("updated_at")}:
+        return False  # the learner edited the goal since: their edit stands
+    _goal_entry_update(vault_root, goal_id, scope=dict(intended or {}), now=str(entry["at"]))
+    return True
 
 
 def _normalize_due(due_at: str) -> str:
@@ -468,14 +518,18 @@ def _publish(vault: Any, repository: Repository, goal_id: str, row: dict[str, An
     caller holds the vault mutation lock and has checked the head (F2)."""
 
     root = Path(vault.root)
+    scope = json.loads(row["facet_scope_json"])
+    # The revision this publication replaces and the scope it writes (F15): recovery
+    # finishes it only over that revision, never over a learner's later edit.
+    before = _goal_revision(root, goal_id)
     journal = _journal_write(root, {"id": "dpj_" + new_ulid(), "kind": "scope", "goal_id": goal_id,
-                                    "resolution_id": row["id"], "at": now})
+                                    "resolution_id": row["id"], "at": now, "scope": scope, "before": before})
     with repository.atomic():
         connection = repository.connection()
         row["ledger_id"] = append_judgment(connection, **ledger)
         store.insert_resolution(connection, row)
         written = store.resolution(connection, row["id"])
-    _goal_entry_update(root, goal_id, scope=json.loads(row["facet_scope_json"]), now=now)
+    _goal_entry_update(root, goal_id, scope=scope, now=now)
     journal.unlink(missing_ok=True)
     assert written is not None
     return written
@@ -813,6 +867,14 @@ def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | N
                                 if row["kind"] in SCOPE_KINDS)
             head = store.latest_resolution(connection, goal_id)
         moved = (head or {}).get("id") != (latest or {}).get("id")
+        # Protection first, before any write of this answer (Codex re-review F1): the
+        # superseded verdict below keeps the answer's phrases too, so a passage protected
+        # during the call keeps nothing, on every branch.
+        if guard is not None:
+            try:
+                guard.check("recording the scope")
+            except SC.ProtectionChanged:
+                return ScopeResult("unavailable", reason="protection_changed", message=SC.STALE_MESSAGE)
         if head_inputs != prompt.input_ids or (moved and head is not None and head["state_key"] == prompt.state_key):
             if cached is None:  # a paid answer is kept, never activated
                 with repository.atomic():
@@ -821,11 +883,6 @@ def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | N
             if head_inputs != prompt.input_ids:
                 return ScopeResult("superseded", resolution=head, reason="superseded", message=SUPERSEDED_MESSAGE)
             return ScopeResult("fresh", resolution=head)
-        if guard is not None:
-            try:
-                guard.check("recording the scope")
-            except SC.ProtectionChanged:
-                return ScopeResult("unavailable", reason="protection_changed", message=SC.STALE_MESSAGE)
         row = {"id": "dsr_" + new_ulid(), "goal_id": goal_id, "origin": "resolver",
                "input_ids_json": json.dumps(list(prompt.input_ids)), "learning_objects_json": json.dumps(needs),
                "unmatched_json": json.dumps(unmatched), "facet_scope_json": json.dumps(scope, sort_keys=True),
@@ -1007,6 +1064,12 @@ def scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, An
                     "title": vault.learning_objects[entry["learning_object_id"]].title, "phrase": entry["phrase"]}
                    for entry in needs],
         "unmatched": list((latest or {}).get("unmatched") or ()),
+        # *add it* needs a subject (Codex re-review F16): the one the needed topics share,
+        # else None, and then the learner picks one of these.
+        "subject_id": _subject_for(vault, needs),
+        "subjects": [{"subject_id": subject_id, "title": subject.metadata.title}
+                     for subject_id, subject in sorted(vault.subjects.items())
+                     if subject.metadata.status == "active"],
         "resolution": None if latest is None else {
             "id": latest["id"], "origin": latest["origin"], "model": latest["model"],
             "created_at": latest["created_at"], "facet_scope": latest.get("facet_scope") or {}},
