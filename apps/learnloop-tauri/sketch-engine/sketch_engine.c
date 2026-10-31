@@ -35,7 +35,8 @@
  * sketchEngine.ts; tests assert they equal sk_limits(). */
 #define SK_MEMORY_BYTES (64u * 1024u * 1024u)   /* SKETCH_MEMORY_BYTES */
 #define SK_STACK_BYTES (192u * 1024u)           /* JS recursion depth guard (shadow stack) */
-#define SK_TICKS_PER_CALL 48u                   /* SKETCH_FUEL_PER_CALL: interrupt ticks per entry-point call */
+#define SK_TICKS_PER_CALL 16u                   /* SKETCH_FUEL_PER_CALL: interrupt ticks per entry-point call (measured, review file) */
+#define SK_SERIALIZE_TICKS 48u                  /* SKETCH_SERIALIZE_TICKS: writing a result as JSON, its own budget */
 #define SK_MAX_OUTPUT (4u * 1024u * 1024u)      /* largest result text */
 #define SK_MAX_MESSAGE 400u                     /* largest error message */
 
@@ -120,9 +121,9 @@ SK_EXPORT(sk_limits) uint32_t sk_limits(void)
 {
     char text[256];
     int n = snprintf(text, sizeof text,
-                     "{\"memory_bytes\":%u,\"stack_bytes\":%u,\"ticks_per_call\":%u,"
+                     "{\"memory_bytes\":%u,\"stack_bytes\":%u,\"ticks_per_call\":%u,\"serialize_ticks\":%u,"
                      "\"max_output\":%u,\"interrupt_counter\":%d,\"quickjs\":\"%s\"}",
-                     SK_MEMORY_BYTES, SK_STACK_BYTES, SK_TICKS_PER_CALL, SK_MAX_OUTPUT,
+                     SK_MEMORY_BYTES, SK_STACK_BYTES, SK_TICKS_PER_CALL, SK_SERIALIZE_TICKS, SK_MAX_OUTPUT,
                      JS_INTERRUPT_COUNTER_INIT, JS_GetVersion());
     out_set(text, (size_t)n);
     return SK_OK;
@@ -478,7 +479,11 @@ static int32_t read_entry(int phase, uint32_t len, uint32_t index)
     JS_FreeValue(sk_ctx, params);
     if (JS_IsException(result))
         return fail_from_exception(name);
-    /* Serializing is part of the same call and budget (getters and toJSON run here). */
+    /* Serializing has its own deterministic budget: writing a scene at the
+     * point cap is real work, and any getter or toJSON the program left in
+     * its result runs here, under this budget, never unbounded. */
+    sk_ctx->interrupt_counter = JS_INTERRUPT_COUNTER_INIT;
+    sk_ticks_left = SK_SERIALIZE_TICKS;
     JSValue text = JS_Call(sk_ctx, sk_stringify, JS_UNDEFINED, 1, (JSValueConst *)&result);
     JS_FreeValue(sk_ctx, result);
     if (JS_IsException(text))

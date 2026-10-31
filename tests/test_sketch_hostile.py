@@ -93,11 +93,15 @@ def test_an_oversized_result_is_refused_by_the_engine_or_the_validator():
                     "function view(){ var e = []; for (var i = 0; i < 9000; i++) "
                     "e.push({type:'circle', cx:0, cy:0, r:1}); return {viewport:{x:[0,1],y:[0,1]}, elements:e}; }")
         engine.init({}, 1)
-        scene = engine.view({}, index=0)
-    assert "more than 4000" in K.scene_problems(scene)[0]
+        try:
+            scene = engine.view({}, index=0)
+        except SketchRunError as exc:  # the engine's own budgets may stop it first
+            assert exc.kind in ("work_cap", "output")
+        else:
+            assert "more than 4000" in K.scene_problems(scene)[0]
 
 
-def test_getters_and_tojson_run_inside_the_same_budget():
+def test_getters_and_tojson_run_under_a_budget():
     with SketchEngine() as engine:
         engine.load("function init(){return 1} function probes(){return {}}\n"
                     "function view(){ return {get viewport(){ for(;;){} }, elements: []}; }")

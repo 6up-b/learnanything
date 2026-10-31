@@ -58,6 +58,7 @@ def test_the_caps_are_compiled_in_and_match_the_constants():
         limits = engine.limits()
     assert limits["memory_bytes"] == E.SKETCH_MEMORY_BYTES
     assert limits["ticks_per_call"] == E.SKETCH_FUEL_PER_CALL
+    assert limits["serialize_ticks"] == E.SKETCH_SERIALIZE_TICKS
     assert limits["quickjs"] == "0.17.0"
 
 

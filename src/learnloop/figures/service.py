@@ -795,9 +795,12 @@ def sketch_rechecked(row: Mapping[str, Any]) -> Mapping[str, Any]:
     if cached["outcome"] != V.ILLUSTRATIVE:
         return {**row, "verification": V.FAILED, "spec_json": None,
                 "verification_report": {**previous, "reason": ENGINE_CHANGED_REASON, "engine_changed": True}}
-    report = dict(cached["report"])
-    report["assumptions"] = previous.get("assumptions") or []
-    report["claims"] = previous.get("claims") or report.get("claims") or []
+    # The stored report (its quote checks and assumptions, verified against the
+    # passages at build time) with this engine's run and check lines over it.
+    fresh = cached["report"]
+    report = {**previous, **{key: fresh.get(key) for key in (
+        "outcome", "checks", "not_covered", "unnamed_elements", "settings", "grid_points", "samples",
+        "dropped_predictions", "engine_sha256")}}
     return {**row, "verification_report": report, "checks": report.get("checks") or [],
             "engine_sha256": ENGINE_SHA256}
 

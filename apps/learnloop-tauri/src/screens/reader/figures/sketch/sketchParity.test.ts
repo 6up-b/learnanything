@@ -9,7 +9,7 @@ import parity from "./sketchParityCorpus.json";
 // Read as text and JSON.parse'd: a JSON module import would turn the polluted
 // case's "__proto__" key into a prototype (a JSON.parse keeps it an own key).
 import hostileText from "./sketchHostileCorpus.json?raw";
-import { ENGINE_SHA256, SKETCH_FUEL_PER_CALL, SKETCH_MEMORY_BYTES, SketchEngineHost, SketchRunError } from "./sketchEngine";
+import { ENGINE_SHA256, sha256Hex, SKETCH_FUEL_PER_CALL, SKETCH_MEMORY_BYTES, SKETCH_SERIALIZE_TICKS, SketchEngineHost, SketchRunError } from "./sketchEngine";
 import { ENGINE_BYTES, newHost, nodeDigest } from "./engineForTests";
 
 const hostile = JSON.parse(hostileText) as { cases: Array<{ name: string; code: string; call: string; expect: { status: string; result?: unknown } }> };
@@ -22,11 +22,18 @@ describe("the pinned engine", () => {
     expect(parity.engine_sha256).toBe(ENGINE_SHA256);
   });
 
+  it("checks the pin in plain TypeScript where Web Crypto is missing", () => {
+    expect(sha256Hex(ENGINE_BYTES)).toBe(ENGINE_SHA256);
+    expect(sha256Hex(new TextEncoder().encode("abc"))).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    expect(sha256Hex(new Uint8Array(0))).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  });
+
   it("reports the caps compiled into it", async () => {
     const host = await newHost();
     const limits = host.limits();
     expect(limits.memory_bytes).toBe(SKETCH_MEMORY_BYTES);
     expect(limits.ticks_per_call).toBe(SKETCH_FUEL_PER_CALL);
+    expect(limits.serialize_ticks).toBe(SKETCH_SERIALIZE_TICKS);
   });
 
   it("refuses an engine whose digest is not the pin (G-SM13)", async () => {

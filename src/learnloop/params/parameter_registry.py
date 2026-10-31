@@ -470,6 +470,8 @@ _reg_const("figure_sketch_engine:SKETCH_MEMORY_BYTES", "operational", kind="stru
            rationale="keep (machine safety): the sealed engine's memory cap, compiled into the engine (spec §15: 64 MiB).")
 _reg_const("figure_sketch_engine:SKETCH_FUEL_PER_CALL", "operational", kind="structural", owner="figure_sketch_engine",
            rationale='keep (deterministic work cap): interrupt ticks per entry-point call, identical in verifier and desktop; measured on carson so a call at the cap fits about one frame (spec §15; the review file records the measurement).')
+_reg_const("figure_sketch_engine:SKETCH_SERIALIZE_TICKS", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (deterministic work cap): ticks for writing one result as JSON, compiled into the engine; a scene at the point cap fits, and a getter or toJSON left in a result stays bounded.")
 _reg_const("figure_sketch_engine:WASM_MEMORY_BYTES", "operational", kind="structural", owner="figure_sketch_engine",
            rationale="keep (machine safety): wasmtime's store memory limit, above the engine's own cap.")
 _reg_const("figure_sketch_engine:WASM_FUEL_PER_CALL", "operational", kind="structural", owner="figure_sketch_engine",

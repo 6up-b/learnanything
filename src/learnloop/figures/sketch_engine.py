@@ -28,12 +28,12 @@ fuel per call (:data:`WASM_FUEL_PER_CALL`), a store memory limit
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +44,7 @@ LOCK_PATH = Path(__file__).resolve().parents[3] / "apps" / "learnloop-tauri" / "
 #: The pinned digest of the artifact (``engine.lock.json``'s ``output.sha256``;
 #: a test keeps the two equal). A stored sketch records the digest it was
 #: verified under; a different one re-verifies it (spec §8.5).
-ENGINE_SHA256 = "564207205f358c907beea820b1b12dd7813992260fc805fdb4e84ac03a638706"
+ENGINE_SHA256 = "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe"
 #: The runtime version a figure records beside the digest.
 ENGINE_VERSION = "sketch-engine-v1"
 
@@ -54,7 +54,11 @@ SKETCH_MEMORY_BYTES = 67_108_864  # 64 MiB
 #: tick QuickJS's 10,000 interrupt polls (function calls and loop back-edges);
 #: compiled in. Measured on carson (review file): one call at the cap takes
 #: about one frame (``SKETCH_FRAME_MS``) in the desktop's engine.
-SKETCH_FUEL_PER_CALL = 48
+SKETCH_FUEL_PER_CALL = 16
+#: keep (deterministic work cap): ticks for writing one result as JSON (its
+#: own budget: a scene at the point cap is real work, and any getter or
+#: toJSON the program left in its result runs under it); compiled in.
+SKETCH_SERIALIZE_TICKS = 48
 #: keep (machine safety): wasmtime's backstops, above anything the interrupt
 #: budget allows, for native work the interpreter cannot interrupt.
 WASM_MEMORY_BYTES = 100_663_296  # 96 MiB
@@ -105,8 +109,41 @@ def artifact_digest(path: Path = ENGINE_PATH) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-@lru_cache(maxsize=4)
+#: Compiled engines by (path, pin): compiling takes a moment, instantiating is cheap.
+_COMPILED: dict[tuple[str, str], tuple[Any, Any, str]] = {}
+_COMPILED_GUARD = threading.Lock()
+
+
+def _close_compiled() -> None:
+    """Free the compiled modules and engines before the interpreter tears down
+    wasmtime's own module (otherwise their finalizers run against a half-gone ffi)."""
+
+    with _COMPILED_GUARD:
+        entries = list(_COMPILED.values())
+        _COMPILED.clear()
+    for engine, module, _digest in entries:
+        for item in (module, engine):
+            try:
+                item.close()
+            except Exception:  # noqa: BLE001 - shutting down never raises
+                pass
+
+
+atexit.register(_close_compiled)
+
+
 def _compiled(path_text: str, expected: str) -> tuple[Any, Any, str]:
+    key = (path_text, expected)
+    with _COMPILED_GUARD:
+        found = _COMPILED.get(key)
+    if found is not None:
+        return found
+    found = _compile(path_text, expected)
+    with _COMPILED_GUARD:
+        return _COMPILED.setdefault(key, found)
+
+
+def _compile(path_text: str, expected: str) -> tuple[Any, Any, str]:
     import wasmtime
 
     path = Path(path_text)
@@ -338,6 +375,7 @@ __all__ = [
     "EngineUnavailable",
     "SKETCH_FUEL_PER_CALL",
     "SKETCH_MEMORY_BYTES",
+    "SKETCH_SERIALIZE_TICKS",
     "STATUS_NAMES",
     "SketchEngine",
     "SketchRunError",
