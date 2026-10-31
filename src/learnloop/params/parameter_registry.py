@@ -496,6 +496,8 @@ _reg_const("figure_sketch_engine:EPOCH_TICK_SECONDS", "operational", kind="struc
            rationale="keep (machine safety, Codex review F7): the tick of the shared epoch clock per-store deadlines are counted in; a deadline is honoured to within one tick.")
 _reg_const("figure_sketch_verify:_TICK_EVERY", "operational", kind="structural", owner="figure_sketch_verify",
            rationale="keep (operational): how many claim-loop iterations pass between wall-clock checks; cost of the check, not a model number.")
+_reg_const("figure_sketch_verify:_TICK_WORK", "operational", kind="structural", owner="figure_sketch_verify",
+           rationale="keep (operational, Codex re-review F2): how many charged expression steps a claim loop does between wall-clock checks (about a millisecond of the oracle); cost of the check, not a model number.")
 _reg_const("figure_sketch_verify:VERIFY_SEED", "version", kind="structural", owner="figure_sketch_verify",
            rationale="the seed verification and a sketch's first drawn sample use (an identity, so the first drawn sample is the verified one).")
 

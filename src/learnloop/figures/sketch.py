@@ -309,19 +309,30 @@ def _ranges(program: SketchProgramV1) -> dict[str, tuple[float, float]]:
     return ranges
 
 
-def claim_entry_work(program: SketchProgramV1, claim: Claim, nodes: Mapping[str, G.Node]) -> int:
+def claim_entry_work(program: SketchProgramV1, claim: Claim, nodes: Mapping[str, G.Node], shape: str = "series",
+                     var_reach: tuple[float, float] | None = None) -> int:
     """The most expression steps checking one entry of a claim's probe takes:
-    one evaluation for ``equals`` and ``distribution`` (a series' index has
-    its declared reach), twelve RK4 stages of ``dx`` and ``dy`` per path step
-    for ``follows`` (the run and the half-step run), one step for an
-    invariant. Verification charges it times the entries before it runs."""
+    one evaluation for ``equals`` and ``distribution``, twelve RK4 stages of
+    ``dx`` and ``dy`` per path step for ``follows`` (the run and the
+    half-step run), one step for an invariant. Verification charges it times
+    the entries before it runs.
+
+    An ``equals`` claim's ``var`` reaches what its probe shape gives it
+    (Codex re-review F2): a series' index runs from ``var_from`` by
+    ``var_step``; a pairs probe's x is its own first coordinate, unknown
+    before the sketch runs, so statically a sum over it is charged its most
+    terms, and verification charges each check with ``var_reach``, the
+    least and greatest x that point read actually has."""
 
     ranges = _ranges(program)
     if claim.kind == "equals":
         if claim.var and claim.var not in ranges and "expr" in nodes:
-            ends = (claim.var_from, claim.var_from + (SKETCH_MAX_SERIES - 1) * claim.var_step)
-            if all(math.isfinite(v) for v in ends):
-                ranges = {**ranges, claim.var: (min(ends), max(ends))}
+            if var_reach is not None:
+                ranges = {**ranges, claim.var: var_reach}
+            elif shape == "series":
+                ends = (claim.var_from, claim.var_from + (SKETCH_MAX_SERIES - 1) * claim.var_step)
+                if all(math.isfinite(v) for v in ends):
+                    ranges = {**ranges, claim.var: (min(ends), max(ends))}
         return expression_steps(nodes["expr"], ranges) if "expr" in nodes else 1
     if claim.kind == "follows":
         return 12 * (expression_steps(nodes["dx"], ranges) + expression_steps(nodes["dy"], ranges)) \
@@ -462,7 +473,7 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
                 compiled.nodes["expr"] = node
             if not program.seeded:
                 problems.append(f"{where}: a Monte Carlo claim needs a seeded sketch (rand())")
-        compiled.entry_work = claim_entry_work(program, claim, compiled.nodes)
+        compiled.entry_work = claim_entry_work(program, claim, compiled.nodes, probe.shape)
         claims.append(compiled)
     element_ids: set[str] = set()
     for binding in program.bindings:

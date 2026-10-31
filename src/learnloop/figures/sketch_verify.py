@@ -128,6 +128,7 @@ class _Budget:
         self.deadline = deadline
         self.output = 0
         self.work = 0
+        self.since_tick = 0
 
     def read(self, *texts: str) -> None:
         self.output += sum(len(text) for text in texts)
@@ -142,12 +143,27 @@ class _Budget:
                                      f"{self.work:,} expression steps; at most {K.SKETCH_MAX_CLAIM_WORK:,})"])
 
     def tick(self) -> None:
+        self.since_tick = 0
         if time.monotonic() > self.deadline:
             raise _Failed("runs", [f"the sketch takes longer than {K.SKETCH_VERIFY_SECONDS:g} s to verify"])
 
+    def before(self, index: int, work: int) -> None:
+        """Before iteration ``index`` of a claim loop whose iterations each
+        take up to ``work`` expression steps (Codex re-review F2): looks at
+        the clock on the first, every :data:`_TICK_EVERY`-th, and whenever
+        :data:`_TICK_WORK` steps have been done since it last looked. One
+        evaluation itself is not interruptible, but its work was charged
+        first, so it is at most :data:`.sketch.SKETCH_MAX_CLAIM_WORK` steps."""
 
-#: How often a long claim loop looks at the clock.
+        self.since_tick += work
+        if index % _TICK_EVERY == 0 or self.since_tick >= _TICK_WORK:
+            self.tick()
+
+
+#: How often a long claim loop looks at the clock: every so many iterations...
 _TICK_EVERY = 256
+#: ...or every so many expression steps (about a millisecond of the oracle).
+_TICK_WORK = 4_096
 
 
 @dataclass
@@ -301,7 +317,7 @@ def _z() -> float:
 
 
 def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float], x: float, y: float, h: float,
-         steps: int, budget: _Budget | None = None) -> list[tuple[float, float]]:
+         steps: int, budget: _Budget | None = None, step_work: int = 1) -> list[tuple[float, float]]:
     """The grammar's fixed-step RK4 (``spec._path``'s operation order)."""
 
     xv, yv = names
@@ -315,8 +331,8 @@ def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float],
     half = h / 2
     t = 0.0
     for i in range(steps):
-        if budget is not None and i % _TICK_EVERY == 0:
-            budget.tick()
+        if budget is not None:
+            budget.before(i, step_work)
         k1x, k1y = rates(x, y, t)
         k2x, k2y = rates(x + half * k1x, y + half * k1y, t + half)
         k3x, k3y = rates(x + half * k2x, y + half * k2y, t + half)
@@ -346,11 +362,15 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
     ``budget``, its work is charged first and long loops watch the clock."""
 
     spec = claim.claim
-    if budget is not None:
-        budget.charge(claim.entry_work * claim_entries(claim, compiled.probes[spec.probe],
-                                                       sample.probes[spec.probe]))
     probe = compiled.probes[spec.probe]
     value = sample.probes[spec.probe]
+    entry_work = claim.entry_work
+    if spec.kind == "equals" and probe.shape == "pairs" and "expr" in claim.nodes and value:
+        # A pairs probe's x is its own (Codex re-review F2): charged at the reach this read has.
+        xs = [float(pair[0]) for pair in value]
+        entry_work = K.claim_entry_work(compiled.program, spec, claim.nodes, "pairs", (min(xs), max(xs)))
+    if budget is not None:
+        budget.charge(entry_work * claim_entries(claim, probe, value))
     env = _env(compiled, sample.point, sample.step)
     where = f"at {_point_text(sample.point)}" + (f", t={env[K.TIME_NAME]:g}" if K.TIME_NAME in env else "")
     if spec.kind == "equals":
@@ -359,10 +379,9 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
             expected = G.evaluate(node, env)
             return None if _close(float(value), expected) else \
                 f"{where}: {spec.probe} is {float(value):.10g}, the stated {spec.expr} is {expected:.10g}"
-        entries = (list(enumerate(value)) if probe.shape == "series" else [(None, pair) for pair in value])
-        for index, entry in entries:
-            if budget is not None and index is not None and index % _TICK_EVERY == 0:
-                budget.tick()
+        for index, entry in enumerate(value):
+            if budget is not None:
+                budget.before(index, entry_work)
             if probe.shape == "series":
                 env[spec.var] = spec.var_from + index * spec.var_step
                 got = float(entry)
@@ -380,9 +399,11 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
             return f"{where}: {spec.probe} has fewer than two points"
         steps = len(path) - 1
         h = float(spec.h)
-        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps, budget)
+        step_work = max(1, entry_work // 3)  # one RK4 step: four stages of the twelve charged per entry
+        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps, budget,
+                    step_work)
         half = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h / 2, 2 * steps,
-                    budget)
+                    budget, step_work)
         for i, (px, py) in enumerate(path):
             fx, fy = full[i]
             hx, hy = half[2 * i]
@@ -591,11 +612,16 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                 for element_id in bound.get(spec.probe, ()):
                     scopes = {_scope(spec, shape, kind, element_id not in off_domain.get(index, ()))
                               for kind in kinds.get(element_id, ())}
-                    if not scopes or False in scopes:
+                    # One scope at every tested setting, or none at all
+                    # (Codex re-review F11): an element drawn as a line at
+                    # some settings and as heat cells at others had no one
+                    # attribute checked everywhere, so the check speaks for
+                    # the probe and the element stays not covered.
+                    if len(scopes) != 1 or False in scopes:
                         continue
-                    attributes = sorted(scope for scope in scopes if isinstance(scope, str))
-                    if attributes:
-                        partial.append({"element": element_id, "attribute": attributes[0]})
+                    (scope,) = scopes
+                    if isinstance(scope, str):
+                        partial.append({"element": element_id, "attribute": scope})
                     else:
                         whole.append(element_id)
                 checks.append({"claim": index, "kind": spec.kind, "probe": spec.probe, "elements": whole,

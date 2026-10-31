@@ -13,6 +13,7 @@ import tracemalloc
 
 import pytest
 
+from learnloop.figures import grammar as G
 from learnloop.figures import sketch as K
 from learnloop.figures import sketch_verify as SV
 from learnloop.figures import verify as V
@@ -257,6 +258,117 @@ def test_verification_stops_at_its_wall_clock(monkeypatch):
     report = verify(F.spiral())
     assert report.outcome == V.FAILED and report.failed_step == "runs"
     assert "longer than -1 s to verify" in report.reason
+
+
+# ---------------------------------------------------------------------------
+# Codex re-review F2: a pairs claim's x is the probe's own, not the series index
+# ---------------------------------------------------------------------------
+
+def _pairs_program(pairs_code: str, expr: str, *, var_step: float = 0.0):
+    code = (
+        "function init(p, seed) { return {}; }\n"
+        f"function probes(s, p) {{ return {{pts: {pairs_code}}}; }}\n"
+        "function view(s, p) { return {viewport: {x: [-1, 1], y: [-1, 1]}, elements: []}; }\n")
+    return {"program_version": "sketch-v1", "demonstrates": "pairs", "parameters": [], "seeded": False,
+            "code": code, "probes": [{"name": "pts", "label": "pts", "shape": "pairs"}],
+            "claims": [{"kind": "equals", "probe": "pts", "expr": expr, "var": "x", "var_step": var_step}]}
+
+
+TWENTY_ONES = "+".join(["1"] * 20)
+
+
+def test_a_pairs_claim_is_charged_for_its_probes_own_x():
+    """F2 (re-review)'s reproduction: 4,000 pairs at x = 10,000, claimed equal
+    to a sum up to x of twenty added constants, with var_step 0. The old
+    estimate gave x the series' reach from var_from (one term), charging
+    168,000 steps for ~1.6e9 evaluations; the charge now reads the pairs' x."""
+
+    compiled = K.parse_sketch(_pairs_program(
+        "Array.from({length: 4000}, function () { return [10000, 0]; })", f"sum({TWENTY_ONES}, k, 0, x)"))
+    # Statically x is unknown: a sum over it is charged its most terms.
+    assert compiled.claims[0].entry_work >= G.MAX_SUM_TERMS
+    started = time.monotonic()
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.FAILED and report.failed_step == "claims"
+    assert "more computation than verification may do" in report.reason
+    assert time.monotonic() - started < 30
+
+
+def test_a_small_pairs_claim_is_charged_at_least_its_evaluations():
+    compiled = K.parse_sketch(_pairs_program(
+        "Array.from({length: 40}, function (_, i) { return [25, 26 * 20]; })", f"sum({TWENTY_ONES}, k, 0, x)"))
+    claim = compiled.claims[0]
+    sample = SV._Sample(point={}, step=0, scene={}, probes={"pts": [[25.0, 520.0]] * 40})
+    budget = SV._Budget(time.monotonic() + 60)
+    assert SV.check_claim(compiled, claim, sample, budget) is None  # the claim holds
+    assert budget.work >= 40 * 26 * 39  # 40 entries x 26 terms x the body's 39 nodes
+    # ...and stays bounded by the reach the pairs actually have.
+    assert budget.work < 40 * 27 * 60
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+
+
+def test_a_pairs_claim_loop_stops_at_the_deadline():
+    """F2 (re-review): the pairs loop passed index None, so it never looked
+    at the clock; past the deadline it now stops."""
+
+    compiled = K.parse_sketch(_pairs_program(
+        "Array.from({length: 40}, function (_, i) { return [25, 26 * 20]; })", f"sum({TWENTY_ONES}, k, 0, x)"))
+    sample = SV._Sample(point={}, step=0, scene={}, probes={"pts": [[25.0, 520.0]] * 40})
+    with pytest.raises(SV._Failed, match="longer than"):
+        SV.check_claim(compiled, compiled.claims[0], sample, SV._Budget(time.monotonic() - 1))
+
+
+def test_claim_loops_look_at_the_clock_by_work_not_only_by_entry_count(monkeypatch):
+    """A few heavy entries (each a full sum) see the clock between them, not
+    only every 256 entries."""
+
+    compiled = K.parse_sketch(_pairs_program(
+        "Array.from({length: 4}, function (_, i) { return [10000, 10001]; })", "sum(1, k, 0, x)"))
+    sample = SV._Sample(point={}, step=0, scene={}, probes={"pts": [[10000.0, 10001.0]] * 4})
+    ticks = []
+    budget = SV._Budget(time.monotonic() + 60)
+    monkeypatch.setattr(budget, "tick", lambda: ticks.append(1))
+    assert SV.check_claim(compiled, compiled.claims[0], sample, budget) is None
+    assert len(ticks) >= 4
+
+
+# ---------------------------------------------------------------------------
+# Codex re-review F11: an element whose type changes between settings
+# ---------------------------------------------------------------------------
+
+SHIFTING_CODE = r"""
+function init(p, seed) { return {}; }
+function probes(s, p) { return {v: [0, 1]}; }
+function view(s, p) {
+  var line = p.a === 0.5 ? {type: "polyline", id: "line", x: [0, 1], y: [0, 1]}
+                         : {type: "heat_cells", id: "line", x: [0, 2], y: [0, 1], cols: 2, rows: 1, values: [0, 1]};
+  return {viewport: {x: [-1, 2], y: [-1, 2]}, elements: [line]}; }
+"""
+
+
+def _shifting(claims):
+    return {"program_version": "sketch-v1", "demonstrates": "a shifting element",
+            "parameters": [{"name": "a", "label": "a", "min": 0, "max": 1, "step": 0.5, "default": 0.5}],
+            "seeded": False, "code": SHIFTING_CODE, "probes": [{"name": "v", "label": "v", "shape": "series"}],
+            "claims": claims, "bindings": [{"element_id": "line", "probe": "v"}]}
+
+
+def test_an_element_that_changes_type_gets_no_attribute_label():
+    """F11's reproduction: a polyline at the default, heat cells elsewhere.
+    Its scopes differ (y, values), so no one attribute was checked at every
+    setting: the check speaks for the probe and the line is not covered."""
+
+    report = verify(_shifting([{"kind": "invariant", "probe": "v", "property": "nonnegative"}]))
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    (check,) = report.checks
+    assert check["elements"] == [] and check["partial"] == []
+    assert report.not_covered == ["line"]
+    # Same scope at every setting (heat cells throughout): still labelled.
+    steady = verify(_shifting([{"kind": "invariant", "probe": "v", "property": "nonnegative"}]) | {
+        "code": SHIFTING_CODE.replace("p.a === 0.5", "false")})
+    assert steady.checks[0]["partial"] == [{"element": "line", "attribute": "values"}]
+    assert steady.not_covered == []
 
 
 def test_prediction_target_steps_are_where_the_answers_are_graded():
