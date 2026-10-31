@@ -229,6 +229,7 @@ migration and no successor: CA4 stays display and proposals at every version.
 | `2d93d8ba6` | `--no-ff` merge of `main` `5dbfd42b8`. **Conflicts** (CA3-landing resolutions vs CA4 edits): `template.py`, every default snapshot mvp-0.9 … mvp-0.37, where CA4's note is kept beside main's CA5a and cold-retry notes, and mvp-0.38 (cold-retry's new snapshot) gains CA4's line. **All 29 fingerprints** (mvp-0.9 … mvp-0.38) were recomputed with `defaults_fingerprint_for_version`, the template `.pyc` was cleared, and a recheck found 0 mismatches. The as-built notes in `ux_reader_compare_ask_v1.md` (CA5a's and CA4's, both kept). The switch-off contract pins `test_compare_keep_switch_off.py` and `test_reader_tutor_switch_off.py` now turn off CA3's, CA4's **and** CA5a's additions; `test_figures_switch_off.py` and `test_reading_paths.py` auto-merged and already pop or strip all three (`compareScope`, `compareByPoint`, `correspondence`). 431 generated reference notes were taken from main and regenerated in the next commit. `useLibraryAsk.ts` (CA3's `runCompare` and CA5a's `runPinsCompare` beside CA4's `compareAgain`/`whereElse`/`peek`), `LibraryAnswer.tsx`, `ReaderScreen.tsx`, `CompareScope.tsx`, `api/dto.ts`, `api/client.ts`, `library_ask.py` (both), `schema.py`, the parameter registry and `db_generate_reference.py` auto-merged; `npm run typecheck` was clean on the merge. |
 | `c1259ddf5` | DB/config reference regenerated on the merge. The hand-written counts in `Configuration.md` and `Database.md` move to **1073 effective leaves in 75 sections** (main's 1071 + CA4's 2). `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1163 notes). |
 | `36e3f1892` | The interaction tests (below). |
+| `43f50b271` | `--no-ff` merge of `main` `e668f7121` (the Codex CLI 0.165 lockdown fix), after the full suite ran; no conflicts. |
 
 `git diff main` lists no binary, no tracked database and nothing under `fixtures-local/`; `.gitignore` is unchanged.
 
@@ -340,5 +341,5 @@ Each copy was upgraded with `learnloop upgrade --to mvp-0.38` (prints `mvp-0.35 
   - CA5a's comparison (CA3 off) renders under the library answer's hits. If the section's ask returns no hits,
     the comparison runs but nothing shows it. This was true before CA4 too. The landing test gives the ask hits
     for both passages.
-  - The installed Codex CLI's launch-check pins need updating for its 2026-10-29 feature list. Main fails them
-    too, and they are not CA4's.
+  - The installed Codex CLI's launch-check pins failed in the full suite, on main too. Main's own lockdown fix
+    (`e668f7121`), merged here as `43f50b271`, makes them pass; see the gate.
