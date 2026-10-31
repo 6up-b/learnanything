@@ -56,6 +56,13 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "tutor_offer_pressed",  # RW1c: the learner pressed one (its kind, the tool call it runs, what it found)
     "figure_opened",      # RW5a: an explorable figure expanded (its id; spec §11 events)
     "figure_animated",    # RW5a: "play" (or a step under reduced motion) on a figure's parameter
+    # Reader CA6 (ux_reader_compare_ask_v1 §6.5 Records; salience only): a
+    # corresponding section peeked or opened (go there), side by side opened,
+    # and follow along moving the following pane at a section crossing.
+    "corresponding_section_peeked",
+    "corresponding_section_opened",
+    "side_by_side_opened",
+    "follow_along_moved",
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -131,6 +138,10 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     "offer_kind", "tool_call_id", "offer_result",
     # RW5a: which figure, and the parameter a play or step swept.
     "figure_id", "parameter",
+    # Reader CA6: the section a correspondence act starts from and the one it
+    # reaches (ids), whether that one is judged or an unchecked search hit,
+    # and which pane leads (main or side) when follow along moves the other.
+    "section_id", "target_source_id", "target_extraction_id", "target_section_id", "by", "leader",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

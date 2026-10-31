@@ -1459,6 +1459,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
         "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
         "no measurement, scheduling or serving authority (no algorithm successor)."),
+    # Reader CA6 (ux_reader_compare_ask_v1 §6.4, §13): side by side. A boolean
+    # (classified so every new key has a rule): two panes, follow along at
+    # section crossings to the first judged correspondent in the API's order;
+    # no weight, margin or threshold (the narrow-window breakpoint is the
+    # spec's layout bound in the frontend, not a parameter of any decision).
+    _ConfigRule(_exact(
+        "reader.side_by_side.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA6's side by side (two source panes, follow along at section crossings, "
+        "exposure rows for the second pane's text); navigation and display, no measurement, scheduling or "
+        "serving authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

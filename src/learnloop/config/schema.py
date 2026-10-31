@@ -2825,13 +2825,37 @@ class ReaderCorrespondenceConfig(BaseModel):
     enabled: bool = True
 
 
+class ReaderSideBySideConfig(BaseModel):
+    """Reader CA6: *side by side* (ux_reader_compare_ask_v1 §6.4, X9, K14, C5).
+
+    Two books in two panes: entered from ``s`` on a section in the find-section
+    list, ``Ctrl+\\`` from reading (the first correspondent in
+    ``reader.correspondents``' order) or *read side by side* in a peek. The
+    second pane reads one section of the other book at a time
+    (``reader.side_by_side_section``: protection read now, exam and held-out
+    sections refused, one ``source_exposure`` row per block shown). *Follow
+    along* (on by default, §15 Q14) moves the following pane to its first
+    judged correspondent once, only when the leading pane (the one the learner
+    last scrolled, clicked or selected in) crosses into a new section. No model
+    call; the only writes are the exposure rows and salience-only
+    ``reader_action_invoked`` events. ``enabled`` is the kill switch: off (or
+    with ``curriculum.enabled`` off, which gates the data), the Reader's prompt
+    contract carries no ``side_by_side`` key and the Reader is exactly as
+    before CA6. Navigation and display only: no successor.
+    """
+
+    enabled: bool = True
+
+
 class ReaderConfig(BaseModel):
     """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
 
     ``correspondence``: CA5a's (and later CA5's) switch.
+    ``side_by_side``: CA6's switch.
     """
 
     correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
+    side_by_side: ReaderSideBySideConfig = Field(default_factory=ReaderSideBySideConfig)
 
 
 class LearnerTextGapsConfig(BaseModel):

@@ -1672,7 +1672,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (source_compare.v2) and its grid; display and proposals at every version (no
     # successor); every snapshot moves only because the effective config gains the keys; all
     # of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "49ce3c0fd494f7fa634f0d1d0b936f80b6bf660cf9efbf9ea9702ec37cd8589a",
+    # Reader CA6 (side by side; docs/reviews/reader-ca6-side-by-side.md) adds
+    # [reader.side_by_side] enabled (true; a modelled default, left out of the
+    # decision-only template): two source panes, follow along at section crossings to the
+    # first judged correspondent. Navigation and display only, at every version (no
+    # successor); every snapshot moves only because the effective config gains the key; all
+    # of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "d8b12ca3fa3c5647c7647ce8d82cdb518d3bfceaa9b90ef22edb3aeab6877649",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1749,7 +1755,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.10": "129f0a1fdadeee12a61afe3b2c07eaef4cde6e2384a74f17812aa1e523cee84e",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.10": "25ca7c3f0cf8a06a46269b6f749d306dddc9e3e085f32b67075f965047bb6a25",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1834,7 +1841,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.11": "92a690b767cd611de9c2e088400eff14d157a0d3c7ed4f4504c77b5ba7851b58",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.11": "076a53edaa284e9a64311aaac15e7df7968c7c6b330f8c88095b8d95437ec0de",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1913,7 +1921,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.12": "8105c6968d28ac6345bbe9442804a3eef5478d84f41b9a8f50ace03da41b8919",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.12": "74adcd7e8b9bcec6fea6ce0fd787f93c94e1e4d2db40e18aea99a4ff1342cc33",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1987,7 +1996,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.13": "a9ecc914c898ab942e737837d34babf82c98887e11d3d0b6d094acd1805d9533",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.13": "0e66bdea3b8759281c860e9e96f03a0ace79933374884a92a773cd0a1d2059df",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2060,7 +2070,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.14": "44aea46da7eeb39906d65c42ba93ba0a2c896dc031e41e50ed242ce322938bbf",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.14": "9bea331dc8a45398f7cf94228b5ea07d743796c2379889e7ff993afca9e58f7e",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2131,7 +2142,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.15": "2f9a89e466e801e4fa65cbe5db4b76bc4cd91617e619d95f7eb56063a7475edb",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.15": "8b577c2166489400a5ad5b8f1e6ce6f93250d71bdeff8d9118d628d251d164ae",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2209,7 +2221,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.16": "e51b1680c95ace7c88e255ddedeec206e6f58f6e6de16cee141fa02f63012df4",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.16": "d92adbb2497b81d800437e213533153b16f624bfae4166e73d9d079fa39c01df",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2283,7 +2296,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.17": "085d0ffb5fb581f1e589b0b9557c3af9678cf297b5a89104a995282f9f1414f4",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.17": "583a52cec6f0ec96b487736d7ce7ae13f570375a9e9de818532a66f8a445a086",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2350,7 +2364,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.18": "16a9f6457ec180d5ef00647e3efa8319202aad632491fb446f69e5b8fa89eda7",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.18": "50362d24f7284ad388ac7adc6c73b9c3c4c4ef65a23d680e153cabb403c00f5f",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2417,7 +2432,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.19": "f48dd261e944178c92bfebf6466e43d63de0a3e171d7f5c65c1d27421957dd8c",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.19": "da520297068494616a89791fe145dfb5c179be8f5325686e5154f3a065555769",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2480,7 +2496,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.20": "be55e3beb31903c33332457fe5de9234cd7fa1adce7f0299be0cddf282309888",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.20": "a9fcbb93e852bd482a70a3e015536e31aab9a093f17a3e872108c45396366bbd",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2552,7 +2569,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.21": "80706fec0690b5aefd585253ddadc2f465c72f4d1545de6f6c1adee4e0985eec",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.21": "f9279ce3babf8306799042fca57aaa9588031ed6219a8bb1048f4293221f5f2a",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2616,7 +2634,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.22": "8611d0474221571584b6d0102d334b96fdb38ab7a2116e324d4281e005b87848",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.22": "68df1375a4d2a81c27cb73837d246f4945aaccec9cb6b6b22ec0fa4ef0ebc688",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2675,7 +2694,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.23": "ed4fca3b8cc0b4d2370b93a8d575afbd1b0d7101cf6ae17a26f902e9adb5f6f6",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.23": "3a66feb86647c98a7c22a2ba48778d5929e599713f02f7f24e99c5ea8c6e8d3f",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2731,7 +2751,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.24": "aae62268408d3564106812277588d29ef99d1e306c3804948e765c04990a8bad",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.24": "c98dbefd7ae04912d2aa0bb3a466ae48696f344af0c79ff85c045f40279a1e83",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2785,7 +2806,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.25": "1245d13df91abf1a7e1ccba1fea313d9d9c64bbbca7fb12728e29935733fe3cf",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.25": "01504af0868e2d9637575d1d06e1a6e412454633343893b4a04d52a45b399d2e",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2838,7 +2860,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.26": "4a7386ac266436614524efa9738e6f0aed1d9f06e7f8152429a06fcc861ba7a6",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.26": "cc049206a329ac45a9b296a166244fc509475d61fd23e1cb0ab27e48778d248e",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2891,7 +2914,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.27": "9b678ff27808ae64c3e869899d17352eea1102ca97f933e352eec67916adea1f",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.27": "83c47c1d76e8cbd860bd9084045c1458881e64a7344807df906db99f625ff6f6",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2933,7 +2957,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.29": "9e1ad169db4a92e36301c86e626c54dbab97ba22c6f5485fa25341ce66b9a9e6",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.29": "c8bc63af1cc7ca2e81d5750f7f2155f7e630bf081d7b134c8f1eb88946f4fb8a",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2969,7 +2994,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.30": "139f138c88de47da820471902ea53f2ae6f503fe7d13ab86e2d2e930febdafb0",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.30": "64c1d4f82d2f001bb41306c032285c067f810b75033c488dcdd2e64b631065b4",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2999,7 +3025,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.31": "de78b7c0c69194c98fa4a2969954db798c9bd327332a389dcf02ac7e582b6438",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.31": "2eb3455e83a59cb643f69f5b1d3d9463aeecff5c6cb1440d816b381f7c94c82f",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3026,7 +3053,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.32": "8ad6bf582ef71060e0e5c71ba757e68a9b3158c7cb8b9bf3f10082166bcb4ddd",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.32": "ab5e8ddf11c67c26a799b077b947d484eb8975e43863fa16a7b3aea00a628c8e",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3051,7 +3079,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.33": "64fb07f583849d9e6658b8147dd8f783ef030c2a650e9e2b051c48093204b030",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.33": "0c546327d9c8edf918dfcbce4cad6d6cffc4e846813923c37fa99d6d383f7264",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3075,7 +3104,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.34": "be87f1cdd440444480a4094cde27b850ded316ef79cce60764ece45812528c12",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.34": "79dafdc72a2dce4b2f3dc87d5da961604b76f4f14bd30f09105ad81562a6f63d",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3098,7 +3128,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.35": "c57fe248b1ece8090f58b876447ee6b097cf4f9e0b206e337c59b911fad94ba4",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.35": "b713565f7e4e8e9a1ea30ab93700e8224ba070a0531eb4590f940359c8a5fa52",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3116,7 +3147,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.36": "bb15b50103b6e9d7ed856b184ed8f0a94d66407765c5e56775fcbf3caeb3114f",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.36": "d2ddc56f123ebe4937ef171fc7e4247b99e78ba98a9ef4b7921812dee78cf412",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3137,7 +3169,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.37": "6892e40a0dc4d142c1cdf2269f91358352f4fe35af9defef4de0a8de9a911731",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.37": "5e361e4a828a971c40de7bb43b79707aa51381ac818c532e012f7b56ebede7e7",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3154,7 +3187,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.38": "81b460e3c3d85bef1adeb1c83ff7636f1de06570747537a24841da68912d8c6f",
+    # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
+    "mvp-0.38": "0431cd45f351475bd26f87ce7dce668a3fb039a3fabc417e240c044e916b425a",
 }
 
 

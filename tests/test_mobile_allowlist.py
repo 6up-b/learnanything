@@ -422,6 +422,21 @@ def test_the_pinned_ca5a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.correspondents import FIND_SECTION_RPCS
 
     assert set(READER_CA5A_RPCS) == set(FIND_SECTION_RPCS)
+
+
+# Reader CA6 (ux_reader_compare_ask_v1 §6.4): one section of the other book
+# for side by side's second pane. Desktop only.
+READER_CA6_RPCS = (
+    "reader.side_by_side_section",
+)
+
+
+def test_the_pinned_ca6_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.side_by_side import SIDE_BY_SIDE_RPCS
+
+    assert set(READER_CA6_RPCS) == set(SIDE_BY_SIDE_RPCS)
+
+
 # Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
 # (build and "not right?" as jobs, the source's figures, predictions and
 # "what changed?"); it extends reader.prompt_contract (figures). Desktop only.
@@ -737,7 +752,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA5A_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA5A_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

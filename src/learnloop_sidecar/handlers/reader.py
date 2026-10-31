@@ -493,6 +493,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.correspondents import prompt_contract_fields as correspondence_fields
 
     contract.update(correspondence_fields(vault))
+    # CA6's side by side (absent while reader.side_by_side.enabled or
+    # curriculum.enabled is off).
+    from learnloop_sidecar.handlers.side_by_side import prompt_contract_fields as side_by_side_fields
+
+    contract.update(side_by_side_fields(vault))
     return versioned(contract)
 
 

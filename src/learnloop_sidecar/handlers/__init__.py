@@ -60,6 +60,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     review,
     sessions,
     settings,
+    side_by_side,
     source_service,
     sqlite_admin,
     teach_back,

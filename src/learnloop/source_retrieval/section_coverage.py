@@ -1763,6 +1763,57 @@ def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str
 
 
 # ---------------------------------------------------------------------------
+# Reader CA6: one section of the other book, for side by side's second pane
+# ---------------------------------------------------------------------------
+
+def section_text(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]:
+    """A whole section's blocks, from its jump locator, for side by side's second pane.
+
+    The same protection as CA5a's peek, read now: a reading that is exam,
+    held-out or not teaching material, and a section with any withheld span,
+    are refused (``withheld``), so a pane never shows protected text and
+    never runs on into the next unit. With it, the reading's neighbouring
+    readable sections (by their order in the book; protected ones skipped),
+    so the pane can move on without listing anything protected. A pure read:
+    the caller records the exposure of exactly these blocks."""
+
+    from learnloop.reader.source_render_views import sanitize_source_text
+
+    library = Library(vault, repository)
+    section = _readable_section(library, extraction_id, section_id)
+    reading = library.reading(extraction_id)
+    ir = repository.load_document_ir(extraction_id)
+    if reading is None or ir is None:
+        raise CoverageError("validation_error", "That section is not in your library's readable sections.")
+    own = [span for span, owner in reading.all_spans.items() if owner == section_id]
+    if any(library.protection.span_out(extraction_id, span) for span in own):
+        raise CoverageError("withheld", "This section is protected material: it has no correspondents.")
+    start = own.index(section.start_span_id) if section.start_span_id in own else 0
+    blocks = []
+    for span in own[start:]:
+        block = ir.block_by_span(span)
+        raw = str(getattr(block, "text", "") or "") if block is not None else ""
+        if not raw.strip():
+            continue
+        safe, _modified = sanitize_source_text(raw)
+        blocks.append({"span_id": span, "block_type": str(getattr(block, "block_type", "") or ""),
+                       "page": getattr(block, "page", None), "text": safe})
+    ordered = sorted(reading.sections.values(), key=lambda candidate: candidate.ordinal)
+    at = next(index for index, candidate in enumerate(ordered) if candidate.section_id == section_id)
+
+    def neighbour(index: int) -> dict[str, Any] | None:
+        if index < 0 or index >= len(ordered):
+            return None
+        other = ordered[index]
+        return {"section_id": other.section_id, "title": other.title}
+
+    return {"extraction_id": extraction_id, "section_id": section_id, "source_id": section.source_id,
+            "source_title": section.source_title, "title": section.title, "jump_span_id": section.start_span_id,
+            "page": blocks[0]["page"] if blocks else None, "blocks": blocks,
+            "previous": neighbour(at - 1), "next": neighbour(at + 1)}
+
+
+# ---------------------------------------------------------------------------
 # reader.correspondents (no model call, no write)
 # ---------------------------------------------------------------------------
 
@@ -1997,6 +2048,7 @@ __all__ = [
     "read_protection",
     "search_sections",
     "section_learning_objects",
+    "section_text",
     "source_learning_objects",
     "standing",
     "state_key",
