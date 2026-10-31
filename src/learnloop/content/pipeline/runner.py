@@ -121,6 +121,9 @@ KNOWN_JOB_TYPES = frozenset(
         # Voyage fallback backfill (each queued only while its switch is on).
         "local_source_index",
         "source_fallback_backfill",
+        # Deliverable curriculum C0b: the coverage job a completed extraction
+        # queues while curriculum.coverage_on_extract is on (quiet: plan only).
+        "curriculum_coverage_on_extract",
     }
 )
 

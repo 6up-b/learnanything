@@ -1,7 +1,7 @@
 {
   "<root>": {
     "bytes": 25457,
-    "sha256": "2b7c69ad9094566f65af25f13f24ab5424f5386b5cb6d2c23fa910d17ea2051a"
+    "sha256": "1265ea99e9eeaa4a4a2caa262b1283bab5da68eed42b515c119719a2013d3dad"
   },
   "accept": {
     "bytes": 1593,
@@ -232,12 +232,16 @@
     "sha256": "e316e210fe2d91eb572f5e638971be7d71efbf1639269fa99d1eafb379e4e406"
   },
   "curriculum": {
-    "bytes": 1587,
-    "sha256": "e45d464d95293f35c7abcd46431880f9b77491ac6f914262a37fceecedd3441e"
+    "bytes": 1838,
+    "sha256": "d2956abc6a15c0fbc8c524a2d3a7c1394b296674ef3d39d2fdc59e99bb47f4a0"
   },
   "curriculum cover": {
     "bytes": 2526,
     "sha256": "282212461a0f778298540ac9111e849d52162a9bf6ee3f348c76bbd811d76580"
+  },
+  "curriculum report": {
+    "bytes": 1854,
+    "sha256": "de1cdc8bdddc60f7fbc26ec3d55f21ee86fed86dbf6724255542b1b823ddd40b"
   },
   "data-quality": {
     "bytes": 1040,

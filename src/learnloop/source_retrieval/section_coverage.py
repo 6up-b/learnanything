@@ -1197,6 +1197,77 @@ def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str]
 
 
 # ---------------------------------------------------------------------------
+# C0b: curriculum.coverage_on_extract (spec §6.3)
+# ---------------------------------------------------------------------------
+
+#: The ingest job a completed extraction queues while both switches are on.
+ON_EXTRACT_JOB = "curriculum_coverage_on_extract"
+
+
+def on_extract_reason(config: Any) -> str | None:
+    """Why a completed extraction queues no coverage job (None: it does)."""
+
+    section = getattr(config, "curriculum", None)
+    if not bool(getattr(section, "enabled", False)):
+        return "curriculum.enabled is false"
+    if not bool(getattr(section, "coverage_on_extract", False)):
+        return "curriculum.coverage_on_extract is false"
+    return None
+
+
+def covered_learning_objects(repository: Repository) -> list[str]:
+    """Every LO some judgment has covered (the on-extract job's work list)."""
+
+    with repository.connection() as connection:
+        if not store.table_present(connection):
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT learning_object_id FROM section_coverage WHERE learner_override IS NULL "
+            "ORDER BY learning_object_id")]
+
+
+def rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None = None,
+                       embedder: Any | None = None, clock: Clock | None = None,
+                       cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+    """The on-extract job: judge every covered LO again, so the new (or re-read) reading's
+    candidate sections join its next judgment (§6.3). Coalesced per LO: each is judged at
+    most once, and a state already judged (nothing new among its candidates) is ``fresh``
+    and pays nothing. Quiet (``plan_fallback.quiet``): the plan only, no OpenRouter offer
+    and no grant honoured; when the plan cannot run, the job stops ``waiting`` and the
+    next extraction or a pressed check judges again. Protection is read again before each
+    LO from the vault's files (:func:`protection_on_disk`)."""
+
+    from learnloop.ai import plan_fallback
+
+    learning_objects = [lo for lo in covered_learning_objects(repository) if _active(vault, lo)]
+    out: dict[str, Any] = {"job": ON_EXTRACT_JOB, "extraction_id": extraction_id, "status": "done",
+                           "learning_objects": learning_objects, "results": []}
+    if not learning_objects:
+        return out
+    with plan_fallback.quiet():
+        try:
+            library = Library(vault, repository, protection=protection_on_disk(vault, repository))
+        except CoverageError as exc:
+            return {**out, "status": "withheld", "reason": str(exc)}
+        for lo_id in learning_objects:
+            if cancelled():
+                out["status"] = "cancelled"
+                break
+            try:
+                library = library.refreshed(protection=protection_on_disk(vault, repository))
+            except CoverageError as exc:
+                out.update(status="withheld", reason=str(exc))
+                break
+            result = judge(vault, repository, lo_id, library=library, client=client, embedder=embedder, clock=clock)
+            out["results"].append(result.as_dict())
+            if result.status in STOPPING:
+                out.update(status="waiting" if result.status in ("unavailable", "capped") else result.status,
+                           reason=result.reason)
+                break
+    return out
+
+
+# ---------------------------------------------------------------------------
 # The owner-run batch: learnloop curriculum cover --source <id> [--dry-run]
 # ---------------------------------------------------------------------------
 
@@ -1769,6 +1840,10 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
 
 
 __all__ = [
+    "ON_EXTRACT_JOB",
+    "covered_learning_objects",
+    "on_extract_reason",
+    "rejudge_on_extract",
     "ABOUT",
     "COVERAGE_TASK",
     "STALE_MESSAGE",

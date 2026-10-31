@@ -2307,6 +2307,7 @@ def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | No
     except Exception:  # noqa: BLE001 - no readable config: nothing to queue
         return None
     queue_contextual_indexes(ctx, config, extraction_id, title=title)
+    queue_coverage_on_extract(ctx, config, extraction_id)
     if auto_backfill_reason(config) is not None:
         return None
     try:
@@ -2327,6 +2328,36 @@ def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | No
             details={"extraction_id": extraction_id, "error_type": type(exc).__name__},
             retryable=True,
         ) from exc
+
+
+def queue_coverage_on_extract(ctx: JobContext, config: Any, extraction_id: str) -> str | None:
+    """Deliverable curriculum C0b (spec §6.3): a completed extraction queues one
+    ``curriculum_coverage_on_extract`` job, which judges the already-covered LOs again
+    so the new reading's sections join their coverage (quiet: the plan only).
+
+    Only while ``curriculum.enabled`` and ``curriculum.coverage_on_extract`` are on,
+    only when some LO is covered, and never while one is live (one job judges every
+    covered LO, coalesced per LO). Its failure never fails the import: coverage is
+    display and retrieval context, and the next extraction or a pressed check judges
+    again. Returns the batch id, or None."""
+
+    from learnloop.source_retrieval.section_coverage import ON_EXTRACT_JOB, covered_learning_objects, on_extract_reason
+    from learnloop.source_retrieval.source_vectors import LIVE_JOB_STATUSES
+
+    if on_extract_reason(config) is not None:
+        return None
+    try:
+        if not covered_learning_objects(ctx.repo):
+            return None
+        if any(job.get("status") in LIVE_JOB_STATUSES for job in ctx.repo.ingest_jobs_by_types((ON_EXTRACT_JOB,))):
+            return None
+        return ctx.enqueue_batch(ON_EXTRACT_JOB, [JobSpec(ON_EXTRACT_JOB, {"extraction_id": extraction_id})])
+    except JobCancelled:
+        raise
+    except Exception:  # noqa: BLE001 - coverage is context: the import stands, the next one queues again
+        logging.getLogger(__name__).warning("the coverage job for %s could not be queued", extraction_id,
+                                            exc_info=True)
+        return None
 
 
 def queue_contextual_indexes(ctx: JobContext, config: Any, extraction_id: str, *, title: str | None = None) -> list[str]:
@@ -2489,6 +2520,23 @@ def handle_source_fallback_backfill(ctx: JobContext) -> dict[str, Any]:
 
 #: ``backfill_source_vectors`` statuses that end the job without a failure.
 _SOURCE_VECTORS_DONE = frozenset({"complete", "disabled", "no_extraction"})
+
+
+def handle_curriculum_coverage_on_extract(ctx: JobContext) -> dict[str, Any]:
+    """curriculum_coverage_on_extract: judge the covered LOs again after an extraction (C0b, §6.3).
+
+    Quiet (plan only); a fresh state pays nothing; the result is counts and statuses,
+    never text. A plan that cannot run leaves the job ``waiting`` (completed): the next
+    extraction or a pressed check judges again, and nothing asks the learner."""
+
+    from learnloop.source_retrieval import section_coverage as SC
+    from learnloop.vault.loader import load_vault
+
+    extraction_id = str(ctx.payload.get("extraction_id") or "").strip()
+    if not extraction_id:
+        raise IngestRunnerError("curriculum_coverage_on_extract requires an 'extraction_id'.")
+    ctx.report("acquired", message="Checking where your books treat the topics already covered")
+    return SC.rejudge_on_extract(load_vault(ctx.vault_root), ctx.repo, extraction_id, cancelled=ctx.cancelled)
 
 
 def handle_source_embedding_backfill(ctx: JobContext) -> dict[str, Any]:
@@ -3799,6 +3847,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,
     "source_embedding_backfill": handle_source_embedding_backfill,
+    "curriculum_coverage_on_extract": handle_curriculum_coverage_on_extract,
     "local_source_index": handle_local_source_index,
     "source_fallback_backfill": handle_source_fallback_backfill,
 }

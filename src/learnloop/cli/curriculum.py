@@ -16,7 +16,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 curriculum_app = typer.Typer(no_args_is_help=True,
-                             help="The deliverable curriculum (C0a: section coverage across your books).")
+                             help="The deliverable curriculum (C0a: section coverage across your books; C0b: the report).")
 
 
 @curriculum_app.command("cover")
@@ -57,6 +57,38 @@ def curriculum_cover(
         if extraction_id is None:
             raise ValueError(f"no extraction resolves for {source!r}")
         result = cover_source(loaded, repository, extraction_id, dry_run=dry_run)
+        typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
+    except (ValueError, OSError, sqlite3.Error, CoverageError) as exc:
+        typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
+        raise typer.Exit(code=1) from exc
+
+
+@curriculum_app.command("report")
+def curriculum_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Aggregates for the deliverable curriculum (C0b): coverage, choice and time rows.
+
+    Coverage: the learner's corrections per judged (section, topic) row, each a
+    labelled error. Choice: "use this one instead" swaps and skips per path line.
+    Time: the path's minutes against every section of the books that treat its
+    topics (an estimate: words at 200 a minute). Read-only, no model call. Never
+    reports sections read, path completion, time on the page or in-session answers as
+    success."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.source_retrieval.deliverable_path import report
+    from learnloop.source_retrieval.section_coverage import CoverageError, enabled
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault)
+        if not enabled(loaded):
+            raise ValueError("the deliverable curriculum is off (curriculum.enabled = false)")
+        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        result = report(loaded, repository)
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error, CoverageError) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))

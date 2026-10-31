@@ -148,3 +148,22 @@ def test_no_deliverable_slice_is_none_and_also_about_corrects(tmp_path):
     assert out["status"] == "corrected" and out["learningObjectId"] == "lo_det"
     assert json.loads(json.dumps(out))["correction"]["learnerOverride"] == "is_about"
     assert DL.SCOPE_ROUTE == "deliverable_scope_resolver"
+
+
+def test_the_report_cli_prints_aggregates_and_refuses_when_off(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    ctx = _ctx(paths)
+    goal_id = call(ctx, "curriculum.create_deliverable", {"sentence": "eigenvalues"})["goalId"]
+    call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "fluency"})
+    result = CliRunner().invoke(app, ["curriculum", "report", "--vault", str(paths.root), "--json"])
+    assert result.exit_code == 0, result.output
+    out = json.loads(result.output)
+    assert set(out) == {"coverage", "choice", "time", "never_success"} and out["choice"]["path_lines"] == 1
+    with (paths.root / "learnloop.toml").open("a", encoding="utf-8") as handle:
+        handle.write("\n[curriculum]\nenabled = false\n")
+    off = CliRunner().invoke(app, ["curriculum", "report", "--vault", str(paths.root)])
+    assert off.exit_code == 1 and json.loads(off.output)["status"] == "invalid"
