@@ -11,6 +11,7 @@ export const DELIVERABLE_COPY = {
   ask: "How deep for this?",
   askNote: "Asked once for this deliverable; change it any time.",
   change: "change",
+  scope: "what it covers",
   thisBookAlone: "this book alone",
   backToDeliverable: "back to your deliverable",
   judging: "◐ choosing a path across your books…",

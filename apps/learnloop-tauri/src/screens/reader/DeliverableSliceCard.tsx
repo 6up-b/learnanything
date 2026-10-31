@@ -2,12 +2,15 @@
 // open book (spec §7.5) when a deliverable's path names it: its core, prerequisite and
 // alternate sections here, labelled; "not needed for <deliverable>"; one line per topic
 // whose primary is in another book; the learner's overrides (§7.3) and "Am I ready?"
-// (§8.5). "this book alone" shows RW7a's own card. With no deliverable here, or with
-// curriculum.enabled off (the RPC refuses), the slot is RW7a's card exactly: today's Guide.
-// Display only.
+// (§8.5). "this book alone" shows RW7a's own card. With curriculum.enabled off (the RPC
+// refuses), the slot is RW7a's card exactly: today's Guide. With no deliverable naming this
+// book, RW7a's card and, under it, the way to make a deliverable or review yours (§5;
+// Codex review F4). Display only.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../api/client";
-import type { DeliverableLineDto, DeliverablePathChoice, DeliverableReadyDto, DeliverableSliceDto, ReadingPathDepth } from "../../api/dto";
+import type {
+  DeliverableLineDto, DeliverablePathChoice, DeliverableReadyDto, DeliverableScopeDto, DeliverableSliceDto, ReadingPathDepth,
+} from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
 import { errorMessage, getCommandError } from "../../errors";
 import {
@@ -20,6 +23,7 @@ import {
   sliceHeading,
   sliceShown,
 } from "./deliverableSlice";
+import { DeliverableEntry, DeliverableScopePanel, scopeNotice } from "./DeliverableScope";
 import { MeaningLabel } from "./voices";
 
 const LINK = {
@@ -43,16 +47,18 @@ export interface GuidePathSlotProps {
 export function GuidePathSlot({ extractionId, readingPathCard, onJump, onError, refreshKey = "" }: GuidePathSlotProps) {
   const [slice, setSlice] = useState<DeliverableSliceDto | null>(null);
   const [alone, setAlone] = useState(false);
+  const [refused, setRefused] = useState(false);
   const shown = useRef(extractionId);
 
   const read = useCallback(async (params: { retry?: boolean; judge?: boolean } = {}) => {
     const asked = extractionId;
     try {
       const result = await api.curriculumGuideSlice({ extractionId: asked, ...params });
-      if (shown.current === asked) setSlice(result);
+      if (shown.current === asked) { setSlice(result); setRefused(false); }
     } catch (error) {
       if (shown.current !== asked) return;
       setSlice({ ...NONE, extractionId: asked });
+      setRefused(true);
       // The switch off (or the Reader off) is today's Guide, silently; any other refusal
       // is reported, and the card stays RW7a's.
       const code = getCommandError(error)?.code;
@@ -82,7 +88,17 @@ export function GuidePathSlot({ extractionId, readingPathCard, onJump, onError, 
   }, [refreshKey, read]);
 
   if (slice === null) return null;
-  if (!sliceShown(slice)) return <>{readingPathCard}</>;
+  if (!sliceShown(slice)) {
+    // Refused (the switch off): RW7a's card exactly. Otherwise RW7a's card, then the way to
+    // make a deliverable or review yours (Codex review F4).
+    if (refused) return <>{readingPathCard}</>;
+    return (
+      <>
+        {readingPathCard}
+        <DeliverableEntry onError={onError} onChanged={() => void read()} />
+      </>
+    );
+  }
   if (alone && readingPathCard) {
     return (
       <div data-deliverable-slice="alone">
@@ -117,18 +133,38 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
   const [open, setOpen] = useState<string | null>(null);
   const [notNeededOpen, setNotNeededOpen] = useState(false);
   const [ready, setReady] = useState<DeliverableReadyDto | null>(null);
+  const [scope, setScope] = useState<DeliverableScopeDto | null>(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const goalId = slice.goal?.id ?? "";
 
-  const act = async (work: () => Promise<unknown>, failure: string) => {
+  const act = async (work: () => Promise<unknown>, failure: string, reload: { judge: boolean } = { judge: false }) => {
     setBusy(true);
     try {
       await work();
-      await onReload({ judge: false });
+      await onReload(reload);
     } catch (error) {
       onError(errorMessage(error, failure));
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleScope = async () => {
+    if (scopeOpen) { setScopeOpen(false); return; }
+    try {
+      setScope(await api.curriculumScope({ goalId }));
+      setScopeOpen(true);
+    } catch (error) {
+      onError(errorMessage(error, "Couldn't load what this deliverable covers."));
+    }
+  };
+
+  // A scope change asks for the judgment it owes (Codex review F9): the slice reads with
+  // judge on, so a topic added since is placed and polled until its path is current.
+  const scopeChanged = (next: DeliverableScopeDto) => {
+    setScope(next);
+    void onReload({ judge: true });
   };
 
   const chooseDepth = (depth: ReadingPathDepth) => act(async () => {
@@ -141,10 +177,17 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
     () => api.curriculumPathOverride({ goalId, learningObjectId: line.learningObjectId, choice, ...(ref ? { sectionRef: ref } : {}) }),
     "Couldn't save that choice.");
 
-  const notWhatINeed = (line: DeliverableLineDto, text: string) => act(
-    () => api.curriculumSetScope({ goalId, kind: "correction", text,
-      context: { via: "path_line", learning_object_id: line.learningObjectId } }),
-    "Couldn't send that.");
+  const notWhatINeed = (line: DeliverableLineDto, text: string) => act(async () => {
+    const out = await api.curriculumSetScope({ goalId, kind: "correction", text,
+      context: { via: "path_line", learning_object_id: line.learningObjectId } });
+    // Superseded or unavailable: its message, read by the learner (never a silent no-op).
+    setNotice(scopeNotice(out));
+    // Words that match no topic yet wait for the learner's add it / no: the scope opens on them.
+    if (scopeOpen || (out.scope?.unmatched ?? []).some((entry) => entry.status === "open")) {
+      setScope(out.scope);
+      setScopeOpen(true);
+    }
+  }, "Couldn't send that.", { judge: true });
 
   const amIReady = async () => {
     setBusy(true);
@@ -175,8 +218,15 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
           <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>{COPY.heading}</Faint>
           <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>{sliceHeading(slice)}</span>
           {slice.depth && !askDepth ? <button type="button" style={LINK} onClick={() => setChoosing(true)}>{COPY.change}</button> : null}
+          {goalId ? (
+            <button type="button" style={LINK} aria-expanded={scopeOpen} onClick={() => void toggleScope()}>
+              {COPY.scope} {scopeOpen ? "▾" : "▸"}
+            </button>
+          ) : null}
           {onAlone ? <button type="button" style={LINK} onClick={onAlone}>{COPY.thisBookAlone}</button> : null}
         </div>
+        {scopeOpen && scope ? <DeliverableScopePanel scope={scope} onError={onError} onChanged={scopeChanged} /> : null}
+        {notice ? <Faint style={{ fontSize: 10 }}>{notice}</Faint> : null}
         {askDepth ? (
           <div role="group" aria-label={COPY.ask} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{COPY.ask}</span>
@@ -289,7 +339,9 @@ function LineRow({ line, busy, open, onToggle, onJump, onChoose, onNotWhatINeed 
               <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
                 {COPY.anotherWay} {alternate.book} {sectionMarker(alternate.title)}{alternate.difference ? `, ${alternate.difference}` : ""}
               </span>
-              <button type="button" style={LINK} disabled={busy} onClick={() => onChoose("use_instead", sectionRef(alternate))}>{COPY.useInstead}</button>
+              {alternate.canUseInstead === false ? null : (
+                <button type="button" style={LINK} disabled={busy} onClick={() => onChoose("use_instead", sectionRef(alternate))}>{COPY.useInstead}</button>
+              )}
             </span>
           ))}
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

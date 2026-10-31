@@ -2,13 +2,15 @@
 // (§7.3) and "Am I ready?" (§8.5); with no deliverable or the switch off, RW7a's card.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { DeliverableLineDto, DeliverableReadyDto, DeliverableSliceDto } from "../../api/dto";
+import type { DeliverableLineDto, DeliverableReadyDto, DeliverableScopeDto, DeliverableSliceDto } from "../../api/dto";
 import { GuidePathSlot } from "./DeliverableSliceCard";
 import { DELIVERABLE_COPY, offeredChoices, shouldPollSlice, sliceHeading, sliceShown } from "./deliverableSlice";
+import { SCOPE_COPY, scopeNotice, scopeSummary } from "./DeliverableScope";
 
 const { api } = vi.hoisted(() => ({ api: {
   curriculumGuideSlice: vi.fn(), curriculumSetDepth: vi.fn(), curriculumPathOverride: vi.fn(),
-  curriculumSetScope: vi.fn(), curriculumReadyCheck: vi.fn(),
+  curriculumSetScope: vi.fn(), curriculumReadyCheck: vi.fn(), curriculumDeliverables: vi.fn(),
+  curriculumCreateDeliverable: vi.fn(), curriculumScope: vi.fn(), curriculumScopeDecide: vi.fn(),
 } }));
 vi.mock("../../api/client", () => ({ api }));
 
@@ -51,7 +53,18 @@ const READY: DeliverableReadyDto = {
     line: "Not tested on your own yet.", checks: [{ commitmentId: "cm_1", dueHint: "2026-11-03" }] }],
 };
 
-beforeEach(() => { for (const mock of Object.values(api)) mock.mockReset(); });
+const SCOPE: DeliverableScopeDto = {
+  goalId: "goal_d", title: "my midterm", sentence: "only my midterm", kind: "exam", dueAt: "2026-11-12T23:59:59Z",
+  depth: null, topics: [{ learningObjectId: "lo_eigen", title: "Eigenvalues", phrase: "eigenvalues" }],
+  unmatched: [{ phrase: "jordan form", proposedTitle: "Jordan form", proposedStatement: "What Jordan form means.",
+    status: "open", createdLearningObjectId: null }],
+  inputs: [], resolution: { id: "dsr_1", origin: "resolver", model: "fake", createdAt: "2026-10-31T09:00:00Z", facetScope: {} },
+};
+
+beforeEach(() => {
+  for (const mock of Object.values(api)) mock.mockReset();
+  api.curriculumDeliverables.mockResolvedValue({ deliverables: [] });
+});
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 async function mount(props: { readingPathCard?: React.ReactNode | null } = {}) {
@@ -62,16 +75,76 @@ async function mount(props: { readingPathCard?: React.ReactNode | null } = {}) {
   return { ...utils, ...handlers };
 }
 
-it("with no deliverable here, or the switch off, the slot is RW7a's card exactly", async () => {
+it("with no deliverable here, RW7a's card and the way to make one; with the switch off, RW7a's card exactly", async () => {
   api.curriculumGuideSlice.mockResolvedValueOnce({ extractionId: "ext_book", status: "none" });
   const none = await mount();
   expect(screen.getByTestId("rw7a")).toBeTruthy();
   expect(none.container.querySelector("[data-deliverable-slice]")).toBeNull();
+  expect(none.container.querySelector("[data-deliverable-entry]")).not.toBeNull();
   none.unmount();
   api.curriculumGuideSlice.mockRejectedValueOnce({ code: "curriculum_disabled", message: "off" });
   const off = await mount();
   expect(screen.getByTestId("rw7a")).toBeTruthy();
+  expect(off.container.querySelector("[data-deliverable-entry]")).toBeNull();
   expect(off.onError).not.toHaveBeenCalled();
+});
+
+it("makes a deliverable from the learner's words and a topic list, then shows what they resolved to (F4)", async () => {
+  api.curriculumGuideSlice.mockResolvedValue({ extractionId: "ext_book", status: "none" });
+  api.curriculumCreateDeliverable.mockResolvedValue({ goalId: "goal_d", status: "ready", message: null, scope: SCOPE });
+  api.curriculumSetScope.mockResolvedValue({ status: "ready", message: null, scope: SCOPE });
+  const { container } = await mount();
+  fireEvent.click(screen.getByText(SCOPE_COPY.entry));
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.sentence), { target: { value: "only my midterm" } });
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.topics), { target: { value: "eigenvalues\njordan form" } });
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.deadline), { target: { value: "2026-11-12" } });
+  fireEvent.click(screen.getByLabelText(SCOPE_COPY.exam));
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.make)); await Promise.resolve(); });
+  expect(api.curriculumCreateDeliverable).toHaveBeenCalledWith({ sentence: "only my midterm", dueAt: "2026-11-12", exam: true });
+  expect(api.curriculumSetScope).toHaveBeenCalledWith({ goalId: "goal_d", kind: "topic_list", text: "eigenvalues\njordan form" });
+  expect(screen.getByText(scopeSummary(SCOPE))).toBeTruthy();
+  expect(container.querySelector('[data-deliverable-topic="lo_eigen"]')?.textContent).toContain("“eigenvalues”");
+  expect(container.querySelector('[data-deliverable-unmatched="open"]')).not.toBeNull();
+});
+
+it("a phrase not in the library is added only on the learner's yes, and not this / add are their words (F4)", async () => {
+  api.curriculumGuideSlice.mockResolvedValue({ extractionId: "ext_book", status: "none" });
+  api.curriculumDeliverables.mockResolvedValue({ deliverables: [SCOPE] });
+  const decided = { ...SCOPE, unmatched: [{ ...SCOPE.unmatched[0], status: "created" as const, createdLearningObjectId: "lo_jordan" }] };
+  api.curriculumScopeDecide.mockResolvedValue({ created: { learningObjectId: "lo_jordan" }, scope: decided });
+  api.curriculumSetScope.mockResolvedValue({ status: "superseded", message: "Your newer words stand.", scope: decided });
+  await mount();
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.yours(1))); });
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.addIt)); await Promise.resolve(); });
+  expect(api.curriculumScopeDecide).toHaveBeenCalledWith({ goalId: "goal_d", phrase: "jordan form", decision: "create" });
+  expect(screen.getByText(SCOPE_COPY.added)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.notThis), { target: { value: "not proofs" } });
+  await act(async () => { fireEvent.click(screen.getAllByText(SCOPE_COPY.send)[0]); await Promise.resolve(); });
+  expect(api.curriculumSetScope).toHaveBeenCalledWith({ goalId: "goal_d", kind: "correction", text: "not proofs" });
+  expect(screen.getByText("Your newer words stand.")).toBeTruthy();
+});
+
+it("the slice opens its scope for review, and a change there asks for the judgment it owes (F4, F9)", async () => {
+  api.curriculumGuideSlice.mockResolvedValue(slice());
+  api.curriculumScope.mockResolvedValue(SCOPE);
+  api.curriculumSetScope.mockResolvedValue({ status: "ready", message: null, scope: SCOPE });
+  await mount();
+  await act(async () => { fireEvent.click(screen.getByText(new RegExp(DELIVERABLE_COPY.scope))); await Promise.resolve(); });
+  expect(api.curriculumScope).toHaveBeenCalledWith({ goalId: "goal_d" });
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.add), { target: { value: "determinants too" } });
+  await act(async () => { fireEvent.click(screen.getAllByText(SCOPE_COPY.send)[1]); await Promise.resolve(); });
+  expect(api.curriculumSetScope).toHaveBeenCalledWith({ goalId: "goal_d", kind: "text", text: "determinants too" });
+  expect(api.curriculumGuideSlice).toHaveBeenLastCalledWith({ extractionId: "ext_book", judge: true });
+});
+
+it("use this one instead is offered only on a section that introduces or develops the topic (F10)", async () => {
+  api.curriculumGuideSlice.mockResolvedValue(slice({ lines: [line({ alternates: [
+    section({ extractionId: "ext_strang", sectionId: "s61", title: "6.1 Eigenvectors", book: "Strang", canUseInstead: false,
+      treatment: "mentions" })] })] }));
+  await mount();
+  fireEvent.click(screen.getByText(/why/));
+  expect(screen.getByText(/another way: Strang §6.1 Eigenvectors/)).toBeTruthy();
+  expect(screen.queryByText(DELIVERABLE_COPY.useInstead)).toBeNull();
 });
 
 it("shows this book's lines, other books' lines, what isn't covered and what isn't needed", async () => {
@@ -138,6 +211,20 @@ it("not what I need goes to the scope resolver as the learner's words", async ()
   await act(async () => { fireEvent.click(screen.getByText(DELIVERABLE_COPY.send)); });
   expect(api.curriculumSetScope).toHaveBeenCalledWith({ goalId: "goal_d", kind: "correction", text: "we skipped proofs",
     context: { via: "path_line", learning_object_id: "lo_eigen" } });
+  // A scope change reads the slice with judge on (F9): the topic it adds is placed.
+  expect(api.curriculumGuideSlice).toHaveBeenLastCalledWith({ extractionId: "ext_book", judge: true });
+});
+
+it("not what I need: an unavailable resolution says so, and new phrases open the scope (F9)", async () => {
+  api.curriculumGuideSlice.mockResolvedValue(slice());
+  api.curriculumSetScope.mockResolvedValue({ status: "unavailable", message: "Couldn't reach LearnLoop's model.", scope: SCOPE });
+  const { container } = await mount();
+  fireEvent.click(screen.getByText(/why/));
+  fireEvent.change(screen.getByLabelText(DELIVERABLE_COPY.notWhatINeed), { target: { value: "and jordan form" } });
+  await act(async () => { fireEvent.click(screen.getByText(DELIVERABLE_COPY.send)); await Promise.resolve(); });
+  expect(screen.getByText("Couldn't reach LearnLoop's model.")).toBeTruthy();
+  expect(container.querySelector('[data-deliverable-unmatched="open"]')).not.toBeNull();
+  expect(scopeNotice({ status: "fresh", message: "x" })).toBeNull();
 });
 
 it("asks the depth once and saves it", async () => {

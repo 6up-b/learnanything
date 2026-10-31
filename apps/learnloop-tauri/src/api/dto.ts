@@ -9141,6 +9141,8 @@ export interface DeliverableSectionDto {
   read: boolean;
   /** An alternate's one line: how it differs ("more geometric"). */
   difference?: string;
+  /** Whether *use this one instead* is offered: the section introduces or develops the topic (§7.1). */
+  canUseInstead?: boolean;
 }
 
 export interface DeliverableLineDto {
