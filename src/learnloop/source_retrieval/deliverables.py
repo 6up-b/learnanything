@@ -315,21 +315,29 @@ def write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning
                       clock: Clock | None = None) -> dict[str, list[str]]:
     """The goal's ``facet_scope`` from the resolved LOs, under the vault mutation lock (§5.3).
 
-    It names the LOs' canonical scope facets, never their concepts (DL2's ``set_deadline``
-    rule, Codex review F8): a concept would pull in every other LO on it, which the
-    learner did not ask for; a facet is exactly as narrow as the LO. The caller reloads."""
+    It names the LOs' canonical scope facets (DL2's ``set_deadline`` rule, Codex review F8):
+    a concept would pull in every other LO on it, which the learner did not ask for; a
+    facet is exactly as narrow as the LO. An LO with no facet is named by its concept, the
+    only handle it has. The caller reloads."""
 
     from learnloop.learner.facet_diagnostics import scope_facets
     from learnloop.vault.models import Goal
     from learnloop.vault.yaml_io import read_yaml
     from learnloop.vault_lock import vault_mutation_lock
 
-    facets = sorted({
-        vault.canonical_facet_id(str(facet))
-        for lo_id in learning_object_ids if lo_id in vault.learning_objects
-        for facet in scope_facets(vault, lo_id, repository)
-    })
-    scope = {"concepts": [], "facets": facets}
+    facets: set[str] = set()
+    concepts: set[str] = set()
+    for lo_id in learning_object_ids:
+        if lo_id not in vault.learning_objects:
+            continue
+        found = {vault.canonical_facet_id(str(facet)) for facet in scope_facets(vault, lo_id, repository)}
+        if found:
+            facets |= found
+        else:
+            # An LO with no evidence facet can be named only by its concept (§5.3: "the
+            # concepts of the resolved LOs, plus facets where narrower").
+            concepts.add(vault.learning_objects[lo_id].concept)
+    scope = {"concepts": sorted(concepts), "facets": sorted(facets)}
     path = _goals_path(vault)
     with vault_mutation_lock(Path(vault.root), purpose="curriculum_set_scope"):
         data = read_yaml(path) if path.exists() else {"schema_version": 2, "goals": []}
@@ -757,7 +765,7 @@ def also_about(vault: Any, repository: Repository, extraction_id: str, section_i
     with repository.atomic():
         append_judgment(
             repository.connection(), task=SCOPE_LEDGER_TASK, left_kind="reader_section",
-            left_id=f"{extraction_id}/{section_id}", right_kind="learning_object", right_id=lo_id,
+            left_id=f"{extraction_id}/{section_id}", right_kind="learning_object" if lo_id else None, right_id=lo_id,
             judge="llm", judge_model=route.model, prompt_version=SCOPE_PROMPT_VERSION,
             input_hash=content_key(prompt), verdict="matched" if lo_id else "unmatched",
             rationale=json.dumps({"text": words, "needs": needs[:1], "unmatched": unmatched[:1]}, sort_keys=True),
