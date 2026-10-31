@@ -1203,15 +1203,16 @@ def _today(now: datetime) -> str:
     return _local_day(now).isoformat()
 
 
-def _gate_reasons(vault: Any, repository: Repository, *, item_id: str, provenance: Mapping[str, Any],
-                  valued_at: str, now: datetime) -> list[str]:
-    """The serve-time gate's reasons now (exposure since valuation, repair
-    ownership; ``scheduling.intent.followup_gate``), with no model call."""
+def _gate_verdict(vault: Any, repository: Repository, *, item_id: str, provenance: Mapping[str, Any],
+                  valued_at: str, now: datetime, questions: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """The serve-time gate's verdict now (exposure since valuation, repair
+    ownership; ``scheduling.intent.followup_gate``), with no model call, by
+    the strictest rule across the open licensing ``questions`` (F16)."""
 
     from learnloop.scheduling.intent.followup_gate import followup_gate
 
-    verdict = followup_gate(vault, repository, item_id=item_id, provenance=provenance, valued_at=valued_at, now=now)
-    return list((verdict or {}).get("reasons") or [])
+    return dict(followup_gate(vault, repository, item_id=item_id, provenance=provenance, valued_at=valued_at,
+                              now=now, questions=questions) or {})
 
 
 def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime,
@@ -1444,8 +1445,11 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
     (round 3) stays live while ANY of them still needs it: it is retired as
     answered only when every one is answered, as owned by a repair only when
     a repair owns every open one, and below the stop only when it is below
-    the stop for every open one. An exposure is the item's and retires it,
-    re-asking every licensing question."""
+    the stop for every open one. Exposure is judged by the strictest rule
+    across the open licensing questions, as the serve-time gate judges it
+    (round 4, F16): a ``related`` worked example excludes it when any open one
+    is a retention question. An exposure retires it, re-asking every
+    licensing question."""
 
     from learnloop.scheduling.intent.followup_gate import REPAIR_RETRY_OWNS
 
@@ -1469,24 +1473,19 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         return line
     if len(open_questions_) < len(licensing):
         line["answered_for"] = [str(q["key"]) for q, answered in answers if answered is not None]
-    reasons = _gate_reasons(vault, repository, item_id=item_id, provenance=provenance, valued_at=created, now=now)
-
-    def owner_of(q: Mapping[str, Any]) -> dict[str, Any] | None:
-        if q["primary"] and REPAIR_RETRY_OWNS not in reasons:
-            return None
-        if not q["primary"] and q.get("purpose") != PURPOSE_RETENTION:
-            return None  # the gate reads repair ownership for retention checks only
-        for facet in q["question"].get("facet_ids") or ():
-            found = pending_cold_retry(vault, repository, facet_id=str(facet), attempt_ids=q.get("attempt_ids") or (),
-                                       learning_object_ids=q["question"].get("learning_object_ids") or (), now=now)
-            if found is not None:
-                return found
-        return {} if q["primary"] else None
-
-    owners = [owner_of(q) for q in open_questions_]
-    if all(owner is not None for owner in owners):
+    # F16: the gate the serve path applies, by the strictest rule across the
+    # licensing questions open now (exposure of every intent together; a
+    # repair owns the check only when it owns every open one).
+    gate = _gate_verdict(vault, repository, item_id=item_id, provenance=provenance, valued_at=created, now=now,
+                         questions=[{"key": q["key"], "intent": str(q["question"].get("intent") or "retention"),
+                                     "purpose": q.get("purpose"),
+                                     "facet_ids": list(q["question"].get("facet_ids") or []),
+                                     "learning_object_ids": list(q["question"].get("learning_object_ids") or []),
+                                     "attempt_ids": list(q.get("attempt_ids") or [])} for q in open_questions_])
+    reasons = list(gate.get("reasons") or [])
+    if REPAIR_RETRY_OWNS in reasons:
         detail = {"reason": RETIRE_REPAIR_OWNS, "extraction_id": extraction_id,
-                  "followup_task_id": next((o.get("id") for o in owners if o and o.get("id")), None),
+                  "followup_task_id": gate.get("followup_task_id"),
                   "followups_version": FOLLOWUPS_VERSION}
         C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
         line.update(retired=True, reason=RETIRE_REPAIR_OWNS, detail=detail)
@@ -1546,7 +1545,7 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
 
 def _applied_exposure(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
     """Re-valuation's exposure verdict inside ``value_request``: the rule was
-    applied by :func:`_gate_reasons` with no model call (F5)."""
+    applied by :func:`_gate_verdict` with no model call (F5)."""
 
     return {"eligible": True, "reasons": [], "checked": "revaluation_gate"}
 

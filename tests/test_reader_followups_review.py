@@ -227,7 +227,7 @@ def test_f5_an_unjudged_worked_example_is_refreshed_in_the_background_under_both
         return {"eligible": True, "reasons": [], "worked_example": {"verdict": "unrelated"}}
 
     monkeypatch.setattr(E, "independent_check_eligibility", judged)
-    monkeypatch.setattr(RF, "_gate_reasons", lambda *_a, **_k: ["worked_example_unjudged"])
+    monkeypatch.setattr(RF, "_gate_verdict", lambda *_a, **_k: {"reasons": ["worked_example_unjudged"]})
     report = RF.revalue_pending(vault, repo, now=_now(400), valuer=lambda *_a: {"problems": []}, clock=at(400))
     assert report["kept"][0]["kept_because"] == ["exposure_refresh_needed"] and seen == []
     refreshed = RF.refresh_exposure(vault, repo, now=_now(410), clock=at(410))

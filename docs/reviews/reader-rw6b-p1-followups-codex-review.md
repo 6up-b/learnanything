@@ -409,3 +409,59 @@ Not applicable:
   rule to it). A re-ask can then add a check beside it until the next re-valuation retires the exposed one.
 - **Paging's perfect-information bound** still uses the prior's entropy, not the entropy left after the live
   checks. This is conservative: a search may page further, never stop early.
+
+## Round 4 (F16; Sol verify job `20261031-174955-0DYSqv`)
+
+The verify of `60a1a7e9f` confirmed F14 and F15 as fixed. It confirmed round 3's open question 1 as a real Medium:
+
+- **F16: mixed-intent shared checks could bypass retention's exposure rule.** Sharing added licensing questions to
+  the digest, but the serve-time gate and re-valuation's exposure step judged exposure on the first question's
+  provenance only. The verifier's sequence used the real planner: retention's search budget-stops before choosing;
+  discrimination chooses A; retention resumes and shares A; the learner studies a worked example judged `related`
+  to A. The gate then allowed A (a `related` example is only a label for a discriminating check), while the same
+  check judged for retention is excluded (`related_worked_example`). Re-valuation kept it.
+
+### What changed
+
+- **The strictest rule across the open licensing questions, at serve and at re-valuation.**
+  `scheduling.intent.followup_gate.followup_gate` takes the open licensing questions: `questions` when the caller
+  knows them (re-valuation passes the ones open now), otherwise it reads them from the digest by `commitment_id`
+  (DL2's serving passes the check's commitment id). `licensing_questions` returns the provenance's question plus
+  every other question on the check's `chosen` line, less those the last re-valuation found answered
+  (`answered_for`).
+  - Exposure: the reasons of every licensing intent together. A `related` worked example excludes the check when any
+    open licensing question is a retention question.
+  - Repair ownership: only when a repair owns every open licensing question (each a retention claim).
+  - With one licensing question, both rules are the question's own, unchanged.
+- **Re-valuation** now takes exposure and repair ownership from that one gate (`_gate_verdict`, with the open
+  questions). Round 3's separate per-question repair loop is gone, so serve and re-valuation cannot disagree and
+  leave a check held but never retired. An exposure retirement still re-asks every licensing question.
+- The stage record's open items now say that decision-mode seeding enforces the mode's one-measurement behaviour,
+  not general conditional EVSI (the verifier's nonblocking note).
+
+### Tests (`tests/test_reader_followups_round4.py`), fail-first
+
+| test | before (`60a1a7e9f`) |
+|---|---|
+| `test_f16_a_shared_check_is_held_and_retired_by_retentions_rule` (the verifier's exact sequence with the real planner; the serve path through `intent_serving`; then re-valuation retires it as exposed with `related_worked_example` and marks both questions incomplete) | fails: the gate lets A through (the finding) |
+| `test_f16_a_question_found_answered_no_longer_tightens_the_gate` (the strictest rule is over OPEN questions) | passes (a guard) |
+| `test_f16_one_licensing_question_keeps_its_own_rule` (discriminate alone: a label; retention alone: excluded) | passes (single-question rule unchanged) |
+
+Round 3's tests and the earlier gate tests (`test_reader_followups_rereview.py` F1, `test_reader_followups_review.py`
+F1 and F11) still pass unchanged.
+
+### Round 4 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repro serial). The full suite, the durability lane and
+vitest were not run. **Spend: $0.** No model or paid calls, and no Python outside pytest.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`60a1a7e9f`, a `git archive` copy with the worktree's venv): `pytest tests/test_reader_followups_round4.py` | 1 failed (the F16 sequence), 2 passed (the guards) |
+| `pytest -n 6` over the 58 round-3 files plus `test_reader_followups_round4.py`, first run | 1407 passed, 1 failed, 3 skipped: `test_f5_..._both_envelopes` monkeypatched the renamed `_gate_reasons`; it now patches `_gate_verdict` |
+| the same 59 files, after that | 1408 passed, 3 skipped |
+
+Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity tests stay green. No frontend, `src-tauri`, migration or
+schema change.

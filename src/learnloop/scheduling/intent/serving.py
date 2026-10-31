@@ -731,7 +731,7 @@ def intent_serving(
         from learnloop.scheduling.intent.followup_gate import followup_gate as gate
 
         return gate(vault, repository, item_id=item_id, provenance=check.provenance,
-                    valued_at=check.created_at, now=now)
+                    valued_at=check.created_at, now=now, commitment_id=check.commitment_id)
 
     return IntentServing(
         resolution=resolution,
