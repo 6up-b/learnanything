@@ -5,6 +5,7 @@ import {
   back,
   canGoBack,
   canGoForward,
+  dropCurrent,
   EMPTY_STACK,
   forward,
   goTo,
@@ -84,4 +85,16 @@ it("a detour is returned once: walking forward and back again finds nothing new 
   stack = pushDetour(stack, origin, entry("c"));
   expect(stack.entries.map((e) => e.id)).toEqual(["origin", "a", "c"]);
   expect(unreturnedDetours(stack).map((e) => e.id)).toEqual(["c"]);
+});
+
+it("Reader CA6: closing side by side drops its crumb only while it is current, moving nothing", () => {
+  const side = entry("sbs", { kind: "side_by_side", spanId: "origin", label: "side by side with Axler §5.A" });
+  const one = pushDetour(EMPTY_STACK, origin, side);
+  expect(dropCurrent(one, "sbs")).toBe(EMPTY_STACK);
+  const two = pushDetour(pushDetour(EMPTY_STACK, origin, entry("p1")), origin, side);
+  expect(dropCurrent(two, "sbs")).toEqual({ ...two, entries: two.entries.slice(0, 2), cursor: 1 });
+  // Walked off it already (or another id): unchanged.
+  const walked = back(two).stack;
+  expect(dropCurrent(walked, "sbs")).toBe(walked);
+  expect(dropCurrent(two, "p1")).toBe(two);
 });
