@@ -49,7 +49,7 @@ ENGINE_SHA256 = "f6bb52fdad6fda05ecd929330a979a2a900287026689bf710abb31768e583e2
 ENGINE_VERSION = "sketch-engine-v1"
 
 #: keep (machine safety): the engine's memory cap, compiled in (sk_limits).
-SKETCH_MEMORY_BYTES = 64 * 1024 * 1024
+SKETCH_MEMORY_BYTES = 67_108_864  # 64 MiB
 #: keep (deterministic work cap): interrupt ticks per entry-point call, each
 #: tick QuickJS's 10,000 interrupt polls (function calls and loop back-edges);
 #: compiled in. Measured on carson (review file): one call at the cap takes
@@ -57,12 +57,12 @@ SKETCH_MEMORY_BYTES = 64 * 1024 * 1024
 SKETCH_FUEL_PER_CALL = 48
 #: keep (machine safety): wasmtime's backstops, above anything the interrupt
 #: budget allows, for native work the interpreter cannot interrupt.
-WASM_MEMORY_BYTES = 96 * 1024 * 1024
+WASM_MEMORY_BYTES = 100_663_296  # 96 MiB
 WASM_FUEL_PER_CALL = 4_000_000_000
 CALL_SECONDS = 10.0
 #: keep: wasm stack for the interpreter's own recursion (the engine's JS
 #: recursion guard fires well before it).
-WASM_STACK_BYTES = 1536 * 1024
+WASM_STACK_BYTES = 1_572_864  # 1.5 MiB (wasmtime caps it below its 2 MiB async stack)
 #: keep: error text kept from fd_write.
 STDERR_KEEP = 4096
 

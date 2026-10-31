@@ -79,8 +79,13 @@ def seed_probability_book(repository: Any) -> None:
     _persist(repository, ir, revision_id="rev_prob", extraction_id=EXTRACTION)
 
 
-def build_figure_vault(root: Path) -> tuple[Any, Any]:
+def build_figure_vault(root: Path, *, sketch: bool = False) -> tuple[Any, Any]:
+    """RW5a/b's and P1's figure tests run with RW5d P2's sketch tier off (the
+    author's contract is then RW5b's byte for byte, which they pin); the
+    sketch tests pass ``sketch=True`` (the shipped default)."""
+
     paths, repository, _spans = build_textbook_vault(root)
+    set_config(paths, "figures", sketch_enabled=sketch)
     seed_probability_book(repository)
     upsert_source_set(paths.root, {
         "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
@@ -179,9 +184,23 @@ class AuthorFake(_Recording):
         if isinstance(answer, tuple) and answer[0] == "unsupported":
             payload = {"status": "unsupported", "spec_json": "", "unsupported_kind": answer[1],
                        "unsupported_reason": f"the figure language has no {answer[1]}"}
+        elif isinstance(answer, tuple) and answer[0] == "sketch":
+            # RW5d P2: ("sketch", program, why_not_spec?).
+            program = answer[1] if isinstance(answer[1], str) else json.dumps(answer[1])
+            why = answer[2] if len(answer) > 2 else "the grammar has no random process"
+            payload = {"status": "sketch", "spec_json": "", "sketch_json": program, "why_not_spec": why,
+                       "unsupported_kind": "", "unsupported_reason": ""}
         else:
             text = answer if isinstance(answer, str) else json.dumps(answer)
             payload = {"status": "spec", "spec_json": text, "unsupported_kind": "", "unsupported_reason": ""}
+        # The V2 contract (sketch tier on) has two more fields; V1 none.
+        fields = getattr(request.result_model, "model_fields", {})
+        if "sketch_json" in fields:
+            payload.setdefault("sketch_json", "")
+            payload.setdefault("why_not_spec", "")
+        else:
+            payload.pop("sketch_json", None)
+            payload.pop("why_not_spec", None)
         return request.result_model.model_validate(payload)
 
 

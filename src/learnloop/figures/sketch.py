@@ -43,7 +43,7 @@ from learnloop.figures import spec as S
 
 SKETCH_VERSION = "sketch-v1"
 #: keep (operational): bounds a program to one idea, reviewable.
-SKETCH_MAX_SOURCE_BYTES = 32 * 1024
+SKETCH_MAX_SOURCE_BYTES = 32_768  # 32 KiB
 #: keep (display): renderer cost.
 SKETCH_MAX_ELEMENTS = 4_000
 #: keep (display): every coordinate the renderer draws, over all elements.

@@ -28,6 +28,14 @@ and, with no passage selected, the passages found in their books for it, or
 none. These requests carry their own prompt version (:data:`SHOW_ME_SUFFIX`),
 so an RW5a/b request's prompt and reuse key are unchanged. Still no history,
 state, attempts or item text.
+
+RW5d P2 (the sketch tier, ``figures.sketch_enabled``): the author's output
+widens to :class:`FigureAuthorOutputV2` (``spec`` | ``sketch`` |
+``unsupported``, with ``why_not_spec`` for a sketch), under its own prompt
+version (:data:`SKETCH_SUFFIX`) and with :data:`SKETCH_TEXT` in its
+instructions, which prefer the grammar. A sketch is still data to the
+service: a program the sealed engine runs and code verifies. Off, the
+contract, the prompt and the reuse key are RW5b's (and P1's) byte for byte.
 """
 
 from __future__ import annotations
@@ -62,6 +70,22 @@ class FigureAuthorOutputV1(WireModel):
     spec_json: str
     #: What the figure would need that the language cannot express (a short
     #: kind: "3-D surface", "simulation", "animation of a process", ...).
+    unsupported_kind: str
+    unsupported_reason: str
+
+
+class FigureAuthorOutputV2(WireModel):
+    """RW5d P2: the author's answer with the sketch tier on (spec §8.4)."""
+
+    #: "spec", "sketch" or "unsupported": the tier judgment (its receipt is a
+    #: ``figure_tier`` judgment row).
+    status: str
+    #: The InteractiveFigureSpecV1 as JSON text (status spec; else '').
+    spec_json: str
+    #: The SketchProgramV1 as JSON text (status sketch; else '').
+    sketch_json: str
+    #: One sentence: what the grammar can't express (status sketch).
+    why_not_spec: str
     unsupported_kind: str
     unsupported_reason: str
 
@@ -169,25 +193,116 @@ SHOW_ME_TEXT = (
 )
 
 
-def author_instructions(*, advanced: bool = False, show_me: bool = False) -> str:
+#: RW5d P2: with the sketch tier on, the prompt version carries this suffix
+#: (after any show-me suffix), so RW5a/b's and P1's prompts and reuse keys are
+#: unchanged while it is off.
+SKETCH_SUFFIX = "+sketch-v1"
+
+#: The V1 status sentence the sketch tier replaces (spec §8.4: the grammar is preferred).
+_STATUS_V1 = (
+    "If the request needs something this language cannot express (a 3-D surface, a simulation, a vector field, an "
+    "arbitrary process), answer status \"unsupported\" with its kind and why, and spec_json ''. Otherwise status "
+    "\"spec\", spec_json the JSON text, and the unsupported fields ''."
+)
+_STATUS_V1_PANELS = _STATUS_V1.replace(_UNSUPPORTED_V1, _UNSUPPORTED_V2)
+assert _STATUS_V1 in AUTHOR_INSTRUCTIONS
+
+STATUS_V2 = (
+    "If the declarative spec can express it, write the spec: status \"spec\", spec_json the JSON text. Write a "
+    "sketch only for what it cannot express (a random process, a simulation with state, a geometric construction, "
+    "a discrete structure): status \"sketch\", sketch_json the JSON text, and why_not_spec one sentence saying what "
+    "the spec can't express. If neither can express it, answer status \"unsupported\" with its kind and why. "
+    "Leave every field the status doesn't use ''."
+)
+
+SKETCH_TEXT = (
+    " SKETCH: a small JavaScript program LearnLoop runs in a sealed interpreter (no DOM, network, files, timers, "
+    "Date or Math.random; rand() is the only randomness, seeded by the host) and whose results a trusted renderer "
+    "draws. SketchProgramV1 (JSON object, no other keys): program_version \"sketch-v1\"; demonstrates (one "
+    "sentence); assumptions [{text, span_id?, quote?}]; source_claims [{span_id, quote}] (verbatim); parameters "
+    "(as in the spec, at most 4; they become sliders); clock {dt, t_max} or null (a simulation with state: the host "
+    "calls step every dt up to t_max, at most {clock_steps} steps); seeded (true when the code calls rand(): a "
+    "\"new sample\" button appears); code (JavaScript, at most {source_kib} KiB, defining global functions "
+    "init(p, seed) -> state, step(state, p, dt) -> state (only with a clock; return a new state), view(state, p) "
+    "-> Scene and probes(state, p) -> {name: number | [numbers] | [[x, y], ...]}; p maps parameter names to "
+    "numbers; view and probes must not change state; keep each call to a few hundred thousand simple operations); "
+    "probes [{name (letters and digits), label, shape: \"scalar\" | \"series\" | \"pairs\"}] (at most "
+    "{probes}: the figure's values table, and what claims are checked on); claims (what LearnLoop checks, at each "
+    "parameter's min, default and max and, with a clock, at {samples} times from 0 to t_max): {kind: \"equals\", "
+    "probe, expr, var?, var_from?, var_step?} (the probe equals expr, written in the expression grammar over the "
+    "parameters and t, the clock's time; a series probe's entry i with var = var_from + i*var_step; a pairs "
+    "probe's y with var = its x), {kind: \"follows\", probe, dx, dy, vars: [x name, y name], h} (a pairs probe "
+    "is the path of the system dx/dt = dx, dy/dt = dy from its first point, a point every h time units; checked "
+    "against RK4), {kind: \"invariant\", probe, property: finite | bounded | nonnegative | sums_to_one | "
+    "monotone_nondecreasing, bound?}, {kind: \"distribution\", probe, expr, n_probe, var_probe} (a seeded Monte "
+    "Carlo estimate within sampling error of expr; n_probe and var_probe are scalar probes of its sample size and "
+    "of the sample variance of what it averages); bindings [{element_id, probe}] (a drawn element that IS a "
+    "probe's values: a polyline's, polygon's or points' x and y equal a pairs probe, or its y a series probe; a "
+    "heat_cells' values a series probe; a circle's r a scalar probe; a segment's or arrow's ends a two-point pairs "
+    "probe; this is how a check speaks for what is drawn); predictions [{prompt, change: {param: value} or "
+    "{\"run_to\": t}, observe: {kind: \"direction\" (does the scalar probe rise, fall or stay the same?) | "
+    "\"choice\" (which entry of a series probe is largest? choices: one label per entry), probe, choices?}}] "
+    "(usually one); annotations [{target, text}]. Scene: {viewport: {x: [min, max], y: [min, max]}, axes?: "
+    "{x_label, y_label}, elements: [...]} in data units, every number finite, at most {elements} elements and "
+    "{points} points: {type: \"polyline\" | \"polygon\" | \"points\", id?, x: [...], y: [...], r? (points, "
+    "pixels)}, {type: \"segment\" | \"arrow\", id?, x1, y1, x2, y2}, {type: \"circle\", id?, cx, cy, r}, "
+    "{type: \"rect\", id?, x, y, w, h}, {type: \"text\", id?, x, y, text (at most 80 characters)}, {type: "
+    "\"heat_cells\", id?, x: [min, max], y: [min, max], cols, rows, values (cols*rows, row by row)}, {type: "
+    "\"handle\", id, x, y, binds: {x?: parameter, y?: parameter}} (a point the learner drags to set "
+    "parameters); each may have style {color: series0 | series1 | series2 | series3 | muted | accent, dash?, "
+    "width? (at most 3), fill?, opacity?}; ids are letters, digits, - and _. There is no HTML, CSS, URL or image. "
+    "Summarize what is large (a histogram, not every path). A sketch whose own claim fails is not shown, so claim "
+    "only what the code makes true; a sketch with no claims is shown as \"nothing in it checked\". With "
+    "grounding \"none\", source_claims [] and no quotes."
+)
+
+
+def sketch_text() -> str:
+    from learnloop.figures import sketch as K
+
+    text = SKETCH_TEXT
+    for name, value in (("clock_steps", f"{K.SKETCH_MAX_CLOCK_STEPS:,}"),
+                        ("source_kib", K.SKETCH_MAX_SOURCE_BYTES // 1024), ("probes", K.MAX_PROBES),
+                        ("samples", K.SKETCH_TIME_SAMPLES), ("elements", f"{K.SKETCH_MAX_ELEMENTS:,}"),
+                        ("points", f"{K.SKETCH_MAX_POINTS:,}")):
+        text = text.replace("{" + name + "}", str(value))
+    return text
+
+
+def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch: bool = False) -> str:
     text = AUTHOR_INSTRUCTIONS
     if advanced:
         marker = "annotations [{target, text}]."
         assert marker in AUTHOR_INSTRUCTIONS
         text = AUTHOR_INSTRUCTIONS.replace(_UNSUPPORTED_V1, _UNSUPPORTED_V2).replace(
             marker, marker + advanced_panels_text(), 1)
+    if sketch:
+        # RW5d P2 (spec §8.4): the status sentence prefers the grammar and
+        # names the sketch; the sketch's contract follows the grammar's.
+        status = _STATUS_V1_PANELS if advanced else _STATUS_V1
+        assert status in text
+        text = text.replace(status, STATUS_V2, 1) + sketch_text()
     return text + SHOW_ME_TEXT if show_me else text
 
 
-def author_prompt_version(*, advanced: bool = False, show_me: bool = False) -> str:
+def author_prompt_version(*, advanced: bool = False, show_me: bool = False, sketch: bool = False) -> str:
     base = ADVANCED_PROMPT_VERSION if advanced else AUTHOR_PROMPT_VERSION
-    return base + SHOW_ME_SUFFIX if show_me else base
+    base = base + SHOW_ME_SUFFIX if show_me else base
+    return base + SKETCH_SUFFIX if sketch else base
 
 
-def author_prompt(context: dict[str, Any], *, advanced: bool = False, show_me: bool = False) -> str:
-    return render_structured_prompt("Explorable figure", author_prompt_version(advanced=advanced, show_me=show_me),
-                                    {"instructions": author_instructions(advanced=advanced, show_me=show_me),
-                                     "context": context})
+def author_prompt(context: dict[str, Any], *, advanced: bool = False, show_me: bool = False,
+                  sketch: bool = False) -> str:
+    return render_structured_prompt(
+        "Explorable figure", author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch),
+        {"instructions": author_instructions(advanced=advanced, show_me=show_me, sketch=sketch),
+         "context": context})
+
+
+def output_model(*, sketch: bool = False) -> type[WireModel]:
+    """The author's output contract: RW5b's V1 off, V2 with the sketch tier on."""
+
+    return FigureAuthorOutputV2 if sketch else FigureAuthorOutputV1
 
 
 class FigureUnavailable(Exception):
@@ -319,6 +434,7 @@ __all__ = [
     "AUTHOR_TASK",
     "ENVELOPE",
     "FigureAuthorOutputV1",
+    "FigureAuthorOutputV2",
     "FigureRoute",
     "FigureUnavailable",
     "MAX_AUTHOR_ATTEMPTS",
@@ -326,10 +442,15 @@ __all__ = [
     "OWNER_KINDS",
     "SHOW_ME_SUFFIX",
     "SHOW_ME_TEXT",
+    "SKETCH_SUFFIX",
+    "SKETCH_TEXT",
+    "STATUS_V2",
     "advanced_panels_text",
     "author_instructions",
     "author_prompt",
     "author_prompt_version",
     "daily_envelope",
     "models_off",
+    "output_model",
+    "sketch_text",
 ]

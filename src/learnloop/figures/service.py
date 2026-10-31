@@ -62,6 +62,23 @@ built or reused, appends one ``figure_requests`` row (what was asked, the
 derived policy, the grounding and its manifest). ``figures.show_me_enabled``
 off: a goal is refused and a figure built from one is not listed.
 
+**RW5d P2: the sketch tier** (spec_reader_show_me_figures_v1 §8.4, §9).
+With ``figures.sketch_enabled`` (and the engine ready on this machine:
+:func:`learnloop.figures.sketch_engine.engine_ready`), the author may answer
+``sketch`` with a :class:`~learnloop.figures.sketch.SketchProgramV1` when the
+grammar can't express the idea (its own prompt version and contract,
+:class:`~learnloop.figures.routes.FigureAuthorOutputV2`). The program is
+verified in the sealed engine (:mod:`.sketch_verify`, steps 1-5) and stored
+like any figure (``tier`` sketch, ``spec_version`` sketch-v1, the program in
+``spec_json``, the engine digest it was verified under and its check lines);
+every build with the tier on appends a ``figure_tier`` judgment (the
+author's verdict and its reason) beside ``figure_verified``. A stored sketch
+verified under another engine is verified again, by code, before it is
+shown (:func:`sketch_rechecked`); one that now fails shows "couldn't run
+under this version". Off: the author's contract, prompt and reuse key are
+RW5b's byte for byte, and a stored sketch lists as "can't draw this yet".
+Sketches are illustrations, never "checked against the book".
+
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a
@@ -99,10 +116,12 @@ from learnloop.figure_admission import (
     figures_enabled,
     offers_enabled,
 )
+from learnloop.figure_admission import sketch_enabled as admission_sketch_enabled
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
 from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
 from learnloop.figures import grammar as G
 from learnloop.figures import routes as R
+from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
@@ -143,6 +162,16 @@ FIGURE_PREFIX = "fig_"
 LABELS = {
     "illustrative": "AI-built illustration of an interpretation · not checked against the book",
 }
+#: RW5d P2: the spec versions a stored figure may have (a grammar spec or a sketch).
+SPEC_VERSIONS = (S.SPEC_VERSION, K.SKETCH_VERSION)
+#: The sketch's code-owned badges (spec §6.6, §9.5): never "checked against the book".
+SKETCH_LABEL = "AI-written simulation · sandboxed · not checked against the book"
+SKETCH_UNCHECKED_LABEL = "AI-written simulation · nothing in it checked"
+SKETCH_NOT_FROM_BOOKS_LABEL = "AI-written simulation · sandboxed · not from your books"
+#: What a stored sketch shows while the tier is off, and when a new engine refuses it.
+SKETCH_OFF_KIND = "a simulation (figures.sketch_enabled is off)"
+ENGINE_CHANGED_REASON = "couldn't run under this version · rebuild"
+TIER_LEDGER_TASK = "figure_tier"
 
 
 class FigureRefused(Exception):
@@ -184,6 +213,8 @@ class FigureRequest:
     grounding_keys: list[tuple[str, str]] | None = None
     #: A revision keeps its base's grounding (``none`` stays ``none``).
     grounding_fixed: str | None = None
+    #: RW5d P2: the tiers the author's menu offered (set by the build, never by a client).
+    tiers_allowed: tuple[str, ...] = ("grammar",)
 
 
 @dataclass
@@ -241,7 +272,7 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     section = getattr(vault.config, "figures", None)
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
-            advanced_panels_enabled(vault))
+            advanced_panels_enabled(vault), sketch_switch(vault))
 
 
 def offer_build_key(vault: Any) -> tuple[Any, ...]:
@@ -304,6 +335,24 @@ def show_me_enabled(vault: Any) -> bool:
     """RW5d's "show me" (``figures.show_me_enabled``; :func:`learnloop.figure_admission.show_me_enabled`)."""
 
     return admission_show_me_enabled(vault)
+
+
+def sketch_switch(vault: Any) -> bool:
+    """RW5d P2's switch (``figures.sketch_enabled`` under ``figures.enabled``)."""
+
+    return admission_sketch_enabled(vault)
+
+
+def sketch_enabled(vault: Any) -> bool:
+    """The sketch tier as offered on this machine: its switch, and the engine
+    present with its pinned digest (spec §7.2: an unavailable tier is left
+    out of the author's menu)."""
+
+    if not sketch_switch(vault):
+        return False
+    from learnloop.figures.sketch_engine import engine_ready
+
+    return engine_ready()
 
 
 #: What a stored figure that uses an RW5b panel shows while the panels are off.
@@ -694,6 +743,72 @@ def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
             "verification_report": {**report, "reason": f"{', '.join(dict.fromkeys(kinds))} is switched off"}}
 
 
+def sketch_row(row: Mapping[str, Any]) -> bool:
+    """RW5d P2: a stored sketch."""
+
+    return row.get("tier") == "sketch" or row.get("spec_version") == K.SKETCH_VERSION
+
+
+def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """RW5d P2: a shown sketch while ``figures.sketch_enabled`` is off (or the
+    engine can't run here) is the unsupported-kind state ("can't draw this
+    yet"); its program never goes out."""
+
+    if not sketch_row(row) or row.get("verification") not in store.SHOWN or sketch_enabled(vault):
+        return row
+    report = dict(row.get("verification_report") or {})
+    return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": SKETCH_OFF_KIND, "spec_json": None,
+            "verification_report": {**report, "reason": "the sketch tier is switched off"}}
+
+
+_RECHECKED: dict[tuple[str, str], dict[str, Any]] = {}
+_RECHECKED_GUARD = threading.Lock()
+
+
+def sketch_rechecked(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Spec §8.5, engine upgrades: a shown sketch verified under another
+    engine is verified again by code (no model call) before it is shown. One
+    that passes shows with this engine's check lines; one that fails shows
+    "couldn't run under this version · rebuild", never as checked. Remembered
+    per (figure, engine) in this process (a row is never rewritten)."""
+
+    from learnloop.figures import sketch_verify as SV
+    from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+    if not sketch_row(row) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
+        return row
+    if row.get("engine_sha256") == ENGINE_SHA256:
+        return row
+    key = (str(row["id"]), ENGINE_SHA256)
+    with _RECHECKED_GUARD:
+        cached = _RECHECKED.get(key)
+    if cached is None:
+        try:
+            compiled = K.parse_sketch(row["spec_json"])
+            report = SV.verify_sketch(compiled)
+            cached = {"outcome": report.outcome, "report": report.as_dict()}
+        except Exception as exc:  # noqa: BLE001 - a program that no longer parses or runs fails closed
+            cached = {"outcome": V.FAILED, "report": {"reason": f"{type(exc).__name__}", "tier": "sketch"}}
+        with _RECHECKED_GUARD:
+            _RECHECKED[key] = cached
+    previous = dict(row.get("verification_report") or {})
+    if cached["outcome"] != V.ILLUSTRATIVE:
+        return {**row, "verification": V.FAILED, "spec_json": None,
+                "verification_report": {**previous, "reason": ENGINE_CHANGED_REASON, "engine_changed": True}}
+    report = dict(cached["report"])
+    report["assumptions"] = previous.get("assumptions") or []
+    report["claims"] = previous.get("claims") or report.get("claims") or []
+    return {**row, "verification_report": report, "checks": report.get("checks") or [],
+            "engine_sha256": ENGINE_SHA256}
+
+
+def drawable_now(vault: Any, row: Mapping[str, Any]) -> bool:
+    """A stored figure that can be drawn as configured now (RW5b's panels and
+    RW5d P2's sketch tier both on when it needs them)."""
+
+    return advanced_off_row(vault, row) is row and sketch_off_row(vault, row) is row
+
+
 def property_checks(report: Mapping[str, Any]) -> list[str]:
     """The closed keys of the checks a shown figure passed (§8.3 steps 1-2)."""
 
@@ -706,6 +821,13 @@ def property_checks(report: Mapping[str, Any]) -> list[str]:
 
 def _label(row: Mapping[str, Any]) -> str:
     verification = row["verification"]
+    if verification == "illustrative" and sketch_row(row):
+        if row.get("grounding") == "none":
+            return SKETCH_NOT_FROM_BOOKS_LABEL
+        report = row.get("verification_report") or {}
+        return SKETCH_LABEL if report.get("checks") else SKETCH_UNCHECKED_LABEL
+    if verification == "failed" and (row.get("verification_report") or {}).get("engine_changed"):
+        return ENGINE_CHANGED_REASON
     if verification == "illustrative" and row.get("grounding") == "none":
         return NOT_FROM_BOOKS_LABEL
     if verification in LABELS:
@@ -739,7 +861,9 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     this view (the request delivering it, or one placement in a listing);
     unset, its own request's reading position."""
 
-    row = advanced_off_row(vault, shown_row(row))
+    row = sketch_off_row(vault, advanced_off_row(vault, shown_row(row)))
+    if sketch_enabled(vault):
+        row = sketch_rechecked(row)
     region = row.get("region") or {}
     asked = _figure_request(repository, row)
     home = home or (asked or {}).get("reading_at") or {}
@@ -766,8 +890,14 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
             "passages": [dict(item) for item in manifest.get("passages") or ()]
             if (row.get("grounding") or "anchor") == "retrieved" else [],
         })
+    if sketch_enabled(vault):
+        # RW5d P2 (absent while the tier is off, so the view is P1's key for key).
+        view["tier"] = "sketch" if sketch_row(row) else "grammar"
+        view["sketch"] = None
     if row["verification"] not in store.SHOWN or not row.get("spec_json"):
         return view
+    if sketch_row(row):
+        return _sketch_view(vault, repository, row, view)
     compiled = S.parse_spec(row["spec_json"])
     report = row.get("verification_report") or {}
     view["spec_json"] = row["spec_json"]
@@ -797,6 +927,45 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     return view
 
 
+def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], view: dict[str, Any]) -> dict[str, Any]:
+    """A shown sketch as the Reader draws it: the program (its code runs in
+    the desktop's sealed engine), the code-owned check lines and the *not
+    covered* line, and its predictions (answers never sent first)."""
+
+    from learnloop.figures import sketch_verify as SV
+    from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+    compiled = K.parse_sketch(row["spec_json"])
+    report = row.get("verification_report") or {}
+    program = compiled.program
+    view["spec_json"] = row["spec_json"]
+    view["demonstrates"] = program.demonstrates
+    view["assumptions"] = report.get("assumptions") or [
+        {"text": item.text, "span_id": None, "quote": None} for item in program.assumptions]
+    view["sketch"] = {
+        "engine_sha256": ENGINE_SHA256, "seed": SV.VERIFY_SEED,
+        "checks": [dict(check) for check in report.get("checks") or ()],
+        "not_covered": list(report.get("not_covered") or ()),
+        "unnamed_elements": int(report.get("unnamed_elements") or 0),
+        "settings": int(report.get("settings") or 0),
+    }
+    dropped = set(report.get("dropped_predictions") or ())
+    if predictions_enabled(vault):
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            answered = {found["prediction_index"]: found
+                        for found in store.predictions_for_figure(connection, str(row["id"]))}
+        for index, prediction in enumerate(program.predictions):
+            if index in dropped:
+                continue
+            kind = prediction.observe.kind
+            choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
+                       if kind == "direction" else
+                       [{"value": label, "label": label} for label in prediction.observe.choices])
+            view["predictions"].append({"index": index, "prompt": prediction.prompt, "kind": kind,
+                                        "choices": choices, "answered": _prediction_view(answered.get(index))})
+    return view
+
+
 def _figure_request(repository: Repository, row: Mapping[str, Any]) -> dict[str, Any] | None:
     """The ``figure_requests`` row a figure was built for (RW5d), or None (RW5a/b rows before 224)."""
 
@@ -819,7 +988,7 @@ REUSE_ORIGIN = "selection"
 
 
 def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
-                 advanced: bool = False, grounding: Grounding | None = None) -> str:
+                 advanced: bool = False, grounding: Grounding | None = None, sketch: bool = False) -> str:
     """The reuse key: the spec and prompt versions (RW5b's panels have their
     own prompt version, so RW5a's hashes are unchanged while they are off)
     and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`).
@@ -830,11 +999,16 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     prompt version carries ``+show-me-v1``. A request with no goal and an
     anchor hashes exactly as before migration 224 (G-SM4). A request with no
     passage names its home (``extraction_id``, where the learner was
-    reading), so it lands and lists there."""
+    reading), so it lands and lists there.
+
+    RW5d P2 (spec §8.5): with the sketch tier on, the prompt version carries
+    ``+sketch-v1`` and the key names the tier versions (``sketch-v1`` and the
+    engine digest); off, it is exactly P1's."""
 
     show_me = show_me_input(request)
     key: dict[str, Any] = {
-        "spec_version": S.SPEC_VERSION, "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me),
+        "spec_version": S.SPEC_VERSION,
+        "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch),
         "extraction_id": request.extraction_id,
         "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
@@ -844,10 +1018,14 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
         grounding = grounding or Grounding("anchor")
         key.update({"show_me": SHOW_ME_VERSION, "goal_text": request.goal_text, "goal_author": request.goal_author,
                     "grounding": grounding.mode, "grounding_keys": [list(item) for item in grounding.keys]})
+    if sketch:
+        from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+        key["sketch"] = {"program_version": K.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256}
     return content_key(key)
 
 
-def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> dict[str, Any] | None:
+def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Sequence[str]) -> dict[str, Any] | None:
     """The figure a build reuses: this input's under the current prompt
     version, else (Codex review F2) a SHOWN one of the same input under the
     other prompt version when it can be drawn now. RW5a's figures are drawable
@@ -856,13 +1034,16 @@ def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> 
     figure already on the page. Another version's "can't draw this yet" is
     never reused: it was that prompt's verdict (the panels may draw it now)."""
 
-    found = store.reusable(connection, input_hash, S.SPEC_VERSION)
+    found = store.reusable(connection, input_hash, SPEC_VERSIONS)
     if found is not None:
         return found
-    other = store.reusable(connection, other_hash, S.SPEC_VERSION)
-    if other is None or other["verification"] not in store.SHOWN or advanced_off_row(vault, other) is not other:
-        return None
-    return other
+    # RW5d P2: the same input under the other settings of the panels and of
+    # the sketch tier; only a shown figure that can be drawn now.
+    for other_key in ([other_hash] if isinstance(other_hash, str) else list(other_hash)):
+        other = store.reusable(connection, other_key, SPEC_VERSIONS)
+        if other is not None and other["verification"] in store.SHOWN and drawable_now(vault, other):
+            return other
+    return None
 
 
 def _validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
@@ -947,6 +1128,11 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
                                                     "(figures.show_me_enabled).")
         if row_withheld(vault, repository, base) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
+        if sketch_row(base) and not sketch_enabled(vault):
+            # RW5d P2: a sketch is revised only by the sketch tier (RW5b's
+            # contract can't write one back).
+            raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched "
+                                                   "off (figures.sketch_enabled).")
         if not advanced_enabled(vault) and _advanced_kinds(base):
             # Codex review F4: a figure that uses a panel kind switched off
             # (listed as "can't draw this yet", or a failed attempt at one) is
@@ -987,8 +1173,13 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
             payload["learner_request"] = {"text": request.goal_text, "written_by": request.goal_author}
         payload["grounding"] = (grounding or Grounding("anchor")).mode
     if previous is not None:
-        payload["earlier_version"] = {"spec_json": previous.get("spec_json") or "",
-                                      "verification": previous.get("verification")}
+        if sketch_row(previous):
+            # RW5d P2: an earlier sketch goes back as its program.
+            payload["earlier_version"] = {"sketch_json": previous.get("spec_json") or "",
+                                          "verification": previous.get("verification")}
+        else:
+            payload["earlier_version"] = {"spec_json": previous.get("spec_json") or "",
+                                          "verification": previous.get("verification")}
         payload["learner_note"] = request.revision_note or ""
     if problems:
         payload["problems_with_the_last_attempt"] = list(problems)[:12]
@@ -1052,11 +1243,16 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
         request.region = {**request.region, "bbox": [round(float(value), 2) for value in clipped]}
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
     advanced = advanced_enabled(vault)
-    input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding)
-    other_hash = request_hash(request, context, digest, advanced=not advanced, grounding=grounding)
+    sketch = sketch_enabled(vault)
+    request.tiers_allowed = ("grammar", "sketch") if sketch else ("grammar",)
+    input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding, sketch=sketch)
+    # The same input under the other settings (RW5b's panels, RW5d P2's
+    # sketch tier): a shown figure drawable now is never paid for again.
+    other_hash = [request_hash(request, context, digest, advanced=a, grounding=grounding, sketch=k)
+                  for a, k in ((not advanced, sketch), (advanced, not sketch), (not advanced, not sketch))]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reused = _reusable(vault, connection, input_hash, other_hash)
-        seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
+        seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
         return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
     # One build per input at a time (Codex review F7): an identical request
@@ -1067,8 +1263,8 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
             reused = _reusable(vault, connection, input_hash, other_hash)
-            latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
-            generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
+            latest = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
+            generation = store.builds_for_input(connection, input_hash, SPEC_VERSIONS)
         if reused is not None:
             return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
@@ -1083,7 +1279,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
         return _author_and_store(vault, repository, request, context, author, previous=previous,
                                  versions=versions, image=image, asset_id=asset_id, digest=digest,
                                  input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
-                                 advanced=advanced, grounding=grounding)
+                                 advanced=advanced, grounding=grounding, sketch=sketch)
 
 
 _BUILDS_GUARD = threading.Lock()
@@ -1130,7 +1326,8 @@ def _request_row(request: FigureRequest, grounding: Grounding, *, figure_id: str
         "policy_derived_from": derived_from, "grounding": grounding.mode,
         "grounding_manifest": {**grounding.manifest, "kept": [list(key) for key in grounding.keys],
                                "passages": list(grounding.passages)},
-        "build_mode": "pressed", "tiers_allowed": ["grammar"], "figure_id": figure_id,
+        "build_mode": "pressed", "tiers_allowed": list(request.tiers_allowed or ("grammar",)),
+        "figure_id": figure_id,
         "created_at": utc_now_iso(clock),
     }
 
@@ -1170,25 +1367,31 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
                       request_id: str, clock: Clock | None, gate: FiguresGate,
-                      advanced: bool = False, grounding: Grounding | None = None) -> BuildOutcome:
+                      advanced: bool = False, grounding: Grounding | None = None,
+                      sketch: bool = False) -> BuildOutcome:
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
     grounding = grounding or Grounding("anchor")
     show_me = show_me_input(request)
     images = (image,) if image is not None else ()
-    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me)
+    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch)
+    request.tiers_allowed = ("grammar", "sketch") if sketch else ("grammar",)
     problems: list[str] = []
     compiled: S.CompiledFigure | None = None
     report = V.Report()
     output: Any = None
     unsupported: tuple[str, str] | None = None
+    # RW5d P2: a sketch answer, verified in the sealed engine.
+    sketched: K.CompiledSketch | None = None
+    sketch_report: Any = None
+    verdict: tuple[str, str] | None = None
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
         prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
                                                  grounding=grounding),
-                                 advanced=advanced, show_me=show_me)
+                                 advanced=advanced, show_me=show_me, sketch=sketch)
         try:
-            output = author.ask(prompt, R.FigureAuthorOutputV1, images=images,
+            output = author.ask(prompt, R.output_model(sketch=sketch), images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
         except FiguresChanged:
             raise  # the configuration changed: nothing more is asked, nothing stored
@@ -1207,10 +1410,40 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             if attempt == 0:
                 continue
             break
-        if str(output.status).strip().lower() == "unsupported":
+        status = str(output.status).strip().lower()
+        if sketch:
+            # The author's status is the tier judgment (its receipt: figure_tier).
+            reason = (" ".join(str(getattr(output, "why_not_spec", "") or "").split())[:400] if status == "sketch"
+                      else " ".join(str(output.unsupported_reason or "").split())[:400] if status == "unsupported"
+                      else "")
+            verdict = (status if status in ("spec", "sketch", "unsupported") else "invalid", reason)
+        if status == "unsupported":
             unsupported = (" ".join(str(output.unsupported_kind or "").split())[:80] or "something else",
                            " ".join(str(output.unsupported_reason or "").split())[:400])
             break
+        if sketch and status == "sketch":
+            compiled = None
+            try:
+                raw = output.sketch_json
+                sketched = K.parse_sketch(_ungrounded_sketch(raw) if grounding.mode == "none" else raw)
+            except K.SketchError as exc:
+                problems, sketched = exc.problems, None
+                continue
+            from learnloop.figures import sketch_verify as SV
+
+            gate.check("sketch")
+            try:
+                sketch_report = SV.verify_sketch(sketched, span_texts=context.span_texts)
+            except Exception as exc:  # noqa: BLE001 - the engine itself failed: an honest failure, never shown
+                problems, sketched = [f"the sketch could not be run: {type(exc).__name__}"], None
+                sketch_report = None
+                continue
+            if sketch_report.outcome == V.FAILED:
+                problems = list(sketch_report.problems) or [sketch_report.reason]
+                sketched = None
+                continue
+            break
+        sketched, sketch_report = None, None
         try:
             # Off, RW5b's panels are refused (the author was not told of them).
             compiled = S.parse_spec(_ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
@@ -1226,6 +1459,11 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         break
     figure_id = FIGURE_PREFIX + new_ulid()
     asked = _request_row(request, grounding, figure_id=None, clock=clock)
+    if sketched is not None or (sketch and verdict is not None and verdict[0] == "sketch"):
+        return _store_sketch(vault, repository, request, context, author, sketched=sketched, report=sketch_report,
+                             problems=problems, versions=versions, asset_id=asset_id, input_hash=input_hash,
+                             prompt_version=prompt_version, figure_id=figure_id, asked=asked, clock=clock, gate=gate,
+                             grounding=grounding, verdict=verdict)
     row: dict[str, Any] = {
         "id": figure_id, "extraction_id": request.extraction_id, "span_ids": request.span_ids,
         "region": request.region, "asset_id": asset_id,
@@ -1276,6 +1514,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
                             judge="verifier", input_hash=input_hash, verdict=report.outcome,
                             rationale=(report.reason or "")[:400], created_at=row["created_at"])
+            if sketch and verdict is not None:
+                _append_tier(connection, figure_id, input_hash, verdict, author, prompt_version, row["created_at"])
     except sqlite3.IntegrityError:
         # Another process stored this input's figure first (the reuse index):
         # that one is the figure; this build's paid calls keep their receipts.
@@ -1288,6 +1528,103 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     stored["verification_report"] = row["verification_report"]
     return BuildOutcome(figure_view(vault, repository, stored, versions=versions), reused=False,
                         author_calls=author.made)
+
+
+def _append_tier(connection: Any, figure_id: str, input_hash: str, verdict: tuple[str, str], author: R.FigureRoute,
+                 prompt_version: str, created_at: str) -> None:
+    """The tier judgment's receipt (spec §8.4): the author's status, its reason
+    (``why_not_spec`` or the unsupported reason), the model and prompt."""
+
+    append_judgment(connection, task=TIER_LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
+                    judge="llm", input_hash=input_hash, verdict=verdict[0], judge_model=author.model,
+                    prompt_version=prompt_version, rationale=verdict[1][:400], created_at=created_at)
+
+
+def _store_sketch(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                  author: R.FigureRoute, *, sketched: K.CompiledSketch | None, report: Any, problems: Sequence[str],
+                  versions: int, asset_id: str | None, input_hash: str, prompt_version: str, figure_id: str,
+                  asked: dict[str, Any], clock: Clock | None, gate: FiguresGate, grounding: Grounding,
+                  verdict: tuple[str, str] | None) -> BuildOutcome:
+    """Store a sketch build (RW5d P2): shown (``illustrative``, its check lines)
+    when verification passed, else ``failed`` with the reason (never shown)."""
+
+    from learnloop.figures.sketch_engine import ENGINE_SHA256, ENGINE_VERSION
+
+    row: dict[str, Any] = {
+        "id": figure_id, "extraction_id": request.extraction_id, "span_ids": request.span_ids,
+        "region": request.region, "asset_id": asset_id,
+        "input_span_ids": [] if context.keys else list(dict.fromkeys(
+            [*context.span_texts, *([asset_id] if asset_id else [])])),
+        "input_span_keys": list(dict.fromkeys(context.keys)),
+        "request_id": asked["id"], "goal_text": request.goal_text, "grounding": grounding.mode, "tier": "sketch",
+        "origin": request.origin, "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
+        "spec_version": K.SKETCH_VERSION, "model": author.model, "prompt_version": prompt_version,
+        "input_hash": input_hash, "created_at": utc_now_iso(clock), "spec_json": None, "kind": None,
+        "unsupported_kind": None, "program_version": K.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256,
+        "runtime_digest": f"{ENGINE_VERSION}:{ENGINE_SHA256}", "checks": [],
+    }
+    if sketched is not None and report is not None and report.outcome == V.ILLUSTRATIVE:
+        verified = report.as_dict()
+        verified["assumptions"] = _sketch_assumptions(sketched, context.span_texts)
+        row.update({"spec_json": sketched.program.canonical_json(), "kind": "illustrative",
+                    "verification": V.ILLUSTRATIVE, "verification_report": verified,
+                    "checks": list(report.checks)})
+    else:
+        reason = (problems[0] if problems else (report.reason if report is not None else "")) or \
+            "the figure model gave no usable sketch"
+        failed = report.as_dict() if report is not None else {"tier": "sketch", "problems": list(problems)[:12]}
+        failed.update({"outcome": V.FAILED, "reason": str(reason)[:300]})
+        row.update({"verification": V.FAILED, "verification_report": failed})
+    gate.check("store")
+    try:
+        with repository.atomic():
+            connection = repository.connection()
+            store.insert_request(connection, asked)
+            store.insert_figure(connection, row)
+            store.set_request_figure(connection, asked["id"], figure_id)
+            append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
+                            judge="verifier", input_hash=input_hash, verdict=row["verification"],
+                            rationale=str(row["verification_report"].get("reason") or "")[:400],
+                            created_at=row["created_at"])
+            if verdict is not None:
+                _append_tier(connection, figure_id, input_hash, verdict, author, prompt_version, row["created_at"])
+    except sqlite3.IntegrityError:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            first = store.reusable(connection, input_hash, SPEC_VERSIONS)
+        if first is None:
+            raise
+        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate)
+    return BuildOutcome(figure_view(vault, repository, row, versions=versions), reused=False,
+                        author_calls=author.made)
+
+
+def _sketch_assumptions(compiled: K.CompiledSketch, span_texts: Mapping[str, str]) -> list[dict[str, Any]]:
+    """As :func:`.verify.verified_assumptions`: an unverified quote is dropped, the text stays (AI-written)."""
+
+    shown = []
+    for assumption in compiled.program.assumptions:
+        quote = assumption.quote if (assumption.quote and assumption.span_id in span_texts
+                                     and V.quote_in(assumption.quote, span_texts[assumption.span_id])) else None
+        shown.append({"text": assumption.text, "span_id": assumption.span_id if quote else None, "quote": quote})
+    return shown
+
+
+def _ungrounded_sketch(raw: Any) -> Any:
+    """RW5d P2 + §8.3 step 3: a sketch built with nothing from the learner's
+    books quotes nothing, whatever the author wrote."""
+
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (TypeError, ValueError):
+        return raw
+    if not isinstance(data, dict):
+        return raw
+    data["source_claims"] = []
+    assumptions = data.get("assumptions")
+    if isinstance(assumptions, list):
+        data["assumptions"] = [{**item, "span_id": None, "quote": None} if isinstance(item, dict) else item
+                               for item in assumptions]
+    return data
 
 
 def _ungrounded(raw: Any) -> Any:
@@ -1375,7 +1712,7 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         if not store.has_tables(connection):
             return []
         rows = store.figures_for_extraction(connection, extraction_id)
-    rows = [row for row in rows if row["spec_version"] == S.SPEC_VERSION]
+    rows = [row for row in rows if row["spec_version"] in SPEC_VERSIONS]
     if not show_me_enabled(vault):
         # RW5d off: a figure built from a goal (or with no passage) is absent.
         rows = [row for row in rows if not show_me_row(row)]
@@ -1388,7 +1725,7 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         shown = [row for row in chain if row["verification"] in store.SHOWN]
         # Codex review F5: with the panels off, the newest version that can
         # still be drawn, before one that would list as "can't draw this yet".
-        drawable = [row for row in shown if advanced_off_row(vault, row) is row]
+        drawable = [row for row in shown if drawable_now(vault, row)]
         pick = (drawable or shown or chain)[-1]
         if row_withheld(vault, repository, pick) is not None:
             continue
@@ -1399,28 +1736,37 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
                  if key[0] == extraction_id] or [None]
         try:
             views.extend(figure_view(vault, repository, pick, versions=len(chain), home=home) for home in homes)
-        except S.SpecError:
+        except (S.SpecError, K.SketchError):
             continue
     return sorted(views, key=lambda view: view["created_at"])
 
 
-def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], S.CompiledFigure]:
-    """A figure that may be shown now: shown verification, current spec
-    version, its passage not held out."""
+def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], Any]:
+    """A figure that may be shown now: shown verification, a current spec
+    version, its passage not held out. Returns the row and its compiled
+    spec (a :class:`~learnloop.figures.spec.CompiledFigure`, or for a sketch
+    a :class:`~learnloop.figures.sketch.CompiledSketch`)."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.figure(connection, figure_id) if store.has_tables(connection) else None
     if row is None:
         raise FigureRefused("not_found", "That figure is no longer kept.")
-    if row["verification"] not in store.SHOWN or row["spec_version"] != S.SPEC_VERSION or not row.get("spec_json"):
+    if row["verification"] not in store.SHOWN or row["spec_version"] not in SPEC_VERSIONS or not row.get("spec_json"):
         raise FigureRefused("not_found", "That figure is not shown.")
     if advanced_off_row(vault, row) is not row:
         raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
+    if sketch_off_row(vault, row) is not row:
+        raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched off "
+                                               "(figures.sketch_enabled).")
+    if sketch_row(row) and sketch_rechecked(row).get("verification") not in store.SHOWN:
+        raise FigureRefused("not_found", "That simulation couldn't run under this version.")
     if show_me_row(row) and not show_me_enabled(vault):
         raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
                                                 "(figures.show_me_enabled).")
     if row_withheld(vault, repository, row) is not None:
         raise FigureRefused("exam_material", "That figure's passage is held out now.")
+    if sketch_row(row):
+        return row, K.parse_sketch(row["spec_json"])
     return row, S.parse_spec(row["spec_json"])
 
 
@@ -1439,9 +1785,11 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
     row, compiled = shown_figure(vault, repository, figure_id)
     dropped = set((row.get("verification_report") or {}).get("dropped_predictions") or ())
-    if not 0 <= int(index) < len(compiled.predictions) or int(index) in dropped:
+    count = len(compiled.program.predictions) if isinstance(compiled, K.CompiledSketch) else len(compiled.predictions)
+    if not 0 <= int(index) < count or int(index) in dropped:
         raise FigureRefused("validation_error", "That figure has no such prediction.")
-    outcome = S.prediction_outcome(compiled, int(index))
+    outcome = _sketch_outcome(compiled, int(index)) if isinstance(compiled, K.CompiledSketch) \
+        else S.prediction_outcome(compiled, int(index))
     if outcome.get("answer") is None:
         raise FigureRefused("validation_error", "That prediction can't be decided.")
     answer = " ".join(str(answer or "").split())[:ANSWER_CHARS]
@@ -1463,6 +1811,20 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     if not prediction["matched"]:
         _queued(_queue_formative(vault, repository, prediction["id"], clock=clock), on_queued)
     return _prediction_view({**prediction, "matched": prediction["matched"]}) or {}
+
+
+def _sketch_outcome(compiled: K.CompiledSketch, index: int) -> dict[str, Any]:
+    """A sketch's prediction, decided by code in the sealed engine (spec §9.3)."""
+
+    from learnloop.figures import sketch_verify as SV
+    from learnloop.figures.sketch_engine import SketchEngine, SketchRunError
+
+    try:
+        with SketchEngine() as engine:
+            engine.load(compiled.program.code)
+            return SV.prediction_outcome(compiled, engine, index)
+    except SketchRunError as exc:
+        raise FigureRefused("validation_error", f"That prediction can't be decided ({exc.kind}).") from exc
 
 
 def record_explanation(vault: Any, repository: Repository, prediction_id: str, text: str, *,
@@ -1524,6 +1886,10 @@ __all__ = [
     "row_withheld",
     "show_me_enabled",
     "show_me_input",
+    "sketch_enabled",
+    "sketch_off_row",
+    "sketch_rechecked",
+    "sketch_row",
     "list_figures",
     "predictions_enabled",
     "record_explanation",

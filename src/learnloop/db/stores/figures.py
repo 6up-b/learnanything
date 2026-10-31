@@ -22,7 +22,10 @@ FIGURE_COLUMNS = ("id", "extraction_id", "span_ids_json", "region_json", "asset_
                   "unsupported_kind", "model", "prompt_version", "input_hash", "created_at",
                   # RW5d P1 (migration 224): the request, the goal, the grounding and the
                   # retrieved passages' keys; the tier (grammar until P2).
-                  "request_id", "goal_text", "grounding", "input_span_keys_json", "tier")
+                  "request_id", "goal_text", "grounding", "input_span_keys_json", "tier",
+                  # RW5d P2: a sketch's program version, the engine it was
+                  # verified under and the check lines code ran.
+                  "program_version", "engine_sha256", "runtime_digest", "checks_json")
 REQUEST_COLUMNS = ("id", "origin", "goal_text", "goal_author", "anchor_json", "reading_at_json", "host_ref_json",
                    "policy", "caller_kind", "policy_derived_from", "grounding", "grounding_manifest_json",
                    "build_mode", "tiers_allowed_json", "prefetch_decision_id", "figure_id", "created_at")
@@ -60,6 +63,7 @@ def insert_figure(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Non
         "input_span_keys_json": json.dumps([list(key) for key in row.get("input_span_keys") or ()]),
         "grounding": row.get("grounding") or "anchor",
         "tier": row.get("tier") or "grammar",
+        "checks_json": json.dumps(list(row.get("checks") or ()), sort_keys=True),
     }
     connection.execute(
         f"INSERT INTO interactive_figures ({', '.join(FIGURE_COLUMNS)}) "
@@ -78,6 +82,7 @@ def _figure(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     found["verification_report"] = json.loads(found.pop("verification_report_json") or "{}")
     found["input_span_keys"] = [tuple(str(part) for part in key)
                                 for key in json.loads(found.pop("input_span_keys_json") or "[]")]
+    found["checks"] = json.loads(found.pop("checks_json") or "[]")
     return found
 
 
@@ -149,32 +154,47 @@ def figures_for_extraction(connection: sqlite3.Connection, extraction_id: str) -
     return [found for found in (_figure(row) for row in rows) if found is not None]
 
 
-def reusable(connection: sqlite3.Connection, input_hash: str, spec_version: str) -> dict[str, Any] | None:
+def _versions(spec_version: str | tuple[str, ...]) -> tuple[tuple[str, ...], str]:
+    """RW5d P2: one input may be answered under either spec version (a grammar
+    spec or a sketch), so lookups take one version or several."""
+
+    versions = (spec_version,) if isinstance(spec_version, str) else tuple(spec_version)
+    return versions, ", ".join("?" for _ in versions)
+
+
+def reusable(connection: sqlite3.Connection, input_hash: str, spec_version: str | tuple[str, ...]
+             ) -> dict[str, Any] | None:
     """The newest figure built from the same input under the same spec
-    version that is shown or recorded as unsupported (a failed build is
+    version(s) that is shown or recorded as unsupported (a failed build is
     retried, so it is never reused)."""
 
+    versions, marks = _versions(spec_version)
     return _figure(connection.execute(
-        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? AND spec_version = ? "
+        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? "
+        f"AND spec_version IN ({marks}) "
         "AND verification IN ('verified', 'illustrative', 'unsupported') ORDER BY created_at DESC, id DESC LIMIT 1",
-        (input_hash, spec_version)).fetchone())
+        (input_hash, *versions)).fetchone())
 
 
-def latest_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str) -> dict[str, Any] | None:
+def latest_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str | tuple[str, ...]
+                     ) -> dict[str, Any] | None:
     """The newest figure stored for this input under this spec version, whatever its verification."""
 
+    versions, marks = _versions(spec_version)
     return _figure(connection.execute(
-        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? AND spec_version = ? "
-        "ORDER BY created_at DESC, id DESC LIMIT 1", (input_hash, spec_version)).fetchone())
+        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? "
+        f"AND spec_version IN ({marks}) ORDER BY created_at DESC, id DESC LIMIT 1",
+        (input_hash, *versions)).fetchone())
 
 
-def builds_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str) -> int:
+def builds_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str | tuple[str, ...]) -> int:
     """How many figures were stored for this input: a build's retry generation
     (a stored failure starts the next one; a crash before the row does not)."""
 
+    versions, marks = _versions(spec_version)
     return int(connection.execute(
-        "SELECT COUNT(*) FROM interactive_figures WHERE input_hash = ? AND spec_version = ?",
-        (input_hash, spec_version)).fetchone()[0])
+        f"SELECT COUNT(*) FROM interactive_figures WHERE input_hash = ? AND spec_version IN ({marks})",
+        (input_hash, *versions)).fetchone()[0])
 
 
 def superseding(connection: sqlite3.Connection, figure_id: str) -> list[dict[str, Any]]:
