@@ -66,3 +66,48 @@ command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p Memory
     `src/app/classicIsBase.test.ts`.
   - `npm run frontend:build`: built.
 - No cargo check (nothing under `src-tauri` changed) and no DB reference regeneration (no schema change).
+
+## Verify N1
+
+The scoped verify (Sol, job `20261031-135316-vzlO6k`) confirmed F1-F8 fixed and found one new Medium.
+
+**N1 (Medium): a row hidden during the first Keep was silently undone.** In `ComparePointTable.tsx`,
+`toggleHidden` synchronized the hidden rows only when a keep already existed (`kept && canKeep`). While the
+first Keep was in flight, a hide changed the displayed row but queued no request. The Keep's reply then
+set the rows back to the server's (the set sent at the press), so the row came back, only one API call was
+made, and the row's proposals stayed active.
+
+**Fix (the preferred option: no learner choice is lost).** A `keeping` ref marks the first Keep as in flight.
+A hide or show pressed during it now goes through F3's serialized `syncHidden` path and waits behind the
+Keep. Because `hidesWaiting` is above zero, the Keep's reply updates `confirmed` but leaves the rows the
+learner chose. When the hide's turn comes it sends the latest wanted rows, or nothing if they already match
+the server's. The rest of the behaviour:
+
+- A `keptNow` ref tracks whether a keep exists when that turn comes. If the Keep failed, the waiting hide
+  sends nothing: a hide request would otherwise create the keep. The row stays as the learner left it and
+  goes with the next Keep, like any hide pressed before a keep.
+- A row shown again during the Keep sends its waiting take with the show, as F2 does after a keep.
+- `keep()` returns early while a Keep is in flight, so the `k` key cannot queue a second one.
+- F2 and F3 are unchanged. Their tests pass as before.
+
+**Tests (written first; the first two failed before the fix)**, in
+`src/screens/reader/comparePointTableCodexReview.test.tsx`:
+
+- "N1: a row hidden while the first Keep is in flight stays hidden and is sent once the keep is there". The
+  test defers Keep, hides p1, then resolves Keep with `hiddenPoints: []`. The row stays hidden, a second
+  call sends `{ hiddenPoints: ["p1"] }`, and the row is still hidden after that reply. Before the fix it
+  failed because the row reappeared.
+- "N1: a row shown again while the first Keep is in flight sends its waiting take with the show (F2 kept)".
+  Before the fix it failed because the Keep's reply hid the row again.
+- "N1: when the first Keep fails, a hide pressed during it stays a local choice and keeps nothing". This is
+  a guard for the fix, so it passed before the fix too: one call only, the row stays hidden, and the next
+  Keep carries `["p1"]`.
+
+**Gate.** Every command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`.
+
+- `npm run typecheck`: clean.
+- `npx vitest run --maxWorkers=4` on `comparePointTable.test.tsx`, `comparePointTableCodexReview.test.tsx`
+  and the files rendering it through `LibraryAnswer` (`compareKeep.test.tsx`, `libraryExercises.test.tsx`,
+  `figures/advancedPanels.test.tsx`, `figures/libraryOfferSettle.test.tsx`): **6 files, 77 passed**.
+- `npm run frontend:build`: built.
+- No Python changed, so no pytest ran.

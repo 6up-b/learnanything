@@ -165,10 +165,15 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   const confirmed = useRef<string[]>(hidden);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const hidesWaiting = useRef(0);
+  // Scoped verify N1: the first Keep is in flight (a hide pressed now waits
+  // its turn behind it), and whether a keep is there when that turn comes.
+  const keeping = useRef(false);
+  const keptNow = useRef<KeptComparisonDto | null>(kept);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
   useEffect(() => {
     setKept(table.kept ?? null);
+    keptNow.current = table.kept ?? null;
     setHidden(table.kept?.hiddenPoints ?? []);
     desired.current = table.kept?.hiddenPoints ?? [];
     confirmed.current = table.kept?.hiddenPoints ?? [];
@@ -229,6 +234,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     try {
       const result = await api.readerLibraryCompareKeep({ askId: table.askId, comparisonId, ...input });
       setKept(result.kept);
+      keptNow.current = result.kept;
       if (result.kept.hiddenPoints) confirmed.current = result.kept.hiddenPoints;
       if (hide) hidesWaiting.current -= 1;
       if (result.kept.hiddenPoints && hidesWaiting.current === 0) {
@@ -253,7 +259,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
   };
 
   const keep = async () => {
-    if (!canKeep || kept) return;
+    if (!canKeep || kept || keeping.current) return;
     // A take written on a row that is hidden now stays in its row, unsent
     // (Codex review F2): Keep leaves that row out, so its take would have
     // nothing kept to sit on. Showing the row sends it.
@@ -262,7 +268,15 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     const sent = entries.filter(([target]) => target === "comparison" || !rowsHidden.includes(target));
     const takes: KeepTakeDto[] = sent.map(([target, text]) =>
       (target === "comparison" ? { text: text.trim(), about: "comparison" as const } : { text: text.trim(), pointId: target }));
-    if (await serial(() => send({ takes, hiddenPoints: rowsHidden }, "Couldn't keep this comparison. Nothing was saved; try again."))) {
+    keeping.current = true;
+    const ok = await serial(async () => {
+      try {
+        return await send({ takes, hiddenPoints: rowsHidden }, "Couldn't keep this comparison. Nothing was saved; try again.");
+      } finally {
+        keeping.current = false;
+      }
+    });
+    if (ok) {
       setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([target]) => !sent.some(([done]) => done === target))));
     }
   };
@@ -273,6 +287,13 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     hidesWaiting.current += 1;
     void serial(async () => {
       const want = desired.current;
+      if (!keptNow.current) {
+        // N1: the Keep this hide waited on failed, so there is nothing kept to
+        // change; the row stays as the learner left it and goes with the next keep.
+        hidesWaiting.current -= 1;
+        if (hidesWaiting.current === 0) setHidden(want);
+        return;
+      }
       const before = confirmed.current;
       if (want.length === before.length && want.every((id) => before.includes(id))) {
         hidesWaiting.current -= 1;
@@ -296,6 +317,7 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     try {
       await api.readerLibraryCompareRemove({ askId: kept.askId, comparisonId });
       setKept(null);
+      keptNow.current = null;
       setPhase("removed");
       keepCtx?.onChanged();
     } catch (error) {
@@ -309,8 +331,10 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     const next = base.includes(pointId) ? base.filter((id) => id !== pointId) : [...base, pointId];
     desired.current = next;
     setHidden(next);
-    // After a keep, hiding supersedes the row's proposals; showing proposes it again.
-    if (kept && canKeep) syncHidden();
+    // After a keep, hiding supersedes the row's proposals; showing proposes it
+    // again. During the first Keep (N1) the press waits its turn behind it, so
+    // the Keep's reply never undoes it.
+    if ((kept || keeping.current) && canKeep) syncHidden();
   };
 
   const openTake = (target: Target) => {

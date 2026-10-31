@@ -13,6 +13,9 @@
 //   a library ask on that view's words.
 // * F8: hiding the focused book cell moves the roving focus to the row header;
 //   the grid always has one tab stop.
+// * N1 (scoped verify): a hide pressed while the first Keep is in flight is
+//   never undone by the Keep's reply; it is sent, in turn, once the keep is
+//   there (and stays a local choice when the keep fails, sending nothing).
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CompareTableDto, ComparePointDto, KeptComparisonDto, LibraryAskDto, ReaderPromptContractDto } from "../../api/dto";
@@ -169,6 +172,76 @@ it("F3: rapid hides on a kept comparison are sent one at a time with the latest 
   expect(api.readerLibraryCompareKeep.mock.calls[1][0].hiddenPoints).toEqual(["p1", "p2"]);
   await act(async () => { second.resolve({ askId: "la_1", kept: kept({ hiddenPoints: ["p1", "p2"] }), addedTakes: 0, alreadyKept: true }); });
   expect(document.querySelectorAll("[data-hidden]")).toHaveLength(2);
+});
+
+it("N1: a row hidden while the first Keep is in flight stays hidden and is sent once the keep is there", async () => {
+  const keepReply = deferred<unknown>();
+  const hideReply = deferred<unknown>();
+  api.readerLibraryCompareKeep.mockReturnValueOnce(keepReply.promise).mockReturnValueOnce(hideReply.promise);
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "keep comparison ⇄" }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(1));
+  expect(api.readerLibraryCompareKeep.mock.calls[0][0].hiddenPoints).toEqual([]);
+  // Hidden while the Keep is pending: the row collapses at once.
+  focusCell(cell(0, 0));
+  fireEvent.keyDown(cell(0, 0), { key: "-" });
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).not.toBeNull();
+  await act(async () => { keepReply.resolve({ askId: "la_1", kept: kept({ hiddenPoints: [] }), addedTakes: 0, alreadyKept: false }); });
+  // The Keep's reply (made before the hide) doesn't show the row again ...
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).not.toBeNull();
+  // ... and the hide goes to the server in turn, superseding the row's proposals.
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompareKeep.mock.calls[1][0]).toEqual({ askId: "la_1", comparisonId: "scmp_1", hiddenPoints: ["p1"] });
+  await act(async () => { hideReply.resolve({ askId: "la_1", kept: kept({ hiddenPoints: ["p1"] }), addedTakes: 0, alreadyKept: true }); });
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).not.toBeNull();
+  expect(screen.getByText("kept ⇄")).not.toBeNull();
+});
+
+it("N1: a row shown again while the first Keep is in flight sends its waiting take with the show (F2 kept)", async () => {
+  const keepReply = deferred<unknown>();
+  api.readerLibraryCompareKeep
+    .mockReturnValueOnce(keepReply.promise)
+    .mockResolvedValueOnce({ askId: "la_1", kept: kept({ hiddenPoints: [],
+      takes: [{ id: "rel_t", keys: [], learnerText: "Axler's route generalizes", pointId: "p1" }] }), addedTakes: 1, alreadyKept: true });
+  mount();
+  focusCell(cell(0, 0));
+  fireEvent.keyDown(cell(0, 0), { key: "t" });
+  writeTake("Axler's route generalizes");
+  fireEvent.keyDown(cell(0, 0), { key: "-" });
+  fireEvent.click(screen.getByRole("button", { name: "keep comparison ⇄" }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(1));
+  expect(api.readerLibraryCompareKeep.mock.calls[0][0]).toEqual({ askId: "la_1", comparisonId: "scmp_1", takes: [], hiddenPoints: ["p1"] });
+  fireEvent.click(within(document.querySelector<HTMLElement>("[data-point='p1'][data-hidden]")!).getByRole("button", { name: POINT_COPY.show }));
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).toBeNull();
+  await act(async () => { keepReply.resolve({ askId: "la_1", kept: kept({ hiddenPoints: ["p1"] }), addedTakes: 0, alreadyKept: false }); });
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).toBeNull();
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompareKeep.mock.calls[1][0]).toEqual({ askId: "la_1", comparisonId: "scmp_1", hiddenPoints: [],
+    takes: [{ text: "Axler's route generalizes", pointId: "p1" }] });
+  await waitFor(() => expect(document.querySelector("[data-draft]")).toBeNull());
+  expect(document.querySelector("[data-point='p1']")?.textContent).toContain("Axler's route generalizes");
+});
+
+it("N1: when the first Keep fails, a hide pressed during it stays a local choice and keeps nothing", async () => {
+  const keepReply = deferred<unknown>();
+  let fail!: (error: unknown) => void;
+  keepReply.promise = new Promise((_, reject) => { fail = reject; });
+  api.readerLibraryCompareKeep.mockReturnValueOnce(keepReply.promise);
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "keep comparison ⇄" }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(1));
+  focusCell(cell(0, 0));
+  fireEvent.keyDown(cell(0, 0), { key: "-" });
+  await act(async () => { fail(new Error("offline")); });
+  await act(async () => { await Promise.resolve(); });
+  expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(1);
+  expect(document.querySelector("[data-point='p1'][data-hidden]")).not.toBeNull();
+  expect(screen.queryByText("kept ⇄")).toBeNull();
+  // Keep again: the hide goes with it, as any hide before a keep.
+  api.readerLibraryCompareKeep.mockResolvedValueOnce({ askId: "la_1", kept: kept({ hiddenPoints: ["p1"] }), addedTakes: 0, alreadyKept: false });
+  fireEvent.click(screen.getByRole("button", { name: "keep comparison ⇄" }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompareKeep.mock.calls[1][0].hiddenPoints).toEqual(["p1"]);
 });
 
 it("F4: by book keeps the learner's takes, t opens a box there, and an empty take cell has a pressable add", async () => {
