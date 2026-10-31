@@ -131,7 +131,7 @@ clone from the previous stage.
 
 ## Tests
 
-* New `tests/test_codex_cli_0165_lockdown.py`, 13 tests, all on the fake CLI or pure functions:
+* New `tests/test_codex_cli_0165_lockdown.py`, 11 tests, all on the fake CLI or pure functions:
   * both names are switched off, never permitted, never retired-tolerated; reading on refuses at stage
     `stable` and at stage `removed`;
   * every launch (shell on and off) sends both `features.*=false` and `skills.bundled.enabled=false`,
