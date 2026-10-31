@@ -59,6 +59,7 @@ const SCOPE: DeliverableScopeDto = {
   unmatched: [{ phrase: "jordan form", proposedTitle: "Jordan form", proposedStatement: "What Jordan form means.",
     status: "open", createdLearningObjectId: null }],
   inputs: [], resolution: { id: "dsr_1", origin: "resolver", model: "fake", createdAt: "2026-10-31T09:00:00Z", facetScope: {} },
+  subjectId: "linear-algebra", subjects: [{ subjectId: "linear-algebra", title: "Linear algebra" }],
 };
 
 beforeEach(() => {
@@ -135,6 +136,58 @@ it("the slice opens its scope for review, and a change there asks for the judgme
   await act(async () => { fireEvent.click(screen.getAllByText(SCOPE_COPY.send)[1]); await Promise.resolve(); });
   expect(api.curriculumSetScope).toHaveBeenCalledWith({ goalId: "goal_d", kind: "text", text: "determinants too" });
   expect(api.curriculumGuideSlice).toHaveBeenLastCalledWith({ extractionId: "ext_book", judge: true });
+});
+
+it("add it asks which subject when it cannot be inferred, and sends the learner's choice (re-review F16)", async () => {
+  const ambiguous: DeliverableScopeDto = { ...SCOPE, topics: [], subjectId: null,
+    subjects: [{ subjectId: "linear-algebra", title: "Linear algebra" }, { subjectId: "statistics", title: "Statistics" }] };
+  api.curriculumGuideSlice.mockResolvedValue({ extractionId: "ext_book", status: "none" });
+  api.curriculumDeliverables.mockResolvedValue({ deliverables: [ambiguous] });
+  const decided = { ...ambiguous, unmatched: [{ ...ambiguous.unmatched[0], status: "created" as const, createdLearningObjectId: "lo_j" }] };
+  api.curriculumScopeDecide.mockResolvedValue({ created: { learningObjectId: "lo_j" }, scope: decided });
+  await mount();
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.yours(1))); });
+  const addIt = screen.getByText(SCOPE_COPY.addIt) as HTMLButtonElement;
+  expect(addIt.disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.subject), { target: { value: "statistics" } });
+  expect(addIt.disabled).toBe(false);
+  await act(async () => { fireEvent.click(addIt); await Promise.resolve(); });
+  expect(api.curriculumScopeDecide).toHaveBeenCalledWith(
+    { goalId: "goal_d", phrase: "jordan form", decision: "create", subjectId: "statistics" });
+  expect(screen.getByText(SCOPE_COPY.added)).toBeTruthy();
+});
+
+it("a no_subject refusal opens the subject choice instead of a dead end (re-review F16)", async () => {
+  const two: DeliverableScopeDto = { ...SCOPE,
+    subjects: [{ subjectId: "linear-algebra", title: "Linear algebra" }, { subjectId: "statistics", title: "Statistics" }] };
+  api.curriculumGuideSlice.mockResolvedValue({ extractionId: "ext_book", status: "none" });
+  api.curriculumDeliverables.mockResolvedValue({ deliverables: [two] });
+  api.curriculumScopeDecide.mockRejectedValueOnce({ code: "no_subject", message: "Choose the subject this new topic belongs to." });
+  const { onError } = await mount();
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.yours(1))); });
+  expect(screen.queryByLabelText(SCOPE_COPY.subject)).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByText(SCOPE_COPY.addIt)); await Promise.resolve(); });
+  expect(screen.getByLabelText(SCOPE_COPY.subject)).toBeTruthy();
+  expect(onError).not.toHaveBeenCalled();
+});
+
+it("a correction that makes the Guide pick another deliverable closes the previous one's scope (re-review F17)", async () => {
+  const other = slice({ goal: { id: "goal_b", title: "my final", kind: "exam", dueAt: null } });
+  api.curriculumGuideSlice.mockResolvedValueOnce(slice()).mockResolvedValue(other);
+  api.curriculumScope.mockResolvedValue(SCOPE);
+  api.curriculumSetScope.mockResolvedValue({ status: "ready", message: null, scope: SCOPE });
+  const { container } = await mount();
+  await act(async () => { fireEvent.click(screen.getByText(new RegExp(DELIVERABLE_COPY.scope))); await Promise.resolve(); });
+  expect(container.querySelector('[data-deliverable-scope="goal_d"]')).not.toBeNull();
+  fireEvent.change(screen.getByLabelText(SCOPE_COPY.notThis), { target: { value: "not this book; my final" } });
+  await act(async () => {
+    fireEvent.click(screen.getAllByText(SCOPE_COPY.send)[0]);
+    for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  });
+  expect(api.curriculumGuideSlice).toHaveBeenLastCalledWith({ extractionId: "ext_book", judge: true });
+  expect(screen.getByText(sliceHeading(other))).toBeTruthy();
+  // The panel that edited goal_d is gone: nothing on screen can send goal_d's edits now.
+  expect(container.querySelector('[data-deliverable-scope="goal_d"]')).toBeNull();
 });
 
 it("use this one instead is offered only on a section that introduces or develops the topic (F10)", async () => {

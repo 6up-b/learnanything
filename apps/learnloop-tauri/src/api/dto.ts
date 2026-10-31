@@ -9219,6 +9219,10 @@ export interface DeliverableScopeDto {
     createdLearningObjectId: string | null }>;
   inputs: Array<{ id: string; kind: string; text: string | null; extractionId: string | null; createdAt: string }>;
   resolution: { id: string; origin: string; model: string; createdAt: string; facetScope: Record<string, string[]> } | null;
+  /** The subject a new topic joins: the one the needed topics share, else null (the learner picks; F16). */
+  subjectId: string | null;
+  /** The vault's active subjects, offered when subjectId is null. */
+  subjects: Array<{ subjectId: string; title: string }>;
 }
 
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */

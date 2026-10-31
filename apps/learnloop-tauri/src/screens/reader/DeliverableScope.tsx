@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { DeliverableScopeDto, ReadingPathDepth } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO } from "../../components/term";
-import { errorMessage } from "../../errors";
+import { errorMessage, getCommandError } from "../../errors";
 
 const LINK = {
   background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer",
@@ -61,6 +61,8 @@ export const SCOPE_COPY = {
     `${origin === "learner" ? "your decision" : `resolved by ${model}`} · ${at.slice(0, 10)}`,
   ask: "How deep for this?",
   nothingYet: "Nothing resolved yet: say what you need below.",
+  subject: "a new topic goes in",
+  chooseSubject: "choose a subject…",
 } as const;
 
 /** "For your midterm: 14 topics from your books · 2 not in your library yet". */
@@ -85,6 +87,13 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
   const [receipt, setReceipt] = useState(false);
   const [notThis, setNotThis] = useState("");
   const [add, setAdd] = useState("");
+  // The subject a new topic joins (Codex re-review F16): asked when the server cannot
+  // infer one (its subjectId null, or its no_subject refusal), then sent with add it.
+  const [subjectId, setSubjectId] = useState("");
+  const [askSubject, setAskSubject] = useState(false);
+  const subjects = scope.subjects ?? [];
+  const choosing = (scope.subjectId == null || askSubject) && subjects.length > 0
+    && scope.unmatched.some((entry) => entry.status === "open");
 
   const send = async (kind: "correction" | "text", text: string, clear: () => void) => {
     setBusy(true);
@@ -103,10 +112,12 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
   const decide = async (phrase: string, decision: "create" | "decline") => {
     setBusy(true);
     try {
-      const out = await api.curriculumScopeDecide({ goalId: scope.goalId, phrase, decision });
+      const chosen = decision === "create" && choosing && subjectId ? { subjectId } : {};
+      const out = await api.curriculumScopeDecide({ goalId: scope.goalId, phrase, decision, ...chosen });
       setNotice(null);
       onChanged(out.scope);
     } catch (error) {
+      if (getCommandError(error)?.code === "no_subject") { setAskSubject(true); return; }
       onError(errorMessage(error, "Couldn't save that."));
     } finally {
       setBusy(false);
@@ -136,13 +147,22 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
           {topic.title}{topic.phrase ? <span style={{ color: COLOR.textFaint }}> · “{topic.phrase}”</span> : null}
         </span>
       ))}
+      {choosing ? (
+        <label style={{ display: "flex", gap: 6, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
+          {SCOPE_COPY.subject}
+          <select aria-label={SCOPE_COPY.subject} value={subjectId} onChange={(event) => setSubjectId(event.target.value)} style={INPUT}>
+            <option value="">{SCOPE_COPY.chooseSubject}</option>
+            {subjects.map((subject) => <option key={subject.subjectId} value={subject.subjectId}>{subject.title}</option>)}
+          </select>
+        </label>
+      ) : null}
       {scope.unmatched.map((entry) => (
         <span key={entry.phrase} data-deliverable-unmatched={entry.status}
           style={{ display: "flex", gap: 6, flexWrap: "wrap", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
           <span>{entry.proposedTitle}? <span style={{ color: COLOR.textFaint }}>{SCOPE_COPY.notInLibrary} · “{entry.phrase}”</span></span>
           {entry.status === "open" ? (
             <>
-              <button type="button" style={LINK} disabled={busy} title={entry.proposedStatement}
+              <button type="button" style={LINK} disabled={busy || (choosing && !subjectId)} title={entry.proposedStatement}
                 onClick={() => void decide(entry.phrase, "create")}>{SCOPE_COPY.addIt}</button>
               <button type="button" style={LINK} disabled={busy} onClick={() => void decide(entry.phrase, "decline")}>{SCOPE_COPY.no}</button>
             </>

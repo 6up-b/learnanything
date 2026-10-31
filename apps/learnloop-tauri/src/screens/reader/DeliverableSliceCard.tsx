@@ -107,8 +107,12 @@ export function GuidePathSlot({ extractionId, readingPathCard, onJump, onError, 
       </div>
     );
   }
+  // Keyed by the deliverable (Codex re-review F17): when a correction makes the Guide pick
+  // another deliverable for this book, the card starts fresh, so an open scope panel never
+  // edits the previous one and its late answers land nowhere.
   return (
     <DeliverableSliceCard
+      key={slice.goal?.id ?? ""}
       slice={slice}
       onJump={onJump}
       onError={onError}
