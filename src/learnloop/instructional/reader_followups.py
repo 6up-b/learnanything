@@ -48,6 +48,15 @@ optional reason, a ``learner_card`` verdict) and undo all retire the
 commitments too. Interaction with mvp-0.38: a claim whose repair cold retry
 is pending gets no retention follow-up as well.
 
+A resumed or re-asked search never retires a live check (Codex re-review
+round 3): the question's live checks are passed as ``already_chosen``, so the
+greedy conditional selection starts from them and adds a check only if it
+still clears the stop given them (§9.3 item 3). Rescheduling reads the live
+checks, not every ref ever chosen: an item whose check was retired or
+satisfied may be scheduled again as a fresh generation (one the learner undid
+stays out). A check several questions select is created once, records every
+licensing question, and stays live while any of them needs it.
+
 **The successor** ``mvp-0.39`` (§9.3 "Why no successor", whose fallback
 the Codex review invoked, F4): automatic dated requests change what the
 maintain lane holds and serves, so planning and re-valuation run only at the
@@ -113,10 +122,6 @@ RETIRE_UNDONE = "undone"
 RETIRE_EXPOSED = "exposed_since_valuation"
 #: A repair cold retry now measures the same claim (Codex review F11).
 RETIRE_REPAIR_OWNS = "repair_retry_owns"
-#: A re-asked question's search (resumed from its continuation, the earlier
-#: pick carried) valued this check and no longer selects it: a check chosen
-#: with it gives the same information for less (Codex re-review F14).
-RETIRE_SUPERSEDED = "superseded_by_resumed_search"
 #: Re-valuation keeps a check whose only exposure is a studied worked example
 #: nobody judged yet; the background job asks the judge (Codex review F5).
 KEPT_REFRESH = "exposure_refresh_needed"
@@ -466,12 +471,18 @@ def default_search(vault: LoadedVault, repository: Repository, *, injections: Ma
 
     def search(query: str, constraints: Mapping[str, Any], *, caller: Mapping[str, Any],
                continue_from: str | None = None,
-               pending_decision: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+               pending_decision: Mapping[str, Any] | None = None,
+               already_chosen: Sequence[str] = ()) -> Mapping[str, Any]:
         context = caller_for(repository, "reader", str(caller.get("ref") or ""),
                              learning_object_ids=list(constraints.get("learning_object_ids") or []))
         extra: dict[str, Any] = {}
         if pending_decision:
             extra["pending_decision"] = dict(pending_decision)
+        if already_chosen:
+            # Round 3: the question's live checks seed the greedy conditional
+            # selection (§9.3 item 3); a re-ask adds a check only if it still
+            # clears the stop given them, and never retires one.
+            extra["already_chosen"] = list(already_chosen)
         cursor = None
         if continue_from:
             # Codex review F6: an interrupted search resumes where it stopped,
@@ -827,9 +838,17 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     previous_entries = {q["key"]: q for q in previous.get("questions") or []}
     done = {key for key, q in previous_entries.items() if not q.get("incomplete")}
     receipt_questions = [q for q in previous.get("questions") or [] if q["key"] in done]
-    chosen: list[dict[str, Any]] = list(previous.get("chosen") or [])
+    # Copies: the stored row is compared whole at publication (F3), so a
+    # licensing question added to a line must never touch ``existing``.
+    chosen: list[dict[str, Any]] = [dict(line) for line in previous.get("chosen") or []]
     commitment_ids: list[str] = list((existing or {}).get("followup_commitment_ids") or [])
-    chosen_refs = {entry["ref"] for entry in chosen}
+    # Round 3: rescheduling is decided from the LIVE checks (a pending
+    # commitment), never from every ref ever chosen. An item whose earlier
+    # check was retired or satisfied may be scheduled again as a fresh
+    # generation; one the learner undid is theirs and stays out.
+    live = _live_lines(repository, chosen)
+    undone = _undone_refs(repository, chosen)
+    planned_now: dict[str, dict[str, Any]] = {}
     worked = [str(line.get("practice_item_id")) for line in summary.get("workbench") or [] if line.get("practice_item_id")]
     attempts = _attempt_rows(repository, [a for q in questions for a in q.attempt_ids])
     source_id = RC._source_id(repository, extraction_id)
@@ -841,11 +860,10 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     incomplete = False
     intent_excluded: set[str] = set()
     planned: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []  # (entry, creation, chosen line)
-    superseded_lines: list[tuple[dict[str, Any], str, str | None]] = []  # (entry, ref, proposal)
     for question in questions:
         if question.key in done:
             continue
-        excluded_items = sorted(i for i in committed
+        excluded_items = sorted(i for i in committed | undone
                                 if _item_lo(vault, i) in set(question.learning_object_ids))
         intent_excluded.update(excluded_items)
         constraints = constraints_for(question, exclude_family_ids=families, exclude_item_ids=excluded_items)
@@ -860,6 +878,12 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
             kwargs["continue_from"] = resume
         if question.pending_decision:
             kwargs["pending_decision"] = dict(question.pending_decision)
+        # §9.3 item 3: checks are added greedily, each valued conditionally on
+        # those already chosen; the question's live checks are already chosen.
+        already = [ref for ref, index in live.items() if question.key in _licensing(chosen[index])]
+        if already:
+            kwargs["already_chosen"] = already
+            entry["already_chosen"] = list(already)
         try:
             with followup_spend(vault, repository, clock):
                 result = search(query_for(vault, question), constraints,
@@ -887,28 +911,36 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
             incomplete = True
             if (result.get("paging") or {}).get("cursor") and result.get("proposal_id"):
                 entry["continue_from"] = str(result["proposal_id"])
-        if entry.get("outcome") == "no_item":
+        if entry.get("outcome") == "no_item" and not already:
             entry["generation"] = (
                 {"requested": False, "reason": "generate_when_nothing_fits is off"}
                 if not getattr(_config(vault), "generate_when_nothing_fits", False)
                 else {"requested": False, "reason": "unavailable: PF has no source-anchored request API yet"})
-        # F14: an earlier check of this question that the search valued (a
-        # resumed search carries it) and did not select is retired in the
-        # publication, so outstanding checks are this selection's.
-        picked = {str(check["ref"]) for _section, check in picks}
-        valued = {str(candidate.get("ref")) for section in (result.get("valuation") or {}).get("problems") or []
-                  for candidate in (section.get("groups") or {}).get("valued") or ()}
-        superseded_lines.extend(
-            (entry, str(line["ref"]), result.get("proposal_id")) for line in chosen
-            if line.get("question") == question.key and line.get("commitment_id")
-            and str(line["ref"]) in valued and str(line["ref"]) not in picked)
+        if already and not picks and entry.get("outcome") in ("no_check", "no_item"):
+            # Nothing clears the stop beyond the live checks: they answer it.
+            entry.update(outcome="checks", search_outcome=entry.get("outcome"))
         roots, spans = _session_spans(vault, repository, summary, question.learning_object_ids, extraction_id)
         scope = _exposure_scope(vault, repository, question.learning_object_ids, extraction_id)
         for section, check in picks:
             ref = str(check["ref"])
-            if ref in chosen_refs or ref not in vault.practice_items:
-                continue  # licensed by several problems: proposed once
-            chosen_refs.add(ref)
+            if ref not in vault.practice_items:
+                continue
+            if ref in undone:
+                # Filtered out by the request; never rescheduled over the learner's undo.
+                entry.setdefault("skipped", []).append({"ref": ref, "reason": "learner_undid"})
+                continue
+            # A check another question (or problem) already licenses is
+            # proposed once; this question is recorded as licensing it too,
+            # and it stays live while any of them needs it (round 3).
+            shared = chosen[live[ref]] if ref in live else planned_now.get(ref)
+            if shared is not None:
+                if question.key not in _licensing(shared):
+                    shared["questions"] = [*_licensing(shared), question.key]
+                    entry.setdefault("shared", []).append(
+                        {"ref": ref, "commitment_id": shared.get("commitment_id"),
+                         "first_licensed_by": shared.get("question")})
+                continue
+            generation = sum(1 for line in chosen if str(line.get("ref")) == ref)
             last_attempt = max((attempts[a] for a in question.attempt_ids if a in attempts),
                                key=lambda row: (str(row.get("created_at")), str(row.get("id"))), default=None)
             practiced = str(last_attempt["practice_item_id"]) if last_attempt else None
@@ -942,9 +974,13 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                 "followups_version": FOLLOWUPS_VERSION,
             }
             creation = {"ref": ref, "intent_text": purpose_text(vault, question.purpose, lo_ids, novelty),
-                        "due_hint": dated["due_hint"], "provenance": provenance}
+                        "due_hint": dated["due_hint"], "provenance": provenance,
+                        # Idempotent per digest, question, item and generation:
+                        # a fresh generation never resolves to a retired check.
+                        "idempotency_key": f"{VIA}:{digest_id}:{question.key}:{ref}:{generation}"}
             line = {
-                "ref": ref, "commitment_id": None, "question": question.key,
+                "ref": ref, "commitment_id": None, "question": question.key, "questions": [question.key],
+                "generation": generation,
                 "problem": valuation_ref["problem"], "order": check.get("order"), "purpose": question.purpose,
                 "mode": mode, "novelty": novelty, "due_hint": dated["due_hint"], "date_basis": dated["basis"],
                 "date_capped": dated["capped"], "regime": check.get("regime"),
@@ -956,25 +992,63 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                 "familiarity": check.get("familiarity"),
                 "why": why_text(question.purpose, check, mode),
             }
+            planned_now[ref] = line
             planned.append((entry, creation, line))
         receipt_questions.append(entry)
     return _publish(vault, repository, digest_id=digest_id, existing=existing, extraction_id=extraction_id,
                     session=session, summary=summary, notes=notes, families=families,
                     receipt_questions=receipt_questions, chosen=chosen, commitment_ids=commitment_ids,
-                    planned=planned, superseded_lines=superseded_lines, incomplete=incomplete,
+                    planned=planned, incomplete=incomplete,
                     intent_excluded=intent_excluded, now=now, clock=clock)
+
+
+def _licensing(line: Mapping[str, Any]) -> list[str]:
+    """The questions that license a chosen check (round 3; a line written
+    before ``questions`` existed names its one question)."""
+
+    return [str(key) for key in (line.get("questions") or [line.get("question")]) if key]
+
+
+def _live_lines(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """``ref -> index`` of each chosen line whose check is live (pending)."""
+
+    out: dict[str, int] = {}
+    for index, line in enumerate(chosen):
+        commitment_id = line.get("commitment_id")
+        if not commitment_id:
+            continue
+        try:
+            if C.resolve_disposition(repository, str(commitment_id)) == "one_check_pending":
+                out[str(line["ref"])] = index
+        except C.UnknownCommitment:
+            continue
+    return out
+
+
+def _undone_refs(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> set[str]:
+    """The items whose check from this digest the learner undid (and did not
+    restore): never scheduled again by a later search of the same session."""
+
+    out: set[str] = set()
+    for line in chosen:
+        commitment_id = line.get("commitment_id")
+        if not commitment_id:
+            continue
+        info = _retirement(repository, str(commitment_id))
+        if info is not None and info.get("reason") == RETIRE_UNDONE:
+            out.add(str(line["ref"]))
+    return out
 
 
 def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Mapping[str, Any] | None,
              extraction_id: str, session: RS.ReaderSession, summary: Mapping[str, Any],
              notes: Sequence[Mapping[str, Any]], families: Sequence[str], receipt_questions: list[dict[str, Any]],
              chosen: list[dict[str, Any]], commitment_ids: list[str],
-             planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]],
-             superseded_lines: Sequence[tuple[dict[str, Any], str, str | None]], incomplete: bool,
+             planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]], incomplete: bool,
              intent_excluded: set[str], now: datetime, clock: Clock | None) -> dict[str, Any] | None:
-    """F3: the commitments, the retirements of what a re-asked search no
-    longer selects (F14), the digest receipt and the queue revision in one
-    transaction."""
+    """F3: the commitments, the digest receipt and the queue revision in one
+    transaction. Nothing here retires a check (round 3): a re-asked search
+    only adds what clears the stop given the question's live checks."""
 
     stamp = utc_now_iso(clock)
     created_any = False
@@ -999,28 +1073,13 @@ def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Ma
                 commitment = C.create_commitment(
                     repository, action="test_me_later", intent_text=creation["intent_text"],
                     targets=[{"target_kind": "legacy_practice_item", "target_ref": ref}],
-                    depth_preset="keep_in_touch", client_idempotency_key=f"{VIA}:{digest_id}:{ref}",
+                    depth_preset="keep_in_touch", client_idempotency_key=creation["idempotency_key"],
                     author="learnloop", reason=VIA, due_hint=creation["due_hint"],
                     provenance=creation["provenance"], clock=clock)
                 created_any = True
                 if commitment.id not in commitment_ids:
                     commitment_ids.append(commitment.id)
                 chosen.append({**line, "commitment_id": commitment.id})
-            for entry, ref, proposal_id in superseded_lines:
-                index = next((i for i, line in enumerate(chosen) if str(line.get("ref")) == ref), None)
-                commitment_id = str(chosen[index]["commitment_id"]) if index is not None else ""
-                try:
-                    pending = C.resolve_disposition(repository, commitment_id) == "one_check_pending"
-                except C.UnknownCommitment:
-                    pending = False
-                if index is None or not pending or _learner_kept(repository, commitment_id):
-                    continue  # answered, undone or kept by the learner meanwhile: theirs
-                C.retire(repository, commitment_id=commitment_id, detail={
-                    "reason": RETIRE_SUPERSEDED, "proposal_id": proposal_id, "extraction_id": extraction_id,
-                    "followups_version": FOLLOWUPS_VERSION}, clock=clock)
-                created_any = True
-                chosen[index] = {**chosen[index], "superseded_by": proposal_id}
-                entry.setdefault("superseded", []).append({"ref": ref, "commitment_id": commitment_id})
             valuation = {
                 "followups_version": FOLLOWUPS_VERSION, "valuation_version": VALUATION_VERSION,
                 "summary_version": summary.get("summary_version"), "scale": SCALE_LABEL,
@@ -1186,6 +1245,10 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             continue
         lines = []
         requery: list[str] = []
+        stored = row.get("valuation") or {}
+        line_by_commitment = {str(line["commitment_id"]): line for line in stored.get("chosen") or []
+                              if line.get("commitment_id")}
+        entries = {str(entry.get("key")): entry for entry in stored.get("questions") or []}
         for commitment_id in row["followup_commitment_ids"]:
             try:
                 disposition = C.resolve_disposition(repository, commitment_id)
@@ -1207,6 +1270,8 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             else:
                 line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
                                          provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
+                                         others=_other_licensing(provenance, line_by_commitment.get(commitment_id),
+                                                                 entries),
                                          now=now, clock=clock)
             lines.append(line)
         retired_here = False
@@ -1221,15 +1286,16 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                 commitment_id = str(line["commitment_id"])
                 if C.resolve_disposition(repository, commitment_id) != "one_check_pending" \
                         or _learner_kept(repository, commitment_id):
-                    for key in ("reason", "detail", "question_key"):
+                    for key in ("reason", "detail", "question_keys"):
                         line.pop(key, None)
                     line["kept_because"] = ["changed_meanwhile"]
                     continue
                 C.retire(repository, commitment_id=commitment_id, detail=line["detail"], clock=clock)
                 line["retired"] = True
-                requery.append(str(line.pop("question_key", "") or ""))
+                # Every question that licensed the exposed check is asked again.
+                requery.extend(str(key) for key in line.pop("question_keys", None) or () if key)
             for line in lines:
-                line.pop("question_key", None)
+                line.pop("question_keys", None)
                 report["retired" if line["retired"] else "kept"].append(line)
                 retired_here = retired_here or bool(line["retired"])
             columns: dict[str, Any] = {}
@@ -1344,74 +1410,137 @@ def answered_since(vault: Any, repository: Repository, question: Mapping[str, An
     return None
 
 
+def _other_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None,
+                     entries: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The other questions that license this check (round 3: a check one
+    question chose and another selected too), from the digest receipt, as
+    ``{"key", "question", "purpose", "attempt_ids"}``; the provenance's own
+    question is the first licensing question and is not repeated."""
+
+    if not line:
+        return []
+    primary = str((provenance.get("valuation_ref") or {}).get("question") or line.get("question") or "")
+    out = []
+    for key in _licensing(line):
+        found = (entries.get(key) or {}).get("question") or {}
+        if key == primary or not found:
+            continue
+        question = {"intent": found.get("intent") or INTENT_BY_PURPOSE.get(str(found.get("purpose")), "retention"),
+                    "learning_object_ids": list(found.get("learning_object_ids") or []),
+                    "facet_ids": list(found.get("facet_ids") or []),
+                    "target_hypotheses": [dict(r) for r in found.get("target_hypotheses") or []]}
+        if found.get("pending_decision"):
+            question["pending_decision"] = dict(found["pending_decision"])
+        out.append({"key": key, "question": question, "purpose": found.get("purpose"),
+                    "attempt_ids": list(found.get("attempt_ids") or [])})
+    return out
+
+
 def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str, item_id: str,
                       provenance: Mapping[str, Any], valuer: Callable[..., Mapping[str, Any]],
-                      extraction_id: str, now: datetime, clock: Clock | None) -> dict[str, Any]:
+                      extraction_id: str, now: datetime, clock: Clock | None,
+                      others: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+    """One pending check's re-valuation. A check several questions license
+    (round 3) stays live while ANY of them still needs it: it is retired as
+    answered only when every one is answered, as owned by a repair only when
+    a repair owns every open one, and below the stop only when it is below
+    the stop for every open one. An exposure is the item's and retires it,
+    re-asking every licensing question."""
+
     from learnloop.scheduling.intent.followup_gate import REPAIR_RETRY_OWNS
 
     question = provenance.get("question") or {}
+    primary_key = str((provenance.get("valuation_ref") or {}).get("question") or "")
+    licensing = [{"key": primary_key, "question": question, "purpose": provenance.get("purpose"),
+                  "attempt_ids": list(provenance.get("attempt_ids") or []), "primary": True},
+                 *({**other, "primary": False} for other in others)]
     line: dict[str, Any] = {"commitment_id": commitment_id, "item_id": item_id, "retired": False}
+    if others:
+        line["questions"] = [str(q["key"]) for q in licensing]
     created = str(_first_version(repository, commitment_id).get("created_at") or "")
-    answered = answered_since(vault, repository, question, since=created)
-    if answered is not None:
+    answers = [(q, answered_since(vault, repository, q["question"], since=created)) for q in licensing]
+    open_questions_ = [q for q, answered in answers if answered is None]
+    if not open_questions_:
+        answered = answers[0][1] or {}
         detail = {"reason": RETIRE_ANSWERED, **answered, "extraction_id": extraction_id,
                   "followups_version": FOLLOWUPS_VERSION}
         C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
         line.update(retired=True, reason=RETIRE_ANSWERED, detail=detail)
         return line
+    if len(open_questions_) < len(licensing):
+        line["answered_for"] = [str(q["key"]) for q, answered in answers if answered is not None]
     reasons = _gate_reasons(vault, repository, item_id=item_id, provenance=provenance, valued_at=created, now=now)
-    if REPAIR_RETRY_OWNS in reasons:
-        owner = None
-        for facet in question.get("facet_ids") or ():
-            owner = pending_cold_retry(vault, repository, facet_id=str(facet),
-                                       attempt_ids=provenance.get("attempt_ids") or (),
-                                       learning_object_ids=question.get("learning_object_ids") or (), now=now)
-            if owner is not None:
-                break
+
+    def owner_of(q: Mapping[str, Any]) -> dict[str, Any] | None:
+        if q["primary"] and REPAIR_RETRY_OWNS not in reasons:
+            return None
+        if not q["primary"] and q.get("purpose") != PURPOSE_RETENTION:
+            return None  # the gate reads repair ownership for retention checks only
+        for facet in q["question"].get("facet_ids") or ():
+            found = pending_cold_retry(vault, repository, facet_id=str(facet), attempt_ids=q.get("attempt_ids") or (),
+                                       learning_object_ids=q["question"].get("learning_object_ids") or (), now=now)
+            if found is not None:
+                return found
+        return {} if q["primary"] else None
+
+    owners = [owner_of(q) for q in open_questions_]
+    if all(owner is not None for owner in owners):
         detail = {"reason": RETIRE_REPAIR_OWNS, "extraction_id": extraction_id,
-                  "followup_task_id": (owner or {}).get("id"), "followups_version": FOLLOWUPS_VERSION}
+                  "followup_task_id": next((o.get("id") for o in owners if o and o.get("id")), None),
+                  "followups_version": FOLLOWUPS_VERSION}
         C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
         line.update(retired=True, reason=RETIRE_REPAIR_OWNS, detail=detail)
         return line
+    reasons = [reason for reason in reasons if reason != REPAIR_RETRY_OWNS]
     if reasons and set(reasons) <= {"worked_example_unjudged"}:
         line["kept_because"] = [KEPT_REFRESH]
         return line
     if reasons:
-        # Retired by the caller, in one transaction with the question's
-        # re-ask marker (Codex re-review F13).
+        # Retired by the caller, in one transaction with the questions'
+        # re-ask markers (Codex re-review F13).
         detail = {"reason": RETIRE_EXPOSED, "reasons": reasons, "extraction_id": extraction_id,
                   "followups_version": FOLLOWUPS_VERSION}
-        line.update(reason=RETIRE_EXPOSED, detail=detail,
-                    question_key=str((provenance.get("valuation_ref") or {}).get("question") or ""))
+        line.update(reason=RETIRE_EXPOSED, detail=detail, question_keys=[str(q["key"]) for q in licensing])
         return line
-    receipt = dict(valuer(question, item_id))
-    sections = list(receipt.get("problems") or [])
-    line["verdicts"] = sorted({str(s.get("verdict")) for s in sections})
-    excluded = (receipt.get("excluded") or {}).get(item_id)
-    if not sections:
-        line["kept_because"] = sorted({str(u.get("reason")) for u in receipt.get("unavailable") or []}) or [
-            "no_problem"]
-        return line
-    if excluded is not None:
-        # The exposure rule ran above (no exclusion); what is left is the
-        # valuation's own (an unverified key): the check stays, labelled.
-        line["kept_because"] = ["excluded_at_revaluation", *excluded]
-        return line
-    still = any(str(check.get("ref")) == item_id for section in sections
-                if section.get("verdict") in CHECK_VERDICTS for check in section.get("checks") or [])
-    if still:
-        line["kept_because"] = ["clears_the_stop"]
-        return line
-    if all(section.get("verdict") == "stop" for section in sections):
+    kept: list[str] = []
+    stop_reasons: set[str] = set()
+    verdicts: set[str] = set()
+    every_stop = True
+    for q in open_questions_:
+        receipt = dict(valuer(q["question"], item_id))
+        sections = list(receipt.get("problems") or [])
+        verdicts |= {str(s.get("verdict")) for s in sections}
+        excluded = (receipt.get("excluded") or {}).get(item_id)
+        if not sections:
+            every_stop = False
+            kept += sorted({str(u.get("reason")) for u in receipt.get("unavailable") or []}) or ["no_problem"]
+            continue
+        if excluded is not None:
+            # The exposure rule ran above (no exclusion); what is left is the
+            # valuation's own (an unverified key): the check stays, labelled.
+            every_stop = False
+            kept += ["excluded_at_revaluation", *excluded]
+            continue
+        if any(str(check.get("ref")) == item_id for section in sections
+               if section.get("verdict") in CHECK_VERDICTS for check in section.get("checks") or []):
+            line["verdicts"] = sorted(verdicts)
+            line["kept_because"] = ["clears_the_stop"]
+            return line
+        if not all(section.get("verdict") == "stop" for section in sections):
+            # An abstention (a flip, no licensing regime now) is not an
+            # answer: the check stays the learner's, recorded.
+            every_stop = False
+            kept += sorted({str(s.get("reason")) for s in sections if s.get("reason")}) or ["abstain"]
+            continue
+        stop_reasons |= {str(s.get("reason")) for s in sections}
+    line["verdicts"] = sorted(verdicts)
+    if every_stop:
         detail = {"reason": RETIRE_BELOW_STOP, "extraction_id": extraction_id,
-                  "stop_reasons": sorted({str(s.get("reason")) for s in sections}),
-                  "followups_version": FOLLOWUPS_VERSION}
+                  "stop_reasons": sorted(stop_reasons), "followups_version": FOLLOWUPS_VERSION}
         C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
         line.update(retired=True, reason=RETIRE_BELOW_STOP, detail=detail)
         return line
-    # An abstention (a flip, no licensing regime now) is not an answer: the
-    # check stays the learner's, recorded.
-    line["kept_because"] = sorted({str(s.get("reason")) for s in sections if s.get("reason")}) or ["abstain"]
+    line["kept_because"] = list(dict.fromkeys(kept)) or ["abstain"]
     return line
 
 
@@ -1598,8 +1727,6 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
                     text = "No longer a check on your own: you've seen this question since it was suggested"
                 elif reason == RETIRE_REPAIR_OWNS:
                     text = "No longer needed: a check on your own is already coming up for this"
-                elif reason == RETIRE_SUPERSEDED:
-                    text = "No longer needed: another check coming up tells you the same in less time"
                 elif reason == RETIRE_ANSWERED and info.get("solved_at"):
                     text = "No longer needed: you solved one like it"
                 elif reason == RETIRE_ANSWERED:

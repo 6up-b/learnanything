@@ -299,3 +299,113 @@ Not applicable:
 `test_intent_exclusion.py`, `test_intent_fix_round5.py`, `test_intent_goal_deadline.py`,
 `test_intent_orchestrator_rulings.py`, `test_intent_planner.py`, `test_intent_plan.py`, `test_intent_rpc.py`,
 `test_reader_wrap_up.py`, `test_commitments.py`, `test_instructional_layering.py`, `test_table_roles.py`.
+
+## Round 3 (Sol verify job `20261031-160105-nYxfHs`)
+
+The final verify confirmed F1, F2, F3, F4 and F13 as fixed. It reopened F14 and added F15, both Medium. Both came
+from round 2's F14 design: a resumed search retired the earlier check it valued and no longer selected
+(`superseded_by_resumed_search`).
+
+- **F14 (reopened): reconciliation can lose the selected check.** Three budgeted or resumed searches with
+  identical perfect-information candidates: search 1 (A = 3 min) selects A; search 2 (A = 3, B = 2) selects B and
+  retires A; search 3 (A = 1, B = 2) selects A, but the historical `chosen_refs` blocked rescheduling A, and
+  reconciliation retired B. Nothing was left live, the digest read `planned` and "Coming up" was empty.
+- **F15: replacing a shared check abandons another question.** Q1 (recall) and Q2 (procedure) both selected A; the
+  one commitment was associated with Q1. Resuming Q1 selected a cheaper B (recall only), and reconciliation retired
+  A while Q2 stayed complete with nothing to check it.
+
+**Orchestrator direction, followed exactly.** Round 2's reconciliation is removed, not iterated on. In its place is
+the spec's own rule (§9.3 item 3: "Checks are added greedily, each valued conditionally on those already chosen").
+
+### What changed
+
+- **No retirement by reconciliation.** A resumed or re-asked search never retires a live check. Only the daily
+  re-valuation's existing reasons (answered, below the stop), the exposure and repair gates, and the learner's undo
+  retire checks. `RETIRE_SUPERSEDED`, its "Coming up" text, the `superseded_by` line field and the `superseded`
+  receipt entry are gone from code, copy and tests.
+- **The live checks seed the greedy selection.** `valuation.value_candidates` and `value_problem` take an optional
+  `already_chosen` (refs). In information mode the greedy selection starts from those of them that are among the
+  problem's competing candidates. A new check is added only if it still clears the stop given them, and seeded refs
+  are never listed as new `checks`. With nothing new, the section reads `stop` / `already_chosen_suffice`. In decision
+  mode (`rank_feasible`, at most one measurement) a seeded check in the pool is that measurement, so nothing is added.
+  The section records `already_chosen: {conditioned_on, not_valued}`. `discriminating.value_request` values each
+  seeded item alongside the request's items and applies the exposure rule to it again (one no longer independent is
+  not conditioned on). `find_practice` passes `already_chosen` to the valuer only when given; it is not a filter and
+  not part of the continuation binding. The default (empty) is byte-for-byte unchanged for every other caller: the
+  test pins the sha256 of a two-problem receipt (information and decision modes, learner and system-initiated)
+  computed from the code before round 3.
+- **Rescheduling reads the live checks.** `plan_session` passes each question's live checks (pending commitments it
+  licenses) as `already_chosen`. The historical `chosen_refs` is gone. An item whose earlier check was retired or
+  satisfied can be scheduled again as a fresh generation: its `chosen` line carries `generation`, and the
+  commitment's idempotency key is `reader_followup:{digest}:{question}:{item}:{generation}`, so a fresh generation
+  never resolves to the retired commitment. An item the learner undid from this digest is excluded from the
+  session's later searches (`exclude_item_ids`) and is never rescheduled over the undo.
+- **Shared checks.** A check that several questions (or problems) select is created once. Its `chosen` line lists
+  every licensing question (`questions`), and the receipt entry of each later question lists it under `shared`.
+  "Coming up" and the receipt show it once. Re-valuation reads the licensing questions from the digest and keeps the
+  check while any of them still needs it: it is retired as answered only when every licensing question is answered,
+  as repair-owned only when a repair owns every open one, and below the stop only when it is below the stop for every
+  open one. An exposure belongs to the item, so it retires the check and re-asks every licensing question.
+- A question whose live checks already suffice reads `outcome: "checks"` with `search_outcome` (what the search alone
+  found) and `already_chosen`.
+
+### Tests (`tests/test_reader_followups_round3.py`), fail-first
+
+All 9 tests failed on the base (`50f502ac0`, run from a `git archive` copy with the worktree's venv), each for the
+finding's reason where there is one:
+
+| test | before (50f502ac0) |
+|---|---|
+| `test_f14_the_exact_three_search_sequence_ends_with_exactly_one_live_check` (A = 3; A = 3, B = 2; A = 1, B = 2) | no live check at all (the finding) |
+| `test_f15_resuming_one_question_never_abandons_the_check_another_question_shares` | the live check is B; A, which Q2 needs, retired (the finding) |
+| `test_f15_revaluation_keeps_a_shared_check_while_any_licensing_question_needs_it` | retired as below the stop for Q1 while Q2's valuation still selects it |
+| `test_a_re_ask_whose_live_check_already_suffices_adds_nothing` | no `already_chosen` on the search (nothing conditions on the live check) |
+| `test_an_item_whose_check_was_retired_is_scheduled_again_as_a_fresh_generation` | no live check: the historical `chosen_refs` blocks the item |
+| `test_an_item_the_learner_undid_is_never_scheduled_again_by_the_same_session` | the undone item is not in `exclude_item_ids` (a guard for the new rescheduling rule) |
+| `test_value_candidates_without_already_chosen_is_byte_for_byte_the_previous_receipt` | `TypeError` on `already_chosen=()`; the default call matches the pinned hash on both sides |
+| `test_a_live_check_seeds_the_greedy_selection_and_is_never_a_new_check` | `TypeError`: no `already_chosen` |
+| `test_round_2s_reconciliation_reason_is_gone` | `RETIRE_SUPERSEDED` present |
+
+Round 2's F14 test in `test_reader_followups_rereview.py` now asserts the round-3 behaviour (the earlier check stays
+live, the cheaper equal one is not added, nothing retired). `FakeSearch` passes `already_chosen` to the real
+`value_candidates`, as the real valuer does.
+
+### Round 3 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repros serial). The full suite, the whole durability
+lane and vitest were not run. **Spend: $0.** No model or paid calls. The one computation outside pytest (the pinned
+receipt hash, on the base code) ran under `env -i` with empty, existing `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`50f502ac0`): `pytest tests/test_reader_followups_round3.py` | 9 failed |
+| `pytest -n 6` over the 58 files below, first run | 1404 passed, 1 failed, 3 skipped: `test_f6_..._resumes_with_the_pick` pinned the resume's kwargs, which now also carry `already_chosen`; the assertion was updated |
+| `pytest -n 6` over the 58 files below, after that | 1405 passed, 3 skipped |
+
+Kept green in that run: `test_rebuild_shadow_is_zero_with_follow_ups_present` (rebuild `--shadow` 0/0/0) and the
+mvp-0.38 off-state parity and shadow tests in `test_reader_followups_successor.py` and `test_cold_retry_reschedule.py`.
+
+Not applicable:
+- Frontend: no change. The removed "Coming up" line was backend copy (`coming_up`), so no vitest, typecheck or build.
+- `src-tauri`, migrations, DB connection code and schema: no change.
+
+**The 58 files:** `test_ad23_intent_compose.py`, `test_ad23_inversion.py`, `test_ad23_pool_membership.py`, `test_architecture.py`, `test_cli_attempt.py`, `test_followups.py`, `test_gate_score.py`, `test_intent_codex_rereview.py`, `test_intent_fix_round4.py`, `test_intent_fix_round6.py`, `test_intent_fix_round7.py`, `test_intent_recall_targets.py`, `test_intent_resolution.py`, `test_mobile_allowlist.py`, `test_reader_followups.py`, `test_reader_followups_rereview.py`, `test_reader_followups_review.py`, `test_reader_followups_successor.py`, `test_reader_followups_round3.py`, `test_reader_followup_valuation.py`, `test_reader_session_digests_migration.py`, `test_source_first_needs.py`, `test_ux_phase4_feedback.py`, `test_reader_recap.py`, `test_reader_recap_review.py`, `test_reader_recap_review_r2.py`, `test_reader_recap_review_r3.py`, `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_discriminating_search.py`, `test_exercise_arm.py`, `test_dl2_rw4b_keyed_pick_check.py`, `test_intent_checks.py`, `test_intent_codex_review.py`, `test_intent_exclusion.py`, `test_intent_fix_round5.py`, `test_intent_goal_deadline.py`, `test_intent_orchestrator_rulings.py`, `test_intent_planner.py`, `test_intent_plan.py`, `test_intent_rpc.py`, `test_reader_wrap_up.py`, `test_commitments.py`, `test_instructional_layering.py`, `test_table_roles.py`, `test_value_candidates.py`, `test_valuation_calibration_fields.py`, `test_practice_index_evaluation.py`, `test_practice_index_find.py`, `test_source_exercise_rpcs.py`, `test_cold_retry_reschedule.py`, `test_voi_merge_composition.py`, `test_sources_merge_composition.py`, `test_tutor_practice_request.py`, `test_practice_proposal_caller_columns.py`, `test_cli_help_snapshot.py`, `test_config_refactor.py`, `test_registry_audit.py`.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F14 | Medium (reopened) | Reconciliation can permanently lose the selected check | fixed by replacing round 2's design | `test_f14_the_exact_three_search_sequence_ends_with_exactly_one_live_check` |
+| F15 | Medium | Replacing a shared check abandons another completed question | fixed (same change) | `test_f15_resuming_one_question_never_abandons_the_check_another_question_shares`, `test_f15_revaluation_keeps_a_shared_check_while_any_licensing_question_needs_it` |
+
+### Open questions (round 3)
+
+- **Mixed-intent shared checks.** The serve-time gate and re-valuation's exposure step judge exposure on the first
+  licensing question's intent (the provenance). A related worked example excludes a retention check but only labels
+  a discriminating one, so a check shared by a retention and a discriminating question is judged as the first one
+  was. Answered, repair-owned and below-the-stop do read every licensing question.
+- **A seeded check that is no longer independent** is not conditioned on (`value_request` re-applies the exposure
+  rule to it). A re-ask can then add a check beside it until the next re-valuation retires the exposed one.
+- **Paging's perfect-information bound** still uses the prior's entropy, not the entropy left after the live
+  checks. This is conservative: a search may page further, never stop early.

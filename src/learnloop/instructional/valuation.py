@@ -874,8 +874,17 @@ def _conditional_series(candidate: CandidateInput, branches: Sequence[tuple[floa
 
 
 def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *, caller_kind: str = "learner",
-                  system_initiated: bool = False) -> dict[str, Any]:
-    """Groups, verdicts and stops for one hypothesis space."""
+                  system_initiated: bool = False, already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+    """Groups, verdicts and stops for one hypothesis space.
+
+    ``already_chosen`` (Reader RW6b, Codex re-review round 3): refs of checks
+    the caller already has live for this question. Checks are added greedily,
+    each valued conditionally on those already chosen (spec_reader_workbench_v1
+    §9.3 item 3), so the greedy selection starts from these: a candidate is
+    added only if it still clears the stop given them, and they are never
+    listed among the new ``checks``. Only refs among this problem's competing
+    candidates can be conditioned on (the others are listed as not valued).
+    Empty (the default): the selection exactly as before."""
 
     report: dict[str, Any] = {"problem": problem.describe(), "valuation_version": VALUATION_VERSION,
                               "scale": SCALE_LABEL, "constants": {
@@ -916,7 +925,8 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
                                              entry["ref"]))
     report["groups"] = groups
     if problem.decision is not None:
-        return _decision_mode(problem, inputs, report, by_ref, system_initiated=system_initiated)
+        return _decision_mode(problem, inputs, report, by_ref, system_initiated=system_initiated,
+                              already_chosen=already_chosen)
     report["mode"] = "information"
     # Bounds (arm B) are compared only with the stop, to license a skip.
     for entry in groups["bounded"]:
@@ -943,6 +953,16 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
     picks: list[CandidateInput] = []
     remaining = list(competing)
     verdict, reason, selector = "stop", "no_candidate", None
+    if already_chosen:
+        competing_refs = {candidate.ref for candidate in competing}
+        wanted = list(dict.fromkeys(str(ref) for ref in already_chosen))
+        picks = [by_ref[ref] for ref in wanted if ref in competing_refs]
+        remaining = [candidate for candidate in competing if candidate.ref not in {pick.ref for pick in picks}]
+        report["already_chosen"] = {"conditioned_on": [pick.ref for pick in picks],
+                                    "not_valued": [ref for ref in wanted if ref not in competing_refs]}
+        if picks:
+            reason, selector = "already_chosen_suffice", "evaluate_series_selection"
+    seeded = len(picks)
     while remaining:
         if not picks:
             sizes = {len(candidate.members) for candidate in remaining}
@@ -965,8 +985,10 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             verdict = "stop" if decision.verdict == "stop" else "abstain"
             reason = ("lcb_value_below_minutes_cost" if decision.verdict == "stop"
                       else "couldnt_reliably_distinguish")
-            if picks:
-                verdict, reason = "act", f"stopped_after_{len(picks)}"
+            if len(picks) > seeded:
+                verdict, reason = "act", f"stopped_after_{len(picks) - seeded}"
+            elif seeded:
+                verdict, reason = "stop", "already_chosen_suffice"
             report["stop_at"] = {"candidate": decision.chosen_slot, "verdict": decision.verdict,
                                  "robust_eig_per_second": round(decision.robust_eig_per_second, 8),
                                  "action_agreement": round(decision.action_agreement_fraction, 4)}
@@ -1037,7 +1059,8 @@ def rank_listener(listener: Callable[..., Any]) -> Iterator[None]:
 
 
 def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], report: dict[str, Any],
-                   by_ref: Mapping[str, CandidateInput], *, system_initiated: bool) -> dict[str, Any]:
+                   by_ref: Mapping[str, CandidateInput], *, system_initiated: bool,
+                   already_chosen: Sequence[str] = ()) -> dict[str, Any]:
     report["mode"] = "decision"
     decision = problem.decision
     assert decision is not None
@@ -1046,6 +1069,17 @@ def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], 
         report.update(verdict="abstain", reason=reason, checks=[], selector="rank_feasible")
         return report
     pool = [c for c in inputs if c.evaluable and (not system_initiated or c.regime in LICENSES_SYSTEM_CHECK)]
+    if already_chosen:
+        # A decision is settled by one measurement (``rank_feasible`` picks at
+        # most one): a live check already chosen in this space is that one.
+        wanted = list(dict.fromkeys(str(ref) for ref in already_chosen))
+        pool_refs = {c.ref for c in pool}
+        conditioned = [ref for ref in wanted if ref in pool_refs]
+        report["already_chosen"] = {"conditioned_on": conditioned,
+                                    "not_valued": [ref for ref in wanted if ref not in pool_refs]}
+        if conditioned:
+            report.update(verdict="stop", reason="already_chosen_suffice", checks=[], selector="rank_feasible")
+            return report
     candidates = [EV.DiagnosticCandidate(ref=c.ref, members=tuple(c.members), prior=problem.prior,
                                          expected_minutes=c.expected_minutes, burden_minutes=c.burden_minutes,
                                          prior_basis=problem.prior_basis) for c in pool]
@@ -1103,11 +1137,17 @@ def _evpi(problem: ValuationProblem, loss_table: Any) -> float:
 
 def value_candidates(problems: Sequence[ValuationProblem], inputs_by_problem: Mapping[str, Sequence[CandidateInput]],
                      *, caller_kind: str = "learner", system_initiated: bool = False,
-                     unavailable: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
-    """The valuation receipt: one section per problem, nothing summed across them."""
+                     unavailable: Sequence[Mapping[str, Any]] = (),
+                     already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+    """The valuation receipt: one section per problem, nothing summed across them.
 
+    ``already_chosen``: the caller's live checks for this question, which
+    each problem's greedy selection starts from (:func:`value_problem`).
+    Empty (the default), the receipt is exactly as before."""
+
+    extra = {"already_chosen": list(already_chosen)} if already_chosen else {}
     sections = [value_problem(problem, inputs_by_problem.get(problem.key, ()), caller_kind=caller_kind,
-                              system_initiated=system_initiated) for problem in problems]
+                              system_initiated=system_initiated, **extra) for problem in problems]
     listed: dict[str, list[dict[str, Any]]] = {}
     for section in sections:
         for group, entries in section["groups"].items():

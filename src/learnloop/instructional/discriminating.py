@@ -48,12 +48,13 @@ def make_valuer(*, estimator: Callable[..., Any] | None = None, screen_client: A
     def valuer(vault: LoadedVault, repository: Repository, constraints: Any, *, items: Sequence[str],
                exercises: Sequence[Mapping[str, Any]], caller_kind: str = "learner",
                system_initiated: bool = False, picked_proposal_id: str | None = None,
-               pending_decision: Mapping[str, Any] | None = None, familiarity: bool = False) -> dict[str, Any]:
+               pending_decision: Mapping[str, Any] | None = None, familiarity: bool = False,
+               already_chosen: Sequence[str] = ()) -> dict[str, Any]:
         return value_request(vault, repository, constraints, items=items, exercises=exercises,
                              caller_kind=caller_kind, system_initiated=system_initiated, estimator=estimator,
                              screen_client=screen_client, judge_client=judge_client,
                              channel_resolver=channel_resolver, pending_decision=pending_decision,
-                             familiarity=familiarity)
+                             familiarity=familiarity, already_chosen=already_chosen)
 
     valuer.estimator = estimator  # type: ignore[attr-defined]
     return valuer
@@ -65,7 +66,8 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                   screen_client: Any | None = None, judge_client: Any | None = None,
                   channel_resolver: Callable[..., Any] | None = None,
                   pending_decision: Mapping[str, Any] | None = None, familiarity: bool = False,
-                  eligibility: Callable[..., dict[str, Any]] | None = None) -> dict[str, Any]:
+                  eligibility: Callable[..., dict[str, Any]] | None = None,
+                  already_chosen: Sequence[str] = ()) -> dict[str, Any]:
     """One request's valuation receipt.
 
     ``familiarity`` (Reader RW6b, spec_reader_workbench_v1 §9.3 item 3, G35;
@@ -75,9 +77,18 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
     the receipt. ``eligibility`` replaces the exposure rule's
     ``independent_check_eligibility`` (whose worked-example judge is a model
     call) for a caller that applied the rule itself with no model call (RW6b's
-    daily re-valuation, Codex review F5)."""
+    daily re-valuation, Codex review F5).
+
+    ``already_chosen`` (RW6b, Codex re-review round 3): the caller's live
+    checks for this question. Each is valued with the request's items (the
+    exposure rule applied to it again: one no longer independent is not
+    conditioned on) and the greedy selection starts from those kept
+    (:func:`valuation.value_problem`). Empty (the default): unchanged."""
 
     intent = constraints.intent
+    if already_chosen:
+        items = [*items, *(ref for ref in dict.fromkeys(str(r) for r in already_chosen)
+                           if ref not in set(items) and ref in vault.practice_items)]
     check = eligibility or (lambda *a, **k: independent_check_eligibility(*a, **k))
     repair = dict((pending_decision or {}).get("action_by_slot") or {}) or None
     problems, unavailable = open_hypotheses(
@@ -138,8 +149,10 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                     entry.missing = ["not_imported: valued once imported (its rubric and profiles are authored then)"]
                     entries.append(entry)
         inputs[problem.key] = entries
+    chosen_kept = [ref for ref in dict.fromkeys(str(r) for r in already_chosen) if ref in set(kept_items)]
     receipt = value_candidates(problems, inputs, caller_kind=caller_kind, system_initiated=system_initiated,
-                               unavailable=unavailable)
+                               unavailable=unavailable,
+                               **({"already_chosen": chosen_kept} if already_chosen else {}))
     receipt["intent"] = intent
     receipt["eligibility"] = eligibility
     # Hard exclusions, kept apart from the unvalued: final assembly never

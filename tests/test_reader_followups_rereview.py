@@ -9,9 +9,10 @@
   row is compared, not a second-resolution stamp).
 * F13: an exposure retirement and its re-ask marker commit together; a
   failure between them loses neither the check nor the replacement search.
-* F14: a resumed search that no longer selects a check it published earlier
-  (it carried that check and chose a cheaper one with the same information)
-  retires the earlier one in the same publication.
+* F14: a resumed search over a check it published earlier (carried, with a
+  cheaper one with the same information found) keeps the earlier one and adds
+  nothing (round 3: the live check seeds the greedy conditional selection;
+  round 2's retirement by reconciliation is gone).
 
 Fakes only; no model call anywhere.
 """
@@ -196,7 +197,7 @@ def test_f13_a_failure_after_the_exposure_retirement_loses_neither_the_check_nor
     assert [s.session_id for s in RF.sessions_to_plan(vault, repo, now=_now(410))] == [session.session_id]
 
 
-# -- F14: a resumed search reconciles what it no longer selects -----------------------------------------
+# -- F14: a resumed search conditions on the live check (round 3) ---------------------------------------
 
 
 class _PerCall(FakeSearch):
@@ -215,7 +216,11 @@ class _PerCall(FakeSearch):
         return result
 
 
-def test_f14_a_resumed_search_that_prefers_a_cheaper_equal_check_retires_the_earlier_one(tmp_path):
+def test_f14_a_resumed_search_conditions_on_the_live_check_and_retires_nothing(tmp_path):
+    """Round 3 replaced round 2's reconciliation (which retired the earlier
+    check): the live check seeds the greedy selection, so a cheaper check with
+    the same information adds nothing and nothing is retired."""
+
     vault, repo, session = _seeded(tmp_path)
     search = _PerCall([[_candidate(ITEM, 1.0, 0.0, 1.0)],
                        # Resumed: the earlier pick is carried; a cheaper check with the same information is found.
@@ -226,14 +231,11 @@ def test_f14_a_resumed_search_that_prefers_a_cheaper_equal_check_retires_the_ear
     again = _plan(vault, repo, session, search, minutes=NOW_MIN + 60)
     assert again["status"] == "planned"
     assert len(search.calls) == 2 and search.calls[1]["continue_from"] == "pp_fake_1"
-    pending = [cid for cid in again["followup_commitment_ids"]
-               if C.resolve_disposition(repo, cid) == "one_check_pending"]
-    refs = {entry["commitment_id"]: entry["ref"] for entry in again["valuation"]["chosen"]}
-    assert [refs[cid] for cid in pending] == [OTHER]
-    assert C.resolve_disposition(repo, earlier) == "stopped"
+    assert search.calls[1]["already_chosen"] == [ITEM]
+    assert again["followup_commitment_ids"] == [earlier]
+    assert C.resolve_disposition(repo, earlier) == "one_check_pending"
     timeline = RF.coming_up(vault, repo, extraction_id=EXT, now=_now(NOW_MIN + 60))
-    [gone] = timeline["retired"]
-    assert gone["reason"] == RF.RETIRE_SUPERSEDED and gone["commitment_id"] == earlier
+    assert [line["commitment_id"] for line in timeline["next"]] == [earlier] and timeline["retired"] == []
 
 
 def test_f14_a_resumed_search_that_still_selects_the_earlier_check_keeps_it(tmp_path):

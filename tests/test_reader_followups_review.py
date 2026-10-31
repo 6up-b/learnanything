@@ -258,7 +258,9 @@ def test_f6_a_budget_stop_after_a_pick_stays_incomplete_and_resumes_with_the_pic
     assert question["incomplete"] is True and question["continue_from"] == "pp_fake_1"
     assert len(row["followup_commitment_ids"]) == 2  # what was chosen is published
     again = _plan(vault, repo, session, search, minutes=NOW_MIN + 60)
-    assert search.calls_kwargs[1] == {"continue_from": "pp_fake_1"}
+    # Round 3: the resume also carries the question's live checks as already chosen.
+    assert search.calls_kwargs[1] == {"continue_from": "pp_fake_1",
+                                      "already_chosen": [ITEM, "pi_svd_define_003"]}
     assert again["status"] == "planned"
     refs = [entry["ref"] for entry in again["valuation"]["chosen"]]
     assert sorted(refs) == sorted(set(refs)) and len(again["followup_commitment_ids"]) == 2

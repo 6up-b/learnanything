@@ -116,7 +116,10 @@ class FakeSearch:
                                    prior={"holds_unaided": 0.5, "not_unaided": 0.5},
                                    prior_basis="predictor:test", state_hash="h")
         inputs = [] if self.empty else list(self.candidates)
-        receipt = value_candidates([problem], {problem.key: inputs}, caller_kind="reader", system_initiated=True)
+        # The live checks seed the greedy selection as the real valuer does (round 3).
+        receipt = value_candidates([problem], {problem.key: inputs}, caller_kind="reader", system_initiated=True,
+                                   **({"already_chosen": kwargs["already_chosen"]}
+                                      if kwargs.get("already_chosen") else {}))
         return {"status": "ok", "proposal_id": f"pp_fake_{len(self.calls)}", "valuation": receipt,
                 "paging": {"outcome": "exhausted"}, "rerank_status": "reranked"}
 
