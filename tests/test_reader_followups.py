@@ -106,8 +106,8 @@ class FakeSearch:
         self.raise_first = raise_first
         self.empty = empty
 
-    def __call__(self, query, constraints, *, caller):
-        self.calls.append({"query": query, "constraints": constraints, "caller": caller})
+    def __call__(self, query, constraints, *, caller, **kwargs):
+        self.calls.append({"query": query, "constraints": constraints, "caller": caller, **kwargs})
         if self.raise_first is not None:
             exc, self.raise_first = self.raise_first, None
             raise exc
@@ -414,7 +414,11 @@ def test_formative_records_add_questions_only_with_their_switch():
         assert [(q.key, q.raised_by[0]["kind"]) for q in questions] == [("retention:f1", "formative")]
         # A record changes which questions are asked, never a prior: no number rides on it.
         assert set(questions[0].as_dict()) == {"key", "purpose", "learning_object_ids", "facet_ids",
-                                               "target_hypotheses", "raised_by", "attempt_ids", "intent"}
+                                               "target_hypotheses", "raised_by", "attempt_ids", "intent",
+                                               "pending_decision"}
+        assert questions[0].pending_decision is None
+        # A formative-only question names itself for the valuation (Codex review F9): a ref, not a number.
+        assert questions[0].target_hypotheses == [{"kind": "retention", "id": "f1"}]
         vault.config.followups.formative_questions_enabled = False
         assert RF.open_questions(vault, repo, summary, now=_now())[0] == []
     finally:

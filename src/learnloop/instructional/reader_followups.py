@@ -57,7 +57,7 @@ or below it, the predecessor's plan exactly. Nothing here writes evidence.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing, contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -108,6 +108,14 @@ NOVELTY_LABELS = {NOVELTY_SAME_SURFACE: "same idea, new numbers", NOVELTY_NEW_PR
 RETIRE_ANSWERED = "no_longer_needed"
 RETIRE_BELOW_STOP = "below_stop"
 RETIRE_UNDONE = "undone"
+#: Exposed since its valuation (the full exposure rule at serve; Codex review
+#: F1): no longer a check on your own; the question is asked again.
+RETIRE_EXPOSED = "exposed_since_valuation"
+#: A repair cold retry now measures the same claim (Codex review F11).
+RETIRE_REPAIR_OWNS = "repair_retry_owns"
+#: Re-valuation keeps a check whose only exposure is a studied worked example
+#: nobody judged yet; the background job asks the judge (Codex review F5).
+KEPT_REFRESH = "exposure_refresh_needed"
 #: How a question was answered since (re-valuation): an unaided success on
 #: the claim, or every probe episode it named closed.
 ANSWERED_SOLVED = "solved_on_your_own"
@@ -165,6 +173,9 @@ class Question:
     raised_by: list[dict[str, Any]] = field(default_factory=list)
     #: The session's assisted attempts behind a retention question (dating, novelty).
     attempt_ids: list[str] = field(default_factory=list)
+    #: A repair decision the rivals bear on (Codex review F7):
+    #: ``{"hypothesis_set_id", "action_by_slot"}``, passed to the valuation.
+    pending_decision: dict[str, Any] | None = None
 
     @property
     def intent(self) -> str:
@@ -200,28 +211,20 @@ def _facet_los(vault: Any, facet_id: str) -> list[str]:
 def pending_cold_retry(vault: Any, repository: Repository, *, facet_id: str, attempt_ids: Sequence[str],
                        learning_object_ids: Sequence[str], now: datetime) -> dict[str, Any] | None:
     """mvp-0.38's interaction: a repair ``cold_retry`` still pending (or served)
-    for the same claim, i.e. on one of the claim's attempts or on an item of
-    the claim's learning objects that carries the facet. Its cold measurement
-    answers the claim; a retention follow-up would ask it twice."""
+    that owns the claim: the item it measures assesses the claim's facet, on
+    one of the claim's attempts or on the claim's learning objects (Codex
+    review F11: ownership is by the assessed facets, never the source attempt
+    alone). Its cold measurement answers the claim; a retention follow-up would
+    ask it twice. The one rule creation, re-valuation and serving use
+    (``scheduling.intent.followup_gate.owning_retry``)."""
 
-    from learnloop.practice_index.catalog import item_facets
+    from learnloop.scheduling.intent.followup_gate import open_cold_retries, owning_retry
 
-    at = now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        rows = connection.execute(
-            "SELECT id, source_attempt_id, selected_item_id, not_before, expires_at FROM followup_tasks "
-            "WHERE kind = 'cold_retry' AND status IN ('pending', 'served') "
-            "AND (expires_at IS NULL OR expires_at >= ?) ORDER BY not_before, id", (at,)).fetchall()
-    facet = vault.canonical_facet_id(facet_id)
-    attempts = {str(a) for a in attempt_ids}
-    los = set(learning_object_ids)
-    for row in rows:
-        if row["source_attempt_id"] and str(row["source_attempt_id"]) in attempts:
-            return dict(row)
-        item = vault.practice_items.get(str(row["selected_item_id"] or ""))
-        if item is not None and item.learning_object_id in los and facet in item_facets(vault, item):
-            return dict(row)
-    return None
+        rows = open_cold_retries(connection, now=now)
+    found = owning_retry(vault, rows, facet_id=facet_id, attempt_ids=attempt_ids,
+                         learning_object_ids=learning_object_ids)
+    return dict(found) if found is not None else None
 
 
 def open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[str, Any], *,
@@ -296,10 +299,38 @@ def open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[
 
     # The session's formative records (restored RS3): each adds the facets it
     # touched as a question, and a gap named from it as a rival. Never a prior.
+    # Open causal factors with competing repairs on the session's attempts
+    # (Codex review F7): each locked hypothesis set is its own decision
+    # question (spaces never merged), its pending decision passed through.
+    from learnloop.instructional import needs as N
+
+    session_attempts = list(dict.fromkeys(
+        [str(line.get("attempt_id")) for line in summary.get("workbench") or [] if line.get("attempt_id")]
+        + [str(a) for claim in claims for a in claim.get("attempt_ids") or []]))
+    decision_attempts = _attempt_rows(repository, session_attempts)
+    for attempt_id in session_attempts:
+        decision = N.pending_causal_decision(vault, repository, {"attempt_id": attempt_id})
+        if not decision:
+            continue
+        if decision.get("unavailable") or not decision.get("hypothesis_set_id"):
+            notes.append({"question": f"decide:attempt:{attempt_id}", "reason": decision.get("unavailable")
+                          or "no_locked_hypothesis_set"})
+            continue
+        hset = str(decision["hypothesis_set_id"])
+        lo = _item_lo(vault, (decision_attempts.get(attempt_id) or {}).get("practice_item_id"))
+        q = question(f"decide:{hset}", PURPOSE_DISCRIMINATING, [lo] if lo else sorted(session_los))
+        ref = {"kind": "causal_hypothesis", "id": hset}
+        if ref not in q.target_hypotheses:
+            q.target_hypotheses.append(ref)
+        q.pending_decision = {"hypothesis_set_id": hset, "action_by_slot": dict(decision.get("action_by_slot") or {})}
+        q.raised_by.append({"kind": "rival", "source": "causal_factor", "attempt_id": attempt_id,
+                            "hypothesis_set_id": hset})
+
     if formative_questions_enabled(vault):
         for record in summary.get("observations") or []:
             raised = {"kind": "formative", "record_kind": record.get("kind"),
-                      "source_event_ids": list(record.get("source_event_ids") or [])}
+                      "source_event_ids": list(record.get("source_event_ids") or []),
+                      "span_ids": list(record.get("span_ids") or [])}
             facets = [vault.canonical_facet_id(str(f)) for f in record.get("facet_candidates") or []
                       if vault.canonical_facet_id(str(f)) in vault.evidence_facets]
             for facet in facets:
@@ -322,6 +353,15 @@ def open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[
                 if ref not in q.target_hypotheses:
                     q.target_hypotheses.append(ref)
                 q.raised_by.append(raised)
+    # A retention question only formative records raised names itself (a
+    # ``retention`` ref): the valuation poses it on an item anchor with the
+    # active predictor's prior (Codex review F9), never a record's number.
+    for q in questions.values():
+        if q.purpose == PURPOSE_RETENTION and not any(r.get("kind") == "claim" for r in q.raised_by):
+            for facet in q.facet_ids:
+                ref = {"kind": "retention", "id": facet}
+                if ref not in q.target_hypotheses:
+                    q.target_hypotheses.append(ref)
     return list(questions.values()), notes
 
 
@@ -345,8 +385,11 @@ def revealed_families(vault: Any, repository: Repository, session: RS.ReaderSess
     return sorted(families)
 
 
-def constraints_for(question: Question, *, exclude_family_ids: Sequence[str]) -> dict[str, Any]:
-    """The ``PracticeConstraints`` mapping for one question (§9.3 item 2, exactly)."""
+def constraints_for(question: Question, *, exclude_family_ids: Sequence[str],
+                    exclude_item_ids: Sequence[str] = ()) -> dict[str, Any]:
+    """The ``PracticeConstraints`` mapping for one question (§9.3 item 2,
+    exactly), plus ``exclude_item_ids``: the items an explicit learner choice
+    decides (Codex review F2), never valued as an automatic check."""
 
     return {
         "intent": question.intent,
@@ -356,7 +399,27 @@ def constraints_for(question: Question, *, exclude_family_ids: Sequence[str]) ->
         "unattempted_only": True,
         "exclude_family_ids": list(exclude_family_ids),
         "exclude_revealed_families": True,
+        "exclude_item_ids": sorted(set(exclude_item_ids)),
     }
+
+
+def committed_items(vault: Any, connection: Any, *, own: Iterable[str] = ()) -> set[str]:
+    """Items some commitment other than ``own`` decides (DL2 §5.3's resolution):
+    a learner's Pause, Master, Learn, Keep, reference-only or their own
+    "Check once", or another session's follow-up. An automatic follow-up never
+    lands there, so it never overrides an explicit choice (Codex review F2)."""
+
+    from learnloop.scheduling.intent.resolution import Resolution, load_snapshots
+
+    mine = set(own)
+    covering = [snapshot for snapshot in load_snapshots(connection)
+                if not snapshot.retired and snapshot.covers_items and snapshot.id not in mine]
+    if not covering:
+        return set()
+    targets = dict(getattr(getattr(vault.config, "intent", None), "recall_targets", None) or {})
+    resolution = Resolution(covering, targets)
+    return {item.id for item in vault.practice_items.values()
+            if not resolution.for_item(item.id, item.learning_object_id).uncommitted}
 
 
 def query_for(vault: Any, question: Question) -> str:
@@ -382,12 +445,48 @@ def default_search(vault: LoadedVault, repository: Repository, *, injections: Ma
     from learnloop.instructional.policy import caller_for
     from learnloop.instructional.practice import propose_practice
 
-    def search(query: str, constraints: Mapping[str, Any], *, caller: Mapping[str, Any]) -> Mapping[str, Any]:
+    from learnloop.instructional.policy import PolicyRefused
+    from learnloop.instructional.practice import continuation_cursor
+    from learnloop.practice_index.retrieval import ContinuationMismatch
+
+    injected = dict(injections)
+    base = injected.get("valuer")
+    if base is not None:
+        # G35 (Codex review F12): the follow-ups' valuation composes the
+        # attempt-familiarity discount into every item's information.
+        def valuer(*args: Any, **kwargs: Any) -> Any:
+            return base(*args, familiarity=True, **kwargs)
+
+        valuer.estimator = getattr(base, "estimator", None)  # type: ignore[attr-defined]
+        injected["valuer"] = valuer
+
+    def search(query: str, constraints: Mapping[str, Any], *, caller: Mapping[str, Any],
+               continue_from: str | None = None,
+               pending_decision: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         context = caller_for(repository, "reader", str(caller.get("ref") or ""),
                              learning_object_ids=list(constraints.get("learning_object_ids") or []))
+        extra: dict[str, Any] = {}
+        if pending_decision:
+            extra["pending_decision"] = dict(pending_decision)
+        cursor = None
+        if continue_from:
+            # Codex review F6: an interrupted search resumes where it stopped,
+            # its relevant candidates (the checks it chose among them) carried.
+            try:
+                cursor = continuation_cursor(repository, continue_from, caller=context, query=query,
+                                             intent=str(constraints.get("intent") or "practice"))
+            except (ValueError, PolicyRefused):
+                cursor = None
+        if cursor is not None:
+            try:
+                return propose_practice(vault, repository, query, constraints, caller=context, origin="api",
+                                        rerank_client=rerank_client, clock=clock, system_initiated=True,
+                                        cursor=cursor, **extra, **injected)
+            except ContinuationMismatch:
+                pass  # a changed filter is a new search
         return propose_practice(vault, repository, query, constraints, caller=context, origin="api",
                                 rerank_client=rerank_client, clock=clock, system_initiated=True,
-                                **dict(injections))
+                                **extra, **injected)
 
     return search
 
@@ -498,15 +597,61 @@ def digest_id_for(extraction_id: str, session_key: str) -> str:
     return "rsd_" + content_key([extraction_id, session_key])[:32]
 
 
+def _workbench_spans(repository: Repository, session_ids: Sequence[str]) -> dict[str, list[str]]:
+    wanted = sorted({str(s) for s in session_ids if s})
+    if not wanted:
+        return {}
+    marks = ",".join("?" for _ in wanted)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = connection.execute(
+            f"SELECT id, span_ids_json FROM workbench_sessions WHERE id IN ({marks})", wanted).fetchall()
+    out: dict[str, list[str]] = {}
+    for row in rows:
+        try:
+            spans = json.loads(row["span_ids_json"] or "[]")
+        except (TypeError, ValueError):
+            spans = []
+        out[str(row["id"])] = [str(span) for span in spans if span] if isinstance(spans, list) else []
+    return out
+
+
+def _section_spans(repository: Repository, extraction_id: str, sections: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The first span of the last section the session read (the studied passage)."""
+
+    from learnloop.db.stores.source_block_fts import extraction_units
+
+    ids = [str(row.get("section_id")) for row in sections if row.get("section_id")]
+    if not ids:
+        return []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        units = {unit.unit_id: list(unit.span_ids) for unit in extraction_units(connection, extraction_id)}
+    for section in reversed(ids):
+        if units.get(section):
+            return [str(units[section][0])]
+    return []
+
+
 def _session_spans(vault: Any, repository: Repository, summary: Mapping[str, Any], learning_object_ids: Sequence[str],
                    extraction_id: str) -> tuple[list[str], list[str]]:
-    """The session's inquiry roots and anchor spans on these learning objects (§9.3 item 9)."""
+    """The way back (§9.3 item 9; Codex review F10): the session's inquiry
+    roots and anchor spans on these learning objects; the spans of the
+    workbench sessions that worked an item of them and of the formative
+    records that touched them; with none of those, the workbench and formative
+    spans of the session, else the first span of the passage it read last."""
 
     wanted = set(learning_object_ids)
     inquiries = summary.get("inquiries") or {}
     roots: list[str] = []
     spans: list[str] = []
     seen: set[str] = set()
+
+    def span_los(span_ids: Sequence[str]) -> set[str]:
+        return {lo for span in span_ids
+                for lo in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span)}
+
+    def add(values: Sequence[str]) -> None:
+        spans.extend(s for s in values if s not in spans)
+
     for line in [*(inquiries.get("opened") or []), *(inquiries.get("still_open") or []),
                  *(inquiries.get("resolved") or [])]:
         root = str(line.get("root_exchange_id") or "")
@@ -514,11 +659,29 @@ def _session_spans(vault: Any, repository: Repository, summary: Mapping[str, Any
             continue
         seen.add(root)
         line_spans = [str(s) for s in line.get("span_ids") or []]
-        los = {lo for span in line_spans
-               for lo in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span)}
-        if los & wanted:
+        if span_los(line_spans) & wanted:
             roots.append(root)
-            spans.extend(s for s in line_spans if s not in spans)
+            add(line_spans)
+    workbench = list(summary.get("workbench") or [])
+    by_session = _workbench_spans(repository, [str(line.get("session_id") or "") for line in workbench])
+    loose: list[str] = []
+    for line in workbench:
+        line_spans = by_session.get(str(line.get("session_id") or ""), [])
+        if _item_lo(vault, line.get("practice_item_id")) in wanted or span_los(line_spans) & wanted:
+            add(line_spans)
+        else:
+            loose.extend(line_spans)
+    for record in summary.get("observations") or []:
+        record_spans = [str(s) for s in record.get("span_ids") or [] if s]
+        facet_los = {lo for facet in record.get("facet_candidates") or []
+                     for lo in _facet_los(vault, str(facet))} if hasattr(vault, "practice_items") else set()
+        if span_los(record_spans) & wanted or facet_los & wanted:
+            add(record_spans)
+        else:
+            loose.extend(record_spans)
+    if not roots and not spans:
+        add(list(dict.fromkeys(loose)) or _section_spans(repository, extraction_id,
+                                                          summary.get("sections_read") or []))
     return roots, spans
 
 
@@ -612,14 +775,37 @@ def why_text(purpose: str, check: Mapping[str, Any], mode: str | None) -> str:
     return f"{lead} · {about}{SCALE_LABEL}"
 
 
+def _exposure_scope(vault: Any, repository: Repository, learning_object_ids: Sequence[str],
+                    extraction_id: str) -> list[str]:
+    """The extractions the exposure rule's worked-example shortlist is drawn
+    from for these learning objects (``teaching_scope``), plus the session's:
+    the serve-time gate reads studied examples in this scope (F1)."""
+
+    from learnloop.source_retrieval.corpus import teaching_scope
+
+    try:
+        scope = set(teaching_scope(vault, repository, list(learning_object_ids), item_bound=False).extractions)
+    except Exception:  # noqa: BLE001 - no scope reads every extraction (the conservative reading)
+        return []
+    return sorted(scope | {extraction_id})
+
+
 def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: str, session: RS.ReaderSession,
                  search: Search | None, now: datetime, clock: Clock | None = None) -> dict[str, Any] | None:
     """Plan the follow-ups of one ended reader session; returns its digest row.
 
     Idempotent per session: a planned session is returned as stored; an
-    ``incomplete`` one (a budget or the judge stopped a search) re-asks only
-    the questions that did not finish, keeping the commitments it made.
-    ``None`` when follow-ups are off or the session had no activity."""
+    ``incomplete`` one (a budget or the judge stopped a search, or a check was
+    exposed since its valuation) re-asks only the questions that did not
+    finish, resuming an interrupted search from its continuation and keeping
+    the commitments it made (Codex review F6). ``None`` when follow-ups are
+    off or the session had no activity.
+
+    Every (paid) search runs first; then ONE transaction re-reads the digest
+    (another process may have planned the session meanwhile: its row stands),
+    re-checks the learner's intent on each item, and publishes the
+    commitments, the digest receipt and the queue revision together, so no
+    live check exists outside the digest and re-valuation (Codex review F3)."""
 
     if not followups_enabled(vault):
         return None
@@ -634,7 +820,8 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     questions, notes = open_questions(vault, repository, summary, now=now)
     families = revealed_families(vault, repository, session)
     previous = (existing or {}).get("valuation") or {}
-    done = {q["key"] for q in previous.get("questions") or [] if not q.get("incomplete")}
+    previous_entries = {q["key"]: q for q in previous.get("questions") or []}
+    done = {key for key, q in previous_entries.items() if not q.get("incomplete")}
     receipt_questions = [q for q in previous.get("questions") or [] if q["key"] in done]
     chosen: list[dict[str, Any]] = list(previous.get("chosen") or [])
     commitment_ids: list[str] = list((existing or {}).get("followup_commitment_ids") or [])
@@ -642,25 +829,40 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     worked = [str(line.get("practice_item_id")) for line in summary.get("workbench") or [] if line.get("practice_item_id")]
     attempts = _attempt_rows(repository, [a for q in questions for a in q.attempt_ids])
     source_id = RC._source_id(repository, extraction_id)
+    with repository.connection() as connection:
+        committed = committed_items(vault, connection, own=commitment_ids)
     from learnloop.instructional.wiring import disabled_reason
 
     switched_off = disabled_reason(vault, "discriminating_search")
     incomplete = False
+    intent_excluded: set[str] = set()
+    planned: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []  # (entry, creation, chosen line)
     for question in questions:
         if question.key in done:
             continue
-        constraints = constraints_for(question, exclude_family_ids=families)
+        excluded_items = sorted(i for i in committed
+                                if _item_lo(vault, i) in set(question.learning_object_ids))
+        intent_excluded.update(excluded_items)
+        constraints = constraints_for(question, exclude_family_ids=families, exclude_item_ids=excluded_items)
         entry: dict[str, Any] = {"key": question.key, "question": question.as_dict(), "constraints": constraints}
         if switched_off is not None or search is None:
             entry.update(outcome="unavailable", reason=switched_off or "no_search")
             receipt_questions.append(entry)
             continue
+        kwargs: dict[str, Any] = {}
+        resume = (previous_entries.get(question.key) or {}).get("continue_from")
+        if resume:
+            kwargs["continue_from"] = resume
+        if question.pending_decision:
+            kwargs["pending_decision"] = dict(question.pending_decision)
         try:
             with followup_spend(vault, repository, clock):
                 result = search(query_for(vault, question), constraints,
-                                caller={"kind": VIA, "ref": digest_id})
+                                caller={"kind": VIA, "ref": digest_id}, **kwargs)
         except SpendLimitExceeded as exc:
             entry.update(outcome="incomplete", reason="budget", detail=str(exc), incomplete=True)
+            if resume:
+                entry["continue_from"] = resume
             receipt_questions.append(entry)
             incomplete = True
             continue
@@ -673,15 +875,20 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
         entry.update(_question_outcome(result, picks))
         entry.update(proposal_id=result.get("proposal_id"), rerank_status=result.get("rerank_status"),
                      valuation=result.get("valuation"))
-        if _incomplete(result) and not picks:
+        if _incomplete(result):
+            # Stopped early, with checks or without (F6): the question stays
+            # open and the next plan resumes from this search's continuation.
             entry["incomplete"] = True
             incomplete = True
+            if (result.get("paging") or {}).get("cursor") and result.get("proposal_id"):
+                entry["continue_from"] = str(result["proposal_id"])
         if entry.get("outcome") == "no_item":
             entry["generation"] = (
                 {"requested": False, "reason": "generate_when_nothing_fits is off"}
                 if not getattr(_config(vault), "generate_when_nothing_fits", False)
                 else {"requested": False, "reason": "unavailable: PF has no source-anchored request API yet"})
         roots, spans = _session_spans(vault, repository, summary, question.learning_object_ids, extraction_id)
+        scope = _exposure_scope(vault, repository, question.learning_object_ids, extraction_id)
         for section, check in picks:
             ref = str(check["ref"])
             if ref in chosen_refs or ref not in vault.practice_items:
@@ -712,19 +919,17 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                                            if lo in vault.learning_objects), None),
                 "question": {"intent": question.intent, "learning_object_ids": lo_ids,
                              "facet_ids": list(question.facet_ids),
-                             "target_hypotheses": [dict(r) for r in question.target_hypotheses]},
+                             "target_hypotheses": [dict(r) for r in question.target_hypotheses],
+                             **({"pending_decision": dict(question.pending_decision)}
+                                if question.pending_decision else {})},
+                "attempt_ids": list(question.attempt_ids),
+                "exposure_scope_extraction_ids": scope,
                 "followups_version": FOLLOWUPS_VERSION,
             }
-            commitment = C.create_commitment(
-                repository, action="test_me_later",
-                intent_text=purpose_text(vault, question.purpose, lo_ids, novelty),
-                targets=[{"target_kind": "legacy_practice_item", "target_ref": ref}],
-                depth_preset="keep_in_touch", client_idempotency_key=f"{VIA}:{digest_id}:{ref}",
-                author="learnloop", reason=VIA, due_hint=dated["due_hint"], provenance=provenance, clock=clock)
-            if commitment.id not in commitment_ids:
-                commitment_ids.append(commitment.id)
-            chosen.append({
-                "ref": ref, "commitment_id": commitment.id, "question": question.key,
+            creation = {"ref": ref, "intent_text": purpose_text(vault, question.purpose, lo_ids, novelty),
+                        "due_hint": dated["due_hint"], "provenance": provenance}
+            line = {
+                "ref": ref, "commitment_id": None, "question": question.key,
                 "problem": valuation_ref["problem"], "order": check.get("order"), "purpose": question.purpose,
                 "mode": mode, "novelty": novelty, "due_hint": dated["due_hint"], "date_basis": dated["basis"],
                 "date_capped": dated["capped"], "regime": check.get("regime"),
@@ -733,33 +938,74 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                 "point_eig_nats": check.get("point_eig_nats"), "value_minutes_lcb": check.get("value_minutes_lcb"),
                 "expected_minutes": check.get("expected_minutes"),
                 "predicted_outcomes": check.get("predicted_outcomes") or _marginal(section, check),
+                "familiarity": check.get("familiarity"),
                 "why": why_text(question.purpose, check, mode),
-            })
+            }
+            planned.append((entry, creation, line))
         receipt_questions.append(entry)
-    valuation = {
-        "followups_version": FOLLOWUPS_VERSION, "valuation_version": VALUATION_VERSION,
-        "summary_version": summary.get("summary_version"), "scale": SCALE_LABEL,
-        "exclude_family_ids": families, "questions": receipt_questions, "notes": notes,
-        "chosen": chosen, "chosen_ids": [entry["ref"] for entry in chosen], "planned_at": _iso(now),
-    }
-    status = "incomplete" if incomplete else "planned"
+    return _publish(vault, repository, digest_id=digest_id, existing=existing, extraction_id=extraction_id,
+                    session=session, summary=summary, notes=notes, families=families,
+                    receipt_questions=receipt_questions, chosen=chosen, commitment_ids=commitment_ids,
+                    planned=planned, incomplete=incomplete, intent_excluded=intent_excluded, now=now, clock=clock)
+
+
+def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Mapping[str, Any] | None,
+             extraction_id: str, session: RS.ReaderSession, summary: Mapping[str, Any],
+             notes: Sequence[Mapping[str, Any]], families: Sequence[str], receipt_questions: list[dict[str, Any]],
+             chosen: list[dict[str, Any]], commitment_ids: list[str],
+             planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]], incomplete: bool,
+             intent_excluded: set[str], now: datetime, clock: Clock | None) -> dict[str, Any] | None:
+    """F3: the commitments, the digest receipt and the queue revision in one transaction."""
+
     stamp = utc_now_iso(clock)
+    created_any = False
     with repository.atomic():
         connection = repository.connection()
-        if existing is None:
-            RDG.insert_digest(connection, {
-                "id": digest_id, "extraction_id": extraction_id, "session_key": session.session_id,
-                "visit_ids": list(session.visit_ids), "started_at": session.started_at,
-                "ended_at": session.ended_at, "status": status, "summary": summary,
-                "followup_commitment_ids": commitment_ids, "valuation": valuation, "created_at": stamp})
-        else:
-            RDG.update_digest(connection, digest_id, status=status, summary_json=summary,
-                              followup_commitment_ids_json=commitment_ids, valuation_json=valuation,
-                              updated_at=stamp)
-    if commitment_ids:
-        repository.bump_queue_revision(clock=clock)
+        current = RDG.digest_for_session(connection, extraction_id, session.session_id)
+        superseded = (current is not None and (
+            existing is None or current["status"] == "planned"
+            or str(current.get("updated_at")) != str(existing.get("updated_at"))))
+        if not superseded:
+            # The learner's intent as it stands now, inside the publication.
+            committed = committed_items(vault, connection, own=commitment_ids)
+            for entry, creation, line in planned:
+                ref = creation["ref"]
+                if ref in committed:
+                    entry.setdefault("skipped", []).append({"ref": ref, "reason": "learner_intent"})
+                    continue
+                commitment = C.create_commitment(
+                    repository, action="test_me_later", intent_text=creation["intent_text"],
+                    targets=[{"target_kind": "legacy_practice_item", "target_ref": ref}],
+                    depth_preset="keep_in_touch", client_idempotency_key=f"{VIA}:{digest_id}:{ref}",
+                    author="learnloop", reason=VIA, due_hint=creation["due_hint"],
+                    provenance=creation["provenance"], clock=clock)
+                created_any = True
+                if commitment.id not in commitment_ids:
+                    commitment_ids.append(commitment.id)
+                chosen.append({**line, "commitment_id": commitment.id})
+            valuation = {
+                "followups_version": FOLLOWUPS_VERSION, "valuation_version": VALUATION_VERSION,
+                "summary_version": summary.get("summary_version"), "scale": SCALE_LABEL,
+                "exclude_family_ids": list(families), "questions": receipt_questions, "notes": list(notes),
+                "learner_intent_item_ids": sorted(intent_excluded),
+                "chosen": chosen, "chosen_ids": [entry["ref"] for entry in chosen], "planned_at": _iso(now),
+            }
+            status = "incomplete" if incomplete else "planned"
+            if existing is None:
+                RDG.insert_digest(connection, {
+                    "id": digest_id, "extraction_id": extraction_id, "session_key": session.session_id,
+                    "visit_ids": list(session.visit_ids), "started_at": session.started_at,
+                    "ended_at": session.ended_at, "status": status, "summary": summary,
+                    "followup_commitment_ids": commitment_ids, "valuation": valuation, "created_at": stamp})
+            else:
+                RDG.update_digest(connection, digest_id, status=status, summary_json=summary,
+                                  followup_commitment_ids_json=commitment_ids, valuation_json=valuation,
+                                  updated_at=stamp)
+            if created_any:
+                repository.bump_queue_revision(clock=clock)
     with repository.connection() as connection:
-        return RDG.digest(connection, digest_id)
+        return RDG.digest(connection, digest_id) if not superseded else RDG.digest_for_session(
+            connection, extraction_id, session.session_id)
 
 
 def sessions_to_plan(vault: LoadedVault, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]:
@@ -860,20 +1106,40 @@ def _today(now: datetime) -> str:
     return _local_day(now).isoformat()
 
 
+def _gate_reasons(vault: Any, repository: Repository, *, item_id: str, provenance: Mapping[str, Any],
+                  valued_at: str, now: datetime) -> list[str]:
+    """The serve-time gate's reasons now (exposure since valuation, repair
+    ownership; ``scheduling.intent.followup_gate``), with no model call."""
+
+    from learnloop.scheduling.intent.followup_gate import followup_gate
+
+    verdict = followup_gate(vault, repository, item_id=item_id, provenance=provenance, valued_at=valued_at, now=now)
+    return list((verdict or {}).get("reasons") or [])
+
+
 def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime,
                     valuer: Callable[..., Mapping[str, Any]] | None = None, clock: Clock | None = None,
                     force: bool = False) -> dict[str, Any]:
     """Re-value every pending follow-up once a local day, before the plan is
-    built. ``valuer(constraints, item_id) -> receipt`` is
-    ``discriminating.value_request`` for one item (no model call). Retires a
-    follow-up whose question was answered since or that no longer clears the
-    stop, with its reason; an excluded or abstaining one is left to DL2
-    (which re-checks independence when it serves)."""
+    built, with no model call (Codex review F5). ``valuer(question, item_id)
+    -> receipt`` is ``discriminating.value_request`` for one item with the
+    exposure rule applied here instead of its judge (:func:`default_valuer`).
+
+    For each pending check, in order: an answered question retires it (good
+    news); the serve-time gate's exposure since valuation retires it and
+    re-asks the question (F1), a repair cold retry that now owns the claim
+    retires it (F11), and a studied worked example nobody judged yet keeps it
+    for the background refresh (:func:`refresh_exposure`); then the valuation
+    retires one below the stop. With ``source_service.discriminating_search``
+    (or the service) off, nothing is valued and the checks stay."""
 
     report: dict[str, Any] = {"retired": [], "kept": [], "skipped": None}
     if not followups_enabled(vault):
         report["skipped"] = "followups.enabled is false"
         return report
+    from learnloop.instructional.wiring import disabled_reason
+
+    switched_off = disabled_reason(vault, "discriminating_search")
     today = _today(now)
     with repository.connection() as connection:
         rows = [row for row in RDG.digests(connection) if row.get("followup_commitment_ids")]
@@ -881,6 +1147,7 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
         if row.get("revalued_on") == today and not force:
             continue
         lines = []
+        requery: list[str] = []
         for commitment_id in row["followup_commitment_ids"]:
             try:
                 disposition = C.resolve_disposition(repository, commitment_id)
@@ -892,20 +1159,93 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             question = provenance.get("question") or {}
             item_id = next((t["target_ref"] for t in _targets(repository, commitment_id)
                             if t["target_kind"] == "legacy_practice_item"), None)
-            if not question or item_id is None or valuer is None:
+            if not question or item_id is None:
                 continue
-            line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
-                                     provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
-                                     clock=clock)
+            if switched_off is not None:
+                line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
+                        "kept_because": [switched_off]}
+            elif valuer is None:
+                continue
+            else:
+                line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
+                                         provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
+                                         now=now, clock=clock)
+            if line.get("reason") == RETIRE_EXPOSED:
+                requery.append(str((provenance.get("valuation_ref") or {}).get("question") or ""))
             lines.append(line)
             report["retired" if line["retired"] else "kept"].append(line)
         with repository.atomic():
-            RDG.update_digest(repository.connection(), row["id"], revaluation_json={
+            connection = repository.connection()
+            columns: dict[str, Any] = {}
+            if requery:
+                # F1: the exposed check's question is asked again (a fresh
+                # search; the exposed item is out of its exact filters now).
+                valuation = dict(row.get("valuation") or {})
+                questions = []
+                for entry in valuation.get("questions") or []:
+                    if entry.get("key") in requery:
+                        entry = {**entry, "incomplete": True, "reason": RETIRE_EXPOSED}
+                        entry.pop("continue_from", None)
+                    questions.append(entry)
+                valuation["questions"] = questions
+                columns.update(status="incomplete", valuation_json=valuation)
+            RDG.update_digest(connection, row["id"], revaluation_json={
                 "revalued_at": _iso(now), "followups_version": FOLLOWUPS_VERSION, "lines": lines},
-                revalued_on=today, updated_at=utc_now_iso(clock))
+                revalued_on=today, updated_at=utc_now_iso(clock), **columns)
     if report["retired"]:
         repository.bump_queue_revision(clock=clock)
     return report
+
+
+def exposure_refresh_waiting(repository: Repository) -> bool:
+    """Whether the last re-valuation kept a check for the exposure refresh (cheap: the digests only)."""
+
+    with repository.connection() as connection:
+        rows = RDG.digests(connection)
+    return any(KEPT_REFRESH in (line.get("kept_because") or [])
+               for row in rows for line in (row.get("revaluation") or {}).get("lines") or [])
+
+
+def refresh_exposure(vault: LoadedVault, repository: Repository, *, now: datetime, clock: Clock | None = None,
+                     judge_client: Any | None = None) -> list[dict[str, Any]]:
+    """The background half of re-valuation (Codex review F5): for each pending
+    check the last re-valuation kept only because a worked example studied
+    since was never judged against it, ask the exposure rule's judge (route
+    ``worked_example_equivalence``) under BOTH daily envelopes
+    (:func:`followup_spend`) and the source switches. The verdict lands in
+    the ledger, which the serve-time gate and the next re-valuation read. Never
+    on the request path."""
+
+    from learnloop.instructional import exposure as E
+    from learnloop.instructional.wiring import disabled_reason
+
+    if not followups_enabled(vault) or disabled_reason(vault, "discriminating_search") is not None:
+        return []
+    with repository.connection() as connection:
+        rows = RDG.digests(connection)
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        for line in (row.get("revaluation") or {}).get("lines") or []:
+            if KEPT_REFRESH not in (line.get("kept_because") or []):
+                continue
+            commitment_id = str(line["commitment_id"])
+            try:
+                if C.resolve_disposition(repository, commitment_id) != "one_check_pending":
+                    continue
+            except C.UnknownCommitment:
+                continue
+            intent = str((_provenance(repository, commitment_id).get("question") or {}).get("intent")
+                         or "retention")
+            try:
+                with followup_spend(vault, repository, clock):
+                    verdict = E.independent_check_eligibility(
+                        vault, repository, {"practice_item_id": line["item_id"]}, intent=intent,
+                        judge_client=judge_client, at=now, clock=clock)
+            except SpendLimitExceeded:
+                return out
+            out.append({"commitment_id": commitment_id, "eligible": bool(verdict.get("eligible")),
+                        "reasons": list(verdict.get("reasons") or [])})
+    return out
 
 
 def _targets(repository: Repository, commitment_id: str) -> list[dict[str, Any]]:
@@ -948,7 +1288,9 @@ def answered_since(vault: Any, repository: Repository, question: Mapping[str, An
 
 def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str, item_id: str,
                       provenance: Mapping[str, Any], valuer: Callable[..., Mapping[str, Any]],
-                      extraction_id: str, clock: Clock | None) -> dict[str, Any]:
+                      extraction_id: str, now: datetime, clock: Clock | None) -> dict[str, Any]:
+    from learnloop.scheduling.intent.followup_gate import REPAIR_RETRY_OWNS
+
     question = provenance.get("question") or {}
     line: dict[str, Any] = {"commitment_id": commitment_id, "item_id": item_id, "retired": False}
     created = str(_first_version(repository, commitment_id).get("created_at") or "")
@@ -959,6 +1301,29 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
         line.update(retired=True, reason=RETIRE_ANSWERED, detail=detail)
         return line
+    reasons = _gate_reasons(vault, repository, item_id=item_id, provenance=provenance, valued_at=created, now=now)
+    if REPAIR_RETRY_OWNS in reasons:
+        owner = None
+        for facet in question.get("facet_ids") or ():
+            owner = pending_cold_retry(vault, repository, facet_id=str(facet),
+                                       attempt_ids=provenance.get("attempt_ids") or (),
+                                       learning_object_ids=question.get("learning_object_ids") or (), now=now)
+            if owner is not None:
+                break
+        detail = {"reason": RETIRE_REPAIR_OWNS, "extraction_id": extraction_id,
+                  "followup_task_id": (owner or {}).get("id"), "followups_version": FOLLOWUPS_VERSION}
+        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
+        line.update(retired=True, reason=RETIRE_REPAIR_OWNS, detail=detail)
+        return line
+    if reasons and set(reasons) <= {"worked_example_unjudged"}:
+        line["kept_because"] = [KEPT_REFRESH]
+        return line
+    if reasons:
+        detail = {"reason": RETIRE_EXPOSED, "reasons": reasons, "extraction_id": extraction_id,
+                  "followups_version": FOLLOWUPS_VERSION}
+        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
+        line.update(retired=True, reason=RETIRE_EXPOSED, detail=detail)
+        return line
     receipt = dict(valuer(question, item_id))
     sections = list(receipt.get("problems") or [])
     line["verdicts"] = sorted({str(s.get("verdict")) for s in sections})
@@ -968,7 +1333,9 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
             "no_problem"]
         return line
     if excluded is not None:
-        line["kept_because"] = ["excluded_at_revaluation: DL2 re-checks independence at serve", *excluded]
+        # The exposure rule ran above (no exclusion); what is left is the
+        # valuation's own (an unverified key): the check stays, labelled.
+        line["kept_because"] = ["excluded_at_revaluation", *excluded]
         return line
     still = any(str(check.get("ref")) == item_id for section in sections
                 if section.get("verdict") in CHECK_VERDICTS for check in section.get("checks") or [])
@@ -988,13 +1355,23 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
     return line
 
 
+def _applied_exposure(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    """Re-valuation's exposure verdict inside ``value_request``: the rule was
+    applied by :func:`_gate_reasons` with no model call (F5)."""
+
+    return {"eligible": True, "reasons": [], "checked": "revaluation_gate"}
+
+
 def default_valuer(vault: LoadedVault, repository: Repository, *, estimator: Any | None = None
                    ) -> Callable[[Mapping[str, Any], str], Mapping[str, Any]]:
     """``discriminating.value_request`` for one committed item, system-initiated,
-    on the same switch the search used (no model call: no screen, no judge)."""
+    with the follow-ups' familiarity discount (G35, F12) and the question's
+    pending repair decision (F7). No model call: the exposure rule is applied
+    by the re-valuation itself from persisted judgments (F5), and the
+    unimported-exercise screen never runs (no exercises)."""
 
     from learnloop.diagnosis.probe_robust import resolve_episode_channel
-    from learnloop.instructional.discriminating import value_request
+    from learnloop.instructional import discriminating as D
     from learnloop.practice_index.retrieval import PracticeConstraints
 
     def valuer(question: Mapping[str, Any], item_id: str) -> Mapping[str, Any]:
@@ -1004,9 +1381,11 @@ def default_valuer(vault: LoadedVault, repository: Repository, *, estimator: Any
             "facet_ids": list(question.get("facet_ids") or []),
             "target_hypotheses": [dict(r) for r in question.get("target_hypotheses") or []],
         })
-        return value_request(vault, repository, constraints, items=[item_id], exercises=[],
-                             caller_kind=VIA, system_initiated=True, estimator=estimator,
-                             channel_resolver=resolve_episode_channel)
+        return D.value_request(vault, repository, constraints, items=[item_id], exercises=[],
+                               caller_kind=VIA, system_initiated=True, estimator=estimator,
+                               channel_resolver=resolve_episode_channel,
+                               pending_decision=question.get("pending_decision") or None,
+                               familiarity=True, eligibility=_applied_exposure)
 
     return valuer
 
@@ -1155,6 +1534,10 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
                 reason = info.get("reason")
                 if reason == RETIRE_UNDONE:
                     text = "Undone"
+                elif reason == RETIRE_EXPOSED:
+                    text = "No longer a check on your own: you've seen this question since it was suggested"
+                elif reason == RETIRE_REPAIR_OWNS:
+                    text = "No longer needed: a check on your own is already coming up for this"
                 elif reason == RETIRE_ANSWERED and info.get("solved_at"):
                     text = "No longer needed: you solved one like it"
                 elif reason == RETIRE_ANSWERED:
@@ -1191,11 +1574,13 @@ __all__ = [
     "UNDO_TASK",
     "VIA",
     "coming_up",
+    "committed_items",
     "constraints_for",
     "date_for",
     "default_search",
     "default_valuer",
     "digest_id_for",
+    "exposure_refresh_waiting",
     "followup_spend",
     "followups_enabled",
     "open_questions",
@@ -1203,6 +1588,7 @@ __all__ = [
     "plan_ended_sessions",
     "plan_session",
     "purpose_text",
+    "refresh_exposure",
     "restore_followup",
     "retention_due",
     "revalue_pending",

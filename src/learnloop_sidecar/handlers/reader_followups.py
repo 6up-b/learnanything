@@ -14,9 +14,10 @@ Five desktop RPCs over ``learnloop.instructional.reader_followups``:
   (the same work the Today build starts in the background).
 
 :func:`prepare_followups` is what every Today build does first: the daily
-re-valuation (no model call) and, when an ended session waits, the planning
-job on the context's background registry (its relevance calls are paid and
-never on the request path). Kill switch ``followups.enabled``: off, the
+re-valuation (no model call) and, when an ended session waits or a kept
+check's exposure needs the judge, the planning job on the context's
+background registry (its relevance and exposure calls are paid and never on
+the request path). Kill switch ``followups.enabled``: off, the
 writes refuse, nothing is planned or re-valued, and "Coming up" still lists
 the learner's existing checks so they can be undone.
 Desktop only (pinned in tests/test_mobile_allowlist.py; spec D20).
@@ -80,15 +81,24 @@ def prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None:
         logging.getLogger(__name__).warning("reader follow-up re-valuation failed", exc_info=True)
     try:
         waiting = RF.sessions_to_plan(vault, repository, now=now)
+        refresh = RF.exposure_refresh_waiting(repository)
     except Exception:  # noqa: BLE001
         logging.getLogger(__name__).warning("reader follow-up session scan failed", exc_info=True)
         return
-    if not waiting or not _PLANNING.acquire(blocking=False):
+    # The lock only keeps this process from starting two jobs; two sidecars
+    # are safe because each publication re-reads the digest in its own
+    # transaction (Codex review F3).
+    if not (waiting or refresh) or not _PLANNING.acquire(blocking=False):
         return
 
     def run() -> None:
         try:
-            RF.plan_ended_sessions(vault, repository, search=_search(vault, repository), now=_now())
+            if refresh:
+                # Codex review F5: the paid exposure refresh, in the background,
+                # under both envelopes and the source switches.
+                RF.refresh_exposure(vault, repository, now=_now())
+            if waiting:
+                RF.plan_ended_sessions(vault, repository, search=_search(vault, repository), now=_now())
         except Exception:  # noqa: BLE001 - a failed plan is retried at the next build
             logging.getLogger(__name__).warning("reader follow-up planning failed", exc_info=True)
         finally:

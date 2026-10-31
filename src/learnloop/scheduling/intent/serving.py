@@ -172,6 +172,10 @@ class CheckState:
     #: (``scheduling.intent.feasibility``; DL2 fix round 6): never this
     #: check's item, under any plan policy, and each reason kept (F20).
     refused: tuple[tuple[str, Mapping[str, Any]], ...] = ()
+    #: Due candidates of a Reader follow-up its serve-time gate holds (exposed
+    #: since valuation, or owned by a repair cold retry), each with why
+    #: (``scheduling.intent.followup_gate``; RW6b Codex review F1, F11).
+    gated: tuple[tuple[str, Mapping[str, Any]], ...] = ()
 
     @property
     def reserved(self) -> tuple[str, ...]:
@@ -231,6 +235,9 @@ class IntentServing:
     _checks: dict[str, CheckState] | None = None
     #: ``(view, admission, candidate_ids) -> gate``: the one check gate (round 6).
     _gate_factory: Any = None
+    #: ``(item_id, check) -> refusal | None``: a Reader follow-up's serve-time
+    #: gate (RW6b Codex review F1, F11).
+    _followup_gate: Any = None
 
     # -- the checks, split among admitted candidates (R1) ----------------------
 
@@ -260,6 +267,7 @@ class IntentServing:
                     check,
                     eligibility=self._eligibility,
                     feasibility=check_feasibility_of(gate) if gate is not None else _admission_only(self._admission),
+                    followup_gate=self._followup_gate,
                 )
                 for commitment_id, check in self.raw_checks.items()
             }
@@ -580,7 +588,8 @@ def _admission_only(admission: Any) -> Any:
     return refusal
 
 
-def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any = None) -> CheckState:
+def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any = None,
+                followup_gate: Any = None) -> CheckState:
     """A due, unanswered check's candidates split by the eligibility decision
     (``eligibility(item_id, check_created_at)``; None: every one eligible),
     among those the one check gate passes.
@@ -589,7 +598,13 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
     DL2 fix round 6): a refused candidate is set aside into ``refused`` with
     its refusal, before the eligibility split, so it can neither be the check
     nor suppress one that can be served (R1), an LO check takes an eligible
-    sibling by its own rule, and a check left with none says why (F20)."""
+    sibling by its own rule, and a check left with none says why (F20).
+
+    ``followup_gate(item_id, check)`` (a Reader follow-up only; RW6b Codex
+    review F1, F11): a candidate the eligibility decision would serve cold
+    but that was exposed since its valuation, or whose claim a repair cold
+    retry now owns, is held with why (``gated``): never administered cold, and
+    the next daily re-valuation retires the check and re-asks."""
 
     if not check.due or check.answered_by is not None:
         return check
@@ -597,12 +612,19 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
     held: list[str] = []
     exposed: list[str] = []
     refused: list[tuple[str, Mapping[str, Any]]] = []
+    gated: list[tuple[str, Mapping[str, Any]]] = []
     for item_id in check.candidates:
         refusal = feasibility(item_id) if feasibility is not None else None
         if refusal is not None:
             refused.append((item_id, dict(refusal)))
             continue
         verdict = _SERVE if eligibility is None else eligibility(item_id, check.created_at)
+        if verdict == _SERVE and followup_gate is not None:
+            stop = followup_gate(item_id, check)
+            if stop is not None:
+                gated.append((item_id, dict(stop)))
+                held.append(item_id)
+                continue
         if verdict == _SERVE:
             eligible.append(item_id)
         elif verdict == _SERVE_AS_ORDINARY:
@@ -610,7 +632,8 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
         else:
             held.append(item_id)
     return replace(
-        check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed), refused=tuple(refused)
+        check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed), refused=tuple(refused),
+        gated=tuple(gated),
     )
 
 
@@ -702,6 +725,14 @@ def intent_serving(
         with repository.connection() as connection:
             return load_anchors(connection)
 
+    def followup_gate(item_id: str, check: CheckState) -> Mapping[str, Any] | None:
+        # RW6b Codex review F1, F11: a Reader follow-up's full exposure rule
+        # since its valuation, and repair ownership, before it is served cold.
+        from learnloop.scheduling.intent.followup_gate import followup_gate as gate
+
+        return gate(vault, repository, item_id=item_id, provenance=check.provenance,
+                    valued_at=check.created_at, now=now)
+
     return IntentServing(
         resolution=resolution,
         now=now,
@@ -713,6 +744,7 @@ def intent_serving(
         _eligibility=eligibility,
         _admission_factory=default_admission,
         _gate_factory=gate_factory,
+        _followup_gate=followup_gate,
     )
 
 
