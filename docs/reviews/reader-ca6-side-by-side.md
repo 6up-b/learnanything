@@ -110,4 +110,43 @@ No migration, no successor, no model call.
 
 ## Gate (targeted; the full suite runs once at landing)
 
-(filled in below)
+Every pytest, vitest, npm and cargo command ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`. Pytest ran with `-n 6`, under
+`flock /tmp/learnloop-fullsuite.lock`; vitest ran with `--maxWorkers=4`.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Targeted pytest, first run, 103 files: 7445 passed, 9 failed, 12 skipped, 3 xfailed** (38 min). The
+  nine failures were the same five earlier stages' byte-for-byte contract pins that CA5a met, now seeing the
+  new key `sideBySide`, which is on by default: `test_compare_keep_switch_off` (1), `test_figures_switch_off`
+  (2), `test_reader_intent` (2), `test_reader_tutor_switch_off` (2), `test_reading_paths` (2). Each now
+  registers the key the way they registered CA5a's: switched off, or popped with its value asserted.
+  **Rerun of those five files plus `test_reader_ca6_side_by_side.py`: 104 passed.**
+  The 103 files are the new `test_reader_ca6_side_by_side.py` (14), plus every test file naming the prompt
+  contract, the default snapshots and fingerprints, the parameter registry, the activity vocabulary
+  (`CLIENT_ACTION_EVENTS`, `ACTIVITY_FIELDS`, `record_activity`, `log_activity`), C0a's section coverage and
+  correspondents, and the contract pins (`test_desktop_rpc_contract`, `test_cli_help_snapshot`,
+  `test_architecture`, `test_table_roles`, `test_vault_template`, `test_sidecar_serializer_snapshot`,
+  `test_mobile_allowlist`, `test_config_refactor`, `test_tracked_fixture_databases`,
+  `test_coordinated_migrations`, `test_registry_audit`, `test_salience_firewall`). The full list: `test_ad1_codex_review_fixes.py`, `test_ad1_migration.py`, `test_ad23_owner_decisions.py`, `test_ad23_successor.py`, `test_approach_maps_schema.py`, `test_architecture.py`, `test_attempt_content_state_successor.py`, `test_batch3_landing.py`, `test_cli_help_snapshot.py`, `test_cold_retry_reschedule.py`, `test_compare_keep_switch_off.py`, `test_compare_sources_keep.py`, `test_config_refactor.py`, `test_constraint_engine.py`, `test_coordinated_migrations.py`, `test_desktop_rpc_contract.py`, `test_diagnosis_input_provenance.py`, `test_field_workbench_signals.py`, `test_figure_offers.py`, `test_figure_predictions.py`, `test_figure_region.py`, `test_figure_revisions.py`, `test_figures_rpc.py`, `test_figures_show_me_codex_review.py`, `test_figures_show_me.py`, `test_figures_switch_off.py`, `test_grading_cli.py`, `test_help_assists_schema.py`, `test_intent_codex_rereview.py`, `test_kinship_feature.py`, `test_learner_claim_application_migration.py`, `test_learner_report_superseded.py`, `test_library_ask.py`, `test_library_ask_review.py`, `test_library_asks_migration.py`, `test_library_exercises.py`, `test_lp_claim_fixes.py`, `test_method_explicit_upgrade.py`, `test_mobile_allowlist.py`, `test_mvp010_upgrade.py`, `test_mvp011_upgrade.py`, `test_mvp013_upgrade.py`, `test_mvp014_upgrade.py`, `test_mvp015_upgrade.py`, `test_mvp016_upgrade.py`, `test_mvp017_upgrade.py`, `test_mvp018_upgrade.py`, `test_mvp020_upgrade.py`, `test_mvp021_upgrade.py`, `test_mvp022_upgrade.py`, `test_mvp023_upgrade.py`, `test_mvp024_upgrade.py`, `test_open_world_gate.py`, `test_p0_cutover_mvp08.py`, `test_plan_determinism.py`, `test_plan_follows_path.py`, `test_reader_activity.py`, `test_reader_ca2_one_ask.py`, `test_reader_ca3_compare_anywhere.py`, `test_reader_ca3_landing_ca5a.py`, `test_reader_ca4_landing.py`, `test_reader_ca4_table_by_point.py`, `test_reader_ca5a_find_section.py`, `test_reader_ca6_side_by_side.py`, `test_reader_cues.py`, `test_reader_dialogue.py`, `test_reader_find_sources_callers.py`, `test_reader_inquiry_kill_switch.py`, `test_reader_intent.py`, `test_reader_reconstruct.py`, `test_reader_report.py`, `test_reader_rw2b_review.py`, `test_reader_rw3b_migration.py`, `test_reader_rw7a_migration.py`, `test_reader_tutor_offers.py`, `test_reader_tutor_switch_off.py`, `test_reading_paths.py`, `test_reading_step_switch.py`, `test_rebuild_equivalence_review.py`, `test_recurrence_commands.py`, `test_registry_audit.py`, `test_regrade_contract_successor.py`, `test_regrade_contract_upgrade.py`, `test_retrieval_spaces_migration.py`, `test_rw2c_switch_off.py`, `test_rw2d_receipts_migration.py`, `test_rw4_kill_switches.py`, `test_salience_firewall.py`, `test_section_coverage_migration.py`, `test_section_coverage.py`, `test_section_coverage_review.py`, `test_section_coverage_rpcs.py`, `test_sensitivity_certificates.py`, `test_serve_eligibility_review.py`, `test_sidecar_reader.py`, `test_sidecar_serializer_snapshot.py`, `test_source_roles.py`, `test_t1_batch_origin_migration.py`, `test_table_roles.py`, `test_teacher_te0_review_fixes.py`, `test_tracked_fixture_databases.py`, `test_ux_phase2_shell.py`, `test_vault_template.py`.
+- No migration and no DB/connection code changed, so no durability run was needed.
+- **Frontend** (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck` clean. Vitest on 39 files:
+  **345 passed**. They were the new `useSideBySide.test.tsx` (13), `sideBySideReader.test.tsx` (11) and
+  `findSectionSideBySide.test.tsx` (3); CA5a's `findSection`, `findSectionByPoint` and `findSectionReader`;
+  `inquiryComponents`, `returnStack`, `readerHooks.parity`, `IntentBox`, `compareScope`,
+  `compareScopeCodexReview`, `libraryAsk` and `libraryAskSwitchOff`; `app/keymap`, `app/classicIsBase` and
+  `app/shellChrome`; and every `screens/ReaderScreen.*.test.tsx` (22 files). After that, `returnStack.test.ts`
+  with the new `dropCurrent` case: 7 passed. `npm run frontend:build`: ok.
+- **Mutation checks** (each reverted): dropping the leader check in follow along fails *the last-touched pane
+  leads and is never moved* and *an answer that lands after the learner touched the follower is dropped*.
+  Ignoring the contract key fails *switched off*. Dropping the other pane's book from the side pane's
+  CA3 request fails the CA3 test.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok (one passthrough added).
+- DB/config reference: `db_generate_reference.py` regenerated it (`Config - reader` gains the key; the
+  catalog has 1074 effective leaves). The hand-written counts in `Configuration.md` and `Database.md` moved
+  to 1074. `db_validate_reference.py`: **errors []**. `validate_vault.py`: passed (1163 notes). The
+  regeneration also restamps `source_commit` in about 430 generated notes, as every stage's does. Take main's
+  side at landing and regenerate.
+- No paid or live call was made. The ad hoc Python (snapshot recomputation, reference scripts) ran under
+  `env -i` with empty, existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No vault was opened, and no GUI was
+  launched.
