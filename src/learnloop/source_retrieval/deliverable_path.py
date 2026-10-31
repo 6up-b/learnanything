@@ -187,6 +187,12 @@ class PathInputs:
         return next((entry for entry in self.los if entry.learning_object_id == learning_object_id), None)
 
     @property
+    def choosable(self) -> bool:
+        """Some LO has a primary-eligible section: only then is there a path to judge."""
+
+        return any(t.primary_eligible for entry in self.los for t in entry.treatments)
+
+    @property
     def statuses(self) -> dict[str, RP.LoStatus]:
         return {entry.learning_object_id: entry.status for entry in self.los}
 
@@ -590,7 +596,9 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     inputs = inputs or path_inputs(vault, repository, goal_id, clock=clock)
     if inputs is None:
         return JudgeResult("no_scope", message="Name what you are learning for, and how deep, first.")
-    if not any(entry.treatments for entry in inputs.los):
+    if not inputs.choosable:
+        # Nothing the judge could pick (no LO has an introducing or developing section): no
+        # call, or every read would pay for a judgment that writes no line.
         return JudgeResult("no_sections", message="None of your books has a checked section for these topics yet.")
     key = inputs.state_key()
     with repository.connection() as connection:
@@ -1022,7 +1030,7 @@ def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapp
     uncovered = [{"learning_object_id": entry.learning_object_id, "title": entry.title, "phrase": entry.phrase}
                  for entry in inputs.los if entry.kind == "needed" and not any(t.primary_eligible
                                                                               for t in entry.treatments)]
-    if not any(entry.treatments for entry in inputs.los):
+    if not inputs.choosable:
         return {**base, "status": "no_sections", "uncovered": uncovered}
     key = inputs.state_key()
     rows, fresh = _current_rows(repository, inputs)

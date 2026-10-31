@@ -86,9 +86,11 @@ def test_a_mentions_only_section_is_never_a_primary(tmp_path):
         "5.2 The characteristic equation": "mentions"})
     goal_id, vault = _scoped(paths, repository)
     fake = DeliverableFake(primaries={"Eigenvalues": "Chapter 5 Eigenvalues"})
-    assert DP.judge(vault, repository, goal_id, client=fake).status == "ready"
+    # Nothing the judge could pick: no call (else every read would pay for a path with no line).
+    assert DP.judge(vault, repository, goal_id, client=fake).status == "no_sections" and fake.calls == 0
     view = DP.path_view(vault, repository, goal_id)
-    assert view["lines"] == [] and [entry["learning_object_id"] for entry in view["uncovered"]] == ["lo_eigen"]
+    assert view["status"] == "no_sections" and view["lines"] == []
+    assert [entry["learning_object_id"] for entry in view["uncovered"]] == ["lo_eigen"]
 
 
 def test_already_shown_only_while_demonstrated(scoped, monkeypatch):

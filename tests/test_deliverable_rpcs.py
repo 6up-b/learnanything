@@ -167,3 +167,24 @@ def test_the_report_cli_prints_aggregates_and_refuses_when_off(tmp_path):
         handle.write("\n[curriculum]\nenabled = false\n")
     off = CliRunner().invoke(app, ["curriculum", "report", "--vault", str(paths.root)])
     assert off.exit_code == 1 and json.loads(off.output)["status"] == "invalid"
+
+
+def test_an_lo_with_no_candidate_is_searched_once_per_session_not_on_every_read(tmp_path, monkeypatch):
+    from learnloop.source_retrieval import section_coverage as SC
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    ctx = _ctx(paths, fake=DeliverableFake(needs=("lo_det",)))
+    real = SC.judge
+    judged: list[str] = []
+
+    def spy(vault, repo, lo_id, **kwargs):
+        judged.append(lo_id)
+        return real(vault, repo, lo_id, **kwargs)
+
+    monkeypatch.setattr(SC, "judge", spy)
+    monkeypatch.setattr(SC, "candidates_for", lambda *args, **kwargs: [])
+    goal_id = call(ctx, "curriculum.create_deliverable", {"sentence": "determinants"})["goalId"]
+    call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "fluency"})
+    for _ in range(3):
+        view = call(ctx, "curriculum.path", {"goal_id": goal_id})
+    assert judged == ["lo_det"] and view["status"] == "no_sections" and not view["covering"]

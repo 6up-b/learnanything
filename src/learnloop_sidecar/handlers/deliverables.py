@@ -100,6 +100,9 @@ class _Work:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.covering: dict[str, dict[str, Any]] = {}
+        #: The LOs this sidecar already tried to cover per goal: an LO with no candidate
+        #: writes no row, so without this every read would search for it again.
+        self.attempted: dict[str, set[str]] = {}
         self.judging: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.offers: dict[Any, dict[str, Any]] = {}
 
@@ -141,14 +144,17 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
     Captures the spawning request's unit (T1): a grant on that RPC covers it; otherwise
     it waits for the plan, and the path's next read relays the offer once."""
 
-    owed = DP.coverage_owed(vault, repository, goal_id)
+    work = _work(ctx)
+    with work.lock:
+        attempted = set(work.attempted.get(goal_id, ()))
+    owed = [lo for lo in DP.coverage_owed(vault, repository, goal_id) if lo not in attempted]
     if not owed:
         return
-    work = _work(ctx)
     with work.lock:
         if (work.covering.get(goal_id) or {}).get("state") == "running":
             return
         work.covering[goal_id] = {"state": "running", "learning_object_ids": owed}
+        work.attempted.setdefault(goal_id, set()).update(owed)
     grant, origin, stamp = _unit(vault, f"deliverable-coverage:{goal_id}")
     live_vault = ctx.loaded_vault
     root = Path(vault.root).resolve()
@@ -253,6 +259,7 @@ def _path_state(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
             covering_state = dict(work.covering.get(goal_id) or {})
             if retry and covering_state.get("state") == "failed":
                 work.covering.pop(goal_id, None)
+                work.attempted.pop(goal_id, None)
                 covering_state = {}
         if covering_state.get("state") != "running" and covering_state.get("state") != "failed":
             _cover(ctx, vault, repository, goal_id)
@@ -291,7 +298,7 @@ def _path_state(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
         from learnloop.db.stores import deliverables as store
 
         fresh = bool(store.judged(connection, goal_id, depth, state_key))
-    if judge and not covering and not current and not fresh and any(entry.treatments for entry in inputs.los):
+    if judge and not covering and not current and not fresh and inputs.choosable:
         _judge_path(ctx, vault, repository, goal_id, depth, state_key)
         with work.lock:
             current = dict(work.judging.get(key) or {})
