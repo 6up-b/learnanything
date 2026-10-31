@@ -1297,8 +1297,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "followups.formative_questions_enabled",
         "followups.generate_when_nothing_fits",
     ), "structural", "operational",
-        "kill switches for cold follow-ups / formative records adding questions / background generation "
-        "when nothing fits; content the learner can undo (test_me_later commitments), never evidence."),
+        "kill switches for cold follow-ups (followups.enabled is the kill switch of the successor mvp-0.39; "
+        "off, or below the tag, the predecessor's plan) / formative records adding questions / background "
+        "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
     # Reader workbench RW1c: the Reader tutor's kill switches (booleans, so
     # Inventory A's numeric walk never reaches them; classified here so every
     # new key has a rule). Retrieval is context and display, the offers are

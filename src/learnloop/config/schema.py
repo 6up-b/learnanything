@@ -2399,12 +2399,14 @@ class FollowupsConfig(BaseModel):
     Whatever clears the stop becomes a ``test_me_later`` commitment dated by
     purpose, served by DL2's "Check once"; there is no count cap. Before each
     day's plan the pending ones are re-valued and those whose question was
-    answered since are retired with their reason. Content the learner can
-    undo, never a serving rule or evidence, so no algorithm successor.
+    answered since are retired with their reason. Automatic dated requests
+    change what the maintain lane holds and serves, so they are the successor
+    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39; Codex review F4): below
+    the tag the section is inert. Never evidence; replay never reads it.
 
-    * ``enabled``: the kill switch. Off, no follow-up is created and no
-      re-valuation runs; existing ones stay the learner's commitments and
-      can be undone.
+    * ``enabled``: the kill switch. Off, or below the tag, no follow-up is
+      created and no re-valuation runs (the predecessor's plan); existing
+      ones stay the learner's commitments and can be undone.
     * ``formative_questions_enabled``: formative records (a missed
       prediction, a "still unclear", ...) add questions; they never change a
       prior's number.

@@ -174,7 +174,7 @@ def test_successor_vocabulary():
     # Mobile PR-4's attempt write (mvp-0.37) follows them, and the cold-retry reschedule (mvp-0.38) follows them
     # all as the latest.
     assert ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION == "mvp-0.37"
-    assert COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.38"
+    assert COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.39"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

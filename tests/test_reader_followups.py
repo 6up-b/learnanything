@@ -29,6 +29,7 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.ai.spend import SpendLimitExceeded
+from learnloop.algorithm_versions import READER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.curriculum import commitments as C
 from learnloop.db.repositories import PracticeItemState
 from learnloop.db.stores import reader_digests as RDG
@@ -40,6 +41,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import add_followup_item, append_config_toml
 from tests.recap_fixtures import EXT, T0, at, call, context, iso, problem, visit
 from tests.test_reader_dialogue import _setup
+from tests.ux_phase1_support import set_config
 
 ITEMS = ("pi_svd_define_002", "pi_svd_define_003", "pi_svd_define_004")
 NOW_MIN = 300
@@ -61,12 +63,14 @@ def _attempt(repo, attempt_id, *, minutes, hints, item="pi_svd_define_001", scor
     })
 
 
-def _seeded(tmp_path, *, config: str | None = None):
-    """One ended session (0-40 min): a problem worked with the book and a hint."""
+def _seeded(tmp_path, *, config: str | None = None, version: str = READER_FOLLOWUPS_ALGORITHM_VERSION):
+    """One ended session (0-40 min): a problem worked with the book and a hint,
+    at the successor (mvp-0.39; Codex review F4) unless ``version`` says otherwise."""
 
     vault, repo = _setup(tmp_path)
     for item_id in ITEMS:
         add_followup_item(vault.root, item_id)
+    set_config(vault.root, {("algorithms", "algorithm_version"): version})
     if config:
         append_config_toml(vault.root, config)
     vault = load_vault(vault.root)

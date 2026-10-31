@@ -1657,9 +1657,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # max_wait_days = 14 (keep) and max_daily_cost_usd = 0.50 (keep)
     # (modelled defaults, left out of the decision-only template): content
     # the learner can undo (test_me_later commitments DL2 serves as any
-    # "Check once"), valued by the sources spec's existing machinery; no
-    # scoring, scheduling, projection or serving change and no successor; they
-    # act at every version. Every snapshot moves only because the effective
+    # "Check once"), valued by the sources spec's existing machinery. The kill
+    # switch of the successor mvp-0.39 (Codex review F4: automatic dated
+    # requests change the maintain lane's serving); it acts only at that tag
+    # and later, and at every earlier version the section is present and
+    # inert. Every snapshot moves only because the effective
     # config gains the section; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version), and dropping the section
     # reproduces every earlier value.
@@ -3059,9 +3061,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # version string moves the fingerprint (the key is in every snapshot
     # above, inert below the tag). Existing vaults reach it by `learnloop
     # upgrade` (default target) from mvp-0.37, or from mvp-0.9 onwards through
+    # the chain. New vaults started here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12) until Reader RW6b's successor landed.
+    # Reader RW6b's [followups] moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.38": "2ccdbbae7bbb2763f38d3f1d50a95eaa486ad76c9c7fc0b9d7beb54f1a450c3c",    # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
+    # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
+    # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
+    # that clear the stop becoming automatic test_me_later commitments, dated
+    # by purpose, re-valued before each day's plan and gated at serve by the
+    # full exposure rule. Kill switch [followups] enabled (default true; off
+    # plans exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint (the section is in every snapshot
+    # above, inert below the tag). Existing vaults reach it by `learnloop
+    # upgrade` (default target) from mvp-0.38, or from mvp-0.9 onwards through
     # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
     # owner decision 2026-10-12).
-    "mvp-0.38": "2ccdbbae7bbb2763f38d3f1d50a95eaa486ad76c9c7fc0b9d7beb54f1a450c3c",
+    "mvp-0.39": "b91e4d07e596f4ce2e826115d6790b9e63b7e7f8e579906d1cd35fe0f9bb6b6e",
 }
 
 

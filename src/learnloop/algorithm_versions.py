@@ -590,6 +590,24 @@ ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 # the predecessor).
 COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 
+# mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
+# spec_reader_workbench_v1 §9.3 "Why no successor", whose fallback the Codex
+# review of docs/reviews/reader-rw6b-p1-followups.md invoked, F4), on top of
+# mvp-0.38 (the cold-retry reschedule; the chain stays linear: mvp-0.39 means
+# everything mvp-0.38 means PLUS this). From the tag on, with
+# ``followups.enabled`` on, an ended reader session's open questions are
+# valued (``value_candidates``) and each check that clears the stop becomes an
+# automatic ``test_me_later`` commitment dated by purpose, re-valued before
+# each day's plan; DL2 serves it as a "Check once", gated at serve by the full
+# exposure rule and repair ownership (``scheduling.intent.followup_gate``).
+# That changes which dated requests the maintain lane holds and serves, never
+# evidence, FSRS, the projection or replay (replay passes no vault and plans
+# nothing; ``reader_session_digests`` is workflow state), so it is a
+# successor by the 2026-10-17 eligibility rule. Kill switch:
+# ``followups.enabled`` (off, or below the tag: nothing is planned or
+# re-valued, exactly the predecessor's plan).
+READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -627,6 +645,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
+    READER_FOLLOWUPS_ALGORITHM_VERSION,
 )
 
 
@@ -799,6 +818,11 @@ ATTEMPT_CONTENT_STATE_VERSIONS: frozenset[str] = successors_from(ATTEMPT_CONTENT
 # help was taken on a due one (behind ``practice.reschedule_cold_after_assist``).
 # Every later successor keeps it; gates must use this set, never equality.
 COLD_RETRY_RESCHEDULE_VERSIONS: frozenset[str] = successors_from(COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION)
+
+# Versions whose ended reader sessions plan automatic cold follow-ups (behind
+# ``followups.enabled``). Every later successor keeps them; gates must use
+# this set, never equality.
+READER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(READER_FOLLOWUPS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -48,9 +48,11 @@ optional reason, a ``learner_card`` verdict) and undo all retire the
 commitments too. Interaction with mvp-0.38: a claim whose repair cold retry
 is pending gets no retention follow-up as well.
 
-**No successor** (§9.3 "Why no successor"): the serving algorithm is
-unchanged (DL2 serves commitments as it defines them); RW6b adds content the
-learner can undo, behind ``followups.enabled``. Nothing here writes evidence.
+**The successor** ``mvp-0.39`` (§9.3 "Why no successor", whose fallback
+the Codex review invoked, F4): automatic dated requests change what the
+maintain lane holds and serves, so planning and re-valuation run only at the
+tag or later with ``followups.enabled`` on (:func:`followups_enabled`); off
+or below it, the predecessor's plan exactly. Nothing here writes evidence.
 """
 
 from __future__ import annotations
@@ -128,9 +130,15 @@ def _config(vault: Any) -> Any:
 
 
 def followups_enabled(vault: Any) -> bool:
-    """``followups.enabled`` (default on)."""
+    """Follow-ups are live: the vault is at the successor
+    (``READER_FOLLOWUPS_VERSIONS``, mvp-0.39; Codex review F4) and
+    ``followups.enabled`` is on (default). Off, or below the tag, nothing is
+    planned or re-valued: the predecessor's plan exactly."""
 
-    return bool(getattr(_config(vault), "enabled", True))
+    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
+
+    version = getattr(getattr(vault.config, "algorithms", None), "algorithm_version", None)
+    return version in READER_FOLLOWUPS_VERSIONS and bool(getattr(_config(vault), "enabled", True))
 
 
 def formative_questions_enabled(vault: Any) -> bool:
