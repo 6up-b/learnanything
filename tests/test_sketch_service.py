@@ -422,3 +422,78 @@ def test_a_sketch_prediction_carries_the_step_it_is_graded_at(tmp_path):
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
     (prediction,) = build(ctx)["figure"]["predictions"]
     assert prediction["targetStep"] == 100
+
+
+def test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown(tmp_path, monkeypatch):
+    """Codex review F11 (round 3): a report made by the verifier before a
+    verification fix, under the same engine, used to be delivered unchanged
+    (only an engine change re-verified). A synthetic stored row as the
+    round-2 verifier wrote it (no verifier version, and a false attribute
+    label on the walkers it never checked) is verified again by code before
+    it is listed: the false label is gone, no model is called, and the
+    verdict is recorded once."""
+
+    import learnloop.figures.sketch_verify as SV
+    from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    with repository.connection() as connection:
+        (stored,) = connection.execute("SELECT verification_report_json FROM interactive_figures WHERE id = ?",
+                                       (figure["figureId"],)).fetchone()
+        report = json.loads(stored)
+        assert report["verifier_version"] == SV.VERIFIER_REPORT_VERSION  # new builds carry it
+        del report["verifier_version"]
+        false_label = {"element": "walkers", "attribute": "y"}
+        report["checks"][0]["partial"] = [false_label]
+        report["not_covered"] = []
+        connection.execute("UPDATE interactive_figures SET verification_report_json = ? WHERE id = ?",
+                           (json.dumps(report), figure["figureId"]))
+        connection.commit()
+    FS._RECHECKED.clear()
+    runs = []
+    real = SV.verify_sketch
+    monkeypatch.setattr(SV, "verify_sketch", lambda compiled, **kw: runs.append(1) or real(compiled, **kw))
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert runs == [1] and author.calls == 1
+    assert listed["verification"] == "illustrative"
+    assert all(false_label not in check["partial"] for check in listed["sketch"]["checks"])
+    assert listed["sketch"]["notCovered"] == ["walkers"]
+    rechecked = _verdicts(repository)[-1]
+    assert rechecked["judge"] == "verifier"
+    assert rechecked["input_hash"] == FS.reverify_hash(figure["specJson"], ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION)
+    assert "an unversioned verifier" in rechecked["rationale"]
+    # Listed again, and after a "restart": no second run, no second verdict.
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    FS._RECHECKED.clear()
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert len(_verdicts(repository)) == 2 and runs == [1, 1]
+
+
+def test_a_report_from_this_verifier_and_engine_is_not_reverified(tmp_path, monkeypatch):
+    import learnloop.figures.sketch_verify as SV
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    build(ctx)
+    FS._RECHECKED.clear()
+    monkeypatch.setattr(SV, "verify_sketch", lambda *a, **k: pytest.fail("re-verified a current report"))
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert listed["verification"] == "illustrative"
+    assert len(_verdicts(repository)) == 1
+
+
+def test_a_verifier_version_bump_reverifies_a_current_engines_report(tmp_path, monkeypatch):
+    """Bumping VERIFIER_REPORT_VERSION alone (the engine unchanged) sends a
+    stored report through re-verification under the new version."""
+
+    import learnloop.figures.sketch_verify as SV
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    monkeypatch.setattr(SV, "VERIFIER_REPORT_VERSION", "sketch-verify-next")
+    FS._RECHECKED.clear()
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert listed["verification"] == "illustrative"
+    rechecked = _verdicts(repository)[-1]
+    assert rechecked["left_id"] == figure["figureId"] and "sketch-verify-next" in rechecked["rationale"]
+    assert "built under" in rechecked["rationale"] and "sketch-verify-v2)" in rechecked["rationale"]

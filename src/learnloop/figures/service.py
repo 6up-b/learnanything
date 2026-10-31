@@ -761,15 +761,27 @@ def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
             "verification_report": {**report, "reason": "the sketch tier is switched off"}}
 
 
-_RECHECKED: dict[tuple[str, str], dict[str, Any]] = {}
+_RECHECKED: dict[tuple[str, str, str], dict[str, Any]] = {}
 _RECHECKED_GUARD = threading.Lock()
 #: The input revision a re-verification judgment records (Codex review F8):
-#: the program and the engine it was run under.
+#: the program, the engine it was run under and (Codex review F11, round 3)
+#: the verifier's report version.
 REVERIFY_VERSION = "sketch-reverify-v1"
 
 
-def reverify_hash(spec_json: str, engine_sha256: str) -> str:
-    return hashlib.sha256(f"{REVERIFY_VERSION}\n{engine_sha256}\n{spec_json}".encode("utf-8")).hexdigest()
+def reverify_hash(spec_json: str, engine_sha256: str, verifier_version: str | None = None) -> str:
+    from learnloop.figures.sketch_verify import VERIFIER_REPORT_VERSION
+
+    verifier = verifier_version or VERIFIER_REPORT_VERSION
+    return hashlib.sha256(f"{REVERIFY_VERSION}\n{engine_sha256}\n{verifier}\n{spec_json}".encode("utf-8")).hexdigest()
+
+
+def _stored_verifier(row: Mapping[str, Any]) -> str | None:
+    """The verifier report version a stored row's report was made by (None:
+    before the version existed)."""
+
+    found = (row.get("verification_report") or {}).get("verifier_version")
+    return str(found) if found else None
 
 
 def _record_reverification(repository: Repository | None, row: Mapping[str, Any], cached: Mapping[str, Any],
@@ -777,11 +789,12 @@ def _record_reverification(repository: Repository | None, row: Mapping[str, Any]
     """Codex review F8: an engine re-verification is a verifier verdict, so
     it is appended to ``judgment_ledger`` (task ``figure_verified``, judge
     ``verifier``) before the figure is delivered, superseding the figure's
-    last verdict on that question. Keyed by the program and the engine
-    (:func:`reverify_hash`): once per (figure, engine), however often it is
-    listed or the process restarts. The rationale is its provenance: both
-    engine digests, the outcome's reason or check count, and the digest of
-    the report the delivery uses."""
+    last verdict on that question. Keyed by the program, the engine and the
+    verifier version (:func:`reverify_hash`): once per (figure, engine,
+    verifier), however often it is listed or the process restarts. The
+    rationale is its provenance: both engine digests and verifier versions,
+    the outcome's reason or check count, and the digest of the report the
+    delivery uses."""
 
     if repository is None or getattr(repository, "_read_only", False):
         return
@@ -792,8 +805,11 @@ def _record_reverification(repository: Repository | None, row: Mapping[str, Any]
     summary = (f"{len(report.get('checks') or [])} checks" if outcome == V.ILLUSTRATIVE
                else str(report.get("reason") or "it no longer passes"))
     digest = hashlib.sha256(json.dumps(report, sort_keys=True, default=str).encode("utf-8")).hexdigest()
-    rationale = (f"re-verified under sketch engine {engine_sha256[:12]} (built under "
-                 f"{str(row.get('engine_sha256') or '?')[:12]}); report {digest[:16]}; {summary}")
+    from learnloop.figures.sketch_verify import VERIFIER_REPORT_VERSION
+
+    rationale = (f"re-verified under sketch engine {engine_sha256[:12]} and {VERIFIER_REPORT_VERSION} (built under "
+                 f"{str(row.get('engine_sha256') or '?')[:12]} and {_stored_verifier(row) or 'an unversioned verifier'})"
+                 f"; report {digest[:16]}; {summary}")
     with repository.atomic():
         connection = repository.connection()
         verdicts = store.figure_verdicts(connection, LEDGER_TASK, figure_id)
@@ -806,21 +822,25 @@ def _record_reverification(repository: Repository | None, row: Mapping[str, Any]
 
 def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = None) -> Mapping[str, Any]:
     """Spec §8.5, engine upgrades: a shown sketch verified under another
-    engine is verified again by code (no model call) before it is shown. One
-    that passes shows with this engine's check lines; one that fails shows
-    "couldn't run under this version · rebuild", never as checked. Remembered
-    per (figure, engine) in this process (a row is never rewritten); with a
-    ``repository`` the verdict is appended to ``judgment_ledger`` first
-    (Codex review F8, :func:`_record_reverification`)."""
+    engine, or (Codex review F11, round 3) by another verifier version
+    (:data:`.sketch_verify.VERIFIER_REPORT_VERSION`: a report made before a
+    verification fix may carry a check line the fixed verifier would not
+    give), is verified again by code (no model call) before it is shown. One
+    that passes shows with this engine's and verifier's check lines; one that
+    fails shows "couldn't run under this version · rebuild", never as
+    checked. Remembered per (figure, engine, verifier) in this process (a row
+    is never rewritten); with a ``repository`` the verdict is appended to
+    ``judgment_ledger`` first (Codex review F8,
+    :func:`_record_reverification`)."""
 
     from learnloop.figures import sketch_verify as SV
     from learnloop.figures.sketch_engine import ENGINE_SHA256
 
     if not sketch_row(row) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
         return row
-    if row.get("engine_sha256") == ENGINE_SHA256:
+    if row.get("engine_sha256") == ENGINE_SHA256 and _stored_verifier(row) == SV.VERIFIER_REPORT_VERSION:
         return row
-    key = (str(row["id"]), ENGINE_SHA256)
+    key = (str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION)
     with _RECHECKED_GUARD:
         cached = _RECHECKED.get(key)
     if cached is None:
@@ -842,7 +862,7 @@ def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = Non
     fresh = cached["report"]
     report = {**previous, **{key: fresh.get(key) for key in (
         "outcome", "checks", "not_covered", "unnamed_elements", "settings", "grid_points", "samples",
-        "dropped_predictions", "engine_sha256")}}
+        "dropped_predictions", "engine_sha256", "verifier_version")}}
     return {**row, "verification_report": report, "checks": report.get("checks") or [],
             "engine_sha256": ENGINE_SHA256}
 

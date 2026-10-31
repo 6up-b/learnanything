@@ -57,6 +57,14 @@ from learnloop.figures.sketch_engine import ENGINE_SHA256, SketchEngine, SketchR
 
 #: The seed every verification run (and a sketch's first drawn sample) uses.
 VERIFY_SEED = 1
+#: The version of what verification decides and reports (Codex review F11,
+#: round 3), stored in every report. **Bump it whenever verification's
+#: semantics change** (what passes, what a check line or *not covered* says),
+#: even when the engine is the same: a stored report from another version is
+#: verified again by code before it is shown (``service.sketch_rechecked``),
+#: as one from another engine is. Reports without it are from before it
+#: existed (round 2's verifier and earlier).
+VERIFIER_REPORT_VERSION = "sketch-verify-v2"
 #: Words for an invariant's property in a check line (closed, code-owned).
 PROPERTY_WORDS = {"finite": "finite", "bounded": "bounded", "nonnegative": "never negative",
                   "sums_to_one": "sums to one", "monotone_nondecreasing": "never decreasing"}
@@ -82,6 +90,7 @@ class SketchReport:
     dropped_predictions: list[int] = field(default_factory=list)
     claims: list[dict[str, Any]] = field(default_factory=list)
     engine_sha256: str = ENGINE_SHA256
+    verifier_version: str = field(default_factory=lambda: VERIFIER_REPORT_VERSION)
     #: The first runtime error, as the engine wrote it (prefills "not right?").
     runtime_error: dict[str, Any] | None = None
 
@@ -91,7 +100,8 @@ class SketchReport:
             "problems": self.problems[:12], "grid_points": self.grid_points, "samples": self.samples,
             "settings": self.settings, "checks": self.checks, "not_covered": self.not_covered[:40],
             "unnamed_elements": self.unnamed_elements, "dropped_predictions": self.dropped_predictions,
-            "claims": self.claims, "engine_sha256": self.engine_sha256, "runtime_error": self.runtime_error,
+            "claims": self.claims, "engine_sha256": self.engine_sha256,
+            "verifier_version": self.verifier_version, "runtime_error": self.runtime_error,
             "tier": "sketch",
         }
 
@@ -117,18 +127,33 @@ def _env(compiled: K.CompiledSketch, point: Mapping[str, float], step: int) -> d
     return env
 
 
-class _Budget:
+class _Budget(G.Meter):
     """Verification's own limits (Codex review F1, F2): the engine output it
     reads (:data:`.sketch.SKETCH_MAX_VERIFY_OUTPUT_BYTES`), the claim work it
-    charges before each check (:data:`.sketch.SKETCH_MAX_CLAIM_WORK`) and its
-    wall clock (:data:`.sketch.SKETCH_VERIFY_SECONDS`, also every engine
-    call's deadline)."""
+    may do (:data:`.sketch.SKETCH_MAX_CLAIM_WORK`) and its wall clock
+    (:data:`.sketch.SKETCH_VERIFY_SECONDS`, also every engine call's deadline).
+
+    **Claim work is metered, not estimated** (Codex review F2, round 3). The
+    budget is the :class:`.grammar.Meter` every claim check's grammar
+    evaluation is charged to, one step per node at the point it is evaluated
+    (each RK4 stage, every term of a sum, every integrand evaluation): when
+    the claims pass the cap the check stops there, refused as too much
+    computation, and every :data:`_TICK_WORK` steps the meter looks at the
+    clock, so the deadline stops even one long evaluation. A check's static
+    estimate (:attr:`.sketch.CompiledClaim.entry_work`) is still looked at
+    first (:meth:`foresee`), but only to refuse early what plainly can't fit;
+    the cap holds without it."""
 
     def __init__(self, deadline: float) -> None:
+        super().__init__(K.SKETCH_MAX_CLAIM_WORK, _TICK_WORK)
         self.deadline = deadline
         self.output = 0
-        self.work = 0
-        self.since_tick = 0
+
+    @property
+    def work(self) -> int:
+        """The claim work done so far: grammar steps actually evaluated."""
+
+        return self.used
 
     def read(self, *texts: str) -> None:
         self.output += sum(len(text) for text in texts)
@@ -136,33 +161,31 @@ class _Budget:
             raise _Failed("runs", [f"the sketch's results are too large to verify (more than "
                                    f"{K.SKETCH_MAX_VERIFY_OUTPUT_BYTES // (1024 * 1024)} MiB over its tested settings)"])
 
-    def charge(self, work: int) -> None:
-        self.work += work
-        if self.work > K.SKETCH_MAX_CLAIM_WORK:
-            raise _Failed("claims", [f"the claims need more computation than verification may do (about "
-                                     f"{self.work:,} expression steps; at most {K.SKETCH_MAX_CLAIM_WORK:,})"])
+    def _refuse(self, steps: int) -> None:
+        raise _Failed("claims", [f"the claims need more computation than verification may do (at least "
+                                 f"{steps:,} expression steps; at most {self.limit:,})"])
+
+    def foresee(self, work: int) -> None:
+        """An early refusal, before anything is evaluated, of a check whose
+        estimate cannot fit in what is left. Nothing is charged: the meter
+        charges what actually runs."""
+
+        if self.used + work > self.limit:
+            self._refuse(self.used + work)
+
+    def exhausted(self) -> None:  # the meter passed the cap mid-evaluation
+        self._refuse(self.used)
+
+    def checkpoint(self) -> None:  # every _TICK_WORK metered steps
+        self.tick()
 
     def tick(self) -> None:
-        self.since_tick = 0
         if time.monotonic() > self.deadline:
             raise _Failed("runs", [f"the sketch takes longer than {K.SKETCH_VERIFY_SECONDS:g} s to verify"])
 
-    def before(self, index: int, work: int) -> None:
-        """Before iteration ``index`` of a claim loop whose iterations each
-        take up to ``work`` expression steps (Codex re-review F2): looks at
-        the clock on the first, every :data:`_TICK_EVERY`-th, and whenever
-        :data:`_TICK_WORK` steps have been done since it last looked. One
-        evaluation itself is not interruptible, but its work was charged
-        first, so it is at most :data:`.sketch.SKETCH_MAX_CLAIM_WORK` steps."""
 
-        self.since_tick += work
-        if index % _TICK_EVERY == 0 or self.since_tick >= _TICK_WORK:
-            self.tick()
-
-
-#: How often a long claim loop looks at the clock: every so many iterations...
-_TICK_EVERY = 256
-#: ...or every so many expression steps (about a millisecond of the oracle).
+#: How many metered expression steps pass between the claim checks' looks at
+#: the clock (about a millisecond of the oracle).
 _TICK_WORK = 4_096
 
 
@@ -317,22 +340,21 @@ def _z() -> float:
 
 
 def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float], x: float, y: float, h: float,
-         steps: int, budget: _Budget | None = None, step_work: int = 1) -> list[tuple[float, float]]:
-    """The grammar's fixed-step RK4 (``spec._path``'s operation order)."""
+         steps: int, budget: _Budget | None = None) -> list[tuple[float, float]]:
+    """The grammar's fixed-step RK4 (``spec._path``'s operation order); with
+    a ``budget``, every stage's evaluations are metered to it."""
 
     xv, yv = names
     scope = dict(env)
 
     def rates(px: float, py: float, pt: float) -> tuple[float, float]:
         scope[xv], scope[yv], scope[K.TIME_NAME] = px, py, pt
-        return G.evaluate(dx, scope), G.evaluate(dy, scope)
+        return G.evaluate(dx, scope, None, budget), G.evaluate(dy, scope, None, budget)
 
     out = [(x, y)]
     half = h / 2
     t = 0.0
     for i in range(steps):
-        if budget is not None:
-            budget.before(i, step_work)
         k1x, k1y = rates(x, y, t)
         k2x, k2y = rates(x + half * k1x, y + half * k1y, t + half)
         k3x, k3y = rates(x + half * k2x, y + half * k2y, t + half)
@@ -345,8 +367,9 @@ def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float],
 
 
 def claim_entries(claim: K.CompiledClaim, probe: K.Probe, value: Any) -> int:
-    """How many entries a claim's check at one point read evaluates (charged
-    times :attr:`.sketch.CompiledClaim.entry_work` before it runs)."""
+    """How many entries a claim's check at one point read evaluates (times
+    :attr:`.sketch.CompiledClaim.entry_work`, the estimate an early refusal
+    looks at before it runs)."""
 
     if probe.shape == "scalar" or claim.claim.kind == "distribution":
         return 1
@@ -359,7 +382,9 @@ def claim_entries(claim: K.CompiledClaim, probe: K.Probe, value: Any) -> int:
 def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sample,
                 budget: _Budget | None = None) -> str | None:
     """One claim at one point read: None when it holds, else why not. With a
-    ``budget``, its work is charged first and long loops watch the clock."""
+    ``budget``, the clock is looked at first, a check whose estimate can't
+    fit is refused before it runs, and every grammar evaluation is metered
+    to it (the cap and the clock stop it mid-evaluation)."""
 
     spec = claim.claim
     probe = compiled.probes[spec.probe]
@@ -370,25 +395,24 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
         xs = [float(pair[0]) for pair in value]
         entry_work = K.claim_entry_work(compiled.program, spec, claim.nodes, "pairs", (min(xs), max(xs)))
     if budget is not None:
-        budget.charge(entry_work * claim_entries(claim, probe, value))
+        budget.tick()
+        budget.foresee(entry_work * claim_entries(claim, probe, value))
     env = _env(compiled, sample.point, sample.step)
     where = f"at {_point_text(sample.point)}" + (f", t={env[K.TIME_NAME]:g}" if K.TIME_NAME in env else "")
     if spec.kind == "equals":
         node = claim.nodes["expr"]
         if probe.shape == "scalar":
-            expected = G.evaluate(node, env)
+            expected = G.evaluate(node, env, None, budget)
             return None if _close(float(value), expected) else \
                 f"{where}: {spec.probe} is {float(value):.10g}, the stated {spec.expr} is {expected:.10g}"
         for index, entry in enumerate(value):
-            if budget is not None:
-                budget.before(index, entry_work)
             if probe.shape == "series":
                 env[spec.var] = spec.var_from + index * spec.var_step
                 got = float(entry)
             else:
                 env[spec.var] = float(entry[0])
                 got = float(entry[1])
-            expected = G.evaluate(node, env)
+            expected = G.evaluate(node, env, None, budget)
             if not _close(got, expected):
                 return f"{where}: {spec.probe} at {spec.var}={env[spec.var]:g} is {got:.10g}, " \
                        f"the stated {spec.expr} is {expected:.10g}"
@@ -399,11 +423,9 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
             return f"{where}: {spec.probe} has fewer than two points"
         steps = len(path) - 1
         h = float(spec.h)
-        step_work = max(1, entry_work // 3)  # one RK4 step: four stages of the twelve charged per entry
-        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps, budget,
-                    step_work)
+        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps, budget)
         half = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h / 2, 2 * steps,
-                    budget, step_work)
+                    budget)
         for i, (px, py) in enumerate(path):
             fx, fy = full[i]
             hx, hy = half[2 * i]
@@ -438,7 +460,7 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
     variance = float(sample.probes[spec.var_probe])
     if not (n >= 2 and variance >= 0):
         return f"{where}: {spec.n_probe} must be at least 2 and {spec.var_probe} not negative"
-    expected = G.evaluate(claim.nodes["expr"], env)
+    expected = G.evaluate(claim.nodes["expr"], env, None, budget)
     if not math.isfinite(expected):
         return f"{where}: the stated {spec.expr} is not finite"
     margin = _z() * math.sqrt(variance / n) + K.CLAIM_REL_TOL * max(1.0, abs(expected))
@@ -662,6 +684,7 @@ def _engine(factory: EngineFactory, budget: _Budget) -> SketchEngine:
 __all__ = [
     "PROPERTY_WORDS",
     "SketchReport",
+    "VERIFIER_REPORT_VERSION",
     "VERIFY_SEED",
     "check_claim",
     "claim_entries",

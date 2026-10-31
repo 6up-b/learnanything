@@ -334,6 +334,172 @@ def test_claim_loops_look_at_the_clock_by_work_not_only_by_entry_count(monkeypat
 
 
 # ---------------------------------------------------------------------------
+# Codex review F2, round 3: claim work is metered, not estimated
+# ---------------------------------------------------------------------------
+
+def _counting_evaluations(monkeypatch):
+    """Count every grammar evaluation (the evaluator recurses through the
+    module's own name, so each node's call is counted, as the reviewer did)."""
+
+    calls = [0]
+    real = G.evaluate
+
+    def counted(*args, **kwargs):
+        calls[0] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(G, "evaluate", counted)
+    return calls
+
+
+def _recording_budgets(monkeypatch):
+    budgets = []
+
+    class Recording(SV._Budget):
+        def __init__(self, deadline):
+            super().__init__(deadline)
+            budgets.append(self)
+
+    monkeypatch.setattr(SV, "_Budget", Recording)
+    return budgets
+
+
+def _constant_path(points: int):
+    """Round 3's reproduction: a clock {dt: 1, t_max: 1}, a probe of
+    ``points`` [0, 0] pairs, and a follows claim whose dx sums up to t at
+    h = 25. The estimate bounds t by t_max (two terms); RK4 reaches t =
+    (points - 1) * h."""
+
+    code = (
+        "function init(p, seed) { return {}; }\n"
+        "function step(s, p, dt) { return s; }\n"
+        f"function probes(s, p) {{ return {{pts: Array.from({{length: {points}}}, function () {{ return [0, 0]; }})}}; }}\n"
+        "function view(s, p) { return {viewport: {x: [-1, 1], y: [-1, 1]}, elements: []}; }\n")
+    return {"program_version": "sketch-v1", "demonstrates": "a constant path", "parameters": [], "seeded": False,
+            "clock": {"dt": 1, "t_max": 1}, "code": code,
+            "probes": [{"name": "pts", "label": "pts", "shape": "pairs"}],
+            "claims": [{"kind": "follows", "probe": "pts", "dx": "sum(0, k, 0, t)", "dy": "0", "vars": ["x", "y"],
+                        "h": 25}]}
+
+
+def test_a_follows_claim_is_charged_every_evaluation_it_runs(monkeypatch):
+    """The reviewer's reproduction: G.evaluate ran 2,624 times while the
+    estimate charged 288. The meter now charges what actually runs."""
+
+    compiled = K.parse_sketch(_constant_path(5))
+    claim = compiled.claims[0]
+    assert claim.entry_work * 4 < 400  # the estimate still bounds t by t_max
+    sample = SV._Sample(point={}, step=1, scene={}, probes={"pts": [[0.0, 0.0]] * 5})
+    calls = _counting_evaluations(monkeypatch)
+    budget = SV._Budget(time.monotonic() + 60)
+    assert SV.check_claim(compiled, claim, sample, budget) is None
+    assert budget.work == calls[0] > 2_000
+    # Through the whole verification: the claim passes and its budget is charged every evaluation.
+    calls[0] = 0
+    budgets = _recording_budgets(monkeypatch)
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    (budget,) = budgets
+    assert budget.work == calls[0] > 2 * 2_000  # both sampled steps checked
+
+
+def test_a_follows_claim_past_the_cap_is_stopped_where_the_cap_is(monkeypatch):
+    """The 4,000-point variant: charged ~3.9M by the estimate, ~9.4e9
+    evaluations to run. Refused once the meter passes the cap, long before
+    the wall clock: the evaluations run are the cap's, not 9e9."""
+
+    compiled = K.parse_sketch(_constant_path(4_000))
+    calls = _counting_evaluations(monkeypatch)
+    started = time.monotonic()
+    report = SV.verify_sketch(compiled)
+    elapsed = time.monotonic() - started
+    assert report.outcome == V.FAILED and report.failed_step == "claims", report.reason
+    assert "more computation than verification may do" in report.reason
+    assert calls[0] <= K.SKETCH_MAX_CLAIM_WORK + 1
+    assert elapsed < K.SKETCH_VERIFY_SECONDS / 2, elapsed
+
+
+def test_the_meter_stops_one_evaluation_at_the_cap_and_at_the_clock():
+    node = G.parse("sum(k * k + 1, k, 0, 10000)")
+    meter = G.Meter(1_000, 64)
+    with pytest.raises(G.WorkExhausted):
+        G.evaluate(node, {}, None, meter)
+    assert meter.used == 1_001  # stopped inside the sum, at the first step past the cap
+    assert G.evaluate(node, {}) == G.evaluate(node, {}, None, G.Meter(10 ** 9, 4_096))  # same value, metered or not
+    budget = SV._Budget(time.monotonic() + 60)
+    budget.deadline = time.monotonic() - 1  # the clock runs out mid-evaluation
+    with pytest.raises(SV._Failed, match="longer than"):
+        G.evaluate(node, {}, None, budget)
+    assert budget.work == SV._TICK_WORK
+
+
+def _random_expr(rng, var, depth=0):
+    leaves = [var, "a", "1", "2.5"]
+    if depth >= 3 or rng.random() < 0.3:
+        return rng.choice(leaves)
+    pick = rng.randrange(7)
+    left, right = _random_expr(rng, var, depth + 1), _random_expr(rng, var, depth + 1)
+    if pick == 0:
+        return f"({left} + {right})"
+    if pick == 1:
+        return f"({left} * {right})"
+    if pick == 2:
+        return f"sqrt(abs({left}))"
+    if pick == 3:
+        return f"piecewise(({left} < {right} and {left} > 0, {left}), {right})"
+    if pick == 4 and depth == 0:
+        return f"sum({left} + k, k, 0, {rng.randrange(1, 30)})"
+    if pick == 5 and depth == 0:
+        return f"integral({left} * k, k, 0, {rng.randrange(1, 3)})"
+    return f"max({left}, {right}, 1)"
+
+
+def test_charged_work_is_at_least_the_evaluations_run_for_random_claims(monkeypatch):
+    """Property: for random small claims of every evaluating kind (equals on
+    scalar, series and pairs probes; follows), the budget's work is never
+    less than the grammar evaluations actually run."""
+
+    import random
+
+    rng = random.Random(20261031)
+    calls = _counting_evaluations(monkeypatch)
+    ran = 0
+    for case in range(60):
+        kind = rng.choice(["scalar", "series", "pairs", "follows"])
+        if kind == "follows":
+            claim = {"kind": "follows", "probe": "p", "dx": _random_expr(rng, "x"), "dy": _random_expr(rng, "y"),
+                     "vars": ["x", "y"], "h": rng.choice([0.1, 1, 5])}
+            shape = "pairs"
+            value = [[0.0, 0.0]] * rng.randrange(2, 6)
+        else:
+            claim = {"kind": "equals", "probe": "p", "expr": _random_expr(rng, "x" if kind != "scalar" else "a")}
+            if kind != "scalar":
+                claim |= {"var": "x", "var_step": rng.choice([0.5, 1])}
+            shape = kind
+            value = {"scalar": 1.0, "series": [1.0] * rng.randrange(1, 8),
+                     "pairs": [[rng.uniform(-3, 40), 1.0] for _ in range(rng.randrange(1, 8))]}[kind]
+        program = {"program_version": "sketch-v1", "demonstrates": "random", "seeded": False,
+                   "parameters": [{"name": "a", "label": "a", "min": 0, "max": 2, "step": 0.5, "default": 1}],
+                   "code": "function init(p, s) { return {}; }", "claims": [claim],
+                   "probes": [{"name": "p", "label": "p", "shape": shape}]}
+        compiled = K.parse_sketch(program)
+        sample = SV._Sample(point={"a": 1.0}, step=0, scene={}, probes={"p": value})
+        budget = SV._Budget(time.monotonic() + 60)
+        calls[0] = 0
+        try:
+            SV.check_claim(compiled, compiled.claims[0], sample, budget)
+        except SV._Failed as refused:
+            # The estimate's early refusal (an integral is estimated at its
+            # integrand cap) runs nothing; the meter's runs up to the cap.
+            assert "more computation" in str(refused)
+            assert budget.work >= calls[0], (case, claim)
+            continue
+        ran += 1
+        assert budget.work >= calls[0] > 0, (case, claim)
+    assert ran >= 40
+
+
+# ---------------------------------------------------------------------------
 # Codex re-review F11: an element whose type changes between settings
 # ---------------------------------------------------------------------------
 

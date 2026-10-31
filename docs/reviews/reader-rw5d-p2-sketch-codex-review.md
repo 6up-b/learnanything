@@ -241,3 +241,70 @@ owner's 2026-10-17 rule, the full suite was not run; it runs once, in the landin
 `tests/test_sketch_scene_parity.py`, `tests/test_figure_verification.py`, `tests/test_figures_show_me.py`,
 `tests/test_figures_show_me_codex_review.py`, `tests/test_figure_grammar.py`, `tests/test_registry_audit.py`
 (1 new `keep` constant), `tests/test_architecture.py`, `tests/test_public_tip_guards.py`.
+
+## Round 3 (final Sol verify, Codex job 20261031-162057-T76XSt, verdict REOPENED)
+
+The verify confirmed F1 and F3 fixed and reopened F2 (High) and F11 (Medium). F2 was the second round of the same
+class: the pre-estimate fell short again. Following the orchestrator's direction, the estimate is no longer
+refined. The claim work cap is enforced by **metering** instead.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F2 | High | `follows` claims estimated at the animation's `t_max`; RK4 reaches `(path_length-1)*h` | fixed (metering) | this commit | `test_sketch_verify.py::test_a_follows_claim_is_charged_every_evaluation_it_runs` (the reviewer's repro: still `illustrative`; the budget's work equals the counted `G.evaluate` calls, over 2,000 per check where the estimate charged 288), `::test_a_follows_claim_past_the_cap_is_stopped_where_the_cap_is` (the 4,000-point variant: refused as too much computation after at most cap+1 evaluations, in 4.5 s with a counting wrapper on every call; the wall clock is 60 s), `::test_the_meter_stops_one_evaluation_at_the_cap_and_at_the_clock`, `::test_charged_work_is_at_least_the_evaluations_run_for_random_claims` (60 random claims: equals on scalar/series/pairs and follows, with sums, integrals, piecewise and nesting); round 2's pairs, series and sum tests unchanged and green |
+| F11 | Medium | a stored report from the old verifier is delivered with its false attribute label | fixed | this commit | `test_sketch_service.py::test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown` (a synthetic stored row as the round-2 verifier wrote it: same engine, no verifier version, a false `walkers`/`y` label; re-verified by code before listing, no model call, the label gone and `walkers` not covered, one ledger verdict across a restart), `::test_a_report_from_this_verifier_and_engine_is_not_reverified`, `::test_a_verifier_version_bump_reverifies_a_current_engines_report`. Against `edee0f536`'s `service.py` the first and third fail (no re-verification; the stored report delivered as is) |
+
+**The metering design (F2).**
+
+- `grammar.evaluate(node, env, definitions, meter)` takes an optional `grammar.Meter`. Every node it evaluates is
+  charged one step at the point of evaluation, before the node is evaluated. That includes each condition node of a
+  `piecewise` (`_truth`), every term of a `sum`, every integrand evaluation of an `integral` and each expansion of a
+  definition. The hot path is an increment and one comparison against `meter.due`. When `used` passes `limit`,
+  `Meter.exhausted()` runs. Every `every` steps, `Meter.checkpoint()` runs. Either may raise, and nothing in the
+  evaluator catches, so evaluation stops right there, even in the middle of a 10,001-term sum. Without a meter, the
+  values are unchanged; the grammar corpus and the TS-parity tests pass.
+- `sketch_verify._Budget` is now a `Meter`, with limit `SKETCH_MAX_CLAIM_WORK` and a checkpoint every `_TICK_WORK`
+  (4,096) steps. `exhausted()` raises the same typed refusal as before (`_Failed("claims", "the claims need more
+  computation than verification may do …")`). `checkpoint()` looks at the 60 s deadline, which stays as a backstop
+  and now also interrupts a single long evaluation. Every grammar evaluation a claim check runs is metered to it:
+  `equals` (scalar, series, pairs), both `follows` RK4 runs (all four stages, `dx` and `dy`), and `distribution`.
+  `budget.work` is the metered count.
+- The static estimate (`CompiledClaim.entry_work` × entries, with round 2's pairs reach) is kept only as an early
+  refusal, `_Budget.foresee`. It refuses before anything runs when `used + estimate > cap`, and charges nothing.
+  Correctness does not depend on it. A short estimate (as in this finding) just means the meter stops the check at
+  the cap instead.
+- The per-iteration clock looks are removed, because the meter does them: `_Budget.before` and the `keep` constant
+  `figure_sketch_verify:_TICK_EVERY` (unregistered). `check_claim` still looks at the clock on entry.
+
+**F11 fix.**
+
+- `sketch_verify.VERIFIER_REPORT_VERSION = "sketch-verify-v2"` is stored in every report as `verifier_version`.
+  Bump it whenever verification semantics change. It is registered as a `version` constant.
+- `service.sketch_rechecked` re-verifies by code (no model call) when the stored engine digest **or** the stored
+  verifier version differs from the current one. A report without one is from before it existed.
+- The in-process recheck cache is keyed by (figure, engine, verifier version).
+- The ledger's `reverify_hash` includes the verifier version, so there is one verdict per (figure, engine, verifier).
+  The rationale names both engines and both verifier versions.
+- The rechecked report carries the new `verifier_version`.
+- The build-reuse key is unchanged on purpose. Adding the version would make a verifier bump trigger a model
+  rebuild, while delivery re-verifies a reused figure anyway.
+
+### Round 3 gate
+
+| command | result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| F11 reproduction: the new service tests against `edee0f536`'s `service.py` | 2 failed, 1 passed (as expected) |
+| `pytest -n 6` over `tests/test_sketch_*.py`, `tests/test_figure_*.py`, `tests/test_figures_*.py`, `test_registry_audit.py`, `test_architecture.py`, `test_public_tip_guards.py` | **636 passed** in 91 s |
+| `pytest -n 6` over `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_reader_report.py`, `test_salience_firewall.py`, `test_mobile_allowlist.py` (the report gains a key) | 5826 passed |
+
+Every pytest ran inside the 5G memory-capped scope, behind the shared lock. No frontend, src-tauri, migration or
+schema change, so no vitest, npm, cargo, durability or DB-reference run. No model calls; fakes only.
+
+**Open questions.**
+
+1. The early refusal still estimates an `integral` at its integrand cap (`MAX_INTEGRAND_EVALS` = 200,000
+   evaluations of the body per entry). So an integral claim over more than about 100 entries is refused before it
+   runs, even when the adaptive rule would take a few hundred evaluations. That was already so in round 2. With
+   metering, the estimate could be dropped or made optimistic without risk. Keep it as is?
+2. A metered claim check that runs to the cap costs about 4 to 5 s of CPU before it is refused (20,000,000 steps).
+   That is within the 60 s wall clock and the spec's "tens of seconds", but it is still spent.

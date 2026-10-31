@@ -66,10 +66,11 @@ ODE_SAFETY = 4.0
 #: keep (numerical): how often a correct Monte Carlo sketch may be refused by chance, per check.
 MC_FALSE_ALARM = 1e-6
 #: keep (machine safety): the most grammar-expression steps checking one
-#: sketch's claims may take, over every point read (Codex review F2). Each
-#: evaluation is charged before it runs (:func:`claim_entry_work` times its
-#: entries), so the Python oracle's work is bounded like the engine's. About
-#: 0.2 microseconds a step on carson: a few seconds at the cap.
+#: sketch's claims may take, over every point read (Codex review F2). Metered
+#: (round 3): every node the grammar's evaluator visits for a claim check is
+#: charged as it runs (``grammar.Meter``), so the Python oracle's work is
+#: bounded like the engine's whatever an estimate said. About 0.3
+#: microseconds a step on carson: a few seconds at the cap.
 SKETCH_MAX_CLAIM_WORK = 20_000_000
 #: keep (machine safety): the most engine output (scene and probe JSON text)
 #: one verification reads, over both runs (Codex review F1). Each result is
@@ -314,8 +315,11 @@ def claim_entry_work(program: SketchProgramV1, claim: Claim, nodes: Mapping[str,
     """The most expression steps checking one entry of a claim's probe takes:
     one evaluation for ``equals`` and ``distribution``, twelve RK4 stages of
     ``dx`` and ``dy`` per path step for ``follows`` (the run and the
-    half-step run), one step for an invariant. Verification charges it times
-    the entries before it runs.
+    half-step run), one step for an invariant. An estimate only: before a
+    check runs, verification refuses early one whose estimate times its
+    entries can't fit in the budget left, but the budget itself is metered
+    (Codex review F2, round 3), so an estimate that falls short (a
+    ``follows`` path reaching past ``t_max``) can't let more work run.
 
     An ``equals`` claim's ``var`` reaches what its probe shape gives it
     (Codex re-review F2): a series' index runs from ``var_from`` by
