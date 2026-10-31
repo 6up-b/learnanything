@@ -173,3 +173,93 @@ def test_a_trapped_instance_is_never_called_again(monkeypatch):
         assert caught.value.trap and caught.value.kind == "work_cap"
         with pytest.raises(SketchRunError, match="new one is needed"):
             engine.limits()
+
+
+# ---------------------------------------------------------------------------
+# Codex review F7: one sketch's timeout never stops another
+# ---------------------------------------------------------------------------
+
+#: A native loop the interpreter barely polls (one poll per copy of 16 MB):
+#: wall-clock work the epoch deadline, not the tick budget, has to stop.
+COPIES = ("var a = new Float64Array(2000000); "
+          "function init(p) { for (var i = 0; i < p.n; i++) a.copyWithin(0, 1); return {}; } "
+          "function view() { return {}; } function probes() { return {}; }")
+
+
+def _timed_init(engine: SketchEngine, n: int, out: dict, key: str) -> None:
+    import time
+
+    started = time.monotonic()
+    try:
+        engine.init({"n": n}, 1)
+        out[key] = ("ok", time.monotonic() - started)
+    except SketchRunError as exc:
+        out[key] = (exc.kind, time.monotonic() - started)
+
+
+def test_one_sketchs_timeout_does_not_stop_a_concurrent_one(monkeypatch):
+    """Two stores of the one cached wasmtime Engine run at once; A has a
+    0.3 s deadline and endless native work, B has the normal allowance and
+    ~0.5 s of work. A is stopped at its deadline; B finishes. (Before F7's
+    fix, A's timer advanced the shared epoch and trapped B too.)"""
+
+    import threading
+    import time
+
+    monkeypatch.setattr(E, "WASM_FUEL_PER_CALL", 10 ** 15)  # wall clock, not fuel, is what bites
+    out: dict = {}
+    with SketchEngine() as a, SketchEngine() as b:
+        a.load(COPIES)
+        b.load(COPIES)
+        a.deadline = time.monotonic() + 0.3
+        runner = threading.Thread(target=_timed_init, args=(a, 10 ** 9, out, "a"))
+        runner.start()
+        _timed_init(b, 5_000, out, "b")
+        runner.join()
+    assert out["a"][0] == "work_cap" and out["a"][1] < 5
+    assert out["b"][0] == "ok", out
+    assert out["b"][1] > 0.3, out  # B was still running when A's deadline passed
+
+
+def test_another_stores_epoch_tick_does_not_trap_a_running_call(monkeypatch):
+    """The old per-call timer advanced the shared epoch by one on a timeout;
+    a call's deadline is now many ticks of the shared clock ahead, so a stray
+    tick from elsewhere never stops it."""
+
+    import threading
+    import time
+
+    monkeypatch.setattr(E, "WASM_FUEL_PER_CALL", 10 ** 15)
+    out: dict = {}
+    with SketchEngine() as engine:
+        engine.load(COPIES)
+        runner = threading.Thread(target=_timed_init, args=(engine, 5_000, out, "b"))
+        runner.start()
+        time.sleep(0.05)
+        for _ in range(3):
+            engine.engine.increment_epoch()
+        runner.join()
+    assert out["b"][0] == "ok", out
+
+
+def test_a_call_never_starts_past_the_callers_deadline():
+    import time
+
+    with SketchEngine() as engine:
+        engine.deadline = time.monotonic() - 1
+        with pytest.raises(SketchRunError, match="out of time") as caught:
+            engine.load(COUNTER)
+    assert caught.value.kind == "work_cap"
+    assert E.deadline_ticks(E.CALL_SECONDS) == round(E.CALL_SECONDS / E.EPOCH_TICK_SECONDS) + 1
+
+
+def test_the_epoch_clock_runs_only_while_an_engine_is_open():
+    import threading
+
+    def clocks() -> list[threading.Thread]:
+        return [thread for thread in threading.enumerate() if thread.name == "sketch-epoch-clock"]
+
+    assert clocks() == []
+    with SketchEngine(), SketchEngine():
+        assert len(clocks()) == 1  # one clock per wasmtime Engine, shared
+    assert clocks() == []

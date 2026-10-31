@@ -65,6 +65,21 @@ CLAIM_REL_TOL = 1e-9
 ODE_SAFETY = 4.0
 #: keep (numerical): how often a correct Monte Carlo sketch may be refused by chance, per check.
 MC_FALSE_ALARM = 1e-6
+#: keep (machine safety): the most grammar-expression steps checking one
+#: sketch's claims may take, over every point read (Codex review F2). Each
+#: evaluation is charged before it runs (:func:`claim_entry_work` times its
+#: entries), so the Python oracle's work is bounded like the engine's. About
+#: 0.2 microseconds a step on carson: a few seconds at the cap.
+SKETCH_MAX_CLAIM_WORK = 20_000_000
+#: keep (machine safety): the most engine output (scene and probe JSON text)
+#: one verification reads, over both runs (Codex review F1). Each result is
+#: validated, bound and checked as it arrives and only a digest is kept, so
+#: memory holds one result at a time; this bounds the parsing and checking.
+SKETCH_MAX_VERIFY_OUTPUT_BYTES = 256 * 1024 * 1024
+#: keep (machine safety): the wall clock of one verification (spec §8.4: a
+#: sketch is "ready in tens of seconds"); engine calls and claim checks stop
+#: at it, and the sketch fails as too slow to verify.
+SKETCH_VERIFY_SECONDS = 60.0
 #: The widest viewport span (as the grammar's plot range).
 MAX_VIEWPORT_SPAN = S.MAX_DOMAIN_SPAN
 MAX_PROBES = 12
@@ -204,6 +219,8 @@ class SketchProgramV1(_Strict):
 class CompiledClaim:
     claim: Claim
     nodes: dict[str, G.Node] = field(default_factory=dict)
+    #: The most expression steps one entry's check takes (:func:`claim_entry_work`).
+    entry_work: int = 0
 
 
 @dataclass
@@ -241,6 +258,77 @@ def sample_steps(compiled: CompiledSketch) -> list[int]:
         return [0]
     count = SKETCH_TIME_SAMPLES
     return sorted({round(j * total / (count - 1)) for j in range(count)})
+
+
+# ---------------------------------------------------------------------------
+# Claim work (Codex review F2)
+# ---------------------------------------------------------------------------
+
+def _bound_reach(node: G.Node, ranges: Mapping[str, tuple[float, float]]) -> tuple[float, float] | None:
+    if node.kind == "num":
+        return node.value, node.value
+    if node.kind == "neg" and node.args[0].kind == "num":
+        return -node.args[0].value, -node.args[0].value
+    if node.kind == "name" and node.text in ranges:
+        return ranges[node.text]
+    return None
+
+
+def expression_steps(node: G.Node, ranges: Mapping[str, tuple[float, float]]) -> int:
+    """The most nodes one evaluation of ``node`` visits: a sum's body once
+    per term (its bounds' widest reach, or :data:`.grammar.MAX_SUM_TERMS`
+    when code can't tell), an integral's body once per integrand evaluation
+    the grammar allows. Never an under-count (unlike the panels' estimate,
+    whose sums are bounded by the compiler first)."""
+
+    if node.kind == "sum":
+        body, lower, upper = node.args
+        low, high = _bound_reach(lower, ranges), _bound_reach(upper, ranges)
+        terms = G.MAX_SUM_TERMS
+        inner = dict(ranges)
+        if low is not None and high is not None and all(math.isfinite(v) for v in (*low, *high)):
+            first, last = math.ceil(low[0] - 1e-9), math.floor(high[1] + 1e-9)
+            terms = max(0, min(last - first + 1, G.MAX_SUM_TERMS))
+            inner[node.text] = (float(first), float(last))
+        else:
+            inner.pop(node.text, None)
+        return 1 + expression_steps(lower, ranges) + expression_steps(upper, ranges) + \
+            terms * expression_steps(body, inner)
+    if node.kind == "integral":
+        body, lower, upper = node.args
+        inner = {key: value for key, value in ranges.items() if key != node.text}
+        return 1 + expression_steps(lower, ranges) + expression_steps(upper, ranges) + \
+            (G.MAX_INTEGRAND_EVALS + 64) * expression_steps(body, inner)
+    return 1 + sum(expression_steps(child, ranges) for child in node.args)
+
+
+def _ranges(program: SketchProgramV1) -> dict[str, tuple[float, float]]:
+    ranges = {parameter.name: (float(parameter.min), float(parameter.max)) for parameter in program.parameters}
+    if program.clock is not None:
+        ranges[TIME_NAME] = (0.0, float(program.clock.t_max))
+    return ranges
+
+
+def claim_entry_work(program: SketchProgramV1, claim: Claim, nodes: Mapping[str, G.Node]) -> int:
+    """The most expression steps checking one entry of a claim's probe takes:
+    one evaluation for ``equals`` and ``distribution`` (a series' index has
+    its declared reach), twelve RK4 stages of ``dx`` and ``dy`` per path step
+    for ``follows`` (the run and the half-step run), one step for an
+    invariant. Verification charges it times the entries before it runs."""
+
+    ranges = _ranges(program)
+    if claim.kind == "equals":
+        if claim.var and claim.var not in ranges and "expr" in nodes:
+            ends = (claim.var_from, claim.var_from + (SKETCH_MAX_SERIES - 1) * claim.var_step)
+            if all(math.isfinite(v) for v in ends):
+                ranges = {**ranges, claim.var: (min(ends), max(ends))}
+        return expression_steps(nodes["expr"], ranges) if "expr" in nodes else 1
+    if claim.kind == "follows":
+        return 12 * (expression_steps(nodes["dx"], ranges) + expression_steps(nodes["dy"], ranges)) \
+            if "dx" in nodes and "dy" in nodes else 1
+    if claim.kind == "distribution":
+        return expression_steps(nodes["expr"], ranges) if "expr" in nodes else 1
+    return 1
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +462,7 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
                 compiled.nodes["expr"] = node
             if not program.seeded:
                 problems.append(f"{where}: a Monte Carlo claim needs a seeded sketch (rand())")
+        compiled.entry_work = claim_entry_work(program, claim, compiled.nodes)
         claims.append(compiled)
     element_ids: set[str] = set()
     for binding in program.bindings:
@@ -666,18 +755,23 @@ __all__ = [
     "Probe",
     "SKETCH_FRAME_MS",
     "SKETCH_MAX_CELLS",
+    "SKETCH_MAX_CLAIM_WORK",
     "SKETCH_MAX_CLOCK_STEPS",
     "SKETCH_MAX_ELEMENTS",
     "SKETCH_MAX_POINTS",
     "SKETCH_MAX_SERIES",
     "SKETCH_MAX_SOURCE_BYTES",
+    "SKETCH_MAX_VERIFY_OUTPUT_BYTES",
     "SKETCH_TIME_SAMPLES",
+    "SKETCH_VERIFY_SECONDS",
     "SKETCH_VERSION",
     "SKETCH_WATCHDOG_FRAMES",
     "SketchError",
     "SketchProgramV1",
+    "claim_entry_work",
     "clock_steps",
     "element_index",
+    "expression_steps",
     "impersonates",
     "parse_sketch",
     "probe_numbers",

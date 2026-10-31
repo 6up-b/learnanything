@@ -8,12 +8,15 @@ refused at the right step for the right reason.
 from __future__ import annotations
 
 import copy
+import time
+import tracemalloc
 
 import pytest
 
 from learnloop.figures import sketch as K
 from learnloop.figures import sketch_verify as SV
 from learnloop.figures import verify as V
+from learnloop.figures.sketch_engine import SketchEngine
 from tests import sketch_fixtures as F
 
 
@@ -28,7 +31,7 @@ def test_the_random_walk_passes_with_element_scoped_check_lines():
     assert report.settings == 27  # "at 27 tested settings" (spec §6.6)
     equals, distribution = report.checks
     assert equals == {"claim": 0, "kind": "equals", "probe": "envelope", "elements": ["envelope"],
-                      "statement": "sqrt(x)", "settings": 27}
+                      "partial": [], "statement": "sqrt(x)", "settings": 27}
     assert distribution["kind"] == "distribution" and distribution["elements"] == []
     assert report.not_covered == ["walkers"]  # drawn, not checked
 
@@ -98,6 +101,174 @@ def test_sketch_predictions_are_decided_by_code_in_the_engine():
         engine.load(spiral.program.code)
         moved = SV.prediction_outcome(spiral, engine, 0)
     assert moved["answer"] == "rises"  # |0.3 + 0.8i| > |-0.2 + 0.8i|
+
+
+def test_a_heat_map_bound_series_is_checked_in_its_cell_values_only():
+    report = verify(F.automaton())
+    assert report.outcome == V.ILLUSTRATIVE
+    assert [check["partial"] for check in report.checks] == [[{"element": "grid", "attribute": "values"}]] * 2
+    assert all(check["elements"] == [] for check in report.checks) and report.not_covered == []
+
+
+# ---------------------------------------------------------------------------
+# Codex review F3: a series bound to a line speaks for its x values only when
+# they are the claim's index
+# ---------------------------------------------------------------------------
+
+LINE_CODE = r"""
+function init(p, seed) { return {}; }
+function probes(s, p) { return {v: [0, 1]}; }
+function view(s, p) { return {viewport: {x: [-1, 200], y: [-1, 2]},
+  elements: [{type: "polyline", id: "line", x: [XS], y: [0, 1]}]}; }
+"""
+
+
+def _line(xs, claims):
+    return {"program_version": "sketch-v1", "demonstrates": "a line", "parameters": [], "seeded": False,
+            "code": LINE_CODE.replace("XS", xs), "probes": [{"name": "v", "label": "v", "shape": "series"}],
+            "claims": claims, "bindings": [{"element_id": "line", "probe": "v"}]}
+
+
+EQUALS_X = {"kind": "equals", "probe": "v", "expr": "x", "var": "x"}
+
+
+def test_a_series_line_drawn_at_unrelated_x_is_not_claimed_as_the_equation():
+    """F3's reproduction: probe [0, 1] equals x at indices [0, 1], bound to a
+    polyline drawn at x = [100, 101]. The claim holds for the value; the
+    drawn line is not "x", so the check names the value and the line is not
+    covered."""
+
+    report = verify(_line("100, 101", [EQUALS_X]))
+    assert report.outcome == V.ILLUSTRATIVE
+    (check,) = report.checks
+    assert check["elements"] == [] and check["partial"] == []
+    assert report.not_covered == ["line"]
+
+
+def test_a_series_line_drawn_at_its_index_is_claimed_whole():
+    report = verify(_line("0, 1", [EQUALS_X]))
+    (check,) = report.checks
+    assert check["elements"] == ["line"] and report.not_covered == []
+    shifted = verify(_line("5, 7", [{**EQUALS_X, "expr": "(x - 5) / 2", "var_from": 5, "var_step": 2}]))
+    assert shifted.checks[0]["elements"] == ["line"]
+
+
+def test_an_invariant_over_a_series_line_speaks_for_its_y_values_only():
+    report = verify(_line("100, 101", [{"kind": "invariant", "probe": "v", "property": "nonnegative"}]))
+    (check,) = report.checks
+    assert check["elements"] == [] and check["partial"] == [{"element": "line", "attribute": "y"}]
+    assert report.not_covered == []
+
+
+# ---------------------------------------------------------------------------
+# Codex review F1 and F2: verification's own memory, work and time
+# ---------------------------------------------------------------------------
+
+def _grid_program(points: int, claims=(), probes=None, probe_code="{v: []}"):
+    """Four parameters (81 grid points) and a clock read at 9 times: the
+    largest legal grid, 729 point reads per run. The scene's line has
+    ``points`` points (filled natively, so the engine's work cap is not what
+    stops it)."""
+
+    code = (
+        "function init(p, seed) { return {n: 0}; }\n"
+        "function step(s, p, dt) { return {n: s.n + 1}; }\n"
+        f"function probes(s, p) {{ return {probe_code}; }}\n"
+        f"function view(s, p) {{ var xs = new Array({points}).fill(p.a + p.c / 3 + 1 / 7), "
+        f"ys = new Array({points}).fill(p.b + s.n / 7 + p.d / 11 + 1 / 3);\n"
+        "  return {viewport: {x: [-1, 50], y: [-5, 5]}, elements: [{type: 'polyline', id: 'big', x: xs, y: ys}]}; }\n")
+    return {"program_version": "sketch-v1", "demonstrates": "a big scene",
+            "parameters": [{"name": name, "label": name, "min": 0, "max": 1, "step": 0.5, "default": 0.5}
+                           for name in ("a", "b", "c", "d")],
+            "clock": {"dt": 1, "t_max": 8}, "seeded": False, "code": code,
+            "probes": probes or [{"name": "v", "label": "v", "shape": "series"}], "claims": list(claims)}
+
+
+def test_the_largest_legal_grid_is_verified_one_point_read_at_a_time():
+    """F1: 81 grid points x 9 times x 2 runs. Each scene is validated, bound
+    and checked as it arrives and dropped, so Python's memory holds one at a
+    time (the old two lists held every scene, probe and text of both runs)."""
+
+    compiled = K.parse_sketch(_grid_program(1_000))
+    SketchEngine().close()  # compiled and cached outside the measurement
+    tracemalloc.start()
+    try:
+        report = SV.verify_sketch(compiled)
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    assert report.grid_points == 81 and len(report.samples) == 9 and report.settings == 729
+    # One scene of 1,000 points is ~38 KB as text and ~70 KB parsed; 1,458 kept would be ~150 MB.
+    assert peak < 8 * 1024 * 1024, peak
+
+
+def test_scenes_at_the_point_cap_over_the_largest_grid_hit_the_output_budget():
+    """F1: 1,458 scenes of 40,000 points (~1.5 MB each here, up to ~4 MB with
+    longer numbers) would be gigabytes; the aggregate output budget refuses
+    the sketch long before, holding one scene at a time."""
+
+    compiled = K.parse_sketch(_grid_program(K.SKETCH_MAX_POINTS))
+    SketchEngine().close()
+    tracemalloc.start()
+    started = time.monotonic()
+    try:
+        report = SV.verify_sketch(compiled)
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert report.outcome == V.FAILED and report.failed_step == "runs"
+    assert "too large to verify" in report.reason
+    assert peak < 96 * 1024 * 1024, peak
+    assert time.monotonic() - started < 60
+
+
+def test_claim_steps_are_counted_soundly():
+    sums = K.parse_sketch(_grid_program(10, claims=[{"kind": "equals", "probe": "v", "expr": "sum(x, k, 0, 10000)",
+                                                    "var": "x"}]))
+    # Ten thousand and one terms per entry, whatever the index.
+    assert sums.claims[0].entry_work >= 10_001
+    bounded = K.parse_sketch(_grid_program(10, claims=[{"kind": "equals", "probe": "v", "expr": "sum(k, k, 0, a)",
+                                                       "var": "x"}]))
+    assert 2 <= bounded.claims[0].entry_work < 20  # a's range is [0, 1]: two terms
+    by_index = K.parse_sketch(_grid_program(10, claims=[{"kind": "equals", "probe": "v", "expr": "sum(k, k, 0, x)",
+                                                        "var": "x"}]))
+    assert by_index.claims[0].entry_work >= K.SKETCH_MAX_SERIES  # x reaches the series' last index
+    follows = K.parse_sketch(F.spiral())
+    assert follows.claims[0].entry_work == 12 * (7 + 7)  # a*x - b*y: seven nodes each
+
+
+def test_a_claim_whose_work_exceeds_the_budget_is_refused_before_it_runs():
+    """F2's reproduction: a 4,000-entry series claimed equal to
+    sum(x, k, 0, 10000) at every point read (2.9e10 term evaluations
+    unbudgeted). The first evaluation's charge is past the budget."""
+
+    program = _grid_program(10, claims=[{"kind": "equals", "probe": "v", "expr": "sum(x, k, 0, 10000)", "var": "x"}],
+                            probe_code="{v: Array.from({length: 4000}, function (_, i) { return 0; })}")
+    started = time.monotonic()
+    report = verify(program)
+    assert report.outcome == V.FAILED and report.failed_step == "claims"
+    assert "more computation than verification may do" in report.reason
+    assert time.monotonic() - started < 30
+
+
+def test_verification_stops_at_its_wall_clock(monkeypatch):
+    monkeypatch.setattr(K, "SKETCH_VERIFY_SECONDS", -1.0)
+    report = verify(F.spiral())
+    assert report.outcome == V.FAILED and report.failed_step == "runs"
+    assert "longer than -1 s to verify" in report.reason
+
+
+def test_prediction_target_steps_are_where_the_answers_are_graded():
+    walk = K.parse_sketch(F.walk())
+    assert SV.prediction_target_step(walk, 0) == 100  # run_to 100 at dt 1
+    early = K.parse_sketch(F.walk(predictions=[{"prompt": "?", "change": {"run_to": 5},
+                                                "observe": {"kind": "direction", "probe": "msd"}}]))
+    assert SV.prediction_target_step(early, 0) == 5
+    changed = K.parse_sketch(F.walk(predictions=[{"prompt": "?", "change": {"walkers": 400},
+                                                  "observe": {"kind": "direction", "probe": "msd"}}]))
+    assert SV.prediction_target_step(changed, 0) == 100  # t_max
+    assert SV.prediction_target_step(K.parse_sketch(F.spiral()), 0) == 0  # no clock
 
 
 # ---------------------------------------------------------------------------

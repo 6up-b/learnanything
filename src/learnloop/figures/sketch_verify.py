@@ -41,10 +41,12 @@ checked*. Never "matches the book" (that is RW5c's question).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import statistics
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -115,94 +117,129 @@ def _env(compiled: K.CompiledSketch, point: Mapping[str, float], step: int) -> d
     return env
 
 
+class _Budget:
+    """Verification's own limits (Codex review F1, F2): the engine output it
+    reads (:data:`.sketch.SKETCH_MAX_VERIFY_OUTPUT_BYTES`), the claim work it
+    charges before each check (:data:`.sketch.SKETCH_MAX_CLAIM_WORK`) and its
+    wall clock (:data:`.sketch.SKETCH_VERIFY_SECONDS`, also every engine
+    call's deadline)."""
+
+    def __init__(self, deadline: float) -> None:
+        self.deadline = deadline
+        self.output = 0
+        self.work = 0
+
+    def read(self, *texts: str) -> None:
+        self.output += sum(len(text) for text in texts)
+        if self.output > K.SKETCH_MAX_VERIFY_OUTPUT_BYTES:
+            raise _Failed("runs", [f"the sketch's results are too large to verify (more than "
+                                   f"{K.SKETCH_MAX_VERIFY_OUTPUT_BYTES // (1024 * 1024)} MiB over its tested settings)"])
+
+    def charge(self, work: int) -> None:
+        self.work += work
+        if self.work > K.SKETCH_MAX_CLAIM_WORK:
+            raise _Failed("claims", [f"the claims need more computation than verification may do (about "
+                                     f"{self.work:,} expression steps; at most {K.SKETCH_MAX_CLAIM_WORK:,})"])
+
+    def tick(self) -> None:
+        if time.monotonic() > self.deadline:
+            raise _Failed("runs", [f"the sketch takes longer than {K.SKETCH_VERIFY_SECONDS:g} s to verify"])
+
+
+#: How often a long claim loop looks at the clock.
+_TICK_EVERY = 256
+
+
 @dataclass
 class _Sample:
+    """One point read: the parsed scene and probes, held only while it is
+    validated, bound and checked (never kept: Codex review F1)."""
+
     point: dict[str, float]
     step: int
     scene: Any
     probes: Any
-    scene_text: str
-    probes_text: str
 
 
-def _run(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Mapping[str, float]],
-         steps: Sequence[int], *, extra_reads: bool = False) -> list[_Sample]:
-    """Load, then at every grid point init and read each sampled step (the
-    grid in the given order). Raises :class:`_Failed` (``runs``)."""
+def _digest(scene_text: str, probes_text: str) -> bytes:
+    return hashlib.sha256(scene_text.encode("utf-8") + b"\0" + probes_text.encode("utf-8")).digest()
 
+
+def _point_key(point: Mapping[str, float], step: int) -> tuple[str, int]:
+    return json.dumps(point, sort_keys=True), step
+
+
+def _load(compiled: K.CompiledSketch, engine: SketchEngine, budget: _Budget) -> None:
     program = compiled.program
     try:
+        budget.tick()
         entries = engine.load(program.code)
     except SketchRunError as exc:
+        budget.tick()  # out of time: the sketch is too slow, not broken
         raise _Failed("structure", [f"the code does not load: {exc.message}"],
                       {"message": exc.message, "params": None}) from exc
     needed = ["init", "view", "probes"] + (["step"] if program.clock is not None else [])
     missing = [name for name in needed if not entries.get(name)]
     if missing:
         raise _Failed("structure", [f"the code defines no {', '.join(name + '()' for name in missing)}"])
+
+
+def _stream(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Mapping[str, float]],
+            steps: Sequence[int], budget: _Budget, *, extra_reads: bool = False) -> Iterator[tuple[_Sample, bytes]]:
+    """Load, then at every grid point (in the given order) init and read each
+    sampled step, validated, one at a time: each point read is yielded with
+    its digest and dropped before the next is read. Raises :class:`_Failed`."""
+
+    _load(compiled, engine, budget)
+    program = compiled.program
     names = [parameter.name for parameter in program.parameters]
-    samples: list[_Sample] = []
+    dt = program.clock.dt if program.clock is not None else 0.0
     for point in grid:
         params = {**compiled.defaults, **point}
-        samples.extend(_read_all(compiled, engine, params, point, steps, names, extra_reads=extra_reads))
-    return samples
+        try:
+            budget.tick()
+            engine.init(params, VERIFY_SEED)
+            at = 0
+            for step in steps:
+                budget.tick()
+                if step > at:
+                    engine.step(params, dt, index=at, count=step - at)
+                    at = step
+                if extra_reads:
+                    budget.read(engine.probes_text(params, index=step), engine.view_text(params, index=step))
+                scene_text = engine.view_text(params, index=step)
+                probes_text = engine.probes_text(params, index=step)
+                budget.read(scene_text, probes_text)
+                scene, probes = json.loads(scene_text), json.loads(probes_text)
+                digest = _digest(scene_text, probes_text)
+                del scene_text, probes_text
+                where = _point_text(point) + (f", t={step * dt:g}" if program.clock is not None else "")
+                problems = K.scene_problems(scene, parameters=names)
+                if problems:
+                    raise _Failed("runs", [f"at {where}: the scene {problems[0]}", *problems[1:4]],
+                                  {"message": problems[0], "params": dict(params), "kind": "scene"})
+                problems = K.probe_problems(probes, compiled.probes)
+                if problems:
+                    raise _Failed("runs", [f"at {where}: {problems[0]}", *problems[1:4]],
+                                  {"message": problems[0], "params": dict(params), "kind": "probe"})
+                yield _Sample(point=dict(point), step=step, scene=scene, probes=probes), digest
+        except SketchRunError as exc:
+            budget.tick()
+            raise _Failed("runs", [f"at {_point_text(point)}: {exc.message}"],
+                          {"message": exc.message, "params": dict(params), "kind": exc.kind}) from exc
 
 
-def _read_all(compiled: K.CompiledSketch, engine: SketchEngine, params: Mapping[str, float],
-              point: Mapping[str, float], steps: Sequence[int], names: Sequence[str], *,
-              extra_reads: bool) -> list[_Sample]:
-    """Init at one grid point and read every sampled step (validated)."""
-
-    program = compiled.program
-    dt = program.clock.dt if program.clock is not None else 0.0
-    out: list[_Sample] = []
-    try:
-        engine.init(params, VERIFY_SEED)
-        at = 0
-        for step in steps:
-            if step > at:
-                engine.step(params, dt, index=at, count=step - at)
-                at = step
-            if extra_reads:
-                engine.probes_text(params, index=step)
-                engine.view_text(params, index=step)
-            scene_text = engine.view_text(params, index=step)
-            probes_text = engine.probes_text(params, index=step)
-            scene, probes = json.loads(scene_text), json.loads(probes_text)
-            where = _point_text(point) + (f", t={step * dt:g}" if program.clock is not None else "")
-            problems = K.scene_problems(scene, parameters=names)
-            if problems:
-                raise _Failed("runs", [f"at {where}: the scene {problems[0]}", *problems[1:4]],
-                              {"message": problems[0], "params": dict(params), "kind": "scene"})
-            problems = K.probe_problems(probes, compiled.probes)
-            if problems:
-                raise _Failed("runs", [f"at {where}: {problems[0]}", *problems[1:4]],
-                              {"message": problems[0], "params": dict(params), "kind": "probe"})
-            out.append(_Sample(point=dict(point), step=step, scene=scene, probes=probes, scene_text=scene_text,
-                               probes_text=probes_text))
-    except SketchRunError as exc:
-        raise _Failed("runs", [f"at {_point_text(point)}: {exc.message}"],
-                      {"message": exc.message, "params": dict(params), "kind": exc.kind}) from exc
-    return out
-
-
-def _bindings(compiled: K.CompiledSketch, samples: Sequence[_Sample]) -> list[str]:
-    problems: list[str] = []
-    for sample in samples:
-        elements = K.element_index(sample.scene)
-        for binding in compiled.program.bindings:
-            probe = compiled.probes[binding.probe]
-            element = elements.get(binding.element_id)
-            where = f"at {_point_text(sample.point)}"
-            if element is None:
-                problems.append(f"{where}: bound element {binding.element_id!r} is not drawn")
-                return problems
-            value = sample.probes[binding.probe]
-            if not _bound_equal(element, value, probe.shape):
-                problems.append(f"{where}: element {binding.element_id!r} is not drawn at probe "
-                                f"{binding.probe!r}'s values")
-                return problems
-    return problems
+def _binding_problem(compiled: K.CompiledSketch, sample: _Sample,
+                     elements: Mapping[str, Mapping[str, Any]]) -> str | None:
+    for binding in compiled.program.bindings:
+        probe = compiled.probes[binding.probe]
+        element = elements.get(binding.element_id)
+        where = f"at {_point_text(sample.point)}"
+        if element is None:
+            return f"{where}: bound element {binding.element_id!r} is not drawn"
+        if not _bound_equal(element, sample.probes[binding.probe], probe.shape):
+            return f"{where}: element {binding.element_id!r} is not drawn at probe {binding.probe!r}'s values"
+    return None
 
 
 def _bound_equal(element: Mapping[str, Any], value: Any, shape: str) -> bool:
@@ -224,6 +261,37 @@ def _bound_equal(element: Mapping[str, Any], value: Any, shape: str) -> bool:
     return False
 
 
+#: What a check says about a bound element when it speaks for one attribute
+#: only (Codex review F3): a series binds a line's heights (its y values), a
+#: heat map's cell values or a circle's radius; an invariant over a pairs
+#: probe reads its y values. ``None``: the whole drawn element (both
+#: coordinates, or a series whose x values are the claim's own index).
+def _scope(claim: K.Claim, shape: str, kind: str, on_domain: bool) -> str | None | bool:
+    """The attribute a passing claim speaks for on one bound element:
+    ``None`` (all of it), an attribute name, or False (nothing: a series
+    claim over an index the line is not drawn at)."""
+
+    if kind == "circle":
+        return "r"
+    if kind == "heat_cells":
+        return "values"
+    if shape == "series":
+        if claim.kind == "equals":
+            return None if on_domain else False
+        return "y"
+    if claim.kind == "invariant":
+        return "y"
+    return None
+
+
+def _on_domain(claim: K.Claim, element: Mapping[str, Any]) -> bool:
+    """A line bound to a series is drawn at the claim's index: its ``i``-th x
+    is ``var_from + i * var_step`` (the claim's tolerance)."""
+
+    xs = element.get("x") or []
+    return all(_close(float(x), claim.var_from + index * claim.var_step) for index, x in enumerate(xs))
+
+
 def _close(value: float, expected: float) -> bool:
     return math.isfinite(expected) and abs(value - expected) <= K.CLAIM_REL_TOL * max(1.0, abs(expected))
 
@@ -233,7 +301,7 @@ def _z() -> float:
 
 
 def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float], x: float, y: float, h: float,
-         steps: int) -> list[tuple[float, float]]:
+         steps: int, budget: _Budget | None = None) -> list[tuple[float, float]]:
     """The grammar's fixed-step RK4 (``spec._path``'s operation order)."""
 
     xv, yv = names
@@ -247,6 +315,8 @@ def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float],
     half = h / 2
     t = 0.0
     for i in range(steps):
+        if budget is not None and i % _TICK_EVERY == 0:
+            budget.tick()
         k1x, k1y = rates(x, y, t)
         k2x, k2y = rates(x + half * k1x, y + half * k1y, t + half)
         k3x, k3y = rates(x + half * k2x, y + half * k2y, t + half)
@@ -258,10 +328,27 @@ def _rk4(dx: G.Node, dy: G.Node, names: Sequence[str], env: Mapping[str, float],
     return out
 
 
-def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sample) -> str | None:
-    """One claim at one point read: None when it holds, else why not."""
+def claim_entries(claim: K.CompiledClaim, probe: K.Probe, value: Any) -> int:
+    """How many entries a claim's check at one point read evaluates (charged
+    times :attr:`.sketch.CompiledClaim.entry_work` before it runs)."""
+
+    if probe.shape == "scalar" or claim.claim.kind == "distribution":
+        return 1
+    count = len(value)
+    if claim.claim.kind == "follows":
+        return max(0, count - 1)
+    return count
+
+
+def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sample,
+                budget: _Budget | None = None) -> str | None:
+    """One claim at one point read: None when it holds, else why not. With a
+    ``budget``, its work is charged first and long loops watch the clock."""
 
     spec = claim.claim
+    if budget is not None:
+        budget.charge(claim.entry_work * claim_entries(claim, compiled.probes[spec.probe],
+                                                       sample.probes[spec.probe]))
     probe = compiled.probes[spec.probe]
     value = sample.probes[spec.probe]
     env = _env(compiled, sample.point, sample.step)
@@ -274,6 +361,8 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
                 f"{where}: {spec.probe} is {float(value):.10g}, the stated {spec.expr} is {expected:.10g}"
         entries = (list(enumerate(value)) if probe.shape == "series" else [(None, pair) for pair in value])
         for index, entry in entries:
+            if budget is not None and index is not None and index % _TICK_EVERY == 0:
+                budget.tick()
             if probe.shape == "series":
                 env[spec.var] = spec.var_from + index * spec.var_step
                 got = float(entry)
@@ -291,8 +380,9 @@ def check_claim(compiled: K.CompiledSketch, claim: K.CompiledClaim, sample: _Sam
             return f"{where}: {spec.probe} has fewer than two points"
         steps = len(path) - 1
         h = float(spec.h)
-        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps)
-        half = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h / 2, 2 * steps)
+        full = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h, steps, budget)
+        half = _rk4(claim.nodes["dx"], claim.nodes["dy"], spec.vars, env, path[0][0], path[0][1], h / 2, 2 * steps,
+                    budget)
         for i, (px, py) in enumerate(path):
             fx, fy = full[i]
             hx, hy = half[2 * i]
@@ -344,6 +434,20 @@ def _statement(claim: K.Claim) -> str:
     return " ".join(claim.expr.split())
 
 
+def prediction_target_step(compiled: K.CompiledSketch, index: int) -> int:
+    """The clock step a prediction is graded at (Codex review F5), shared
+    with the desktop so its playback stops exactly there: ``run_to`` the step
+    nearest that time (at least 1, at most ``t_max``'s); a parameter change
+    ``t_max``'s step with a clock, 0 without."""
+
+    program = compiled.program
+    change = dict(program.predictions[index].change)
+    clock = program.clock
+    if set(change) == {"run_to"} and clock is not None:
+        return min(compiled.steps, max(1, round(change["run_to"] / clock.dt)))
+    return compiled.steps
+
+
 def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *,
                        seed: int = VERIFY_SEED) -> dict[str, Any]:
     """What a sketch's prediction observes and its answer, decided by code in
@@ -371,20 +475,20 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
             raise SketchRunError(1, problems[0])
         return values[observe.probe]
 
+    target = prediction_target_step(compiled, index)
     if set(change) == {"run_to"}:
         assert clock is not None
         before = read(defaults, 0)
-        after = read(defaults, min(compiled.steps, max(1, round(change["run_to"] / clock.dt))))
+        after = read(defaults, target)
     else:
-        end = compiled.steps
-        before = read(defaults, end)
-        after = read({**defaults, **change}, end)
+        before = read(defaults, target)
+        after = read({**defaults, **change}, target)
     if observe.kind == "direction":
         b, a = float(before), float(after)
         slack = 1e-6 * max(1.0, abs(b))
         answer = "same" if abs(a - b) <= slack else ("rises" if a > b else "falls")
         return {"kind": "direction", "before": b, "after": a, "answer": answer, "choices": ["rises", "falls", "same"],
-                "change": change}
+                "change": change, "target_step": target}
     series = [float(v) for v in after]
     labels = list(observe.choices)
     answer = None
@@ -392,14 +496,21 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
         top = max(series)
         winners = [label for label, v in zip(labels, series) if abs(v - top) <= 1e-6 * max(1.0, abs(top))]
         answer = winners[0] if len(winners) == 1 else None
-    return {"kind": "choice", "before": None, "after": None, "answer": answer, "choices": labels, "change": change}
+    return {"kind": "choice", "before": None, "after": None, "answer": answer, "choices": labels, "change": change,
+            "target_step": target}
 
 
 def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory = SketchEngine,
                   span_texts: Mapping[str, str] | None = None) -> SketchReport:
     """Steps 2-5 on a parsed program (step 1's static half is
     :func:`.sketch.parse_sketch`): ``failed`` with the reason, or
-    ``illustrative`` with its check lines."""
+    ``illustrative`` with its check lines.
+
+    Streamed (Codex review F1): each point read is validated, bound and
+    checked as it arrives, and only its digest is kept for step 3's
+    comparison, so memory holds one scene at a time whatever the grid. The
+    steps still decide in order: a run that fails, then determinism, then
+    bindings, then claims."""
 
     report = SketchReport()
     grid = V.parameter_grid(compiled)  # type: ignore[arg-type]
@@ -409,52 +520,94 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                       "verified": bool(span_texts) and claim.span_id in (span_texts or {})
                       and V.quote_in(claim.quote, (span_texts or {})[claim.span_id])}
                      for claim in compiled.program.source_claims]
-    first = engine_factory()
+    budget = _Budget(time.monotonic() + K.SKETCH_VERIFY_SECONDS)
+    program = compiled.program
+    # Which bound elements each claim may speak for, and how (F3).
+    bound: dict[str, list[str]] = {}
+    for binding in program.bindings:
+        bound.setdefault(binding.probe, []).append(binding.element_id)
+    off_domain: dict[int, set[str]] = {}
+    kinds: dict[str, set[str]] = {}
+    defaults_point = compiled.defaults
+    first_drawn: list[tuple[Any, str]] | None = None
+    first = _engine(engine_factory, budget)
     try:
         try:
-            samples = _run(compiled, first, grid, steps)
-            report.settings = len(samples)
-            second = engine_factory()
+            digests: dict[tuple[str, int], bytes] = {}
+            binding_problem: str | None = None
+            failures: dict[int, str] = {}
+            settings = 0
+            for sample, digest in _stream(compiled, first, grid, steps, budget):
+                settings += 1
+                digests[_point_key(sample.point, sample.step)] = digest
+                elements = K.element_index(sample.scene)
+                if first_drawn is None and sample.step == steps[0] and \
+                        all(sample.point.get(k, v) == v for k, v in defaults_point.items()):
+                    # What the learner first sees: the defaults at the first step.
+                    first_drawn = [(element.get("id"), str(element.get("type")))
+                                   for element in sample.scene.get("elements") or ()]
+                if binding_problem is None:
+                    binding_problem = _binding_problem(compiled, sample, elements)
+                if binding_problem is not None:
+                    continue  # bindings fail: the claims can't speak for anything
+                for element_id in (b.element_id for b in program.bindings):
+                    kinds.setdefault(element_id, set()).add(str(elements[element_id].get("type")))
+                for index, claim in enumerate(compiled.claims):
+                    spec = claim.claim
+                    if spec.kind == "equals" and compiled.probes[spec.probe].shape == "series":
+                        for element_id in bound.get(spec.probe, ()):
+                            element = elements[element_id]
+                            if element.get("type") in ("polyline", "polygon", "points") and \
+                                    not _on_domain(spec, element):
+                                off_domain.setdefault(index, set()).add(element_id)
+                    if index in failures:
+                        continue
+                    problem = check_claim(compiled, claim, sample, budget)
+                    if problem is not None:
+                        failures[index] = problem
+                del sample, elements
+            report.settings = settings
+            second = _engine(engine_factory, budget)
             try:
-                again = _run(compiled, second, list(reversed(grid)), steps, extra_reads=True)
+                for sample, digest in _stream(compiled, second, list(reversed(grid)), steps, budget,
+                                              extra_reads=True):
+                    if digests.get(_point_key(sample.point, sample.step)) != digest:
+                        raise _Failed("deterministic", [
+                            f"at {_point_text(sample.point)}: a second run gives different values (it may not "
+                            "depend on anything but its inputs and rand())"])
             finally:
                 second.close()
-            texts = {(json.dumps(s.point, sort_keys=True), s.step): (s.scene_text, s.probes_text) for s in samples}
-            for sample in again:
-                if texts.get((json.dumps(sample.point, sort_keys=True), sample.step)) != (sample.scene_text,
-                                                                                        sample.probes_text):
-                    raise _Failed("deterministic", [f"at {_point_text(sample.point)}: a second run gives different "
-                                                    "values (it may not depend on anything but its inputs and rand())"])
-            problems = _bindings(compiled, samples)
-            if problems:
-                raise _Failed("bindings", problems)
-            failures: list[str] = []
-            checks: list[dict[str, Any]] = []
-            bound = {}
-            for binding in compiled.program.bindings:
-                bound.setdefault(binding.probe, []).append(binding.element_id)
-            for index, claim in enumerate(compiled.claims):
-                problem = next((p for p in (check_claim(compiled, claim, s) for s in samples) if p), None)
-                if problem is not None:
-                    failures.append(f"claim {index + 1} ({claim.claim.kind}) fails {problem}")
-                    continue
-                checks.append({"claim": index, "kind": claim.claim.kind, "probe": claim.claim.probe,
-                               "elements": list(bound.get(claim.claim.probe, ())),
-                               "statement": _statement(claim.claim), "settings": len(samples)})
+            if binding_problem is not None:
+                raise _Failed("bindings", [binding_problem])
             if failures:
-                raise _Failed("claims", failures)
+                raise _Failed("claims", [f"claim {index + 1} ({compiled.claims[index].claim.kind}) fails {problem}"
+                                         for index, problem in sorted(failures.items())])
+            checks: list[dict[str, Any]] = []
+            for index, claim in enumerate(compiled.claims):
+                spec = claim.claim
+                shape = compiled.probes[spec.probe].shape
+                whole: list[str] = []
+                partial: list[dict[str, str]] = []
+                for element_id in bound.get(spec.probe, ()):
+                    scopes = {_scope(spec, shape, kind, element_id not in off_domain.get(index, ()))
+                              for kind in kinds.get(element_id, ())}
+                    if not scopes or False in scopes:
+                        continue
+                    attributes = sorted(scope for scope in scopes if isinstance(scope, str))
+                    if attributes:
+                        partial.append({"element": element_id, "attribute": attributes[0]})
+                    else:
+                        whole.append(element_id)
+                checks.append({"claim": index, "kind": spec.kind, "probe": spec.probe, "elements": whole,
+                               "partial": partial, "statement": _statement(spec), "settings": settings})
             report.checks = checks
-            covered = {element for check in checks for element in check["elements"]}
-            # What the learner first sees: the defaults at the first step.
-            defaults_point = compiled.defaults
-            defaults_scene = next((s.scene for s in samples if s.step == steps[0]
-                                   and all(s.point.get(k, v) == v for k, v in defaults_point.items())), None)
-            drawn = [element for element in (defaults_scene or {}).get("elements") or ()
-                     if element.get("type") != "handle"]
-            report.not_covered = [str(element["id"]) for element in drawn
-                                  if element.get("id") is not None and element["id"] not in covered]
-            report.unnamed_elements = sum(1 for element in drawn if element.get("id") is None)
-            for index in range(len(compiled.program.predictions)):
+            covered = {element for check in checks for element in
+                       [*check["elements"], *(entry["element"] for entry in check["partial"])]}
+            drawn = [(element_id, kind) for element_id, kind in first_drawn or () if kind != "handle"]
+            report.not_covered = [str(element_id) for element_id, _kind in drawn
+                                  if element_id is not None and element_id not in covered]
+            report.unnamed_elements = sum(1 for element_id, _kind in drawn if element_id is None)
+            for index in range(len(program.predictions)):
                 try:
                     if prediction_outcome(compiled, first, index).get("answer") is None:
                         report.dropped_predictions.append(index)
@@ -473,11 +626,20 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
     return report
 
 
+def _engine(factory: EngineFactory, budget: _Budget) -> SketchEngine:
+    engine = factory()
+    if hasattr(engine, "deadline"):
+        engine.deadline = budget.deadline
+    return engine
+
+
 __all__ = [
     "PROPERTY_WORDS",
     "SketchReport",
     "VERIFY_SEED",
     "check_claim",
+    "claim_entries",
     "prediction_outcome",
+    "prediction_target_step",
     "verify_sketch",
 ]

@@ -23,7 +23,15 @@ interrupt ticks, :data:`SKETCH_FUEL_PER_CALL`) and the runtime a memory cap
 desktop runs under the same caps. Here, wasmtime adds backstops for what the
 interpreter cannot interrupt (a native loop such as a huge BigInt power):
 fuel per call (:data:`WASM_FUEL_PER_CALL`), a store memory limit
-(:data:`WASM_MEMORY_BYTES`) and an epoch deadline (:data:`CALL_SECONDS`).
+(:data:`WASM_MEMORY_BYTES`) and an epoch deadline (:data:`CALL_SECONDS`, or
+less when the caller's own :attr:`SketchEngine.deadline` comes sooner).
+
+**Timeouts are per store** (Codex review F7). Every store compiled from one
+cached ``wasmtime.Engine`` shares that engine's epoch, so the epoch is a
+shared clock (:class:`_EpochClock`, one tick every
+:data:`EPOCH_TICK_SECONDS` while any instance is open) and each call's deadline is
+its own allowance counted in ticks from its start: one sketch running out of
+time never stops another.
 """
 
 from __future__ import annotations
@@ -31,7 +39,9 @@ from __future__ import annotations
 import atexit
 import hashlib
 import json
+import math
 import threading
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,6 +74,9 @@ SKETCH_SERIALIZE_TICKS = 48
 WASM_MEMORY_BYTES = 100_663_296  # 96 MiB
 WASM_FUEL_PER_CALL = 4_000_000_000
 CALL_SECONDS = 10.0
+#: keep (machine safety): how often the shared epoch clock ticks while a call
+#: runs; a deadline is honoured to within one tick.
+EPOCH_TICK_SECONDS = 0.05
 #: keep: wasm stack for the interpreter's own recursion (the engine's JS
 #: recursion guard fires well before it).
 WASM_STACK_BYTES = 1_572_864  # 1.5 MiB (wasmtime caps it below its 2 MiB async stack)
@@ -109,8 +122,57 @@ def artifact_digest(path: Path = ENGINE_PATH) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-#: Compiled engines by (path, pin): compiling takes a moment, instantiating is cheap.
-_COMPILED: dict[tuple[str, str], tuple[Any, Any, str]] = {}
+class _EpochClock:
+    """The shared epoch of one ``wasmtime.Engine`` as a clock (Codex review F7).
+
+    A thread advances the engine's epoch every :data:`EPOCH_TICK_SECONDS`
+    while at least one :class:`SketchEngine` of it is open; each call sets
+    its own deadline that many ticks ahead (:func:`deadline_ticks`). The
+    first open instance starts the thread and the last one closed stops and
+    joins it, so no thread outlives the engines (the thread-leak guard)."""
+
+    def __init__(self, engine: Any) -> None:
+        self._engine = engine
+        self._lock = threading.Lock()
+        self._active = 0
+        self._thread: threading.Thread | None = None
+        self._stop: threading.Event | None = None
+
+    def enter(self) -> None:
+        with self._lock:
+            self._active += 1
+            if self._thread is None:
+                stop = threading.Event()
+                thread = threading.Thread(target=self._tick, args=(stop,), name="sketch-epoch-clock", daemon=True)
+                self._thread, self._stop = thread, stop
+                thread.start()
+
+    def exit(self) -> None:
+        with self._lock:
+            self._active -= 1
+            if self._active > 0:
+                return
+            thread, stop = self._thread, self._stop
+            self._thread = self._stop = None
+        if stop is not None and thread is not None:
+            stop.set()
+            thread.join()
+
+    def _tick(self, stop: threading.Event) -> None:
+        while not stop.wait(EPOCH_TICK_SECONDS):
+            self._engine.increment_epoch()
+
+
+def deadline_ticks(seconds: float) -> int:
+    """A call's epoch deadline, in clock ticks from now: at least
+    ``seconds`` (one more tick, as the first may come at once)."""
+
+    return max(2, math.ceil(seconds / EPOCH_TICK_SECONDS) + 1)
+
+
+#: Compiled engines by (path, pin): compiling takes a moment, instantiating is
+#: cheap. Each with its epoch clock (one per wasmtime Engine).
+_COMPILED: dict[tuple[str, str], tuple[Any, Any, str, _EpochClock]] = {}
 _COMPILED_GUARD = threading.Lock()
 
 
@@ -121,7 +183,7 @@ def _close_compiled() -> None:
     with _COMPILED_GUARD:
         entries = list(_COMPILED.values())
         _COMPILED.clear()
-    for engine, module, _digest in entries:
+    for engine, module, _digest, _clock in entries:
         for item in (module, engine):
             try:
                 item.close()
@@ -132,7 +194,7 @@ def _close_compiled() -> None:
 atexit.register(_close_compiled)
 
 
-def _compiled(path_text: str, expected: str) -> tuple[Any, Any, str]:
+def _compiled(path_text: str, expected: str) -> tuple[Any, Any, str, _EpochClock]:
     key = (path_text, expected)
     with _COMPILED_GUARD:
         found = _COMPILED.get(key)
@@ -143,7 +205,7 @@ def _compiled(path_text: str, expected: str) -> tuple[Any, Any, str]:
         return _COMPILED.setdefault(key, found)
 
 
-def _compile(path_text: str, expected: str) -> tuple[Any, Any, str]:
+def _compile(path_text: str, expected: str) -> tuple[Any, Any, str, _EpochClock]:
     import wasmtime
 
     path = Path(path_text)
@@ -165,7 +227,7 @@ def _compile(path_text: str, expected: str) -> tuple[Any, Any, str]:
     extra = sorted(imports - ALLOWED_IMPORTS)
     if extra:
         raise EngineUnavailable(f"the sketch engine imports {extra}, which the sandbox does not answer")
-    return engine, module, digest
+    return engine, module, digest, _EpochClock(engine)
 
 
 def engine_info(*, path: Path = ENGINE_PATH, expected: str = ENGINE_SHA256) -> EngineInfo:
@@ -185,20 +247,27 @@ def engine_ready(*, path: Path = ENGINE_PATH, expected: str = ENGINE_SHA256) -> 
 
 class SketchEngine:
     """One sealed engine instance (one program at a time). Not thread-safe:
-    one per verification or prediction; :meth:`close` (or ``with``) frees it."""
+    one per verification or prediction; :meth:`close` (or ``with``) frees it.
 
-    def __init__(self, *, path: Path = ENGINE_PATH, expected: str = ENGINE_SHA256) -> None:
+    ``deadline`` (a ``time.monotonic()`` instant, or None): the caller's own
+    time limit (verification's, :data:`.sketch.SKETCH_VERIFY_SECONDS`); a call
+    never runs past it, and none starts after it."""
+
+    def __init__(self, *, path: Path = ENGINE_PATH, expected: str = ENGINE_SHA256,
+                 deadline: float | None = None) -> None:
         import wasmtime
 
         self._wasmtime = wasmtime
-        engine, module, digest = _compiled(str(path), expected)
+        engine, module, digest, clock = _compiled(str(path), expected)
         self.engine = engine
+        self._clock = clock
+        self.deadline = deadline
         self.digest = digest
         self.stderr = bytearray()
         self.store = wasmtime.Store(engine)
         self.store.set_limits(memory_size=WASM_MEMORY_BYTES, instances=1, tables=2, memories=1)
         self.store.set_fuel(WASM_FUEL_PER_CALL)
-        self.store.set_epoch_deadline(1)
+        self.store.set_epoch_deadline(deadline_ticks(CALL_SECONDS))
         linker = wasmtime.Linker(engine)
         self._define_shim(linker)
         self.instance = linker.instantiate(self.store, module)
@@ -208,7 +277,15 @@ class SketchEngine:
                                                      "sk_load", "sk_init", "sk_step", "sk_view", "sk_probes",
                                                      "sk_unload")}
         self.broken = False
-        self._call("initialize", exports["_initialize"])
+        # The engine's epoch clock runs while this instance is open (one
+        # thread start per engine, not per call); close() releases it.
+        self._clock.enter()
+        self._clock_held = True
+        try:
+            self._call("initialize", exports["_initialize"])
+        except BaseException:
+            self._release_clock()
+            raise
         self.entry_points: dict[str, bool] = {}
 
     # -- the deny-all WASI shim --------------------------------------------
@@ -248,19 +325,23 @@ class SketchEngine:
     # -- calls -------------------------------------------------------------
 
     def _call(self, name: str, function: Any, *args: int) -> Any:
-        """One call with fresh backstops: fuel, and an epoch deadline a
-        timer thread trips after :data:`CALL_SECONDS` (joined before return)."""
+        """One call with fresh backstops: fuel, and an epoch deadline of its
+        own, :data:`CALL_SECONDS` (or what is left before :attr:`deadline`)
+        in ticks of the engine's shared clock."""
 
         wasmtime = self._wasmtime
         if self.broken:
             # A trap can stop the interpreter mid-update: the instance is
             # never called again (a new one is cheap).
             raise SketchRunError(ERROR, "the engine was stopped earlier; a new one is needed", trap=True)
+        allowance = CALL_SECONDS
+        if self.deadline is not None:
+            remaining = self.deadline - time.monotonic()
+            if remaining <= 0:
+                raise SketchRunError(WORK, f"{_label(name)}: out of time")
+            allowance = min(allowance, remaining)
         self.store.set_fuel(WASM_FUEL_PER_CALL)
-        self.store.set_epoch_deadline(1)
-        timer = threading.Timer(CALL_SECONDS, self.engine.increment_epoch)
-        timer.daemon = True
-        timer.start()
+        self.store.set_epoch_deadline(deadline_ticks(allowance))
         try:
             return function(self.store, *args)
         except wasmtime.Trap as exc:
@@ -270,9 +351,6 @@ class SketchEngine:
         except wasmtime.WasmtimeError as exc:
             self.broken = True
             raise SketchRunError(ERROR, f"{_label(name)}: the engine stopped it", trap=True) from exc
-        finally:
-            timer.cancel()
-            timer.join()
 
     def _write(self, data: bytes) -> int:
         pointer = self._call("buffer", self._fn["sk_buffer"], len(data))
@@ -327,12 +405,20 @@ class SketchEngine:
         length = self._write(_json(params))
         return self._run("sk_probes", length, int(index))
 
+    def _release_clock(self) -> None:
+        if getattr(self, "_clock_held", False):
+            self._clock_held = False
+            self._clock.exit()
+
     def close(self) -> None:
         try:
             self._fn["sk_unload"](self.store)
         except Exception:  # noqa: BLE001 - closing never raises
             pass
-        self.store.close()
+        try:
+            self.store.close()
+        finally:
+            self._release_clock()
 
     def __enter__(self) -> "SketchEngine":
         return self
@@ -371,6 +457,7 @@ __all__ = [
     "ENGINE_PATH",
     "ENGINE_SHA256",
     "ENGINE_VERSION",
+    "EPOCH_TICK_SECONDS",
     "EngineInfo",
     "EngineUnavailable",
     "SKETCH_FUEL_PER_CALL",
@@ -382,6 +469,7 @@ __all__ = [
     "WASM_FUEL_PER_CALL",
     "WASM_MEMORY_BYTES",
     "artifact_digest",
+    "deadline_ticks",
     "engine_info",
     "engine_ready",
 ]
