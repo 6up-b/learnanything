@@ -7,7 +7,7 @@ model call:
 
 * **exposure since valuation** (F1): the sources spec's exposure rule at
   serve (``db.stores.source_service.serve_time_exposure``: an attempt on the
-  item, a reveal on it or its family, source text shown from its span, an
+  item since the valuation, a reveal on it or its family, source text shown from its span, an
   impression from any proposal, and a studied worked example the judge called
   ``equivalent``/``related`` or never judged), counted from the later of the
   valuation and the cold delay's start. A ``related`` worked example is a
@@ -121,7 +121,14 @@ def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapp
             studied_extraction_ids=None if scope is None else [str(value) for value in scope],
             since=since)
         retries = open_cold_retries(connection, now=now) if provenance.get("purpose") == "retention" else []
+        attempted_since = connection.execute(
+            "SELECT 1 FROM practice_attempts WHERE practice_item_id = ? AND created_at >= ? LIMIT 1",
+            (item_id, valued_at or "")).fetchone() is not None
     reasons = independent_reasons(verdict.get("reasons") or (), intent=intent)
+    if "attempted" in reasons and not attempted_since:
+        # Rule 1 counts any attempt; one before the valuation was the
+        # valuation's to weigh (``unattempted_only``), not an exposure since.
+        reasons.remove("attempted")
     owner = None
     for facet in question.get("facet_ids") or ():
         owner = owning_retry(vault, retries, facet_id=str(facet), attempt_ids=provenance.get("attempt_ids") or (),

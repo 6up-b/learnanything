@@ -57,6 +57,9 @@ and `reader.followups_plan`. They are desktop only, pinned in `test_mobile_allow
 
 ## Successor: none (for the reviewer to confirm)
 
+> **Superseded by the Codex review's ruling (F4):** the successor `mvp-0.39` is built, with `followups.enabled` as
+> its kill switch. See `reader-rw6b-p1-followups-codex-review.md`. The text below is the stage's original position.
+
 Per §9.3 "Why no successor", RW6b adds content (commitments the learner can undo) behind `followups.enabled`. DL2
 serves those commitments exactly as it defines them, with no serving, scoring, scheduling or evidence change.
 `evsi.rank_feasible` decides only which commitments to create. The defaults snapshots of every algorithm version
