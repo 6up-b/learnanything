@@ -3,8 +3,8 @@ title: "remediation_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "48333b2928dae8bd2e2eedfe896015cdb782ad76"
-source_commit_timestamp: "2026-10-27T20:22:09-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 - `tests/test_guided_redo.py`
 - `tests/test_prescription_passages.py`
 - `tests/test_reader_ca2_one_ask.py`
+- `tests/test_reader_ca5a_find_section.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_sidecar_remediation_surfaces.py`
 
