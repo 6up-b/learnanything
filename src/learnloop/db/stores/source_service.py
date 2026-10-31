@@ -730,6 +730,22 @@ def need_source_import(connection: sqlite3.Connection, practice_item_id: str) ->
     return None if row is None else _import(row)
 
 
+def book_solution_span_ids(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
+    """The imported exercise's own book solution spans (its latest import's
+    verification), or [] when it has none: source text the exposure rule
+    counts as shown from the exercise (rule 3)."""
+
+    if not table_exists(connection, "source_exercise_imports"):
+        return []
+    row = connection.execute(
+        "SELECT verification_json FROM source_exercise_imports WHERE practice_item_id=? "
+        "ORDER BY created_at DESC LIMIT 1", (practice_item_id,)).fetchone()
+    if row is None:
+        return []
+    verification = _loads(row[0], {})
+    return [str(span) for span in ((verification or {}).get("book_solution") or {}).get("span_ids") or []]
+
+
 WORKED_EXAMPLE_LEDGER_TASK = "worked_example_equivalence"
 
 
@@ -1831,6 +1847,7 @@ __all__ = [
     "exercise_key",
     "need_source_import",
     "serve_time_exposure",
+    "book_solution_span_ids",
     "key_checks_for_item",
     "key_status_for_content",
     "reference_status_for_item",

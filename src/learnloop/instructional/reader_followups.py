@@ -113,6 +113,10 @@ RETIRE_UNDONE = "undone"
 RETIRE_EXPOSED = "exposed_since_valuation"
 #: A repair cold retry now measures the same claim (Codex review F11).
 RETIRE_REPAIR_OWNS = "repair_retry_owns"
+#: A re-asked question's search (resumed from its continuation, the earlier
+#: pick carried) valued this check and no longer selects it: a check chosen
+#: with it gives the same information for less (Codex re-review F14).
+RETIRE_SUPERSEDED = "superseded_by_resumed_search"
 #: Re-valuation keeps a check whose only exposure is a studied worked example
 #: nobody judged yet; the background job asks the judge (Codex review F5).
 KEPT_REFRESH = "exposure_refresh_needed"
@@ -837,6 +841,7 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     incomplete = False
     intent_excluded: set[str] = set()
     planned: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []  # (entry, creation, chosen line)
+    superseded_lines: list[tuple[dict[str, Any], str, str | None]] = []  # (entry, ref, proposal)
     for question in questions:
         if question.key in done:
             continue
@@ -887,6 +892,16 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                 {"requested": False, "reason": "generate_when_nothing_fits is off"}
                 if not getattr(_config(vault), "generate_when_nothing_fits", False)
                 else {"requested": False, "reason": "unavailable: PF has no source-anchored request API yet"})
+        # F14: an earlier check of this question that the search valued (a
+        # resumed search carries it) and did not select is retired in the
+        # publication, so outstanding checks are this selection's.
+        picked = {str(check["ref"]) for _section, check in picks}
+        valued = {str(candidate.get("ref")) for section in (result.get("valuation") or {}).get("problems") or []
+                  for candidate in (section.get("groups") or {}).get("valued") or ()}
+        superseded_lines.extend(
+            (entry, str(line["ref"]), result.get("proposal_id")) for line in chosen
+            if line.get("question") == question.key and line.get("commitment_id")
+            and str(line["ref"]) in valued and str(line["ref"]) not in picked)
         roots, spans = _session_spans(vault, repository, summary, question.learning_object_ids, extraction_id)
         scope = _exposure_scope(vault, repository, question.learning_object_ids, extraction_id)
         for section, check in picks:
@@ -946,25 +961,33 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     return _publish(vault, repository, digest_id=digest_id, existing=existing, extraction_id=extraction_id,
                     session=session, summary=summary, notes=notes, families=families,
                     receipt_questions=receipt_questions, chosen=chosen, commitment_ids=commitment_ids,
-                    planned=planned, incomplete=incomplete, intent_excluded=intent_excluded, now=now, clock=clock)
+                    planned=planned, superseded_lines=superseded_lines, incomplete=incomplete,
+                    intent_excluded=intent_excluded, now=now, clock=clock)
 
 
 def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Mapping[str, Any] | None,
              extraction_id: str, session: RS.ReaderSession, summary: Mapping[str, Any],
              notes: Sequence[Mapping[str, Any]], families: Sequence[str], receipt_questions: list[dict[str, Any]],
              chosen: list[dict[str, Any]], commitment_ids: list[str],
-             planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]], incomplete: bool,
+             planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]],
+             superseded_lines: Sequence[tuple[dict[str, Any], str, str | None]], incomplete: bool,
              intent_excluded: set[str], now: datetime, clock: Clock | None) -> dict[str, Any] | None:
-    """F3: the commitments, the digest receipt and the queue revision in one transaction."""
+    """F3: the commitments, the retirements of what a re-asked search no
+    longer selects (F14), the digest receipt and the queue revision in one
+    transaction."""
 
     stamp = utc_now_iso(clock)
     created_any = False
     with repository.atomic():
         connection = repository.connection()
         current = RDG.digest_for_session(connection, extraction_id, session.session_id)
+        # The whole row as this plan read it, not its second-resolution
+        # ``updated_at``: two resumptions can publish within one second
+        # (Codex re-review F3). Any change since (another plan, a
+        # re-valuation) supersedes this one; the digest stays incomplete
+        # or planned as the other writer left it.
         superseded = (current is not None and (
-            existing is None or current["status"] == "planned"
-            or str(current.get("updated_at")) != str(existing.get("updated_at"))))
+            existing is None or current["status"] == "planned" or current != existing))
         if not superseded:
             # The learner's intent as it stands now, inside the publication.
             committed = committed_items(vault, connection, own=commitment_ids)
@@ -983,6 +1006,21 @@ def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Ma
                 if commitment.id not in commitment_ids:
                     commitment_ids.append(commitment.id)
                 chosen.append({**line, "commitment_id": commitment.id})
+            for entry, ref, proposal_id in superseded_lines:
+                index = next((i for i, line in enumerate(chosen) if str(line.get("ref")) == ref), None)
+                commitment_id = str(chosen[index]["commitment_id"]) if index is not None else ""
+                try:
+                    pending = C.resolve_disposition(repository, commitment_id) == "one_check_pending"
+                except C.UnknownCommitment:
+                    pending = False
+                if index is None or not pending or _learner_kept(repository, commitment_id):
+                    continue  # answered, undone or kept by the learner meanwhile: theirs
+                C.retire(repository, commitment_id=commitment_id, detail={
+                    "reason": RETIRE_SUPERSEDED, "proposal_id": proposal_id, "extraction_id": extraction_id,
+                    "followups_version": FOLLOWUPS_VERSION}, clock=clock)
+                created_any = True
+                chosen[index] = {**chosen[index], "superseded_by": proposal_id}
+                entry.setdefault("superseded", []).append({"ref": ref, "commitment_id": commitment_id})
             valuation = {
                 "followups_version": FOLLOWUPS_VERSION, "valuation_version": VALUATION_VERSION,
                 "summary_version": summary.get("summary_version"), "scale": SCALE_LABEL,
@@ -1170,17 +1208,37 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                 line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
                                          provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
                                          now=now, clock=clock)
-            if line.get("reason") == RETIRE_EXPOSED:
-                requery.append(str((provenance.get("valuation_ref") or {}).get("question") or ""))
             lines.append(line)
-            report["retired" if line["retired"] else "kept"].append(line)
+        retired_here = False
         with repository.atomic():
+            # F13 (Codex re-review): an exposure retirement, its question's
+            # re-ask marker and the queue revision commit together, so a
+            # failure between them loses neither the check nor the search.
             connection = repository.connection()
+            for line in lines:
+                if line.get("reason") != RETIRE_EXPOSED or line.get("retired"):
+                    continue
+                commitment_id = str(line["commitment_id"])
+                if C.resolve_disposition(repository, commitment_id) != "one_check_pending" \
+                        or _learner_kept(repository, commitment_id):
+                    for key in ("reason", "detail", "question_key"):
+                        line.pop(key, None)
+                    line["kept_because"] = ["changed_meanwhile"]
+                    continue
+                C.retire(repository, commitment_id=commitment_id, detail=line["detail"], clock=clock)
+                line["retired"] = True
+                requery.append(str(line.pop("question_key", "") or ""))
+            for line in lines:
+                line.pop("question_key", None)
+                report["retired" if line["retired"] else "kept"].append(line)
+                retired_here = retired_here or bool(line["retired"])
             columns: dict[str, Any] = {}
             if requery:
                 # F1: the exposed check's question is asked again (a fresh
                 # search; the exposed item is out of its exact filters now).
-                valuation = dict(row.get("valuation") or {})
+                # The valuation as it stands now, inside the transaction.
+                fresh = RDG.digest(connection, row["id"]) or row
+                valuation = dict(fresh.get("valuation") or {})
                 questions = []
                 for entry in valuation.get("questions") or []:
                     if entry.get("key") in requery:
@@ -1192,8 +1250,8 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             RDG.update_digest(connection, row["id"], revaluation_json={
                 "revalued_at": _iso(now), "followups_version": FOLLOWUPS_VERSION, "lines": lines},
                 revalued_on=today, updated_at=utc_now_iso(clock), **columns)
-    if report["retired"]:
-        repository.bump_queue_revision(clock=clock)
+            if retired_here:
+                repository.bump_queue_revision(clock=clock)
     return report
 
 
@@ -1319,10 +1377,12 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         line["kept_because"] = [KEPT_REFRESH]
         return line
     if reasons:
+        # Retired by the caller, in one transaction with the question's
+        # re-ask marker (Codex re-review F13).
         detail = {"reason": RETIRE_EXPOSED, "reasons": reasons, "extraction_id": extraction_id,
                   "followups_version": FOLLOWUPS_VERSION}
-        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
-        line.update(retired=True, reason=RETIRE_EXPOSED, detail=detail)
+        line.update(reason=RETIRE_EXPOSED, detail=detail,
+                    question_key=str((provenance.get("valuation_ref") or {}).get("question") or ""))
         return line
     receipt = dict(valuer(question, item_id))
     sections = list(receipt.get("problems") or [])
@@ -1538,6 +1598,8 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
                     text = "No longer a check on your own: you've seen this question since it was suggested"
                 elif reason == RETIRE_REPAIR_OWNS:
                     text = "No longer needed: a check on your own is already coming up for this"
+                elif reason == RETIRE_SUPERSEDED:
+                    text = "No longer needed: another check coming up tells you the same in less time"
                 elif reason == RETIRE_ANSWERED and info.get("solved_at"):
                     text = "No longer needed: you solved one like it"
                 elif reason == RETIRE_ANSWERED:

@@ -7,8 +7,8 @@ model call:
 
 * **exposure since valuation** (F1): the sources spec's exposure rule at
   serve (``db.stores.source_service.serve_time_exposure``: an attempt on the
-  item since the valuation, a reveal on it or its family, source text shown from its span, an
-  impression from any proposal, and a studied worked example the judge called
+  item since the valuation, a reveal on it or its family, source text shown from its span or
+  its book solution, an impression from any proposal, and a studied worked example the judge called
   ``equivalent``/``related`` or never judged), counted from the later of the
   valuation and the cold delay's start. A ``related`` worked example is a
   label for a ``discriminate`` check (the valuation's own rule), never an
@@ -42,12 +42,23 @@ def _iso(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def independent_reasons(reasons: Iterable[str], *, intent: str) -> list[str]:
-    """The exposure reasons that exclude an independent check of ``intent``."""
+def independent_reasons(reasons: Iterable[str], *, intent: str,
+                        studied: Mapping[str, str | None] | None = None) -> list[str]:
+    """The exposure reasons that exclude an independent check of ``intent``.
+
+    ``studied`` is the exposure rule's ``studied_worked_examples`` (each
+    studied example's verdict, None when never judged). The rule reports one
+    worked-example reason, the strongest; when a ``related`` example (only a
+    label for a discriminating check) is dropped, another studied example
+    nobody judged still excludes it (``worked_example_unjudged``; Codex
+    re-review F1)."""
 
     kept = [str(reason) for reason in reasons]
     if intent == "discriminate":
+        dropped = [reason for reason in kept if reason in _LABEL_ONLY_FOR_DISCRIMINATE]
         kept = [reason for reason in kept if reason not in _LABEL_ONLY_FOR_DISCRIMINATE]
+        if dropped and studied and any(verdict is None for verdict in studied.values()):
+            kept.append("worked_example_unjudged")
     return kept
 
 
@@ -100,7 +111,7 @@ def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapp
     if provenance.get("via") != VIA:
         return None
     from learnloop.db.connection import connect
-    from learnloop.db.stores.source_service import serve_time_exposure
+    from learnloop.db.stores.source_service import book_solution_span_ids, exercise_key, serve_time_exposure
     from learnloop.serve_eligibility import COLD_RETRIEVAL_DELAY
 
     question = provenance.get("question") or {}
@@ -113,18 +124,24 @@ def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapp
               if item is not None and item.family_id else set())
     canonical = getattr(item, "canonical_exercise", None) if item is not None else None
     scope = provenance.get("exposure_scope_extraction_ids")
+    extraction_id = canonical.extraction_id if canonical is not None else None
+    span_ids = [str(span) for span in canonical.span_ids] if canonical is not None else []
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        # An imported exercise: its book solution is its source text too, and
+        # the judge may have judged it under its pre-import key (rules 3 and
+        # 4 as the valuation and the diagnosis follow-up apply them; F1).
         verdict = serve_time_exposure(
-            connection, practice_item_id=item_id, family_item_ids=family,
-            extraction_id=canonical.extraction_id if canonical is not None else None,
-            span_ids=list(canonical.span_ids) if canonical is not None else (),
+            connection, practice_item_id=item_id, family_item_ids=family, extraction_id=extraction_id,
+            span_ids=span_ids, solution_span_ids=book_solution_span_ids(connection, item_id),
+            candidate_keys=[exercise_key(str(extraction_id), span_ids)] if extraction_id else (),
             studied_extraction_ids=None if scope is None else [str(value) for value in scope],
             since=since)
         retries = open_cold_retries(connection, now=now) if provenance.get("purpose") == "retention" else []
         attempted_since = connection.execute(
             "SELECT 1 FROM practice_attempts WHERE practice_item_id = ? AND created_at >= ? LIMIT 1",
             (item_id, valued_at or "")).fetchone() is not None
-    reasons = independent_reasons(verdict.get("reasons") or (), intent=intent)
+    reasons = independent_reasons(verdict.get("reasons") or (), intent=intent,
+                                  studied=(verdict.get("inputs") or {}).get("studied_worked_examples"))
     if "attempted" in reasons and not attempted_since:
         # Rule 1 counts any attempt; one before the valuation was the
         # valuation's to weigh (``unattempted_only``), not an exposure since.
