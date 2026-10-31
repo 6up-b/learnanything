@@ -9226,6 +9226,11 @@ export interface FigureSketchDto {
   notCovered: string[];
   unnamedElements: number;
   settings: number;
+  /** Fix round 4: the read schedule every run follows (the verifier's read_steps). */
+  readSteps?: number[];
+  /** Fix round 4: per grid point, its parameter values (declared order), the checked steps and the digest of
+   *  each read there; the desktop compares its own reads and withdraws the checks on any difference. */
+  tested?: Array<{ values: number[]; steps: number[]; digests: string[] }>;
 }
 
 export type FigureGrounding = "anchor" | "retrieved" | "none";

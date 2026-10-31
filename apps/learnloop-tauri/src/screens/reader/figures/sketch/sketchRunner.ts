@@ -6,11 +6,16 @@
 // that takes longer than SKETCH_FRAME_MS x SKETCH_WATCHDOG_FRAMES ends the
 // runner (the Worker is terminated) and the sketch shows as paused. Every
 // result is JSON text the engine wrote, parsed here and validated by the
-// caller before anything is drawn.
+// caller before anything is drawn. Every read also carries the digest of the
+// text the engine wrote (sketchEngine.sceneDigest), which the sketch compares
+// with the verifier's at the states it tested (fix round 4). Requests and
+// replies are validated at runtime on both sides of the Worker
+// (sketchProtocol.ts).
 import { createContext } from "react";
-import { SKETCH_FRAME_MS, SKETCH_WATCHDOG_FRAMES, SketchRunError, type EntryPoints, type Params, type SketchEngineHost, type SketchErrorKind } from "./sketchEngine";
+import { sceneDigest, SKETCH_FRAME_MS, SKETCH_WATCHDOG_FRAMES, SketchRunError, type EntryPoints, type Params, type SketchEngineHost } from "./sketchEngine";
+import { parseWorkerReply, type SketchRead, type WorkerOp, type WorkerRequest, type WorkerResponse } from "./sketchProtocol";
 
-export type SketchRead = { scene: unknown; probes: unknown };
+export type { SketchRead, WorkerRequest, WorkerResponse } from "./sketchProtocol";
 
 export interface SketchRunner {
   load(code: string): Promise<EntryPoints>;
@@ -35,32 +40,34 @@ export function hostRunner(host: SketchEngineHost): SketchRunner {
     load: (code) => wrap(() => host.load(code)),
     init: (params, seed) => wrap(() => host.init(params, seed)),
     step: (params, dt, index, count) => wrap(() => host.step(params, dt, index, count)),
-    read: (params, index) => wrap(() => ({ scene: host.view(params, index), probes: host.probes(params, index) })),
+    read: (params, index) => wrap(() => {
+      const { sceneText, probesText } = host.readText(params, index);
+      return { scene: JSON.parse(sceneText), probes: JSON.parse(probesText), digest: sceneDigest(sceneText, probesText) };
+    }),
     dispose: () => host.dispose(),
   };
 }
 
-export type WorkerRequest = { id: number; op: "load" | "init" | "step" | "read"; args: unknown[] };
-export type WorkerResponse = { id: number; ok: true; result: unknown } | { id: number; ok: false; error: { kind: SketchErrorKind; message: string } };
-
 /** A runner over a Worker-like port (postMessage / onmessage / terminate). */
 export function portRunner(worker: { postMessage(message: WorkerRequest): void; terminate(): void; onmessage: ((event: { data: WorkerResponse }) => void) | null }): SketchRunner {
   let next = 1;
-  const waiting = new Map<number, { resolve: (value: unknown) => void; reject: (error: unknown) => void }>();
+  const waiting = new Map<number, { op: WorkerOp; resolve: (value: unknown) => void; reject: (error: unknown) => void }>();
   let ended = false;
   worker.onmessage = (event) => {
-    const reply = event.data;
-    const entry = waiting.get(reply.id);
-    if (!entry) return;
+    // Validated against the request's operation (fix round 4): a reply of
+    // another shape rejects its call; one no request is waiting for is ignored.
+    const reply = parseWorkerReply(event.data as unknown, (id) => waiting.get(id)?.op);
+    if (!reply) return;
+    const entry = waiting.get(reply.id)!;
     waiting.delete(reply.id);
     if (reply.ok) entry.resolve(reply.result);
-    else entry.reject(new SketchRunError(reply.error.kind, reply.error.message));
+    else entry.reject(reply.error);
   };
-  const send = <T,>(op: WorkerRequest["op"], args: unknown[]): Promise<T> => {
+  const send = <T,>(op: WorkerOp, args: unknown[]): Promise<T> => {
     if (ended) return Promise.reject(new SketchRunError("paused", "the sketch was stopped"));
     const id = next++;
     return new Promise<T>((resolve, reject) => {
-      waiting.set(id, { resolve: resolve as (value: unknown) => void, reject });
+      waiting.set(id, { op, resolve: resolve as (value: unknown) => void, reject });
       worker.postMessage({ id, op, args });
     });
   };

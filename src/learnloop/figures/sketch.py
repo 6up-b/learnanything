@@ -56,6 +56,10 @@ SKETCH_MAX_SERIES = 4_000
 SKETCH_TIME_SAMPLES = 9
 #: keep (operational): the most steps a clock runs to t_max, so verification stays bounded.
 SKETCH_MAX_CLOCK_STEPS = 2_000
+#: keep (display, desktop): how many reads *play* takes from t = 0 to t_max
+#: (the desktop's ``PLAY_TICKS``; a test keeps the two equal). Part of the
+#: read schedule (:func:`read_steps`) both hosts follow.
+SKETCH_PLAY_TICKS = 100
 #: keep (display, desktop): one frame, and how many a call may take before the Worker is paused.
 SKETCH_FRAME_MS = 16
 SKETCH_WATCHDOG_FRAMES = 30
@@ -250,15 +254,82 @@ def clock_steps(clock: Clock) -> int:
     return max(1, math.ceil(clock.t_max / clock.dt - 1e-9))
 
 
+def round_half_up(value: float) -> int:
+    """JavaScript's ``Math.round`` (a tie goes up), exactly: the desktop and
+    the sidecar compute the same steps from the same program (Python's
+    ``round`` sends a tie to the even neighbour)."""
+
+    whole = math.floor(value)
+    return int(whole) + 1 if value - whole >= 0.5 else int(whole)
+
+
+def tick_steps(total: int) -> list[int]:
+    """The steps *play* reads from 0 to ``total``: every
+    ``ceil(total / SKETCH_PLAY_TICKS)`` steps, and ``total`` itself."""
+
+    if total <= 0:
+        return [0]
+    per = max(1, math.ceil(total / SKETCH_PLAY_TICKS))
+    return [*range(0, total, per), total]
+
+
 def sample_steps(compiled: CompiledSketch) -> list[int]:
-    """The step indices verification reads (``SKETCH_TIME_SAMPLES`` from 0 to
+    """The step indices verification checks (``SKETCH_TIME_SAMPLES`` from 0 to
     t_max; only 0 without a clock)."""
 
     total = compiled.steps
     if total == 0:
         return [0]
     count = SKETCH_TIME_SAMPLES
-    return sorted({round(j * total / (count - 1)) for j in range(count)})
+    return sorted({round_half_up(j * total / (count - 1)) for j in range(count)})
+
+
+def prediction_step(compiled: CompiledSketch, index: int) -> int:
+    """The clock step a prediction is graded at (Codex review F5): ``run_to``
+    the step nearest that time (at least 1, at most ``t_max``'s; a tie goes
+    up, as the desktop's ``Math.round``); a parameter change ``t_max``'s step
+    with a clock, 0 without."""
+
+    program = compiled.program
+    change = dict(program.predictions[index].change)
+    clock = program.clock
+    if set(change) == {"run_to"} and clock is not None:
+        return min(compiled.steps, max(1, round_half_up(change["run_to"] / clock.dt)))
+    return compiled.steps
+
+
+def read_steps(compiled: CompiledSketch) -> list[int]:
+    """**The read schedule** (Astra sandbox review, finding 1): the only steps
+    at which any run of this sketch, in either host, calls ``view()`` and
+    then ``probes()``, each exactly once per run. Play's ticks
+    (:func:`tick_steps`), the checked samples (:func:`sample_steps`) and
+    every prediction's graded step (:func:`prediction_step`).
+
+    A program may change its own state when it is read (``view()`` and
+    ``probes()`` receive the state itself, and its globals are its own), so
+    what step ``n`` holds depends on which earlier steps were read. Every run
+    starts from a freshly loaded program and reads exactly these steps, in
+    order, whatever the learner presses: verification, grading and the
+    desktop's playback therefore pass through the same history, and a read
+    can't make what is drawn differ from what was checked. The verifier
+    sends the schedule with its report; the desktop's ``readSchedule``
+    computes the same list for a view without it."""
+
+    total = compiled.steps
+    steps = set(tick_steps(total)) | set(sample_steps(compiled))
+    steps |= {prediction_step(compiled, index) for index in range(len(compiled.program.predictions))}
+    return sorted(steps)
+
+
+def control_value(parameter: S.Parameter, raw: float) -> float:
+    """The value the desktop's slider and field set for ``raw`` (its
+    ``clampStep``): within [min, max], on min plus a whole number of steps,
+    to 12 significant digits."""
+
+    low, high, step = float(parameter.min), float(parameter.max), float(parameter.step)
+    clamped = min(high, max(low, float(raw)))
+    steps = round_half_up((clamped - low) / step)
+    return min(high, float(f"{low + steps * step:.12g}"))
 
 
 # ---------------------------------------------------------------------------
@@ -510,6 +581,14 @@ def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
                 parameter = next(p for p in program.parameters if p.name == name)
                 if not (math.isfinite(value) and parameter.min <= value <= parameter.max):
                     problems.append(f"{where}: {name} = {value} is outside its range")
+                elif all(math.isfinite(v) for v in (parameter.min, parameter.max, parameter.step)) \
+                        and parameter.step > 0 and control_value(parameter, value) != value:
+                    # Astra sandbox review, finding 2: the answer is graded at
+                    # exactly this value and the desktop plays exactly it, so
+                    # it must be one the learner's controls can be set to.
+                    problems.append(f"{where}: {name} = {value:g} is not a value its control can be set to "
+                                    f"(min plus a whole number of steps; the nearest is "
+                                    f"{control_value(parameter, value):g})")
     if problems:
         raise SketchError(problems)
     return CompiledSketch(program=program, claims=claims, probes=probes)
@@ -777,6 +856,7 @@ __all__ = [
     "SKETCH_MAX_SERIES",
     "SKETCH_MAX_SOURCE_BYTES",
     "SKETCH_MAX_VERIFY_OUTPUT_BYTES",
+    "SKETCH_PLAY_TICKS",
     "SKETCH_TIME_SAMPLES",
     "SKETCH_VERIFY_SECONDS",
     "SKETCH_VERSION",
@@ -785,12 +865,17 @@ __all__ = [
     "SketchProgramV1",
     "claim_entry_work",
     "clock_steps",
+    "control_value",
     "element_index",
     "expression_steps",
     "impersonates",
     "parse_sketch",
+    "prediction_step",
     "probe_numbers",
     "probe_problems",
+    "read_steps",
+    "round_half_up",
     "sample_steps",
+    "tick_steps",
     "scene_problems",
 ]

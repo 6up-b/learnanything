@@ -92,7 +92,8 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
 }
 
 import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFigures";
-import { SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
+import { checksStand, SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
+import { useChecksWithdrawn } from "./sketch/checksWithdrawn";
 import { parseProgram } from "./sketch/sketchScene";
 
 export const FIGURE_COPY = {
@@ -480,6 +481,8 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
     }
   }, [shown, figure.specJson, isSketch]);
   const program = useMemo(() => (shown && isSketch ? parseProgram(figure.specJson) : null), [shown, isSketch, figure.specJson]);
+  // Fix round 4: a sketch whose page run disagreed with the verified run has its checks withdrawn here too.
+  const withdrawn = useChecksWithdrawn(figure.figureId);
   if (!shown) {
     return (
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
@@ -503,7 +506,7 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
     );
   }
   const checks = isSketch
-    ? (figure.sketch?.checks.length ? [`${figure.sketch.checks.length} check${figure.sketch.checks.length === 1 ? "" : "s"}, listed inside`] : [])
+    ? (figure.sketch && checksStand(figure.sketch, withdrawn) ? [`${figure.sketch.checks.length} check${figure.sketch.checks.length === 1 ? "" : "s"}, listed inside`] : [])
     : frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
@@ -516,7 +519,7 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {FIGURE_COPY.collapsed} ·{" "}
           {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
-          <span data-figure-badge="">{isSketch ? sketchBadge(figure) : frameBadge(figure.verification, figure.grounding)}</span>
+          <span data-figure-badge="">{isSketch ? sketchBadge(figure, withdrawn) : frameBadge(figure.verification, figure.grounding)}</span>
         </button>
         <FigurePassages figure={figure} />
         {checks.length ? (

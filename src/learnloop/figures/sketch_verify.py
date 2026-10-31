@@ -10,20 +10,27 @@ whether a sketch is shown at all; step 5 decides what it may claim.
    the engine and defines ``init``, ``view``, ``probes`` (and ``step`` with a
    clock).
 2. **Runs everywhere it can be moved.** On RW5a's parameter grid (each
-   parameter at min, default and max: at most 81 points) and, with a clock,
-   at :data:`.sketch.SKETCH_TIME_SAMPLES` points from 0 to ``t_max``: every
+   parameter at min, default and max: at most 81 points), each point a run
+   **as the desktop plays it** (Astra sandbox review, finding 1): a freshly
+   loaded program, ``init``, then every step of the read schedule
+   (:func:`.sketch.read_steps`: play's ticks, the checked samples and the
+   graded steps) stepped to and read, ``view()`` then ``probes()``. Every
    call returns within the engine's caps, every scene validates
    (:func:`.sketch.scene_problems`) and every probe is finite and of its
    declared shape (:func:`.sketch.probe_problems`).
 3. **Deterministic.** A second run in a fresh engine, the grid in reverse
-   order, with extra ``view``/``probes`` calls in between, gives the same
-   scenes and probes as text (catches reliance on hidden state or on
-   anything the shim refuses).
-4. **Bindings hold.** At every point read, each bound element's coordinates
+   order, reading only the checked samples with extra ``view``/``probes``
+   calls before each, gives the same scenes and probes as text (catches a
+   program whose reads change what it later shows, and anything the shim
+   refuses). Whatever this misses, the first run read the schedule every
+   run reads, so what it checked is what any run draws at those states; the
+   desktop also compares the digests (below).
+4. **Bindings hold.** At every step read, each bound element's coordinates
    equal its probe's values exactly (one run produced both), which is what
    lets a check speak for a drawn element.
 5. **Claims.** Each claim is checked by code (the grammar's Python evaluator
-   is the oracle) at the same points: ``equals`` within
+   is the oracle) at the checked samples (:data:`.sketch.SKETCH_TIME_SAMPLES`
+   of the schedule's steps from 0 to ``t_max``): ``equals`` within
    :data:`.sketch.CLAIM_REL_TOL`; ``follows`` against the grammar's RK4 at
    the path's step, the tolerance the difference from a half-step run (a
    Richardson estimate) times :data:`.sketch.ODE_SAFETY`; ``invariant`` as
@@ -37,6 +44,15 @@ probe by their identifiers, the stated equation as the grammar parsed it,
 marked AI-stated, and how many settings were tested), and drawn elements no
 check covers are named as *not covered*. No claim at all: *nothing in it
 checked*. Never "matches the book" (that is RW5c's question).
+
+**What the desktop compares** (Astra, finding 1). The report carries the read
+schedule (``read_steps``) and, for every grid point, the digest
+(:func:`tested_digest`) of each checked read as the engine wrote it
+(``tested``). The desktop computes the same digest for every read it makes;
+at a tested state (the grid point's parameters, the verified seed, a checked
+step) a different digest withdraws the code-owned checks for that figure,
+which then shows as an illustration. Agreement is what lets a check line
+speak for what is on the page.
 """
 
 from __future__ import annotations
@@ -63,8 +79,13 @@ VERIFY_SEED = 1
 #: even when the engine is the same: a stored report from another version is
 #: verified again by code before it is shown (``service.sketch_rechecked``),
 #: as one from another engine is. Reports without it are from before it
-#: existed (round 2's verifier and earlier).
-VERIFIER_REPORT_VERSION = "sketch-verify-v2"
+#: existed (round 2's verifier and earlier). v3 (fix round 4, the independent
+#: sandbox review): every init on a freshly loaded program, the read schedule,
+#: and the digests of every tested read.
+VERIFIER_REPORT_VERSION = "sketch-verify-v3"
+#: How many hex digits of a read's SHA-256 a report keeps per tested state
+#: (128 bits: a program can't search for a collision with its own output).
+TESTED_DIGEST_HEX = 32
 #: Words for an invariant's property in a check line (closed, code-owned).
 PROPERTY_WORDS = {"finite": "finite", "bounded": "bounded", "nonnegative": "never negative",
                   "sums_to_one": "sums to one", "monotone_nondecreasing": "never decreasing"}
@@ -93,6 +114,11 @@ class SketchReport:
     verifier_version: str = field(default_factory=lambda: VERIFIER_REPORT_VERSION)
     #: The first runtime error, as the engine wrote it (prefills "not right?").
     runtime_error: dict[str, Any] | None = None
+    #: The read schedule every run of this sketch follows (:func:`.sketch.read_steps`).
+    read_steps: list[int] = field(default_factory=list)
+    #: Per grid point: its parameter values (in declared order), the checked
+    #: steps and the digest of each read there (what the desktop compares).
+    tested: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -102,7 +128,7 @@ class SketchReport:
             "unnamed_elements": self.unnamed_elements, "dropped_predictions": self.dropped_predictions,
             "claims": self.claims, "engine_sha256": self.engine_sha256,
             "verifier_version": self.verifier_version, "runtime_error": self.runtime_error,
-            "tier": "sketch",
+            "read_steps": self.read_steps, "tested": self.tested, "tier": "sketch",
         }
 
 
@@ -200,8 +226,13 @@ class _Sample:
     probes: Any
 
 
-def _digest(scene_text: str, probes_text: str) -> bytes:
-    return hashlib.sha256(scene_text.encode("utf-8") + b"\0" + probes_text.encode("utf-8")).digest()
+def tested_digest(scene_text: str, probes_text: str) -> str:
+    """One read's digest, as the desktop's ``sceneDigest`` computes it: the
+    SHA-256 of the scene text, a NUL and the probes text (UTF-8), the first
+    :data:`TESTED_DIGEST_HEX` hex digits."""
+
+    data = scene_text.encode("utf-8") + b"\0" + probes_text.encode("utf-8")
+    return hashlib.sha256(data).hexdigest()[:TESTED_DIGEST_HEX]
 
 
 def _point_key(point: Mapping[str, float], step: int) -> tuple[str, int]:
@@ -224,10 +255,12 @@ def _load(compiled: K.CompiledSketch, engine: SketchEngine, budget: _Budget) -> 
 
 
 def _stream(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Mapping[str, float]],
-            steps: Sequence[int], budget: _Budget, *, extra_reads: bool = False) -> Iterator[tuple[_Sample, bytes]]:
-    """Load, then at every grid point (in the given order) init and read each
-    sampled step, validated, one at a time: each point read is yielded with
-    its digest and dropped before the next is read. Raises :class:`_Failed`."""
+            steps: Sequence[int], budget: _Budget, *, extra_reads: bool = False) -> Iterator[tuple[_Sample, str]]:
+    """Load, then at every grid point (in the given order) init (a freshly
+    loaded program: :meth:`.SketchEngine.init`) and read each of ``steps``
+    (``view()`` then ``probes()``, as the desktop reads), validated, one at a
+    time: each step read is yielded with its digest and dropped before the
+    next is read. Raises :class:`_Failed`."""
 
     _load(compiled, engine, budget)
     program = compiled.program
@@ -250,7 +283,7 @@ def _stream(compiled: K.CompiledSketch, engine: SketchEngine, grid: Sequence[Map
                 probes_text = engine.probes_text(params, index=step)
                 budget.read(scene_text, probes_text)
                 scene, probes = json.loads(scene_text), json.loads(probes_text)
-                digest = _digest(scene_text, probes_text)
+                digest = tested_digest(scene_text, probes_text)
                 del scene_text, probes_text
                 where = _point_text(point) + (f", t={step * dt:g}" if program.clock is not None else "")
                 problems = K.scene_problems(scene, parameters=names)
@@ -479,16 +512,10 @@ def _statement(claim: K.Claim) -> str:
 
 def prediction_target_step(compiled: K.CompiledSketch, index: int) -> int:
     """The clock step a prediction is graded at (Codex review F5), shared
-    with the desktop so its playback stops exactly there: ``run_to`` the step
-    nearest that time (at least 1, at most ``t_max``'s); a parameter change
-    ``t_max``'s step with a clock, 0 without."""
+    with the desktop so its playback stops exactly there
+    (:func:`.sketch.prediction_step`)."""
 
-    program = compiled.program
-    change = dict(program.predictions[index].change)
-    clock = program.clock
-    if set(change) == {"run_to"} and clock is not None:
-        return min(compiled.steps, max(1, round(change["run_to"] / clock.dt)))
-    return compiled.steps
+    return K.prediction_step(compiled, index)
 
 
 def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *,
@@ -497,7 +524,14 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     the engine. A parameter change compares the probe before and after (at the
     first step without a clock, at ``t_max`` with one); ``run_to`` compares
     step 0 with the step at that time. ``choice`` names the largest entry of
-    the observed series after the change (None on a tie)."""
+    the observed series after the change (None on a tie).
+
+    Each side is one run as the desktop plays it (Astra sandbox review,
+    finding 1): a freshly loaded program, ``init``, then the read schedule up
+    to the graded step, every scheduled step read (``view()`` then
+    ``probes()``). The change is the program's own value, which validation
+    requires to be one the controls can be set to (finding 2), so the
+    desktop plays exactly the value graded here."""
 
     program = compiled.program
     prediction = program.predictions[index]
@@ -508,11 +542,23 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     change = dict(prediction.change)
     dt = clock.dt if clock is not None else 0.0
 
+    schedule = K.read_steps(compiled)
+
     def read(params: Mapping[str, float], step: int) -> Any:
+        if step not in schedule:
+            raise SketchRunError(1, f"step {step} is not on the read schedule")
         engine.init(params, seed)
-        if step:
-            engine.step(params, dt, index=0, count=step)
-        values = engine.probes(params, index=step)
+        at = 0
+        text = "null"
+        for point in schedule:
+            if point > step:
+                break
+            if point > at:
+                engine.step(params, dt, index=at, count=point - at)
+                at = point
+            engine.view_text(params, index=point)  # read as the desktop reads: view(), then probes()
+            text = engine.probes_text(params, index=point)
+        values = json.loads(text)
         problems = K.probe_problems(values, compiled.probes)
         if problems:
             raise SketchRunError(1, problems[0])
@@ -558,7 +604,9 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
     report = SketchReport()
     grid = V.parameter_grid(compiled)  # type: ignore[arg-type]
     steps = K.sample_steps(compiled)
-    report.grid_points, report.samples = len(grid), steps
+    schedule = K.read_steps(compiled)
+    checked = set(steps)
+    report.grid_points, report.samples, report.read_steps = len(grid), steps, schedule
     report.claims = [{"span_id": claim.span_id, "quote": claim.quote,
                       "verified": bool(span_texts) and claim.span_id in (span_texts or {})
                       and V.quote_in(claim.quote, (span_texts or {})[claim.span_id])}
@@ -576,21 +624,32 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
     first = _engine(engine_factory, budget)
     try:
         try:
-            digests: dict[tuple[str, int], bytes] = {}
+            digests: dict[tuple[str, int], str] = {}
             binding_problem: str | None = None
             failures: dict[int, str] = {}
             settings = 0
-            for sample, digest in _stream(compiled, first, grid, steps, budget):
-                settings += 1
-                digests[_point_key(sample.point, sample.step)] = digest
+            names = [parameter.name for parameter in program.parameters]
+            tested: dict[str, dict[str, Any]] = {}
+            for sample, digest in _stream(compiled, first, grid, schedule, budget):
                 elements = K.element_index(sample.scene)
+                if binding_problem is None:
+                    binding_problem = _binding_problem(compiled, sample, elements)
+                if sample.step not in checked:
+                    del sample, elements
+                    continue  # read (the schedule every run reads), validated and bound; not a checked sample
+                settings += 1
+                key = _point_key(sample.point, sample.step)
+                digests[key] = digest
+                params = {**defaults_point, **sample.point}
+                entry = tested.setdefault(key[0], {"values": [float(params[name]) for name in names],
+                                                   "steps": [], "digests": []})
+                entry["steps"].append(sample.step)
+                entry["digests"].append(digest)
                 if first_drawn is None and sample.step == steps[0] and \
                         all(sample.point.get(k, v) == v for k, v in defaults_point.items()):
                     # What the learner first sees: the defaults at the first step.
                     first_drawn = [(element.get("id"), str(element.get("type")))
                                    for element in sample.scene.get("elements") or ()]
-                if binding_problem is None:
-                    binding_problem = _binding_problem(compiled, sample, elements)
                 if binding_problem is not None:
                     continue  # bindings fail: the claims can't speak for anything
                 for element_id in (b.element_id for b in program.bindings):
@@ -610,6 +669,7 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                         failures[index] = problem
                 del sample, elements
             report.settings = settings
+            report.tested = list(tested.values())
             second = _engine(engine_factory, budget)
             try:
                 for sample, digest in _stream(compiled, second, list(reversed(grid)), steps, budget,
@@ -684,11 +744,13 @@ def _engine(factory: EngineFactory, budget: _Budget) -> SketchEngine:
 __all__ = [
     "PROPERTY_WORDS",
     "SketchReport",
+    "TESTED_DIGEST_HEX",
     "VERIFIER_REPORT_VERSION",
     "VERIFY_SEED",
     "check_claim",
     "claim_entries",
     "prediction_outcome",
     "prediction_target_step",
+    "tested_digest",
     "verify_sketch",
 ]

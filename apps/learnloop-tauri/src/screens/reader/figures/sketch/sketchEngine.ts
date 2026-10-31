@@ -17,6 +17,11 @@ export const ENGINE_SHA256 = "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b6
 /** keep (display): one frame, and how many a call may take before the Worker is paused (spec §15). */
 export const SKETCH_FRAME_MS = 16;
 export const SKETCH_WATCHDOG_FRAMES = 30;
+/** keep (display): how many reads play takes from t = 0 to t_max (sketch.py SKETCH_PLAY_TICKS; a test keeps them equal).
+ *  Part of the read schedule (sketchScene.readSchedule) every run follows. */
+export const PLAY_TICKS = 100;
+/** How many hex digits of a read's SHA-256 the verifier's report keeps (sketch_verify.TESTED_DIGEST_HEX). */
+export const TESTED_DIGEST_HEX = 32;
 /** keep: the compiled-in caps, mirrored for the tests (sk_limits). */
 export const SKETCH_MEMORY_BYTES = 67_108_864;
 export const SKETCH_FUEL_PER_CALL = 16;
@@ -88,6 +93,13 @@ export function sha256Hex(bytes: Uint8Array): string {
   return Array.from(h, (word) => word.toString(16).padStart(8, "0")).join("");
 }
 
+/** One read's digest (fix round 4, the independent sandbox review): the SHA-256 of the scene text, a NUL and
+ *  the probes text (UTF-8), the first TESTED_DIGEST_HEX hex digits, as sketch_verify.tested_digest computes it.
+ *  Synchronous, so the Worker and the in-process host compute it the same way. */
+export function sceneDigest(sceneText: string, probesText: string): string {
+  return sha256Hex(new TextEncoder().encode(`${sceneText}\u0000${probesText}`)).slice(0, TESTED_DIGEST_HEX);
+}
+
 /** SHA-256 hex with Web Crypto (the Worker; Node 20+ has it too), else in plain TypeScript. */
 export async function webDigest(bytes: Uint8Array): Promise<string> {
   const subtle = (globalThis as { crypto?: { subtle?: SubtleCrypto } }).crypto?.subtle;
@@ -118,6 +130,8 @@ export type Params = Record<string, number>;
 export class SketchEngineHost {
   private readonly exports: Exports;
   private broken = false;
+  /** The loaded program's text: every init reloads it (fix round 4). */
+  private code: string | null = null;
   stderr = "";
   private readonly encoder = new TextEncoder();
   private readonly decoder = new TextDecoder("utf-8");
@@ -213,10 +227,19 @@ export class SketchEngineHost {
 
   load(code: string): EntryPoints {
     const length = this.write(code);
-    return JSON.parse(this.run(this.call(() => this.exports.sk_load(length))) || "{}") as EntryPoints;
+    const found = JSON.parse(this.run(this.call(() => this.exports.sk_load(length))) || "{}") as EntryPoints;
+    this.code = code;
+    return found;
   }
 
+  /** Start a run: the program is loaded afresh first (the independent sandbox review, finding 1), so a
+   *  run's history is "a freshly loaded program, init, then its own calls", whatever ran before: a
+   *  program counting its own starts sees its first start every time, as verification does. */
   init(params: Params, seed: number): void {
+    if (this.code !== null) {
+      const code = this.write(this.code);
+      this.run(this.call(() => this.exports.sk_load(code)));
+    }
     const length = this.write(JSON.stringify(params));
     this.run(this.call(() => this.exports.sk_init(length, seed >>> 0)));
   }
@@ -234,6 +257,12 @@ export class SketchEngineHost {
   probesText(params: Params, index: number): string {
     const length = this.write(JSON.stringify(params));
     return this.run(this.call(() => this.exports.sk_probes(length, index >>> 0)));
+  }
+
+  /** One read as every host reads: view(), then probes(), the text exactly as the engine wrote it. */
+  readText(params: Params, index: number): { sceneText: string; probesText: string } {
+    const sceneText = this.viewText(params, index);
+    return { sceneText, probesText: this.probesText(params, index) };
   }
 
   view(params: Params, index: number): unknown {

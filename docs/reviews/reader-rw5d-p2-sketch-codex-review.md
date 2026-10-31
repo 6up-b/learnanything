@@ -308,3 +308,145 @@ schema change, so no vitest, npm, cargo, durability or DB-reference run. No mode
    metering, the estimate could be dropped or made optimistic without risk. Keep it as is?
 2. A metered claim check that runs to the cap costs about 4 to 5 s of CPU before it is refused (20,000,000 steps).
    That is within the 60 s wall clock and the spec's "tens of seconds", but it is still spent.
+
+## Sandbox review (Astra)
+
+The spec-required **independent sandbox review** (gpt-6-astra, Codex job `20261031-174433-4pdCOX`, read-only, against
+`5b3f66059..0f73a7f1c`) found no practical sandbox escape, learner-data exposure or unbounded-resource path. It
+**reopened** on one reproduced false verification label. Its controls that checked out: the artifact (869,392 bytes,
+SHA-256 equal to all three pins), the wasm's five imports and their deny-all shims, the data-only engine boundary, the
+compiled caps (64 MiB QuickJS memory, 192 KiB recursion stack, 16 call ticks, 48 serialization ticks, 4 MiB output,
+96 MiB wasm maximum), the sidecar's wasmtime 50.0.1 controls, the desktop's digest check and 480 ms watchdog, the
+renderer's allowlists, and the reports' provenance.
+
+### Findings and what changed (fix round 4)
+
+**1. High: runtime history defeated verification and produced a false code-owned check.** The verifier loaded a
+program once and called `init()` across the parameter grid; the desktop initialized the default first on a fresh
+engine. The reviewer's program (parameter `a`, min 0, default 1, max 2; `init` returns 9 on its first start at `a = 1`,
+1 otherwise; a circle `dot` of that radius bound to probe `radius`; claim `radius equals 1`) was verified as
+"the radius of the drawn ‘dot’ is 1 at 3 tested settings" while the page drew radius 9.
+
+- **Every `init()` runs on a freshly loaded program, in both hosts.** `SketchEngine.init` (Python) and
+  `SketchEngineHost.init` (TypeScript) reload the program's text (`sk_load`: a new QuickJS runtime) before calling
+  `init`. The engine is unchanged (same bytes, same digest). A run's history is now "a freshly loaded program, init,
+  then its own calls", whatever ran before: a program counting its starts sees its first start every time, in
+  verification, grading and the desktop alike.
+- **One read schedule** (`sketch.read_steps`, the desktop's `readSchedule`): play's ticks (every
+  `ceil(total / SKETCH_PLAY_TICKS)` steps and `t_max`, `SKETCH_PLAY_TICKS` = the desktop's `PLAY_TICKS` = 100), the
+  checked samples, and every prediction's graded step. Every run reads exactly those steps, `view()` then `probes()`,
+  each once and in order, and no other step, whatever the learner presses: verification's first run (all grid points),
+  prediction grading (`prediction_outcome` walks the schedule up to the graded step) and the desktop's playback (a play
+  tick advances to the next scheduled step; the step button likewise; a reduced-motion jump to a prediction reads every
+  scheduled step on the way and commits the last). So a program that changes its state when read passes through the
+  same history everywhere. Checks still run at the 9 samples, now chosen with ties going up (`round_half_up`, as
+  `Math.round`) so both hosts compute the same steps; the walk's samples are 0, 13, 25, 38, 50, 63, 75, 88, 100.
+  Verification's second run reads only the samples with extra reads before each: a program whose reads change later
+  values fails as not deterministic. Bindings are now checked at every scheduled read, not only the samples.
+- **Digests, compared on the desktop, failing closed.** The report carries `read_steps` and `tested`: per grid point,
+  its parameter values (declared order), the checked steps, and `tested_digest` of each read there (SHA-256 of the
+  scene text, NUL, the probes text; first 32 hex digits, `TESTED_DIGEST_HEX`). The sketch view sends both
+  (`readSteps`, `tested`). Every desktop read carries the same digest (`sceneDigest`, computed in the Worker for the app
+  and in-process for the tests). At a tested state (the grid point's exact values, the verified seed, a checked step) a
+  different digest calls `withdrawChecks(figureId)`: for the rest of the session the badge is *AI-written simulation ·
+  nothing in it checked*, the collapsed line drops its "N checks" and the open sketch shows *checks withdrawn: this run
+  differs from the one LearnLoop checked, so nothing in it counts as checked* instead of the check lines. A report with
+  checks but no `tested` (made before this round) also shows no checks (it is re-verified anyway, below).
+- **`VERIFIER_REPORT_VERSION` = `sketch-verify-v3`**, so every stored report is re-verified by code before it is shown
+  (`service.sketch_rechecked`, which now also carries `read_steps` and `tested` into the delivered report).
+
+**2. Medium: prediction playback changed the graded parameter value.** Validation accepted any in-range value and the
+sidecar graded it as is; the desktop snapped it with `clampStep`. Now `parse_sketch` refuses a change that is not a
+value the controls can be set to (`sketch.control_value`, a port of `clampStep`: min plus a whole number of steps, to
+12 significant digits): "prediction 1: a = 0.4 is not a value its control can be set to (min plus a whole number of
+steps; the nearest is 0)". The desktop plays the change exactly as given (no re-snapping), so the graded value and the
+played value are one value. A stored sketch with an off-step change no longer parses under v3 and shows as
+"couldn't run under this version".
+
+**3. Low: Worker hardening and unvalidated messages.** `sketchProtocol.ts` validates both sides of the Worker:
+`parseWorkerRequest` (four operations; `id` a positive safe integer; `load` a string within the 32 KiB source cap in
+UTF-8 bytes; parameters a plain object of at most 4 identifier-named finite numbers; seed a 32-bit whole number; `dt`
+positive and finite; step index and count whole, count at least 1, index + count within `SKETCH_MAX_CLOCK_STEPS`; exact
+argument counts) and `answerRequest` (the Worker's handler: an unknown operation is refused with kind `input` and never
+reaches the engine; the old fallback to a read is gone). `parseWorkerReply` checks each reply against its request's
+operation (entry points as four booleans, nothing for `init`/`step`, scene + probes + a 32-hex digest for `read`;
+error kinds from the closed list, messages cut to 600 characters); a malformed reply rejects its call, an unroutable one
+is ignored. Global removal in the Worker is described as supplementary hardening, not the boundary.
+
+**4. Low: toolchain pinning.** Recorded only (stage record, open point 8): `build.py` checks Clang's major version and
+does not pin `wasm-ld`; the ordinary build already refuses a differing output digest.
+
+**G-SM14** remains unverified; the reviewer's conclusions and the opaque-origin fallback recipe are recorded in the
+stage record (open point 1), and its CSP description is corrected (the app CSP permits `ipc:` and
+`http://ipc.localhost`).
+
+### Reproductions (fail first)
+
+Run against tip `0f73a7f1c`'s sources (its `src/` exported to a scratch directory and put first on `PYTHONPATH`, with
+pytest's `pythonpath` ini cleared; for TypeScript, its `sketch/` directory copied beside the new one with the new tests,
+removed afterwards):
+
+- **Python, `tests/test_sketch_sandbox_review.py` + the shared hostile corpus test: 10 failed, 2 passed.** The exact
+  repro: `assert 'illustrative' == 'failed'`, with the check `{'kind': 'equals', 'partial': [{'attribute': 'r',
+  'element': 'dot'}]}` (the false "radius of the drawn ‘dot’ is 1"). A fresh-start sequence (init `a` = 0, 2, 1, then
+  read) gave `{'radius': 1, 'starts': 3}`, not `{'radius': 9, 'starts': 1}`; reads carried into the next run (6, not
+  1); the off-step change `a = 0.4` did not raise; the rest failed on the missing schedule, digests and version. The
+  two that passed are guards that already held (a program whose every read flips its state fails as not
+  deterministic; the corpus has the cases).
+- **TypeScript, the hostile corpus through the desktop's engine host with the committed wasm: 3 failed, 24 passed**:
+  "counting its own starts" (`{radius: 1, starts: 3}` for `{radius: 9, starts: 1}`), "repeated restarts at one
+  setting", "reads never carry into the next run" (`{reads: 3}` for `{reads: 1}`). `sketchSandboxReview.test.tsx`
+  and `sketchProtocol.test.ts` fail to import (`checksWithdrawn`, `sketchProtocol` do not exist there).
+- **After the fix:** all of them pass (below). The desktop tests: the reviewer's program on the page draws radius 9
+  at the default, its stale digest (what the old verifier read: radius 1 on a second start) withdraws the checks, the
+  badge is *nothing in it checked* and no "radius of the drawn" line remains; the random walk played to t_max reads
+  exactly the verifier's schedule (101 steps, each once) and every digest at the defaults equals the sidecar's;
+  repeated restarts (200, 400, 200, 100, 200 walkers) match the sidecar's digests each time; the read-marking
+  program jumped to its prediction under reduced motion reads every scheduled step to 50, shows 383 (13 + 37 × 10)
+  and matches the sidecar's digest at 50; a prediction change is played exactly (`{a: 0.4}`, not re-snapped).
+
+### Hostile corpus
+
+`sketchHostileCorpus.json` gains five call-sequence cases run by both hosts (counting its own starts, repeated
+restarts at one setting, reads never carrying into the next run, a read-marked state kept within its run and forgotten
+by the next), four `verify_cases` the sidecar runs (the counting repro fails at claims; marks-when-read verifies; a
+program whose every read flips its state fails as not deterministic; the off-step change is refused) and 24
+`worker_messages` the desktop runs (4 accepted, 20 refused).
+
+### Sandbox review gate
+
+Every command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, behind
+`flock /tmp/learnloop-fullsuite.lock`, pytest at `-n 6`, vitest at `--maxWorkers=4`. No model calls; Python outside
+pytest (the corpus generators) ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| command | result |
+|---|---|
+| Fail-first runs against `0f73a7f1c` | Python 10 failed / 2 passed; TypeScript 3 failed / 24 passed + 2 files unimportable (above) |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| `pytest -n 6` over `tests/test_sketch_*.py`, `tests/test_figure_*.py`, `tests/test_figures_*.py`, `test_registry_audit.py`, `test_architecture.py`, `test_public_tip_guards.py` | **647 passed** in 96 s |
+| `npm run typecheck` | 0 errors |
+| `npx vitest run --maxWorkers=4 src/screens/reader/figures` | 14 files, **368 passed** |
+| `npm run frontend:build` | built; emits `sketch.worker-*.js` (8.45 kB) and `sketch-engine-*.wasm` (869.39 kB) |
+| After the last fixture change (the verifier repro made exact: its probes return only `radius`; corpora regenerated): `pytest -n 6 tests/test_sketch_*.py`; `vitest src/screens/reader/figures/sketch` | 144 passed; 5 files, 119 passed |
+
+Not run: `-m durability`, `cargo check` and the DB reference scripts (no migration, connection, schema or `src-tauri`
+change). One vitest run with the scratch copy of the old directory alongside (8 files at once) saw "never draws a
+superseded frame when a new sample is drawn while a step is in flight" time out its 1 s wait for the held step;
+it passed alone (19/19) and in both later runs. Noted as possibly load-sensitive.
+
+### Open questions
+
+1. **The read schedule makes verification read more.** The first run now reads every scheduled step at every grid
+   point (play's 101 ticks plus samples and graded steps, about 110 reads per point instead of 9), all validated
+   and bound; claims are still checked at the 9 samples. A sketch near the output budget (256 MiB over both runs)
+   or the 60 s clock reaches it sooner. The good corpus and the 81-point grid test still pass well within both.
+   Acceptable, or should play's ticks drop to the samples' density?
+2. **Digests cover the 9 checked samples at every grid point**, not every scheduled read (about 30 kB in the
+   report for the largest grid). Comparing at every scheduled read would catch a divergence sooner but would grow
+   the report about twelvefold. Keep?
+3. **Withdrawal is per session** (module state keyed by figure id), not recorded: a reload shows the checks again
+   until a disagreeing read recurs. Recording it (an activity event and the reader report) would need an event and
+   allowlist change; not done here. Wanted?
+4. **Bindings are now checked at every scheduled read**, not only the samples (stricter: a binding that fails between
+   samples now fails verification, where before it passed while the page drew it wrong).
+5. **Unchanged:** G-SM14 (the real-webview IPC probe) is still the merge gate, and toolchain pinning is a follow-up.

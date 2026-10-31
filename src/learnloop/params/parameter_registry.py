@@ -446,6 +446,8 @@ _reg_const("figure_sketch:SKETCH_TIME_SAMPLES", "constraint", kind="structural",
            rationale='keep (numerical): verification coverage of a clocked sketch, 9 times from 0 to t_max (spec §15).')
 _reg_const("figure_sketch:SKETCH_MAX_CLOCK_STEPS", "constraint", kind="structural", owner="figure_sketch",
            rationale='keep (operational): the most clock steps to t_max, so verification stays bounded.')
+_reg_const("figure_sketch:SKETCH_PLAY_TICKS", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (display, fix round 4): how many reads play takes from t = 0 to t_max (the desktop's PLAY_TICKS); part of the read schedule every run of a sketch follows.")
 _reg_const("figure_sketch:SKETCH_FRAME_MS", "operational", kind="structural", owner="figure_sketch",
            rationale="keep (display): one frame's budget in the desktop (spec §15: 16 ms).")
 _reg_const("figure_sketch:SKETCH_WATCHDOG_FRAMES", "operational", kind="structural", owner="figure_sketch",
@@ -498,6 +500,8 @@ _reg_const("figure_sketch_verify:_TICK_WORK", "operational", kind="structural", 
            rationale="keep (operational, Codex re-review F2): how many metered expression steps claim checks do between wall-clock checks (about a millisecond of the oracle); cost of the check, not a model number.")
 _reg_const("figure_sketch_verify:VERIFIER_REPORT_VERSION", "version", kind="structural", owner="figure_sketch_verify",
            rationale="the verifier's report version (Codex review F11 round 3), bumped whenever verification semantics change; a stored report from another version is re-verified by code before it is shown (an identity, not a parameter).")
+_reg_const("figure_sketch_verify:TESTED_DIGEST_HEX", "version", kind="structural", owner="figure_sketch_verify",
+           rationale="the length (hex digits, 128 bits) of a tested read's SHA-256 a report keeps for the desktop to compare (fix round 4); a format, not a parameter.")
 _reg_const("figure_sketch_verify:VERIFY_SEED", "version", kind="structural", owner="figure_sketch_verify",
            rationale="the seed verification and a sketch's first drawn sample use (an identity, so the first drawn sample is the verified one).")
 

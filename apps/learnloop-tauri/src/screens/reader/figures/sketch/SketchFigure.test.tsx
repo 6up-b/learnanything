@@ -17,6 +17,7 @@ import { formatValue } from "../FigurePanels";
 import { hostRunner, SketchRunnerContext, WATCHDOG_MS, type SketchRunner, type SketchRunnerFactory } from "./sketchRunner";
 import { newHost } from "./engineForTests";
 import type { SketchEngineHost } from "./sketchEngine";
+import { resetWithdrawnChecks } from "./checksWithdrawn";
 
 const api = vi.hoisted(() => ({
   readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
@@ -41,8 +42,13 @@ const SPIRAL = {
   seeded: false, code: code("spiral"),
   probes: [{ name: "path", label: "the trajectory from (1, 0)", shape: "pairs" }, { name: "radius", label: "|a + bi|", shape: "scalar" }],
 };
+// The verifier's schedule and digests for the random walk (the parity corpus's verified entry, made by the
+// sidecar): the page compares its reads with them (fix round 4).
+const WALK_VERIFIED = (parity as unknown as { verified: Array<{ name: string; sketch: { readSteps: number[]; tested: Array<{ values: number[]; steps: number[]; digests: string[] }> } }> })
+  .verified.find((item) => item.name === "random walk")!.sketch;
 const SKETCH = {
   engineSha256: parity.engine_sha256, seed: 1, settings: 27, unnamedElements: 0, notCovered: ["walkers"],
+  readSteps: WALK_VERIFIED.readSteps, tested: WALK_VERIFIED.tested,
   checks: [
     { claim: 0, kind: "equals" as const, probe: "envelope", elements: ["envelope"], statement: "sqrt(x)", settings: 27 },
     { claim: 1, kind: "distribution" as const, probe: "msd", elements: [], statement: "t", settings: 27 },
@@ -109,6 +115,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  resetWithdrawnChecks();
   vi.useRealTimers();
 });
 

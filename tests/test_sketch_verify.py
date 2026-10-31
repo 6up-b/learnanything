@@ -28,7 +28,7 @@ def verify(program):
 def test_the_random_walk_passes_with_element_scoped_check_lines():
     report = verify(F.walk())
     assert report.outcome == V.ILLUSTRATIVE
-    assert report.grid_points == 3 and report.samples == [0, 12, 25, 38, 50, 62, 75, 88, 100]
+    assert report.grid_points == 3 and report.samples == [0, 13, 25, 38, 50, 63, 75, 88, 100]  # ties up (fix round 4)
     assert report.settings == 27  # "at 27 tested settings" (spec §6.6)
     equals, distribution = report.checks
     assert equals == {"claim": 0, "kind": "equals", "probe": "envelope", "elements": ["envelope"],

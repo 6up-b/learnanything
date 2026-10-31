@@ -187,6 +187,69 @@ def automaton(**changes: Any) -> dict[str, Any]:
     return program
 
 
+#: The independent sandbox review's repro, exactly (Astra, finding 1): radius 9
+#: on the program's first start at a = 1, 1 on every other start.
+COUNTING_CODE = r"""
+let starts = 0;
+function init(p) { starts++; return p.a === 1 && starts === 1 ? 9 : 1; }
+function view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: "circle", id: "dot", cx: 0, cy: 0, r: s}]}; }
+function probes(s, p) { return {radius: s}; }
+"""
+#: The same program, its probes also saying which start this is (the engine-level cases).
+COUNTING_STARTS_CODE = COUNTING_CODE.replace("return {radius: s};", "return {radius: s, starts: starts};")
+
+
+def counting_starts(**changes: Any) -> dict[str, Any]:
+    program = {
+        "program_version": "sketch-v1",
+        "demonstrates": "a dot of radius one",
+        "parameters": [{"name": "a", "label": "a", "min": 0, "max": 2, "step": 1, "default": 1}],
+        "code": COUNTING_CODE,
+        "probes": [{"name": "radius", "label": "radius", "shape": "scalar"}],
+        "claims": [{"kind": "equals", "probe": "radius", "expr": "1"}],
+        "bindings": [{"element_id": "dot", "probe": "radius"}],
+    }
+    program.update(changes)
+    return program
+
+
+#: Reads that count themselves (a program's globals are its own within a run).
+READ_COUNTING_CODE = r"""
+var reads = 0;
+function init(p) { return {}; }
+function view(s, p) { reads++; return {viewport: {x: [0, 1], y: [0, 1]}, elements: []}; }
+function probes(s, p) { reads++; return {reads: reads}; }
+"""
+
+#: A program that changes its state when read (Astra, finding 1): view()
+#: marks the state at n = 13, and once marked each step adds 10, not 1.
+MARKS_CODE = r"""
+function init(p) { return {n: 0, x: 0, mark: false}; }
+function step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }
+function view(s, p) {
+  if (s.n === 13) s.mark = true;
+  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: "segment", id: "bar", x1: 0, y1: 0, x2: s.n, y2: s.x}]};
+}
+function probes(s, p) { return {x: s.x}; }
+"""
+
+
+def marks_when_read(**changes: Any) -> dict[str, Any]:
+    program = {
+        "program_version": "sketch-v1",
+        "demonstrates": "a total that grows faster once it has been looked at",
+        "parameters": [],
+        "clock": {"dt": 1, "t_max": 100},
+        "code": MARKS_CODE,
+        "probes": [{"name": "x", "label": "the total", "shape": "scalar"}],
+        "claims": [{"kind": "invariant", "probe": "x", "property": "finite"}],
+        "predictions": [{"prompt": "Run to n = 50. Does the total rise?", "change": {"run_to": 50},
+                         "observe": {"kind": "direction", "probe": "x"}}],
+    }
+    program.update(changes)
+    return program
+
+
 def unchecked() -> dict[str, Any]:
     """A sketch that states no claim: shown as "nothing in it checked"."""
 

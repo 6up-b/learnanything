@@ -2,17 +2,19 @@
 //
 // No DOM, terminable by the Reader's watchdog. It fetches the tracked engine
 // once, checks its SHA-256 against the pin and instantiates it with the
-// deny-all shim (sketchEngine.ts); then it only relays the narrow protocol
-// (load, init, step, read). The program inside the engine reaches nothing of
-// this Worker either: it has no bindings at all. Belt and braces, the
-// Worker's own network and import globals are removed once the engine is
-// compiled, so not even this relay can use them afterwards.
+// deny-all shim (sketchEngine.ts); then it only answers the narrow protocol
+// (load, init, step, read), every request validated first and anything else
+// refused (sketchProtocol.ts; fix round 4: an unknown operation is never
+// treated as a read). The program inside the engine reaches nothing of this
+// Worker either: it has no bindings at all. Supplementary hardening, not the
+// boundary: the Worker's own network and import globals are removed once
+// the engine is compiled.
 import wasmUrl from "./sketch-engine.wasm?url";
-import { SketchEngineHost, SketchRunError } from "./sketchEngine";
-import type { WorkerRequest, WorkerResponse } from "./sketchRunner";
+import { SketchEngineHost } from "./sketchEngine";
+import { answerRequest, type WorkerResponse } from "./sketchProtocol";
 
 const scope = self as unknown as {
-  onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null;
   postMessage(message: WorkerResponse): void;
   [name: string]: unknown;
 };
@@ -38,23 +40,5 @@ function host(): Promise<SketchEngineHost> {
 }
 
 scope.onmessage = (event) => {
-  const { id, op, args } = event.data;
-  host()
-    .then((sketch) => {
-      if (op === "load") return sketch.load(String(args[0]));
-      if (op === "init") return sketch.init(args[0] as Record<string, number>, Number(args[1]));
-      if (op === "step") return sketch.step(args[0] as Record<string, number>, Number(args[1]), Number(args[2]), Number(args[3]));
-      const params = args[0] as Record<string, number>;
-      const index = Number(args[1]);
-      return { scene: sketch.view(params, index), probes: sketch.probes(params, index) };
-    })
-    .then(
-      (result) => scope.postMessage({ id, ok: true, result }),
-      (caught) => {
-        const error = caught instanceof SketchRunError
-          ? { kind: caught.kind, message: caught.message }
-          : { kind: "error" as const, message: caught instanceof Error ? caught.message : String(caught) };
-        scope.postMessage({ id, ok: false, error });
-      },
-    );
+  void answerRequest(host, event.data).then((reply) => scope.postMessage(reply));
 };

@@ -77,6 +77,10 @@ def test_a_sketch_answer_is_verified_stored_and_shown_with_its_check_lines(tmp_p
     assert sketch["engineSha256"] and sketch["seed"] == 1 and sketch["settings"] == 27
     assert [check["kind"] for check in sketch["checks"]] == ["equals", "distribution"]
     assert sketch["checks"][0]["elements"] == ["envelope"] and sketch["notCovered"] == ["walkers"]
+    # Fix round 4: the read schedule and every checked read's digest, per grid point, for the desktop to compare.
+    assert sketch["readSteps"] == K.read_steps(K.parse_sketch(F.walk()))
+    assert [entry["values"] for entry in sketch["tested"]] == [[100.0], [200.0], [400.0]]
+    assert all(len(entry["digests"]) == len(entry["steps"]) == 9 for entry in sketch["tested"])
     program = json.loads(figure["specJson"])
     assert program["program_version"] == "sketch-v1" and "function step" in program["code"]
     (row,) = rows(repository, "interactive_figures")
@@ -490,10 +494,11 @@ def test_a_verifier_version_bump_reverifies_a_current_engines_report(tmp_path, m
 
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
     figure = build(ctx)["figure"]
+    built_under = SV.VERIFIER_REPORT_VERSION
     monkeypatch.setattr(SV, "VERIFIER_REPORT_VERSION", "sketch-verify-next")
     FS._RECHECKED.clear()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "illustrative"
     rechecked = _verdicts(repository)[-1]
     assert rechecked["left_id"] == figure["figureId"] and "sketch-verify-next" in rechecked["rationale"]
-    assert "built under" in rechecked["rationale"] and "sketch-verify-v2)" in rechecked["rationale"]
+    assert "built under" in rechecked["rationale"] and f"{built_under})" in rechecked["rationale"]

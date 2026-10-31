@@ -17,6 +17,17 @@
 // "not right?" with code's words and the settings. The badge and the check
 // lines are code-owned, worded here from closed fields; nothing the program
 // draws can reach them. Nothing here takes focus or opens a modal.
+//
+// Fix round 4 (the independent sandbox review): a run is "a freshly loaded
+// program, init, then the read schedule" (sketchScene.readSchedule, the
+// verifier's read_steps): every scheduled step is read once, in order, and no
+// other step is read, whatever the learner presses (play, step, a
+// prediction's jump), so the page passes through the history verification
+// checked even when a program changes its state when read. Every read's
+// digest is compared with the verifier's at the states it tested (its
+// parameters, the verified seed, a checked step); any difference withdraws
+// the code-owned checks (checksWithdrawn.ts) and the sketch shows as an
+// illustration. A prediction plays exactly the value it was graded at.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FigurePredictionDto, FigureSketchDto, FigureViewDto } from "../../../../api/dto";
 import { COLOR, FONT_MONO } from "../../../../components/term";
@@ -28,13 +39,15 @@ import type { FiguresCtl } from "../useFigures";
 import { SketchRunError, type Params } from "./sketchEngine";
 import { SketchRunnerContext, withWatchdog, type SketchRunner } from "./sketchRunner";
 import { SketchSceneView } from "./SketchScene";
-import { clockSteps, probeProblems, sceneProblems, type Scene, type SketchParameter, type SketchProbe, type SketchProgram } from "./sketchScene";
+import { clockSteps, probeProblems, readSchedule, sceneProblems, usableSchedule, type Scene, type SketchParameter, type SketchProbe, type SketchProgram } from "./sketchScene";
+import { useChecksWithdrawn, withdrawChecks } from "./checksWithdrawn";
 
 export const SKETCH_FRAME = {
   badge: "AI-written simulation · sandboxed · not checked against the book",
   unchecked: "AI-written simulation · nothing in it checked",
   notFromBooks: "AI-written simulation · sandboxed · not from your books",
   checksLead: "checked by LearnLoop:",
+  withdrawn: "checks withdrawn: this run differs from the one LearnLoop checked, so nothing in it counts as checked",
 } as const;
 
 export const SKETCH_COPY = {
@@ -58,10 +71,16 @@ export const SKETCH_COPY = {
   loading: "starting the simulation…",
 } as const;
 
+/** Whether a sketch's code-owned checks stand (fix round 4): it has checks, the verifier's digests to compare
+ *  (a report without them predates the comparison: fail closed), and none of the page's reads disagreed. */
+export function checksStand(sketch: FigureSketchDto | null | undefined, withdrawn = false): boolean {
+  return !withdrawn && Boolean(sketch?.checks?.length) && Array.isArray(sketch?.tested) && sketch!.tested!.length > 0;
+}
+
 /** The badge slot for a sketch, from closed values only. */
-export function sketchBadge(figure: Pick<FigureViewDto, "grounding" | "sketch">): string {
+export function sketchBadge(figure: Pick<FigureViewDto, "grounding" | "sketch">, withdrawn = false): string {
   if (figure.grounding === "none") return SKETCH_FRAME.notFromBooks;
-  return figure.sketch?.checks?.length ? SKETCH_FRAME.badge : SKETCH_FRAME.unchecked;
+  return checksStand(figure.sketch, withdrawn) ? SKETCH_FRAME.badge : SKETCH_FRAME.unchecked;
 }
 
 const quote = (name: string) => `‘${name}’`;
@@ -159,9 +178,8 @@ function ProbeEntries({ probe, value }: { probe: SketchProbe; value: unknown }) 
   );
 }
 
-/** keep (display): how often play advances, and how many ticks a run to t_max takes. */
+/** keep (display): how often play advances (one scheduled read per tick; sketchEngine.PLAY_TICKS of them to t_max). */
 const PLAY_MS = 60;
-const PLAY_TICKS = 100;
 
 /** A random 32-bit seed for "new sample" (the host's, never the program's). */
 function freshSeed(): number {
@@ -212,14 +230,18 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
   // parameters and the step the engine is at.
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const runId = useRef(0);
-  const at = useRef<{ params: Params; step: number }>({ params, step: 0 });
+  const at = useRef<{ params: Params; seed: number; step: number }>({ params, seed, step: 0 });
   // Codex review F5: the step playback stops at (a prediction's), and one a
   // restart should play to once its init is drawn.
   const target = useRef<number | null>(null);
   const pendingTarget = useRef<number | null>(null);
   const total = clockSteps(program);
-  const perTick = Math.max(1, Math.ceil(total / PLAY_TICKS));
   const names = useMemo(() => program.parameters.map((parameter) => parameter.name), [program]);
+  // The read schedule: the verifier's, or computed the same way for a view without it.
+  const schedule = useMemo(() => usableSchedule(figure.sketch?.readSteps, program) ?? readSchedule(program), [figure.sketch?.readSteps, program]);
+  const withdrawn = useChecksWithdrawn(figure.figureId);
+  const verifiedSeed = figure.sketch?.seed ?? 1;
+  const tested = figure.sketch?.tested;
 
   const enqueue = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
     const next = queue.current.then(operation, operation);
@@ -261,15 +283,26 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     };
   }, [factory, program.code, generation, figure.figureId, figure.extractionId]);
 
-  /** Read a step and validate it; commits nothing (the caller checks its run's token first). */
-  const readChecked = useCallback(async (active: SketchRunner, params: Params, index: number) => {
+  /** At a state verification tested (its parameters, the verified seed, a checked step), the page's read
+   *  must be the one it checked, digest for digest; on any difference the checks are withdrawn (fail closed). */
+  const audit = useCallback((params: Params, seed: number, index: number, digest: string) => {
+    if (!tested?.length || seed !== verifiedSeed) return;
+    const entry = tested.find((item) => item.values.length === names.length && names.every((name, i) => item.values[i] === params[name]));
+    const position = entry ? entry.steps.indexOf(index) : -1;
+    if (!entry || position < 0 || entry.digests[position] === digest) return;
+    withdrawChecks(figure.figureId);
+  }, [tested, verifiedSeed, names, figure.figureId]);
+
+  /** Read a step (a scheduled one) and validate it; commits nothing (the caller checks its run's token first). */
+  const readChecked = useCallback(async (active: SketchRunner, params: Params, index: number, seed: number) => {
     const result = await active.read(params, index);
+    audit(params, seed, index, result.digest);
     const sceneIssues = sceneProblems(result.scene, names);
     if (sceneIssues.length) throw new SketchRunError("scene", `the scene ${sceneIssues[0]}`);
     const probeIssues = probeProblems(result.probes, program.probes);
     if (probeIssues.length) throw new SketchRunError("probe", probeIssues[0]);
     return { scene: result.scene as Scene, probes: result.probes as Record<string, unknown> };
-  }, [names, program.probes]);
+  }, [names, program.probes, audit]);
 
   const commit = useCallback((id: number, read: { scene: Scene; probes: Record<string, unknown> }, index: number) => {
     if (id !== runId.current) return false;
@@ -280,22 +313,27 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     return true;
   }, []);
 
-  /** Step the current run toward `end` by at most `limit` steps, then read and commit (queued). */
-  const advanceRun = useCallback(async (id: number, active: SketchRunner, end: number, limit: number) => {
+  /** Step the current run toward `end` through at most `reads` scheduled steps, reading each one it reaches
+   *  (every scheduled step once, no other), then commit the last read (queued). */
+  const advanceRun = useCallback(async (id: number, active: SketchRunner, end: number, reads: number) => {
     if (id !== runId.current || !program.clock) return;
-    const { params: runParams, step: from } = at.current;
+    const { params: runParams, seed: runSeed, step: from } = at.current;
     if (from >= end) return;
     let reached = from;
-    while (reached < end && reached - from < limit) {
-      const count = Math.min(perTick, end - reached);
-      await active.step(runParams, program.clock.dt, reached, count);
+    let done = 0;
+    let last: { scene: Scene; probes: Record<string, unknown> } | null = null;
+    while (reached < end && done < reads) {
+      const next = Math.min(end, schedule.find((step) => step > reached) ?? end);
+      await active.step(runParams, program.clock.dt, reached, next - reached);
       if (id !== runId.current) return;
-      reached += count;
+      reached = next;
       at.current = { ...at.current, step: reached };
+      last = await readChecked(active, runParams, reached, runSeed);
+      if (id !== runId.current) return;
+      done += 1;
     }
-    const read = await readChecked(active, runParams, reached);
-    commit(id, read, reached);
-  }, [program.clock, perTick, readChecked, commit]);
+    if (last) commit(id, last, reached);
+  }, [program.clock, schedule, readChecked, commit]);
 
   /** One play tick or step press: toward the prediction's target if one is set, else t_max. */
   const advance = useCallback(async () => {
@@ -310,7 +348,7 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
           stopPlay();
           return;
         }
-        await advanceRun(id, active, end, perTick);
+        await advanceRun(id, active, end, 1);
         if (id === runId.current && at.current.step >= end) stopPlay();
       });
     } catch (caught) {
@@ -318,7 +356,7 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     } finally {
       if (id === runId.current) busy.current = false;
     }
-  }, [program.clock, total, perTick, enqueue, advanceRun, stopPlay, fail]);
+  }, [program.clock, total, enqueue, advanceRun, stopPlay, fail]);
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
@@ -329,8 +367,9 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     timer.current = setInterval(() => { void advanceRef.current(); }, PLAY_MS);
   }, []);
 
-  // Restart the run whenever the parameters or the seed change: init, then
-  // read step 0 (and play on to a prediction's step, if one is pending).
+  // Restart the run whenever the parameters or the seed change: init (on a
+  // freshly loaded program), then read step 0 (and play on to a prediction's
+  // step, if one is pending).
   useEffect(() => {
     const active = runner.current;
     const ready = loaded.current;
@@ -346,12 +385,12 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
       if (id !== runId.current) return;
       await active.init(runParams, seed);
       if (id !== runId.current) return;
-      at.current = { params: runParams, step: 0 };
-      const read = await readChecked(active, runParams, 0);
+      at.current = { params: runParams, seed, step: 0 };
+      const read = await readChecked(active, runParams, 0, seed);
       if (!commit(id, read, 0)) return;
       setState({ kind: "ready" });
       if (goal && program.clock) {
-        if (reduced) await advanceRun(id, active, goal, goal);  // straight to it, no motion
+        if (reduced) await advanceRun(id, active, goal, Number.POSITIVE_INFINITY);  // straight to it, no motion (every scheduled step still read)
         else playTo(goal);
       }
     })
@@ -391,7 +430,9 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
 
   /** After an answer, show what was graded (Codex review F5): the verifier's
    *  run (the defaults with the change, the verified seed) from init to the
-   *  prediction's step, stopping exactly there. */
+   *  prediction's step, stopping exactly there. The change is set exactly as
+   *  graded (the independent sandbox review, finding 2: validation requires
+   *  a value the controls can be set to, so nothing is re-snapped here). */
   const applyPrediction = (prediction: FigurePredictionDto) => {
     const change = program.predictions?.[prediction.index]?.change ?? {};
     stopPlay();
@@ -401,7 +442,8 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
       const next = defaultsOf(program);
       for (const [name, value] of Object.entries(change)) {
         const parameter = program.parameters.find((item) => item.name === name);
-        if (parameter) next[name] = clampStep(parameter, Number(value));
+        const exact = Number(value);
+        if (parameter) next[name] = Number.isFinite(exact) && exact >= parameter.min && exact <= parameter.max ? exact : clampStep(parameter, exact);
       }
       return next;
     });
@@ -425,7 +467,9 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     && !figure.predictions.some((prediction) => prediction.answered !== null) ? figure.predictions[0] ?? null : null;
   const answeredPrediction = figure.predictions.find((prediction) => prediction.answered !== null) ?? null;
   const locked = openPrediction !== null;
-  const checkLines = sketchCheckLines(figure.sketch);
+  const stands = checksStand(figure.sketch, withdrawn);
+  const checkLines = stands ? sketchCheckLines(figure.sketch) : [];
+  const withdrawnShown = !stands && Boolean(figure.sketch?.checks?.length);
   const prefill = state.kind === "error" ? `${SKETCH_COPY.error}: ${settingsText(state.params)} (${state.message})`.slice(0, 600) : "";
 
   return (
@@ -514,6 +558,9 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
             ))}
           </tbody>
         </table>
+      ) : null}
+      {withdrawnShown ? (
+        <span data-sketch-checks-withdrawn=""><MeaningLabel style={{ fontSize: 11 }}>{SKETCH_FRAME.withdrawn}</MeaningLabel></span>
       ) : null}
       {checkLines.length ? (
         <div data-sketch-checks="" style={{ display: "flex", flexDirection: "column", gap: 2 }}>

@@ -104,8 +104,13 @@ WebKitGTK (JavaScriptCore) was not timed: no webview was run in this stage.
   `importScripts`, `indexedDB` and `caches`. From then on it only relays `load`, `init`, `step` and `read`.
 - `sketchRunner.ts` has `workerRunner` (the app), `hostRunner` (tests) and `withWatchdog`. The watchdog allows
   `SKETCH_FRAME_MS × SKETCH_WATCHDOG_FRAMES` = 480 ms per call; past that, the Worker is terminated and the sketch shows
-  *paused — this simulation is too slow here · step ▸*. The CSP needs no change (`script-src 'wasm-unsafe-eval'`,
-  `worker-src 'self'`, `connect-src 'self'`).
+  *paused — this simulation is too slow here · step ▸*. The CSP is unchanged by P2. **Corrected in fix round 4**
+  (the independent sandbox review): this line used to say `connect-src 'self'`, which is incomplete. The app's CSP
+  (`src-tauri/tauri.conf.json`) is `script-src 'self' 'wasm-unsafe-eval'`, `worker-src 'self' blob:` and
+  `connect-src 'self' ipc: http://ipc.localhost llpdf: http://llpdf.localhost llmedia: http://llmedia.localhost`. A
+  same-origin Worker therefore inherits a `connect-src` that names the IPC endpoints. The program inside the engine
+  can't reach any of this (it has no bindings), but the Worker itself is not an opaque-origin compartment. See G-SM14
+  under the sandbox review and the open points.
 
 ### Schemas and both validators (§9.1)
 
@@ -128,6 +133,8 @@ messages, case for case.
 2. Runs on RW5a's parameter grid and, with a clock, at 9 times from 0 to `t_max`; every scene and probe is validated.
 3. Deterministic: a second run in a fresh engine, the grid reversed, with extra `view`/`probes` reads, must match as
    text.
+   *(Fix round 4 changed steps 2 and 3: every run is a freshly loaded program reading one schedule, and the report
+   carries per-read digests the desktop compares. See the codex-review record's "Sandbox review (Astra)".)*
 4. Bindings hold exactly: a bound element's coordinates equal its probe's values.
 5. Claims are checked by the grammar's Python evaluator:
    - `equals` within 1e-9 relative (scalar, series over `var`, or pairs y over x);
@@ -256,12 +263,16 @@ stage. The spec also asks for the independent Codex (or Opus) review before merg
 
 - **(a) Hidden state.** A program can keep top-level `let` state across calls within one load. Step 3 catches
   order-dependence along the grid and in extra reads, but not a dependence that happens to agree in both runs.
+  **Superseded in fix round 4:** the independent review turned this residual into a false check (a program counting
+  its own starts). Every `init()` now runs on a freshly loaded program in both hosts, every run reads one schedule,
+  and the desktop compares the verifier's digests. See the codex-review record's "Sandbox review (Astra)".
 - **(b) Engine escape.** Escaping needs a bug in QuickJS's interpreter that corrupts wasm linear memory, then a bug in
   WebKit's or wasmtime's WebAssembly isolation. That is not realistic for model output (the proportionate bar).
 - **(c) G-SM14 not run.** It needs the real desktop webview on Linux: can a request to the IPC endpoint be made from
   inside the sketch Worker? The program can't reach the Worker's globals at all. The gate is about the Worker itself,
   and the Worker drops its network globals after load. It still has to be run in the real webview before merge; if Tauri
-  doesn't refuse it, the Worker moves into an opaque-origin frame, as the spec says.
+  doesn't refuse it, the Worker moves into an opaque-origin frame, as the spec says. The independent review's
+  conclusions and the fallback recipe are under open point 1.
 - **(d) A correct-by-its-own-claims sketch of a wrong idea.** As for any AI explanation: labelled AI-written, with
   "not right?".
 
@@ -289,7 +300,28 @@ MemorySwapMax=1G`, pytest at `-n 6` at most, and vitest at `--maxWorkers=4`.
 ## Open points for the landing and the owner
 
 1. **G-SM14 (merge gate):** run the IPC probe from inside the sketch Worker in the real desktop webview on Linux. If it
-   isn't refused, move the Worker into an opaque-origin frame before P2 ships (§9.4, §16).
+   isn't refused, move the Worker into an opaque-origin frame before P2 ships (§9.4, §16). The independent sandbox
+   review (gpt-6-astra, fix round 4) left G-SM14 **unverified**, with these conclusions:
+   - A model sketch has no route to the Worker's globals without breaking the interpreter/wasm boundary.
+   - The Worker is not an opaque-origin compartment: the app CSP explicitly permits `ipc:` and `http://ipc.localhost`
+     (the corrected description above).
+   - Locally cached, Cargo-locked Tauri 2.11.2 / Wry 0.55.1 source supports a **low likelihood** of a successful IPC
+     call from this Worker: the normal bridge is window-based, and an invocation needs the initialization key, which
+     nothing in the Worker protocol transfers.
+   - Linux frame isolation still needs the real probe. Wry's WebKitGTK message handler attributes messages by the
+     webview's URI, so a frame-URL check alone should not be assumed sufficient.
+   - **The fallback recipe**, if the probe is not refused: an iframe with `sandbox="allow-scripts"` and **without**
+     `allow-same-origin`, a restrictive CSP in it including `connect-src 'none'`, and the Worker created **inside**
+     that frame. The pinned wasm bytes are transferred to it over a narrowly validated private message channel (the
+     fix-round-4 protocol validation, `sketchProtocol.ts`, is the shape); generic IPC is never forwarded. Probe the
+     native WebKit message handlers (`window.webkit.messageHandlers`) as well as fetch-based IPC; if those remain
+     reachable from the frame, use a separate webview with no capabilities.
+   The review did not count the missing probe alone as a demonstrated escape. It remains the spec's outstanding merge
+   gate.
+8. **Toolchain pinning (follow-up, Astra finding 4, Low).** `build.py` pins every download by digest and refuses an
+   output whose digest differs from `engine.lock.json`, but it checks only Clang's major version and does not pin
+   `wasm-ld`. Another toolchain can produce different bytes, and the ordinary build then refuses them (it never ships
+   them). Pin the exact compiler and linker distribution, or a build image, in a follow-up.
 2. **B3:** `src-tauri` is unchanged, so `cargo check` wasn't run. The spec lists "B3 re-confirmed" under P2's needs: the
    landing gate's `cargo check` re-confirms it.
 3. **Owner checkpoint:** the sandbox review (above, plus the Codex review) and five real sketches from the owner's

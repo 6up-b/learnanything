@@ -8,6 +8,8 @@
 // HTML, CSS, a URL or an image: the renderer draws SVG primitives and text
 // nodes from these fields only.
 
+import { PLAY_TICKS } from "./sketchEngine";
+
 export const SKETCH_MAX_ELEMENTS = 4_000;
 export const SKETCH_MAX_POINTS = 40_000;
 export const SKETCH_MAX_CELLS = 4_096;
@@ -73,6 +75,59 @@ export function clockSteps(program: SketchProgram): number {
   const clock = program.clock;
   if (!clock) return 0;
   return Math.max(1, Math.ceil(clock.t_max / clock.dt - 1e-9));
+}
+
+/** keep (numerical): verification's checked samples per run (sketch.py SKETCH_TIME_SAMPLES). */
+export const SKETCH_TIME_SAMPLES = 9;
+
+/** The steps play reads from 0 to `total` (sketch.py tick_steps). */
+export function tickSteps(total: number): number[] {
+  if (total <= 0) return [0];
+  const per = Math.max(1, Math.ceil(total / PLAY_TICKS));
+  const steps: number[] = [];
+  for (let step = 0; step < total; step += per) steps.push(step);
+  steps.push(total);
+  return steps;
+}
+
+/** The steps verification checks (sketch.py sample_steps; Math.round is its round_half_up). */
+export function sampleSteps(total: number): number[] {
+  if (total <= 0) return [0];
+  const steps = new Set<number>();
+  for (let j = 0; j < SKETCH_TIME_SAMPLES; j += 1) steps.add(Math.round((j * total) / (SKETCH_TIME_SAMPLES - 1)));
+  return [...steps].sort((a, b) => a - b);
+}
+
+/** The step a prediction is graded at (sketch.py prediction_step). */
+export function predictionStep(program: SketchProgram, index: number): number {
+  const total = clockSteps(program);
+  const change = program.predictions?.[index]?.change ?? {};
+  const keys = Object.keys(change);
+  if (keys.length === 1 && keys[0] === "run_to" && program.clock) {
+    return Math.min(total, Math.max(1, Math.round(change.run_to / program.clock.dt)));
+  }
+  return total;
+}
+
+/** The read schedule (sketch.py read_steps; the independent sandbox review, finding 1): the only steps at
+ *  which a run reads view() then probes(), each once, in order, whatever the learner presses: play's ticks,
+ *  the checked samples and every prediction's graded step. A program may change its state when read, so
+ *  every host reading the same steps is what makes the page pass through the history verification checked. */
+export function readSchedule(program: SketchProgram): number[] {
+  const total = clockSteps(program);
+  const steps = new Set<number>([...tickSteps(total), ...sampleSteps(total)]);
+  (program.predictions ?? []).forEach((_prediction, index) => steps.add(predictionStep(program, index)));
+  return [...steps].sort((a, b) => a - b);
+}
+
+/** A schedule the server sent, if it is one for this program's clock (ascending whole steps from 0 to t_max). */
+export function usableSchedule(steps: unknown, program: SketchProgram): number[] | null {
+  const total = clockSteps(program);
+  if (!Array.isArray(steps) || !steps.length || steps[0] !== 0 || steps[steps.length - 1] !== total) return null;
+  for (let i = 0; i < steps.length; i += 1) {
+    if (!Number.isSafeInteger(steps[i]) || (i > 0 && steps[i] <= steps[i - 1])) return null;
+  }
+  return steps as number[];
 }
 
 export function impersonates(name: string): boolean {

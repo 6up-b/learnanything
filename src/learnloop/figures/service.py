@@ -862,7 +862,7 @@ def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = Non
     fresh = cached["report"]
     report = {**previous, **{key: fresh.get(key) for key in (
         "outcome", "checks", "not_covered", "unnamed_elements", "settings", "grid_points", "samples",
-        "dropped_predictions", "engine_sha256", "verifier_version")}}
+        "dropped_predictions", "engine_sha256", "verifier_version", "read_steps", "tested")}}
     return {**row, "verification_report": report, "checks": report.get("checks") or [],
             "engine_sha256": ENGINE_SHA256}
 
@@ -1013,6 +1013,15 @@ def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], vie
         "not_covered": list(report.get("not_covered") or ()),
         "unnamed_elements": int(report.get("unnamed_elements") or 0),
         "settings": int(report.get("settings") or 0),
+        # Fix round 4 (the independent sandbox review): the read schedule every
+        # run follows and the digest of every read verification checked, per
+        # grid point (values in declared order, so no name is camelized); the
+        # desktop compares its own and withdraws the checks on a difference.
+        "read_steps": [int(step) for step in report.get("read_steps") or ()],
+        "tested": [{"values": [float(v) for v in entry.get("values") or ()],
+                    "steps": [int(s) for s in entry.get("steps") or ()],
+                    "digests": [str(d) for d in entry.get("digests") or ()]}
+                   for entry in report.get("tested") or ()],
     }
     dropped = set(report.get("dropped_predictions") or ())
     if predictions_enabled(vault):

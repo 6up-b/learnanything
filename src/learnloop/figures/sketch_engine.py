@@ -277,6 +277,8 @@ class SketchEngine:
                                                      "sk_load", "sk_init", "sk_step", "sk_view", "sk_probes",
                                                      "sk_unload")}
         self.broken = False
+        #: The loaded program's text: every init reloads it (fix round 4).
+        self._code: bytes | None = None
         # The engine's epoch clock runs while this instance is open (one
         # thread start per engine, not per call); close() releases it.
         self._clock.enter()
@@ -375,11 +377,21 @@ class SketchEngine:
         return json.loads(self._run("sk_limits"))
 
     def load(self, code: str) -> dict[str, bool]:
-        length = self._write(code.encode("utf-8"))
+        data = code.encode("utf-8")
+        length = self._write(data)
         self.entry_points = json.loads(self._run("sk_load", length) or "{}")
+        self._code = data
         return self.entry_points
 
     def init(self, params: Mapping[str, float], seed: int) -> None:
+        """Start a run. The program is loaded afresh first (the independent
+        sandbox review, finding 1: a program counting its own starts was
+        verified on its later starts while the desktop draws its first), so
+        every run, in verification, grading and the desktop alike, is "a
+        freshly loaded program, init, then its own calls"."""
+
+        if self._code is not None:
+            self._run("sk_load", self._write(self._code))
         length = self._write(_json(params))
         self._run("sk_init", length, int(seed) & 0xFFFFFFFF)
 

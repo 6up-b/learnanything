@@ -156,8 +156,21 @@ def test_shared_hostile_corpus_runs_the_same_in_the_sidecar():
         with SketchEngine() as engine:
             try:
                 engine.load(case["code"])
-                engine.init({}, 1)
-                result = engine.probes({}, index=0) if case["call"] == "probes" else engine.view({}, index=0)
+                result = None
+                if "calls" in case:  # a sequence (fix round 4: fresh starts, reads within a run)
+                    for call in case["calls"]:
+                        params, index = call.get("params", {}), call.get("index", 0)
+                        if call["op"] == "init":
+                            engine.init(params, call.get("seed", 1))
+                        elif call["op"] == "step":
+                            engine.step(params, call.get("dt", 0), index=index, count=call.get("count", 1))
+                        elif call["op"] == "view":
+                            result = engine.view(params, index=index)
+                        else:
+                            result = engine.probes(params, index=index)
+                else:
+                    engine.init({}, 1)
+                    result = engine.probes({}, index=0) if case["call"] == "probes" else engine.view({}, index=0)
                 outcome = {"status": "ok", "result": result}
             except SketchRunError as exc:
                 outcome = {"status": exc.kind}
