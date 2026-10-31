@@ -1359,7 +1359,14 @@ export function ReaderScreen({
   const sbs = useSideBySide({
     enabled: Boolean(contract?.sideBySide?.enabled) && Boolean(render) && !offline && !working,
     main: render ? { sourceId: render.sourceId, sourceTitle: sourceTitle ?? "", extractionId: render.extractionId, sectionId: currentGuideSection?.id ?? null } : null,
-    jumpMain: jumpToSpan,
+    // Follow along moves the main pane once, with no animation (K14): the jump,
+    // then the passage put at the top at once (the PDF surface places its page itself).
+    jumpMain: (spanId: string) => {
+      jumpToSpan(spanId, "start");
+      if (pdfSurfaceActive) return;
+      const node = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
+      if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+    },
     pushCrumb: pushSideBySide,
     dropCrumb: dropDetour,
     currentEntryId: returnStack.entries[returnStack.cursor]?.id ?? null,
@@ -1373,6 +1380,9 @@ export function ReaderScreen({
   sbsPanesRef.current = sbsPanes;
   const sbsRef = useRef(sbs);
   sbsRef.current = sbs;
+  // Esc never closes the second pane while it is clearing something of the main pane's (a selection, a menu).
+  const sbsEscBusyRef = useRef(false);
+  sbsEscBusyRef.current = Boolean(selection) || Boolean(tagMenu);
   const sbsPaneRef = useRef<HTMLDivElement | null>(null);
   const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
   useEffect(() => {
@@ -1426,10 +1436,10 @@ export function ReaderScreen({
       } else if (event.key === "F6" && !mod && !event.altKey && ctl.panes) {
         event.preventDefault();
         const side = sbsPaneRef.current;
-        const inSide = side !== null && target instanceof Node && side.contains(target);
+        const inSide = target instanceof Element && Boolean(target.closest("[data-side-by-side-pane]"));
         if (inSide) bodyRef.current?.focus({ preventScroll: true });
         else side?.focus({ preventScroll: true });
-      } else if (event.key === "Escape" && !mod && !event.altKey && open && !event.defaultPrevented) {
+      } else if (event.key === "Escape" && !mod && !event.altKey && open && !event.defaultPrevented && !sbsEscBusyRef.current) {
         // Esc closes the second pane when it is aimed at either pane (never a
         // field, a menu or the rail's own Esc).
         const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target));
@@ -3248,7 +3258,7 @@ export function ReaderScreen({
               ref={sbsPaneRef}
               ctl={sbs}
               otherTitle={sourceTitle ?? "this book"}
-              basis={undefined}
+              grow={1 - sbsSplit}
               onCompareSelection={libraryCtl.scopeOn && render ? (picked) => {
                 // CA3's selection verb in the second pane: anchored there, the source the main pane's book.
                 if (!sbs.section) return;

@@ -35,8 +35,8 @@ export interface SideBySidePaneProps {
   otherTitle: string;
   /** CA3's "how do my other books treat this?" on a selection here (null: off). */
   onCompareSelection: ((selection: PaneSelection) => void) | null;
-  /** The pane's share of the width (two panes); ignored by the sheet. */
-  basis?: string;
+  /** The pane's share of the width (two panes, a flex grow against the main pane's); ignored by the sheet. */
+  grow?: number;
 }
 
 function selectionIn(root: HTMLElement | null): PaneSelection | null {
@@ -54,7 +54,7 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
 }
 
 export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(
-  { ctl, otherTitle, onCompareSelection, basis },
+  { ctl, otherTitle, onCompareSelection, grow = 1 },
   bodyRef,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -117,7 +117,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
         position: "absolute", left: 0, right: 0, bottom: 0, height: "50%", zIndex: 30, background: COLOR.bg,
         borderTop: `1px solid ${COLOR.borderStrong}`, display: "flex", flexDirection: "column", minHeight: 0,
       } : {
-        flex: basis ? `0 0 ${basis}` : 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column",
+        flex: `${grow} 1 0`, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column",
         borderLeft: `1px solid ${COLOR.border}`,
       }}
     >
