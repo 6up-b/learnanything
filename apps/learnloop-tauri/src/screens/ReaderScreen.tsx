@@ -14,7 +14,7 @@
 // reviewed TaskBlueprint placements appear as optional real-source quick checks;
 // the hard-coded demo question remains confined to the offline fixture.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
@@ -113,6 +113,9 @@ import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExerci
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
+import { SideBySidePane } from "./reader/SideBySidePane";
+import { SIDE_BY_SIDE_COPY, useSideBySide } from "./reader/useSideBySide";
+import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -581,7 +584,7 @@ export function ReaderScreen({
     markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState,
+    resetInquiryState, pushSideBySide, dropDetour,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -1352,6 +1355,93 @@ export function ReaderScreen({
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   // Reader CA4: below the breakpoint the comparing posture stacks (off: RW4a's split).
   const comparingStacked = useComparingStacked(comparing && libraryCtl.byPoint);
+  // Reader CA6: side by side (off: no `sideBySide` in the contract, nothing renders and no key does anything new).
+  const sbs = useSideBySide({
+    enabled: Boolean(contract?.sideBySide?.enabled) && Boolean(render) && !offline && !working,
+    main: render ? { sourceId: render.sourceId, sourceTitle: sourceTitle ?? "", extractionId: render.extractionId, sectionId: currentGuideSection?.id ?? null } : null,
+    jumpMain: jumpToSpan,
+    pushCrumb: pushSideBySide,
+    dropCrumb: dropDetour,
+    currentEntryId: returnStack.entries[returnStack.cursor]?.id ?? null,
+    onError,
+  });
+  // The second pane shows while side by side is open in a wide window; a
+  // comparison the learner starts takes the right side meanwhile (both are
+  // the comparing posture), and side by side comes back when it closes.
+  const sbsPanes = sbs.panes && !comparing;
+  const sbsPanesRef = useRef(false);
+  sbsPanesRef.current = sbsPanes;
+  const sbsRef = useRef(sbs);
+  sbsRef.current = sbs;
+  const sbsPaneRef = useRef<HTMLDivElement | null>(null);
+  const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
+  useEffect(() => {
+    if (!sbsPanes) setSbsRailOverlay(false);
+  }, [sbsPanes]);
+  const [sbsSplit, setSbsSplit] = useState(readSplit);
+  const sbsRowRef = useRef<HTMLDivElement | null>(null);
+  const startSbsResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const row = sbsRowRef.current;
+    if (!row) return;
+    event.preventDefault();
+    const rect = row.getBoundingClientRect();
+    const move = (moved: PointerEvent) => {
+      if (rect.width > 0) setSbsSplit(clampSplit((moved.clientX - rect.left) / rect.width));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setSbsSplit((value) => {
+        writeSplit(value);
+        return value;
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  // The main pane leads once the learner's hand is on it (scroll, click, select).
+  const touchMain = () => {
+    if (sbsRef.current.panes) sbsRef.current.touch("main");
+  };
+  // Side by side's keys (§6.4): Ctrl+\ opens the first correspondent of the
+  // section in view (or closes the second pane), Ctrl+Shift+L turns follow
+  // along on or off, F6 moves focus between the panes, Esc in a pane closes
+  // the second one. Outside text fields; nothing while off.
+  useEffect(() => {
+    if (!sbs.enabled) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      const ctl = sbsRef.current;
+      const open = ctl.panes || ctl.sheet;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && !event.altKey && !event.shiftKey && event.key === "\\") {
+        event.preventDefault();
+        if (open) ctl.close();
+        else void ctl.openFirst();
+      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes) {
+        event.preventDefault();
+        ctl.toggleFollow();
+      } else if (event.key === "F6" && !mod && !event.altKey && ctl.panes) {
+        event.preventDefault();
+        const side = sbsPaneRef.current;
+        const inSide = side !== null && target instanceof Node && side.contains(target);
+        if (inSide) bodyRef.current?.focus({ preventScroll: true });
+        else side?.focus({ preventScroll: true });
+      } else if (event.key === "Escape" && !mod && !event.altKey && open && !event.defaultPrevented) {
+        // Esc closes the second pane when it is aimed at either pane (never a
+        // field, a menu or the rail's own Esc).
+        const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target));
+        if (target === document.body || inMain) {
+          event.preventDefault();
+          ctl.close();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sbs.enabled]);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
     if (!render || offline) return;
     setLibraryCompose(null);
@@ -1771,7 +1861,9 @@ export function ReaderScreen({
         setRailTab((tab) => tabs[(tabs.indexOf(tab) + (event.key === "]" ? 1 : tabs.length - 1)) % tabs.length]);
       } else if (event.key === "\\") {
         event.preventDefault();
-        setRailCollapsed((collapsed) => !collapsed);
+        // Reader CA6: in side by side the rail stays folded to its gutter; \\ opens it as an overlay.
+        if (sbsPanesRef.current) setSbsRailOverlay((open) => !open);
+        else setRailCollapsed((collapsed) => !collapsed);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -2655,6 +2747,8 @@ export function ReaderScreen({
             door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
             extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
             workbenchSessionId: bound,
+            // Reader CA6: in side by side the source is the other pane's book (§4.1).
+            ...(sbsPanes && sbs.target ? { sourceIds: [sbs.target.sourceId] } : {}),
           };
           if (working) {
             // Started once the learner leaves, under the policy then in force.
@@ -2848,19 +2942,37 @@ export function ReaderScreen({
           }}
         />
       ) : null}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}) }}>
+      {sbs.notice ? (
+        // Reader CA6: Ctrl+\\ found nothing to open (dim, outside the text column; goes on the next touch).
+        <div data-sbs-notice="" style={{ flexShrink: 0, padding: "4px 32px", borderBottom: `1px solid ${COLOR.border}` }}>
+          <Faint style={{ fontSize: 11 }}>{sbs.notice}</Faint>
+        </div>
+      ) : null}
+      <div ref={sbsRowRef} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}), ...(sbs.panes || sbs.sheet ? { position: "relative" as const } : {}) }}>
         <div
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
           aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
           {...(working && wbBookHidden ? { "aria-hidden": true } : {})}
+          {...(sbsPanes ? { tabIndex: -1, "data-sbs-main": "" } : {})}
           onMouseDown={(event) => {
             noteUserScroll();
+            touchMain();
+            if (sbs.notice) sbs.clearNotice();
             onBodyMouseDown(event);
           }}
-          onMouseUp={onMouseUp}
-          onWheel={noteUserScroll}
-          onTouchMove={noteUserScroll}
+          onMouseUp={() => {
+            if (sbsPanes && !window.getSelection()?.isCollapsed) touchMain();
+            onMouseUp();
+          }}
+          onWheel={() => {
+            noteUserScroll();
+            touchMain();
+          }}
+          onTouchMove={() => {
+            noteUserScroll();
+            touchMain();
+          }}
           onScroll={onBodyScroll}
           className="ll-scroll"
           style={{
@@ -2875,8 +2987,19 @@ export function ReaderScreen({
             ...(wbStacked ? { order: 1, flex: wbSourceShown ? "0 0 50%" : undefined, display: wbSourceShown ? "flex" : "none", borderTop: `1px solid ${COLOR.border}` } : {}),
             // Reader CA4: the comparing posture stacked, the book below the comparison.
             ...(comparingStacked ? { order: 1, flex: "0 0 50%" } : {}),
+            // Reader CA6: the two panes share the source area (the split is the learner's, per device).
+            ...(sbsPanes ? { flex: `${sbsSplit} 1 0`, minWidth: 0, outline: "none" } : {}),
           }}
         >
+          {sbsPanes ? (
+            <div data-sbs-main-header="" style={{ position: "sticky", top: -18, zIndex: 9, margin: "-18px -32px 0", padding: "6px 32px", background: COLOR.bg, borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "baseline", gap: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+              <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                § {sourceTitle ?? "this book"}{currentGuideSection ? ` · ${currentGuideSection.label}` : ""}
+              </span>
+              {sbs.leader === "main" ? <span data-sbs-lead="" style={{ color: COLOR.amber }}>{SIDE_BY_SIDE_COPY.lead}</span> : null}
+              {sbs.staysPut === "main" ? <Faint style={{ fontSize: 10 }}>{SIDE_BY_SIDE_COPY.staysPut}</Faint> : null}
+            </div>
+          ) : null}
           <IntentBox box={intentBox} />
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
@@ -3112,6 +3235,37 @@ export function ReaderScreen({
           })}
         </div>
 
+        {sbsPanes ? (
+          <>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="resize side by side"
+              onPointerDown={startSbsResize}
+              style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: COLOR.border }}
+            />
+            <SideBySidePane
+              ref={sbsPaneRef}
+              ctl={sbs}
+              otherTitle={sourceTitle ?? "this book"}
+              basis={undefined}
+              onCompareSelection={libraryCtl.scopeOn && render ? (picked) => {
+                // CA3's selection verb in the second pane: anchored there, the source the main pane's book.
+                if (!sbs.section) return;
+                logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", entry: "side_by_side" });
+                setLibraryCompose(null);
+                libraryCtl.compareFrom({
+                  door: "selection", question: picked.quote, extractionId: sbs.section.extractionId,
+                  anchorSpanIds: picked.spanIds, openSourceId: sbs.section.sourceId, sourceIds: [render.sourceId],
+                  workbenchSessionId: null,
+                });
+              } : null}
+            />
+          </>
+        ) : null}
+        {sbs.sheet && !comparing ? (
+          <SideBySidePane ctl={sbs} otherTitle={sourceTitle ?? "this book"} onCompareSelection={null} />
+        ) : null}
         {working && wbActive ? (
           <ReaderWorkingPosture
             wbCtl={wbCtl}
@@ -3144,10 +3298,10 @@ export function ReaderScreen({
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {inquiry && railCollapsed && !working && !comparing ? (
+        {((inquiry && railCollapsed) || sbsPanes) && !working && !comparing && !sbsRailOverlay ? (
           <button
             type="button"
-            onClick={() => setRailCollapsed(false)}
+            onClick={() => (sbsPanes ? setSbsRailOverlay(true) : setRailCollapsed(false))}
             aria-label={"expand the rail (\\)"}
             title={"expand the rail (\\)"}
             style={{ width: 28, flexShrink: 0, border: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
@@ -3170,7 +3324,11 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
-            display: (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
+            // Reader CA6: side by side folds the rail to its gutter; \\ reopens it as an overlay at the right.
+            display: sbsPanes ? (sbsRailOverlay ? undefined : "none") : (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
+            ...(sbsPanes && sbsRailOverlay
+              ? { position: "absolute" as const, right: 0, top: 0, bottom: 0, zIndex: 25, background: COLOR.bg, boxShadow: "-6px 0 18px rgba(0,0,0,0.18)" }
+              : {}),
           }}
           className="ll-scroll"
         >
@@ -3350,6 +3508,7 @@ export function ReaderScreen({
                   : null}
                 onGoThere={(target) => void openLibraryHit(target)}
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
                 onError={onError}
               />
             ) : undefined}

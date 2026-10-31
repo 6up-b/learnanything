@@ -23,11 +23,18 @@
 // writes. Unchecked hits never appear unasked (§6.5). Off (no
 // `correspondence` in the prompt contract) the Reader never mounts this, so
 // the Guide is exactly as before.
+//
+// Reader CA6: `s` (and *side by side* on a line, *read side by side* in a
+// peek's header) opens the hit in side by side, while the Reader passes
+// `onSideBySide` (reader.side_by_side.enabled). Peeks and go there record
+// CA5a's deferred salience-only events (corresponding_section_peeked /
+// corresponding_section_opened).
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../../api/client";
 import type { CorrespondentPeekDto, CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
+import { logReaderAction } from "./activity";
 import { clip } from "./readerShared";
 import { MeaningLabel, SourceVoice } from "./voices";
 
@@ -51,6 +58,9 @@ export const FIND_COPY = {
   peekHead: "peek",
   closePeek: "esc close",
   keys: "↑↓ move · space peek · ↵ go there · c compare · esc close",
+  keysSideBySide: "↑↓ move · space peek · ↵ go there · s side by side · c compare · esc close",
+  sideBySide: "side by side",
+  readSideBySide: "read side by side (s)",
   fold: "close",
 } as const;
 
@@ -68,6 +78,8 @@ export interface FindSectionProps {
   onGoThere: (target: { sourceId: string; extractionId: string; spanId: string }) => void;
   /** Compares this section's passage with the hit's (null: comparing is off). */
   onCompare: ((hit: CorrespondentSectionDto) => void) | null;
+  /** Reader CA6: opens the hit side by side (absent: side by side is off). */
+  onSideBySide?: ((hit: CorrespondentSectionDto) => void) | null;
   onError: (message: string) => void;
 }
 
@@ -98,7 +110,17 @@ const LINK: CSSProperties = {
 };
 const HEAD: CSSProperties = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" };
 
-export function FindSection({ extractionId, section, onGoThere, onCompare, onError }: FindSectionProps) {
+/** CA5a's deferred records (salience only): a hit peeked or opened. */
+function logHit(event: "corresponding_section_peeked" | "corresponding_section_opened", extractionId: string,
+  sectionId: string | null, hit: CorrespondentSectionDto): void {
+  logReaderAction(event, {
+    extraction_id: extractionId, section_id: sectionId, target_source_id: hit.sourceId,
+    target_extraction_id: hit.extractionId, target_section_id: hit.sectionId, target_span_id: hit.jump.spanId,
+    by: hit.by === "search" ? "search" : "judged", via: "find_list",
+  });
+}
+
+export function FindSection({ extractionId, section, onGoThere, onCompare, onSideBySide = null, onError }: FindSectionProps) {
   const sectionId = section?.id ?? null;
   // The quiet read (no search): whether the action may show for this section.
   const [quiet, setQuiet] = useState<{ sectionId: string; show: boolean } | null>(null);
@@ -183,6 +205,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     if (!hit.jump.spanId) return;
     const mine = token.current;
     setPeek({ key, hit, view: null });
+    logHit("corresponding_section_peeked", extractionId, sectionId, hit);
     try {
       // The hit's own section, protection read now; what it shows is recorded.
       const { peek: shown } = await api.readerCorrespondentPeek({ extractionId: hit.extractionId, sectionId: hit.sectionId });
@@ -193,7 +216,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
       onError(errorMessage(error));
       setPeek((current) => (current?.key === key ? null : current));
     }
-  }, [onError]);
+  }, [onError, extractionId, sectionId]);
 
   const closePeek = useCallback(() => {
     const key = peek?.key;
@@ -203,8 +226,14 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
 
   const goThere = useCallback((hit: CorrespondentSectionDto) => {
     if (!hit.jump.spanId) return;
+    logHit("corresponding_section_opened", extractionId, sectionId, hit);
     onGoThere({ sourceId: hit.sourceId, extractionId: hit.jump.extractionId, spanId: hit.jump.spanId });
-  }, [onGoThere]);
+  }, [onGoThere, extractionId, sectionId]);
+
+  const sideBySide = useCallback((hit: CorrespondentSectionDto) => {
+    if (!hit.jump.spanId || !onSideBySide) return;
+    onSideBySide(hit);
+  }, [onSideBySide]);
 
   /** One correction as one operation; it lands only on the section it was made from (F4). */
   const runOperation = useCallback(async (key: string, act: string, request: (operationId: string) => Promise<unknown>, landed: () => void) => {
@@ -283,6 +312,9 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     } else if (event.key === "Enter" && hit) {
       consume();
       goThere(hit);
+    } else if ((event.key === "s" || event.key === "S") && hit && onSideBySide) {
+      consume();
+      sideBySide(hit);
     } else if ((event.key === "c" || event.key === "C") && hit && onCompare) {
       consume();
       onCompare(hit);
@@ -358,6 +390,9 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button type="button" onClick={() => void openPeek(hit)} style={LINK} aria-label={`${FIND_COPY.peek} at ${source.sourceTitle} ${hit.title}`}>{FIND_COPY.peek}</button>
                       <button type="button" onClick={() => goThere(hit)} style={LINK} aria-label={`${FIND_COPY.goThere}: ${source.sourceTitle} ${hit.title}`}>{FIND_COPY.goThere} ↵</button>
+                      {onSideBySide ? (
+                        <button type="button" onClick={() => sideBySide(hit)} style={LINK} aria-label={`${FIND_COPY.sideBySide} with ${source.sourceTitle} ${hit.title}`}>{FIND_COPY.sideBySide}</button>
+                      ) : null}
                       {onCompare ? (
                         <button type="button" onClick={() => onCompare(hit)} style={LINK} aria-label={`${FIND_COPY.compare} with ${source.sourceTitle} ${hit.title}`}>{FIND_COPY.compare}</button>
                       ) : null}
@@ -368,7 +403,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
               })}
             </div>
           ))}
-          <MeaningLabel>{FIND_COPY.keys}</MeaningLabel>
+          <MeaningLabel>{onSideBySide ? FIND_COPY.keysSideBySide : FIND_COPY.keys}</MeaningLabel>
         </div>
       )}
       {peek ? (
@@ -376,6 +411,9 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={HEAD}>{FIND_COPY.peekHead}</span>
             <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(peek.hit.title, 50)}</span>
+            {onSideBySide ? (
+              <button type="button" onClick={() => sideBySide(peek.hit)} style={{ ...LINK, marginLeft: "auto" }}>{FIND_COPY.readSideBySide}</button>
+            ) : null}
           </div>
           {peek.view ? (
             <SourceVoice source={peek.hit.sourceTitle} locator={peek.view.page !== null ? `p.${peek.view.page}` : null}>

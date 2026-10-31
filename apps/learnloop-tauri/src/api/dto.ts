@@ -6774,6 +6774,8 @@ export interface ReaderPromptContractDto {
   /** Reader CA5a: "find this section in my other books" in the Guide's footer
    *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
   correspondence?: { enabled: boolean; findSection: boolean };
+  /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
+  sideBySide?: { enabled: boolean };
 }
 
 // ── Reader CA5a: find this section in my other books ───────────────────────
@@ -6828,6 +6830,23 @@ export interface CorrespondentPeekDto {
   jumpSpanId: string;
   page: number | null;
   blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  exposureEventIds: string[];
+}
+
+/** Reader CA6: one section of the other book for side by side's second pane
+ *  (the whole section from its jump locator, never the next unit's; each block shown recorded). */
+export interface SideBySideSectionDto {
+  extractionId: string;
+  sectionId: string;
+  sourceId: string;
+  sourceTitle: string;
+  title: string;
+  jumpSpanId: string;
+  page: number | null;
+  blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  /** The book's neighbouring readable sections (protected ones skipped). */
+  previous: { sectionId: string; title: string } | null;
+  next: { sectionId: string; title: string } | null;
   exposureEventIds: string[];
 }
 
@@ -7185,7 +7204,11 @@ export interface ReaderActivityEvent {
     | "tutor_offer_shown"
     | "tutor_offer_pressed"
     | "figure_opened"
-    | "figure_animated";
+    | "figure_animated"
+    | "corresponding_section_peeked"
+    | "corresponding_section_opened"
+    | "side_by_side_opened"
+    | "follow_along_moved";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {

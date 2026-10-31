@@ -17,6 +17,7 @@ import type {
   CorrespondentsDto,
   CorrespondentOperationDto,
   CorrespondentPeekDto,
+  SideBySideSectionDto,
   CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
@@ -1657,6 +1658,9 @@ export const api = {
     call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
   readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
     call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
+  /** Reader CA6: one section of the other book for side by side's second pane. */
+  readerSideBySideSection: (input: { extractionId: string; sectionId: string }) =>
+    call<{ section: SideBySideSectionDto }>("reader_side_by_side_section", { input }),
   /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
    *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; passagesId?: string; question?: string | null }) =>

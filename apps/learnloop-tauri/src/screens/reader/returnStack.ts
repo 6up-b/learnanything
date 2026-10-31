@@ -8,7 +8,9 @@
 // restores only its root, which is P3's saved reading position.
 import type { ReaderSelection } from "./readerShared";
 
-export type DetourKind = "branch" | "peek" | "citation" | "source";
+// Reader CA6: "side_by_side" is a variant of the comparing posture (its crumb
+// reads "side by side with Axler §5.A"; walking off it closes the second pane).
+export type DetourKind = "branch" | "peek" | "citation" | "source" | "side_by_side";
 export type RailTab = "guide" | "ask" | "notes";
 
 export interface ReturnEntry {
@@ -109,4 +111,16 @@ export function unreturnedDetours(stack: ReturnStack): ReturnEntry[] {
 export function markReturned(stack: ReturnStack, ids: readonly string[]): ReturnStack {
   if (ids.length === 0) return stack;
   return { ...stack, returned: [...new Set([...(stack.returned ?? []), ...ids])] };
+}
+
+/** Take a detour off the stack when the learner closes what it opened (Reader
+ *  CA6's side by side): only while it is the current entry, with the entries
+ *  after it; nothing moves (the page stays where it is). Only the root left:
+ *  the stack is empty. */
+export function dropCurrent(stack: ReturnStack, id: string): ReturnStack {
+  const current = stack.entries[stack.cursor];
+  if (!current || current.id !== id || stack.cursor < 1) return stack;
+  const entries = stack.entries.slice(0, stack.cursor);
+  if (entries.length <= 1) return EMPTY_STACK;
+  return { ...stack, entries, cursor: entries.length - 1 };
 }
