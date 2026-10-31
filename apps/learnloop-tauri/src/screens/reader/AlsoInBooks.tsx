@@ -83,7 +83,7 @@ export function sectionShort(title: string): string {
 /** A book's name as the line shows it: its title before any subtitle, clipped. */
 export function bookShort(title: string): string {
   const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim();
-  return clip(head, 20);
+  return head.length > 20 ? `${head.slice(0, 20).trimEnd()}…` : head;
 }
 
 /** "you compared these: different notation" from what the learner kept (RW4d's fine labels). */
@@ -280,6 +280,18 @@ export function AlsoInBooks({
   useEffect(() => () => availableChange.current?.(false), []);
 
   const focusLine = (key: string) => window.requestAnimationFrame(() => lineRefs.current.get(key)?.focus({ preventScroll: false }));
+  // Focus asked for before the element it names is drawn (x opens the list,
+  // Esc folds it): applied once the render that draws it has committed.
+  const pendingFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const wanted = pendingFocus.current;
+    if (wanted === null) return;
+    const node = wanted === "" ? collapsedRef.current : lineRefs.current.get(wanted);
+    if (node) {
+      pendingFocus.current = null;
+      node.focus({ preventScroll: true });
+    }
+  });
 
   // The Reader's `x`: open the list at its first line.
   const seenExpand = useRef(expandToken);
@@ -288,7 +300,7 @@ export function AlsoInBooks({
     seenExpand.current = expandToken;
     if (!visible || liveLines.length === 0) return;
     setExpanded(true);
-    focusLine(liveLines[0].key);
+    pendingFocus.current = liveLines[0].key;
     // Only a new press acts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandToken]);
@@ -312,7 +324,7 @@ export function AlsoInBooks({
     setMenuKey(null);
     setBlockMenu(false);
     setAlsoAbout(null);
-    window.requestAnimationFrame(() => collapsedRef.current?.focus({ preventScroll: true }));
+    pendingFocus.current = "";
   }, []);
 
   const openPeek = useCallback(async (line: AlsoLine) => {

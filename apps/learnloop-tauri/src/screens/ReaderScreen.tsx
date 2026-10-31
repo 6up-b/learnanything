@@ -646,8 +646,14 @@ export function ReaderScreen({
   // reader.correspondence.enabled and curriculum.enabled are on). Shown in skim
   // mode (a table of contents), never in the working posture or offline.
   const alsoOn = Boolean(contract?.correspondence?.alsoInBooks) && !offline;
-  const alsoHidden = Boolean(contract?.correspondence?.hiddenEverywhere)
-    || Boolean(render && (contract?.correspondence?.hiddenSources ?? []).includes(render.sourceId));
+  // The learner's hide preferences: the contract's, or what was just set here
+  // (until the contract itself changes, e.g. Settings brought the line back).
+  const [alsoPrefs, setAlsoPrefs] = useState<{ everywhere: boolean; sources: string[] } | null>(null);
+  useEffect(() => setAlsoPrefs(null), [contract]);
+  const alsoHidden = alsoPrefs
+    ? alsoPrefs.everywhere || Boolean(render && alsoPrefs.sources.includes(render.sourceId))
+    : Boolean(contract?.correspondence?.hiddenEverywhere)
+      || Boolean(render && (contract?.correspondence?.hiddenSources ?? []).includes(render.sourceId));
   const [alsoAvailable, setAlsoAvailable] = useState(false);
   const [alsoExpandToken, setAlsoExpandToken] = useState(0);
   const [alsoClosePeekToken, setAlsoClosePeekToken] = useState(0);
@@ -2287,18 +2293,25 @@ export function ReaderScreen({
   // at once, and settles on the sidecar's answer (or goes back on a failure).
   const hideAlsoInBooks = (scope: "book" | "everywhere") => {
     if (!render || !contract?.correspondence) return;
-    const before = contract;
-    const write = (hiddenEverywhere: boolean, hiddenSources: string[]) => setQueryData(["reader_prompt_contract"], {
-      ...before, correspondence: { ...before.correspondence!, hiddenEverywhere, hiddenSources },
-    }, [TAG.reader, TAG.settings]);
-    const sources = before.correspondence?.hiddenSources ?? [];
-    if (scope === "book") write(Boolean(before.correspondence?.hiddenEverywhere), [...new Set([...sources, render.sourceId])]);
-    else write(true, sources);
+    const before = alsoPrefs ?? {
+      everywhere: Boolean(contract.correspondence.hiddenEverywhere), sources: contract.correspondence.hiddenSources ?? [],
+    };
+    setAlsoPrefs(scope === "book"
+      ? { everywhere: before.everywhere, sources: [...new Set([...before.sources, render.sourceId])] }
+      : { everywhere: true, sources: before.sources });
     setAlsoPeek(null);
-    void api.readerSetCorrespondencePreferences(scope === "book" ? { sourceId: render.sourceId, hideSource: true } : { hideEverywhere: true })
-      .then((prefs) => write(prefs.hideEverywhere, prefs.hiddenSources.map((entry) => entry.sourceId)))
+    const base = contract;
+    Promise.resolve()
+      .then(() => api.readerSetCorrespondencePreferences(scope === "book" ? { sourceId: render.sourceId, hideSource: true } : { hideEverywhere: true }))
+      .then((prefs) => {
+        // Every Reader reads it from the contract from now on.
+        setQueryData(["reader_prompt_contract"], {
+          ...base, correspondence: { ...base.correspondence!, hiddenEverywhere: prefs.hideEverywhere,
+            hiddenSources: prefs.hiddenSources.map((entry) => entry.sourceId) },
+        }, [TAG.reader, TAG.settings]);
+      })
       .catch((error) => {
-        setQueryData(["reader_prompt_contract"], before, [TAG.reader, TAG.settings]);
+        setAlsoPrefs(before);
         onError(errorMessage(error));
       });
   };
