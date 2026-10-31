@@ -435,13 +435,34 @@ def _parse_expr(where: str, source: str, allowed: set[str], problems: list[str])
     return node
 
 
+def canonical_numbers(value: Any) -> Any:
+    """``value`` with every ``-0.0`` made ``0.0`` (the sandbox review verify,
+    Astra round 2). JavaScript's ``JSON.stringify`` writes -0 as ``0`` and
+    Python's ``json`` writes ``-0.0``, so a program that can tell them apart
+    (``Object.is(p.a, -0)``) would see different inputs in the two hosts. Every
+    number a program is handed (parameters, their ranges and defaults, the
+    clock, prediction changes) is canonical from parsing on, and both hosts'
+    serializers canonicalize again. A -0 the program computes itself from
+    canonical inputs is the same in both hosts."""
+
+    if isinstance(value, float):
+        return 0.0 if value == 0 else value
+    if isinstance(value, list):
+        return [canonical_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: canonical_numbers(item) for key, item in value.items()}
+    return value
+
+
 def parse_sketch(raw: str | Mapping[str, Any]) -> CompiledSketch:
-    """Validate a program (step 1's static half). Raises :class:`SketchError`."""
+    """Validate a program (step 1's static half). Raises :class:`SketchError`.
+    Numbers are canonical (:func:`canonical_numbers`): no ``-0.0`` survives."""
 
     try:
         data = json.loads(raw) if isinstance(raw, str) else dict(raw)
     except (TypeError, ValueError) as exc:
         raise SketchError([f"sketch_json is not JSON: {exc}"]) from exc
+    data = canonical_numbers(data)
     try:
         program = SketchProgramV1.model_validate(data)
     except ValidationError as exc:
@@ -864,6 +885,7 @@ __all__ = [
     "SketchError",
     "SketchProgramV1",
     "claim_entry_work",
+    "canonical_numbers",
     "clock_steps",
     "control_value",
     "element_index",

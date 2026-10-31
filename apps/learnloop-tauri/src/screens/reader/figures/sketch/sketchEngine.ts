@@ -124,6 +124,12 @@ type Exports = {
 };
 
 export type EntryPoints = { init: boolean; step: boolean; view: boolean; probes: boolean };
+
+/** An input as JSON text with every -0 written as 0 (JSON.stringify already does; stated here because the
+ *  sidecar must match it: the sandbox review verify, Astra round 2). No program can see -0 as an input. */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) => (typeof item === "number" && Object.is(item, -0) ? 0 : item));
+}
 export type Params = Record<string, number>;
 
 /** One sealed engine instance, one program at a time. Synchronous: call it off the UI thread. */
@@ -240,22 +246,22 @@ export class SketchEngineHost {
       const code = this.write(this.code);
       this.run(this.call(() => this.exports.sk_load(code)));
     }
-    const length = this.write(JSON.stringify(params));
+    const length = this.write(canonicalJson(params));
     this.run(this.call(() => this.exports.sk_init(length, seed >>> 0)));
   }
 
   step(params: Params, dt: number, index: number, count = 1): void {
-    const length = this.write(JSON.stringify({ p: params, dt }));
+    const length = this.write(canonicalJson({ p: params, dt }));
     this.run(this.call(() => this.exports.sk_step(length, index >>> 0, count >>> 0)));
   }
 
   viewText(params: Params, index: number): string {
-    const length = this.write(JSON.stringify(params));
+    const length = this.write(canonicalJson(params));
     return this.run(this.call(() => this.exports.sk_view(length, index >>> 0)));
   }
 
   probesText(params: Params, index: number): string {
-    const length = this.write(JSON.stringify(params));
+    const length = this.write(canonicalJson(params));
     return this.run(this.call(() => this.exports.sk_probes(length, index >>> 0)));
   }
 

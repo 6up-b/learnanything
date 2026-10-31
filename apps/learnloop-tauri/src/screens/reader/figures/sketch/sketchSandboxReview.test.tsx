@@ -19,7 +19,7 @@ import { resetWithdrawnChecks } from "./checksWithdrawn";
 import { hostRunner, SketchRunnerContext, type SketchRunner, type SketchRunnerFactory } from "./sketchRunner";
 import { newHost } from "./engineForTests";
 import { readSchedule, type SketchProgram } from "./sketchScene";
-import { PLAY_TICKS, sceneDigest } from "./sketchEngine";
+import { canonicalJson, PLAY_TICKS, sceneDigest } from "./sketchEngine";
 
 const api = vi.hoisted(() => ({
   readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
@@ -34,6 +34,7 @@ type Verified = { name: string; program: SketchProgram & { predictions?: unknown
 const verified = (parity as unknown as { verified: Verified[] }).verified;
 const WALK = verified.find((item) => item.name === "random walk")!;
 const MARKS = verified.find((item) => item.name === "marks when read")!;
+const SIGNED_ZERO = verified.find((item) => item.name === "signed zero")!;
 
 function sketchView(program: object, sketch: FigureSketchDto, overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
@@ -222,4 +223,76 @@ it("plays a prediction's parameter change at exactly the graded value, never re-
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.answer })); });
   await waitFor(() => expect(inits.length).toBe(2));
   expect(inits[1]).toEqual({ a: 0.4 });
+});
+
+// ---------------------------------------------------------------------------
+// Verify round 2 (Astra): signed zero, and the graded step as a tested state
+// ---------------------------------------------------------------------------
+
+function reducedMotion(): () => void {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener: () => undefined,
+    removeEventListener: () => undefined, onchange: null, addListener: () => undefined, removeListener: () => undefined,
+    dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+  return () => { window.matchMedia = original; };
+}
+
+async function answerRunTo(step: number, view: FigureViewDto, reads: Read[]) {
+  await open({ ...view, predictions: [{ index: 0, prompt: "?", kind: "direction", answered: null, targetStep: step,
+    choices: [{ value: "rises", label: "rises" }, { value: "falls", label: "falls" }, { value: "same", label: "same" }] }] }, logging(reads, []));
+  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+  api.readerFigurePredict.mockResolvedValue({ predictionId: "fp_1", figureId: "fig_review", extractionId: "ext_prob", predictionIndex: 0,
+    learnerAnswer: "rises", matched: true, before: 1, after: 9, answer: "rises", explanationText: null });
+  fireEvent.click(screen.getByLabelText("rises"));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.answer })); });
+  await waitFor(() => expect(time()).toContain(`t = ${step} / 100`));
+}
+
+it("writes a negative zero input as zero, as the sidecar now does", () => {
+  expect(canonicalJson({ a: -0, b: 0, c: -1.5 })).toBe('{"a":0,"b":0,"c":-1.5}');
+  expect(canonicalJson({ p: { a: -0 }, dt: 1 })).toBe('{"p":{"a":0},"dt":1}');
+  // The verifier's program is canonical too: no -0 left for the page to read.
+  expect(SIGNED_ZERO.program.parameters[0].default).toBe(0);
+  expect(Object.is(SIGNED_ZERO.program.parameters[0].default, -0)).toBe(false);
+});
+
+it("plays the signed-zero program's prediction to the read that graded it, digest for digest", async () => {
+  const restore = reducedMotion();
+  try {
+    const entry = SIGNED_ZERO.sketch.tested!.find((item) => item.values[0] === 0)!;
+    expect(entry.steps).toContain(1);  // the graded step is a tested state
+    const reads: Read[] = [];
+    await answerRunTo(1, sketchView(SIGNED_ZERO.program, SIGNED_ZERO.sketch), reads);
+    const atOne = reads.filter((read) => read.index === 1).pop()!;
+    expect(atOne.digest).toBe(entry.digests[entry.steps.indexOf(1)]);
+    fireEvent.keyDown(document.querySelector("[data-sketch-body]")!, { key: "t" });
+    expect(document.querySelector('[data-sketch-probe="radius"]')!.textContent).toContain("9");  // as graded: rises, 1 -> 9
+    expect(document.querySelector("[data-sketch-checks-withdrawn]")).toBeNull();
+  } finally {
+    restore();
+  }
+});
+
+it("withdraws the checks when the read at a prediction's graded step differs from the one that graded it", async () => {
+  const restore = reducedMotion();
+  try {
+    // What the old sidecar read at step 1 (it sent -0, so the program drew radius 1 there).
+    const old = await newHost();
+    old.load(SIGNED_ZERO.program.code.replace("!Object.is(p.a, -0)", "false"));
+    old.init({ a: 0 }, 1);
+    old.step({ a: 0 }, 1, 0, 1);
+    const { sceneText, probesText } = old.readText({ a: 0 }, 1);
+    expect(JSON.parse(probesText)).toEqual({ radius: 1 });
+    const stale = sceneDigest(sceneText, probesText);
+    const tested = SIGNED_ZERO.sketch.tested!.map((item) => item.values[0] === 0
+      ? { ...item, digests: item.digests.map((digest, i) => (item.steps[i] === 1 ? stale : digest)) }
+      : item);
+    const reads: Read[] = [];
+    await answerRunTo(1, sketchView(SIGNED_ZERO.program, { ...SIGNED_ZERO.sketch, tested }), reads);
+    await waitFor(() => expect(document.querySelector("[data-sketch-checks-withdrawn]")).not.toBeNull());
+    expect(badge()).toBe(SKETCH_FRAME.unchecked);
+    expect(checkLines().some((line) => line.includes("radius of the drawn"))).toBe(false);
+  } finally {
+    restore();
+  }
 });

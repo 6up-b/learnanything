@@ -71,10 +71,13 @@ def build() -> dict[str, Any]:
                     call["expect"] = engine.probes_text(call["params"], index=call["index"])
         cases.append({"name": name, "code": program["code"], "calls": calls})
     verified = []
-    for name, program in (("random walk", F.walk()), ("marks when read", F.marks_when_read())):
+    for name, program in (("random walk", F.walk()), ("marks when read", F.marks_when_read()),
+                          ("signed zero", F.signed_zero())):
         report = SV.verify_sketch(K.parse_sketch(program)).as_dict()
         assert report["outcome"] == "illustrative", report["reason"]
-        verified.append({"name": name, "program": program, "sketch": to_camel({
+        # The program as stored and sent (specJson is the parsed program's canonical JSON).
+        stored = json.loads(K.parse_sketch(program).program.canonical_json())
+        verified.append({"name": name, "program": stored, "sketch": to_camel({
             "engine_sha256": ENGINE_SHA256, "seed": SV.VERIFY_SEED, "checks": report["checks"],
             "not_covered": report["not_covered"], "unnamed_elements": report["unnamed_elements"],
             "settings": report["settings"], "read_steps": report["read_steps"], "tested": report["tested"]})})

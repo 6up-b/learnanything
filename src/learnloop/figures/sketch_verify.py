@@ -81,8 +81,10 @@ VERIFY_SEED = 1
 #: as one from another engine is. Reports without it are from before it
 #: existed (round 2's verifier and earlier). v3 (fix round 4, the independent
 #: sandbox review): every init on a freshly loaded program, the read schedule,
-#: and the digests of every tested read.
-VERIFIER_REPORT_VERSION = "sketch-verify-v3"
+#: and the digests of every tested read. v4 (the verify, Astra round 2): no
+#: -0 reaches a program (parsing and both hosts' serializers), and every
+#: prediction's graded read is a tested state too.
+VERIFIER_REPORT_VERSION = "sketch-verify-v4"
 #: How many hex digits of a read's SHA-256 a report keeps per tested state
 #: (128 bits: a program can't search for a collision with its own output).
 TESTED_DIGEST_HEX = 32
@@ -519,7 +521,8 @@ def prediction_target_step(compiled: K.CompiledSketch, index: int) -> int:
 
 
 def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *,
-                       seed: int = VERIFY_SEED) -> dict[str, Any]:
+                       seed: int = VERIFY_SEED,
+                       record: list[tuple[dict[str, float], int, str]] | None = None) -> dict[str, Any]:
     """What a sketch's prediction observes and its answer, decided by code in
     the engine. A parameter change compares the probe before and after (at the
     first step without a clock, at ``t_max`` with one); ``run_to`` compares
@@ -531,7 +534,12 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     to the graded step, every scheduled step read (``view()`` then
     ``probes()``). The change is the program's own value, which validation
     requires to be one the controls can be set to (finding 2), so the
-    desktop plays exactly the value graded here."""
+    desktop plays exactly the value graded here.
+
+    With ``record``, each graded read is appended as (its parameters, its
+    step, :func:`tested_digest` of what the engine wrote): verification makes
+    them tested states (Astra round 2), so the desktop compares its playback
+    of an answer with the read that graded it."""
 
     program = compiled.program
     prediction = program.predictions[index]
@@ -556,8 +564,10 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
             if point > at:
                 engine.step(params, dt, index=at, count=point - at)
                 at = point
-            engine.view_text(params, index=point)  # read as the desktop reads: view(), then probes()
+            scene = engine.view_text(params, index=point)  # read as the desktop reads: view(), then probes()
             text = engine.probes_text(params, index=point)
+            if point == step and record is not None:
+                record.append(({key: float(value) for key, value in params.items()}, step, tested_digest(scene, text)))
         values = json.loads(text)
         problems = K.probe_problems(values, compiled.probes)
         if problems:
@@ -715,12 +725,33 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
             report.not_covered = [str(element_id) for element_id, _kind in drawn
                                   if element_id is not None and element_id not in covered]
             report.unnamed_elements = sum(1 for element_id, _kind in drawn if element_id is None)
+            graded: list[tuple[dict[str, float], int, str]] = []
             for index in range(len(program.predictions)):
                 try:
-                    if prediction_outcome(compiled, first, index).get("answer") is None:
+                    if prediction_outcome(compiled, first, index, record=graded).get("answer") is None:
                         report.dropped_predictions.append(index)
                 except SketchRunError:
                     report.dropped_predictions.append(index)
+            # Every graded read is a tested state (Astra round 2): its settings'
+            # entry (one per setting: the desktop looks up the first match)
+            # gains its step and digest. The same read from the first run
+            # must have the same digest (one history, one engine).
+            by_values = {tuple(entry["values"]): entry for entry in report.tested}
+            for params, step, digest in graded:
+                values = [float(params[name]) for name in names]
+                entry = by_values.get(tuple(values))
+                if entry is None:
+                    entry = {"values": values, "steps": [], "digests": []}
+                    report.tested.append(entry)
+                    by_values[tuple(values)] = entry
+                if step in entry["steps"]:
+                    if entry["digests"][entry["steps"].index(step)] != digest:
+                        raise _Failed("deterministic", [
+                            f"at {_point_text(dict(zip(names, values)))}: grading a prediction read different values "
+                            "than verification did (it may not depend on anything but its inputs and rand())"])
+                    continue
+                entry["steps"].append(step)
+                entry["digests"].append(digest)
         except _Failed as failed:
             report.outcome, report.failed_step = V.FAILED, failed.step
             report.problems = failed.problems

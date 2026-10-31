@@ -250,6 +250,35 @@ def marks_when_read(**changes: Any) -> dict[str, Any]:
     return program
 
 
+#: The sandbox review verify's repro (Astra, round 2): a program that can tell
+#: -0 from 0. The sidecar used to send -0.0 as "-0.0", the desktop's
+#: JSON.stringify sends 0, so the two hosts drew different radii at step 1.
+SIGNED_ZERO_CODE = r"""
+function init(p) { return {n: 0}; }
+function step(s, p, dt) { return {n: s.n + 1}; }
+function radius(s, p) { return s.n === 1 && !Object.is(p.a, -0) ? 9 : 1; }
+function view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: "circle", id: "dot", cx: 0, cy: 0, r: radius(s, p)}]}; }
+function probes(s, p) { return {radius: radius(s, p)}; }
+"""
+
+
+def signed_zero(**changes: Any) -> dict[str, Any]:
+    program = {
+        "program_version": "sketch-v1",
+        "demonstrates": "a dot of radius one",
+        "parameters": [{"name": "a", "label": "a", "min": -0.0, "max": 1, "step": 1, "default": -0.0}],
+        "clock": {"dt": 1, "t_max": 100},
+        "code": SIGNED_ZERO_CODE,
+        "probes": [{"name": "radius", "label": "radius", "shape": "scalar"}],
+        "claims": [{"kind": "equals", "probe": "radius", "expr": "1"}],
+        "bindings": [{"element_id": "dot", "probe": "radius"}],
+        "predictions": [{"prompt": "Run to t = 1. Does the radius change?", "change": {"run_to": 1},
+                         "observe": {"kind": "direction", "probe": "radius"}}],
+    }
+    program.update(changes)
+    return program
+
+
 def unchecked() -> dict[str, Any]:
     """A sketch that states no claim: shown as "nothing in it checked"."""
 

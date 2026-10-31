@@ -778,64 +778,10 @@
   {
    "name": "random walk",
    "program": {
-    "program_version": "sketch-v1",
-    "demonstrates": "a random walk's spread grows like the square root of n",
+    "annotations": [],
     "assumptions": [
      {
       "text": "steps of +1 or -1 with equal probability"
-     }
-    ],
-    "parameters": [
-     {
-      "name": "walkers",
-      "label": "walkers",
-      "min": 100,
-      "max": 400,
-      "step": 100,
-      "default": 200
-     }
-    ],
-    "clock": {
-     "dt": 1,
-     "t_max": 100
-    },
-    "seeded": true,
-    "code": "\nfunction init(p, seed) { var w = []; for (var i = 0; i < p.walkers; i++) w.push(0); return {w: w, n: 0}; }\nfunction step(s, p, dt) {\n  var w = s.w.slice();\n  for (var i = 0; i < w.length; i++) w[i] += rand() < 0.5 ? -1 : 1;\n  return {w: w, n: s.n + 1};\n}\nfunction env(s) { var pts = []; for (var i = 0; i <= s.n; i++) pts.push([i, Math.sqrt(i)]); return pts; }\nfunction probes(s, p) {\n  var k = s.w.length, m = 0, m2 = 0;\n  for (var i = 0; i < k; i++) { var q = s.w[i] * s.w[i]; m += q; m2 += q * q; }\n  m /= k;\n  var v = (m2 - k * m * m) / (k - 1);\n  return {envelope: env(s), msd: m, count: k, sqvar: Math.max(v, 0)};\n}\nfunction view(s, p) {\n  var e = env(s), xs = [], ys = [];\n  for (var i = 0; i < e.length; i++) { xs.push(e[i][0]); ys.push(e[i][1]); }\n  var px = [], py = [];\n  for (var j = 0; j < s.w.length; j++) { px.push(s.n); py.push(s.w[j]); }\n  return {viewport: {x: [0, 100], y: [-30, 30]}, axes: {x_label: \"n\", y_label: \"position\"},\n          elements: [{type: \"polyline\", id: \"envelope\", x: xs, y: ys, style: {color: \"accent\"}},\n                     {type: \"points\", id: \"walkers\", x: px, y: py, style: {color: \"series0\", opacity: 0.4}}]};\n}\n",
-    "probes": [
-     {
-      "name": "envelope",
-      "label": "the square-root envelope",
-      "shape": "pairs"
-     },
-     {
-      "name": "msd",
-      "label": "mean squared position",
-      "shape": "scalar"
-     },
-     {
-      "name": "count",
-      "label": "walkers",
-      "shape": "scalar"
-     },
-     {
-      "name": "sqvar",
-      "label": "variance of the squared positions",
-      "shape": "scalar"
-     }
-    ],
-    "claims": [
-     {
-      "kind": "equals",
-      "probe": "envelope",
-      "expr": "sqrt(x)",
-      "var": "x"
-     },
-     {
-      "kind": "distribution",
-      "probe": "msd",
-      "expr": "t",
-      "n_probe": "count",
-      "var_probe": "sqvar"
      }
     ],
     "bindings": [
@@ -844,19 +790,92 @@
       "probe": "envelope"
      }
     ],
-    "predictions": [
+    "claims": [
      {
-      "prompt": "Run the walk to n = 100. What happens to the mean squared position?",
-      "change": {
-       "run_to": 100
-      },
-      "observe": {
-       "kind": "direction",
-       "probe": "msd"
-      }
+      "dx": "",
+      "dy": "",
+      "expr": "sqrt(x)",
+      "kind": "equals",
+      "probe": "envelope",
+      "var": "x",
+      "var_from": 0.0,
+      "var_step": 1.0,
+      "vars": [
+       "x",
+       "y"
+      ]
+     },
+     {
+      "dx": "",
+      "dy": "",
+      "expr": "t",
+      "kind": "distribution",
+      "n_probe": "count",
+      "probe": "msd",
+      "var_from": 0.0,
+      "var_probe": "sqvar",
+      "var_step": 1.0,
+      "vars": [
+       "x",
+       "y"
+      ]
      }
     ],
-    "annotations": []
+    "clock": {
+     "dt": 1.0,
+     "t_max": 100.0
+    },
+    "code": "\nfunction init(p, seed) { var w = []; for (var i = 0; i < p.walkers; i++) w.push(0); return {w: w, n: 0}; }\nfunction step(s, p, dt) {\n  var w = s.w.slice();\n  for (var i = 0; i < w.length; i++) w[i] += rand() < 0.5 ? -1 : 1;\n  return {w: w, n: s.n + 1};\n}\nfunction env(s) { var pts = []; for (var i = 0; i <= s.n; i++) pts.push([i, Math.sqrt(i)]); return pts; }\nfunction probes(s, p) {\n  var k = s.w.length, m = 0, m2 = 0;\n  for (var i = 0; i < k; i++) { var q = s.w[i] * s.w[i]; m += q; m2 += q * q; }\n  m /= k;\n  var v = (m2 - k * m * m) / (k - 1);\n  return {envelope: env(s), msd: m, count: k, sqvar: Math.max(v, 0)};\n}\nfunction view(s, p) {\n  var e = env(s), xs = [], ys = [];\n  for (var i = 0; i < e.length; i++) { xs.push(e[i][0]); ys.push(e[i][1]); }\n  var px = [], py = [];\n  for (var j = 0; j < s.w.length; j++) { px.push(s.n); py.push(s.w[j]); }\n  return {viewport: {x: [0, 100], y: [-30, 30]}, axes: {x_label: \"n\", y_label: \"position\"},\n          elements: [{type: \"polyline\", id: \"envelope\", x: xs, y: ys, style: {color: \"accent\"}},\n                     {type: \"points\", id: \"walkers\", x: px, y: py, style: {color: \"series0\", opacity: 0.4}}]};\n}\n",
+    "demonstrates": "a random walk's spread grows like the square root of n",
+    "parameters": [
+     {
+      "animate": false,
+      "default": 200.0,
+      "label": "walkers",
+      "max": 400.0,
+      "min": 100.0,
+      "name": "walkers",
+      "step": 100.0
+     }
+    ],
+    "predictions": [
+     {
+      "change": {
+       "run_to": 100.0
+      },
+      "observe": {
+       "choices": [],
+       "kind": "direction",
+       "probe": "msd"
+      },
+      "prompt": "Run the walk to n = 100. What happens to the mean squared position?"
+     }
+    ],
+    "probes": [
+     {
+      "label": "the square-root envelope",
+      "name": "envelope",
+      "shape": "pairs"
+     },
+     {
+      "label": "mean squared position",
+      "name": "msd",
+      "shape": "scalar"
+     },
+     {
+      "label": "walkers",
+      "name": "count",
+      "shape": "scalar"
+     },
+     {
+      "label": "variance of the squared positions",
+      "name": "sqvar",
+      "shape": "scalar"
+     }
+    ],
+    "program_version": "sketch-v1",
+    "seeded": true,
+    "source_claims": []
    },
    "sketch": {
     "engineSha256": "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe",
@@ -1079,40 +1098,55 @@
   {
    "name": "marks when read",
    "program": {
-    "program_version": "sketch-v1",
-    "demonstrates": "a total that grows faster once it has been looked at",
-    "parameters": [],
+    "annotations": [],
+    "assumptions": [],
+    "bindings": [],
+    "claims": [
+     {
+      "dx": "",
+      "dy": "",
+      "expr": "",
+      "kind": "invariant",
+      "probe": "x",
+      "property": "finite",
+      "var_from": 0.0,
+      "var_step": 1.0,
+      "vars": [
+       "x",
+       "y"
+      ]
+     }
+    ],
     "clock": {
-     "dt": 1,
-     "t_max": 100
+     "dt": 1.0,
+     "t_max": 100.0
     },
     "code": "\nfunction init(p) { return {n: 0, x: 0, mark: false}; }\nfunction step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }\nfunction view(s, p) {\n  if (s.n === 13) s.mark = true;\n  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: \"segment\", id: \"bar\", x1: 0, y1: 0, x2: s.n, y2: s.x}]};\n}\nfunction probes(s, p) { return {x: s.x}; }\n",
+    "demonstrates": "a total that grows faster once it has been looked at",
+    "parameters": [],
+    "predictions": [
+     {
+      "change": {
+       "run_to": 50.0
+      },
+      "observe": {
+       "choices": [],
+       "kind": "direction",
+       "probe": "x"
+      },
+      "prompt": "Run to n = 50. Does the total rise?"
+     }
+    ],
     "probes": [
      {
-      "name": "x",
       "label": "the total",
+      "name": "x",
       "shape": "scalar"
      }
     ],
-    "claims": [
-     {
-      "kind": "invariant",
-      "probe": "x",
-      "property": "finite"
-     }
-    ],
-    "predictions": [
-     {
-      "prompt": "Run to n = 50. Does the total rise?",
-      "change": {
-       "run_to": 50
-      },
-      "observe": {
-       "kind": "direction",
-       "probe": "x"
-      }
-     }
-    ]
+    "program_version": "sketch-v1",
+    "seeded": false,
+    "source_claims": []
    },
    "sketch": {
     "engineSha256": "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe",
@@ -1260,6 +1294,258 @@
        "238fd2bb82c71d96e7dc6d407f7d8e49",
        "03d395dc353b680c016a49b7cc8402a4",
        "83274b36e4a1f147b70fb1333c4d5dc6"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "signed zero",
+   "program": {
+    "annotations": [],
+    "assumptions": [],
+    "bindings": [
+     {
+      "element_id": "dot",
+      "probe": "radius"
+     }
+    ],
+    "claims": [
+     {
+      "dx": "",
+      "dy": "",
+      "expr": "1",
+      "kind": "equals",
+      "probe": "radius",
+      "var_from": 0.0,
+      "var_step": 1.0,
+      "vars": [
+       "x",
+       "y"
+      ]
+     }
+    ],
+    "clock": {
+     "dt": 1.0,
+     "t_max": 100.0
+    },
+    "code": "\nfunction init(p) { return {n: 0}; }\nfunction step(s, p, dt) { return {n: s.n + 1}; }\nfunction radius(s, p) { return s.n === 1 && !Object.is(p.a, -0) ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: radius(s, p)}]}; }\nfunction probes(s, p) { return {radius: radius(s, p)}; }\n",
+    "demonstrates": "a dot of radius one",
+    "parameters": [
+     {
+      "animate": false,
+      "default": 0.0,
+      "label": "a",
+      "max": 1.0,
+      "min": 0.0,
+      "name": "a",
+      "step": 1.0
+     }
+    ],
+    "predictions": [
+     {
+      "change": {
+       "run_to": 1.0
+      },
+      "observe": {
+       "choices": [],
+       "kind": "direction",
+       "probe": "radius"
+      },
+      "prompt": "Run to t = 1. Does the radius change?"
+     }
+    ],
+    "probes": [
+     {
+      "label": "radius",
+      "name": "radius",
+      "shape": "scalar"
+     }
+    ],
+    "program_version": "sketch-v1",
+    "seeded": false,
+    "source_claims": []
+   },
+   "sketch": {
+    "engineSha256": "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe",
+    "seed": 1,
+    "checks": [
+     {
+      "claim": 0,
+      "kind": "equals",
+      "probe": "radius",
+      "elements": [],
+      "partial": [
+       {
+        "element": "dot",
+        "attribute": "r"
+       }
+      ],
+      "statement": "1",
+      "settings": 18
+     }
+    ],
+    "notCovered": [],
+    "unnamedElements": 0,
+    "settings": 18,
+    "readSteps": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40,
+     41,
+     42,
+     43,
+     44,
+     45,
+     46,
+     47,
+     48,
+     49,
+     50,
+     51,
+     52,
+     53,
+     54,
+     55,
+     56,
+     57,
+     58,
+     59,
+     60,
+     61,
+     62,
+     63,
+     64,
+     65,
+     66,
+     67,
+     68,
+     69,
+     70,
+     71,
+     72,
+     73,
+     74,
+     75,
+     76,
+     77,
+     78,
+     79,
+     80,
+     81,
+     82,
+     83,
+     84,
+     85,
+     86,
+     87,
+     88,
+     89,
+     90,
+     91,
+     92,
+     93,
+     94,
+     95,
+     96,
+     97,
+     98,
+     99,
+     100
+    ],
+    "tested": [
+     {
+      "values": [
+       0.0
+      ],
+      "steps": [
+       0,
+       13,
+       25,
+       38,
+       50,
+       63,
+       75,
+       88,
+       100,
+       1
+      ],
+      "digests": [
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "f22a8b94596cf0c609d9ebfab84c74ed"
+      ]
+     },
+     {
+      "values": [
+       1.0
+      ],
+      "steps": [
+       0,
+       13,
+       25,
+       38,
+       50,
+       63,
+       75,
+       88,
+       100
+      ],
+      "digests": [
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68",
+       "bb8aa5f73da487ed80e31d75c17f3a68"
       ]
      }
     ]

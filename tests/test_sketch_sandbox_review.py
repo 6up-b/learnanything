@@ -112,11 +112,12 @@ def test_the_report_carries_the_schedule_and_the_digest_of_every_checked_read():
     report = SV.verify_sketch(compiled)
     assert report.outcome == V.ILLUSTRATIVE, report.reason
     data = report.as_dict()
-    assert data["verifier_version"] == SV.VERIFIER_REPORT_VERSION == "sketch-verify-v3"
+    assert data["verifier_version"] == SV.VERIFIER_REPORT_VERSION
     assert data["read_steps"] == K.read_steps(compiled)
     tested = data["tested"]
     assert [entry["values"] for entry in tested] == [[100.0], [200.0], [400.0]]
     for entry in tested:
+        # The samples, then the walk's graded step (run_to 100: already a sample, not repeated).
         assert entry["steps"] == K.sample_steps(compiled)
         reads = _canonical_reads(compiled, {"walkers": entry["values"][0]})
         assert entry["digests"] == [SV.tested_digest(*reads[step]) for step in entry["steps"]]
@@ -178,6 +179,68 @@ def test_an_on_step_prediction_change_is_graded_at_exactly_that_value():
 
 
 # ---------------------------------------------------------------------------
+# Verify round 2 (Astra): signed zero, and every graded step in ``tested``
+# ---------------------------------------------------------------------------
+
+
+def test_the_signed_zero_program_is_graded_as_the_desktop_draws_it():
+    """The verify's repro: parameter a at min/default -0.0. The sidecar sent
+    "-0.0" and saw -0 (radius 1 at step 1, graded "same"); the desktop's
+    JSON.stringify sends 0 (radius 9 at step 1). Now -0 never reaches either
+    host's engine: the program is canonicalized when parsed and both hosts
+    serialize -0 as 0, so grading says "rises", as the page shows."""
+
+    import math
+
+    compiled = K.parse_sketch(F.signed_zero())
+    (parameter,) = compiled.program.parameters
+    assert math.copysign(1.0, parameter.default) == 1.0 and math.copysign(1.0, parameter.min) == 1.0
+    stored = json.loads(compiled.program.canonical_json())  # what the desktop is sent as specJson
+    stored.pop("code")  # (the program's own text says -0)
+    assert "-0" not in json.dumps(stored)
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    with SketchEngine() as engine:
+        engine.load(compiled.program.code)
+        outcome = SV.prediction_outcome(compiled, engine, 0)
+    assert (outcome["before"], outcome["after"], outcome["answer"]) == (1.0, 9.0, "rises")
+    # The graded step is a tested state: the desktop compares its digest there.
+    entry = next(item for item in report.tested if item["values"] == [0.0])
+    assert 1 in entry["steps"]
+    reads = _canonical_reads(compiled, {"a": 0.0})
+    assert entry["digests"][entry["steps"].index(1)] == SV.tested_digest(*reads[1])
+    # A host handed -0.0 anyway sends it as 0: the same reads.
+    assert _canonical_reads(compiled, {"a": -0.0}) == reads
+
+
+def test_neither_host_lets_a_program_see_negative_zero():
+    code = ("function init(p){return 0} function step(s,p,dt){return Object.is(dt, -0) ? 1 : 0}"
+            " function view(){return {viewport:{x:[0,1],y:[0,1]},elements:[]}}"
+            " function probes(s,p){return {negzero: Object.is(p.a, -0), b: Object.is(p.b, -0)}}")
+    with SketchEngine() as engine:
+        engine.load(code)
+        engine.init({"a": -0.0, "b": 0.0}, 1)
+        assert engine.probes({"a": -0.0, "b": -0.0}, index=0) == {"negzero": False, "b": False}
+
+
+def test_every_prediction_records_its_graded_read_in_tested():
+    """A parameter-change prediction is graded off the grid (the spiral at
+    a = 0.3): its settings get a tested entry, so the desktop's playback of
+    the answer is compared too."""
+
+    compiled = K.parse_sketch(F.spiral())
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    entry = next(item for item in report.tested if item["values"] == [0.3, 0.8])
+    assert entry["steps"] == [0]
+    reads = _canonical_reads(compiled, {"a": 0.3, "b": 0.8})
+    assert entry["digests"] == [SV.tested_digest(*reads[0])]
+    assert SV.VERIFIER_REPORT_VERSION == "sketch-verify-v4"
+    # One entry per setting (the desktop looks up the first match).
+    assert len({tuple(item["values"]) for item in report.tested}) == len(report.tested)
+
+
+# ---------------------------------------------------------------------------
 # The hostile corpus's new cases (the desktop runs the same file)
 # ---------------------------------------------------------------------------
 
@@ -187,7 +250,7 @@ def test_the_hostile_corpus_has_the_reviews_cases():
     sequences = [case["name"] for case in corpus["cases"] if "calls" in case]
     assert len(sequences) >= 3
     names = {case["name"] for case in corpus["verify_cases"]}
-    assert {"counting its own starts", "marks its state when read", "off-step prediction change"} <= names
+    assert {"counting its own starts", "marks its state when read", "off-step prediction change", "signed zero parameters"} <= names
     assert len(corpus["worker_messages"]) >= 8
 
 

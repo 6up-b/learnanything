@@ -450,3 +450,86 @@ it passed alone (19/19) and in both later runs. Noted as possibly load-sensitive
 4. **Bindings are now checked at every scheduled read**, not only the samples (stricter: a binding that fails between
    samples now fails verification, where before it passed while the page drew it wrong).
 5. **Unchanged:** G-SM14 (the real-webview IPC probe) is still the merge gate, and toolchain pinning is a follow-up.
+
+## Sandbox review verify (Astra) round 2
+
+The verify of `2c68e7375` (gpt-6-astra, Codex job `20261031-193319-E8NPnd`) **confirmed** findings 1 (the original
+repro), 2 and 3 fixed, the withdrawal failing closed, and no resource blocker. **One Medium remained.**
+
+**Signed zero diverged between the hosts.** Python's input serialization (`sketch_engine._json`) kept `-0.0` and wrote
+it as `-0.0`. The desktop's `JSON.stringify` writes `-0` as `0`. The repro: parameter `a` with min and default `-0.0`,
+max 1, step 1; clock `dt` 1, `t_max` 100; the state counts steps; a bound circle and its `radius` probe both use
+`s.n === 1 && !Object.is(p.a, -0) ? 9 : 1`; claim `radius equals 1`; prediction: run to t = 1, observe the radius's
+direction. Verification passed, the sidecar graded "1 → 1, same", and the desktop drew radius 9 while telling a
+learner who chose "rises" that the figure showed "same". The check stayed up because step 1 is scheduled but was not
+in `tested`, so the audit skipped it.
+
+### What changed
+
+- **No program can see `-0` as an input.**
+  - `sketch.canonical_numbers` makes every `-0.0` in a program `0.0` when it is parsed (`parse_sketch`): parameter
+    ranges, defaults and steps, the clock, prediction changes. The stored `spec_json` (the parsed program's canonical
+    JSON) and so the desktop's program are canonical.
+  - Both hosts' serializers canonicalize again: `sketch_engine._json` (via `_canonical`) and the desktop's
+    `canonicalJson` (which states what `JSON.stringify` already does). A host handed `-0` anyway sends `0`.
+  - The desktop also adds `+ 0` to defaults and prediction values read from a stored program made before this round.
+  - Non-finite values were already refused at parse time (parameters, clock, prediction changes); seeds and step
+    indices are integers. A `-0` the program computes itself from canonical inputs is the same in both hosts (one
+    engine).
+- **Every prediction's graded read is a tested state.** `prediction_outcome(..., record=...)` returns each graded
+  read (its parameters, its step, `tested_digest` of what the engine wrote). Verification adds them to `tested`, one
+  entry per setting, because the desktop looks up the first match. A parameter change graded off the grid gets its
+  own entry (the spiral at a = 0.3, step 0). A read that is already in the entry must have the same digest, or the
+  sketch fails as not deterministic. So the desktop compares its playback of an answer, at the graded step, with the
+  read that graded it, and withdraws the checks on a mismatch.
+- **`VERIFIER_REPORT_VERSION` = `sketch-verify-v4`.** Every stored report is re-verified by code before it is shown.
+- **Hostile corpus:** a call-sequence case ("a negative zero parameter arrives as zero", both hosts) and a verify case
+  ("signed zero parameters", illustrative). The parity corpus's `verified` entries now hold the program as stored
+  (its canonical JSON) and gain "signed zero".
+
+### Reproductions (fail first, against `2c68e7375`'s sources)
+
+- Direct (the corpus generator's environment, `env -i`): under `sketch-verify-v3`, the repro verified as illustrative
+  with the check "1", graded `1.0 → 1.0, same`, and had no tested read at step 1 (`tested` values `[-0.0]` and
+  `[1.0]`). Under v4: `1.0 → 9.0, rises`, step 1 tested at `a = 0`.
+- `pytest` (the old `src/` first on `PYTHONPATH`, pytest's `pythonpath` ini cleared): **4 failed, 11 passed**:
+  - `test_the_signed_zero_program_is_graded_as_the_desktop_draws_it`: the parsed default was still `-0.0`.
+  - `test_neither_host_lets_a_program_see_negative_zero`: `{'negzero': True, 'b': True}`.
+  - `test_every_prediction_records_its_graded_read_in_tested`: no entry for the spiral's graded setting.
+  - The shared hostile corpus (the new case): `{'negzero': True}`.
+- Desktop: the TS host already wrote `-0` as `0`, and the audit already compared any step in `tested`. The gap was the
+  sidecar's input and its `tested` set, so the desktop tests are the after-fix half:
+  - The signed-zero program's prediction, played under reduced motion to t = 1, reads the sidecar's step-1 digest and
+    shows radius 9 (graded "rises"). The checks stand.
+  - With the step-1 digest replaced by what the old sidecar read there (radius 1), the same playback withdraws the
+    checks: the badge reads *nothing in it checked* and no radius line remains.
+  - `canonicalJson` writes `-0` as `0`, and the program the page receives has a default of `0`, not `-0`.
+
+### Round 2 gate
+
+Every command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, behind the shared
+lock, pytest at `-n 6` and vitest at `--maxWorkers=4`. No model calls. The corpus generators ran under `env -i` with
+empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| command | result |
+|---|---|
+| Fail-first against `2c68e7375` | 4 failed, 11 passed (above) |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| `pytest -n 6` over `tests/test_sketch_*.py`, `tests/test_figure_*.py`, `tests/test_figures_*.py`, `test_registry_audit.py`, `test_architecture.py`, `test_public_tip_guards.py` | **650 passed** in 97 s |
+| `npm run typecheck` | 0 errors |
+| `npx vitest run --maxWorkers=4 src/screens/reader/figures` | 14 files, **372 passed** |
+| `npm run frontend:build` | built (`sketch.worker-*.js` 8.49 kB, `sketch-engine-*.wasm` 869.39 kB) |
+
+An earlier run of this gate had 2 failures, both in the new tests, fixed before the final run:
+- A Python assertion looked for `-0` in the stored JSON, but the program's own code text contains `-0`.
+- The parity corpus stored the author's raw program instead of the canonical one the desktop receives.
+
+Not run: durability, `cargo check` and the DB reference scripts (no migration, connection, schema or `src-tauri`
+change).
+
+### Open question
+
+Claims are still checked only at the 9 samples. Every other scheduled read is validated and bound, and now (graded
+steps) digest-compared, but not claim-checked. In this repro the drawn radius is 9 at t = 1 while the check line says
+"is 1 at 18 tested settings", and both hosts agree on it. Should claims also be checked at every graded step, or at
+every scheduled read (the claim-work budget permitting)? That would make this program fail verification outright.

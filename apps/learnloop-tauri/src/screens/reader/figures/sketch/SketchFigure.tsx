@@ -113,7 +113,8 @@ export function sketchCheckLines(sketch: FigureSketchDto | null | undefined): st
 }
 
 function defaultsOf(program: SketchProgram): Params {
-  return Object.fromEntries(program.parameters.map((parameter) => [parameter.name, Number(parameter.default)]));
+  // + 0: a stored program from before verify round 2 may still say -0 (it is sent as 0 either way).
+  return Object.fromEntries(program.parameters.map((parameter) => [parameter.name, Number(parameter.default) + 0]));
 }
 
 function clampStep(parameter: SketchParameter, raw: number): number {
@@ -442,7 +443,7 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
       const next = defaultsOf(program);
       for (const [name, value] of Object.entries(change)) {
         const parameter = program.parameters.find((item) => item.name === name);
-        const exact = Number(value);
+        const exact = Number(value) + 0;
         if (parameter) next[name] = Number.isFinite(exact) && exact >= parameter.min && exact <= parameter.max ? exact : clampStep(parameter, exact);
       }
       return next;

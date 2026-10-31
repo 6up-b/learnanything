@@ -443,8 +443,21 @@ def _label(name: str) -> str:
     return name.removeprefix("sk_")
 
 
+def _canonical(value: Any) -> Any:
+    """-0.0 as 0.0, everywhere in an input (Astra round 2: the desktop's
+    JSON.stringify writes -0 as 0, so the sidecar must too)."""
+
+    if isinstance(value, float):
+        return 0.0 if value == 0 else value
+    if isinstance(value, Mapping):
+        return {key: _canonical(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonical(item) for item in value]
+    return value
+
+
 def _json(value: Any) -> bytes:
-    return json.dumps(value, allow_nan=False, separators=(",", ":")).encode("utf-8")
+    return json.dumps(_canonical(value), allow_nan=False, separators=(",", ":")).encode("utf-8")
 
 
 def _is_exhaustion(exc: Exception) -> bool:
