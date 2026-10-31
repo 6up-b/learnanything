@@ -503,6 +503,30 @@ def test_revaluation_retires_a_follow_up_answered_since_with_its_reason(tmp_path
     assert timeline["next"] == [] and timeline["retired"][0]["text"].startswith("No longer needed: you solved")
 
 
+def test_the_cards_good_news_names_how_the_question_was_answered_and_drops_a_restored_check(tmp_path):
+    """"Since last time" says *how* the question was answered (a solve on its
+    date, or the rival explanations settled) and stops listing a retirement
+    the learner undid (restored), so a reload never offers undo twice."""
+
+    from learnloop.reader import recap as RC
+
+    vault, repo, row = _planned(tmp_path)
+    [commitment_id] = row["followup_commitment_ids"]
+    _attempt(repo, "att_own", minutes=500, hints=0, item="pi_svd_define_003")
+    RF.revalue_pending(vault, repo, now=_now(400 + 60 * 24), valuer=lambda *_a: {"problems": []},
+                       clock=at(600 + 60 * 24))
+    [retired] = RC.retired_checks(repo, extraction_id=EXT, after=iso(40))
+    assert retired["answered_by"] == RF.ANSWERED_SOLVED and retired["solved_at"] == iso(500)
+    RF.restore_followup(repo, commitment_id=commitment_id, clock=at(700 + 60 * 24))
+    assert RC.retired_checks(repo, extraction_id=EXT, after=iso(40)) == []
+    # A rivals-resolved retirement carries its own reason (no solve date).
+    C.retire(repo, commitment_id=commitment_id, clock=at(800 + 60 * 24), detail={
+        "reason": RF.RETIRE_ANSWERED, "answered_by": RF.ANSWERED_RIVALS, "episode_ids": ["ep1"],
+        "extraction_id": EXT})
+    [retired] = RC.retired_checks(repo, extraction_id=EXT, after=iso(40))
+    assert retired["answered_by"] == RF.ANSWERED_RIVALS and retired["solved_at"] is None
+
+
 def test_revaluation_retires_a_check_that_no_longer_clears_the_stop(tmp_path):
     vault, repo, row = _planned(tmp_path)
     stop = lambda question, item_id: {"problems": [{"verdict": "stop", "checks": [],  # noqa: E731

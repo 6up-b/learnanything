@@ -8857,7 +8857,15 @@ export interface ReaderRecapCardDto {
   worthASecondLook: ReaderRecapSecondLookDto[];
   sinceLastTime: {
     demonstrated: ReaderRecapDemonstratedDto[];
-    checksRetired: Array<{ commitmentId: string; retiredAt: string; solvedAttemptId?: string | null }>;
+    /** RW6b: checks retired as no longer needed; ``answeredBy`` says how
+     *  ("solved_on_your_own" on ``solvedAt``, or "rivals_resolved"). */
+    checksRetired: Array<{
+      commitmentId: string;
+      retiredAt: string;
+      answeredBy?: string | null;
+      solvedAttemptId?: string | null;
+      solvedAt?: string | null;
+    }>;
   };
   /** RW6b: the source's scheduled checks (absent before RW6b's sidecar). */
   comingUp?: ReaderComingUpDto;

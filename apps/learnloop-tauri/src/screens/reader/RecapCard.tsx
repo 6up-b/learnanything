@@ -9,7 +9,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderRecapCardDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ComingUp } from "./ComingUp";
-import { RECAP_COPY, aboutMinutes, fullDay, observationLine, shortDay, stepsLabel } from "./recapCopy";
+import { RECAP_COPY, aboutMinutes, fullDay, observationLine, retiredCheckLine, shortDay, stepsLabel } from "./recapCopy";
 import { MeaningLabel } from "./voices";
 
 export { shortDay } from "./recapCopy";
@@ -170,7 +170,7 @@ export function RecapCard({
           ))}
           {sinceLastTime.checksRetired.map((line) => (
             <li key={line.commitmentId} style={lineStyle}>
-              <span>No longer needed: you solved one like it on {shortDay(line.retiredAt, now)}</span>
+              <span>{retiredCheckLine(line, now)}</span>
               {onRestoreFollowup ? (
                 restored.has(line.commitmentId) ? <span style={{ color: COLOR.textDim }}> · kept</span> : (
                   <>

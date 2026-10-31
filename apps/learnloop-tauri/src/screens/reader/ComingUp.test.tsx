@@ -129,6 +129,19 @@ it("the card shows Coming up and a retirement as good news with undo", () => {
   expect(region.textContent?.toLowerCase()).not.toMatch(/overdue|\bdue\b|error|mistake/);
 });
 
+it("the good news names the solve's own day, or the settled explanations", () => {
+  const solved = { commitmentId: "cr1", retiredAt: "2026-10-13T08:00:00Z", answeredBy: "solved_on_your_own",
+                   solvedAttemptId: "a9", solvedAt: "2026-10-11T08:00:00Z" };
+  const rivals = { commitmentId: "cr2", retiredAt: "2026-10-13T08:00:00Z", answeredBy: "rivals_resolved",
+                   solvedAttemptId: null, solvedAt: null };
+  render(<RecapCard recap={card({ sinceLastTime: { demonstrated: [], checksRetired: [solved, rivals] } })}
+                    collapsed={false} now={NOW} {...handlers()} />);
+  const region = screen.getByRole("region", { name: "Last time here" });
+  expect(region.textContent).toContain("No longer needed: you solved one like it on Sun");
+  expect(region.textContent).toContain("No longer needed: the explanations it was to tell apart are settled");
+  expect(region.textContent).not.toContain("you solved one like it on Tue");
+});
+
 it("the card leaves Coming up out without the follow-up actions (an older sidecar)", () => {
   render(<RecapCard recap={card({ comingUp: undefined })} collapsed={false} now={NOW} {...handlers()} />);
   expect(screen.queryByText("Coming up · checks on your own")).toBeNull();

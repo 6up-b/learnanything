@@ -85,7 +85,18 @@ export const COMING_UP_COPY = {
   later: "later ▸",
   reasonLabel: "why undo this check? (optional)",
   reasonPlaceholder: "why? (optional)",
+  settled: "No longer needed: the explanations it was to tell apart are settled",
 } as const;
+
+/** The good news for a check retired as no longer needed: how its question
+ *  was answered, on the solve's own day (never the retirement's). */
+export function retiredCheckLine(
+  line: { retiredAt: string; answeredBy?: string | null; solvedAt?: string | null },
+  now: Date = new Date(),
+): string {
+  if (line.answeredBy === "rivals_resolved") return COMING_UP_COPY.settled;
+  return `No longer needed: you solved one like it on ${shortDay(line.solvedAt ?? line.retiredAt, now)}`;
+}
 
 /** A plan day ("YYYY-MM-DD", local): "Wed" within the coming six days, else "9 Nov". */
 export function upcomingDay(day: string, now: Date = new Date()): string {
