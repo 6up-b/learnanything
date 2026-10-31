@@ -619,6 +619,19 @@ def test_only_reader_follow_ups_can_be_undone_here(tmp_path):
         RF.undo_followup(repo, commitment_id=other.id)
 
 
+def test_undo_leaves_an_answered_check_answered(tmp_path):
+    """An undo (or undo all) never retires a check its attempt already answered."""
+
+    vault, repo, row = _planned(tmp_path)
+    [commitment_id] = row["followup_commitment_ids"]
+    C.satisfy_single_check(repo, commitment_id=commitment_id, clock=at(500))
+    result = RF.undo_followup(repo, commitment_id=commitment_id, reason="late")
+    assert result["disposition"] == "satisfied" and C.resolve_disposition(repo, commitment_id) == "satisfied"
+    with repo.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE task = ?",
+                                  (RF.UNDO_TASK,)).fetchone()[0] == 0
+
+
 # -- the sidecar RPCs -----------------------------------------------------------------------------
 
 

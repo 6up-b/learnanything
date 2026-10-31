@@ -1026,14 +1026,17 @@ def undo_followup(repository: Repository, *, commitment_id: str, reason: str | N
     The reason is stored on the ``learner_card`` verdict undo appends (task
     ``reader_followup_undo``): direct evidence about λ and the burden for the
     calibration track (§15), never sent to learner-text gaps (it is about the
-    check, not the subject). Idempotent: an already retired one is returned."""
+    check, not the subject). Only a pending check is undone: an already
+    retired one is returned as it is (idempotent), and one its attempt
+    already answered (``satisfied``) stays answered, with no verdict."""
 
     provenance, row = _require_followup(repository, commitment_id)
     disposition = C.resolve_disposition(repository, commitment_id)
     words = " ".join(str(reason or "").split())[:UNDO_REASON_CHARS] or None
     judgment_id = "rfu_" + content_key([commitment_id, "undone"])[:40]
-    if disposition == "stopped":
-        return {"commitment_id": commitment_id, "disposition": disposition, "judgment_id": judgment_id}
+    if disposition != "one_check_pending":
+        return {"commitment_id": commitment_id, "disposition": disposition,
+                "judgment_id": judgment_id if disposition == "stopped" else None}
     detail = {"reason": RETIRE_UNDONE, "extraction_id": provenance.get("extraction_id"),
               "digest_id": row.get("id"), "followups_version": FOLLOWUPS_VERSION}
     with repository.atomic():
