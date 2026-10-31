@@ -211,3 +211,79 @@ the whole durability lane and the whole vitest run were **not** run (owner rule 
    panel too?
 3. **F14:** the Reader records active time per book, not per section. Should a per-section active-time record
    come before C1 reads the time row?
+
+## Re-review
+
+**Re-reviewed:** `b69e03225..a97cb4864` (Codex on gpt-6.1-sol, job `20261031-161306-FmZxzb`, verdict REOPENED).
+F2, F3 and F4 were confirmed fixed. F1 was reopened, and F15, F16 and F17 are new. **Fixed on:** `ad0109a39`
+(backend and tests), `1bd537ae4` (frontend and vitest), plus this record. No paid or live call was made, every
+model is a fake, and no ad-hoc script ran. No owner vault, config file or credential file was read, and the
+tracked fixture vaults were not touched. There is no migration and no schema change.
+
+**Reproduction.** The 5 new pytest tests (in `tests/test_deliverable_codex_review.py`, after the "Codex re-review"
+banner) **all fail** when `src/learnloop/source_retrieval/deliverables.py` is put back to the version at
+`a97cb4864`, and all pass on the fixed tree. The 3 new vitest tests (in `DeliverableSliceCard.test.tsx`) **all
+fail** when `DeliverableScope.tsx` and `DeliverableSliceCard.tsx` are put back to `a97cb4864` (the other 16 pass),
+and all pass on the fixed tree.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | A superseded answer writes its phrases before the protection check | fixed | `ad0109a39` | `test_f1_reopened_a_superseded_answer_keeps_nothing_when_its_passage_was_protected_meanwhile` |
+| F15 | Medium | Journal recovery overwrites a later learner scope edit | fixed | `ad0109a39` | `test_f15_recovery_keeps_a_learner_scope_edit_made_after_the_publication`, `test_f15_a_publication_already_on_disk_is_recognized_and_not_written_again`, `test_f15_a_stop_before_goals_yaml_then_a_learner_edit_keeps_the_edit` (the F8 finish-forward test still passes) |
+| F16 | Medium | "Add it" cannot resolve an ambiguous subject | fixed | `ad0109a39`, `1bd537ae4` | `test_f16_an_ambiguous_subject_is_offered_and_the_chosen_one_creates_the_topic`; vitest "add it asks which subject when it cannot be inferred…", "a no_subject refusal opens the subject choice…" |
+| F17 | Medium | An open scope panel can edit the previous deliverable | fixed | `1bd537ae4` | vitest "a correction that makes the Guide pick another deliverable closes the previous one's scope" |
+
+### What changed
+
+- **F1.** In `resolve`, under the publication lock, `guard.check("recording the scope")` now runs before the
+  superseded/fresh branch, not after it. If a passage became protected during the call, nothing about the answer
+  is written: no superseded verdict, no receipt and no scope. A paid answer is still kept as `superseded` only
+  when protection still holds.
+- **F15.** A scope journal entry now records the revision it expects to replace (`before`: the goal's facet
+  scope and `updated_at`, read under the lock) and the scope it writes (`scope`). `recover_publications` /
+  `_finish_scope` then handles three cases:
+  - The goal already shows the intended scope. The publication had finished, so only the entry is removed and
+    nothing is written (no `updated_at` rollback).
+  - The goal is still at `before`. The publication is finished forward.
+  - Anything else. That is the learner's later edit, so it stands and only the entry is removed.
+
+  An entry without `before` (none exist outside this unlanded branch) is never written over. Scopes are compared
+  by content, so key order, list order and empty lists don't count as edits.
+- **F16.** `scope_view` (so also `curriculum.scope`, `.deliverables`, `.create_deliverable`, `.set_scope` and
+  `.scope_decide`) now returns `subject_id` and `subjects`:
+  - `subject_id` is the subject the needed topics share, the same `_subject_for` rule *add it* uses, or null.
+  - `subjects` is the vault's active subjects, as id and title.
+
+  When `subjectId` is null and an open phrase is waiting, the panel shows "a new topic goes in [choose a
+  subject…]". *add it* stays disabled until a subject is chosen, and the choice is sent as `subjectId`. A
+  `no_subject` refusal (inference changed in the meantime) opens the same choice instead of reporting an error.
+  When the subject is inferred, the request is unchanged (no `subjectId`).
+- **F17.** `GuidePathSlot` renders `DeliverableSliceCard` with `key={slice.goal?.id}`. When a different
+  deliverable is selected, the card remounts with fresh state (scope closed, no stale scope, notice or ready
+  view). Late answers for the previous goal go to the unmounted card and are dropped.
+
+### Gate (this step; targeted, memory-capped)
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 6
+  tests/test_deliverable_codex_review.py tests/test_deliverable_path.py tests/test_deliverable_rpcs.py
+  tests/test_deliverable_scope.py tests/test_mobile_allowlist.py tests/test_desktop_rpc_contract.py
+  tests/test_sidecar_serializer_snapshot.py tests/test_sidecar_contract.py tests/test_architecture.py
+  tests/test_goal_contracts.py`: **495 passed, 5 skipped**. All 5 skips are `test_sidecar_contract.py`'s
+  owner_vaults lane, which needs `LEARNLOOP_OWNER_VAULTS`.
+- Frontend (`apps/learnloop-tauri`, each command in the same 5G scope):
+  - `npm run typecheck`: clean.
+  - `npx vitest run --maxWorkers=4 src/screens/reader/DeliverableSliceCard.test.tsx`: **19 passed (1 file)**.
+  - `npm run frontend:build`: built (only the existing chunk-size warning).
+- Not run: `src-tauri` is unchanged, so no cargo check. There is no migration, DB or connection change, so no
+  durability lane and no DB reference regeneration. There is no CLI or config change, so no help or defaults
+  snapshot.
+
+### Open question (re-review)
+
+- A `create` journal entry is idempotent: it appends only a missing goal. Suppose a process stops after
+  appending the goal but before removing the entry, and the learner then deletes that new goal by hand before
+  the next curriculum RPC. Recovery would add the goal back. This is the F15 pattern for creation. It is left
+  as is because it needs the stop and a hand deletion inside that window, and telling "never appended" apart
+  from "appended then deleted" would need a tombstone. Raise it if the owner wants one.
