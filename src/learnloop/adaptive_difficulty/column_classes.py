@@ -167,6 +167,16 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "decision_features": (
         "id decision_id decision_type algorithm_version created_at",
         "ability_vector_json item_demand_vector_json context_json"),
+    "deliverable_path_sections": (
+        "id goal_id depth learning_object_id extraction_id section_id label ordinal exercise_span_id "
+        "learner_override commitment_id state_key ledger_id model prompt_version created_at",
+        "reason"),
+    "deliverable_scope_inputs": (
+        "id goal_id kind extraction_id span_ids_json created_at",
+        "text_md context_json"),
+    "deliverable_scope_resolutions": (
+        "id goal_id origin input_ids_json state_key ledger_id model prompt_version created_at",
+        "learning_objects_json unmatched_json facet_scope_json"),
     "depth_envelope_versions": (
         "id envelope_version content_hash created_at",
         "bounds_json reviewed_edges_json"),

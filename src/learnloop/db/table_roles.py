@@ -168,6 +168,13 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decisions are attention_block_events receipts). Replay never reads it.
     ("daily_plans", TableRole.WORKFLOW),
     ("decision_features", TableRole.RECEIPT),
+    # Deliverable curriculum C0b (migration 228): the learner's scope inputs
+    # (their own words, append-only), the resolver's resolutions and the
+    # curated path's rows with the learner's verdicts (paid outputs, never
+    # re-run on rebuild); display only, replay never reads them.
+    ("deliverable_path_sections", TableRole.WORKFLOW),
+    ("deliverable_scope_inputs", TableRole.RAW_LEDGER),
+    ("deliverable_scope_resolutions", TableRole.WORKFLOW),
     ("depth_edge_instances", TableRole.RAW_LEDGER),
     ("depth_edge_template_versions", TableRole.RAW_LEDGER),
     ("depth_edge_templates", TableRole.RAW_LEDGER),

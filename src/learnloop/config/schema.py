@@ -1457,6 +1457,17 @@ class AIRoutingConfig(BaseModel):
     # curriculum.max_daily_cost_usd (and, in learnloop curriculum cover, to
     # curriculum.cover_max_cost_usd), checked before each call.
     section_coverage_judge: str | None = None
+    # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5.3, §7.2):
+    # the scope resolver (a pressed action: the learner's scope words, in
+    # order, and the vault's active LOs as compact records; never exam text)
+    # and the deliverable path judge (one call per deliverable and depth over
+    # the needed LOs' coverage across books and the learner's own reading
+    # context). Empty = ai.active_provider (the ChatGPT plan under T1;
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # curriculum.max_daily_cost_usd, checked before each call.
+    deliverable_scope_resolver: str | None = None
+    deliverable_path_judge: str | None = None
     # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
     # figures. figure_author writes the declarative figure spec (a chat route;
     # a region or figure block sends its crop as an image when the profile
@@ -2757,12 +2768,27 @@ class CurriculumConfig(BaseModel):
     prompt (the passages share it equally). Display and retrieval context
     only: nothing in scoring, scheduling, projection or serving reads
     coverage, so no algorithm successor.
+
+    C0b adds the deliverable: scope from the learner's words resolved to LOs
+    (``ai.routing.deliverable_scope_resolver``), the goal's facet scope written
+    by ``curriculum.set_scope``, the curated path across every book
+    (``ai.routing.deliverable_path_judge``) with the learner's overrides,
+    the Guide's slice of it, and "Am I ready?" (Check once commitments the
+    learner presses for, served by DL2's unchanged rule). ``enabled`` off is
+    today's Guide and RW7a exactly. The three routes share
+    ``max_daily_cost_usd``. Display only: no successor.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
     cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
+    # C0b (spec §6.3, §12): a completed extraction (a book added or re-read)
+    # queues one background job that judges again the LOs already covered,
+    # so the new reading's sections join their coverage (quiet: plan only,
+    # never an OpenRouter offer; coalesced per LO, a fresh state pays
+    # nothing). Off: coverage changes only when pressed or owner-run.
+    coverage_on_extract: bool = True
 
 
 class LearnerTextGapsConfig(BaseModel):

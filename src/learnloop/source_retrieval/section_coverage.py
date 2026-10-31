@@ -128,6 +128,9 @@ LEDGER_RIGHT = "reader_section"
 PROMPT_VERSION = "section_coverage_judge.v1"
 CORRECTION_VERSION = "section_coverage_correction.v1"
 ENVELOPE = "curriculum.max_daily_cost_usd"
+#: The routes that one daily cap counts: this judge and C0b's scope resolver and path judge
+#: (``source_retrieval.deliverables``), so the curriculum spends at most one cap a day.
+CURRICULUM_OWNER_KINDS: tuple[str, ...] = (ROUTE_TASK, "deliverable_scope_resolver", "deliverable_path_judge")
 COVER_CAP_SETTING = "curriculum.cover_max_cost_usd"
 #: The retrieval consumers this module names to the space resolver.
 SEARCH_CONSUMER = "coverage"
@@ -784,7 +787,7 @@ STALE_MESSAGE = ("Your library changed while LearnLoop was checking (its protect
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
     return SharedDailyEnvelope(vault, repository, day=midnight(clock),
                                cap=float(vault.config.curriculum.max_daily_cost_usd), clock=clock, name=ENVELOPE,
-                               owner_kinds=(ROUTE_TASK,),
+                               owner_kinds=CURRICULUM_OWNER_KINDS,
                                price_per_million=vault.config.source_retrieval.llm_price_per_million)
 
 
@@ -1440,6 +1443,8 @@ class Standing:
     rank: int
     by: str
     learner_text: str | None = None
+    #: The LOs the judge read the section as taking for known (C0b's prerequisite choice reads them).
+    assumes: tuple[str, ...] = ()
 
     @property
     def about(self) -> bool:
@@ -1492,7 +1497,8 @@ def standing(vault: Any, repository: Repository, library: Library,
             entries[section.key] = Standing(
                 extraction_id=section.extraction_id, section_id=section.section_id, learning_object_id=lo_id,
                 treatment=str(row["treatment"]), roles=tuple(row.get("roles") or ()), notation=row.get("notation_md"),
-                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge")
+                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge",
+                assumes=tuple(str(lo) for lo in row.get("assumes") or ()))
         for (extraction_id, section_id, fix_lo), row in fixes.items():
             if fix_lo != lo_id or row["learner_override"] == "none":
                 continue
@@ -1509,7 +1515,8 @@ def standing(vault: Any, repository: Repository, library: Library,
                 roles=base.roles if base is not None else section.book_roles,
                 notation=base.notation if base is not None else None,
                 origin=base.origin if base is not None else "learner",
-                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"))
+                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"),
+                assumes=base.assumes if base is not None else ())
         out[lo_id] = entries
     return out
 

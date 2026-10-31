@@ -1422,6 +1422,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Deliverable curriculum C0b: the on-extract coverage job's switch (a
+    # boolean, classified so every new key has a rule). The scope resolver
+    # and the path judge add no number: they share the C0a caps above.
+    _ConfigRule(_exact(
+        "curriculum.coverage_on_extract",
+    ), "structural", "operational",
+        "kill switch for the background job a completed extraction queues to judge the already-covered LOs "
+        "again (quiet: plan only); display and retrieval context only, no measurement, scheduling or serving "
+        "authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

@@ -135,6 +135,9 @@ AITask = Literal[
     "reading_path_judge",
     # Deliverable curriculum C0a: the section coverage judge (a listwise task, one call per LO).
     "section_coverage_judge",
+    # Deliverable curriculum C0b: the scope resolver (pressed) and the deliverable path judge.
+    "deliverable_scope_resolver",
+    "deliverable_path_judge",
     # Reader workbench RW5a: the figure author (the declarative spec).
     "figure_author",
 ]
@@ -262,6 +265,11 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # section of the library treats one learning object (coverage; display
     # and retrieval context only).
     "section_coverage_judge": "section_coverage_judge",
+    # Deliverable curriculum C0b: one call resolving the learner's scope words to
+    # the LOs a deliverable needs (pressed), and one call choosing the path
+    # across books per deliverable and depth (display only).
+    "deliverable_scope_resolver": "deliverable_scope_resolver",
+    "deliverable_path_judge": "deliverable_path_judge",
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",
