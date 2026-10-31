@@ -172,3 +172,155 @@ were **not** run (owner rule 2026-10-17: once, at landing).
    §8.4)? Not built: that changes DL2's commitments.
 5. ~~The learner context omits RW1c's rows, kept comparisons and DL1's minutes.~~ Added by the Codex review fixes
    (F11, decision 5).
+
+## Landing onto main (2026-10-31)
+
+Landed in `learnanything-docs` on `curriculum/c0b-scope-path` (stage tip `68d9c2f60`, base `5b3f66059`) by merging
+`main` twice: `e668f7121` (Reader CA5a, Reader CA3, the Codex CLI 0.165 lockdown; mvp-0.38; migrations through 226),
+then `3a96d90b4` (Reader CA4, which reached main during the gate). Main was neither fast-forwarded nor pushed.
+Migration **228** keeps its number: RW6b part 1 owns 227 and lands after. The runner is set-based, as
+`migration_head_217` held 215/216/217 without 214. No successor.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `f2a2fa37e` | `--no-ff` merge of `e668f7121`. **Conflicts:** `config/template.py`: every default snapshot mvp-0.9 … mvp-0.38 keeps main's CA5a/CA3 notes and C0b's note. **All 29 fingerprints** were recomputed with `defaults_fingerprint_for_version`, with the template `.pyc` cleared before and after; a recheck found 0 mismatches. `params/parameter_registry.py`: CA5a's `reader.correspondence.enabled` rule and C0b's `curriculum.coverage_on_extract` rule are both kept. `src-tauri/src/commands.rs` and `main.rs`: CA5a's four passthroughs and C0b's twelve. `tests/test_mobile_allowlist.py`: C0b's, CA5a's and CA3's RPCs are all desktop-only, joined in one union in the parametrized list. 432 generated reference notes were taken from the branch and regenerated in the next commit. **Auto-merged:** `ReaderScreen.tsx` (C0b's `GuidePathSlot` wraps RW7a's card, beside CA3/CA5a's Guide changes), `api/dto.ts`, `api/client.ts`, `ai/disclosures.py`, `ai/routing.py`, `config/schema.py`, `section_coverage.py`, the sidecar handler list and `tests/test_judge_routes.py`. No test on main names `migration_head_226`, so the head path stays `migration_head_228` everywhere. |
+| `45c24303e` | DB/config reference regenerated: 1074 effective leaves in 75 sections, 357 table notes. The auto-merged prose counts in `Configuration.md` and `Database.md` were corrected by hand. `db_validate_reference.py`: errors []; `validate_vault.py` passes. |
+| `fbf37405f` | The interaction tests: `tests/test_curriculum_c0b_landing.py`, 7 tests (below). **Gate head.** |
+| `b5ae99886` | `--no-ff` merge of `3a96d90b4` (Reader CA4). **Conflicts:** `template.py` only. Every snapshot keeps CA4's and C0b's notes, and all 29 fingerprints were recomputed again (0 mismatches). The 433 reference notes were regenerated in the next commit. |
+| `e45dd3125` | DB/config reference regenerated: **1076 effective leaves in 75 sections** (main's 1073 + C0b's 3), 357 table notes. `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1166 notes, 1164/1164 reachable). |
+
+`git diff main` lists no binary or tracked database besides the head fixture, and nothing under `fixtures-local/`.
+`.gitignore` is unchanged.
+
+### Interactions (`tests/test_curriculum_c0b_landing.py`; every model a fake)
+
+All 7 tests passed on their first run against the product code. The only edits were to my own harness: a column
+name, and the item's own rubric for the self-graded attempts. Nothing needed fixing.
+
+**(i) CA5a's *not about this* with C0b's *also about…* on one section.**
+- On C0a's coverage vault, CA5a's dismissal of the Lay hit `lay_eigen` from Chapter 5 writes `not_about` for
+  `lo_eigen`. On the same section, *also about* "determinants" resolves through the scope resolver to `lo_det` and
+  writes `is_about`.
+- After a C0a re-judgment of both LOs (the correction made `lo_det`'s state new), both learner rows still stand.
+- The deliverable "eigenvalues and determinants" is then path-judged at `learn_to_use_it` and judged again at
+  `fluency`. Both judgments send `lay_eigen` for Determinants and never for Eigenvalues.
+- Both paths show it only under Determinants, and the newest corrections are unchanged after each judgment.
+
+**(ii) CA3's `compare_scope` and C0b's resolver are separate routes with separate caps; `curriculum.enabled` off.**
+- **Routes.** `compare_scope`, `deliverable_scope_resolver` and `deliverable_path_judge` are distinct `AITask`s.
+  `compare_scope` is not one of the curriculum envelope's owner kinds.
+- **CA3's cap.** With `reader_compare.scope_max_calls_per_day = 1` used up (the second reading falls back as
+  `capped`), the resolver still makes its call, and `calls_today` stays 1.
+- **The curriculum's cap.** With the curriculum's dollar cap exhausted for a metered resolver (refused before its
+  call), CA3's Decider still reads, with one call.
+- **Switch off.** With `curriculum.enabled = false`, a vault with a deliverable and its twin without one give the
+  same `reader.prompt_contract`. CA5a's `correspondence` is absent: its data belongs to `curriculum.enabled`, as on
+  main. CA3's reading is the same on both, and `reader.correspondents`, `curriculum.guide_slice` and
+  `curriculum.path` refuse.
+- **Against main's own code** (the smoke below): with curriculum off, `reader.reading_path` for every extraction and
+  `reader.prompt_contract` are byte-identical to main's. With curriculum as the copies have it (on by default), the
+  prompt contract is identical to main's too.
+
+**(iii) Check once commitments vs the mvp-0.38 cold-retry reschedule.**
+- Setup: on a vault at mvp-0.38 with CA2's rule on, a *check me later* on a path line plus *Am I ready?* on a second
+  deliverable create three `test_me_later` commitments (`via` `deliverable_path` / `deliverable_ready`).
+- An assisted attempt (a hint) is then made on each check's item.
+- With the reschedule **on** (`reschedule_cold_after_assist_active` true) and **off**, the folded commitments and the
+  `followup_tasks` are identical. There is no `cold_retry` and no `assisted_cold_retry` opportunity, and the checks
+  keep their targets, action and dates.
+- `shadow_rebuild` is **0/0/0** (live database unchanged) with the checks present, both before and after the help is
+  taken. The vault is synced at the tag first, as `test_cold_retry_reschedule.py` builds its rebuild-equivalent
+  vault: the deliverable vault as built shows a mastery 6 diff before anything C0b does.
+
+### Regeneration
+
+- **DB/config reference:** regenerated and validated after each merge, as above. **Defaults fingerprints:** all 29
+  recomputed after each merge.
+- **The CLI help snapshot, sidecar serializer snapshot, desktop RPC contract and mobile allowlist** (all
+  `curriculum.*` desktop-only) pass as merged. Nothing else needed regenerating.
+
+### Gate (`env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/c0b/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| After the first merge, targeted contract run (58 files: snapshots, fingerprints, config refactor, registry audit, CLI help, serializer/RPC pins, mobile allowlist, table_roles, migrations, switch-off pins, AD protection, judge routes, public-tip guards, the C0b/C0a/CA3/CA5a files, the upgrade chain files, shadow; `-n 6`, 5G) | **1179 passed**, 6 skipped (14 min 15 s) |
+| Full suite at `fbf37405f` (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,522 passed, 1 failed**, 89 skipped, 47 xfailed. pytest 2,065.8 s (34:26); wall 34 min 28 s after an 8 min 22 s wait for the lock. The failure is `test_codex_tool_lockdown::test_a_workspaces_own_project_layer_never_reaches_the_turn`, deterministic alone (3/3). It comes from **this worktree's name**: the test rejects any launch override containing the substring `docs`, and `TMPDIR` (`…/learnanything-docs/fixtures-local/landing/tmp`) lands in the catalog path of a permissions override. With the same `env -i` and a `TMPDIR` outside the worktree it passes 3/3. This is not a C0b defect, and the test is main's (the Codex 0.165 lockdown); it is not changed here. |
+| Durability (`-m durability`, flock, 5G, `-n 6`) | **176 passed**, 1 skipped (54.1 s; wall 55 s after a 43 s wait for the lock) |
+| Owner lane (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-c0b/`) | 83 passed, **2 failed**, 4 skipped (45.1 s; wall 45 s). The failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy. |
+| After the second merge (CA4) | Targeted contract run (the same 58 files): **1179 passed**, 6 skipped (13 min 14 s). The CA4, keep and compare files with the landing tests (`test_reader_ca4_landing`, `test_reader_ca4_table_by_point`, `test_compare_sources_keep`, `test_reader_ca3_codex_review`, `test_curriculum_c0b_landing`, `test_codex_tool_lockdown`): 245 passed, 1 skipped, 1 failed, the lockdown test above (40 s). **The full suite was not rerun:** CA4 changed `compare.py`, `library_ask.py`, `kept_comparisons.py` (keep writes, by-point cards) and config. C0b changes none of them, and it reads only `kept_comparisons_for_card`, whose body CA4 left unchanged. |
+| Frontend (`apps/learnloop-tauri`, after the second merge) | `npm install` ok; `npm run typecheck` clean; whole vitest (`--maxWorkers=4`, 5G): **229 files, 2029 passed** (44.3 s; wall 45 s); `npm run frontend:build` ok; `cargo check --manifest-path src-tauri/Cargo.toml` ok |
+
+### Parity and smoke on owner copies
+
+**Setup.**
+- Fresh backup-API copies of the three mvp035 owner copies were made twice, in `fixtures-local/smoke-c0b/run2/`: one
+  set for the merged branch's code, one for main's code (`git archive 3a96d90b4`).
+- Everything ran under `env -i` with an empty `HOME`, `CODEX_HOME` and config dir. AI base URLs pointed at
+  `127.0.0.1:9`, and `LEARNLOOP_COVERAGE_MODELS=off` was set (the CA3 smoke's setting).
+- The sidecar ran as a real process with audit hooks that refuse non-loopback sockets and process starts. They
+  **logged nothing**.
+- Only counts and status or refusal codes were recorded. Drivers: `fixtures-local/landing/smoke_c0b/smoke.py`,
+  `followup.py`.
+
+**Results.**
+- **Upgrade.** `learnloop upgrade --to mvp-0.38` prints `mvp-0.35 -> mvp-0.38` on both sides, followed by
+  `rebuild-derived-state`.
+  - Migration 228 is applied on the branch's copies, and the three new tables are empty.
+  - No table lost rows, except arxiv_v2's FTS5 internal `source_block_fts_data`/`_idx` (−87/−86), the same on
+    main's copy.
+  - Branch and main differ only in `schema_migrations` (+1) and the three new tables. Integrity is ok.
+- **`doctor`** is identical to main's: 57/1, 102/48 and 83/47 (issues/errors), all known content errors
+  (`layout:missing_directory`, `criterion:unknown_dependency`, `yaml:invalid`).
+- **`rebuild --shadow`: 0/0/0** on all three after the upgrade, after *Am I ready?*, and at the end.
+- **Curriculum off = main.** `reader.reading_path` (judge off) for every extraction plus `reader.prompt_contract`:
+  **5/5, 5/5 and 13/13 byte-identical** to main's code on main's copy.
+  - After a deliverable was added on the branch's copy, 2/1/2 of the reading paths differed. That is RW7a's goal card
+    showing the new learner goal.
+  - With the same `goals.yaml` copied to main's copy, all are **byte-identical again (5/5, 5/5, 13/13)**. The
+    difference is the data, not the code.
+  - Curriculum on (as the copies have it): the prompt contract is identical to main's.
+- **Curriculum on, models unavailable.**
+  - `curriculum.deliverables` 0, and `curriculum.guide_slice` is `none` on every reading. Probability's two readings
+    whose source reader is off refuse `reader_disabled_for_source`, as RW7a's RPC does on main.
+  - `learnloop curriculum report --json` returns rc 0 with empty rows.
+  - With a deliverable and a depth, `curriculum.path` shows `failed` / `models_off` with its message. Each call takes
+    0.4–1.0 s and there is no hang; `guide_slice` on that deliverable's books shows the same `failed` state.
+- **"Am I ready?"** One deliverable per copy was created and resolved in-process with a **fake** resolver: 4/3/3
+  needed LOs, 1/0/0 of them demonstrated. Then `curriculum.ready_check` was pressed through the real sidecar.
+  - It created 3/3/3 `test_me_later` commitments (`one_check_pending`, `via` `deliverable_ready`), **all for
+    undemonstrated LOs and none for a demonstrated one**.
+  - 1/3/3 are on items and 2/0/0 are LO-level. **0** are on a withheld item and **0** on a reserved exam item
+    (protection readable).
+  - Pressing again creates 0. Shadow is 0/0/0 before and after.
+- **Receipts.** **0 real `model_call_receipts` rows.** The only new row per copy is the in-process fake resolver's
+  (provider `fake_deliverable`). Spend: $0. Nothing under `~/learnloop-vaults`, `~/learnloop-retired` or
+  `~/learnloop-books` was opened or listed.
+
+### Owner notes
+
+1. **Kill switches:** `curriculum.enabled` (everything C0b, and C0a's data with it) and `curriculum.coverage_on_extract`
+   (the background re-judgment after an extraction completes).
+2. **Spend:** the two paid routes (`deliverable_scope_resolver`, `deliverable_path_judge`) share C0a's daily cap,
+   `curriculum.max_daily_cost_usd`. On the ChatGPT plan they cost nothing; metered routes are held to that cap.
+3. **Where to create a deliverable:** in the Guide, under the path card (*learning this for something?*); *what it
+   covers* on the slice opens the same panel.
+4. **Upgrade:** `learnloop upgrade --to mvp-0.38` applies 228 (no new tag), then `rebuild-derived-state`.
+
+### Open items
+
+- A Goals-screen panel for deliverables (today the Guide only).
+- The slice when `reading_paths.enabled` is off (no path card, so no slice).
+- OpenRouter grants are keyed to `curriculum.guide_slice`, not `reader.reading_path` (decision 3).
+- DL2's intent gaining a goal scope, so the depth and the deliverable's intent are one setting.
+- The path judge's learner context before C1.
+- Per-section reading time before C1 (today DL1's estimate).
+- The readiness target reuses DL2's governed settings (`intent.recall_targets.keep_in_touch`,
+  `capture.test_me_later_days`).
+- A goal-creation tombstone (an undone deliverable leaves its goal).
+- Migration 227 (RW6b part 1) lands after 228: rebuild its head fixture on main's 228 head.
+- `test_codex_tool_lockdown::test_a_workspaces_own_project_layer_never_reaches_the_turn` matches the substring
+  `docs` anywhere in a launch override, so it fails when `TMPDIR` sits under a path containing `docs`, such as this
+  worktree. This belongs to the lockdown's owner; it is not C0b's.
