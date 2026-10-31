@@ -661,3 +661,33 @@ def test_the_recap_card_and_wrap_up_carry_coming_up(tmp_path):
         assert wrap["comingUp"]["next"][0]["commitmentId"] == row["followup_commitment_ids"][0]
     finally:
         ctx.close()
+
+
+# -- replay: follow-ups are content, never re-valued, never evidence -----------------------------
+
+
+def test_rebuild_shadow_is_zero_with_follow_ups_present(tmp_path):
+    """``learnloop rebuild --shadow`` 0/0/0 with a digest, its commitments, a
+    re-valuation retirement and an undo present: nothing replays or re-values them."""
+
+    from learnloop.substrate.replay import rebuild_derived_state
+    from learnloop.substrate.shadow_rebuild import shadow_rebuild
+
+    vault, repo, session = _seeded(tmp_path)
+    # The seeded attempt is a raw row: bring the projections in line first, so
+    # the shadow diff measures only what the follow-ups would change.
+    rebuild_derived_state(vault, repo, clock=at(250))
+    assert shadow_rebuild(load_vault(vault.root)).learner_state_diff["summary"] == {
+        "mastery": 0, "facet": 0, "schedule": 0}
+    row = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.8, 0.2, 0.2),
+                                                  _candidate("pi_svd_define_003", 0.75, 0.25, 0.3)]))
+    first, second = row["followup_commitment_ids"]
+    RF.undo_followup(repo, commitment_id=first, reason="not now")
+    with repo.connection() as connection:
+        digests_before = connection.execute("SELECT * FROM reader_session_digests").fetchall()
+    result = shadow_rebuild(load_vault(vault.root))
+    assert result.learner_state_diff["summary"] == {"mastery": 0, "facet": 0, "schedule": 0}
+    assert result.live_database_unchanged is True
+    with repo.connection() as connection:
+        assert connection.execute("SELECT * FROM reader_session_digests").fetchall() == digests_before
+    assert C.resolve_disposition(repo, second) == "one_check_pending"

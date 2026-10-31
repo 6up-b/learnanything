@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "7d758bada6a6c22ef6150798a279d918f4049bd1"
+source_commit_timestamp: "2026-10-27T20:48:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 226
+schema_head: 227
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -146,10 +146,10 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/instructional/needs.py`
+- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/instructional/tools.py`
 - `src/learnloop/instructional/valuation.py`
 - `src/learnloop/placement/state.py`
-- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

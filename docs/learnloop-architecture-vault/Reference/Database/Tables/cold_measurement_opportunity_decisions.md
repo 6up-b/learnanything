@@ -3,13 +3,13 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "7d758bada6a6c22ef6150798a279d918f4049bd1"
+source_commit_timestamp: "2026-10-27T20:48:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
   - "table cold_measurement_opportunity_decisions"
-schema_head: 226
+schema_head: 227
 table_name: "cold_measurement_opportunity_decisions"
 table_role: "receipt"
 functionality_status: "active"
