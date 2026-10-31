@@ -23,7 +23,9 @@ of every licensing question's intent together (a ``related`` worked example
 excludes it when any open licensing question is a retention one), and repair
 ownership only when a repair owns every open one. The licensing questions
 are read from the session digest (its ``chosen`` line, less the ones the
-last re-valuation found answered); re-valuation passes the ones open now.
+last re-valuation found answered and nobody attempted since); re-valuation
+passes the ones open now. A follow-up whose digest cannot be read
+consistently is held (round 5, F17: fail closed).
 
 A gated candidate is held (never administered cold; DL2 serves nothing for it
 today) and the next daily re-valuation retires the check with its reason and
@@ -118,39 +120,73 @@ def _primary(provenance: Mapping[str, Any]) -> dict[str, Any]:
             "attempt_ids": list(provenance.get("attempt_ids") or [])}
 
 
+#: The gate cannot read the check's licensing questions consistently from its
+#: digest (no row, no ``chosen`` line, or a licensing question without its
+#: receipt entry): the check is held, and re-valuation retires and re-asks it
+#: (round 5, F17: fail closed).
+LICENSING_UNREADABLE = "licensing_unreadable"
+
+
+def _active_since(connection: Any, learning_object_ids: Sequence[str], since: str | None) -> bool:
+    """Any attempt on the question's learning objects after ``since`` (None: unknown, so yes)."""
+
+    los = sorted({str(lo) for lo in learning_object_ids if lo})
+    if not since or not los:
+        return True
+    marks = ",".join("?" for _ in los)
+    return connection.execute(
+        f"SELECT 1 FROM practice_attempts WHERE learning_object_id IN ({marks}) AND created_at > ? LIMIT 1",
+        (*los, since)).fetchone() is not None
+
+
 def licensing_questions(connection: Any, provenance: Mapping[str, Any],
-                        commitment_id: str | None) -> list[dict[str, Any]]:
-    """The open questions that license this check (F16): the provenance's own
-    question first, then every other question its digest ``chosen`` line
-    lists, less those the last re-valuation found answered (``answered_for``).
-    Without a commitment id or a digest line: the provenance's question."""
+                        commitment_id: str | None) -> tuple[list[dict[str, Any]], str | None]:
+    """The open questions that license this check (F16) and why they could
+    not be read, if so (F17).
+
+    The provenance's own question first, then every other question its digest
+    ``chosen`` line lists. A question the last re-valuation found answered
+    (``answered_for``) is left out only while nothing was attempted on its
+    learning objects since that re-valuation (round 5, F17): any later
+    attempt could reopen it, so it counts as open again. A missing digest
+    row, ``chosen`` line or licensing entry returns ``LICENSING_UNREADABLE``
+    (the caller holds the check). Without a commitment id: the provenance's
+    question."""
 
     primary = _primary(provenance)
     if not commitment_id:
-        return [primary]
+        return [primary], None
     from learnloop.db.stores.reader_digests import digest_for_commitment
 
     row = digest_for_commitment(connection, str(commitment_id))
-    valuation = (row or {}).get("valuation") or {}
+    if row is None:
+        return [primary], LICENSING_UNREADABLE
+    valuation = row.get("valuation") or {}
     line = next((entry for entry in valuation.get("chosen") or []
                  if str(entry.get("commitment_id") or "") == str(commitment_id)), None)
     if line is None:
-        return [primary]
+        return [primary], LICENSING_UNREADABLE
     keys = [str(key) for key in (line.get("questions") or [line.get("question")]) if key]
-    answered = {str(key) for entry in ((row or {}).get("revaluation") or {}).get("lines") or []
+    entries = {str(entry.get("key")): (entry.get("question") or {}) for entry in valuation.get("questions") or []}
+    questions = [primary]
+    for key in keys:
+        if key == primary["key"]:
+            continue
+        found = entries.get(key)
+        if not found:
+            return [primary], LICENSING_UNREADABLE
+        questions.append({"key": key, "intent": str(found.get("intent") or "retention"),
+                          "purpose": found.get("purpose"), "facet_ids": list(found.get("facet_ids") or []),
+                          "learning_object_ids": list(found.get("learning_object_ids") or []),
+                          "attempt_ids": list(found.get("attempt_ids") or [])})
+    revaluation = row.get("revaluation") or {}
+    answered = {str(key) for entry in revaluation.get("lines") or []
                 if str(entry.get("commitment_id") or "") == str(commitment_id)
                 for key in entry.get("answered_for") or ()}
-    entries = {str(entry.get("key")): (entry.get("question") or {}) for entry in valuation.get("questions") or []}
-    out = [primary] if primary["key"] not in answered else []
-    for key in keys:
-        found = entries.get(key)
-        if key == primary["key"] or key in answered or not found:
-            continue
-        out.append({"key": key, "intent": str(found.get("intent") or "retention"), "purpose": found.get("purpose"),
-                    "facet_ids": list(found.get("facet_ids") or []),
-                    "learning_object_ids": list(found.get("learning_object_ids") or []),
-                    "attempt_ids": list(found.get("attempt_ids") or [])})
-    return out or [primary]
+    since = revaluation.get("revalued_at")
+    open_ = [q for q in questions
+             if q["key"] not in answered or _active_since(connection, q["learning_object_ids"], since)]
+    return open_ or [primary], None
 
 
 def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapping[str, Any], valued_at: str,
@@ -191,8 +227,11 @@ def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapp
             candidate_keys=[exercise_key(str(extraction_id), span_ids)] if extraction_id else (),
             studied_extraction_ids=None if scope is None else [str(value) for value in scope],
             since=since)
-        licensing = [dict(q) for q in questions] if questions is not None else licensing_questions(
-            connection, provenance, commitment_id)
+        unreadable = None
+        if questions is not None:
+            licensing = [dict(q) for q in questions]
+        else:
+            licensing, unreadable = licensing_questions(connection, provenance, commitment_id)
         licensing = licensing or [_primary(provenance)]
         retries = (open_cold_retries(connection, now=now)
                    if all(q.get("purpose") == "retention" for q in licensing) else [])
@@ -227,11 +266,13 @@ def followup_gate(vault: Any, repository: Any, *, item_id: str, provenance: Mapp
         owner = owner or found
     if owner is not None:
         reasons.append(REPAIR_RETRY_OWNS)
+    if unreadable is not None:
+        reasons.append(unreadable)  # fail closed (F17)
     if not reasons:
         return None
     return {"reasons": reasons, "since": since, "exposure": verdict,
             "followup_task_id": None if owner is None else owner.get("id")}
 
 
-__all__ = ["REPAIR_RETRY_OWNS", "VIA", "followup_gate", "independent_reasons", "licensing_questions",
+__all__ = ["LICENSING_UNREADABLE", "REPAIR_RETRY_OWNS", "VIA", "followup_gate", "independent_reasons", "licensing_questions",
            "open_cold_retries", "owning_retry"]

@@ -122,6 +122,11 @@ RETIRE_UNDONE = "undone"
 RETIRE_EXPOSED = "exposed_since_valuation"
 #: A repair cold retry now measures the same claim (Codex review F11).
 RETIRE_REPAIR_OWNS = "repair_retry_owns"
+#: Its licensing questions cannot be read consistently from the digest (no
+#: ``chosen`` line, or a licensing question without its receipt entry): the
+#: serve-time gate holds it, and re-valuation retires it and re-asks what it
+#: can name (round 5, F17: fail closed).
+RETIRE_UNREADABLE = "licensing_unreadable"
 #: Re-valuation keeps a check whose only exposure is a studied worked example
 #: nobody judged yet; the background job asks the judge (Codex review F5).
 KEPT_REFRESH = "exposure_refresh_needed"
@@ -1246,6 +1251,8 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             continue
         lines = []
         requery: list[str] = []
+        reask_reason: dict[str, str] = {}
+        reopen = False
         stored = row.get("valuation") or {}
         line_by_commitment = {str(line["commitment_id"]): line for line in stored.get("chosen") or []
                               if line.get("commitment_id")}
@@ -1263,7 +1270,14 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                             if t["target_kind"] == "legacy_practice_item"), None)
             if not question or item_id is None:
                 continue
-            if switched_off is not None:
+            unreadable = _unreadable_licensing(provenance, line_by_commitment.get(commitment_id), entries)
+            if unreadable is not None:
+                # F17: retired in the transaction below with its re-ask markers.
+                line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
+                        "reason": RETIRE_UNREADABLE, "question_keys": unreadable,
+                        "detail": {"reason": RETIRE_UNREADABLE, "extraction_id": row["extraction_id"],
+                                   "followups_version": FOLLOWUPS_VERSION}}
+            elif switched_off is not None:
                 line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
                         "kept_because": [switched_off]}
             elif valuer is None:
@@ -1282,7 +1296,7 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             # failure between them loses neither the check nor the search.
             connection = repository.connection()
             for line in lines:
-                if line.get("reason") != RETIRE_EXPOSED or line.get("retired"):
+                if line.get("reason") not in (RETIRE_EXPOSED, RETIRE_UNREADABLE) or line.get("retired"):
                     continue
                 commitment_id = str(line["commitment_id"])
                 if C.resolve_disposition(repository, commitment_id) != "one_check_pending" \
@@ -1293,14 +1307,18 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                     continue
                 C.retire(repository, commitment_id=commitment_id, detail=line["detail"], clock=clock)
                 line["retired"] = True
-                # Every question that licensed the exposed check is asked again.
-                requery.extend(str(key) for key in line.pop("question_keys", None) or () if key)
+                reopen = True
+                # Every question that licensed the exposed (or unreadable) check is asked again.
+                for key in line.pop("question_keys", None) or ():
+                    if key:
+                        requery.append(str(key))
+                        reask_reason.setdefault(str(key), str(line["reason"]))
             for line in lines:
                 line.pop("question_keys", None)
                 report["retired" if line["retired"] else "kept"].append(line)
                 retired_here = retired_here or bool(line["retired"])
             columns: dict[str, Any] = {}
-            if requery:
+            if reopen:
                 # F1: the exposed check's question is asked again (a fresh
                 # search; the exposed item is out of its exact filters now).
                 # The valuation as it stands now, inside the transaction.
@@ -1309,7 +1327,7 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                 questions = []
                 for entry in valuation.get("questions") or []:
                     if entry.get("key") in requery:
-                        entry = {**entry, "incomplete": True, "reason": RETIRE_EXPOSED}
+                        entry = {**entry, "incomplete": True, "reason": reask_reason.get(entry.get("key"), RETIRE_EXPOSED)}
                         entry.pop("continue_from", None)
                     questions.append(entry)
                 valuation["questions"] = questions
@@ -1409,6 +1427,22 @@ def answered_since(vault: Any, repository: Repository, question: Mapping[str, An
         if all(record is None or record.status not in ("pending_items", "in_progress") for record in records):
             return {"answered_by": ANSWERED_RIVALS, "episode_ids": episodes}
     return None
+
+
+def _unreadable_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None,
+                          entries: Mapping[str, Mapping[str, Any]]) -> list[str] | None:
+    """None when the check's licensing questions read consistently from the
+    digest; otherwise the question keys that can still be named (to re-ask),
+    the provenance's first (round 5, F17)."""
+
+    primary = str((provenance.get("valuation_ref") or {}).get("question") or "")
+    if line is None:
+        return [primary] if primary else []
+    keys = _licensing(line)
+    missing = [key for key in keys if key != primary and not (entries.get(key) or {}).get("question")]
+    if not missing:
+        return None
+    return list(dict.fromkeys([k for k in [primary, *keys] if k and k not in missing]))
 
 
 def _other_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None,
@@ -1726,6 +1760,8 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
                     text = "No longer a check on your own: you've seen this question since it was suggested"
                 elif reason == RETIRE_REPAIR_OWNS:
                     text = "No longer needed: a check on your own is already coming up for this"
+                elif reason == RETIRE_UNREADABLE:
+                    text = "Taken off the schedule: LearnLoop will look for a fresh check"
                 elif reason == RETIRE_ANSWERED and info.get("solved_at"):
                     text = "No longer needed: you solved one like it"
                 elif reason == RETIRE_ANSWERED:

@@ -149,7 +149,8 @@ def test_f16_a_question_found_answered_no_longer_tightens_the_gate(tmp_path, mon
     due, minutes_due = _due(row)
     _studied_related_example(repo, minutes_due - 60)
     with repo.connection() as connection:
-        RDG.update_digest(connection, row["id"], revaluation_json={"lines": [
+        # Round 5 (F17): the answer stands only with nothing attempted since its re-valuation.
+        RDG.update_digest(connection, row["id"], revaluation_json={"revalued_at": iso(NOW_MIN + 90), "lines": [
             {"commitment_id": commitment_id, "answered_for": [QR]}]})
         connection.commit()
     assert A in _check(vault, repo, commitment_id, due).eligible

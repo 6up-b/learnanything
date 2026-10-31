@@ -123,7 +123,18 @@ def test_the_way_back_is_rendered_only_when_the_provenance_carries_it(iv):
     assert link["label"] == "Back to where you studied this"
     assert link["detail"] == "Mixture CDF → integration bounds"
     assert link["anchor_span_ids"] == ["sp_9"] and link["inquiry_root_event_ids"] == ["ev_1"]
-    _reader_check(iv, "pi_b1", provenance=provenance)
+    commitment_id = _reader_check(iv, "pi_b1", provenance=provenance)
+    # A reader follow-up is served only with its session digest (RW6b round 5, F17: fail closed).
+    from learnloop.db.stores import reader_digests as RDG
+
+    with iv.repository.connection() as connection:
+        RDG.insert_digest(connection, {
+            "id": "rsd_test", "extraction_id": "ex_1", "session_key": "s1", "started_at": "2026-01-01T00:00:00Z",
+            "ended_at": "2026-01-01T00:30:00Z", "status": "planned", "followup_commitment_ids": [commitment_id],
+            "valuation": {"chosen": [{"ref": "pi_b1", "commitment_id": commitment_id, "question": "q1"}],
+                          "questions": [{"key": "q1", "question": {"intent": "retention"}}]},
+            "created_at": "2026-01-01T00:30:00Z"})
+        connection.commit()
     due_day = NOW + timedelta(days=8)
     assert served_check(iv.vault, iv.repository, "pi_b1", now=due_day)["restoration"]["extraction_id"] == "ex_1"
     attempt = iv.answer("pi_b1", due_day)

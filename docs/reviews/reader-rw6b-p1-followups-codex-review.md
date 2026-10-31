@@ -465,3 +465,61 @@ vitest were not run. **Spend: $0.** No model or paid calls, and no Python outsid
 
 Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity tests stay green. No frontend, `src-tauri`, migration or
 schema change.
+
+## Round 5 (F17; Sol verify job `20261031-192707-SpTLM9`)
+
+The verify of `b76e538e5` confirmed F16 as fixed. It found:
+
+- **F17 [Medium]: a stale `answered_for` could hide a reopened retention question.** The serve-time gate trusted the
+  last re-valuation's answers. Repro: retention creates A and discrimination shares it. An unaided success answers
+  retention, so re-valuation records `answered_for` and keeps A for discrimination. A later *assisted* success
+  reopens retention under `answered_since`'s own rule. After the learner studies a worked example judged `related`,
+  serving left retention out and allowed A cold. Same-day re-valuation skips the digest, so nothing corrected it.
+- Also: **the digest lookup did not fail closed.** A missing digest row, `chosen` line or secondary licensing entry
+  fell back to the provenance's question alone and allowed A.
+
+### What changed (kept small)
+
+- **`answered_for` is valid only with no activity since.** `followup_gate.licensing_questions` leaves out a
+  question the last re-valuation found answered only while nothing was attempted on that question's learning
+  objects after the re-valuation's `revalued_at` (`_active_since`, one SQL read of `practice_attempts`). Any later
+  attempt, assisted or not, makes it count as open again, and so does a missing `revalued_at`. This is a superset of
+  what can reopen a question under `answered_since` (the gate lives in `scheduling`, below `instructional`, so it
+  does not import that rule). It keeps the strictest-over-open behaviour of round 4 when the answer still stands.
+- **Fail closed.** For a reader follow-up whose commitment id is known, `licensing_questions` returns
+  `licensing_unreadable` (`LICENSING_UNREADABLE`) when the digest row, the check's `chosen` line or a licensing
+  question's receipt entry is missing. The gate adds it as a reason, so DL2 holds the check.
+- **Re-valuation repairs it.** It runs on every digest row's commitments. A check whose `chosen` line or licensing
+  entry is missing (`_unreadable_licensing`) is retired as `licensing_unreadable` (`RETIRE_UNREADABLE`) in the same
+  transaction as the exposure retirements. The questions it can still name are marked for re-ask with that reason,
+  and the digest goes back to `incomplete`. "Coming up" reads "Taken off the schedule: LearnLoop will look for a
+  fresh check". A check whose digest row is gone has nothing to re-value it and stays held. The publication writes
+  the commitment and its digest in one transaction, so that state arises only from damage.
+
+### Tests (`tests/test_reader_followups_round5.py`), fail-first on `b76e538e5`
+
+| test | before (`b76e538e5`) |
+|---|---|
+| `test_f17_a_retention_question_reopened_since_the_revaluation_still_tightens_the_gate` (the exact sequence; serving through `intent_serving`) | fails: A eligible (the finding) |
+| `test_f17_an_unreadable_digest_holds_the_check_in_each_missing_data_case` (no digest row, no `chosen` line, no licensing entry: each held with `licensing_unreadable`) | fails: A eligible with no digest row (the first case) |
+| `test_f17_revaluation_retires_an_unreadable_check_and_re_asks_what_it_can_name` | fails: retired as below the stop for the provenance's question alone, no re-ask |
+| `test_f17_an_answer_with_no_activity_since_still_relaxes_the_gate` | passes (a guard: a valid answer still drops its question) |
+
+Round 4's `test_f16_a_question_found_answered_no_longer_tightens_the_gate` had forged a re-valuation without
+`revalued_at`. Under the new rule that answer is not trusted, so the test now records `revalued_at`.
+
+### Round 5 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repro serial). The full suite, the durability lane and
+vitest were not run. **Spend: $0.** No model or paid calls, and no Python outside pytest.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`b76e538e5`, a `git archive` copy with the worktree's venv): `pytest tests/test_reader_followups_round5.py` | 3 failed, 1 passed (the guard) |
+| `pytest -n 6` over round 4's 59 files plus `test_reader_followups_round5.py`, first run | 1411 passed, 1 failed, 3 skipped: `test_intent_checks.py::test_the_way_back_is_rendered_only_when_the_provenance_carries_it` hand-made a `reader_followup` commitment with no digest, which is now held (fail closed); the test now gives it its digest row |
+| the same 60 files, after that | 1412 passed, 3 skipped |
+
+Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity tests stay green. No frontend, `src-tauri`, migration or
+schema change.
