@@ -292,3 +292,14 @@ def test_a_section_withheld_since_judging_is_never_shown_and_reasons_are_codes(s
     assert ("ext_lay", "lay_char") not in refs
     assert all(line["reason_by"] == "code" for line in view["lines"])
     assert datetime.now(UTC) - timedelta(days=1) < datetime.now(UTC)
+
+
+def test_reading_more_of_a_book_already_started_does_not_make_a_new_judgment(scoped):
+    paths, repository, goal_id, vault = scoped
+    first = DP.path_inputs(vault, repository, goal_id).state_key()
+    repository.upsert_reader_section_progress(extraction_id="ext_book", section_id="ch_det", spans_seen=1,
+                                              span_count=3)
+    started = DP.path_inputs(vault, repository, goal_id)
+    assert started.context["reading"] == [{"book": "Linear Algebra Notes"}] and started.state_key() != first
+    repository.upsert_reader_section_progress(extraction_id="ext_book", section_id="ch_orth", completed=True)
+    assert DP.path_inputs(vault, repository, goal_id).state_key() == started.state_key()

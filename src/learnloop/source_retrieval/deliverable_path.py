@@ -268,11 +268,15 @@ def prerequisite_closure(vault: Any, needed: Sequence[str], depth: str) -> dict[
 def learner_context(vault: Any, repository: Repository, library: SC.Library, goal_id: str,
                     depth: str, due_at: str | None, *, clock: Clock | None = None) -> dict[str, Any]:
     """What the judge reads of the learner, as text (§7.2): the books they have been
-    reading, their earlier choices on this deliverable, and the days left."""
+    reading, their earlier choices on this deliverable, and the days left.
+
+    The books are named, not counted: the context is part of the path's cache key, and a
+    count would make every section read a new judgment (one paid call per section on the
+    next Guide open); a book the learner starts, a choice they make or a day passing does."""
 
     reading: list[dict[str, Any]] = []
     for source_id, extraction_ids in sorted(library.by_source().items()):
-        read = 0
+        read = False
         title = ""
         for extraction_id in extraction_ids:
             extraction = library.extractions.get(extraction_id)
@@ -281,9 +285,9 @@ def learner_context(vault: Any, repository: Repository, library: SC.Library, goa
                 rows = repository.reader_section_progress_for(extraction_id)
             except Exception:  # noqa: BLE001 - an unreadable progress table reads as nothing read
                 rows = []
-            read += sum(1 for row in rows if row.get("completed_at") or int(row.get("spans_seen") or 0) > 0)
+            read = read or any(row.get("completed_at") or int(row.get("spans_seen") or 0) > 0 for row in rows)
         if read:
-            reading.append({"book": title or source_id, "sections_read": read})
+            reading.append({"book": title or source_id})
     choices: list[dict[str, Any]] = []
     with repository.connection() as connection:
         if store.tables_present(connection):
