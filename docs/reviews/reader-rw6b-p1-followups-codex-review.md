@@ -3,8 +3,12 @@
 The Codex review of the stage (`gpt-6.1-sol`, job `20261031-142011-eGzO0z`) reported 4 High and 8 Medium findings.
 I reproduced each one first with a failing test, then fixed it, or rejected it with a reason.
 The repro tests are `tests/test_reader_followups_review.py` and `tests/test_reader_followups_successor.py`.
-Before the fixes, every repro test failed for the reason the finding gives: 21 failures out of 21 tests in
-`test_reader_followups_review.py`; the F4 gating did not exist.
+Before the fixes, the repro run of `test_reader_followups_review.py` (20 tests) failed for every finding, each for
+the reason the finding gives. Examples: an exposed item still in `eligible` (F1); a commitment created under Pause
+or Master (F2); orphan commitments, and a unique-constraint failure (F3); the exposure judge reached during
+re-valuation (F5); `planned` after a budget stop (F6); zero problems for a formative-only question (F9); empty
+spans (F10); both retention questions suppressed (F11); no familiarity on the receipt (F12). The F4 gate did not
+exist.
 
 **Spend: $0.** No model or paid calls. Tests use fakes only. Every Python run outside pytest used `env -i` with
 empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` under `fixtures-local/rw6b-env/`: the reference
@@ -18,7 +22,7 @@ generator, the CLI help snapshot writer and the fingerprint computation. No owne
 | F1 | High | Exposed follow-ups can still be served as cold checks | fixed | `4741c4f5e` | `test_f1_an_impression_since_valuation_holds_the_check_and_revaluation_retires_and_re_asks`, `test_f1_a_related_worked_example_is_only_a_label_for_a_discriminating_check` |
 | F2 | High | Automatic commitments override explicit learner intent | fixed | `4741c4f5e` | `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose[pause,master]`, `test_f2_creation_refuses_an_item_the_learner_committed_since_the_search` |
 | F3 | High | Crashes can leave live checks outside the digest and revaluation machinery | fixed | `4741c4f5e` | `test_f3_a_failure_before_the_digest_is_written_leaves_no_orphan_commitment`, `test_f3_a_session_another_process_planned_meanwhile_is_not_published_twice` |
-| F4 | High | The serving change has no algorithm successor | fixed (successor `mvp-0.39`) | `ea98440d8`, `SUCCESSOR_COMMIT` | `tests/test_reader_followups_successor.py` (17 tests: the constant, the tag/switch gate, plan parity, the upgrade link, interrupted activations, shadow 0/0/0) |
+| F4 | High | The serving change has no algorithm successor | fixed (successor `mvp-0.39`) | `ea98440d8`, `6391805a6` | `tests/test_reader_followups_successor.py` (17 tests: the constant, the tag/switch gate, plan parity, the upgrade link, interrupted activations, shadow 0/0/0) |
 | F5 | Medium | Daily revaluation makes paid calls outside its advertised controls | fixed | `4741c4f5e` | `test_f5_revaluation_never_reaches_the_exposure_judge`, `test_f5_with_the_source_switches_off_revaluation_values_nothing_and_keeps_the_check`, `test_f5_an_unjudged_worked_example_is_refreshed_in_the_background_under_both_envelopes` |
 | F6 | Medium | Partial success turns a budget interruption into permanent truncation | fixed | `4741c4f5e` | `test_f6_a_budget_stop_after_a_pick_stays_incomplete_and_resumes_with_the_pick` |
 | F7 | Medium | Repair decisions never reach the EVSI path | fixed | `4741c4f5e` | `test_f7_an_open_causal_factor_with_competing_repairs_is_a_decision_question`, `test_f7_revaluation_passes_the_stored_pending_decision` |
@@ -165,4 +169,46 @@ re-valuation turn it on. Other callers of `find_practice` are unchanged.
 
 ## Gate
 
-GATE_PLACEHOLDER
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`, with
+pytest at `-n 6`. The full suite, the whole durability lane and the whole vitest run were not run; they belong to
+the landing gate.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken (run after the fixes and again at the end) |
+| repro run before the fixes: `pytest -n 6 tests/test_reader_followups_review.py` | failed for every finding (see the top of this file) |
+| `pytest -n 6` over the 121 files listed below (first full targeted run) | 7 failed, 2525 passed, 15 skipped, 5 xfailed. Six were chain-pin sets my bulk edit got wrong, and one was `test_intent_checks.py` (the gate counted an attempt made before the valuation). Both were fixed in `6391805a6`. |
+| `pytest -n 6` over the 9 files with those failures, plus the follow-up tests | 206 passed, 6 skipped, 1 xfailed |
+| confirmation run, `pytest -n 6` over 31 files: the 5 follow-up files, the 16 intent/DL2 files and 10 contract files | 749 passed, 3 skipped |
+| `tests/test_cli_help_snapshot.py --write` (env -i) | only `upgrade` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` (env -i) | 355 table notes; `errors: []` (no schema change; stamps and line citations only) |
+
+Not applicable:
+- Frontend: no change. The new retirement reasons are never rendered by the card, which reads only
+  `no_longer_needed`, and "Coming up" shows pending checks only.
+- `src-tauri`: no change.
+- Migrations and DB connection code: no change, so no durability run.
+
+**The 121 files of the targeted run:** `test_reader_followups.py`, `test_reader_followups_review.py`, `test_reader_followups_successor.py`, `test_reader_followup_valuation.py`, `test_reader_session_digests_migration.py`, `test_ad23_successor.py`, `test_attempt_content_state_successor.py`, `test_batch3_landing.py`, `test_cold_retry_reschedule.py`, `test_field_workbench_signals.py`, `test_intent_codex_rereview.py`, `test_learner_report_superseded.py`, `test_lp_claim_fixes.py`, `test_method_explicit_upgrade.py`, `test_mvp011_upgrade.py`, `test_mvp013_upgrade.py`, `test_mvp014_upgrade.py`, `test_mvp015_upgrade.py`, `test_mvp016_upgrade.py`, `test_mvp017_upgrade.py`, `test_mvp018_upgrade.py`, `test_mvp020_upgrade.py`, `test_mvp021_upgrade.py`, `test_mvp022_upgrade.py`, `test_mvp023_upgrade.py`, `test_mvp024_upgrade.py`, `test_plan_follows_path.py`, `test_pr4_superseded_claims_landing.py`, `test_reader_ca2_one_ask.py`, `test_reading_step_switch.py`, `test_rebuild_equivalence_review.py`, `test_recurrence_commands.py`, `test_regrade_contract_successor.py`, `test_required_method_grading.py`, `test_route_rules_in_grader.py`, `test_serve_eligibility_review.py`, `test_ad23_intent_compose.py`, `test_ad23_inversion.py`, `test_ad23_pool_membership.py`, `test_diagnosis_input_provenance_landing.py`, `test_diagnosis_input_provenance.py`, `test_discriminating_search.py`, `test_evsi_multisim.py`, `test_facet_locks_landing.py`, `test_hint_feedback_texts.py`, `test_hypothesis_reference_contract.py`, `test_intent_fix_round4.py`, `test_intent_fix_round6.py`, `test_intent_fix_round7.py`, `test_intent_recall_targets.py`, `test_intent_resolution.py`, `test_library_exercises.py`, `test_mcp_c1a_landing.py`, `test_mcp_c1a_narrow.py`, `test_mcp_c1a_review.py`, `test_mcp_tools.py`, `test_probability_prep.py`, `test_reader_find_sources_callers.py`, `test_router_card.py`, `test_router_r2a_landing.py`, `test_router_r2c_retrieval.py`, `test_sources_merge_composition.py`, `test_tool_dispatch_policy.py`, `test_value_candidates.py`, `test_voi_merge_composition.py`, `test_voi_stopping.py`, `test_voi_v2.py`, `test_exam_protection.py`, `test_exam_protection_review.py`, `test_exercise_arm.py`, `test_practice_index_evaluation.py`, `test_practice_index_find.py`, `test_practice_proposal_caller_columns.py`, `test_proposal_impressions.py`, `test_retrieval_interventions_write_points.py`, `test_source_exercise_rpcs.py`, `test_source_service_spend_envelopes.py`, `test_tutor_practice_request.py`, `test_valuation_calibration_fields.py`, `test_dl2_rw4b_keyed_pick_check.py`, `test_intent_checks.py`, `test_intent_codex_review.py`, `test_intent_exclusion.py`, `test_intent_fix_round5.py`, `test_intent_goal_deadline.py`, `test_intent_orchestrator_rulings.py`, `test_intent_planner.py`, `test_intent_plan.py`, `test_intent_rpc.py`, `test_reader_recap.py`, `test_reader_recap_review.py`, `test_reader_recap_review_r2.py`, `test_reader_recap_review_r3.py`, `test_reader_wrap_up.py`, `test_reader_observation_records.py`, `test_daily_loop_reader_authored_practice.py`, `test_daily_loop_reader_retire.py`, `test_daily_plan_reading.py`, `test_reader_rw3a_landing.py`, `test_reading_paths.py`, `test_rw7b_codex_review_fixes.py`, `test_daily_plan_build.py`, `test_followups.py`, `test_commitments.py`, `test_config_refactor.py`, `test_registry_audit.py`, `test_table_roles.py`, `test_architecture.py`, `test_cli_help_snapshot.py`, `test_tracked_fixture_databases.py`, `test_sqlite_file_copies.py`, `test_coordinated_migrations.py`, `test_migration_coordinator.py`, `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_mobile_allowlist.py`, `test_instructional_layering.py`, `test_reference_gate_imports.py`, `test_lp_claim_fixes_rereview.py`, `test_ad_denial_log.py`, `test_rbeq_pr2_landing.py`.
+
+**The confirmation run's 31 files:** `test_reader_followups.py`, `test_reader_followups_review.py`,
+`test_reader_followups_successor.py`, `test_reader_followup_valuation.py`, `test_reader_session_digests_migration.py`,
+`test_dl2_rw4b_keyed_pick_check.py`, `test_intent_checks.py`, `test_intent_codex_review.py`,
+`test_intent_codex_rereview.py`, `test_intent_exclusion.py`, `test_intent_fix_round4.py`, `test_intent_fix_round5.py`,
+`test_intent_fix_round6.py`, `test_intent_fix_round7.py`, `test_intent_goal_deadline.py`,
+`test_intent_orchestrator_rulings.py`, `test_intent_planner.py`, `test_intent_plan.py`, `test_intent_recall_targets.py`,
+`test_intent_resolution.py`, `test_intent_rpc.py`, `test_config_refactor.py`, `test_registry_audit.py`,
+`test_architecture.py`, `test_cli_help_snapshot.py`, `test_desktop_rpc_contract.py`,
+`test_sidecar_serializer_snapshot.py`, `test_mobile_allowlist.py`, `test_table_roles.py`,
+`test_tracked_fixture_databases.py`, `test_instructional_layering.py`.
+
+## Notes for the landing
+
+- **Successor at landing.** `mvp-0.39` and its defaults snapshot sit after `mvp-0.38`. If another successor lands
+  first, renumber the one constant (`READER_FOLLOWUPS_ALGORITHM_VERSION`) and recompute the snapshot. Then move the
+  chain pins: 31 test files plus `test_reader_followups_successor.py`.
+- **Owner upgrade.** `learnloop upgrade` (default target) from `mvp-0.38`, or through the chain. The first Today
+  build after that plans ended reader sessions from the last 14 days in the background, inside both daily caps.
+- **Open question.** The F8 deferral: instruments stay with their probe episode, and unimported exercises need an
+  import stage with its own generation cap.
