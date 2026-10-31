@@ -212,3 +212,90 @@ Not applicable:
   build after that plans ended reader sessions from the last 14 days in the background, inside both daily caps.
 - **Open question.** The F8 deferral: instruments stay with their probe episode, and unimported exercises need an
   import stage with its own generation cap.
+
+## Re-review (Codex job `20261031-154122-obQbTN`, range `18536e876..reader/rw6b-followups`)
+
+The re-review confirmed F2 and F4 as fixed. It reopened F1 and F3 and added two Medium findings, F13 and F14.
+I reproduced each one first in `tests/test_reader_followups_rereview.py`, where all 5 failing tests failed before
+the fixes, each for the reason the finding gives:
+- `None` from the gate after the printed solution was read (F1a).
+- `None` with a related example and an unjudged one (F1b).
+- A live commitment outside the digest's ids after two resumptions in the same second (F3).
+- The check `stopped` while the digest still read `planned` after an injected failure (F13).
+- Both A and B pending after the resumed search selected only B, using perfect-information tables as Codex's
+  probe did (F14).
+
+The 6th test, `test_f14_..._keeps_it`, is a guard that passes on both sides. **Spend: $0.** No model or paid calls.
+The one probe outside pytest checked which picks the real valuation makes for the F14 tables. It ran under `env -i`
+with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | The gate omits book-solution spans; a `related` example masks an unjudged one | fixed | `31c24cbad` | `test_f1_reading_the_imported_exercises_book_solution_since_valuation_holds_the_check`, `test_f1_a_related_example_does_not_mask_another_unjudged_one_for_a_discriminating_check` |
+| F2 | High | Explicit learner intent | confirmed fixed by the re-review | `4741c4f5e` | (unchanged) |
+| F3 | High (reopened) | The publication guard compares second-resolution `updated_at` | fixed | `31c24cbad` | `test_f3_two_resumptions_publishing_in_the_same_second_never_orphan_a_commitment` |
+| F4 | High | Successor | confirmed fixed by the re-review | `ea98440d8`, `6391805a6` | (unchanged) |
+| F13 | Medium | An interrupted retirement permanently loses the replacement search | fixed | `31c24cbad` | `test_f13_a_failure_after_the_exposure_retirement_loses_neither_the_check_nor_the_re_ask` |
+| F14 | Medium | Resuming a partial search accumulates redundant checks | fixed | `31c24cbad` | `test_f14_a_resumed_search_that_prefers_a_cheaper_equal_check_retires_the_earlier_one`, `test_f14_a_resumed_search_that_still_selects_the_earlier_check_keeps_it` |
+
+### What changed
+
+- **F1.** `followup_gate` now passes the imported exercise's book-solution spans to `serve_time_exposure`, using the
+  new `db.stores.source_service.book_solution_span_ids`. This is the latest import's
+  `verification.book_solution`, the same row `instructional.exposure._solution_spans` reads at valuation. It also
+  passes the exercise's pre-import key (`exercise_key`) as a candidate key, as the diagnosis follow-up's serve-time
+  check does.
+  The exposure rule reports only the strongest worked-example reason. So `independent_reasons` now takes the rule's
+  `studied_worked_examples`: when it drops a `related` label for a `discriminate` check while another studied
+  example was never judged, it reports `worked_example_unjudged`. Re-valuation then keeps the check for the
+  background refresh, as before.
+- **F3.** The publication compares the whole digest row it read before the searches with the row inside the
+  transaction, instead of the `updated_at` stamp. Any change since then supersedes the plan, whether another
+  resumption or a re-valuation wrote it. Nothing is created, and the digest stays as the other writer left it.
+- **F13.** `_revaluation_line` no longer retires an exposed check itself. `revalue_pending` does it inside the same
+  `repository.atomic()` block that writes the question's re-ask marker (`incomplete`, `exposed_since_valuation`),
+  the re-valuation lines and the queue revision. It re-reads the digest's valuation inside that block. If the
+  learner undid, restored or answered the check meanwhile, it is kept with `changed_meanwhile` and its question is
+  not re-asked.
+- **F14.** A question can be re-asked after a resumed search (the earlier pick carried) or after a fresh one.
+  If its search valued an earlier check of the same question (the check is in a section's `valued` group) and did
+  not select it, the publication transaction retires that check. The new reason is `superseded_by_resumed_search`,
+  and the `chosen` line gets `superseded_by`. The question's receipt entry lists `superseded`.
+  A check the learner restored, undid or answered meanwhile is left alone. "Coming up" shows the retirement as
+  "No longer needed: another check coming up tells you the same in less time".
+  I chose reconciliation over conditioning the valuation on the scheduled checks because it stays inside RW6b.
+  Conditioning would change the shared `value_candidates` API that other callers use.
+
+### Re-review gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`, at
+`-n 6` (the repro runs serial). The full suite, the whole durability lane and the whole vitest run were not run.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro, before the fixes: `pytest tests/test_reader_followups_rereview.py` | 5 failed, 1 passed (the guard) |
+| `pytest -n 6` over the 5 follow-up files, after the fixes | 84 passed |
+| `pytest -n 6` over the 30 files of the targeted run (below) | 1041 passed, 3 skipped |
+| `pytest -n 6` over 14 more intent, DL2 and contract files (below) | 156 passed |
+
+Not applicable:
+- Frontend: no change. The new text comes from the backend through `coming_up`.
+- `src-tauri`: no change.
+- Migrations, DB connection code and schema: no change, so no durability run and no DB reference regeneration.
+
+**The 30 files of the targeted run:** `test_ad23_intent_compose.py`, `test_ad23_inversion.py`,
+`test_ad23_pool_membership.py`, `test_architecture.py`, `test_cli_attempt.py`, `test_followups.py`,
+`test_gate_score.py`, `test_intent_codex_rereview.py`, `test_intent_fix_round4.py`, `test_intent_fix_round6.py`,
+`test_intent_fix_round7.py`, `test_intent_recall_targets.py`, `test_intent_resolution.py`, `test_mobile_allowlist.py`,
+`test_reader_followups.py`, `test_reader_followups_rereview.py`, `test_reader_followups_review.py`,
+`test_reader_followups_successor.py`, `test_reader_followup_valuation.py`, `test_reader_session_digests_migration.py`,
+`test_source_first_needs.py`, `test_ux_phase4_feedback.py`, `test_reader_recap.py`, `test_reader_recap_review.py`,
+`test_reader_recap_review_r2.py`, `test_reader_recap_review_r3.py`, `test_desktop_rpc_contract.py`,
+`test_sidecar_serializer_snapshot.py`, `test_discriminating_search.py`, `test_exercise_arm.py`.
+
+**The 14 more files:** `test_dl2_rw4b_keyed_pick_check.py`, `test_intent_checks.py`, `test_intent_codex_review.py`,
+`test_intent_exclusion.py`, `test_intent_fix_round5.py`, `test_intent_goal_deadline.py`,
+`test_intent_orchestrator_rulings.py`, `test_intent_planner.py`, `test_intent_plan.py`, `test_intent_rpc.py`,
+`test_reader_wrap_up.py`, `test_commitments.py`, `test_instructional_layering.py`, `test_table_roles.py`.
