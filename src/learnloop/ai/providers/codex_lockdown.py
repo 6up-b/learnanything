@@ -74,8 +74,9 @@ ISOLATED_PROFILE = f"learnloop_isolated_turn_{secrets.token_hex(8)}"
 #: context, or offer the model a tool, all off in every locked-down turn
 #: (codex-cli 0.163.0 ``features list``; each key checked to take effect under
 #: ``-c features.<key>=false``; 0.164.0's three new defaults checked the same
-#: way, 2026-10-27). Unknown keys are ignored by Codex, and so are retired ones
-#: (:data:`REVIEWED_RETIRED_FEATURES`).
+#: way, 2026-10-27, and 0.165.0's two, 2026-10-31,
+#: docs/reviews/codex-cli-0165-lockdown.md). Unknown keys are ignored by Codex,
+#: and so are retired ones (:data:`REVIEWED_RETIRED_FEATURES`).
 LOCKDOWN_DISABLED_FEATURES = (
     "apps",
     "auth_elicitation",
@@ -120,7 +121,17 @@ LOCKDOWN_DISABLED_FEATURES = (
     "network_proxy",
     "plugin_sharing",
     "plugins",
+    # codex-cli 0.165.0, on by default (2026-10-31): a prediction fork or
+    # thread/sample with MCP disabled keeps the parent's tool declarations in
+    # its context instead of re-declaring its own. Tool surface: off (the turn
+    # declares only what its own router offers). LearnLoop never forks or samples.
+    "prediction_preserve_parent_tools",
     "realtime_conversation",
+    # codex-cli 0.165.0, on by default (was under development and off in
+    # 0.164.0): a change of reasoning effort is recorded as a harness-authored
+    # `configuration_update` input item instead of a request parameter. No
+    # tool; off keeps the turn's input and the effort's place as on 0.164.0.
+    "reasoning_effort_override",
     "remote_plugin",
     "request_permissions_tool",
     "send_message_to_user_async",
@@ -662,7 +673,13 @@ def rendered_skills(prompt_input_stdout: str) -> list[tuple[str, str]] | None:
 def skill_disable_overrides(skills: Iterable[tuple[str, str]]) -> list[str]:
     """``-c`` keys that leave a turn no skill: bundled skills off, and every listed skill disabled
     by name and by path (a later ``-c`` layer's rule beats every config file's, codex-cli 0.163.0
-    ``skill_config_rules_from_stack``), so no ``$name`` or ``SKILL.md`` link in a prompt can expand one."""
+    ``skill_config_rules_from_stack``), so no ``$name`` or ``SKILL.md`` link in a prompt can expand one.
+
+    ``skills.bundled`` is a config table, not a feature: ``features list`` has no row for it and
+    ``features.*`` cannot reach it. Its switch is ``skills.bundled.enabled`` (codex-cli 0.165.0
+    ``config/src/skills_config.rs`` ``BundledSkillsConfig``, default on); a bare
+    ``skills.bundled=false`` fails to load (``expected struct BundledSkillsConfig``). The launch
+    check reads the effect back in ``debug prompt-input`` (:func:`rendered_skills`)."""
 
     overrides = ["skills.bundled.enabled=false"]
     rules: list[str] = []

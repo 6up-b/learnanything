@@ -257,7 +257,9 @@ elif command == "debug prompt-input":
                                          layers=spec.get("permission_layers") or {},
                                          forced=spec.get("forced_permissions") or {},
                                          skills=[tuple(pair) for pair in spec.get("skills") or ()],
-                                         forced_tools=spec.get("forced_tools") or ())))
+                                         forced_tools=spec.get("forced_tools") or (),
+                                         bundled_skills=[tuple(pair) for pair in spec.get("bundled_skills") or ()],
+                                         ignored_skill_overrides=spec.get("ignored_skill_overrides") or ())))
 elif args[:1] == ["app-server"]:
     print(json.dumps({"launched": True, "servers_on": sorted(name for name, on in servers.items() if on),
                       "features_on": sorted(f for f in spec["features"] if f not in off),
@@ -271,13 +273,18 @@ else:
 
 
 _RENDERER = r'''
-def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None, skills=(), forced_tools=()):
+def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None, skills=(), forced_tools=(),
+                        bundled_skills=(), ignored_skill_overrides=()):
     """`codex debug prompt-input`'s items, as codex-cli 0.163.0 renders them.
 
     The permission profile (the `-c` table of `default_permissions` over a
     lower layer's, plus `forced`), the network policy, the skills the user
     has (`skills`: (name, path) pairs, minus those `skills.config` disables by
-    name or path), and, with `features.incremental_tools=true` for a model
+    name or path) and the bundled system skills (`bundled_skills`, the same
+    pairs, unless `skills.bundled.enabled=false`; codex-cli 0.165.0 lists
+    imagegen, openai-docs, skill-creator and skill-installer from
+    `$CODEX_HOME/skills/.system` by default; `ignored_skill_overrides` names
+    those two keys for a CLI that does not act on them), and, with `features.incremental_tools=true` for a model
     served through Responses Lite, the tools the pinned catalog's entry gives
     (code mode exec/wait, shell, apply_patch, experimental tools, plus
     `forced_tools`) as an `additional_tools` item followed by the model's
@@ -339,18 +346,24 @@ def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None,
                       "content": [{"type": "input_text", "text": entry.get("base_instructions", "")}]})
     items.append({"type": "message", "role": "developer", "content": [{"type": "input_text", "text": permissions}]})
     disabled = set()
-    rules = values.get("skills.config")
+    rules = None if "skills.config" in ignored_skill_overrides else values.get("skills.config")
     if rules:
         for rule in _tomllib.loads("t = " + rules)["t"]:
             if rule.get("enabled") is False:
                 disabled.add(rule.get("name") or rule.get("path"))
-    listed = [(skill, path) for skill, path in skills if skill not in disabled and path not in disabled]
+    bundled_on = ("skills.bundled.enabled" in ignored_skill_overrides
+                  or values.get("skills.bundled.enabled") != "false")
+    candidates = [*skills, *(bundled_skills if bundled_on else ())]
+    listed = [(skill, path) for skill, path in candidates if skill not in disabled and path not in disabled]
     if listed:
-        root = str(_Path(listed[0][1]).parent.parent)
-        lines = ["<skills_instructions>", "## Skills", "### Skill roots", "- `r0` = `%s`" % root,
-                 "### Available skills"]
-        lines += ["- %s: A synthetic skill. (file: r0/%s)" % (skill, str(_Path(path).relative_to(root)))
-                  for skill, path in listed]
+        roots = list(dict.fromkeys(str(_Path(path).parent.parent) for _skill, path in listed))
+        lines = ["<skills_instructions>", "## Skills", "### Skill roots"]
+        lines += ["- `r%d` = `%s`" % (index, root) for index, root in enumerate(roots)]
+        lines.append("### Available skills")
+        for skill, path in listed:
+            root = str(_Path(path).parent.parent)
+            lines.append("- %s: A synthetic skill. (file: r%d/%s)"
+                         % (skill, roots.index(root), str(_Path(path).relative_to(root))))
         lines.append("</skills_instructions>")
         items.append({"type": "message", "role": "developer",
                       "content": [{"type": "input_text", "text": "\n".join(lines)}]})
@@ -377,8 +390,9 @@ def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
     default :func:`bundled_catalog`), ``rejects_overrides`` (config keys this
     CLI refuses to load, as a June-era CLI refuses ``agents.enabled``),
     ``user_catalog`` / ``forced_catalog`` (``debug models`` without
-    ``--bundled``), ``permission_layers`` / ``forced_permissions`` (``debug
-    prompt-input``; see the module docstring).
+    ``--bundled``), ``permission_layers`` / ``forced_permissions`` / ``skills``
+    / ``bundled_skills`` / ``ignored_skill_overrides`` (``debug prompt-input``;
+    see the module docstring and :func:`render_prompt_input`).
     """
 
     directory.mkdir(parents=True, exist_ok=True)
