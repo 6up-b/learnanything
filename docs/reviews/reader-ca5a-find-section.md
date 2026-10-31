@@ -121,3 +121,92 @@ Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --sco
   `env -i` with empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR.
 
 The Codex review and its fix round: `docs/reviews/reader-ca5a-find-section-codex-review.md`.
+
+## Landing onto main (2026-10-27)
+
+Landed in `learnanything-astrafix` on `reader/ca5a-find-section` (stage tip `31597f4e5`, base `1bcde2096`) by
+merging `main` `5b3f66059`: the Oct 27 follow-ups (`dbc1559e7`), the docs-only RW5c design spec (`d2f10ef55`) and the
+cold-retry successor mvp-0.38. Main was neither fast-forwarded nor pushed. No migration and no successor: CA5a stays
+navigation and display only, at every version.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `48333b292` | `--no-ff` merge of `main` `5b3f66059`. **Conflicts:** `src/learnloop/config/template.py` (every default snapshot, mvp-0.9 … mvp-0.37) and ~430 generated reference notes (`source_commit` stamps). The template keeps both sides: mvp-0.9's comment carries both new keys' paragraphs (`[practice] reschedule_cold_after_assist`, then `[reader.correspondence] enabled`), every later entry both one-line notes, and **mvp-0.38 gains CA5a's line** (its effective defaults include `[reader.correspondence] enabled = true`). **All 29 fingerprints** (mvp-0.9 … mvp-0.38) were recomputed with `defaults_fingerprint_for_version`, the template `.pyc` cleared, and rechecked (0 mismatches). The reference notes were taken from main and regenerated in the next commit. `schema.py`, `parameter_registry.py` and `db_generate_reference.py` auto-merged. |
+| `9a7132897` | DB/config reference regenerated on the merge. The hand-written counts in `Configuration.md` and `Database.md` move to **1067 effective leaves in 75 sections** (main's 1066 + CA5a's key). `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1163 notes). |
+| `95ec35cb4` | The interaction test (below). |
+
+`git diff main` lists no binary, no tracked database and nothing under `fixtures-local/`; `.gitignore` is unchanged.
+
+### Interaction with the cold-retry reschedule (mvp-0.38)
+
+The reschedule's `coldness_receipt.repair_surface_hard_contamination` skips a candidate surface through the final
+receipt's own exposure scan. A peek's rows (`span_view.record_span_exposures`, context `library`, no entity) reach it:
+a recorded span that a candidate was authored from is `cold_item_source_span_viewed` (hard). New test
+`test_reader_ca5a_find_section.py::test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`:
+the repair's one spare surface is authored from Lay §5.2's paragraph `s6`. A peek of §5.2 between the primed attempt
+and the due cold retry shows `s5` and `s6`. Then help is taken on the retry. The retry is withdrawn, the
+`assisted_cold_retry` opportunity is `structurally_refused / no_uncontaminated_surface`, and the summary names the
+spare with `cold_item_answer_revealed_post_primed` and exactly the `s6` exposure id. It passed first time, so no fix
+was needed. **Mutation check:** with the peek's recording replaced by fake ids, the spare is scheduled and the test
+fails.
+
+### Regeneration
+
+- DB/config reference: regenerated and validated as above.
+- Defaults fingerprints: all 29 recomputed.
+- CLI help snapshot, sidecar serializer snapshot, desktop RPC contract and the mobile allowlist (both new RPCs
+  desktop-only) pass as merged; nothing else needed regenerating.
+- Targeted run after the merge (163 files: everything naming the snapshots, fingerprints, parameter registry,
+  `METHOD_REGISTRY`, CLI help, either new key or the reference validator, plus the cold-retry and CA5a files; `-n 6`,
+  5G scope): **3501 passed**, 39 skipped, 3 xfailed (24 min 31 s). Earlier stages' contract pins needed no change.
+- `docs/learnloop-architecture-vault/_scripts/desktop_validate.py` fails on main too (an unclassified
+  `pdfSelection/testing/syntheticBook.ts`); no test runs it and this landing leaves it alone.
+
+### Gate (at `95ec35cb4`; `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/ca5a/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,352 passed, 0 failed**, 89 skipped, 47 xfailed. pytest 2,019.8 s (33:39); wall 33 min 41 s from taking the lock. No reruns, no faulthandler dump. |
+| durability (`-m durability`, flock, 5G scope, `-n 6`) | **176 passed**, 1 skipped (55.5 s; wall 56 s) |
+| owner lane (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-ca5a/`) | 83 passed, **2 failed**, 4 skipped (49.5 s; wall 54 s): exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy (`conic-sections`, `arxiv` x2, `linear_algebra_legacy`) |
+| frontend (`apps/learnloop-tauri`) | `npm install` ok; `npm run typecheck` clean; whole vitest (`--maxWorkers=4`, 5G): **223 files, 1953 passed** (42.3 s; wall 43 s); `npm run frontend:build` ok; `cargo check --manifest-path src-tauri/Cargo.toml` ok |
+
+### Smoke on owner copies
+
+Fresh backup-API copies of the same three mvp035 owner copies (`fixtures-local/smoke-ca5a-2/`, `-4/`). Each was
+upgraded with `learnloop upgrade --to mvp-0.38` (prints `mvp-0.35 -> mvp-0.38`), then `rebuild-derived-state`, then
+the RPCs through a real sidecar process (`python -m learnloop_sidecar` over stdio). Everything ran under `env -i`
+with `LEARNLOOP_COVERAGE_MODELS=off`, AI base URLs at `127.0.0.1:9`, and audit hooks that refuse non-loopback
+sockets and process starts; the hooks logged nothing. `curriculum.enabled` and `[reader.correspondence] enabled` are
+both on (defaults) in all three copies. Only counts and refusal codes were recorded.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| library readings / readable sections / withheld sections | 3 / 49 / 13 | 2 / 11 / 5 | 12 / 20 / 20 |
+| `reader.correspondents` (search fallback) on two sections: status, hits (books) | unchecked, 2 (2) and 2 (2) | unchecked, 3 (1) and 3 (1) | unchecked, 6 (5) and 5 (5) |
+| hits that are withheld, protected, exam or in the open book | 0 | 0 | 0 |
+| `reader.correspondent_peek` on one hit: blocks shown / exposure rows written | 3 / 3 | 2 / 2 | 3 / 3 |
+| rows match the shown spans exactly (context `library`); blocks protected or outside the section | yes; 0 | yes; 0 | yes; 0 |
+| `reader.correspondent_dismiss`: hit gone, repeat replayed, undo brings the same hits back | yes, yes, yes | yes, yes, yes | yes, yes, yes |
+| withheld section as origin (3 each): `reader.correspondents` | status `withheld`, 0 hits | same | same |
+| withheld section peeked (3 each): refusal, rows written | `withheld`, 0 | `withheld`, 0 | `withheld`, 0 |
+| `rebuild --shadow` before / after (mastery/facet/schedule) | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 |
+| `model_call_receipts` rows added | 0 | 0 | 0 |
+
+### Owner notes
+
+- Kill switch: `[reader.correspondence] enabled` (default true). Off, the Guide's *find this section in my other
+  books* action, the peek and *not about this* are gone; C0a's data reads are unchanged.
+- It needs `curriculum.enabled` (on by default) and the Reader (`tutor_qa.reader_enabled`).
+- No upgrade is needed for CA5a itself. The owner vaults' pending `upgrade --to mvp-0.38` (cold-retry) is unchanged
+  by it.
+
+### Open items
+
+- Peek detour crumb and the `reader_action_invoked` salience events (`corresponding_section_peeked` / `_opened`) go
+  to CA5.
+- Compare runs through the library ask (the section's title as the question) until CA3's anchor request lands.
+- A per-section Library cache for the quiet read before CA5 (C0a's side), if its cost shows up in use.
