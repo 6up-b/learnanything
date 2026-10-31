@@ -112,4 +112,40 @@ No migration, no successor, no model call.
 
 ## Gate (targeted; the full suite runs once at landing)
 
-GATE_PLACEHOLDER
+Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G`. pytest ran under `flock /tmp/learnloop-fullsuite.lock` with `-n 6` and `TMPDIR` outside this
+worktree. Ad hoc Python (snapshot recomputation, the reference scripts) ran under `env -i` with empty, existing
+`HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No paid or live call was made, and no model is called anywhere in
+this stage.
+
+- `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Targeted pytest, 124 files.** The selection is every test file that `git grep` finds naming the prompt
+  contract, the default snapshots or fingerprints, the parameter registry, `section_coverage` or correspondents,
+  `CLIENT_ACTION_EVENTS` / `ACTIVITY_FIELDS` / `record_activity` / `reader_inquiry`, `config_numeric_leaves`,
+  `source_retrieval.deliverables` or `apply_config_updates`. To that were added `test_desktop_rpc_contract`,
+  `test_cli_help_snapshot`, `test_vault_template`, `test_architecture`, `test_table_roles`,
+  `test_tracked_fixture_databases`, `test_sidecar_serializer_snapshot`, `test_mobile_allowlist` and
+  `test_reader_activity`; the new `test_reader_ca5_also_in_books.py` is among them.
+  - Result: **7964 passed, 5 failed**, 17 skipped, 3 xfailed (40 min). The five failures were earlier stages'
+    pins of `correspondence == {"enabled": True, "findSection": True}`, which now see CA5's three keys.
+    `test_reader_ca5a_find_section.py`, `test_reader_ca3_landing_ca5a.py`, `test_reader_ca4_landing.py` and
+    `test_reading_paths.py` (x2) were updated to the new key set.
+  - Rerun of those four files plus the new one: **98 passed**.
+- **Frontend** (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck` clean.
+  - vitest (`--maxWorkers=4`) over **64 files: 493 passed**. The new files are `alsoInBooks.test.tsx` (22),
+    `alsoInBooksReader.test.tsx` (10) and `readerCorrespondenceSettings.test.tsx` (3). The rest are
+    `findSection.test.tsx`, `findSectionReader.test.tsx` and `findSectionByPoint.test.tsx`, every
+    `ReaderScreen*.test.tsx` (22), every reader test that mounts the Reader, the Guide rail or the detour strip
+    or logs activity, plus `attentionBudget`, `SettingsScreen`, `splitRails`, `voices` and the four `App.*` shell
+    tests that mount the Reader.
+  - `npm run frontend:build` ok.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok (two passthroughs added).
+- DB/config reference: `db_generate_reference.py` regenerated it. The `reader` section function now names CA5,
+  and the hand-written counts in `Configuration.md` and `Database.md` move to **1078 effective leaves**.
+  `db_validate_reference.py`: **errors []**. `validate_vault.py` passes (1166 notes).
+- Not run here (landing gate): the full suite, the durability lane (no migration or DB/connection code changed)
+  and the whole vitest run.
+
+Note for whoever reads the logs: the workflow's agents share one scratchpad directory. The CA6 agent's targeted
+run wrote to the same `pytest1.log`, so this stage's logs live under `scratchpad/ca5-docs/`.
