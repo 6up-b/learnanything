@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
+source_commit_timestamp: "2026-10-31T14:47:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 226
+schema_head: 228
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -110,6 +110,7 @@ Database triggers:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/practice_index/retrieval.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers

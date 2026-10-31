@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
+source_commit_timestamp: "2026-10-31T14:47:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 226
-table_count: 354
+schema_head: 228
+table_count: 357
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_226/state.sqlite"
+  - "fixtures/migration_head_228/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-226"
+  - "learnloop/database/schema-head-228"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 354 user tables at migration head 226. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 357 user tables at migration head 228. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 354 user tables at migration head 226. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 152 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 153 |
 | [[Table Roles#Derived|`derived`]] | 23 |
 | [[Table Roles#Receipt|`receipt`]] | 77 |
-| [[Table Roles#Workflow|`workflow`]] | 92 |
+| [[Table Roles#Workflow|`workflow`]] | 94 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 341 |
+| `active` | 344 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -430,6 +430,9 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/capture_inbox|capture_inbox]] — `raw_ledger` · `active` · Gives capture inbox a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `client_capture_id`, `device_id`, `kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/capture_routes|capture_routes]] — `workflow` · `active` · Gives capture route a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `capture_id`, `state`, `route`, making the operational relationship explicit.
 - [[Reference/Database/Tables/concept_animations|concept_animations]] — `raw_ledger` · `active` · Tracks requested and rendered concept-animation artifacts. It supplies replay-stable input rather than a disposable cache. Rows bind `concept_id`, `learning_object_id`, `batch_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/deliverable_path_sections|deliverable_path_sections]] — `workflow` · `active` · Gives deliverable path section a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `learning_object_id`, `extraction_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/deliverable_scope_inputs|deliverable_scope_inputs]] — `raw_ledger` · `active` · Gives deliverable scope input a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `goal_id`, `extraction_id`, `kind`, making the operational relationship explicit.
+- [[Reference/Database/Tables/deliverable_scope_resolutions|deliverable_scope_resolutions]] — `workflow` · `active` · Records explicit resolutions of deliverable scope without erasing the original evidence so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `ledger_id`, `prompt_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/diagnosis_adjudications|diagnosis_adjudications]] — `raw_ledger` · `active` · Gives diagnosis adjudication a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `diagnosis_receipt_id`, `adjudicated_repair_class_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/diagnosis_context_receipts|diagnosis_context_receipts]] — `receipt` · `active` · Freezes the inputs and outcome of each diagnosis context decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `diagnosis_id`, `context_as_of_attempt_id`, `context_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/diagnosis_feedback|diagnosis_feedback]] — `raw_ledger` · `active` · Gives diagnosis feedback a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `diagnosis_id`, `attempt_id`, `cited_attempt_id`, making the operational relationship explicit.

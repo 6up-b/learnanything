@@ -3,13 +3,13 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4fab205a2c57b4207100fab6818b01884d14847a"
-source_commit_timestamp: "2026-10-27T18:51:39-04:00"
+source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
+source_commit_timestamp: "2026-10-31T14:47:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
   - "table forecast_receipts"
-schema_head: 226
+schema_head: 228
 table_name: "forecast_receipts"
 table_role: "receipt"
 functionality_status: "active"
