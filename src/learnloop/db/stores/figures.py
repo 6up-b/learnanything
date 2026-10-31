@@ -263,11 +263,12 @@ def missed_prediction_ids(connection: sqlite3.Connection) -> list[str]:
 
 def figure_verdicts(connection: sqlite3.Connection, task: str, figure_id: str) -> list[dict[str, Any]]:
     """RW5d P2 (Codex review F8): a figure's ``judgment_ledger`` verdicts for
-    one task, oldest first (the build's, then any engine re-verification)."""
+    one task in the order they were appended (the build's, then any engine
+    re-verification)."""
 
     return [{"id": row[0], "judge": row[1], "input_hash": row[2], "verdict": row[3]} for row in connection.execute(
         "SELECT id, judge, input_hash, verdict FROM judgment_ledger WHERE task = ? AND left_kind = 'interactive_figure' "
-        "AND left_id = ? AND right_kind IS NULL ORDER BY created_at, rowid", (task, figure_id))]
+        "AND left_id = ? AND right_kind IS NULL ORDER BY rowid", (task, figure_id))]
 
 
 __all__ = [

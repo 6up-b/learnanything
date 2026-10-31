@@ -17,6 +17,7 @@ Fakes only: the author is injected; no model is reached.
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 
@@ -309,6 +310,16 @@ def test_the_tier_is_off_when_the_engine_cannot_run_here(tmp_path, monkeypatch):
     assert _ledger(repository, "figure_tier") == []
 
 
+def _verdicts(repository):
+    """figure_verified rows in the order they were appended (created_at has
+    one-second resolution, so two rows of one second tie on it)."""
+
+    with repository.connection() as connection:
+        connection.row_factory = sqlite3.Row
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM judgment_ledger WHERE task = 'figure_verified' ORDER BY rowid")]
+
+
 def _as_older_engine(repository, figure_id, **report_changes):
     """Make a stored sketch look verified under an earlier engine (and, with
     ``report_changes``, with that engine's report fields)."""
@@ -332,10 +343,10 @@ def test_an_engine_reverification_is_a_verifier_judgment_recorded_once(tmp_path)
 
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
     figure = build(ctx)["figure"]
-    (built,) = _ledger(repository, "figure_verified")
+    (built,) = _verdicts(repository)
     _as_older_engine(repository, figure["figureId"])
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
-    built_again, rechecked = _ledger(repository, "figure_verified")
+    built_again, rechecked = _verdicts(repository)
     assert built_again["id"] == built["id"]
     assert rechecked["judge"] == "verifier" and rechecked["verdict"] == "illustrative"
     assert rechecked["supersedes_id"] == built["id"] and rechecked["left_id"] == figure["figureId"]
@@ -346,7 +357,7 @@ def test_an_engine_reverification_is_a_verifier_judgment_recorded_once(tmp_path)
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     FS._RECHECKED.clear()
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
-    assert len(_ledger(repository, "figure_verified")) == 2
+    assert len(_verdicts(repository)) == 2
     assert author.calls == 1
 
 
@@ -366,7 +377,7 @@ def test_a_failed_reverification_is_recorded_as_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(SV, "verify_sketch", failing)
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "failed"
-    rechecked = _ledger(repository, "figure_verified")[-1]
+    rechecked = _verdicts(repository)[-1]
     assert rechecked["verdict"] == "failed" and "claim 1 fails under this engine" in rechecked["rationale"]
 
 
