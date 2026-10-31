@@ -486,6 +486,16 @@ _reg_const("figure_sketch_engine:_EBADF", "version", kind="structural", owner="f
            rationale='a WASI errno value the deny-all shim answers with (protocol identity, not a parameter).')
 _reg_const("figure_sketch_engine:_ENOSYS", "version", kind="structural", owner="figure_sketch_engine",
            rationale='a WASI errno value the deny-all shim answers with (protocol identity, not a parameter).')
+_reg_const("figure_sketch:SKETCH_MAX_CLAIM_WORK", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F2): the most grammar-expression steps checking one sketch's claims may take over every point read, each evaluation charged before it runs; bounds the Python oracle as the engine's caps bound the program.")
+_reg_const("figure_sketch:SKETCH_MAX_VERIFY_OUTPUT_BYTES", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F1): the engine output one verification reads over both runs; results are streamed (one held at a time), and this bounds their parsing and checking.")
+_reg_const("figure_sketch:SKETCH_VERIFY_SECONDS", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F2): one verification's wall clock (spec §8.4: a sketch is ready in tens of seconds); engine calls and claim loops stop at it.")
+_reg_const("figure_sketch_engine:EPOCH_TICK_SECONDS", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (machine safety, Codex review F7): the tick of the shared epoch clock per-store deadlines are counted in; a deadline is honoured to within one tick.")
+_reg_const("figure_sketch_verify:_TICK_EVERY", "operational", kind="structural", owner="figure_sketch_verify",
+           rationale="keep (operational): how many claim-loop iterations pass between wall-clock checks; cost of the check, not a model number.")
 _reg_const("figure_sketch_verify:VERIFY_SEED", "version", kind="structural", owner="figure_sketch_verify",
            rationale="the seed verification and a sketch's first drawn sample use (an identity, so the first drawn sample is the verified one).")
 

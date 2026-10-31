@@ -307,3 +307,107 @@ def test_the_tier_is_off_when_the_engine_cannot_run_here(tmp_path, monkeypatch):
     build(ctx)
     assert "SketchProgramV1" not in author.prompts[0]
     assert _ledger(repository, "figure_tier") == []
+
+
+def _as_older_engine(repository, figure_id, **report_changes):
+    """Make a stored sketch look verified under an earlier engine (and, with
+    ``report_changes``, with that engine's report fields)."""
+
+    with repository.connection() as connection:
+        (stored,) = connection.execute("SELECT verification_report_json FROM interactive_figures WHERE id = ?",
+                                       (figure_id,)).fetchone()
+        report = {**json.loads(stored), **report_changes}
+        connection.execute("UPDATE interactive_figures SET engine_sha256 = 'an-older-engine', "
+                           "verification_report_json = ? WHERE id = ?", (json.dumps(report), figure_id))
+        connection.commit()
+    FS._RECHECKED.clear()
+
+
+def test_an_engine_reverification_is_a_verifier_judgment_recorded_once(tmp_path):
+    """Codex review F8: the re-verification's verdict reaches judgment_ledger
+    before delivery (superseding the build's verdict), keyed by the program
+    and the engine, once however often it is listed or the process restarts."""
+
+    from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    (built,) = _ledger(repository, "figure_verified")
+    _as_older_engine(repository, figure["figureId"])
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    built_again, rechecked = _ledger(repository, "figure_verified")
+    assert built_again["id"] == built["id"]
+    assert rechecked["judge"] == "verifier" and rechecked["verdict"] == "illustrative"
+    assert rechecked["supersedes_id"] == built["id"] and rechecked["left_id"] == figure["figureId"]
+    assert rechecked["input_hash"] == FS.reverify_hash(figure["specJson"], ENGINE_SHA256)
+    assert ENGINE_SHA256[:12] in rechecked["rationale"] and "an-older-en" in rechecked["rationale"]
+    assert "2 checks" in rechecked["rationale"]
+    # Listed again, and after a "restart" (the in-process memory cleared): no second row.
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    FS._RECHECKED.clear()
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert len(_ledger(repository, "figure_verified")) == 2
+    assert author.calls == 1
+
+
+def test_a_failed_reverification_is_recorded_as_failed(tmp_path, monkeypatch):
+    import learnloop.figures.sketch_verify as SV
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    _as_older_engine(repository, figure["figureId"])
+    real = SV.verify_sketch
+
+    def failing(compiled, **kwargs):
+        report = real(compiled, **kwargs)
+        report.outcome, report.reason = "failed", "claim 1 fails under this engine"
+        return report
+
+    monkeypatch.setattr(SV, "verify_sketch", failing)
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert listed["verification"] == "failed"
+    rechecked = _ledger(repository, "figure_verified")[-1]
+    assert rechecked["verdict"] == "failed" and "claim 1 fails under this engine" in rechecked["rationale"]
+
+
+def test_a_prediction_an_upgrade_made_decidable_can_be_answered(tmp_path):
+    """Codex review F9: listing offers what the fresh report keeps, and
+    record_prediction admits by the same (rechecked) report, not the stored one."""
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    # Under the "older engine" this prediction was undecidable (dropped).
+    _as_older_engine(repository, figure["figureId"], dropped_predictions=[0])
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert [prediction["index"] for prediction in listed["predictions"]] == [0]
+    found = call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
+                                                 "answer": "rises"})
+    assert found["matched"] is True
+
+
+def test_a_prediction_an_upgrade_dropped_is_refused(tmp_path, monkeypatch):
+    import learnloop.figures.sketch_verify as SV
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    figure = build(ctx)["figure"]
+    _as_older_engine(repository, figure["figureId"])
+    real = SV.verify_sketch
+
+    def dropping(compiled, **kwargs):
+        report = real(compiled, **kwargs)
+        report.dropped_predictions = [0]
+        return report
+
+    monkeypatch.setattr(SV, "verify_sketch", dropping)
+    (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert listed["predictions"] == []
+    with pytest.raises(SidecarError):
+        call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0, "answer": "rises"})
+
+
+def test_a_sketch_prediction_carries_the_step_it_is_graded_at(tmp_path):
+    """Codex review F5: the desktop stops playback exactly where the verifier reads."""
+
+    paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
+    (prediction,) = build(ctx)["figure"]["predictions"]
+    assert prediction["targetStep"] == 100

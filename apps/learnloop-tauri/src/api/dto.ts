@@ -9160,6 +9160,8 @@ export interface FigurePredictionDto {
   kind: "direction" | "area" | "choice";
   choices: Array<{ value: string; label: string }>;
   answered: FigurePredictionResultDto | null;
+  /** RW5d P2, a sketch's prediction: the clock step its answer is graded at (playback stops exactly there). */
+  targetStep?: number;
 }
 
 export interface FigureViewDto {
@@ -9205,8 +9207,11 @@ export interface FigureSketchCheckDto {
   claim: number;
   kind: "equals" | "follows" | "invariant" | "distribution";
   probe: string;
-  /** The drawn elements (ids) bound to the probe: what the check speaks for. */
+  /** The drawn elements (ids) bound to the probe that the check speaks for whole. */
   elements: string[];
+  /** Bound elements the check speaks for in one attribute only (Codex review F3): a line's y values,
+   *  a heat map's cell values or a circle's radius. */
+  partial?: Array<{ element: string; attribute: "y" | "values" | "r" }>;
   /** The stated equation as the grammar parsed it (AI-stated), or an invariant's property. */
   statement: string;
   settings: number;

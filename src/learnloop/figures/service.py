@@ -763,14 +763,55 @@ def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
 
 _RECHECKED: dict[tuple[str, str], dict[str, Any]] = {}
 _RECHECKED_GUARD = threading.Lock()
+#: The input revision a re-verification judgment records (Codex review F8):
+#: the program and the engine it was run under.
+REVERIFY_VERSION = "sketch-reverify-v1"
 
 
-def sketch_rechecked(row: Mapping[str, Any]) -> Mapping[str, Any]:
+def reverify_hash(spec_json: str, engine_sha256: str) -> str:
+    return hashlib.sha256(f"{REVERIFY_VERSION}\n{engine_sha256}\n{spec_json}".encode("utf-8")).hexdigest()
+
+
+def _record_reverification(repository: Repository | None, row: Mapping[str, Any], cached: Mapping[str, Any],
+                           engine_sha256: str) -> None:
+    """Codex review F8: an engine re-verification is a verifier verdict, so
+    it is appended to ``judgment_ledger`` (task ``figure_verified``, judge
+    ``verifier``) before the figure is delivered, superseding the figure's
+    last verdict on that question. Keyed by the program and the engine
+    (:func:`reverify_hash`): once per (figure, engine), however often it is
+    listed or the process restarts. The rationale is its provenance: both
+    engine digests, the outcome's reason or check count, and the digest of
+    the report the delivery uses."""
+
+    if repository is None or getattr(repository, "_read_only", False):
+        return
+    figure_id = str(row["id"])
+    input_hash = reverify_hash(str(row["spec_json"]), engine_sha256)
+    report = cached.get("report") or {}
+    outcome = str(cached["outcome"])
+    summary = (f"{len(report.get('checks') or [])} checks" if outcome == V.ILLUSTRATIVE
+               else str(report.get("reason") or "it no longer passes"))
+    digest = hashlib.sha256(json.dumps(report, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    rationale = (f"re-verified under sketch engine {engine_sha256[:12]} (built under "
+                 f"{str(row.get('engine_sha256') or '?')[:12]}); report {digest[:16]}; {summary}")
+    with repository.atomic():
+        connection = repository.connection()
+        verdicts = store.figure_verdicts(connection, LEDGER_TASK, figure_id)
+        if any(found["judge"] == "verifier" and found["input_hash"] == input_hash for found in verdicts):
+            return
+        append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
+                        judge="verifier", input_hash=input_hash, verdict=outcome, rationale=rationale[:400],
+                        supersedes_id=verdicts[-1]["id"] if verdicts else None, created_at=utc_now_iso(None))
+
+
+def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = None) -> Mapping[str, Any]:
     """Spec §8.5, engine upgrades: a shown sketch verified under another
     engine is verified again by code (no model call) before it is shown. One
     that passes shows with this engine's check lines; one that fails shows
     "couldn't run under this version · rebuild", never as checked. Remembered
-    per (figure, engine) in this process (a row is never rewritten)."""
+    per (figure, engine) in this process (a row is never rewritten); with a
+    ``repository`` the verdict is appended to ``judgment_ledger`` first
+    (Codex review F8, :func:`_record_reverification`)."""
 
     from learnloop.figures import sketch_verify as SV
     from learnloop.figures.sketch_engine import ENGINE_SHA256
@@ -789,6 +830,7 @@ def sketch_rechecked(row: Mapping[str, Any]) -> Mapping[str, Any]:
             cached = {"outcome": report.outcome, "report": report.as_dict()}
         except Exception as exc:  # noqa: BLE001 - a program that no longer parses or runs fails closed
             cached = {"outcome": V.FAILED, "report": {"reason": f"{type(exc).__name__}", "tier": "sketch"}}
+        _record_reverification(repository, row, cached, ENGINE_SHA256)
         with _RECHECKED_GUARD:
             _RECHECKED[key] = cached
     previous = dict(row.get("verification_report") or {})
@@ -866,7 +908,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
 
     row = sketch_off_row(vault, advanced_off_row(vault, shown_row(row)))
     if sketch_enabled(vault):
-        row = sketch_rechecked(row)
+        row = sketch_rechecked(row, repository)
     region = row.get("region") or {}
     asked = _figure_request(repository, row)
     home = home or (asked or {}).get("reading_at") or {}
@@ -964,8 +1006,11 @@ def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], vie
             choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
                        if kind == "direction" else
                        [{"value": label, "label": label} for label in prediction.observe.choices])
+            # target_step (Codex review F5): the clock step the answer is
+            # graded at, so the desktop's playback stops exactly there.
             view["predictions"].append({"index": index, "prompt": prediction.prompt, "kind": kind,
-                                        "choices": choices, "answered": _prediction_view(answered.get(index))})
+                                        "choices": choices, "answered": _prediction_view(answered.get(index)),
+                                        "target_step": SV.prediction_target_step(compiled, index)})
     return view
 
 
@@ -1761,8 +1806,12 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
     if sketch_off_row(vault, row) is not row:
         raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched off "
                                                "(figures.sketch_enabled).")
-    if sketch_row(row) and sketch_rechecked(row).get("verification") not in store.SHOWN:
-        raise FigureRefused("not_found", "That simulation couldn't run under this version.")
+    if sketch_row(row):
+        # Codex review F9: the rechecked row is the one delivered and
+        # predicted on (its dropped predictions are this engine's).
+        row = dict(sketch_rechecked(row, repository))
+        if row.get("verification") not in store.SHOWN:
+            raise FigureRefused("not_found", "That simulation couldn't run under this version.")
     if show_me_row(row) and not show_me_enabled(vault):
         raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
                                                 "(figures.show_me_enabled).")

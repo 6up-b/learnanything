@@ -6,9 +6,13 @@
 // numeric fields from the declared parameters, draggable handles bound to
 // them, "play" driving the program's clock (step buttons under reduced
 // motion; nothing moves until pressed), "new sample" for a seeded program,
-// and the values table (`t`). Changing a parameter or the seed restarts the
-// run, so what is drawn is always "init, then n steps", the shape that was
-// verified. A call that outlives the watchdog pauses the sketch (the Worker is
+// and the values table (`t`, every declared value, paged). Changing a
+// parameter or the seed restarts the run, so what is drawn is always "init,
+// then n steps", the shape that was verified: every engine call goes through
+// one queue, and each run carries a token no superseded call may commit under
+// (Codex review F4). A prediction plays to exactly the step it is graded at
+// (stepped through at once under reduced motion; Codex review F5). A call
+// that outlives the watchdog pauses the sketch (the Worker is
 // terminated); an error at the learner's settings says so and prefills
 // "not right?" with code's words and the settings. The badge and the check
 // lines are code-owned, worded here from closed fields; nothing the program
@@ -24,7 +28,7 @@ import type { FiguresCtl } from "../useFigures";
 import { SketchRunError, type Params } from "./sketchEngine";
 import { SketchRunnerContext, withWatchdog, type SketchRunner } from "./sketchRunner";
 import { SketchSceneView } from "./SketchScene";
-import { clockSteps, probeProblems, sceneProblems, type Scene, type SketchParameter, type SketchProgram } from "./sketchScene";
+import { clockSteps, probeProblems, sceneProblems, type Scene, type SketchParameter, type SketchProbe, type SketchProgram } from "./sketchScene";
 
 export const SKETCH_FRAME = {
   badge: "AI-written simulation · sandboxed · not checked against the book",
@@ -62,16 +66,23 @@ export function sketchBadge(figure: Pick<FigureViewDto, "grounding" | "sketch">)
 
 const quote = (name: string) => `‘${name}’`;
 
+/** What a check speaks for when it covers one attribute of a drawn element (Codex review F3). */
+export const ATTRIBUTE_WORDS: Record<string, string> = { y: "y values", values: "cell values", r: "radius" };
+
 /** The check lines, worded by code from each check's closed fields (spec §9.5). */
 export function sketchCheckLines(sketch: FigureSketchDto | null | undefined): string[] {
   if (!sketch) return [];
   const lines = sketch.checks.map((check) => {
-    const subject = check.elements.length ? `the drawn ${check.elements.map(quote).join(", ")}` : `the value ${quote(check.probe)}`;
+    const parts: string[] = [];
+    if (check.elements.length) parts.push(`the drawn ${check.elements.map(quote).join(", ")}`);
+    for (const entry of check.partial ?? []) parts.push(`the ${ATTRIBUTE_WORDS[entry.attribute] ?? "values"} of the drawn ${quote(entry.element)}`);
+    const plural = parts.length > 1 || check.elements.length > 1 || (check.partial ?? []).some((entry) => entry.attribute !== "r");
+    const subject = parts.length ? parts.join(" and ") : `the value ${quote(check.probe)}`;
     const settings = `at ${check.settings} tested settings`;
-    if (check.kind === "follows") return `${subject} follows ${check.statement} (AI-stated) ${settings}`;
-    if (check.kind === "invariant") return `${subject} is ${check.statement} ${settings}`;
-    if (check.kind === "distribution") return `${subject} agrees with ${check.statement} (AI-stated) within sampling error ${settings}`;
-    return `${subject} is ${check.statement} (AI-stated) ${settings}`;
+    if (check.kind === "follows") return `${subject} ${plural ? "follow" : "follows"} ${check.statement} (AI-stated) ${settings}`;
+    if (check.kind === "invariant") return `${subject} ${plural ? "are" : "is"} ${check.statement} ${settings}`;
+    if (check.kind === "distribution") return `${subject} ${plural ? "agree" : "agrees"} with ${check.statement} (AI-stated) within sampling error ${settings}`;
+    return `${subject} ${plural ? "are" : "is"} ${check.statement} (AI-stated) ${settings}`;
   });
   const unnamed = sketch.unnamedElements;
   if (sketch.notCovered.length || unnamed) {
@@ -97,15 +108,55 @@ function settingsText(params: Params): string {
   return Object.entries(params).map(([name, value]) => `${name}=${Number(value.toPrecision(6))}`).join(", ") || "the defaults";
 }
 
-function probeValue(value: unknown, shape: string): string {
-  if (shape === "scalar") return formatValue(typeof value === "number" ? value : null);
-  if (!Array.isArray(value)) return "—";
-  if (shape === "series") {
-    const head = value.slice(0, 8).map((item) => formatValue(typeof item === "number" ? item : null)).join(", ");
-    return `${value.length} values: ${head}${value.length > 8 ? ", …" : ""}`;
-  }
-  const last = value[value.length - 1] as [number, number] | undefined;
-  return `${value.length} points${last ? `; last (${formatValue(last[0])}, ${formatValue(last[1])})` : ""}`;
+/** keep (display): how many entries of a series or path the values table shows per page (Codex review F6). */
+export const TABLE_PAGE = 50;
+
+const num = (value: unknown) => formatValue(typeof value === "number" ? value : null);
+
+/** One declared probe in the values table: a scalar as one value; a series
+ *  or a path as every entry, a page at a time (index and value, or x and y). */
+function ProbeEntries({ probe, value }: { probe: SketchProbe; value: unknown }) {
+  const [page, setPage] = useState(0);
+  if (probe.shape === "scalar") return <>{num(value)}</>;
+  const entries = Array.isArray(value) ? value : [];
+  const pages = Math.max(1, Math.ceil(entries.length / TABLE_PAGE));
+  const current = Math.min(page, pages - 1);
+  const first = current * TABLE_PAGE;
+  const shown = entries.slice(first, first + TABLE_PAGE);
+  const range = entries.length ? `${first + 1}–${first + shown.length} of ${entries.length}` : "none";
+  const cell = { paddingRight: 12, textAlign: "right" as const };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <table data-sketch-entries={probe.name} style={{ borderCollapse: "collapse" }}>
+        <caption style={{ textAlign: "left", color: COLOR.textDim }}>
+          {probe.shape === "pairs" ? "points" : "values"} {range}
+        </caption>
+        <thead>
+          <tr>{probe.shape === "pairs"
+            ? <><th scope="col" style={cell}>#</th><th scope="col" style={cell}>x</th><th scope="col" style={cell}>y</th></>
+            : <><th scope="col" style={cell}>#</th><th scope="col" style={cell}>value</th></>}</tr>
+        </thead>
+        <tbody>
+          {shown.map((entry, offset) => (
+            <tr key={first + offset} data-sketch-entry={first + offset}>
+              <td style={cell}>{first + offset}</td>
+              {probe.shape === "pairs"
+                ? <><td style={cell}>{num((entry as unknown[])?.[0])}</td><td style={cell}>{num((entry as unknown[])?.[1])}</td></>
+                : <td style={cell}>{num(entry)}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {pages > 1 ? (
+        <span style={{ display: "flex", gap: 10 }}>
+          <button type="button" style={linkStyle} disabled={current === 0} data-sketch-page-previous={probe.name}
+            onClick={() => setPage(Math.max(0, current - 1))}>◂ previous {TABLE_PAGE}</button>
+          <button type="button" style={linkStyle} disabled={current >= pages - 1} data-sketch-page-next={probe.name}
+            onClick={() => setPage(Math.min(pages - 1, current + 1))}>next {TABLE_PAGE} ▸</button>
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 /** keep (display): how often play advances, and how many ticks a run to t_max takes. */
@@ -117,6 +168,16 @@ function freshSeed(): number {
   const cryptoObject = (globalThis as { crypto?: Crypto }).crypto;
   if (cryptoObject?.getRandomValues) return cryptoObject.getRandomValues(new Uint32Array(1))[0];
   return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
+
+/** The step a prediction is graded at (the server's `targetStep`, shared with
+ *  its verifier; computed the same way for a view that predates it). */
+export function predictionTarget(program: SketchProgram, prediction: Pick<FigurePredictionDto, "index" | "targetStep">): number {
+  if (typeof prediction.targetStep === "number") return prediction.targetStep;
+  const total = clockSteps(program);
+  const change = program.predictions?.[prediction.index]?.change ?? {};
+  if ("run_to" in change && program.clock) return Math.min(total, Math.max(1, Math.round(change.run_to / program.clock.dt)));
+  return total;
 }
 
 type RunState =
@@ -145,19 +206,35 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
   const loaded = useRef<Promise<unknown> | null>(null);
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const live = useRef({ params, seed, step });
-  live.current = { params, seed, step };
+  // Codex review F4: every engine call goes through one queue, in order, and
+  // each run (an init at some parameters and seed) has a token; a call from a
+  // superseded run never reads or commits. `at` is the run's own state: its
+  // parameters and the step the engine is at.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const runId = useRef(0);
+  const at = useRef<{ params: Params; step: number }>({ params, step: 0 });
+  // Codex review F5: the step playback stops at (a prediction's), and one a
+  // restart should play to once its init is drawn.
+  const target = useRef<number | null>(null);
+  const pendingTarget = useRef<number | null>(null);
   const total = clockSteps(program);
   const perTick = Math.max(1, Math.ceil(total / PLAY_TICKS));
   const names = useMemo(() => program.parameters.map((parameter) => parameter.name), [program]);
 
+  const enqueue = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const next = queue.current.then(operation, operation);
+    queue.current = next.catch(() => undefined);
+    return next;
+  }, []);
+
   const stopPlay = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    target.current = null;
     setPlaying(false);
   }, []);
 
-  const fail = useCallback((caught: unknown, at: Params) => {
+  const fail = useCallback((caught: unknown, params: Params) => {
     stopPlay();
     if (caught instanceof SketchRunError && caught.kind === "paused") {
       setState({ kind: "paused" });
@@ -166,7 +243,7 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     const message = caught instanceof Error ? caught.message : String(caught);
     const errorKind = caught instanceof SketchRunError ? caught.kind : "error";
     logReaderAction("sketch_error", { figure_id: figure.figureId, extraction_id: figure.extractionId, error_kind: errorKind });
-    setState({ kind: "error", message, errorKind, params: at });
+    setState({ kind: "error", message, errorKind, params });
   }, [figure.figureId, figure.extractionId, stopPlay]);
 
   // One runner per open sketch (and per resume after a pause), disposed on close.
@@ -178,62 +255,109 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     loaded.current = created.load(program.code);
     return () => {
       if (timer.current) clearInterval(timer.current);
+      runId.current += 1;  // nothing of this runner's commits after it is gone
       created.dispose();
       runner.current = null;
     };
   }, [factory, program.code, generation, figure.figureId, figure.extractionId]);
 
-  const read = useCallback(async (active: SketchRunner, at: Params, index: number) => {
-    const result = await active.read(at, index);
+  /** Read a step and validate it; commits nothing (the caller checks its run's token first). */
+  const readChecked = useCallback(async (active: SketchRunner, params: Params, index: number) => {
+    const result = await active.read(params, index);
     const sceneIssues = sceneProblems(result.scene, names);
     if (sceneIssues.length) throw new SketchRunError("scene", `the scene ${sceneIssues[0]}`);
     const probeIssues = probeProblems(result.probes, program.probes);
     if (probeIssues.length) throw new SketchRunError("probe", probeIssues[0]);
-    setScene(result.scene as Scene);
-    setProbes(result.probes as Record<string, unknown>);
+    return { scene: result.scene as Scene, probes: result.probes as Record<string, unknown> };
   }, [names, program.probes]);
 
-  // Restart the run whenever the parameters or the seed change: init, then read step 0.
-  useEffect(() => {
-    const active = runner.current;
-    if (!active || !loaded.current) return;
-    let cancelled = false;
-    const at = params;
-    busy.current = true;
-    loaded.current
-      .then(() => active.init(at, seed))
-      .then(() => (cancelled ? undefined : read(active, at, 0)))
-      .then(() => {
-        if (cancelled) return;
-        setStep(0);
-        setState({ kind: "ready" });
-      })
-      .catch((caught) => { if (!cancelled) fail(caught, at); })
-      .finally(() => { busy.current = false; });
-    return () => { cancelled = true; };
-  }, [params, seed, generation, read, fail]);
+  const commit = useCallback((id: number, read: { scene: Scene; probes: Record<string, unknown> }, index: number) => {
+    if (id !== runId.current) return false;
+    at.current = { ...at.current, step: index };
+    setScene(read.scene);
+    setProbes(read.probes);
+    setStep(index);
+    return true;
+  }, []);
 
+  /** Step the current run toward `end` by at most `limit` steps, then read and commit (queued). */
+  const advanceRun = useCallback(async (id: number, active: SketchRunner, end: number, limit: number) => {
+    if (id !== runId.current || !program.clock) return;
+    const { params: runParams, step: from } = at.current;
+    if (from >= end) return;
+    let reached = from;
+    while (reached < end && reached - from < limit) {
+      const count = Math.min(perTick, end - reached);
+      await active.step(runParams, program.clock.dt, reached, count);
+      if (id !== runId.current) return;
+      reached += count;
+      at.current = { ...at.current, step: reached };
+    }
+    const read = await readChecked(active, runParams, reached);
+    commit(id, read, reached);
+  }, [program.clock, perTick, readChecked, commit]);
+
+  /** One play tick or step press: toward the prediction's target if one is set, else t_max. */
   const advance = useCallback(async () => {
     const active = runner.current;
     if (!active || busy.current || !program.clock) return;
-    const { params: at, step: from } = live.current;
-    if (from >= total) {
-      stopPlay();
-      return;
-    }
-    const count = Math.min(perTick, total - from);
+    const id = runId.current;
     busy.current = true;
     try {
-      await active.step(at, program.clock.dt, from, count);
-      await read(active, at, from + count);
-      setStep(from + count);
-      if (from + count >= total) stopPlay();
+      await enqueue(async () => {
+        const end = Math.min(total, target.current ?? total);
+        if (id === runId.current && at.current.step >= end) {
+          stopPlay();
+          return;
+        }
+        await advanceRun(id, active, end, perTick);
+        if (id === runId.current && at.current.step >= end) stopPlay();
+      });
     } catch (caught) {
-      fail(caught, at);
+      if (id === runId.current) fail(caught, at.current.params);
     } finally {
-      busy.current = false;
+      if (id === runId.current) busy.current = false;
     }
-  }, [program.clock, total, perTick, read, fail, stopPlay]);
+  }, [program.clock, total, perTick, enqueue, advanceRun, stopPlay, fail]);
+  const advanceRef = useRef(advance);
+  advanceRef.current = advance;
+
+  const playTo = useCallback((end: number) => {
+    if (timer.current) clearInterval(timer.current);
+    target.current = end;
+    setPlaying(true);
+    timer.current = setInterval(() => { void advanceRef.current(); }, PLAY_MS);
+  }, []);
+
+  // Restart the run whenever the parameters or the seed change: init, then
+  // read step 0 (and play on to a prediction's step, if one is pending).
+  useEffect(() => {
+    const active = runner.current;
+    const ready = loaded.current;
+    if (!active || !ready) return;
+    runId.current += 1;
+    const id = runId.current;
+    const runParams = params;
+    const goal = pendingTarget.current;
+    pendingTarget.current = null;
+    busy.current = true;
+    enqueue(async () => {
+      await ready;
+      if (id !== runId.current) return;
+      await active.init(runParams, seed);
+      if (id !== runId.current) return;
+      at.current = { params: runParams, step: 0 };
+      const read = await readChecked(active, runParams, 0);
+      if (!commit(id, read, 0)) return;
+      setState({ kind: "ready" });
+      if (goal && program.clock) {
+        if (reduced) await advanceRun(id, active, goal, goal);  // straight to it, no motion
+        else playTo(goal);
+      }
+    })
+      .catch((caught) => { if (id === runId.current) fail(caught, runParams); })
+      .finally(() => { if (id === runId.current) busy.current = false; });
+  }, [params, seed, generation, enqueue, readChecked, commit, advanceRun, playTo, reduced, program.clock, fail]);
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
@@ -242,14 +366,13 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
       stopPlay();
       return;
     }
-    if (live.current.step >= total) {
+    if (at.current.step >= total) {
       // At t_max: play starts over (the run restarts at step 0; press again to play).
       setParams((current) => ({ ...current }));
       return;
     }
     logReaderAction("figure_animated", { figure_id: figure.figureId, extraction_id: figure.extractionId, parameter: "t" });
-    setPlaying(true);
-    timer.current = setInterval(() => { void advance(); }, PLAY_MS);
+    playTo(total);
   };
 
   const setParam = (name: string, raw: number) => {
@@ -266,18 +389,16 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
     if (handle.binds.y) setParam(handle.binds.y, y);
   };
 
+  /** After an answer, show what was graded (Codex review F5): the verifier's
+   *  run (the defaults with the change, the verified seed) from init to the
+   *  prediction's step, stopping exactly there. */
   const applyPrediction = (prediction: FigurePredictionDto) => {
     const change = program.predictions?.[prediction.index]?.change ?? {};
-    if ("run_to" in change && program.clock) {
-      setPlaying(true);
-      timer.current = setInterval(() => {
-        if (live.current.step >= Math.min(total, Math.round(change.run_to / program.clock!.dt))) stopPlay();
-        else void advance();
-      }, PLAY_MS);
-      return;
-    }
-    setParams((current) => {
-      const next = { ...current };
+    stopPlay();
+    pendingTarget.current = predictionTarget(program, prediction);
+    setSeed(figure.sketch?.seed ?? 1);
+    setParams(() => {
+      const next = defaultsOf(program);
       for (const [name, value] of Object.entries(change)) {
         const parameter = program.parameters.find((item) => item.name === name);
         if (parameter) next[name] = clampStep(parameter, Number(value));
@@ -386,9 +507,9 @@ export function SketchFigure({ figure, ctl, program }: { figure: FigureViewDto; 
           </thead>
           <tbody>
             {program.probes.map((probe) => (
-              <tr key={probe.name} data-sketch-probe={probe.name}>
-                <td style={{ paddingRight: 12, fontStyle: "italic", color: COLOR.textItalic }}>{probe.label}</td>
-                <td>{probeValue(probes[probe.name], probe.shape)}</td>
+              <tr key={probe.name} data-sketch-probe={probe.name} style={{ verticalAlign: "top" }}>
+                <th scope="row" style={{ paddingRight: 12, fontStyle: "italic", fontWeight: "normal", textAlign: "left", color: COLOR.textItalic }}>{probe.label}</th>
+                <td><ProbeEntries probe={probe} value={probes[probe.name]} /></td>
               </tr>
             ))}
           </tbody>

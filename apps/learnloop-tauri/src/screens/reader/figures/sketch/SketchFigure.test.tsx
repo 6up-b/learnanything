@@ -11,7 +11,9 @@ import type { FigureViewDto } from "../../../../api/dto";
 import parity from "./sketchParityCorpus.json";
 import { FiguresUnder } from "../FigureInline";
 import { useFigures, type FiguresContract } from "../useFigures";
-import { SKETCH_COPY, SKETCH_FRAME, sketchBadge, sketchCheckLines } from "./SketchFigure";
+import { SKETCH_COPY, SKETCH_FRAME, TABLE_PAGE, predictionTarget, sketchBadge, sketchCheckLines } from "./SketchFigure";
+import { FIGURE_COPY } from "../FigureInline";
+import { formatValue } from "../FigurePanels";
 import { hostRunner, SketchRunnerContext, WATCHDOG_MS, type SketchRunner, type SketchRunnerFactory } from "./sketchRunner";
 import { newHost } from "./engineForTests";
 import type { SketchEngineHost } from "./sketchEngine";
@@ -168,7 +170,7 @@ it("shows the declared probes in the values table (t)", async () => {
   expect(rows.map((row) => row.getAttribute("data-sketch-probe"))).toEqual(["envelope", "msd", "count", "sqvar"]);
   expect(rows[2].textContent).toContain("walkers");
   expect(rows[2].textContent).toContain("200");
-  expect(rows[0].textContent).toContain("1 points");
+  expect(rows[0].textContent).toContain("points 1–1 of 1");
 });
 
 it("moves its bound parameters when a handle is dragged", async () => {
@@ -243,4 +245,197 @@ it("explains how it runs on demand, without jargon in the badge", async () => {
   fireEvent.click(screen.getByRole("button", { name: SKETCH_COPY.howItRunsLink }));
   expect(document.querySelector("[data-sketch-how]")!.textContent).toContain("can't see your files");
   expect(screen.getByRole("button", { name: /interactive version/ }).textContent).not.toMatch(/wasm|QuickJS|sandbox escape/i);
+});
+
+// ---------------------------------------------------------------------------
+// Codex review F3: a check that speaks for one attribute says which
+// ---------------------------------------------------------------------------
+
+it("words a partial check as the attribute it checked", () => {
+  const lines = sketchCheckLines({
+    ...SKETCH, notCovered: [], checks: [
+      { claim: 0, kind: "invariant", probe: "cells", elements: [], partial: [{ element: "grid", attribute: "values" }], statement: "never negative", settings: 9 },
+      { claim: 1, kind: "invariant", probe: "v", elements: [], partial: [{ element: "line", attribute: "y" }], statement: "bounded", settings: 9 },
+      { claim: 2, kind: "equals", probe: "r", elements: [], partial: [{ element: "dot", attribute: "r" }], statement: "sqrt(t)", settings: 9 },
+      { claim: 3, kind: "equals", probe: "v", elements: [], partial: [], statement: "x", settings: 9 },
+    ],
+  });
+  expect(lines).toEqual([
+    "the cell values of the drawn ‘grid’ are never negative at 9 tested settings",
+    "the y values of the drawn ‘line’ are bounded at 9 tested settings",
+    "the radius of the drawn ‘dot’ is sqrt(t) (AI-stated) at 9 tested settings",
+    "the value ‘v’ is x (AI-stated) at 9 tested settings",
+  ]);
+});
+
+// ---------------------------------------------------------------------------
+// Codex review F4: delayed Worker responses never mix runs
+// ---------------------------------------------------------------------------
+
+/** The in-process engine with the Worker's ordering (each call runs when
+ *  sent), but step responses held back until released, as a slow Worker's
+ *  would be. Every call is logged with the walkers it was sent. */
+function delayedSteps(log: string[], held: Array<() => void>): SketchRunnerFactory {
+  return () => {
+    let created: SketchRunner | null = null;
+    const ready = newHost().then((fresh) => (created = hostRunner(fresh)));
+    const via = <T,>(call: (runner: SketchRunner) => Promise<T>) => ready.then(call);
+    return {
+      load: (text) => via((runner) => runner.load(text)),
+      init: (p, s) => via((runner) => { log.push(`init ${p.walkers}`); return runner.init(p, s); }),
+      step: (p, dt, i, c) => via((runner) => {
+        log.push(`step ${p.walkers}`);
+        const done = runner.step(p, dt, i, c);
+        return new Promise<void>((resolve, reject) => { held.push(() => { done.then(resolve, reject); }); });
+      }),
+      read: (p, i) => via((runner) => { log.push(`read ${p.walkers} ${i}`); return runner.read(p, i); }),
+      dispose: () => created?.dispose(),
+    };
+  };
+}
+
+function time() {
+  return document.querySelector("[data-sketch-time]")?.textContent ?? "";
+}
+
+async function settleAfterRelease(held: Array<() => void>) {
+  await act(async () => {
+    while (held.length) held.shift()!();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  });
+}
+
+it("never draws a superseded frame when a slider moves while a step is in flight", async () => {
+  const log: string[] = [];
+  const held: Array<() => void> = [];
+  await open(sketchView(WALK), delayedSteps(log, held));
+  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+  fireEvent.click(document.querySelector("[data-sketch-play]")!);
+  await waitFor(() => expect(held.length).toBe(1));  // a step(200) sent, its answer held
+  fireEvent.change(screen.getByLabelText("walkers value"), { target: { value: "400" } });
+  await settleAfterRelease(held);
+  await waitFor(() => expect(document.querySelector('[data-sketch-element="walkers"]')?.querySelectorAll("circle").length).toBe(400));
+  expect(time()).toContain("t = 0 / 100");  // the new run's init, not the old frame's step
+  const init400 = log.indexOf("init 400");
+  expect(init400).toBeGreaterThan(log.indexOf("step 200"));  // queued behind the call in flight
+  expect(log.slice(init400).some((entry) => entry.startsWith("read 200"))).toBe(false);
+  expect(log.slice(init400).some((entry) => entry.startsWith("step"))).toBe(false);
+});
+
+it("never draws a superseded frame when a new sample is drawn while a step is in flight", async () => {
+  const log: string[] = [];
+  const held: Array<() => void> = [];
+  await open(sketchView(WALK), delayedSteps(log, held));
+  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+  fireEvent.click(document.querySelector("[data-sketch-play]")!);
+  await waitFor(() => expect(held.length).toBe(1));
+  fireEvent.click(document.querySelector("[data-sketch-new-sample]")!);
+  await settleAfterRelease(held);
+  await waitFor(() => expect(log.filter((entry) => entry === "init 200").length).toBe(2));
+  expect(time()).toContain("t = 0 / 100");
+  const second = log.lastIndexOf("init 200");
+  expect(log.slice(second)).toEqual(["init 200", "read 200 0"]);
+});
+
+// ---------------------------------------------------------------------------
+// Codex review F5: a prediction plays to exactly the step it was graded at
+// ---------------------------------------------------------------------------
+
+const AT_FIVE = { ...WALK, predictions: [{ prompt: "Run to n = 5: does the spread rise?", change: { run_to: 5 }, observe: { kind: "direction", probe: "msd" } }] };
+const MORE_WALKERS = { ...WALK, predictions: [{ prompt: "With 400 walkers, does the spread change?", change: { walkers: 400 }, observe: { kind: "direction", probe: "msd" } }] };
+
+function predicted(program: object, targetStep?: number): FigureViewDto {
+  return sketchView(program, {
+    predictions: [{ index: 0, prompt: "?", kind: "direction", answered: null, targetStep,
+      choices: [{ value: "rises", label: "rises" }, { value: "falls", label: "falls" }, { value: "same", label: "same" }] }],
+  });
+}
+
+async function answer() {
+  api.readerFigurePredict.mockResolvedValue({ predictionId: "fp_1", figureId: "fig_s", extractionId: "ext_prob", predictionIndex: 0,
+    learnerAnswer: "rises", matched: true, before: 0, after: 5, answer: "rises", explanationText: null });
+  fireEvent.click(screen.getByLabelText("rises"));
+  fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.answer }));
+}
+
+it("plays a run_to prediction to its graded step and stops there", async () => {
+  // F5's scenario: 2,000 steps play 20 per tick; the answer was graded at step 5.
+  await open(predicted({ ...AT_FIVE, clock: { dt: 1, t_max: 2000 } }, 5));
+  await waitFor(() => expect(time()).toContain("t = 0 / 2000"));
+  await answer();
+  await waitFor(() => expect(time()).toContain("t = 5 / 2000"), { timeout: 3000 });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(time()).toContain("t = 5 / 2000");  // not the play tick's 20 steps
+  expect(document.querySelector("[data-sketch-play]")?.textContent).toBe(SKETCH_COPY.play);
+});
+
+it("plays a parameter-change prediction with its change to t_max, where it was graded", async () => {
+  // 100 play ticks of 60 ms: the whole run, as the verifier compared it.
+  await open(predicted(MORE_WALKERS, 100));
+  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+  await answer();
+  await waitFor(() => expect(time()).toContain("t = 100 / 100"), { timeout: 12000 });
+  expect((screen.getByLabelText("walkers value") as HTMLInputElement).value).toBe("400");
+  expect(document.querySelector('[data-sketch-element="walkers"]')?.querySelectorAll("circle").length).toBe(400);
+}, 15000);
+
+it("goes straight to the graded step under reduced motion, with no animation", async () => {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener: () => undefined,
+    removeEventListener: () => undefined, onchange: null, addListener: () => undefined, removeListener: () => undefined,
+    dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+  const intervals = vi.spyOn(globalThis, "setInterval");
+  try {
+    await open(predicted(AT_FIVE, 5));
+    await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+    intervals.mockClear();
+    await answer();
+    await waitFor(() => expect(time()).toContain("t = 5 / 100"));
+    expect(intervals.mock.calls.filter(([, ms]) => ms === 60)).toEqual([]);  // no play interval started
+    expect(document.querySelector("[data-sketch-play]")).toBeNull();
+  } finally {
+    intervals.mockRestore();
+    window.matchMedia = original;
+  }
+});
+
+it("computes the graded step like the verifier when the view predates it", () => {
+  const program = AT_FIVE as unknown as Parameters<typeof predictionTarget>[0];
+  expect(predictionTarget(program, { index: 0 })).toBe(5);
+  expect(predictionTarget(MORE_WALKERS as unknown as Parameters<typeof predictionTarget>[0], { index: 0 })).toBe(100);
+  expect(predictionTarget(program, { index: 0, targetStep: 7 })).toBe(7);
+});
+
+// ---------------------------------------------------------------------------
+// Codex review F6: the values table has every declared value
+// ---------------------------------------------------------------------------
+
+const LONG = {
+  program_version: "sketch-v1", demonstrates: "many values",
+  parameters: [{ name: "k", label: "offset", min: 0, max: 1, step: 0.5, default: 0.5 }], seeded: false,
+  code: "function init(p, seed) { return {}; }\n"
+    + "function probes(s, p) { var v = [], q = []; for (var i = 0; i < 120; i++) { v.push(i * 10 + p.k); q.push([i, i * i]); } return {v: v, path: q, k: p.k}; }\n"
+    + "function view(s, p) { return {viewport: {x: [0, 1], y: [0, 1]}, elements: []}; }",
+  probes: [{ name: "v", label: "the series", shape: "series" }, { name: "path", label: "the path", shape: "pairs" },
+    { name: "k", label: "the offset", shape: "scalar" }],
+};
+
+it("lists every entry of a series and both coordinates of every point, a page at a time", async () => {
+  await open(sketchView(LONG, { sketch: { ...SKETCH, checks: [], notCovered: [] } }));
+  await waitFor(() => expect(document.querySelector("[data-sketch-scene]")).not.toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: SKETCH_COPY.table }));
+  const entries = (name: string) => Array.from(document.querySelectorAll(`[data-sketch-entries="${name}"] [data-sketch-entry]`));
+  expect(entries("v").length).toBe(TABLE_PAGE);
+  expect(document.querySelector('[data-sketch-entries="v"] [data-sketch-entry="49"]')!.textContent).toContain(formatValue(490.5));
+  expect(document.querySelector('[data-sketch-entries="v"]')!.textContent).toContain("values 1–50 of 120");
+  fireEvent.click(document.querySelector('[data-sketch-page-next="v"]')!);
+  expect(document.querySelector('[data-sketch-entries="v"] [data-sketch-entry="75"]')!.textContent).toContain(formatValue(750.5));
+  fireEvent.click(document.querySelector('[data-sketch-page-next="v"]')!);
+  expect(entries("v").map((row) => row.getAttribute("data-sketch-entry"))).toEqual(Array.from({ length: 20 }, (_, i) => String(100 + i)));
+  fireEvent.click(document.querySelector('[data-sketch-page-next="path"]')!);
+  fireEvent.click(document.querySelector('[data-sketch-page-next="path"]')!);
+  const last = document.querySelector('[data-sketch-entries="path"] [data-sketch-entry="119"]')!;
+  const cells = Array.from(last.querySelectorAll("td")).map((cell) => cell.textContent);
+  expect(cells).toEqual(["119", formatValue(119), formatValue(14161)]);
+  expect(document.querySelector('[data-sketch-probe="k"]')!.textContent).toContain(formatValue(0.5));
 });
