@@ -198,19 +198,35 @@ def test_the_signed_zero_program_is_graded_as_the_desktop_draws_it():
     stored = json.loads(compiled.program.canonical_json())  # what the desktop is sent as specJson
     stored.pop("code")  # (the program's own text says -0)
     assert "-0" not in json.dumps(stored)
-    report = SV.verify_sketch(compiled)
-    assert report.outcome == V.ILLUSTRATIVE, report.reason
     with SketchEngine() as engine:
         engine.load(compiled.program.code)
         outcome = SV.prediction_outcome(compiled, engine, 0)
     assert (outcome["before"], outcome["after"], outcome["answer"]) == (1.0, 9.0, "rises")
-    # The graded step is a tested state: the desktop compares its digest there.
+    # A host handed -0.0 anyway sends it as 0: the same reads.
+    assert _canonical_reads(compiled, {"a": -0.0}) == _canonical_reads(compiled, {"a": 0.0})
+
+
+def test_a_claim_false_at_a_graded_step_fails_verification():
+    """Orchestrator decision (verify round 2): claims are also checked at every
+    prediction's graded step, the moment the learner looks at. The repro's
+    "radius equals 1" is false at t = 1 (radius 9), so it no longer shows "is 1"
+    beside a drawn 9: verification fails there."""
+
+    report = SV.verify_sketch(K.parse_sketch(F.signed_zero()))
+    assert report.outcome == V.FAILED and report.failed_step == "claims"
+    assert "t=1" in report.reason and "radius is 9" in report.reason
+
+
+def test_a_graded_step_is_checked_counted_and_compared():
+    compiled = K.parse_sketch(F.signed_zero_bounded())
+    report = SV.verify_sketch(compiled)
+    assert report.outcome == V.ILLUSTRATIVE, report.reason
+    # 2 grid points x 9 samples, and the graded step (a = 0, t = 1): what was actually checked.
+    assert report.settings == 19 and report.checks[0]["settings"] == 19
     entry = next(item for item in report.tested if item["values"] == [0.0])
     assert 1 in entry["steps"]
     reads = _canonical_reads(compiled, {"a": 0.0})
     assert entry["digests"][entry["steps"].index(1)] == SV.tested_digest(*reads[1])
-    # A host handed -0.0 anyway sends it as 0: the same reads.
-    assert _canonical_reads(compiled, {"a": -0.0}) == reads
 
 
 def test_neither_host_lets_a_program_see_negative_zero():
@@ -235,7 +251,8 @@ def test_every_prediction_records_its_graded_read_in_tested():
     assert entry["steps"] == [0]
     reads = _canonical_reads(compiled, {"a": 0.3, "b": 0.8})
     assert entry["digests"] == [SV.tested_digest(*reads[0])]
-    assert SV.VERIFIER_REPORT_VERSION == "sketch-verify-v4"
+    assert report.settings == 9 + 1  # the grid, and the graded setting (claim-checked too)
+    assert SV.VERIFIER_REPORT_VERSION == "sketch-verify-v5"
     # One entry per setting (the desktop looks up the first match).
     assert len({tuple(item["values"]) for item in report.tested}) == len(report.tested)
 

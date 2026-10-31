@@ -72,7 +72,7 @@ def build() -> dict[str, Any]:
         cases.append({"name": name, "code": program["code"], "calls": calls})
     verified = []
     for name, program in (("random walk", F.walk()), ("marks when read", F.marks_when_read()),
-                          ("signed zero", F.signed_zero())):
+                          ("signed zero", F.signed_zero_bounded())):
         report = SV.verify_sketch(K.parse_sketch(program)).as_dict()
         assert report["outcome"] == "illustrative", report["reason"]
         # The program as stored and sent (specJson is the parsed program's canonical JSON).

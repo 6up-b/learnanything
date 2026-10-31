@@ -83,8 +83,10 @@ VERIFY_SEED = 1
 #: sandbox review): every init on a freshly loaded program, the read schedule,
 #: and the digests of every tested read. v4 (the verify, Astra round 2): no
 #: -0 reaches a program (parsing and both hosts' serializers), and every
-#: prediction's graded read is a tested state too.
-VERIFIER_REPORT_VERSION = "sketch-verify-v4"
+#: prediction's graded read is a tested state too. v5 (orchestrator decision
+#: on round 2): claims are also checked at every graded read, the moment the
+#: learner looks at, and "at N tested settings" counts those too.
+VERIFIER_REPORT_VERSION = "sketch-verify-v5"
 #: How many hex digits of a read's SHA-256 a report keeps per tested state
 #: (128 bits: a program can't search for a collision with its own output).
 TESTED_DIGEST_HEX = 32
@@ -522,7 +524,7 @@ def prediction_target_step(compiled: K.CompiledSketch, index: int) -> int:
 
 def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: int, *,
                        seed: int = VERIFY_SEED,
-                       record: list[tuple[dict[str, float], int, str]] | None = None) -> dict[str, Any]:
+                       record: list[tuple[int, dict[str, float], int, str, str, str]] | None = None) -> dict[str, Any]:
     """What a sketch's prediction observes and its answer, decided by code in
     the engine. A parameter change compares the probe before and after (at the
     first step without a clock, at ``t_max`` with one); ``run_to`` compares
@@ -536,10 +538,11 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
     requires to be one the controls can be set to (finding 2), so the
     desktop plays exactly the value graded here.
 
-    With ``record``, each graded read is appended as (its parameters, its
-    step, :func:`tested_digest` of what the engine wrote): verification makes
-    them tested states (Astra round 2), so the desktop compares its playback
-    of an answer with the read that graded it."""
+    With ``record``, each graded read is appended as (the prediction's index,
+    its parameters, its step, :func:`tested_digest` of what the engine wrote,
+    the scene text, the probes text): verification makes them tested states
+    (Astra round 2), so the desktop compares its playback of an answer with
+    the read that graded it, and checks the claims there too (v5)."""
 
     program = compiled.program
     prediction = program.predictions[index]
@@ -567,7 +570,8 @@ def prediction_outcome(compiled: K.CompiledSketch, engine: SketchEngine, index: 
             scene = engine.view_text(params, index=point)  # read as the desktop reads: view(), then probes()
             text = engine.probes_text(params, index=point)
             if point == step and record is not None:
-                record.append(({key: float(value) for key, value in params.items()}, step, tested_digest(scene, text)))
+                record.append((index, {key: float(value) for key, value in params.items()}, step,
+                               tested_digest(scene, text), scene, text))
         values = json.loads(text)
         problems = K.probe_problems(values, compiled.probes)
         if problems:
@@ -640,6 +644,26 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
             settings = 0
             names = [parameter.name for parameter in program.parameters]
             tested: dict[str, dict[str, Any]] = {}
+
+            def examine(sample: _Sample, elements: Mapping[str, Mapping[str, Any]]) -> None:
+                """A tested state whose bindings hold: what each bound element
+                is drawn as, and every claim not yet failed, checked there."""
+
+                for element_id in (b.element_id for b in program.bindings):
+                    kinds.setdefault(element_id, set()).add(str(elements[element_id].get("type")))
+                for index, claim in enumerate(compiled.claims):
+                    spec = claim.claim
+                    if spec.kind == "equals" and compiled.probes[spec.probe].shape == "series":
+                        for element_id in bound.get(spec.probe, ()):
+                            element = elements[element_id]
+                            if element.get("type") in ("polyline", "polygon", "points") and \
+                                    not _on_domain(spec, element):
+                                off_domain.setdefault(index, set()).add(element_id)
+                    if index in failures:
+                        continue
+                    problem = check_claim(compiled, claim, sample, budget)
+                    if problem is not None:
+                        failures[index] = problem
             for sample, digest in _stream(compiled, first, grid, schedule, budget):
                 elements = K.element_index(sample.scene)
                 if binding_problem is None:
@@ -660,26 +684,9 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                     # What the learner first sees: the defaults at the first step.
                     first_drawn = [(element.get("id"), str(element.get("type")))
                                    for element in sample.scene.get("elements") or ()]
-                if binding_problem is not None:
-                    continue  # bindings fail: the claims can't speak for anything
-                for element_id in (b.element_id for b in program.bindings):
-                    kinds.setdefault(element_id, set()).add(str(elements[element_id].get("type")))
-                for index, claim in enumerate(compiled.claims):
-                    spec = claim.claim
-                    if spec.kind == "equals" and compiled.probes[spec.probe].shape == "series":
-                        for element_id in bound.get(spec.probe, ()):
-                            element = elements[element_id]
-                            if element.get("type") in ("polyline", "polygon", "points") and \
-                                    not _on_domain(spec, element):
-                                off_domain.setdefault(index, set()).add(element_id)
-                    if index in failures:
-                        continue
-                    problem = check_claim(compiled, claim, sample, budget)
-                    if problem is not None:
-                        failures[index] = problem
+                if binding_problem is None:
+                    examine(sample, elements)
                 del sample, elements
-            report.settings = settings
-            report.tested = list(tested.values())
             second = _engine(engine_factory, budget)
             try:
                 for sample, digest in _stream(compiled, second, list(reversed(grid)), steps, budget,
@@ -690,6 +697,53 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
                             "depend on anything but its inputs and rand())"])
             finally:
                 second.close()
+            # Every prediction's graded read (Astra round 2; v5): graded as the
+            # desktop plays it, it becomes a tested state (its setting's entry,
+            # one per setting: the desktop looks up the first match), and a new
+            # one is validated, bound and claim-checked like a sample: it is
+            # the moment the learner looks at. A read the first run already
+            # made must have the same digest (one history, one engine).
+            graded: list[tuple[int, dict[str, float], int, str, str, str]] = []
+            for index in range(len(program.predictions)):
+                try:
+                    if prediction_outcome(compiled, first, index, record=graded).get("answer") is None:
+                        report.dropped_predictions.append(index)
+                except SketchRunError:
+                    report.dropped_predictions.append(index)
+            by_values = {tuple(entry["values"]): entry for entry in tested.values()}
+            for index, params, step, digest, scene_text, probes_text in graded:
+                if index in report.dropped_predictions:
+                    continue  # never played to the learner
+                budget.read(scene_text, probes_text)
+                scene, probes = json.loads(scene_text), json.loads(probes_text)
+                if K.scene_problems(scene, parameters=names) or K.probe_problems(probes, compiled.probes):
+                    report.dropped_predictions.append(index)  # its playback could not be drawn: not offered
+                    continue
+                values = [float(params[name]) for name in names]
+                entry = by_values.get(tuple(values))
+                if entry is None:
+                    entry = {"values": values, "steps": [], "digests": []}
+                    tested[json.dumps(values)] = entry
+                    by_values[tuple(values)] = entry
+                if step in entry["steps"]:
+                    if entry["digests"][entry["steps"].index(step)] != digest:
+                        raise _Failed("deterministic", [
+                            f"at {_point_text(dict(zip(names, values)))}: grading a prediction read different values "
+                            "than verification did (it may not depend on anything but its inputs and rand())"])
+                    continue
+                entry["steps"].append(step)
+                entry["digests"].append(digest)
+                settings += 1
+                point = {name: value for name, value in zip(names, values) if value != defaults_point[name]}
+                sample = _Sample(point=point, step=step, scene=scene, probes=probes)
+                elements = K.element_index(scene)
+                if binding_problem is None:
+                    binding_problem = _binding_problem(compiled, sample, elements)
+                if binding_problem is None:
+                    examine(sample, elements)
+            report.dropped_predictions = sorted(set(report.dropped_predictions))
+            report.settings = settings
+            report.tested = list(tested.values())
             if binding_problem is not None:
                 raise _Failed("bindings", [binding_problem])
             if failures:
@@ -725,33 +779,6 @@ def verify_sketch(compiled: K.CompiledSketch, *, engine_factory: EngineFactory =
             report.not_covered = [str(element_id) for element_id, _kind in drawn
                                   if element_id is not None and element_id not in covered]
             report.unnamed_elements = sum(1 for element_id, _kind in drawn if element_id is None)
-            graded: list[tuple[dict[str, float], int, str]] = []
-            for index in range(len(program.predictions)):
-                try:
-                    if prediction_outcome(compiled, first, index, record=graded).get("answer") is None:
-                        report.dropped_predictions.append(index)
-                except SketchRunError:
-                    report.dropped_predictions.append(index)
-            # Every graded read is a tested state (Astra round 2): its settings'
-            # entry (one per setting: the desktop looks up the first match)
-            # gains its step and digest. The same read from the first run
-            # must have the same digest (one history, one engine).
-            by_values = {tuple(entry["values"]): entry for entry in report.tested}
-            for params, step, digest in graded:
-                values = [float(params[name]) for name in names]
-                entry = by_values.get(tuple(values))
-                if entry is None:
-                    entry = {"values": values, "steps": [], "digests": []}
-                    report.tested.append(entry)
-                    by_values[tuple(values)] = entry
-                if step in entry["steps"]:
-                    if entry["digests"][entry["steps"].index(step)] != digest:
-                        raise _Failed("deterministic", [
-                            f"at {_point_text(dict(zip(names, values)))}: grading a prediction read different values "
-                            "than verification did (it may not depend on anything but its inputs and rand())"])
-                    continue
-                entry["steps"].append(step)
-                entry["digests"].append(digest)
         except _Failed as failed:
             report.outcome, report.failed_step = V.FAILED, failed.step
             report.problems = failed.problems

@@ -1312,11 +1312,13 @@
     ],
     "claims": [
      {
+      "bound": 10.0,
       "dx": "",
       "dy": "",
-      "expr": "1",
-      "kind": "equals",
+      "expr": "",
+      "kind": "invariant",
       "probe": "radius",
+      "property": "bounded",
       "var_from": 0.0,
       "var_step": 1.0,
       "vars": [
@@ -1372,7 +1374,7 @@
     "checks": [
      {
       "claim": 0,
-      "kind": "equals",
+      "kind": "invariant",
       "probe": "radius",
       "elements": [],
       "partial": [
@@ -1381,13 +1383,13 @@
         "attribute": "r"
        }
       ],
-      "statement": "1",
-      "settings": 18
+      "statement": "bounded",
+      "settings": 19
      }
     ],
     "notCovered": [],
     "unnamedElements": 0,
-    "settings": 18,
+    "settings": 19,
     "readSteps": [
      0,
      1,

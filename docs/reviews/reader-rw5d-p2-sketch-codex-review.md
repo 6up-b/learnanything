@@ -533,3 +533,48 @@ Claims are still checked only at the 9 samples. Every other scheduled read is va
 steps) digest-compared, but not claim-checked. In this repro the drawn radius is 9 at t = 1 while the check line says
 "is 1 at 18 tested settings", and both hosts agree on it. Should claims also be checked at every graded step, or at
 every scheduled read (the claim-work budget permitting)? That would make this program fail verification outright.
+
+## Claims at graded steps (orchestrator decision on round 2's open question; `sketch-verify-v5`)
+
+**Decision.** Claims are also checked at every prediction's graded step: the moment the learner looks at. They are not
+checked at every scheduled read. The checks use the same metered claim-work budget.
+
+**What changed.**
+- Verification now grades the predictions before it decides on bindings and claims.
+- Each graded read of a prediction the learner can be offered is handled like a sample when it is a new tested state.
+  An already-tested read must keep its digest. A new graded read:
+  - is validated (a scene or probes that can't be drawn drops the prediction);
+  - is bound (a binding that fails there fails verification);
+  - is claim-checked with `check_claim` under the same `_Budget` meter.
+- A claim false at a graded step fails verification as before. This design does not drop single checks.
+- "At N tested settings" counts the states actually checked: grid × samples, plus each new graded state. Examples:
+  - The random walk stays at 27: its run-to-100 step is already a sample.
+  - The spiral goes to 10: 9 grid points plus its a = 0.3 answer.
+  - The bounded signed-zero sketch shows 19: 2 × 9, plus t = 1.
+- `prediction_outcome(record=...)` now records the prediction's index and the scene and probes text with each graded
+  read.
+- `VERIFIER_REPORT_VERSION` is `sketch-verify-v5`, so every stored report is re-verified before display.
+
+**Fail-first (against `0789bfcbe`'s sources): 4 failed, 13 passed.**
+- The signed-zero repro verified as `illustrative` (the "is 1" check beside a drawn 9). Now it fails at `claims`: "at
+  the defaults, t=1: radius is 9, the stated 1 is 1".
+- The bounded variant counted 18 settings, not 19.
+- The spiral counted 9, not 10.
+- The hostile-corpus verify case "signed zero parameters" was `illustrative`, not `failed`.
+
+**Corpora.** The parity corpus's "signed zero" entry is now the bounded variant, which passes everywhere. The desktop
+test asserts its line: "the radius of the drawn ‘dot’ is bounded at 19 tested settings". The hostile corpus's verify
+cases now expect the repro to fail at `claims` and the bounded variant to be illustrative.
+
+**Gate.** Every command ran in 5G scopes behind the flock, with no model calls.
+
+| command | result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| `pytest -n 6` over `tests/test_sketch_*.py`, `tests/test_figure_*.py`, `tests/test_figures_*.py`, `test_registry_audit.py`, `test_architecture.py`, `test_public_tip_guards.py` | **652 passed** in 98 s |
+| `npm run typecheck` | 0 errors |
+| `npx vitest run --maxWorkers=4 src/screens/reader/figures` | 14 files, **372 passed** |
+| `npm run frontend:build` | built |
+
+The first vitest run had one failure: the new line assertion missed the rendered "· " prefix. I fixed it, then reran
+typecheck and the vitest set; both were clean.

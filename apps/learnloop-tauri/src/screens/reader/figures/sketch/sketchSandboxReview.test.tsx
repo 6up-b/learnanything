@@ -268,6 +268,8 @@ it("plays the signed-zero program's prediction to the read that graded it, diges
     fireEvent.keyDown(document.querySelector("[data-sketch-body]")!, { key: "t" });
     expect(document.querySelector('[data-sketch-probe="radius"]')!.textContent).toContain("9");  // as graded: rises, 1 -> 9
     expect(document.querySelector("[data-sketch-checks-withdrawn]")).toBeNull();
+    // Checked at the graded step too (v5), and counted: 2 grid points x 9 samples + t = 1 at the defaults.
+    expect(checkLines()[0]).toBe("· the radius of the drawn ‘dot’ is bounded at 19 tested settings");
   } finally {
     restore();
   }

@@ -279,6 +279,14 @@ def signed_zero(**changes: Any) -> dict[str, Any]:
     return program
 
 
+def signed_zero_bounded(**changes: Any) -> dict[str, Any]:
+    """The signed-zero program with a claim true at every step (its radius stays
+    within 10), so it verifies and the desktop has checks to keep or withdraw."""
+
+    return signed_zero(claims=[{"kind": "invariant", "probe": "radius", "property": "bounded", "bound": 10}],
+                       **changes)
+
+
 def unchecked() -> dict[str, Any]:
     """A sketch that states no claim: shown as "nothing in it checked"."""
 
