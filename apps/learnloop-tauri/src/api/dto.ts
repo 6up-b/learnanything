@@ -6773,7 +6773,29 @@ export interface ReaderPromptContractDto {
   readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
   /** Reader CA5a: "find this section in my other books" in the Guide's footer
    *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
-  correspondence?: { enabled: boolean; findSection: boolean };
+  correspondence?: {
+    enabled: boolean;
+    findSection: boolean;
+    /** Reader CA5: the Guide's one-line "also in your books" over judged coverage, and the
+     *  learner's hide preferences for it (absent on an older sidecar: the line is off). */
+    alsoInBooks?: boolean;
+    hiddenEverywhere?: boolean;
+    hiddenSources?: string[];
+  };
+}
+
+/** Reader CA5: the line's hide preferences (Settings brings it back). */
+export interface CorrespondencePreferencesDto {
+  enabled: boolean;
+  hideEverywhere: boolean;
+  hiddenSources: Array<{ sourceId: string; title: string }>;
+}
+
+/** What the learner kept comparing two sections (RW4d): when, and the kept relations' fine labels. */
+export interface CorrespondentKeptDto {
+  askId: string | null;
+  keptAt: string | null;
+  relations: string[];
 }
 
 // ── Reader CA5a: find this section in my other books ───────────────────────
@@ -6796,6 +6818,15 @@ export interface CorrespondentSectionDto {
   /** "found by search, not checked" on a search hit. */
   label?: string;
   by: "search" | "judge" | "learner";
+  /** Judged lines (CA5): the treatment in the learner's words, the coverage judge's
+   *  notation line (LearnLoop's voice), what the learner kept, and the other shared LOs. */
+  treatmentWords?: string | null;
+  roles?: string[];
+  notation?: string | null;
+  notationLabel?: string | null;
+  linkedByYou?: boolean;
+  kept?: CorrespondentKeptDto[];
+  alsoLearningObjectIds?: string[];
 }
 
 export interface CorrespondentSourceDto {
@@ -7185,7 +7216,9 @@ export interface ReaderActivityEvent {
     | "tutor_offer_shown"
     | "tutor_offer_pressed"
     | "figure_opened"
-    | "figure_animated";
+    | "figure_animated"
+    | "corresponding_section_peeked"
+    | "corresponding_section_opened";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
