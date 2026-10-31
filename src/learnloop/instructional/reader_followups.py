@@ -427,6 +427,7 @@ def retention_due(vault: LoadedVault, repository: Repository, *, practice_item_i
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
     from learnloop.scheduling import fsrs as F
+    from learnloop.scheduling.intent.recall_targets import STORED_RETENTION
     from learnloop.scheduling.intent.serving import intent_serving
 
     state = repository.practice_item_state(practice_item_id)
@@ -454,7 +455,9 @@ def retention_due(vault: LoadedVault, repository: Repository, *, practice_item_i
     rating = fsrs_rating_for_attempt(item, int(attempt["rubric_score"]), int(rubric.max_points),
                                      int(attempt.get("hints_used") or 0))
     weights = tuple(resolve_fsrs_weights(repository))
-    target = view.target_for(practice_item_id) if view is not None else 0.90
+    # The scheduler's own target: the intent view's, else the retention the
+    # attempt path stores ``due_at`` at (no number of RW6b's).
+    target = view.target_for(practice_item_id) if view is not None else STORED_RETENTION
     days = F.interval_for_retention(F.initial_stability(rating, weights), target, weights)
     anchor = parse_utc(str(attempt.get("created_at") or "")) or now
     return anchor + timedelta(days=days), "fsrs_first_interval"
