@@ -2639,6 +2639,19 @@ class ReaderCompareConfig(BaseModel):
     evidence. Comparisons stay display and retrieval: nothing in scoring,
     scheduling, projection or serving reads any of it, so no successor. Off,
     the RPC takes only today's pinned request and every door is RW4a's/RW4d's.
+
+    Reader CA4 (ux_reader_compare_ask_v1 §5, §12.2, K13): ``by_point`` is the
+    kill switch of the table by point: the Reader's comparison is asked under
+    ``source_compare.v2`` (the same route and one call: points, per source a
+    verified-quote cell or not addressed, per point its pairs' relations,
+    requested perspectives as points in the learner's words) and shown as a
+    grid (a row per point, a column per book, relation chips, the learner's
+    column, hide row, the keyboard map, narrow cards, *by book*); Keep maps a
+    kept row to proposals one claim per cell. Display and proposals only, no
+    successor. Off, the Reader requests v1 and renders by book exactly as
+    today. ``max_perspectives`` is the most views a comparison asks for and
+    keeps: a stored-size bound (a ``keep`` guardrail, §12.2), not a learned
+    constant.
     """
 
     enabled: bool = True
@@ -2646,6 +2659,8 @@ class ReaderCompareConfig(BaseModel):
     scope_enabled: bool = True
     scope_timeout_seconds: float = Field(default=4.0, gt=0.0, le=30.0)
     scope_max_calls_per_day: int = Field(default=200, ge=0)
+    by_point: bool = True
+    max_perspectives: int = Field(default=4, ge=1, le=8)
 
 
 class AsPrintedConfig(BaseModel):

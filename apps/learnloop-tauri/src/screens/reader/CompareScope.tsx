@@ -19,16 +19,19 @@
 //   state of the one replacing it: pending, failed or cancelled, F7), the tutor
 //   about this comparison (Ctrl+↵, over the passages shown) and "practice this".
 //
+// Reader CA4: `+` opens "+ add a book" (the grid's key map, §5.5), and a
+// comparison with no library answer shows the grid's Space peek (`PeekPanel`).
+//
 // Nothing here takes focus unasked, animates or counts things to read (G54-G58).
 // The refine box and the picker take the cursor only on the learner's own key.
 import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { CompareTableDto, LibraryBookDto, ProposedItemDto } from "../../api/dto";
+import type { CompareTableDto, LibraryBookDto, ProposedItemDto, SpanViewDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep } from "./CompareKeep";
 import { ModelActionState } from "./ModelActionState";
 import { LIBRARY_COPY, SCOPE_COPY, type LibraryAskController, type ScopeChips } from "./useLibraryAsk";
-import { MeaningLabel, ModelVoice } from "./voices";
+import { MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 const linkStyle = {
   border: 0,
@@ -79,17 +82,54 @@ export function shownBooks(chips: ScopeChips, table: CompareTableDto | null): Li
   return books;
 }
 
-export function AddBook({ library, chosen, onAdd, keepOpen = false }: {
+function clipText(text: string, limit = 700): string {
+  const flat = text.split(/\s+/).join(" ").trim();
+  return flat.length <= limit ? flat : `${flat.slice(0, limit - 1).trimEnd()}…`;
+}
+
+/** A peeked passage beside the answer or the comparison (Esc closes it). */
+export function PeekPanel({ peek, title, onClose }: {
+  peek: { key: string; view: SpanViewDto | null };
+  title: string | null;
+  onClose: () => void;
+}) {
+  const view = peek.view;
+  return (
+    <div data-library-peek="" style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <span style={headStyle}>peek</span>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onClose} style={linkStyle}>close peek</button>
+      </div>
+      {view ? (
+        <SourceVoice source={title} locator={view.page !== null ? `p.${view.page}` : null}>
+          {[...view.previousSpans.map((span) => span.text), view.text, ...view.nextSpans.map((span) => span.text)].map((text, index) => (
+            <p key={index} style={{ margin: "0 0 6px", fontWeight: index === view.previousSpans.length ? 600 : 400 }}>{clipText(text)}</p>
+          ))}
+        </SourceVoice>
+      ) : (
+        <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> opening the passage…</MeaningLabel>
+      )}
+    </div>
+  );
+}
+
+export function AddBook({ library, chosen, onAdd, keepOpen = false, openSignal = 0 }: {
   library: LibraryBookDto[];
   chosen: string[];
   onAdd: (book: LibraryBookDto) => void;
   /** The learner removed every book (their press): the picker stays open (F2). */
   keepOpen?: boolean;
+  /** CA4: `+` in the table (the learner's key) opens the picker. */
+  openSignal?: number;
 }) {
   const [open, setOpen] = useState(keepOpen);
   useEffect(() => {
     if (keepOpen) setOpen(true);
   }, [keepOpen]);
+  useEffect(() => {
+    if (openSignal > 0 && library.length > 0) setOpen(true);
+  }, [openSignal, library.length]);
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -152,12 +192,14 @@ export function AddBook({ library, chosen, onAdd, keepOpen = false }: {
   );
 }
 
-export function ScopeLine({ chips, table, library, onBooks, onReword }: {
+export function ScopeLine({ chips, table, library, onBooks, onReword, addSignal = 0 }: {
   chips: ScopeChips;
   table: CompareTableDto | null;
   library: LibraryBookDto[];
   onBooks: (books: LibraryBookDto[]) => void;
   onReword: (() => void) | null;
+  /** CA4: `+` in the table opens "+ add a book". */
+  addSignal?: number;
 }) {
   const books = shownBooks(chips, table);
   const chosen = books.map((book) => book.sourceId);
@@ -185,7 +227,8 @@ export function ScopeLine({ chips, table, library, onBooks, onReword }: {
             </button>
           </span>
         ))}
-        <AddBook library={offer} chosen={chosen} onAdd={(book) => onBooks([...books, book])} keepOpen={Boolean(chips.emptied)} />
+        <AddBook library={offer} chosen={chosen} onAdd={(book) => onBooks([...books, book])} keepOpen={Boolean(chips.emptied)}
+          openSignal={addSignal} />
         {chips.topic ? <span>· {SCOPE_COPY.on} {chips.topic}</span> : null}
         {onReword ? <button type="button" style={linkStyle} onClick={onReword}>{SCOPE_COPY.change}</button> : null}
       </span>
@@ -279,6 +322,7 @@ export function CompareScopeView({ ctl, onClose, onReword, onPracticePick, Table
       </div>
       <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
       <CompareScopeBody ctl={ctl} onReword={onReword} onPracticePick={onPracticePick} Table={Table} controls={controls} />
+      {state.peek ? <PeekPanel peek={state.peek} title={state.peek.title ?? null} onClose={ctl.closePeek} /> : null}
     </section>
   );
 }
@@ -290,6 +334,7 @@ export function useCompareControls(ctl: LibraryAskController) {
   const [refineOpen, setRefineOpen] = useState(false);
   const [showPrevious, setShowPrevious] = useState(false);
   const [question, setQuestion] = useState("");
+  const [addSignal, setAddSignal] = useState(0);
   const table = ctl.state?.chips ? ctl.state.compare.value : null;
   const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -305,9 +350,14 @@ export function useCompareControls(ctl: LibraryAskController) {
       event.preventDefault();
       event.stopPropagation();
       setRefineOpen(true);
+    } else if (event.key === "+" && table && ctl.byPoint) {
+      // CA4 (§5.5): "+ add a book" (the picker takes the cursor on this key).
+      event.preventDefault();
+      event.stopPropagation();
+      setAddSignal((value) => value + 1);
     }
   };
-  return { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown };
+  return { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown, addSignal };
 }
 
 export type CompareControls = ReturnType<typeof useCompareControls>;
@@ -329,7 +379,7 @@ export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practic
 }) {
   const own = useCompareControls(ctl);
   const hosted = controls !== undefined;
-  const { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown } = controls ?? own;
+  const { refineOpen, setRefineOpen, showPrevious, setShowPrevious, question, setQuestion, onKeyDown, addSignal } = controls ?? own;
   const state = ctl.state;
   if (!state?.chips) return null;
   const table = state.compare.value;
@@ -346,7 +396,8 @@ export function CompareScopeBody({ ctl, onReword, onPracticePick, Table, practic
     // the host's region (hosted) or on these controls.
     <div data-compare-controls="" {...(hosted ? {} : { onKeyDown, tabIndex: -1 })}
       style={{ display: "flex", flexDirection: "column", gap: 12, outline: "none" }}>
-      <ScopeLine chips={state.chips} table={table} library={state.library ?? []} onBooks={ctl.setBooks} onReword={reword} />
+      <ScopeLine chips={state.chips} table={table} library={state.library ?? []} onBooks={ctl.setBooks} onReword={reword}
+        addSignal={addSignal} />
       {earlier ? (
         // F7: the earlier table, whatever the state of the one replacing it.
         showPrevious ? (

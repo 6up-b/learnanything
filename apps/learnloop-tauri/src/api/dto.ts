@@ -6758,7 +6758,9 @@ export interface ReaderPromptContractDto {
   /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean;
     /** Reader CA3: compare from anywhere (present only while reader_compare.scope_enabled is on). */
-    compareScope?: boolean };
+    compareScope?: boolean;
+    /** Reader CA4: the table by point (present only while reader_compare.by_point is on). */
+    compareByPoint?: boolean };
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
@@ -9051,8 +9053,46 @@ export interface CompareCellDto {
   authorship: "ai";
 }
 
+/** Reader CA4 (ux_reader_compare_ask_v1 §5.1, K13): one book's cell on one point. */
+export interface ComparePointCellDto {
+  /** The book's column: its row's `key` in `rows`. */
+  key: string;
+  /** quoted: the book's verified words and LearnLoop's line; not_addressed: nothing verified on this point. */
+  status: "quoted" | "not_addressed";
+  quote?: string | null;
+  line?: string | null;
+  /** The block holding the quote (an anchor of several blocks names the right one). */
+  spanKey?: string | null;
+  authorship?: "ai";
+}
+
+/** Reader CA4: one pair's relation on a point, exactly as the comparison returned it. */
+export interface ComparePointRelationDto {
+  leftKey: string;
+  rightKey: string;
+  relation: string;
+  statement: string | null;
+  leftQuote: string | null;
+  rightQuote: string | null;
+  authorship?: "ai";
+}
+
+/** Reader CA4: a row of the table by point. */
+export interface ComparePointDto {
+  id: string;
+  /** LearnLoop's label, or (a requested perspective) the learner's own words. */
+  label: string;
+  kind: "point" | "perspective";
+  labelVoice: "model" | "learner";
+  cells: ComparePointCellDto[];
+  relations: ComparePointRelationDto[];
+}
+
 export interface CompareTableDto {
   version?: number;
+  /** Reader CA4: a comparison by point (absent: v1, or reader_compare.by_point off; rendered by book). */
+  contract?: "source_compare.v2";
+  points?: ComparePointDto[];
   askId: string;
   status: string;
   comparisonId: string | null;
@@ -9149,9 +9189,13 @@ export interface CompareScopeReadingDto {
 export interface KeptComparisonDto {
   askId: string;
   keptAt: string;
-  objects: Array<{ id: string; key: string; objectType: "claim" | "definition"; sourceTitle: string | null }>;
+  objects: Array<{ id: string; key: string; objectType: "claim" | "definition"; sourceTitle: string | null; pointId?: string }>;
   relations: Array<{ id: string; relationType: string; fine: string }>;
-  takes: Array<{ id: string; keys: string[]; learnerText: string }>;
+  /** Reader CA4: a take on a row (`pointId`) or on the whole comparison (`about`). */
+  takes: Array<{ id: string; keys: string[]; learnerText: string; pointId?: string; about?: "comparison" }>;
+  /** Reader CA4: a keep by point (one claim per cell) and the rows the learner hid. */
+  layout?: "by_point";
+  hiddenPoints?: string[];
   notKept: number;
   status: "proposed";
   label: string;
@@ -9360,7 +9404,10 @@ export interface DeliverableScopeDto {
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
 export interface KeepTakeDto {
   text: string;
-  keys: string[];
+  /** The passages a take is about (by book); Reader CA4: or its row, or the whole comparison. */
+  keys?: string[];
+  pointId?: string;
+  about?: "comparison";
 }
 
 // ---------------------------------------------------------------------------

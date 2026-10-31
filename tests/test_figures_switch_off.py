@@ -48,6 +48,8 @@ def _without_later_stages(contract: dict) -> dict:
     # Reader CA3 (on by default, pinned by tests/test_reader_ca3_compare_anywhere.py):
     # libraryAsk.compareScope and Transfer's "how do my other books treat this?".
     assert contract["libraryAsk"].pop("compareScope") is True
+    # Reader CA4 (on by default, pinned by tests/test_reader_ca4_table_by_point.py): libraryAsk.compareByPoint.
+    assert contract["libraryAsk"].pop("compareByPoint") is True
     for group in contract["intent"]["palette"]:
         group["actions"] = [action for action in group["actions"]
                             if action["effect"] != {"kind": "reading_path"} and action["effect"]["kind"] != "compare"]

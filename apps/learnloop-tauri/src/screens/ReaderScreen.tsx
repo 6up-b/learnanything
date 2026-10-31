@@ -101,7 +101,7 @@ import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigur
 import type { ShowMeLine } from "./reader/figures/showMe";
 import type { FigurePassageDto, FigureViewDto } from "../api/dto";
 import { SCOPE_COPY, useLibraryAsk, type CompareRequest } from "./reader/useLibraryAsk";
-import { LibraryPane } from "./reader/LibraryPane";
+import { LibraryPane, useComparingStacked } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
 import { useKeptComparisons } from "./reader/useKeptComparisons";
@@ -1351,6 +1351,8 @@ export function ReaderScreen({
   };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
+  // Reader CA4: below the breakpoint the comparing posture stacks (off: RW4a's split).
+  const comparingStacked = useComparingStacked(comparing && libraryCtl.byPoint);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
     if (!render || offline) return;
     setLibraryCompose(null);
@@ -2847,7 +2849,7 @@ export function ReaderScreen({
           }}
         />
       ) : null}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}) }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}) }}>
         <div
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
@@ -2872,6 +2874,8 @@ export function ReaderScreen({
             position: "relative",
             cursor: domArmed && !pdfSurfaceActive ? "crosshair" : undefined,
             ...(wbStacked ? { order: 1, flex: wbSourceShown ? "0 0 50%" : undefined, display: wbSourceShown ? "flex" : "none", borderTop: `1px solid ${COLOR.border}` } : {}),
+            // Reader CA4: the comparing posture stacked, the book below the comparison.
+            ...(comparingStacked ? { order: 1, flex: "0 0 50%" } : {}),
           }}
         >
           <IntentBox box={intentBox} />
@@ -3137,6 +3141,7 @@ export function ReaderScreen({
             onClose={closeLibrary}
             exercises={exerciseProps}
             onMakeExplorable={figureOffersOn ? (hit, offerRef) => makeExplorable(hit, "library", offerRef) : null}
+            stacked={comparingStacked}
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}

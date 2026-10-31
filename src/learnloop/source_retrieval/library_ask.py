@@ -1113,14 +1113,20 @@ def open_comparison(
     return ask_id
 
 
-def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None = None) -> dict[str, Any]:
+def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None = None,
+                  by_point: bool = False) -> dict[str, Any]:
     """The Reader's table over a ``compare_sources`` result (UX W10).
 
     One row per source, the open source's first: *contributes* from its
     contributions, *assumes* from the ``different_assumptions`` relations it is
     in, *differs from the others* from its other relations; every cell is a
     line that passed the service's quote check and carries its own source's
-    quote. There is no consensus row (G18)."""
+    quote. There is no consensus row (G18).
+
+    Reader CA4 (``by_point``, while ``reader_compare.by_point`` is on): a v2
+    comparison's table also carries ``points`` (:func:`point_rows`), the grid
+    by point; its ``rows`` stay the by-book view. A v1 comparison, or any
+    comparison while the switch is off, has no ``points`` (by book, as today)."""
 
     sources = list(comparison.get("sources") or [])
     # Reader CA3: an anchored comparison leads with the anchor's book ("your passage").
@@ -1170,7 +1176,47 @@ def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None 
         "dropped_pins": list(comparison.get("dropped_pins") or ()),
         "dropped_line_count": len(comparison.get("dropped_lines") or ()),
         "header": "differences kept · each line quotes its own source",
+        **({"points": point_rows(comparison, refs), "contract": "source_compare.v2"}
+           if by_point and isinstance(comparison.get("points"), list) else {}),
     }
+
+
+def point_rows(comparison: Mapping[str, Any], refs: Mapping[Any, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Reader CA4 (§5.1, K13): a v2 comparison's points as the grid shows them.
+    Each point: its id, its label (LearnLoop's, or the learner's own words for
+    a requested perspective: ``kind``), one cell per compared source keyed by
+    its column (the by-book row's ``key``): the verified quote and LearnLoop's
+    line, or ``not_addressed``; and its pairs' relations exactly as returned
+    (the chips are derived from these and nothing else)."""
+
+    def column(ref: Any) -> str | None:
+        entry = refs.get(ref)
+        return None if entry is None else f"{entry.get('extraction_id')}:{entry.get('span_id')}"
+
+    rows: list[dict[str, Any]] = []
+    for point in comparison.get("points") or ():
+        cells = []
+        for cell in point.get("cells") or ():
+            key = column(cell.get("ref"))
+            if key is None:
+                continue
+            if cell.get("status") == "quoted":
+                cells.append({"key": key, "status": "quoted", "quote": cell.get("quote"), "line": cell.get("line"),
+                              "span_key": cell.get("span_key") or key, "authorship": "ai"})
+            else:
+                cells.append({"key": key, "status": "not_addressed"})
+        relations = []
+        for relation in point.get("relations") or ():
+            left, right = column(relation.get("left_ref")), column(relation.get("right_ref"))
+            if left is None or right is None:
+                continue
+            relations.append({"left_key": left, "right_key": right, "relation": relation.get("relation"),
+                              "statement": relation.get("statement"), "left_quote": relation.get("left_quote"),
+                              "right_quote": relation.get("right_quote"), "authorship": "ai"})
+        rows.append({"id": point.get("id"), "label": point.get("label"), "kind": point.get("kind") or "point",
+                     "cells": cells, "relations": relations,
+                     "label_voice": "learner" if point.get("kind") == "perspective" else "model"})
+    return rows
 
 
 def compare(
@@ -1185,9 +1231,14 @@ def compare(
     requested_perspectives: Sequence[str] = (),
     scope: Mapping[str, Any] | None = None,
     bind: Callable[[Callable[[], None], Sequence[str], str | None], Mapping[str, Any]] | None = None,
+    by_point: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Compare the pinned passages through the service's ``compare_sources``.
+
+    ``by_point`` (Reader CA4, only while ``reader_compare.by_point`` is on;
+    False otherwise, so the request is v1's): the comparison is asked under
+    ``source_compare.v2`` and the table carries its points.
 
     ``scope`` (Reader CA3, only while ``reader_compare.scope_enabled`` is on;
     None otherwise, so the call and the table are RW4a's/RW4d's): the one
@@ -1239,9 +1290,11 @@ def compare(
             extra["source_ids"] = named
     if perspectives:
         extra["requested_perspectives"] = perspectives
+    if by_point:
+        extra["by_point"] = True
     comparison = compare_sources(row["query"], pinned_span_keys=pins, **extra)
     payload = comparison.as_dict() if hasattr(comparison, "as_dict") else dict(comparison)
-    table = compare_table(payload, first_source_id=open_source_id)
+    table = compare_table(payload, first_source_id=open_source_id, by_point=by_point)
 
     def write_binding() -> None:
         if payload.get("comparison_id"):
@@ -1432,6 +1485,7 @@ __all__ = [
     "compare",
     "compare_enabled",
     "compare_table",
+    "point_rows",
     "compared_passage_keys",
     "comparison_passage_keys",
     "group_hits",

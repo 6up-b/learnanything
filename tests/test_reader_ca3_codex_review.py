@@ -18,7 +18,7 @@ import pytest
 from learnloop.source_retrieval.compare import compare_sources
 from learnloop.source_retrieval.policy import CallerContext
 from tests.library_ask_fixtures import ask_rows, build_library_vault, call, context
-from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded, seed_textbook
+from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded, seed_textbook, set_config
 
 QUESTION = "why does the determinant change sign when two rows are swapped"
 
@@ -145,6 +145,8 @@ def test_f4_a_one_block_anchor_is_stored_as_before(textbook):
 @pytest.fixture
 def library(tmp_path, monkeypatch):
     paths, repository, _spans = build_library_vault(tmp_path / "vault")
+    # CA3's keep by source (Reader CA4's cells are pinned in its own tests).
+    set_config(paths, "reader_compare", by_point=False)
     import learnloop.instructional.sources as service
 
     real = service.propose_comparison

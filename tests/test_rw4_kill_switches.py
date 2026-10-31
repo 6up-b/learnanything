@@ -65,9 +65,10 @@ def _without_library(contract: dict) -> dict:
 def test_the_switch_restores_rw1bs_contract_byte_for_byte(make):
     _on_paths, on = make()
     contract_on = call(on, "reader.prompt_contract", {})
-    # Reader CA3 (reader_compare.scope_enabled, on by default) adds compareScope.
+    # Reader CA3 (reader_compare.scope_enabled, on by default) adds compareScope,
+    # and Reader CA4 (reader_compare.by_point, on by default) compareByPoint.
     assert contract_on["libraryAsk"] == {"expandGraph": True, "personalizedDefault": True, "compare": True,
-                                         "compareScope": True}
+                                         "compareScope": True, "compareByPoint": True}
     groups = {group["group"] for group in contract_on["intent"]["palette"]}
     assert "orient" in groups
     _off_paths, off = make("library_ask", {"enabled": False})
