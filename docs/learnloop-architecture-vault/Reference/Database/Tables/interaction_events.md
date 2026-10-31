@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
-source_commit_timestamp: "2026-10-31T14:47:44-04:00"
+source_commit: "f2a2fa37e3e3a974b999480df9a9b931675db2e0"
+source_commit_timestamp: "2026-10-31T16:30:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -157,6 +157,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/remote/telemetry.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 

@@ -3,8 +3,8 @@ title: "Config - capture"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
-source_commit_timestamp: "2026-10-31T14:47:44-04:00"
+source_commit: "f2a2fa37e3e3a974b999480df9a9b931675db2e0"
+source_commit_timestamp: "2026-10-31T16:30:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml capture"
@@ -21,6 +21,8 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/intent/control.py"
   - "tests/test_ad23_pool_membership.py"
+  - "tests/test_deliverable_codex_review.py"
+  - "tests/test_deliverable_path.py"
   - "tests/test_intent_checks.py"
   - "tests/test_intent_resolution.py"
 tags:
@@ -43,7 +45,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3535`; `src/learnloop/ai/plan_fallback.py:127`; `src/learnloop/intent/control.py:329` |
+| `capture.test_me_later_days` | `7` | integer | modeled default or validator seed | Sets the test me later duration in days for daily-loop capture: DL2's "Check once" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3589`; `src/learnloop/ai/plan_fallback.py:127`; `src/learnloop/intent/control.py:329` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -53,6 +55,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_ad23_pool_membership.py`
+- `tests/test_deliverable_codex_review.py`
+- `tests/test_deliverable_path.py`
 - `tests/test_intent_checks.py`
 - `tests/test_intent_resolution.py`
 

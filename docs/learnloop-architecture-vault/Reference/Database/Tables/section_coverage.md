@@ -3,8 +3,8 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2adf2d18059d6503c417cdc5e0753a7621943065"
-source_commit_timestamp: "2026-10-31T14:47:44-04:00"
+source_commit: "f2a2fa37e3e3a974b999480df9a9b931675db2e0"
+source_commit_timestamp: "2026-10-31T16:30:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
@@ -124,8 +124,10 @@ None found by exact static reference scan.
 - `tests/deliverable_fixtures.py`
 - `tests/test_architecture.py`
 - `tests/test_coverage_on_extract.py`
+- `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
+- `tests/test_reader_ca5a_find_section.py`
 - `tests/test_section_coverage.py`
 - `tests/test_section_coverage_migration.py`
 - `tests/test_section_coverage_review.py`
