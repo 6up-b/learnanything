@@ -84,6 +84,7 @@ import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { ReadingPathCard } from "./reader/ReadingPathCard";
+import { GuidePathSlot } from "./reader/DeliverableSliceCard";
 import { readingPathRefreshKey } from "./reader/readingPath";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
@@ -3218,13 +3219,23 @@ export function ReaderScreen({
             disposition={disposition}
             chooseDisposition={chooseDisposition}
             path={contract?.readingPaths ? (
-              <ReadingPathCard
+              // Curriculum C0b: a deliverable's slice for this book takes the path card
+              // (its RPC refuses while curriculum.enabled is off: then RW7a's card, as today).
+              <GuidePathSlot
                 extractionId={render.extractionId}
                 onJump={(spanId) => jumpToSpan(spanId, "start")}
-                onTryExercise={wbCtl.enabled ? tryPathExercise : null}
                 onError={onError}
-                focusToken={pathFocus}
                 refreshKey={pathRefreshKey}
+                readingPathCard={(
+                  <ReadingPathCard
+                    extractionId={render.extractionId}
+                    onJump={(spanId) => jumpToSpan(spanId, "start")}
+                    onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+                    onError={onError}
+                    focusToken={pathFocus}
+                    refreshKey={pathRefreshKey}
+                  />
+                )}
               />
             ) : undefined}
             header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (

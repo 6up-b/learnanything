@@ -9,6 +9,10 @@ import type {
   KeepComparisonResultDto,
   KeepTakeDto,
   KeptMarksDto,
+  DeliverablePathChoice,
+  DeliverableReadyDto,
+  DeliverableScopeDto,
+  DeliverableSliceDto,
   ReadingPathChoice,
   ReadingPathDepth,
   ReadingPathDto,
@@ -1626,6 +1630,29 @@ export const api = {
   // Reader workbench RW7a: the Guide's reading path (answers at once; a
   // judgment runs in the background and the Guide reads the path again),
   // the depth for this book, and "read it anyway" / "skip it".
+  // Deliverable curriculum C0b: the deliverable's scope, its path across books, the Guide's slice,
+  // the learner's overrides and "Am I ready?" (desktop only; refused while curriculum.enabled is off).
+  curriculumDeliverables: () => call<{ deliverables: DeliverableScopeDto[] }>("curriculum_deliverables", { input: {} }),
+  curriculumCreateDeliverable: (input: { sentence: string; dueAt?: string | null; exam?: boolean }) =>
+    call<{ goalId: string; status: string; message: string | null; scope: DeliverableScopeDto }>("curriculum_create_deliverable", { input }),
+  curriculumSetScope: (input: { goalId: string; kind: "text" | "topic_list" | "passage" | "correction"; text?: string;
+    extractionId?: string; spanIds?: string[]; context?: Record<string, unknown> }) =>
+    call<{ status: string; message: string | null; scope: DeliverableScopeDto }>("curriculum_set_scope", { input }),
+  curriculumScope: (input: { goalId: string }) => call<DeliverableScopeDto>("curriculum_scope", { input }),
+  curriculumScopeDecide: (input: { goalId: string; phrase: string; decision: "create" | "decline"; subjectId?: string }) =>
+    call<{ created: { learningObjectId: string } | null; scope: DeliverableScopeDto }>("curriculum_scope_decide", { input }),
+  curriculumSetDepth: (input: { goalId: string; depth: ReadingPathDepth }) => call<unknown>("curriculum_set_depth", { input }),
+  curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) => call<unknown>("curriculum_path", { input }),
+  curriculumGuideSlice: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
+    call<DeliverableSliceDto>("curriculum_guide_slice", { input }),
+  curriculumPathOverride: (input: { goalId: string; learningObjectId: string; choice: DeliverablePathChoice; sectionRef?: string }) =>
+    call<unknown>("curriculum_path_override", { input }),
+  curriculumReady: (input: { goalId: string }) => call<DeliverableReadyDto>("curriculum_ready", { input }),
+  curriculumReadyCheck: (input: { goalId: string }) =>
+    call<{ created: Array<{ commitmentId: string; dueHint: string; learningObjectId: string }>; readiness: DeliverableReadyDto }>(
+      "curriculum_ready_check", { input }),
+  curriculumAlsoAbout: (input: { extractionId: string; sectionId: string; text: string }) =>
+    call<{ status: string; learningObjectId: string | null; message?: string }>("curriculum_also_about", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>

@@ -1403,6 +1403,20 @@ sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
 sidecar_passthrough!(reader_reading_path, "reader.reading_path");
 sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
 sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
+// Deliverable curriculum C0b (the deliverable's scope, its path across books, the
+// Guide's slice, overrides, "Am I ready?", "also about"): desktop only.
+sidecar_passthrough!(curriculum_deliverables, "curriculum.deliverables");
+sidecar_passthrough!(curriculum_create_deliverable, "curriculum.create_deliverable");
+sidecar_passthrough!(curriculum_set_scope, "curriculum.set_scope");
+sidecar_passthrough!(curriculum_scope, "curriculum.scope");
+sidecar_passthrough!(curriculum_scope_decide, "curriculum.scope_decide");
+sidecar_passthrough!(curriculum_set_depth, "curriculum.set_depth");
+sidecar_passthrough!(curriculum_path, "curriculum.path");
+sidecar_passthrough!(curriculum_guide_slice, "curriculum.guide_slice");
+sidecar_passthrough!(curriculum_path_override, "curriculum.path_override");
+sidecar_passthrough!(curriculum_ready, "curriculum.ready");
+sidecar_passthrough!(curriculum_ready_check, "curriculum.ready_check");
+sidecar_passthrough!(curriculum_also_about, "curriculum.also_about");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
 // figures, predictions and "what changed?"): desktop only.
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");

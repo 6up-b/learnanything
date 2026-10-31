@@ -9122,6 +9122,103 @@ export interface ReadingPathDto {
   reason?: string | null;
 }
 
+/** Deliverable curriculum C0b (spec §7.3): a path line's choice; "none" clears an earlier one. */
+export type DeliverablePathChoice = "use_instead" | "read_anyway" | "skip" | "check_later" | "none";
+/** §7.1's labels (code keeps them honest: "already_shown" only while demonstrated). */
+export type DeliverablePathLabel = "core" | "prerequisite" | "alternate" | "already_shown" | "assumed";
+
+/** One section of one book on a deliverable's path (never its text). */
+export interface DeliverableSectionDto {
+  extractionId: string;
+  sectionId: string;
+  title: string;
+  book: string;
+  sourceId: string;
+  startSpanId: string;
+  minutes: number;
+  treatment: string;
+  treatmentWords: string;
+  read: boolean;
+  /** An alternate's one line: how it differs ("more geometric"). */
+  difference?: string;
+}
+
+export interface DeliverableLineDto {
+  learningObjectId: string;
+  title: string;
+  /** The phrase of the learner's own words this topic answers. */
+  phrase: string;
+  kind: "needed" | "prerequisite";
+  label: DeliverablePathLabel;
+  chip: string;
+  /** check_pending: "check me later" is waiting; skipped: "skip it". */
+  effectiveLabel: DeliverablePathLabel | "skipped" | "check_pending";
+  reason: string;
+  reasonBy: "model" | "code";
+  override: Exclude<DeliverablePathChoice, "none"> | null;
+  section: DeliverableSectionDto;
+  alternates: DeliverableSectionDto[];
+  exercise: { label: string; extractionId: string; spanIds: string[]; page: number | null } | null;
+  check: { commitmentId: string | null; state: string | null } | null;
+  ordinal: number;
+  /** The Guide's slice: this book's alternate for a topic whose primary is elsewhere. */
+  elsewhere?: DeliverableSectionDto;
+}
+
+/** curriculum.guide_slice: the deliverable's slice for the open book ("none": RW7a's card). */
+export interface DeliverableSliceDto {
+  version?: number;
+  extractionId: string;
+  status: "none" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
+  goal?: { id: string; title: string; kind: "exam" | "quest"; dueAt: string | null };
+  depth?: ReadingPathDepth | null;
+  depthLabel?: string | null;
+  depths?: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  lines?: DeliverableLineDto[];
+  elsewhere?: Array<{ learningObjectId: string; title: string; section: DeliverableSectionDto; label: DeliverablePathLabel }>;
+  notNeeded?: Array<{ sectionId: string; title: string; startSpanId: string }>;
+  notNeededLabel?: string;
+  uncovered?: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  message?: string | null;
+  reason?: string | null;
+  /** Coverage of the deliverable's topics is being checked now. */
+  covering?: boolean;
+}
+
+/** curriculum.ready: "Am I ready?" per topic (never what was read). */
+export interface DeliverableReadyDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  dueAt: string | null;
+  lines: Array<{
+    learningObjectId: string;
+    title: string;
+    phrase: string | null;
+    state: "demonstrated" | "likely" | "untested";
+    line: string;
+    checks: Array<{ commitmentId: string; dueHint: string | null }>;
+  }>;
+  checksOwed: string[];
+  summary: string;
+}
+
+/** curriculum.scope: the topics the learner's words resolved to, and what isn't in the library. */
+export interface DeliverableScopeDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  sentence: string | null;
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  depth: ReadingPathDepth | null;
+  topics: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  unmatched: Array<{ phrase: string; proposedTitle: string; proposedStatement: string; status: "open" | "created" | "declined";
+    createdLearningObjectId: string | null }>;
+  inputs: Array<{ id: string; kind: string; text: string | null; extractionId: string | null; createdAt: string }>;
+  resolution: { id: string; origin: string; model: string; createdAt: string; facetScope: Record<string, string[]> } | null;
+}
+
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
 export interface KeepTakeDto {
   text: string;
