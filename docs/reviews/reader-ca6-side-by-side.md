@@ -100,7 +100,9 @@ No migration, no successor, no model call.
 4. **Intent box, margin marks, notes and highlights in the second pane are not built.** The spec's
    "everything else works in both panes" lists them. CA6 builds the selection verb the stage brief names (CA3
    in side by side) as a one-line bar under the pane. The full intent box needs the Reader's capture and
-   anchoring machinery per pane, which is a larger refactor of `ReaderScreen`.
+   anchoring machinery per pane, which is a larger refactor of `ReaderScreen`. *After the Codex review (F1):*
+   highlight and note in the second pane (saved to its own book) and its own margin marks are built. The
+   intent box there is still open (see `reader-ca6-side-by-side-codex-review.md`).
 5. **Records go through `reader.log_activity`**, so like every other Reader funnel event they are written only
    while `reader_inquiry` is on. The crumb also needs `reader_inquiry`: without it side by side opens with no
    crumb.
