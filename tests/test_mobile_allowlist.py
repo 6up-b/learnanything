@@ -395,6 +395,31 @@ def test_the_pinned_c0a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.correspondents import CORRESPONDENT_RPCS
 
     assert set(CURRICULUM_C0A_RPCS) == set(CORRESPONDENT_RPCS)
+
+
+# Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5, §7, §8.5): the
+# deliverable's scope, its path across books, the Guide's slice, the learner's
+# overrides, "Am I ready?" and "also about…". Desktop only.
+CURRICULUM_C0B_RPCS = (
+    "curriculum.deliverables",
+    "curriculum.create_deliverable",
+    "curriculum.set_scope",
+    "curriculum.scope",
+    "curriculum.scope_decide",
+    "curriculum.set_depth",
+    "curriculum.path",
+    "curriculum.guide_slice",
+    "curriculum.path_override",
+    "curriculum.ready",
+    "curriculum.ready_check",
+    "curriculum.also_about",
+)
+
+
+def test_the_pinned_c0b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.deliverables import DELIVERABLE_RPCS
+
+    assert set(CURRICULUM_C0B_RPCS) == set(DELIVERABLE_RPCS)
 # Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
 # (build and "not right?" as jobs, the source's figures, predictions and
 # "what changed?"); it extends reader.prompt_contract (figures). Desktop only.
@@ -710,7 +735,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + READER_CA1_RPCS + READER_RW5D_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + READER_CA1_RPCS + READER_RW5D_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
