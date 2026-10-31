@@ -912,6 +912,27 @@ correction per LO of the open section, in one transaction, with an undo of its o
 pair verdict only. The detour-strip crumb for a peek and §6.5's salience events are deferred to CA5. The new `[reader.correspondence]`
 section is the switch, and the prompt contract carries it only while `curriculum.enabled` is on too.
 
+*As built (CA5, branch `reader/ca5-also-in-your-books`, `docs/reviews/reader-ca5-also-in-your-books.md`):* the
+Guide's one dim line sits directly under the section's progress bar (`AlsoInBooks.tsx`, the `GuideRail` slot
+`alsoInBooks`) and shows only when the quiet read (`reader.correspondents`, `search_fallback` off) reports `judged`;
+none, unchecked hits, a protected section or a failed read show nothing. Names come from the book's title before
+any subtitle and the section's own number (`Axler §5.A`), within one rail line, else *and others ▸*. The list is by
+LO in the API's order, each section once (under its first LO, *also: …* on focus), with the treatment words, the
+judge's notation line in the model voice (◇ on focus), *you compared these: …* from RW4d's keeps, *read*, and
+*you linked it* for a learner-linked section. Keys: ↑↓, Space (CA5a's protected peek, exposure per block), ↵ (the
+source detour), `c` (CA3's request through `compareFoundSection`), `s` only when CA6 passes its entry (a seam
+until then), Esc (peek, then fold); `x` joins the Reader-wide keys while the line is there (off in text fields,
+while the intent box shows and in the working posture; nothing else in the Reader, the PDF pane or
+`LiveMarkdownEditor` binds a bare `x`). *Not about this* on a judged line is CA5a's one operation naming the LOs
+the line is listed under (`learning_object_ids`, new), with undo; *also about…* is C0b's `curriculum.also_about`
+on the other section. *Hide for this book · hide everywhere* write `[reader.correspondence] hidden_sources` /
+`hide_everywhere` (`reader.set_correspondence_preferences`; Settings lists what is hidden, by name, with *show
+again*). A peek adds the display-only crumb `› peek Axler §5.A` to the detour strip (never a return-stack entry).
+Peeks and go there from either list record `corresponding_section_peeked` / `_opened` (salience only). The quiet
+read is shared with CA5a's action (one request per crossing), and the sidecar keeps one library per vault
+(`SC.LibraryCache`: reused while the vault object, the protection key and the readings are unchanged; protection
+read again on every call). No migration, no successor, no model call.
+
 *As built (CA4, branch `reader/ca4-table-by-point`, `docs/reviews/reader-ca4-table-by-point.md`):*
 `source_compare.v2` on the same route in one call (points with labels; per compared source a cell, verified quote
 and LearnLoop's line, or not addressed; per point its pairs' relations from the unchanged `RELATIONS`; requested
