@@ -35,16 +35,22 @@ def _record(tmp_path: Path, *, enabled: bool | None) -> dict:
 #: ``compareKeep`` and RW7a's ``readingPaths`` with Orient's "what matters
 #: here?" in the contract; RW4d's ``comparisons``, RW4e's ``roles`` and RW7a's
 #: ``reading_paths`` in the report. These pins are about RW5a's switch, so
-#: everything else stays byte for byte.
-LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths")
+#: everything else stays byte for byte. Reader CA5a's ``correspondence``
+#: (find this section in my other books) is pinned by
+#: tests/test_reader_ca5a_find_section.py.
+LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence")
 LATER_REPORT_KEYS = ("comparisons", "roles", "reading_paths")
 
 
 def _without_later_stages(contract: dict) -> dict:
     for key in LATER_CONTRACT_KEYS:
         contract.pop(key)
+    # Reader CA3 (on by default, pinned by tests/test_reader_ca3_compare_anywhere.py):
+    # libraryAsk.compareScope and Transfer's "how do my other books treat this?".
+    assert contract["libraryAsk"].pop("compareScope") is True
     for group in contract["intent"]["palette"]:
-        group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "reading_path"}]
+        group["actions"] = [action for action in group["actions"]
+                            if action["effect"] != {"kind": "reading_path"} and action["effect"]["kind"] != "compare"]
     return contract
 
 

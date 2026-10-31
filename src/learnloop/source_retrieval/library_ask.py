@@ -41,7 +41,11 @@ so the retrieval policy always comes from where the call comes from (G19):
 * :func:`compare`: the service's ``compare_sources`` over the pinned
   passages, shown as a table (display only until RW4d's keep): one row per
   source, each cell a line that quotes its own source's passage, never a
-  consensus.
+  consensus. Reader CA3 (``reader_compare.scope_enabled``): one request for
+  every door, an anchor without pins and named books (:data:`DOORS`); a door
+  with no library answer first opens its comparison's own ask row
+  (:func:`open_comparison`, no retrieval), so keeping, the tutor and
+  "practice this" bind by it as by any ask.
 * :func:`ask_tutor`: a ``reader``-context tutor question (§3.4 item 11)
   grounded in the pinned passages through the injected pinned-span provider,
   so its citations stay inside them, answered and finalized by the Reader's
@@ -1047,6 +1051,68 @@ def organize(
 # Compare (RW4d's keep lives in source_retrieval.kept_comparisons)
 # ---------------------------------------------------------------------------
 
+#: Reader CA3: the doors one comparison request comes through (§4.1). ``pins``
+#: is today's *compare pinned*; ``refine`` a re-run from the refine box.
+DOORS: tuple[str, ...] = ("selection", "ask_box", "tutor_offer", "library_answer", "refine", "pins")
+
+
+def open_comparison(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    question: str,
+    caller: Mapping[str, Any],
+    door: str,
+    extraction_id: str | None = None,
+    anchor_span_ids: Sequence[str] = (),
+    entry: str = "reader",
+    tool_call_id: str | None = None,
+    clock: Clock | None = None,
+) -> str:
+    """Reader CA3: the ask row a comparison from a door without a library
+    answer (a selection, the ask box's comparison, the tutor's offer) is bound
+    by. Nothing is retrieved: the row holds the question, its anchor and the
+    server-derived caller, exactly what a follow-up of any ask is bound by
+    (Codex review F4); held-out material is refused before anything is read
+    (F1)."""
+
+    words = " ".join(str(question or "").split())
+    if not words:
+        raise LibraryAskError("validation_error", "A comparison needs a question.")
+    if door not in DOORS:
+        raise LibraryAskError("validation_error", f"Unknown door {door!r}.")
+    if entry not in ENTRIES:
+        raise LibraryAskError("validation_error", f"Unknown entry {entry!r}.")
+    anchor = [str(span) for span in dict.fromkeys(anchor_span_ids) if span]
+    if anchor and not extraction_id:
+        raise LibraryAskError("validation_error", "An anchor names its source.")
+    if extraction_id:
+        material = EM.held_out_material(vault, repository)
+        if material.covers(str(extraction_id)) or EM.held_out_among(material, extraction_id, anchor):
+            raise LibraryAskError("exam_material", EM.held_out_refusal(material, extraction_id))
+        # Exam material is assessment-only: an anchor on it is never compared
+        # (the service would drop it; refusing first opens no row for it).
+        exam = EM.exam_material(vault, repository)
+        if any(exam.covers(str(extraction_id), span) for span in anchor) or (not anchor and exam.covers(str(extraction_id))):
+            raise LibraryAskError("exam_material", "This passage is exam material, so it isn't compared.")
+    words = words[:QUESTION_CHARS]
+    ask_id = "la_" + new_ulid()
+    manifest: dict[str, Any] = {"caller": dict(caller), "policy": caller.get("policy"), "comparison_only": True,
+                                "door": door}
+    if tool_call_id:
+        manifest["tool_call_id"] = tool_call_id
+    with repository.connection() as connection:
+        ask_store.insert_ask(connection, {
+            "id": ask_id, "caller": "learner", "entry": entry, "query_md": words,
+            "query_hash": content_key([words, entry, extraction_id or "", anchor, "compare"])[:32],
+            "extraction_id": extraction_id, "anchor": {"span_ids": anchor, "learning_object_ids": []},
+            "personalized": False, "manifest": manifest, "organizer": {"status": "not_run"},
+            "prompt_version": PROMPT_VERSION, "created_at": utc_now_iso(clock),
+        })
+        connection.commit()
+    return ask_id
+
+
 def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None = None) -> dict[str, Any]:
     """The Reader's table over a ``compare_sources`` result (UX W10).
 
@@ -1057,6 +1123,10 @@ def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None 
     quote. There is no consensus row (G18)."""
 
     sources = list(comparison.get("sources") or [])
+    # Reader CA3: an anchored comparison leads with the anchor's book ("your passage").
+    anchored = next((entry.get("source_id") for entry in sources if entry.get("anchor")), None)
+    if anchored is not None:
+        first_source_id = anchored
     if first_source_id is not None:
         sources.sort(key=lambda entry: 0 if entry.get("source_id") == first_source_id else 1)
     refs = {entry.get("ref"): entry for entry in sources}
@@ -1081,6 +1151,10 @@ def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None 
                              "perspective": c.get("perspective"), "authorship": "ai"}
                             for c in entry.get("contributions") or ()],
             "assumes": assumes, "differs": differs,
+            # Reader CA3 (Codex review F4): an anchor of several blocks is the
+            # whole passage, so the tutor about this comparison reads all of it.
+            **({"span_keys": [f"{entry.get('extraction_id')}:{span}" for span in entry["span_ids"]]}
+               if entry.get("span_ids") else {}),
         })
     manifest = comparison.get("manifest") or {}
     verification = manifest.get("verification") if isinstance(manifest.get("verification"), Mapping) else {}
@@ -1109,9 +1183,28 @@ def compare(
     record_shown: Callable[[Sequence[str], str], Sequence[str]] | None = None,
     open_source_id: str | None = None,
     requested_perspectives: Sequence[str] = (),
+    scope: Mapping[str, Any] | None = None,
+    bind: Callable[[Callable[[], None], Sequence[str], str | None], Mapping[str, Any]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Compare the pinned passages through the service's ``compare_sources``.
+
+    ``scope`` (Reader CA3, only while ``reader_compare.scope_enabled`` is on;
+    None otherwise, so the call and the table are RW4a's/RW4d's): the one
+    request every door builds, ``{"door", "anchor_keys", "source_ids"}``. No
+    pin is needed: the anchor (``extraction:span`` keys) leads, the named
+    books (``source_ids``) only narrow what is compared, and with neither,
+    every book in scope with a passage is compared, as ``compare_sources``
+    does. The table says which door it came through and what was asked.
+
+    ``bind`` (Reader CA3, Codex final verify F12; None otherwise, so the ask
+    is bound at once, as RW4a/RW4d do): the job's fence. It is given the
+    write that binds this result to the ask (its stored comparison's id, its
+    requested perspectives), every passage the comparison read
+    (:func:`compared_passage_keys`) and the stored id, if any, and returns
+    the fields the table carries for them. A job cancelled or superseded by
+    a newer comparison of the ask writes nothing, so the comparison shown
+    keeps resolving whichever job finishes last.
 
     ``requested_perspectives`` (RW4d, only while ``reader_compare.keep_enabled``
     is on; empty otherwise, so the call and the table are RW4a's) are passed to
@@ -1128,27 +1221,56 @@ def compare(
 
     row = ask_row(repository, ask_id)
     pins = _keys(pinned_keys)
-    if len(pins) < 2:
+    if scope is None and len(pins) < 2:
         raise LibraryAskError("validation_error", "Pin passages from at least two places to compare them.")
     perspectives = [str(value) for value in requested_perspectives if str(value).strip()]
+    extra: dict[str, Any] = {}
+    if scope is not None:
+        door = str(scope.get("door") or "")
+        if door not in DOORS:
+            raise LibraryAskError("validation_error", f"Unknown door {door!r}.")
+        anchor = _keys(scope.get("anchor_keys") or ())
+        named = [str(value) for value in dict.fromkeys(scope.get("source_ids") or ()) if str(value).strip()]
+        if door == "pins" and len(pins) < 2:
+            raise LibraryAskError("validation_error", "Pin passages from at least two places to compare them.")
+        if anchor:
+            extra["anchor_span_keys"] = anchor
+        if named:
+            extra["source_ids"] = named
     if perspectives:
-        comparison = compare_sources(row["query"], pinned_span_keys=pins, requested_perspectives=perspectives)
-    else:
-        comparison = compare_sources(row["query"], pinned_span_keys=pins)
+        extra["requested_perspectives"] = perspectives
+    comparison = compare_sources(row["query"], pinned_span_keys=pins, **extra)
     payload = comparison.as_dict() if hasattr(comparison, "as_dict") else dict(comparison)
-    if payload.get("comparison_id"):
-        _update(repository, ask_id, comparison_id=payload["comparison_id"])
-    if perspectives:
-        _update(repository, ask_id, requested_perspectives_json=json.dumps(perspectives))
     table = compare_table(payload, first_source_id=open_source_id)
+
+    def write_binding() -> None:
+        if payload.get("comparison_id"):
+            _update(repository, ask_id, comparison_id=payload["comparison_id"])
+        if perspectives:
+            _update(repository, ask_id, requested_perspectives_json=json.dumps(perspectives))
+
+    if bind is None:
+        write_binding()
+    else:
+        table.update(bind(write_binding, compared_passage_keys(payload, table),
+                          str(payload["comparison_id"]) if payload.get("comparison_id") else None))
     if perspectives:
         table["requested_perspectives"] = perspectives
         table["missing_perspectives"] = [str(value) for value in payload.get("missing_perspectives") or ()]
+    if scope is not None:
+        # CA3: the request as it was asked (the door, the named books, the anchor).
+        table["scope"] = {"door": scope.get("door"), "question": row["query"],
+                          "source_ids": list(extra.get("source_ids") or ()),
+                          "anchor_keys": list(extra.get("anchor_span_keys") or ())}
     shown = [entry["key"] for entry in table["rows"] if ":" in str(entry.get("key") or "")]
     exposure_ids = list(record_shown(shown, ask_id)) if record_shown is not None and shown else []
-    _event(repository, "compare_opened", {
+    opened: dict[str, Any] = {
         "extraction_id": row["extraction_id"], "status": payload.get("status"), "span_count": len(pins),
-    }, subject_id=row["extraction_id"], clock=clock)
+    }
+    if scope is not None:
+        opened.update({"door": scope.get("door"), "named_count": len(extra.get("source_ids") or ()),
+                       "anchored": bool(extra.get("anchor_span_keys"))})
+    _event(repository, "compare_opened", opened, subject_id=row["extraction_id"], clock=clock)
     return {"ask_id": ask_id, **table, "exposure_event_ids": exposure_ids}
 
 
@@ -1184,6 +1306,48 @@ class OnlyPinned:
         if len(kept) != len(spans):
             manifest["references_left_out"] = len(spans) - len(kept)
         return kept, manifest
+
+
+def compared_passage_keys(payload: Mapping[str, Any], table: Mapping[str, Any]) -> list[str]:
+    """Every passage a comparison read, as ``extraction:span`` keys, the
+    anchor first: the service's own record (``counterpart_keys``, what a
+    stored comparison keeps too), else the table's rows (each row's passage,
+    every block of an anchor of several). Server-side only: the tutor about a
+    comparison that was not stored reads these, never keys the client sends
+    (Codex final verify F10)."""
+
+    recorded = (payload.get("manifest") or {}).get("counterpart_keys") or ()
+    keys = [f"{key[0]}:{key[1]}" for key in recorded if isinstance(key, (list, tuple)) and len(key) == 2]
+    if not keys:
+        keys = [key for row in table.get("rows") or () for key in (row.get("span_keys") or [row.get("key")])
+                if ":" in str(key or "")]
+    return _keys(keys)
+
+
+def comparison_passage_keys(repository: Repository, ask_id: str, comparison_id: str) -> list[str]:
+    """Reader CA3 (Codex re-review F10): every passage the ask's comparison
+    read, from the stored comparison itself (each compared book's passage and
+    every block of an anchor of several), as ``extraction:span`` keys, the
+    anchor first.
+
+    The tutor about a comparison is grounded in these, so a comparison larger
+    than a pin set (an anchor may run to the selection's 40 blocks, plus one
+    passage per book) reaches the tutor whole: the tutor's context budget, not
+    the request's size, decides what is left out, and the answer says so. Only
+    the comparison the ask shows now may be named, never another ask's."""
+
+    from learnloop.db.stores.source_service import comparison_row
+
+    row = ask_row(repository, ask_id)
+    if not comparison_id or row.get("comparison_id") != comparison_id:
+        raise LibraryAskError("validation_error", "That comparison isn't the one this question shows.")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        stored = comparison_row(connection, comparison_id)
+    keys = _keys([f"{key[0]}:{key[1]}" for key in (stored or {}).get("counterpart_keys") or ()
+                  if isinstance(key, (list, tuple)) and len(key) == 2])
+    if not keys:
+        raise LibraryAskError("validation_error", "That comparison has no passages to answer from.")
+    return keys
 
 
 def ask_tutor(
@@ -1257,6 +1421,7 @@ __all__ = [
     "LibraryAskError",
     "ORGANIZER_ENVELOPE",
     "ORGANIZER_TASK",
+    "DOORS",
     "OnlyPinned",
     "OrganizerResult",
     "ROLES",
@@ -1267,7 +1432,10 @@ __all__ = [
     "compare",
     "compare_enabled",
     "compare_table",
+    "compared_passage_keys",
+    "comparison_passage_keys",
     "group_hits",
+    "open_comparison",
     "ledger_explorable",
     "library_ask_enabled",
     "open_questions",

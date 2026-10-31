@@ -5,6 +5,8 @@ import { noteFallbackOffer } from "../app/planFallback";
 import type {
   DifficultyRating,
   FirstHintProgress,
+  CompareRequestDto,
+  CompareScopeReadingDto,
   CompareTableDto,
   KeepComparisonResultDto,
   KeepTakeDto,
@@ -16,6 +18,10 @@ import type {
   ReadingPathChoice,
   ReadingPathDepth,
   ReadingPathDto,
+  CorrespondentsDto,
+  CorrespondentOperationDto,
+  CorrespondentPeekDto,
+  CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -1616,8 +1622,14 @@ export const api = {
   // readerLibraryJobCancel (a cancelled job never answers).
   readerLibraryAskNotes: (input: { askId: string }) =>
     call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
-  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] }) =>
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] } | CompareRequestDto) =>
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
+  // Reader CA3: the ask box's (or the refine box's) reading of named books, a job;
+  // and the learner's change of it (a learner_card row).
+  readerCompareScope: (input: { text: string; mode?: "ask" | "refine"; extractionId?: string | null; currentSourceIds?: string[] }) =>
+    call<LibraryJobDto<CompareScopeReadingDto>>("reader_compare_scope", { input }),
+  readerCompareScopeCorrection: (input: { judgmentId: string; sourceIds: string[] | null }) =>
+    call<{ judgmentId: string }>("reader_compare_scope_correction", { input }),
   // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
   readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
     call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
@@ -1659,7 +1671,22 @@ export const api = {
     call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
   readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
     call<ReadingPathDto>("reader_reading_path_override", { input }),
-  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
+  // Reader CA5a: the other books' sections for one section (no model call, no
+  // write), and C0a's "not about this" correction on one of them.
+  readerCorrespondents: (input: { extractionId: string; sectionId: string; searchFallback?: boolean }) =>
+    call<CorrespondentsDto>("reader_correspondents", { input }),
+  curriculumCoverageCorrect: (input: { extractionId: string; sectionId: string; learningObjectId: string; choice: CoverageCorrectionChoice; text?: string | null }) =>
+    call<{ correction: Record<string, unknown> }>("curriculum_coverage_correct", { input }),
+  // CA5a's peek at a hit (its own section's first blocks, protection read now,
+  // each block shown recorded as exposure) and "not about this" as one
+  // operation (undoOf: its undo), idempotent by the client's operation id.
+  readerCorrespondentPeek: (input: { extractionId: string; sectionId: string }) =>
+    call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
+  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
+    call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
+  /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
+   *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
+  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; passagesId?: string; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>
     call<LibraryJobDto<T>>("reader_library_job", { input }),

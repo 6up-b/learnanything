@@ -32,7 +32,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pydantic import Field
 
@@ -66,11 +66,15 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     if not LA.library_ask_enabled(vault):
         return {}
     settings = vault.config.library_ask
-    return {"library_ask": {
+    fields: dict[str, Any] = {
         "expand_graph": bool(settings.expand_graph),
         "personalized_default": bool(settings.personalized_default),
         "compare": LA.compare_enabled(vault),
-    }}
+    }
+    if scope_enabled(vault):
+        # Reader CA3: compare from anywhere (absent while off: RW4a's contract).
+        fields["compare_scope"] = True
+    return {"library_ask": fields}
 
 
 def _require(ctx: SidecarContext):
@@ -193,22 +197,82 @@ def _as_sidecar_error(exc: BaseException) -> SidecarError:
                         retryable=True)
 
 
+def fenced(job: _Job, write: Callable[[], Any]) -> bool:
+    """Run ``write`` (a job's binding of its result to its ask) unless the job
+    is cancelled; False when it was. Under the job's lock, so a cancel (or a
+    newer job superseding it) and the write never interleave: once a job is
+    cancelled it binds nothing (Reader CA3, Codex final verify F12)."""
+
+    with job.lock:
+        if job.cancelled:
+            return False
+        write()
+        return True
+
+
 class LibraryJobs:
-    """Library jobs in flight and just finished, kept for reading back (in memory)."""
+    """Library jobs in flight and just finished, kept for reading back (in memory).
+
+    Reader CA3 (Codex final verify F10): also the passages of each ask's
+    latest comparison that was not stored (its comparison step skipped or
+    unavailable, or fewer than two books), under their own id, so the tutor
+    about it reads every one of them from the server. A stored comparison is
+    named by its durable id instead; these are kept as long as the sidecar
+    runs (as many asks as jobs are kept), and one no longer kept is said so."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
+        #: ask id -> (passages id, every passage its latest unstored comparison read).
+        self._passages: dict[str, tuple[str, list[str]]] = {}
+
+    def remember_passages(self, ask_id: str, keys: list[str]) -> str:
+        from learnloop.ids import new_ulid
+
+        passages_id = f"cmpp_{new_ulid()}"
+        with self._lock:
+            self._passages.pop(ask_id, None)
+            self._passages[ask_id] = (passages_id, list(keys))
+            while len(self._passages) > MAX_KEPT_JOBS:
+                self._passages.pop(next(iter(self._passages)))
+        return passages_id
+
+    def forget_passages(self, ask_id: str) -> None:
+        """The ask now shows a stored comparison: its unstored one is no longer shown."""
+
+        with self._lock:
+            self._passages.pop(ask_id, None)
+
+    def passages(self, ask_id: str) -> tuple[str, list[str]] | None:
+        with self._lock:
+            found = self._passages.get(ask_id)
+        return None if found is None else (found[0], list(found[1]))
 
     def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
-              deliver: Deliver | None = None) -> _Job:
+              deliver: Deliver | None = None, supersede: bool = False,
+              on_job: Callable[[_Job], None] | None = None) -> _Job:
+        """``supersede`` (Reader CA3, Codex final verify F12): this job
+        replaces the unfinished jobs of its kind for the same ask (a
+        refinement of a comparison): they are cancelled, so none of them
+        answers or binds after this one started, even when the frontend's own
+        cancel comes late. ``on_job`` is given the job before its work runs."""
+
         from learnloop.ids import new_ulid
 
         job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic(), deliver=deliver)
         with self._lock:
+            older = [other for other in self._kept.values() if supersede and ask_id is not None
+                     and other.kind == kind and other.ask_id == ask_id and not other.done.is_set()]
             self._kept[job.job_id] = job
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
+        # Each under its own lock only (a fenced write holds its job's lock
+        # and may take this one's), before this job's work starts.
+        for other in older:
+            with other.lock:
+                other.cancelled = True
+        if on_job is not None:
+            on_job(job)
         _vault, repository = ctx.require_vault()
         sqlite_path = repository.sqlite_path
 
@@ -286,8 +350,10 @@ def _job_payload(job: _Job) -> dict[str, Any]:
 
 
 def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
-           deliver: Deliver | None = None) -> dict[str, Any]:
-    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver))
+           deliver: Deliver | None = None, supersede: bool = False,
+           on_job: Callable[[_Job], None] | None = None) -> dict[str, Any]:
+    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver, supersede=supersede,
+                                         on_job=on_job))
 
 
 def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -425,7 +491,17 @@ def reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> 
     return _start(ctx, "notes", params.ask_id, work)
 
 
-class LibraryCompareInput(ParamsModel):
+#: An anchor's blocks: the selection a comparison may start from. A
+#: request-size guardrail. The tutor about a comparison never sends its
+#: passages (Codex final verify F10): it names the comparison (stored) or its
+#: passages kept on the server (not stored), so no request bound limits it.
+ANCHOR_SPANS_MAX = 40
+
+
+class _PinnedCompareInput(ParamsModel):
+    """RW4a/RW4d's request, exactly: what the RPC takes while
+    ``reader_compare.scope_enabled`` is off (CA3 off = today)."""
+
     ask_id: str
     pinned_span_keys: list[str] = Field(min_length=2, max_length=20)
     #: The open source, whose passage leads the table when it is pinned.
@@ -435,6 +511,49 @@ class LibraryCompareInput(ParamsModel):
     #: RW4d: "a geometric view", "an application" (used only while
     #: reader_compare.keep_enabled is on; otherwise refused when given).
     requested_perspectives: list[str] = Field(default_factory=list, max_length=8)
+
+
+class LibraryCompareInput(ParamsModel):
+    """One comparison request for every door (Reader CA3, K12; §4.1).
+
+    While ``reader_compare.scope_enabled`` is off it is validated as
+    :class:`_PinnedCompareInput` (an ask and at least two pins; the CA3 fields
+    are refused as unknown), so the RPC is today's exactly. On: a door with no
+    library answer names no ``ask_id`` and gives its ``question`` (the
+    comparison's own ask row is opened, bound by the server-derived caller); an
+    ``anchor_span_ids`` passage in ``extraction_id`` needs no pin; ``source_ids``
+    only narrow (refused if they would widen the scope). The policy is never
+    the client's: it is derived from where the call comes from."""
+
+    ask_id: str | None = None
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    #: The open source, whose passage leads the table when it is pinned.
+    open_source_id: str | None = None
+    #: Optional; when given it must name the ask's own binding (never widens it).
+    workbench_session_id: str | None = None
+    #: RW4d: "a geometric view", "an application" (used only while
+    #: reader_compare.keep_enabled is on; otherwise refused when given).
+    requested_perspectives: list[str] = Field(default_factory=list, max_length=8)
+    # -- Reader CA3 (reader_compare.scope_enabled) --
+    door: Literal["selection", "ask_box", "tutor_offer", "library_answer", "refine", "pins"] | None = None
+    #: The comparison's question, for a door with no library answer (no ask_id).
+    question: str | None = Field(default=None, max_length=4000)
+    #: The anchor's source (the open book) and its passage.
+    extraction_id: str | None = None
+    anchor_span_ids: list[str] = Field(default_factory=list, max_length=ANCHOR_SPANS_MAX)
+    #: The books named or chosen (they only narrow the scope).
+    source_ids: list[str] = Field(default_factory=list, max_length=40)
+    #: The tutor's offer this comparison answers (recorded on its ask row).
+    tool_call_id: str | None = None
+
+
+_CA3_FIELDS = ("door", "question", "extraction_id", "anchor_span_ids", "source_ids", "tool_call_id")
+
+
+def scope_enabled(vault: Any) -> bool:
+    """Reader CA3 is on: its switch and the comparison it builds on."""
+
+    return LA.compare_enabled(vault) and bool(vault.config.reader_compare.scope_enabled)
 
 
 @method("reader.library_compare", LibraryCompareInput)
@@ -448,13 +567,42 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
     if not LA.compare_enabled(vault):
         raise SidecarError("reader_compare_disabled",
                            "Comparing sources is switched off (reader_compare.enabled or source_service.compare).")
-    row = _ask_row(repository, params.ask_id)
+    scoped = scope_enabled(vault)
+    if not scoped:
+        # CA3 off: today's request exactly (an ask, two pins, no CA3 field).
+        _PinnedCompareInput.model_validate(params.model_dump(exclude_defaults=True))
+        ask_id = str(params.ask_id)
+    else:
+        ask_id = _open_for_door(ctx, vault, repository, params)
+    row = _ask_row(repository, ask_id)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
     keep = KC.keep_enabled(vault)
     perspectives = KC.clean_perspectives(params.requested_perspectives)
     if perspectives and not keep:
         raise SidecarError("reader_compare_keep_disabled",
                            "Requested perspectives are switched off (reader_compare.keep_enabled is false).")
+    scope = _door_scope(repository, row, params) if scoped else None
+    jobs = _jobs(ctx)
+    #: The job this request runs as (given before its work starts).
+    running: dict[str, _Job] = {}
+
+    def bind(write: Callable[[], None], passage_keys: Any, comparison_id: str | None) -> dict[str, Any]:
+        """CA3 (Codex final verify F10, F12): the result binds its ask only
+        while its job is live (not cancelled, not superseded by a newer
+        comparison of the ask); a comparison that was not stored keeps its
+        passages on the server, named by their own id."""
+
+        bound: dict[str, Any] = {}
+
+        def binding() -> None:
+            write()
+            if comparison_id is None and passage_keys:
+                bound["passages_id"] = jobs.remember_passages(ask_id, list(passage_keys))
+            else:
+                jobs.forget_passages(ask_id)
+
+        fenced(running["job"], binding)
+        return bound
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def bound_compare(query: str, **kwargs: Any) -> Any:
@@ -464,25 +612,106 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
                                       entity_id=ask_id)
 
-        table = LA.compare(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
-                           compare_sources=bound_compare, record_shown=shown, open_source_id=params.open_source_id,
-                           requested_perspectives=perspectives)
+        try:
+            table = LA.compare(vault, worker_repo, ask_id, pinned_keys=params.pinned_span_keys,
+                               compare_sources=bound_compare, record_shown=shown,
+                               open_source_id=params.open_source_id, requested_perspectives=perspectives,
+                               **({"scope": scope, "bind": bind} if scope is not None else {}))
+        except PolicyRefused as exc:
+            raise SidecarError(exc.code, "That book isn't one this comparison may read here."
+                               if exc.code == "scope_refused" else str(exc)) from exc
         if keep:
             # RW4d: whether this comparison is kept already (absent while off).
-            table["kept"] = KC.compare_kept_state(vault, worker_repo, params.ask_id,
-                                                  table.get("comparison_id"))
+            table["kept"] = KC.compare_kept_state(vault, worker_repo, ask_id, table.get("comparison_id"))
+        if scope is not None:
+            # CA3: the books this comparison could read, for "+ add a book".
+            from learnloop_sidecar.handlers.compare_scope import books_payload
+
+            table["library"] = books_payload(vault, worker_repo, caller)
         return table
 
     # RW4d's whole-comparison withholding at delivery is installed only while
     # keeping is on: off, the compare job is 3988cf778's (fix round 6, F4).
-    return _start(ctx, "compare", params.ask_id, work,
-                  deliver=(lambda result: deliver_comparison(ctx, params.ask_id, result)) if keep else None)
+    # CA3 (F12): a newer comparison of the ask supersedes the older ones (off: today's jobs).
+    return _start(ctx, "compare", ask_id, work,
+                  deliver=(lambda result: deliver_comparison(ctx, ask_id, result)) if keep else None,
+                  supersede=scope is not None, on_job=lambda job: running.update(job=job))
 
 
-class LibraryAskTutorInput(ParamsModel):
+def _open_for_door(ctx: SidecarContext, vault: Any, repository: Any, params: LibraryCompareInput) -> str:
+    """CA3: the ask this request binds by: the one it names, else (a door with
+    no library answer) the comparison's own row, opened under the caller the
+    server derives from the open book and workbench session (G19)."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+
+    if params.ask_id is not None:
+        if params.question is not None or params.anchor_span_ids or params.extraction_id or params.tool_call_id:
+            raise SidecarError("validation_error",
+                               "A comparison of a library answer takes its question and anchor from that answer.")
+        return params.ask_id
+    if not params.door or params.door == "pins":
+        raise SidecarError("validation_error", "A comparison names the door it came through.")
+    if params.pinned_span_keys:
+        raise SidecarError("validation_error", "Pins belong to a library answer: name its ask.")
+    extraction_id = None
+    if params.extraction_id:
+        extraction_id = resolve_extraction_id(repository, params.extraction_id)
+        if extraction_id is None:
+            raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+    caller = reader_caller(vault, repository, extraction_id=extraction_id,
+                           workbench_session_id=params.workbench_session_id)
+    record = _caller_record(caller, workbench_session_id=params.workbench_session_id)
+    if record.get("policy") == "cold_attempt":
+        raise SidecarError("cold_attempt", "Nothing is compared while a check on your own is open.")
+    try:
+        return LA.open_comparison(vault, repository, question=params.question or "", caller=record,
+                                  door=params.door, extraction_id=extraction_id,
+                                  anchor_span_ids=params.anchor_span_ids, tool_call_id=params.tool_call_id)
+    except LA.LibraryAskError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+
+
+def _door_scope(repository: Any, row: dict[str, Any], params: LibraryCompareInput) -> dict[str, Any]:
+    """CA3: the request's scope, from the ask row (its anchor, never one the
+    follow-up names) and the books the request names."""
+
+    door = params.door or ("pins" if params.pinned_span_keys else None)
+    if door is None:
+        raise SidecarError("validation_error", "A comparison names the door it came through.")
+    anchor: list[str] = []
+    if row.get("extraction_id") and (row.get("manifest") or {}).get("comparison_only"):
+        anchor = [f"{row['extraction_id']}:{span}" for span in (row.get("anchor") or {}).get("span_ids") or ()]
+    return {"door": door, "anchor_keys": anchor, "source_ids": list(params.source_ids)}
+
+
+class _PinnedTutorInput(ParamsModel):
+    """Today's request, exactly: what the RPC takes while
+    ``reader_compare.scope_enabled`` is off (CA3 off = today)."""
+
     ask_id: str
     pinned_span_keys: list[str] = Field(min_length=1, max_length=20)
     question: str | None = Field(default=None, max_length=4000)
+
+
+class LibraryAskTutorInput(ParamsModel):
+    """The tutor over the pins, or (Reader CA3) over the comparison shown.
+
+    Only while ``reader_compare.scope_enabled`` is on (refused as unknown
+    while off), one of: ``comparison_id``, the stored comparison this ask
+    shows, whose passages the server reads from the stored comparison (Codex
+    re-review F10); ``passages_id``, the comparison this ask shows that was
+    not stored, whose passages the server kept when it showed it (Codex final
+    verify F10). Either way every passage it compared (an anchor of up to 40
+    blocks and one passage per book) is answered from, the tutor's context
+    budget saying what it left out, and no passage of it travels in the
+    request. ``pinned_span_keys``: the pins (today's bound), added to it."""
+
+    ask_id: str
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    question: str | None = Field(default=None, max_length=4000)
+    comparison_id: str | None = None
+    passages_id: str | None = None
 
 
 @method("reader.library_ask_tutor", LibraryAskTutorInput)
@@ -498,7 +727,28 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 
     vault, repository = _require(ctx)
+    if not scope_enabled(vault):
+        # CA3 off: today's request exactly (at least one pin, no comparison).
+        _PinnedTutorInput.model_validate(params.model_dump(exclude_defaults=True))
     row = _ask_row(repository, params.ask_id)
+    pinned_keys = list(params.pinned_span_keys)
+    if params.comparison_id is not None and params.passages_id is not None:
+        raise SidecarError("validation_error", "Ask about one comparison: its id or its passages, not both.")
+    if params.comparison_id is not None:
+        try:
+            compared = LA.comparison_passage_keys(repository, params.ask_id, params.comparison_id)
+        except LA.LibraryAskError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        pinned_keys = list(dict.fromkeys([*compared, *pinned_keys]))
+    elif params.passages_id is not None:
+        kept = _jobs(ctx).passages(params.ask_id)
+        if kept is None:
+            raise SidecarError("not_found", "That comparison is no longer kept; compare again.")
+        if kept[0] != params.passages_id:
+            raise SidecarError("validation_error", "That comparison isn't the one this question shows.")
+        pinned_keys = list(dict.fromkeys([*kept[1], *pinned_keys]))
+    if not pinned_keys:
+        raise SidecarError("validation_error", "Pin the passages the tutor should answer from.")
     caller = follow_up_caller(vault, repository, row)
     policy, _reason = derive_policy(caller)
     if policy == "cold_attempt":
@@ -508,7 +758,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     if not runtime.ready or client is None:
         raise SidecarError("provider_unavailable",
                            f"{provider_label(provider_name)} is unavailable for the tutor.", retryable=True)
-    provider = LA.OnlyPinned(PinnedSpanProvider(params.pinned_span_keys), item=item)
+    provider = LA.OnlyPinned(PinnedSpanProvider(pinned_keys), item=item)
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def answer(*, question_md: str, extraction_id: str, span_id: str) -> dict[str, Any]:
@@ -516,7 +766,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
                           question_md=question_md, source_span_provider=provider)
 
         try:
-            result = LA.ask_tutor(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
+            result = LA.ask_tutor(vault, worker_repo, params.ask_id, pinned_keys=pinned_keys,
                                   question_md=params.question, ask=answer)
         except HeldOutMaterialRefused as exc:
             raise SidecarError("exam_material", str(exc)) from exc

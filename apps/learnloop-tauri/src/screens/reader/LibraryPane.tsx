@@ -40,6 +40,7 @@ export function LibraryPane({
   onClose,
   exercises = null,
   onMakeExplorable = null,
+  onReword = null,
 }: {
   ctl: LibraryAskController;
   /** The ask box's text while composing (null: an answer is shown). */
@@ -53,6 +54,8 @@ export function LibraryPane({
   exercises?: LibraryExercisesProps | null;
   /** RW5b: an offered figure's press (absent while figures.offers_enabled is off). */
   onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<ExplorableOutcome> | void) | null;
+  /** CA3: "change" on the ask box's routed line reopens the box with these words. */
+  onReword?: ((words: string) => void) | null;
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -128,7 +131,7 @@ export function LibraryPane({
           </form>
         ) : null}
         <LibraryAnswer ctl={ctl} onOpenHit={onOpenHit} onPracticePick={onPracticePick} onClose={onClose} exercises={exercises}
-          onMakeExplorable={onMakeExplorable} />
+          onMakeExplorable={onMakeExplorable} onReword={onReword} />
       </div>
     </>
   );

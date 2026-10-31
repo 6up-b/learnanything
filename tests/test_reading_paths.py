@@ -61,8 +61,15 @@ def _without_rw5a(contract: dict) -> dict:
     action, pinned by tests/test_figures_switch_off.py; these pins are about RW7a's switch (RW5a landing)."""
     assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
                                        "showMe": True}  # RW5b: offers; RW5d P1: showMe
+    # Reader CA3 (on by default, pinned by tests/test_reader_ca3_compare_anywhere.py): its contract key and
+    # Transfer's "how do my other books treat this?".
+    assert contract["libraryAsk"].pop("compareScope") is True
     for group in contract["intent"]["palette"]:
-        group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
+        group["actions"] = [action for action in group["actions"]
+                            if action["effect"] != {"kind": "figure"} and action["effect"]["kind"] != "compare"]
+    # Reader CA5a (landed after a76c8358a, on by default) adds its own key, pinned by
+    # tests/test_reader_ca5a_find_section.py; these pins are about RW7a's switch.
+    assert contract.pop("correspondence") == {"enabled": True, "findSection": True}
     return contract
 
 

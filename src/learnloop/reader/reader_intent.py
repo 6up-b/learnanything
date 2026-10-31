@@ -80,6 +80,9 @@ QUESTION_SET_VERSION = "reader-intent-qs-v1"
 #: Reader RW5d P1 (``figures.show_me_enabled``): the figure action's option text
 #: gains the clause about the learner's words, under its own question-set version.
 SHOW_ME_QUESTION_SET_VERSION = "reader-intent-qs-v2-show-me"
+#: Reader CA3 (``reader_compare.scope_enabled``): the options gain
+#: "how do my other books treat this?", so its routings name their own set.
+COMPARE_QUESTION_SET_SUFFIX = "+compare-books"
 QUESTION_NAME = "action"
 #: Speculation stops once this share of the day's calls is used (spec §4.2).
 SPECULATION_SHARE = 0.8
@@ -215,6 +218,13 @@ ACTIONS: tuple[IntentAction, ...] = (
                  "Find where the learner's other books, or other parts of this one, explain the same idea, "
                  "shown as passages grouped by book beside this one.",
                  {"kind": "library_ask", "entry": "where_else_explained"}, needs=("library",)),
+    # Reader CA3: "how do my other books treat this?" beside "where else": a
+    # comparison anchored on the selection (no pins), only while
+    # reader_compare.scope_enabled is on (absent otherwise, U13).
+    IntentAction("compare_books", "transfer", "how do my other books treat this?",
+                 "Compare how the learner's other books treat the selected passage's idea: each book's own "
+                 "passage, what it assumes and how it differs, side by side in a table beside this one.",
+                 {"kind": "compare", "door": "selection"}, needs=("compare_scope",)),
     IntentAction("where_is_this_used", "transfer", "where is this used?",
                  "Find passages in the learner's books where this idea is used or applied (the topics that "
                  "build on it), shown beside this one.",
@@ -271,6 +281,9 @@ class Availability:
     #: RW5d's "show me" (``figures.show_me_enabled``): the figure action takes
     #: the learner's words, labelled "show me…".
     show_me: bool = False
+    #: Reader CA3 (``reader_compare.scope_enabled`` with the library's compare):
+    #: Transfer's "how do my other books treat this?".
+    compare_scope: bool = False
 
     @classmethod
     def from_config(cls, config: Any, *, model: bool = True, notes: bool = False) -> "Availability":
@@ -289,6 +302,14 @@ class Availability:
             figures=bool(getattr(getattr(config, "figures", None), "enabled", False)),
             show_me=bool(getattr(getattr(config, "figures", None), "enabled", False)
                          and getattr(getattr(config, "figures", None), "show_me_enabled", False)),
+            compare_scope=bool(
+                getattr(getattr(config, "library_ask", None), "enabled", False)
+                and getattr(getattr(config, "source_service", None), "enabled", False)
+                and getattr(getattr(config, "source_service", None), "compare", False)
+                and getattr(getattr(config, "reader_inquiry", None), "enabled", False)
+                and getattr(getattr(config, "reader_compare", None), "enabled", False)
+                and getattr(getattr(config, "reader_compare", None), "scope_enabled", False)
+            ),
         )
 
     def allows(self, action: IntentAction) -> bool:
@@ -320,7 +341,10 @@ def question_set_version(available: Availability) -> str:
     """The routing's question-set version: RW5d's while show me is on (the figure
     option's text differs), else RW1b's, so every other routing hashes as before."""
 
-    return SHOW_ME_QUESTION_SET_VERSION if available.show_me and available.figures else QUESTION_SET_VERSION
+    base = SHOW_ME_QUESTION_SET_VERSION if available.show_me and available.figures else QUESTION_SET_VERSION
+    # CA3: one more option (off: the set is the one above, key for key).
+    has_compare = available.compare_scope and any(action.id == "compare_books" for action in available_actions(available))
+    return base + COMPARE_QUESTION_SET_SUFFIX if has_compare else base
 
 
 def palette(available: Availability) -> list[dict[str, Any]]:

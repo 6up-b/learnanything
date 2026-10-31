@@ -6756,7 +6756,9 @@ export interface ReaderPromptContractDto {
   /** RW1b: active reading (present only while reader_active_reading and reader_inquiry are on). */
   activeReading?: { foldBlocks: number };
   /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
-  libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
+  libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean;
+    /** Reader CA3: compare from anywhere (present only while reader_compare.scope_enabled is on). */
+    compareScope?: boolean };
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
@@ -6767,6 +6769,74 @@ export interface ReaderPromptContractDto {
   compareKeep?: CompareKeepContractDto;
   /** RW7a: reading paths in the Guide (present only while reading_paths.enabled is on). */
   readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
+  /** Reader CA5a: "find this section in my other books" in the Guide's footer
+   *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
+  correspondence?: { enabled: boolean; findSection: boolean };
+}
+
+// ── Reader CA5a: find this section in my other books ───────────────────────
+// ux_reader_compare_ask_v1 §6.2, §6.3; C0a's reader.correspondents.
+
+/** One other book's section, judged or (CA5a) found by search and not checked. */
+export interface CorrespondentSectionDto {
+  extractionId: string;
+  sectionId: string;
+  /** The section's own number and title, in the book's words. */
+  title: string;
+  sourceId: string;
+  sourceTitle: string;
+  /** The learner has read it through (a reading fact). */
+  read: boolean;
+  /** Where peek and go there land. */
+  jump: { extractionId: string; sectionId: string; spanId: string | null };
+  /** Judged coverage's treatment; null on a search hit (never shown for one). */
+  treatment: string | null;
+  /** "found by search, not checked" on a search hit. */
+  label?: string;
+  by: "search" | "judge" | "learner";
+}
+
+export interface CorrespondentSourceDto {
+  sourceId: string;
+  sourceTitle: string;
+  sections: CorrespondentSectionDto[];
+}
+
+export interface CorrespondentsDto {
+  extractionId: string;
+  sectionId: string;
+  status: "judged" | "unchecked" | "none" | "withheld";
+  message?: string;
+  /** Judged coverage per LO (CA5's list; CA5a only reads whether it is there). */
+  learningObjects: Array<{ learningObjectId: string; title: string; sources: CorrespondentSourceDto[] }>;
+  /** The live search hits by book (with search_fallback, no judged coverage). */
+  search: { label: string; sources: CorrespondentSourceDto[]; correctableLearningObjectIds: string[] } | null;
+  checkableLearningObjectIds: string[];
+}
+
+export type CoverageCorrectionChoice = "is_about" | "not_about" | "none";
+
+/** CA5a's peek: the hit's own section's first blocks (never the next unit's). */
+export interface CorrespondentPeekDto {
+  extractionId: string;
+  sectionId: string;
+  sourceId: string;
+  sourceTitle: string;
+  title: string;
+  jumpSpanId: string;
+  page: number | null;
+  blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  exposureEventIds: string[];
+}
+
+/** CA5a's "not about this" (or its undo), one durable operation. */
+export interface CorrespondentOperationDto {
+  operationId: string;
+  choice: "not_about" | "none";
+  learningObjectIds: string[];
+  undoOf: string | null;
+  replayed: boolean;
+  createdAt: string;
 }
 /** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
 export interface CompareKeepContractDto {
@@ -6803,7 +6873,9 @@ export type ReaderIntentEffect =
   | { kind: "another_way" }
   | { kind: "library_ask"; entry: LibraryAskEntry }
   | { kind: "reading_path" }
-  | { kind: "figure" };
+  | { kind: "figure" }
+  /** Reader CA3: "how do my other books treat this?" (a comparison anchored on the selection). */
+  | { kind: "compare"; door: "selection" };
 export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
 export interface ReaderIntentActionDto {
   id: string;
@@ -8994,6 +9066,8 @@ export interface CompareTableDto {
     contributes: CompareCellDto[];
     assumes: CompareCellDto[];
     differs: CompareCellDto[];
+    /** Reader CA3 (Codex review F4): every block of an anchor of several blocks (absent: `key` alone). */
+    spanKeys?: string[];
   }>;
   alsoDiscussedIn: Array<Record<string, unknown>>;
   /** Sources whose passages could not be checked: possible matches, not compared. */
@@ -9011,6 +9085,64 @@ export interface CompareTableDto {
   /** RW4d (a reopened kept comparison): its kept relations with their fine labels. */
   keptRelations?: Array<{ fine: string; relationType: string; statement: string | null }>;
   query?: string | null;
+  /** Reader CA3: the request as it was asked (absent while reader_compare.scope_enabled is off). */
+  scope?: { door: CompareDoor; question: string; sourceIds: string[]; anchorKeys: string[] };
+  /** Reader CA3: the books this comparison could read, for "+ add a book". */
+  library?: LibraryBookDto[];
+  /** Reader CA3 (Codex final verify F10): a comparison that was not stored (no
+   *  `comparisonId`): its passages, kept on the server under this id, which
+   *  the tutor about it names (its passages never travel in the request). */
+  passagesId?: string;
+}
+
+// ── Reader CA3: compare from anywhere (ux_reader_compare_ask_v1 §4, K12) ──
+
+/** The door a comparison came through; `pins` is today's "compare pinned". */
+export type CompareDoor = "selection" | "ask_box" | "tutor_offer" | "library_answer" | "refine" | "pins";
+
+export interface LibraryBookDto {
+  sourceId: string;
+  title: string;
+}
+
+/** The one comparison request every door builds (reader.library_compare). */
+export interface CompareRequestDto {
+  door: CompareDoor;
+  /** A library answer's (or a comparison's own) ask; absent: the door opens its comparison's row. */
+  askId?: string | null;
+  /** The question, for a door with no ask yet. */
+  question?: string | null;
+  /** The anchor's book (the open source) and its passage. */
+  extractionId?: string | null;
+  anchorSpanIds?: string[];
+  /** The books named or chosen (they only narrow). */
+  sourceIds?: string[];
+  pinnedSpanKeys?: string[];
+  openSourceId?: string | null;
+  requestedPerspectives?: string[];
+  toolCallId?: string | null;
+  /** The bound workbench session the request comes from (Codex review F1): the server derives its policy. */
+  workbenchSessionId?: string | null;
+}
+
+/** reader.compare_scope: the Decider's reading of the ask box's (or refine box's) words. */
+export interface CompareScopeReadingDto {
+  version?: number;
+  readingId: string;
+  mode: "ask" | "refine";
+  /** read (the Decider answered) · empty (no words) · fallback (nothing read; see reason). */
+  status: "read" | "empty" | "fallback";
+  reason: string | null;
+  /** ask: compare | ask · refine: books | views. */
+  intent: "compare" | "ask" | "books" | "views" | null;
+  sourceIds: string[];
+  books: Array<{ sourceId: string; title: string | null }>;
+  /** A name in the words that is not one of the learner's books (their words). */
+  unmatched: string | null;
+  topic: string | null;
+  change: "add" | "only" | "remove" | null;
+  judgmentId: string | null;
+  library: LibraryBookDto[];
 }
 
 /** RW4d (spec §7.8): a kept comparison, as proposals (ids, types, fine labels, the learner's takes). */
@@ -9336,7 +9468,7 @@ export interface LibraryJobDto<T> {
   version?: number;
   jobId: string;
   /** RW4b adds "exercise_candidates" and "find_exercises" (the same runner). */
-  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises" | "figure_build";
+  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises" | "figure_build" | "scope";
   askId: string | null;
   state: "pending" | "done" | "cancelled";
   result: T | null;

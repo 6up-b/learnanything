@@ -28,6 +28,7 @@ import type {
   ReaderPromptContractDto,
   LibraryAskEntry,
   LibraryHitDto,
+  CorrespondentSectionDto,
   ProposedItemDto,
   ReaderRenderBlockDto,
   ReaderRenderViewDto,
@@ -99,7 +100,7 @@ import { FiguresUnder } from "./reader/figures/FigureInline";
 import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
 import type { ShowMeLine } from "./reader/figures/showMe";
 import type { FigurePassageDto, FigureViewDto } from "../api/dto";
-import { useLibraryAsk } from "./reader/useLibraryAsk";
+import { SCOPE_COPY, useLibraryAsk, type CompareRequest } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
@@ -112,6 +113,7 @@ import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReade
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
+import { FindSection } from "./reader/FindSection";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -1349,10 +1351,12 @@ export function ReaderScreen({
   };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
-  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
+  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
     if (!render || offline) return;
     setLibraryCompose(null);
-    libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
+    // CA3: the ask box (Ctrl+Shift+F) reads named books first; a palette verb asks as before.
+    if (box) void libraryCtl.askBox({ query, entry, extractionId: render.extractionId, spanIds });
+    else libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
   }, [render, offline, libraryCtl]);
   const closeLibrary = useCallback(() => {
     setLibraryCompose(null);
@@ -1809,6 +1813,23 @@ export function ReaderScreen({
     setAskWaitsForWork(false);
     revealAskRef.current();
   }, [working, askWaitsForWork]);
+  // Reader CA3, Codex review F1: the selection verb while a problem is open.
+  // The comparing posture is hidden while working, so nothing runs (nothing is
+  // paid for) then; a line in the workbench says so, and the comparison opens
+  // beside the book once the learner leaves (the same book only).
+  const [compareWaitsForWork, setCompareWaitsForWork] = useState<CompareRequest | null>(null);
+  const startCompareRef = useRef<(request: CompareRequest) => void>(() => undefined);
+  startCompareRef.current = (request) => {
+    if (!render || offline || render.extractionId !== request.extractionId) return;
+    setLibraryCompose(null);
+    libraryCtl.compareFrom(request);
+  };
+  useEffect(() => {
+    if (working || !compareWaitsForWork) return;
+    const request = compareWaitsForWork;
+    setCompareWaitsForWork(null);
+    startCompareRef.current(request);
+  }, [working, compareWaitsForWork]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -2209,6 +2230,32 @@ export function ReaderScreen({
     }
     return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
+  // Reader CA5a: compare a section found in another book with the one in view,
+  // through the library compare path (an ask anchored on this section, its
+  // title the question, both passages pinned) while CA3 is off; with CA3 on,
+  // through CA3's one request (CA3 landing). The passage in view stands for
+  // this section when it is in it, else the section's first passage.
+  const compareFoundSection = (hit: CorrespondentSectionDto) => {
+    if (!render || offline || !currentGuideSection || !hit.jump.spanId) return;
+    const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId;
+    setLibraryCompose(null);
+    if (libraryCtl.scopeOn) {
+      // CA3 on: the same one request as every other door (the selection door):
+      // anchored on the passage of this section, the section's title the
+      // question, narrowed to the hit's book (pins belong to a library answer,
+      // so the hit's book finds its passage by discovery). A retry reruns this
+      // request as it was (anchor and book kept).
+      libraryCtl.compareFrom({
+        door: "selection", question: currentGuideSection.label, extractionId: render.extractionId,
+        anchorSpanIds: [here], sourceIds: [hit.sourceId], openSourceId: render.sourceId,
+      });
+      return;
+    }
+    void libraryCtl.compareWith(
+      { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here] },
+      [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],
+    );
+  };
   // RW5b: an offered figure's press (see offeredFigure above). It resolves to
   // how the press ended: built, or why nothing was (fix round 2, F9).
   const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome> => {
@@ -2360,7 +2407,8 @@ export function ReaderScreen({
                     // RW4a: Shift+Enter asks your library (sources first); off, it is Enter.
                     if (e.key === "Enter" && e.shiftKey && libraryCtl.enabled && librarySearch.trim()) {
                       e.preventDefault();
-                      libraryCtl.ask({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
+                      // CA3: with compare from anywhere on, the ask box first reads named books.
+                      void libraryCtl.askBox({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
                       return;
                     }
                     if (e.key === "Enter") setSearchDeep(true);
@@ -2390,6 +2438,7 @@ export function ReaderScreen({
                     onClose={libraryCtl.close}
                     exercises={exerciseProps}
                     onMakeExplorable={figureOffersOn ? (hit, offerRef) => makeExplorable(hit, "library", offerRef) : null}
+                    onReword={libraryCtl.scopeOn ? (words) => { libraryCtl.close(); setLibrarySearch(words); } : null}
                   />
                 </Card>
                 </CompareKeepContext.Provider>
@@ -2592,6 +2641,28 @@ export function ReaderScreen({
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
         return;
+      case "compare":
+        // CA3: Transfer's "how do my other books treat this?": a comparison
+        // anchored on the selection, every other book, no pins (§4.1).
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", ...meta });
+        if (!render || offline) return;
+        {
+          // The bound workbench session, when one is active, goes with the
+          // request (the server derives its practice policy: Codex review F1).
+          const bound = wbCtl.active?.session.practiceItemId ? wbCtl.active.session.sessionId : null;
+          const request: CompareRequest = {
+            door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
+            extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
+            workbenchSessionId: bound,
+          };
+          if (working) {
+            // Started once the learner leaves, under the policy then in force.
+            setCompareWaitsForWork({ ...request, workbenchSessionId: null });
+            return;
+          }
+          startCompareRef.current(request);
+        }
+        return;
       case "reading_path":
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
@@ -2645,7 +2716,7 @@ export function ReaderScreen({
     if (kind === "ask" && askPhase === "pending") cancelAsk();
     if (kind === "active_reading") activeCtl.close();
     if (kind === "another_way") activeCtl.closeAnother();
-    if (kind === "library_ask") closeLibrary();
+    if (kind === "library_ask" || kind === "compare") closeLibrary();
     void cancel.handle.then(async (handle) => {
       if (handle?.annotationId && cancel.routingId) {
         const annotationId = handle.annotationId;
@@ -3051,6 +3122,7 @@ export function ReaderScreen({
             onPeekPassage={peekWorkbenchPassage}
             onError={onError}
             askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
+            compareWaiting={compareWaitsForWork ? { text: SCOPE_COPY.waitsForWork, onDismiss: () => setCompareWaitsForWork(null) } : null}
           />
         ) : null}
         {comparing && render ? (
@@ -3058,7 +3130,8 @@ export function ReaderScreen({
             ctl={libraryCtl}
             compose={libraryCompose}
             onCompose={setLibraryCompose}
-            onAsk={(query) => askLibraryHere(query, "reader", selectionSpanIds.length ? selectionSpanIds : [readingSpan ?? activeSpan].filter((span): span is string => Boolean(span)))}
+            onAsk={(query) => askLibraryHere(query, "reader", selectionSpanIds.length ? selectionSpanIds : [readingSpan ?? activeSpan].filter((span): span is string => Boolean(span)), true)}
+            onReword={libraryCtl.scopeOn ? (words) => { libraryCtl.close(); setLibraryCompose(words); } : null}
             onOpenHit={openLibraryHit}
             onPracticePick={onCheckMe ? pickLibraryPractice : null}
             onClose={closeLibrary}
@@ -3275,6 +3348,17 @@ export function ReaderScreen({
                 ) : null}
               </>
             ) : null}
+            findSection={contract?.correspondence?.findSection && !offline && !working ? (
+              <FindSection
+                extractionId={render.extractionId}
+                section={currentGuideSection
+                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+                  : null}
+                onGoThere={(target) => void openLibraryHit(target)}
+                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                onError={onError}
+              />
+            ) : undefined}
             footer={cueCtl.cues ? (
               <CueFooter
                 density={cueCtl.cues.density}
@@ -3468,6 +3552,19 @@ export function ReaderScreen({
                   }
                 },
                 offerStore: tutorOfferStore,
+                // CA3: "how do your books treat this?" opens the same comparison beside
+                // the book, anchored on the passage the question was asked on (absent
+                // while compare from anywhere is off, or while working: today's inline table).
+                onCompare: libraryCtl.scopeOn && !offline && !working && render
+                  ? (request: { question: string; toolCallId: string | null }, exchange: { extractionId: string; spanId: string }) => {
+                    setLibraryCompose(null);
+                    libraryCtl.compareFrom({
+                      door: "tutor_offer", question: request.question, extractionId: exchange.extractionId,
+                      anchorSpanIds: exchange.spanId ? [exchange.spanId] : [], toolCallId: request.toolCallId,
+                      openSourceId: render.sourceId,
+                    });
+                  }
+                  : null,
                 // RW4b: a practice offer's textbook exercises, as RW4a's pane gets them.
                 exercises: exerciseProps,
               },

@@ -1,5 +1,6 @@
 // The intent box's contract as the sidecar sends it with every RW1b switch on,
-// RW4a's library ask on, RW7a's reading paths on and RW5a's figures on (reader.prompt_contract's `intent`, generated from
+// RW4a's library ask on, RW7a's reading paths on, RW5a's figures on and Reader CA3's
+// compare from anywhere on (reader.prompt_contract's `intent`, generated from
 // learnloop.reader.reader_intent's catalogue: tests/test_reader_intentions.py
 // pins the same table). Used by the Reader's RW1b and RW4a tests.
 import type { ReaderIntentContractDto } from "../api/dto";
@@ -234,6 +235,17 @@ export const readerIntentContractFixture: ReaderIntentContractDto = {
           "effect": {
             "kind": "library_ask",
             "entry": "where_else_explained"
+          },
+          "model": true
+        },
+        {
+          "id": "compare_books",
+          "group": "transfer",
+          "intention": "transfer",
+          "label": "how do my other books treat this?",
+          "effect": {
+            "kind": "compare",
+            "door": "selection"
           },
           "model": true
         },

@@ -164,7 +164,7 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     judges = {entry["route"]: entry for entry in response["result"]["judges"]}
     assert set(judges) == {"llm_probability_decider", "llm_probability_llm", "router_decider", "router_llm",
                            "tier1_decider", "learner_gap_decider", "reader_intent",
-                           "library_organizer", "approach_map", "hint_chooser", "hint_writer",
+                           "compare_scope", "library_organizer", "approach_map", "hint_chooser", "hint_writer",
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
                            "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
                            "deliverable_scope_resolver", "deliverable_path_judge"}

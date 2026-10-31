@@ -1270,6 +1270,20 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the typing pause before a speculative intent routing / its deadline / the route's daily Decider "
         "call cap; latency and spend bounds, no measurement authority (a routing only picks which palette "
         "action runs)."),
+    # Reader CA3: comparing from anywhere. The kill switch (a boolean,
+    # classified so every new key has a rule), and the ask box's reading of
+    # named books (one Decider request per pressed Enter; verdicts go to
+    # judgment_ledger, never evidence): its deadline and the route's daily
+    # call cap. Latency and spend bounds: the reading only picks which books
+    # a display-only comparison reads.
+    _ConfigRule(_exact(
+        "reader_compare.scope_enabled",
+        "reader_compare.scope_timeout_seconds",
+        "reader_compare.scope_max_calls_per_day",
+    ), "structural", "operational",
+        "kill switch for comparing from anywhere (one comparison request for every door, an anchor without "
+        "pins, named books that only narrow the scope) / the ask box's reading deadline / the route's daily "
+        "Decider call cap; display, latency and spend bounds, no measurement, scheduling or serving authority."),
     # Reader workbench RW4a: the library answer's organizer (one listwise call
     # per ask; notes are display, verdicts go to judgment_ledger, never
     # evidence): its metered spend a UTC day.
@@ -1422,6 +1436,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Reader CA5a (ux_reader_compare_ask_v1 §6.2, §13): "find this section in
+    # my other books". A boolean (classified so every new key has a rule):
+    # the Guide's pressed action over reader.correspondents' unchecked search
+    # hits; navigation and display, with no weight, margin or threshold (the
+    # hits keep the search's own order and C0a's per-source bound).
+    _ConfigRule(_exact(
+        "reader.correspondence.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
+        "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
+        "no measurement, scheduling or serving authority (no algorithm successor)."),
     # Deliverable curriculum C0b: the on-extract coverage job's switch (a
     # boolean, classified so every new key has a rule). The scope resolver
     # and the path judge add no number: they share the C0a caps above.

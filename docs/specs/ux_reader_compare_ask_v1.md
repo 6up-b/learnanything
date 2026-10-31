@@ -887,6 +887,31 @@ read, note, promotion or queue can show it; an earlier attempt's help opened on 
 workbench when the draft moves into steps (its carried hints); and a question a workbench binds counts in the
 item's window whatever its practice session, as a bound Reader question does (`hint_window.workbench_bound`).
 
+*As built (CA3, branch `reader/ca3-compare-anywhere`, `docs/reviews/reader-ca3-compare-anywhere.md`):* one
+request for every door on `reader.library_compare` (a door with no library answer opens its comparison's own
+`library_asks` row, no retrieval; an anchor without pins; named books that only narrow), the selection verb
+`compare_books` in Transfer beside *where else*, `compare_scope` as a decider-only route (one request of typed
+questions: the intent, one yes/no per book, the topic and an unknown name as spans of the learner's own words;
+pressed only; capped and time-boxed), chips with `×`, *+ add a book* and *change* (both `learner_card` rows), the
+refine box (`/`: books or a view) with *previous ▸*, *compare these books ▸*, and the tutor's offer opening the
+same comparison beside the book. Rendered through today's comparison view (CA4 redraws it by point). No migration,
+no successor: comparisons stay display and retrieval. Two deviations, recorded there: with the Decider
+unavailable the ask box answers as today's library ask and offers *compare all your books on "…" ▸* (one press)
+rather than running a paid comparison of every book unasked; and the pending line is one line, not two stages.
+
+*As built (CA5a, branch `reader/ca5a-find-section`, `docs/reviews/reader-ca5a-find-section.md`):* the Guide
+footer's *find this section in my other books ▸* runs a quiet read first (`search_fallback` off) and shows only
+when no coverage has been judged and the section is not protected. Pressed, it lists the unchecked hits by book.
+Peek renders in the rail through `reader.correspondent_peek` (protection read again, the hit's own section's first
+blocks only, each one shown recorded as exposure), go there is the library hit's source detour, and compare is the
+library compare path (an ask anchored on the section, both passages pinned, the organizer's notes left to be asked
+for; a retry or the personalization chip reruns the comparison over the pins as the learner last left them, and
+with one pin left it reruns the ask and keeps that pin). *Not about this* is one idempotent operation,
+`reader.correspondent_dismiss`: a section-pair `learner_card` verdict (task `section_correspondence`) and C0a's
+correction per LO of the open section, in one transaction, with an undo of its own; a section with no LO gets the
+pair verdict only. The detour-strip crumb for a peek and §6.5's salience events are deferred to CA5. The new `[reader.correspondence]`
+section is the switch, and the prompt contract carries it only while `curriculum.enabled` is on too.
+
 **Kill switches,** following the house pattern (off restores today exactly): `reader_compare.scope_enabled` (CA3: named books and the selection verb's no-pin run), `reader_compare.by_point` (CA4: off renders by book), `reader.correspondence.enabled` (CA5/CA5a; the curriculum spec's `curriculum.enabled` gates the data), `reader.side_by_side.enabled` (CA6), `ask.panel_enabled` (CA2: off restores the overlay and today's Reader rail), `practice.as_printed.enabled` (CA1).
 
 ---

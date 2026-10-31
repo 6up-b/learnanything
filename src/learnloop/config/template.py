@@ -1651,6 +1651,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # config gains the key; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version), and dropping the key
     # reproduces every earlier value.
+    # Reader CA5a (find this section in my other books; docs/reviews/reader-ca5a-find-section.md)
+    # adds [reader.correspondence] enabled (true; a modelled default, left out of the
+    # decision-only template): the Guide's pressed action over reader.correspondents'
+    # unchecked search hits. Navigation and display only, at every version (no successor);
+    # every snapshot moves only because the effective config gains the key; all of them
+    # were recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Reader CA3 (compare from anywhere; docs/reviews/reader-ca3-compare-anywhere.md) adds
+    # [reader_compare] scope_enabled (true), scope_timeout_seconds = 4.0 (keep) and
+    # scope_max_calls_per_day = 200 (keep) (modelled defaults, left out of the decision-only
+    # template) and the decider route ai.routing.compare_scope: one comparison request for every
+    # door, an anchor without pins, named books that only narrow the scope, and the ask box's
+    # reading of named books (judgment_ledger rows, never evidence). Display and retrieval at
+    # every version (no successor); every snapshot moves only because the effective config gains
+    # the keys and the route; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
     # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5, §7, §8.5; docs/reviews/curriculum-c0b-scope-path.md)
     # adds [curriculum] coverage_on_extract (true; a modelled default, left out of the decision-only
     # template) and the routes ai.routing.deliverable_scope_resolver and ai.routing.deliverable_path_judge
@@ -1658,7 +1673,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # slice and "Am I ready?". Display only, at every version (no successor); every snapshot moves only
     # because the effective config gains the key and the routes; all of them were recomputed from the
     # composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "430d13877b7210cd280d1951a76a7aaeb86fece5bd8fde2434a243c8d2bff0ef",
+    "mvp-0.9": "67c99fc9a30879db8adc8f7353bd1629b41c432615063fa09bb21970ba24de70",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1732,8 +1747,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.10": "03cbaefc23fa47f7ea518966f371e42ccfa00a8d45a8b9cbdf11edc49be6b5f9",
+    "mvp-0.10": "c78bb6357b3916660e2cfb528f7297d1730e773555b5cfed74f0a3b88e5af673",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1815,8 +1832,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.11": "993b796ab38b6c90e7a7992cfcfd993564b88b2fbd89cc3c1db5862eeedcd86c",
+    "mvp-0.11": "1bebec5cf9890217fb17fc36f02b6d78c594eb7f788231e34e9c70353abbfbf6",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1892,8 +1911,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.12": "864426dd12a895a2e4719ddd5024dfb447f4b3a53d09e391b6b73dea9ce9b95c",
+    "mvp-0.12": "036f956a9ca6614cad1fdfd1daa3abe364189c46a48f8148ff64a2eda39d8b71",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1964,8 +1985,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.13": "2c00c5aa48d48fcbfaffc4709763d736abbcaed88fa9142ce798ac94b256bf26",
+    "mvp-0.13": "89263e411fd3ac08be94b2ade5b90046c87968afcade7be8fcfea54ddc5f2263",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2035,8 +2058,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.14": "a3f5865150a5cdf350ea0a61b1d9eb453f445d6ac0500c30efae84a166938371",
+    "mvp-0.14": "6e0095dd808113d57419120f1e0b2584c714dcb496bd61afdbe824013f3b2fa6",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2104,8 +2129,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.15": "d1a3c923f989573f815cc897bbe08553aacc50d0f8c96e57892ca5eee2172758",
+    "mvp-0.15": "f3b6f7571992fe3aff33e4b5056bd193f6f6facf49cfa861b03d49d35d287f39",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2180,8 +2207,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.16": "ed4b0a09af905b4b62e7fa7bd77b7ad4d5cc48fda78af2e06e3a50e75de0232f",
+    "mvp-0.16": "6cec75c67d5b4a9a11564039cc5eb6a1426494f4e10edc0bc204d5c5ee689d3d",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2252,8 +2281,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.17": "8b713dee74857fbeb9a8b5a1611be90ca59859a6e25e23c18aea9ab84c2796a5",
+    "mvp-0.17": "065be9d5cc7ba58fe512635ce3243a2673490c0ae93c80c84328083aea77c224",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2317,8 +2348,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.18": "388c1abc3add31dd58d371b0e6dcda2e15b2e33444f13cb2544ea2ff6b9e33e6",
+    "mvp-0.18": "0b7c7111041545ad477b05d83068b86c472c779c5f97c95620f06ca45e302076",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2382,8 +2415,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.19": "06719251a5899d7f87fde4c26eff70a593ed42350175c1c5bcd2a621ca0daaf5",
+    "mvp-0.19": "da33a1aa4b8edccddbe70a8dbb2e46cc513d84b8bc3a3a378ab900f572829c65",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2443,8 +2478,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.20": "2de18036f29d090211f95b70d9d86e22117f17ef46810ae3086f6ff4904845d8",
+    "mvp-0.20": "2751594e428039769c456312264f0ffbc9ce350d77a613cd10eb205a71302072",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2513,8 +2550,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.21": "8b71e2c9f1a8718da2502ae2a1002a2e03e0084c9066e9382d0de1e2eb1c02da",
+    "mvp-0.21": "e6b51a93f185502c335ab8c970ba57733ffbabed13bfcdadb91abef16628e307",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2575,8 +2614,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.22": "db901a80cb56e6f0123fd85d55adca2feeea3209c4e14e5a2891b869ce4c43b8",
+    "mvp-0.22": "1783b6edf2357da501088b9a35764d4519025480b2b4bef7e39d986cb2b397f5",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2632,8 +2673,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.23": "6cda7a56ce623b7084ab19f708aa7983d3ebaccb4e86f82f3e1d189e756a1053",
+    "mvp-0.23": "a13879c895a8a3cc3a427de2c613c1919dfaf9521fbf7175f2e77a1e16ed2a06",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2686,8 +2729,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.24": "e7990dc0dea28f9f800b53b06899fe1ce39fe66fadd9791ad9afd126436055c1",
+    "mvp-0.24": "41cb7ad3eef4852fd80a7a19d1b67b8d8a617782c97ac45e915be4713b7e4ed2",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2738,8 +2783,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.25": "31b21ece8de615aed8ca15560fd21fc17f913ade8f95ec7ab1e0d997d783d669",
+    "mvp-0.25": "197dde724267bfb3ac3c2fa44377cda74f556b02d1aa2c44d081ac6a53ef26d1",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2789,8 +2836,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.26": "ea1e65a779673a889bdcd34cd98ee8956c4600fb44de7e1848bc0bbd83a42d7e",
+    "mvp-0.26": "1456366255f71981789e37cfcd12043c7270deb68cd3af50490a5b73d5e6fa7b",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2840,8 +2889,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.27": "f3904cc1079239b82270a69e72e24c73f0c5fe1388d7b47cbabd47d87fd43aa6",
+    "mvp-0.27": "eb1d6028a0aa9eb48a8b0a95c4132b0662179300c13ef3877762c1d0d9ff5d1e",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2880,8 +2931,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.29": "37e2732004c03a33067340a662a228c83de8bca07cc510572eab9f7ddf7eebf5",
+    "mvp-0.29": "b79f0fc4184363048d988c8e2c0836a892517cb60adac0bb317cbf90eff89180",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2914,8 +2967,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.30": "735df44a350ada5c6f595762f931c3218e8354588f6434eb10c794a88851da2a",
+    "mvp-0.30": "380d14d42e9ac50ada401046175c9487d00e2897fc397589673bbf54e586e17e",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -2942,8 +2997,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.31": "4580e11dd7865740aaee6788ee5d7c72332e94bc784e811b1a4aacdd4f5be3ff",
+    "mvp-0.31": "023b6a68e0fab732734f511aade1aba77b3c845c7a405a882217eaafd93546ca",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -2967,8 +3024,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.32": "e1fe3c87b90e622012a415f3844967778c31ae97656eb1f0a30d7f53adec8819",
+    "mvp-0.32": "6c6ade26b8e8b41aebe565151aa5e2f980c0c4047ff9cc4557d406cc760f907a",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -2990,8 +3049,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.33": "812bc4281eb06da3ef9f905e0ec1611e9565ff3280d66f5bc6da29c1deefc212",
+    "mvp-0.33": "1677d31c4c94be08cc6b5772c034f608615608989fe1e09890b88bad26d9c917",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3012,8 +3073,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.34": "9f354261c516ebb1996eaf0e2a57857ffa7f8eac2fc5975c4bfd6285e4cc6975",
+    "mvp-0.34": "cf50438623f38e09eff4f4c5e3c899b9ed0107c8212ae5d705a0c42708cccedd",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3033,8 +3096,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Local retrieval P2's [embedding.local] student keys and route move it too (see mvp-0.9; lookups only, no successor).
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.35": "2a3d2828d41d4bd288989a7a3d9761950570f36d920d023833b8bbbdbb5d5ddc",
+    "mvp-0.35": "f7ef940ab84d85f5e57f2cb9560b94fa4c2c26627dbb76948780b734a72e56c7",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3049,8 +3114,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # PR-4's successor landed.
     # Mobile PR-4's [practice] attempt_keeps_content_state moves it too (see mvp-0.9; inert below mvp-0.37).
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.36": "9e1b1568496bb70b3f349108806db63a3527787c85d59b7c8876dfcb60721f17",
+    "mvp-0.36": "a601dc8348b32c17fc136bd63b91d99a36206fcd4863e99901172b555fa25c57",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3068,8 +3135,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until the cold-retry
     # reschedule's successor landed.
     # The cold-retry reschedule's [practice] reschedule_cold_after_assist moves it too (see mvp-0.9; inert below mvp-0.38).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.37": "7121f40b407d266c1c9aea63d379f281d8586268e6a95c4715ba5de0035945b3",
+    "mvp-0.37": "c1da86041a354a1fb500b385664acd31691619976a0cefd4b3b670ea1055e575",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3083,8 +3152,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # upgrade` (default target) from mvp-0.37, or from mvp-0.9 onwards through
     # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
     # owner decision 2026-10-12).
+    # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
-    "mvp-0.38": "993f1887f01831d872d0ce5c46432403bdc023f97d0fab6e6b862b1c26502e2a",
+    "mvp-0.38": "f656698d0f47e50f7719ae3e2fb6505df6c2dd06daa8128fcf5305175f9ef0cf",
 }
 
 
