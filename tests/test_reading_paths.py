@@ -72,6 +72,8 @@ def _without_rw5a(contract: dict) -> dict:
     # Reader CA5a (landed after a76c8358a, on by default) adds its own key, pinned by
     # tests/test_reader_ca5a_find_section.py; these pins are about RW7a's switch.
     assert contract.pop("correspondence") == {"enabled": True, "findSection": True}
+    # Reader CA6 (on by default) adds its own key too, pinned by tests/test_reader_ca6_side_by_side.py.
+    assert contract.pop("sideBySide") == {"enabled": True}
     return contract
 
 
