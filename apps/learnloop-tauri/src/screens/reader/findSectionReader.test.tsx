@@ -148,3 +148,27 @@ it("go there opens the other book as a detour", async () => {
   await waitFor(() => expect(api.readerRenderView.mock.calls.length).toBeGreaterThan(before));
   expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0])).toContainEqual(expect.objectContaining({ extractionId: "src_axler" }));
 });
+
+// Reader CA3 landing: with compare from anywhere on (libraryAsk.compareScope),
+// compare on a hit is CA3's one request through the selection door: anchored
+// on this section's passage, the section's title the question, narrowed to
+// the hit's book; no library answer is asked first.
+it("with CA3 on, compare is CA3's selection door anchored on this section, narrowed to the hit's book", async () => {
+  state.contract = { ...ON, libraryAsk: { ...ON.libraryAsk, compareScope: true } };
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_c", state: "done",
+    result: { askId: "la_c", status: "ok", comparisonId: null, rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
+      droppedLineCount: 0, header: "", verification: { status: null, stopped: null, verifiedSources: null }, exposureEventIds: [], library: [] } });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
+  fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
+  expect(api.readerLibraryAsk).not.toHaveBeenCalled();
+  const input = api.readerLibraryCompare.mock.calls[0][0];
+  expect(input).toMatchObject({
+    door: "selection", askId: null, question: "6.1 Symmetric matrices", extractionId: view.extractionId,
+    sourceIds: ["src_axler"], pinnedSpanKeys: [], openSourceId: view.sourceId,
+  });
+  expect(input.anchorSpanIds).toHaveLength(1);
+  expect(SPAN_IDS).toContain(input.anchorSpanIds[0]);
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+});

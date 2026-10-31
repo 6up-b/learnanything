@@ -2231,12 +2231,25 @@ export function ReaderScreen({
   };
   // Reader CA5a: compare a section found in another book with the one in view,
   // through the library compare path (an ask anchored on this section, its
-  // title the question, both passages pinned). The passage in view stands for
+  // title the question, both passages pinned) while CA3 is off; with CA3 on,
+  // through CA3's one request (CA3 landing). The passage in view stands for
   // this section when it is in it, else the section's first passage.
   const compareFoundSection = (hit: CorrespondentSectionDto) => {
     if (!render || offline || !currentGuideSection || !hit.jump.spanId) return;
     const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId;
     setLibraryCompose(null);
+    if (libraryCtl.scopeOn) {
+      // CA3 on: the same one request as every other door (the selection door):
+      // anchored on the passage of this section, the section's title the
+      // question, narrowed to the hit's book (pins belong to a library answer,
+      // so the hit's book finds its passage by discovery). A retry reruns this
+      // request as it was (anchor and book kept).
+      libraryCtl.compareFrom({
+        door: "selection", question: currentGuideSection.label, extractionId: render.extractionId,
+        anchorSpanIds: [here], sourceIds: [hit.sourceId], openSourceId: render.sourceId,
+      });
+      return;
+    }
     void libraryCtl.compareWith(
       { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here] },
       [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],

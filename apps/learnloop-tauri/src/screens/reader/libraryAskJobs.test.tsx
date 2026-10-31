@@ -237,3 +237,69 @@ it("F8: an ordinary ask's pins never turn its chip into a comparison", async () 
   act(() => hook.result.current.togglePin("ext_a:a1"));
   expect(hook.result.current.state?.intent).toEqual({ kind: "ask" });
 });
+
+// Reader CA3 landing (interaction with CA5a): with compare from anywhere on,
+// CA5a's comparison of two pins runs through CA3's one request (the "pins"
+// door), and a retry or the personalization chip keeps the pins (F5, F8) as
+// with CA3 off; a failed comparison's retry reruns the same request.
+const SCOPE_CONTRACT = { libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true, compareScope: true } } as unknown as ReaderPromptContractDto;
+const PINS_REQUEST = {
+  door: "pins", askId: "la_1", question: null, extractionId: null, anchorSpanIds: [], sourceIds: [], pinnedSpanKeys: PINS,
+  openSourceId: null, requestedPerspectives: [], toolCallId: null, workbenchSessionId: null,
+};
+
+function mountScopeHook() {
+  return renderHook(() => useLibraryAsk({ contract: SCOPE_CONTRACT, openSourceId: null, onError: vi.fn() }));
+}
+
+it("CA3 on: compareWith's comparison is CA3's pins door, and a failed ask's retry keeps the pins", async () => {
+  api.readerLibraryAsk.mockReset();
+  api.readerLibraryAsk
+    .mockRejectedValueOnce({ code: "internal", message: "the sidecar hiccuped" })
+    .mockResolvedValue(job("ljob_ask", "ask", "done", ASK));
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountScopeHook();
+  expect(hook.result.current.scopeOn).toBe(true);
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  expect(hook.result.current.state?.ask.phase).toBe("failed");
+  await act(async () => { hook.result.current.retry(); await later(null); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1);
+  expect(api.readerLibraryCompare).toHaveBeenCalledWith(PINS_REQUEST);
+  expect(hook.result.current.state?.intent).toEqual({ kind: "compare", pins: PINS });
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+  await act(async () => { hook.result.current.setPersonalized(false); await later(null); });
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompare).toHaveBeenLastCalledWith(PINS_REQUEST);
+  expect(hook.result.current.state?.pinned).toEqual(PINS);
+  expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
+});
+
+it("CA3 on: a failed comparison of the pins is rerun as the same request", async () => {
+  api.readerLibraryCompare
+    .mockRejectedValueOnce({ code: "internal", message: "hiccup" })
+    .mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountScopeHook();
+  await act(async () => { await hook.result.current.compareWith(REQUEST, PINS); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("failed"));
+  await act(async () => { hook.result.current.retryCompare(); await later(null); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  expect(api.readerLibraryCompare.mock.calls.map((call) => call[0])).toEqual([PINS_REQUEST, PINS_REQUEST]);
+});
+
+it("CA3 on: the find-section door (selection, anchored, the hit's book) reruns as it was after a failure", async () => {
+  const request = { door: "selection" as const, question: "symmetric matrices", extractionId: "ext_a", anchorSpanIds: ["a1"],
+    sourceIds: ["src_b"], openSourceId: "src_a" };
+  const payload = { ...PINS_REQUEST, door: "selection", askId: null, question: "symmetric matrices", extractionId: "ext_a",
+    anchorSpanIds: ["a1"], sourceIds: ["src_b"], pinnedSpanKeys: [], openSourceId: "src_a" };
+  api.readerLibraryCompare
+    .mockRejectedValueOnce({ code: "internal", message: "hiccup" })
+    .mockResolvedValue(job("ljob_cmp", "compare", "done", TABLE));
+  const hook = mountScopeHook();
+  act(() => hook.result.current.compareFrom(request));
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("failed"));
+  await act(async () => { hook.result.current.retryCompare(); await later(null); });
+  await waitFor(() => expect(hook.result.current.state?.compare.phase).toBe("landed"));
+  expect(api.readerLibraryCompare.mock.calls.map((call) => call[0])).toEqual([payload, payload]);
+  expect(api.readerLibraryAsk).not.toHaveBeenCalled();
+});
