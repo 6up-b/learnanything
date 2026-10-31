@@ -3,8 +3,8 @@ title: "source_object_relations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2a2fa37e3e3a974b999480df9a9b931675db2e0"
-source_commit_timestamp: "2026-10-31T16:30:38-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_relations"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_roles_switch_off.py`
 - `tests/test_source_roles.py`

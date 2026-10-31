@@ -3,8 +3,8 @@ title: "source_comparisons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2a2fa37e3e3a974b999480df9a9b931675db2e0"
-source_commit_timestamp: "2026-10-31T16:30:38-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_comparisons"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 - `tests/test_compare_sources_keep.py`
 - `tests/test_library_asks_migration.py`
+- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_tutor_offers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
