@@ -28,7 +28,7 @@ from tests.section_coverage_fixtures import HELD_OUT_SENTINEL, CoverageJudgeFake
 LAY_CHAR = {"extraction_id": "ext_lay", "section_id": "lay_char"}
 LAY_EIGEN = {"extraction_id": "ext_lay", "section_id": "lay_eigen"}
 CA6_EVENTS = ("corresponding_section_peeked", "corresponding_section_opened", "side_by_side_opened",
-              "follow_along_moved")
+              "side_by_side_closed", "follow_along_moved", "follow_along_undone")
 
 
 def _ctx(paths, **attrs):
@@ -196,3 +196,30 @@ def test_the_reader_records_them_through_log_activity(tmp_path):
     events = {row["payload"]["event"] for row in repository.reader_interaction_events(kind="reader_action_invoked")}
     assert {"side_by_side_opened", "follow_along_moved"} <= events
     assert out
+
+
+def test_a_side_by_side_session_keeps_its_id_and_minutes_for_the_evaluation(tmp_path):
+    """Codex review F8: §14 counts side-by-side minutes and follow-along moves
+    the learner undid; the session id, seconds open and the undo's timing are
+    kept (ids and timings only)."""
+
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    RI.record_activity(repository, [
+        {"kind": "reader_action_invoked", "event": "side_by_side_opened",
+         "payload": {"visitId": "v1", "sideBySideId": "sbs1", "detourId": "d1", "targetSectionId": "lay_char"}},
+        {"kind": "reader_action_invoked", "event": "follow_along_undone",
+         "payload": {"visitId": "v1", "sideBySideId": "sbs1", "leader": "side", "sectionId": "lay_eigen",
+                     "targetSectionId": "lay_char", "secondsAfter": 4}},
+        {"kind": "reader_action_invoked", "event": "side_by_side_closed",
+         "payload": {"visitId": "v1", "sideBySideId": "sbs1", "secondsOpen": 1200, "via": "close",
+                     "quote": "never kept"}},
+    ])
+    rows = {row["payload"]["event"]: row["payload"]
+            for row in repository.reader_interaction_events(kind="reader_action_invoked")}
+    assert rows["side_by_side_opened"]["side_by_side_id"] == "sbs1"
+    assert rows["side_by_side_opened"]["visit_id"] == "v1"
+    assert rows["follow_along_undone"]["seconds_after"] == 4
+    assert rows["follow_along_undone"]["target_section_id"] == "lay_char"
+    closed = rows["side_by_side_closed"]
+    assert (closed["side_by_side_id"], closed["seconds_open"], closed["via"]) == ("sbs1", 1200, "close")
+    assert "quote" not in closed

@@ -57,12 +57,17 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "figure_opened",      # RW5a: an explorable figure expanded (its id; spec §11 events)
     "figure_animated",    # RW5a: "play" (or a step under reduced motion) on a figure's parameter
     # Reader CA6 (ux_reader_compare_ask_v1 §6.5 Records; salience only): a
-    # corresponding section peeked or opened (go there), side by side opened,
-    # and follow along moving the following pane at a section crossing.
+    # corresponding section peeked or opened (go there), side by side opened
+    # and closed (a session: its id and how long it was open, for §14's
+    # side-by-side minutes), follow along moving the following pane at a
+    # section crossing, and the learner taking that pane back to where it was
+    # (§14's undone follow-along moves: the pairing was wrong).
     "corresponding_section_peeked",
     "corresponding_section_opened",
     "side_by_side_opened",
+    "side_by_side_closed",
     "follow_along_moved",
+    "follow_along_undone",
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -140,8 +145,10 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     "figure_id", "parameter",
     # Reader CA6: the section a correspondence act starts from and the one it
     # reaches (ids), whether that one is judged or an unchecked search hit,
-    # and which pane leads (main or side) when follow along moves the other.
+    # and which pane leads (main or side) when follow along moves the other;
+    # a side-by-side session's id and how many seconds it was open.
     "section_id", "target_source_id", "target_extraction_id", "target_section_id", "by", "leader",
+    "side_by_side_id", "seconds_open",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

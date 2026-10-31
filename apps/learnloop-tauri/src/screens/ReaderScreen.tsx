@@ -114,7 +114,7 @@ import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryA
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
-import { SIDE_BY_SIDE_COPY, useSideBySide } from "./reader/useSideBySide";
+import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
 import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
@@ -584,7 +584,7 @@ export function ReaderScreen({
     markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState, pushSideBySide, dropDetour,
+    resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -1368,8 +1368,10 @@ export function ReaderScreen({
       if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
     },
     pushCrumb: pushSideBySide,
+    replaceCrumb: replaceSideBySide,
     dropCrumb: dropDetour,
-    currentEntryId: returnStack.entries[returnStack.cursor]?.id ?? null,
+    currentEntry: returnStack.entries[returnStack.cursor] ?? null,
+    visitPayload,
     onError,
   });
   // The second pane shows while side by side is open in a wide window; a
@@ -2974,6 +2976,13 @@ export function ReaderScreen({
           onMouseUp={() => {
             if (sbsPanes && !window.getSelection()?.isCollapsed) touchMain();
             onMouseUp();
+          }}
+          onKeyDown={(event) => {
+            // Reader CA6: scrolling the main pane with the keyboard is the learner's hand on it (it leads).
+            if (!sbsPanes || event.ctrlKey || event.metaKey || event.altKey || !SIDE_BY_SIDE_SCROLL_KEYS.has(event.key)) return;
+            const target = event.target;
+            if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, button"))) return;
+            touchMain();
           }}
           onWheel={() => {
             noteUserScroll();

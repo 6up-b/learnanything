@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CorrespondentSectionDto, CorrespondentsDto, SideBySideSectionDto } from "../../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests, setReaderActivityEnabled } from "./activity";
 import { crumbLabel, firstCorrespondent, firstJudgedIn, sectionShort, type PaneTarget } from "./sideBySide";
-import { SIDE_BY_SIDE_COPY, useSideBySide, type MainPane, type SideBySideInput } from "./useSideBySide";
+import { SIDE_BY_SIDE_COPY, useSideBySide, type CurrentEntry, type MainPane, type SideBySideInput } from "./useSideBySide";
 
 const { api } = vi.hoisted(() => ({
   api: { readerSideBySideSection: vi.fn(), readerCorrespondents: vi.fn(), readerLogActivity: vi.fn() },
@@ -44,17 +44,30 @@ const STRANG = (sectionId: string | null): MainPane => ({ sourceId: "src_strang"
 
 function setup(overrides: Partial<SideBySideInput> = {}) {
   const jumpMain = vi.fn();
-  const pushCrumb = vi.fn((label: string) => `crumb:${label}`);
+  // The crumb entries, as the return stack would hold them.
+  const entries = new Map<string, CurrentEntry>();
+  const pushCrumb = vi.fn((label: string, target: PaneTarget) => {
+    const id = `crumb:${label}`;
+    entries.set(id, { id, kind: "side_by_side", sourceId: props.main?.sourceId ?? "", sideBySide: target });
+    return id;
+  });
+  const replaceCrumb = vi.fn((entryId: string, _label: string, target: PaneTarget) => {
+    const entry = entries.get(entryId);
+    if (!entry || props.currentEntry?.id !== entryId) return false;
+    entries.set(entryId, { ...entry, sideBySide: target });
+    return true;
+  });
   const dropCrumb = vi.fn();
   const onError = vi.fn();
-  const initial: SideBySideInput = { enabled: true, main: STRANG("st61"), jumpMain, pushCrumb, dropCrumb, currentEntryId: null, onError, ...overrides };
-  const hook = renderHook((props: SideBySideInput) => useSideBySide(props), { initialProps: initial });
+  const initial: SideBySideInput = { enabled: true, main: STRANG("st61"), jumpMain, pushCrumb, replaceCrumb, dropCrumb, currentEntry: null, onError, ...overrides };
   const props = { ...initial };
+  const hook = renderHook((p: SideBySideInput) => useSideBySide(p), { initialProps: initial });
   const rerender = (patch: Partial<SideBySideInput>) => {
     Object.assign(props, patch);
     hook.rerender({ ...props });
   };
-  return { hook, jumpMain, pushCrumb, dropCrumb, onError, rerender, props };
+  const entry = (id: string | null) => (id ? entries.get(id) ?? null : null);
+  return { hook, jumpMain, pushCrumb, replaceCrumb, dropCrumb, onError, rerender, props, entry };
 }
 
 function events(): Array<{ event: string; payload: Record<string, unknown> }> {
@@ -66,7 +79,7 @@ function events(): Array<{ event: string; payload: Record<string, unknown> }> {
 async function openPanes(ctx: ReturnType<typeof setup>) {
   act(() => ctx.hook.result.current.open(AX5A, "find_list"));
   // The crumb is the current entry, as the return stack would make it.
-  ctx.rerender({ currentEntryId: ctx.pushCrumb.mock.results[0]?.value ?? null });
+  ctx.rerender({ currentEntry: ctx.entry(ctx.pushCrumb.mock.results[0]?.value ?? null) });
   await waitFor(() => expect(ctx.hook.result.current.phase).toBe("ready"));
 }
 
@@ -103,7 +116,7 @@ it("follow along reads judged coverage only, first in the API's order for the fo
 it("opening pushes the crumb, reads the section and records side_by_side_opened", async () => {
   const ctx = setup();
   await openPanes(ctx);
-  expect(ctx.pushCrumb).toHaveBeenCalledWith("side by side with Axler §5.A");
+  expect(ctx.pushCrumb).toHaveBeenCalledWith("side by side with Axler §5.A", AX5A);
   expect(api.readerSideBySideSection).toHaveBeenCalledWith({ extractionId: "ext_axler", sectionId: "ax5a" });
   expect(ctx.hook.result.current.panes).toBe(true);
   expect(ctx.hook.result.current.leader).toBe("main");
@@ -116,11 +129,11 @@ it("opening pushes the crumb, reads the section and records side_by_side_opened"
 it("closing drops the crumb; walking off the crumb closes, walking back onto it reopens", async () => {
   const ctx = setup();
   await openPanes(ctx);
-  const crumb = ctx.props.currentEntryId as string;
-  ctx.rerender({ currentEntryId: "origin" });
+  const crumb = ctx.props.currentEntry?.id as string;
+  ctx.rerender({ currentEntry: { id: "origin", kind: "origin", sourceId: "src_strang" } });
   expect(ctx.hook.result.current.panes).toBe(false);
   const reads = api.readerSideBySideSection.mock.calls.length;
-  ctx.rerender({ currentEntryId: crumb });
+  ctx.rerender({ currentEntry: ctx.entry(crumb) });
   await waitFor(() => expect(ctx.hook.result.current.panes).toBe(true));
   expect(api.readerSideBySideSection.mock.calls.length).toBe(reads + 1);
   expect(ctx.pushCrumb).toHaveBeenCalledTimes(1);
@@ -250,11 +263,133 @@ it("Ctrl+\\'s open reads the section in view and opens its first correspondent",
   api.readerCorrespondents.mockResolvedValue(judged("ext_strang", "st61", [hit("src_axler", "Axler", "ext_axler", "ax5a", "5.A Invariant subspaces")]));
   await act(async () => { await ctx.hook.result.current.openFirst(); });
   expect(api.readerCorrespondents).toHaveBeenCalledWith({ extractionId: "ext_strang", sectionId: "st61", searchFallback: true });
-  expect(ctx.pushCrumb).toHaveBeenCalledWith("side by side with Axler §5.A");
+  expect(ctx.pushCrumb).toHaveBeenCalledWith("side by side with Axler §5.A", expect.objectContaining({ sectionId: "ax5a" }));
   // Nothing to open: one dim line, nothing else.
   const empty = setup();
   api.readerCorrespondents.mockResolvedValue({ ...judged("ext_strang", "st61", []), status: "none", learningObjects: [] });
   await act(async () => { await empty.hook.result.current.openFirst(); });
   expect(empty.hook.result.current.notice).toBe(SIDE_BY_SIDE_COPY.nothing);
   expect(empty.pushCrumb).not.toHaveBeenCalled();
+});
+
+// -- Codex review fixes (F3-F6, F8) -------------------------------------------------------------------
+
+function deferredCorrespondents() {
+  const answers: Array<(view: CorrespondentsDto) => void> = [];
+  api.readerCorrespondents.mockImplementation(() => new Promise((resolve) => { answers.push(resolve); }));
+  return answers;
+}
+
+it("F3: switching leaders twice drops the first leader's pending follow request", async () => {
+  const ctx = setup();
+  await openPanes(ctx);
+  const answers = deferredCorrespondents();
+  ctx.rerender({ main: STRANG("st62") });
+  await waitFor(() => expect(answers).toHaveLength(1));
+  // The learner scrolls the side pane, then clicks the main pane again, with no new crossing.
+  act(() => ctx.hook.result.current.touch("side"));
+  act(() => ctx.hook.result.current.touch("main"));
+  expect(ctx.hook.result.current.leader).toBe("main");
+  await act(async () => { answers[0](judged("ext_strang", "st62", [hit("src_axler", "Axler", "ext_axler", "ax5c", "5.C")])); await Promise.resolve(); });
+  // The side pane keeps the position the learner chose.
+  expect(api.readerSideBySideSection).toHaveBeenCalledTimes(1);
+  expect(ctx.hook.result.current.target?.sectionId).toBe("ax5a");
+  expect(events().map((e) => e.event)).not.toContain("follow_along_moved");
+});
+
+it("F4: a Ctrl+\\ read pending when side by side becomes ineligible never opens it", async () => {
+  const ctx = setup();
+  const answers = deferredCorrespondents();
+  let pending: Promise<void> = Promise.resolve();
+  act(() => { pending = ctx.hook.result.current.openFirst(); });
+  await waitFor(() => expect(answers).toHaveLength(1));
+  // The working posture (or the switch off) before the answer lands; same section and reading.
+  ctx.rerender({ enabled: false });
+  await act(async () => { answers[0](judged("ext_strang", "st61", [hit("src_axler", "Axler", "ext_axler", "ax5a", "5.A")])); await pending; });
+  expect(ctx.pushCrumb).not.toHaveBeenCalled();
+  expect(api.readerSideBySideSection).not.toHaveBeenCalled();
+  // Back to reading: nothing reappears on its own.
+  ctx.rerender({ enabled: true });
+  expect(ctx.hook.result.current.panes || ctx.hook.result.current.sheet).toBe(false);
+});
+
+it("F4: a pending Ctrl+\\ read is superseded by an open the learner made meanwhile", async () => {
+  const ctx = setup();
+  const answers = deferredCorrespondents();
+  let pending: Promise<void> = Promise.resolve();
+  act(() => { pending = ctx.hook.result.current.openFirst(); });
+  await waitFor(() => expect(answers).toHaveLength(1));
+  act(() => ctx.hook.result.current.open(AX5A, "find_list"));
+  await act(async () => { answers[0](judged("ext_strang", "st61", [hit("src_lay", "Lay", "ext_lay", "lay52", "5.2")])); await pending; });
+  expect(ctx.pushCrumb).toHaveBeenCalledTimes(1);
+  expect(ctx.hook.result.current.target?.sourceId).toBe("src_axler");
+});
+
+it("F5: a source detour keeps the pair; walking back onto the crumb reopens it", async () => {
+  const ctx = setup();
+  await openPanes(ctx);
+  const crumb = ctx.props.currentEntry?.id as string;
+  // A source detour to another book: its entry is current, then the main pane holds that book.
+  ctx.rerender({ currentEntry: { id: "detour_c", kind: "source", sourceId: "src_lay" } });
+  ctx.rerender({ main: { sourceId: "src_lay", sourceTitle: "Lay", extractionId: "ext_lay", sectionId: "lay1" } });
+  expect(ctx.hook.result.current.panes).toBe(false);
+  // Alt+← onto the crumb: the stack moves first, then the source reopens.
+  ctx.rerender({ currentEntry: ctx.entry(crumb) });
+  expect(ctx.hook.result.current.panes).toBe(false);
+  ctx.rerender({ main: STRANG("st61") });
+  await waitFor(() => expect(ctx.hook.result.current.panes).toBe(true));
+  expect(ctx.hook.result.current.target?.sectionId).toBe("ax5a");
+  expect(ctx.pushCrumb).toHaveBeenCalledTimes(1);
+  expect(ctx.dropCrumb).not.toHaveBeenCalled();
+});
+
+it("F6: opening another book beside the same passage replaces the pair on the same crumb", async () => {
+  const ctx = setup();
+  await openPanes(ctx);
+  const crumb = ctx.props.currentEntry?.id as string;
+  const LAY: PaneTarget = { sourceId: "src_lay", sourceTitle: "Lay", extractionId: "ext_lay", sectionId: "lay52", title: "5.2 The characteristic equation", spanId: "lay52_s1", by: "judged" };
+  act(() => ctx.hook.result.current.open(LAY, "find_list"));
+  expect(ctx.replaceCrumb).toHaveBeenCalledWith(crumb, "side by side with Lay §5.2", LAY);
+  expect(ctx.pushCrumb).toHaveBeenCalledTimes(1);
+  expect(ctx.entry(crumb)?.sideBySide).toEqual(LAY);
+  ctx.rerender({ currentEntry: ctx.entry(crumb) });
+  expect(ctx.hook.result.current.target?.sourceId).toBe("src_lay");
+  // Closing takes that one crumb off.
+  act(() => ctx.hook.result.current.close());
+  expect(ctx.dropCrumb).toHaveBeenCalledWith(crumb);
+});
+
+it("F8: a session records its id, the visit and how long it was open; an undone follow move is recorded", async () => {
+  const visitPayload = () => ({ visit_id: "visit_1" });
+  const ctx = setup({ visitPayload });
+  await openPanes(ctx);
+  api.readerCorrespondents.mockResolvedValue(judged("ext_strang", "st62", [hit("src_axler", "Axler", "ext_axler", "ax5c", "5.C Eigenspaces")]));
+  ctx.rerender({ main: STRANG("st62") });
+  await waitFor(() => expect(ctx.hook.result.current.target?.sectionId).toBe("ax5c"));
+  // The learner takes the side pane back to the section it was on.
+  act(() => ctx.hook.result.current.goSide("ax5a"));
+  act(() => ctx.hook.result.current.close());
+  const recorded = events();
+  const opened = recorded.find((e) => e.event === "side_by_side_opened")!.payload;
+  expect(opened).toMatchObject({ visit_id: "visit_1", detour_id: ctx.props.currentEntry?.id });
+  const session = opened.side_by_side_id;
+  expect(typeof session).toBe("string");
+  expect(recorded.find((e) => e.event === "follow_along_moved")?.payload).toMatchObject({ visit_id: "visit_1", side_by_side_id: session });
+  expect(recorded.find((e) => e.event === "follow_along_undone")?.payload).toMatchObject({
+    side_by_side_id: session, leader: "side", section_id: "ax5c", target_section_id: "ax5a", seconds_after: expect.any(Number),
+  });
+  expect(recorded.find((e) => e.event === "side_by_side_closed")?.payload).toMatchObject({
+    visit_id: "visit_1", side_by_side_id: session, via: "close", seconds_open: expect.any(Number),
+  });
+});
+
+it("F8: moving the followed pane on elsewhere is not an undo", async () => {
+  const ctx = setup();
+  await openPanes(ctx);
+  api.readerCorrespondents.mockResolvedValue(judged("ext_strang", "st62", [hit("src_axler", "Axler", "ext_axler", "ax5c", "5.C Eigenspaces")]));
+  ctx.rerender({ main: STRANG("st62") });
+  await waitFor(() => expect(ctx.hook.result.current.target?.sectionId).toBe("ax5c"));
+  act(() => ctx.hook.result.current.goSide("ax5d"));
+  act(() => ctx.hook.result.current.goSide("ax5a"));
+  expect(events().map((e) => e.event)).not.toContain("follow_along_undone");
 });

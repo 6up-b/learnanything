@@ -7208,7 +7208,9 @@ export interface ReaderActivityEvent {
     | "corresponding_section_peeked"
     | "corresponding_section_opened"
     | "side_by_side_opened"
-    | "follow_along_moved";
+    | "side_by_side_closed"
+    | "follow_along_moved"
+    | "follow_along_undone";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {

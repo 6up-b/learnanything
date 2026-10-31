@@ -16,7 +16,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { clip } from "./readerShared";
 import { MeaningLabel } from "./voices";
-import { SIDE_BY_SIDE_COPY, type SideBySide } from "./useSideBySide";
+import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, type SideBySide } from "./useSideBySide";
 
 const LINK: CSSProperties = {
   border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 10,
@@ -64,12 +64,16 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
   const sheet = ctl.sheet;
   const leads = ctl.panes && ctl.leader === "side";
 
-  // A new section starts at its top (its jump locator), instantly: no animation.
+  // A new section starts at its top (its jump locator), instantly: no
+  // animation. The section the pane was already reading (the pane unmounted
+  // while a comparison took the right side) comes back where the learner was.
+  const sectionKey = section ? `${section.extractionId}::${section.sectionId}` : null;
+  const { scrollFor, rememberScroll } = ctl;
   useEffect(() => {
     const node = scrollRef.current;
-    if (node) node.scrollTop = 0;
+    if (node) node.scrollTop = sectionKey ? scrollFor(sectionKey) : 0;
     setSelection(null);
-  }, [section?.extractionId, section?.sectionId]);
+  }, [sectionKey, scrollFor]);
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     scrollRef.current = node;
@@ -87,7 +91,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
       return;
     }
     // Scrolling the pane with the keyboard is the learner's hand on it too.
-    if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) touch();
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && SIDE_BY_SIDE_SCROLL_KEYS.has(event.key)) touch();
   };
 
   const header: ReactNode = (
@@ -130,6 +134,9 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
         tabIndex={-1}
         data-sbs-body=""
         className="ll-scroll"
+        onScroll={(event) => {
+          if (sectionKey) rememberScroll(sectionKey, event.currentTarget.scrollTop);
+        }}
         onWheel={touch}
         onTouchMove={touch}
         onMouseDown={touch}

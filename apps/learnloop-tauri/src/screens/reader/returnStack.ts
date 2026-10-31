@@ -7,6 +7,7 @@
 // It is Reader UX state for the visit, not source truth (P3 §12): a restart
 // restores only its root, which is P3's saved reading position.
 import type { ReaderSelection } from "./readerShared";
+import type { PaneTarget } from "./sideBySide";
 
 // Reader CA6: "side_by_side" is a variant of the comparing posture (its crumb
 // reads "side by side with Axler §5.A"; walking off it closes the second pane).
@@ -27,6 +28,9 @@ export interface ReturnEntry {
   label: string;
   /** Milliseconds since the epoch when the entry was pushed. */
   openedAt: number;
+  /** Reader CA6: a side_by_side entry's second pane (walking back onto the
+   *  entry reopens it, across source detours; it goes with the entry). */
+  sideBySide?: PaneTarget | null;
 }
 
 export interface ReturnStack {
@@ -69,6 +73,9 @@ export function pushDetour(stack: ReturnStack, origin: ReturnEntry, entry: Retur
     && current.sourceId === entry.sourceId
     && current.spanId === entry.spanId
     && current.exchangeId === entry.exchangeId
+    // Reader CA6: side by side with another section is another detour.
+    && current.sideBySide?.extractionId === entry.sideBySide?.extractionId
+    && current.sideBySide?.sectionId === entry.sideBySide?.sectionId
   ) {
     return stack;
   }
@@ -123,4 +130,16 @@ export function dropCurrent(stack: ReturnStack, id: string): ReturnStack {
   const entries = stack.entries.slice(0, stack.cursor);
   if (entries.length <= 1) return EMPTY_STACK;
   return { ...stack, entries, cursor: entries.length - 1 };
+}
+
+/** Change the current entry in place, keeping its id (Reader CA6: another
+ *  section opened beside the same passage replaces side by side's pair, so
+ *  the crumb names what is open and closing it still takes it off). Not the
+ *  current entry: the stack is unchanged. */
+export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide">>): ReturnStack {
+  const current = stack.entries[stack.cursor];
+  if (!current || current.id !== id) return stack;
+  const entries = stack.entries.slice();
+  entries[stack.cursor] = { ...current, ...patch };
+  return { ...stack, entries };
 }
