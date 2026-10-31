@@ -266,3 +266,37 @@ it("F5: x is neither offered nor acts while the comparing posture hides the Guid
   await act(async () => { await Promise.resolve(); });
   expect(document.querySelector("[data-also-expanded]")).toBeNull();
 });
+
+// -- Landing onto main: interaction (i) with CA5a ------------------------------------------------
+
+it("landing (i): the line or CA5a's action, never both; the last line corrected away brings the action, undo hides it again", async () => {
+  // The sidecar's answers follow the corrections: judged, then nothing judged once the line is corrected away, then judged again.
+  let status: "judged" | "none" = "judged";
+  api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) =>
+    (input.searchFallback ? PRESSED : status === "judged" ? JUDGED : QUIET));
+  api.readerCorrespondentDismiss.mockImplementation(async (input: { operationId: string; undoOf?: string }) => {
+    status = input.undoOf ? "judged" : "none";
+    return { operation: { operationId: input.operationId, choice: input.undoOf ? "none" : "not_about",
+      learningObjectIds: ["lo_sym"], undoOf: input.undoOf ?? null, replayed: false } };
+  });
+  const both = () => Boolean(line()) && Boolean(screen.queryByRole("button", { name: FIND_COPY.action }));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  await waitFor(() => expect(line()).toBeTruthy());
+  expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
+  fireEvent.click(line()!);
+  fireEvent.click(await screen.findByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.notAbout }));
+  // CA5a's quiet read is asked again: nothing judged is left, so its action is due; the line names nothing.
+  await screen.findByRole("button", { name: FIND_COPY.action });
+  expect(api.readerCorrespondentDismiss.mock.calls[0][0]).toMatchObject({ learningObjectIds: ["lo_sym"], targetSectionId: "ax5a" });
+  expect(line()).toBeNull();
+  expect(both()).toBe(false);
+  const gone = document.querySelector<HTMLElement>('[data-also-gone="ext_axler/ax5a"]')!;
+  expect(gone).toBeTruthy();
+  // Undo: judged again, the action hides and the line is back.
+  fireEvent.click(screen.getByRole("button", { name: ALSO_COPY.undo }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull());
+  expect(api.readerCorrespondentDismiss.mock.calls[1][0]).toMatchObject({ undoOf: api.readerCorrespondentDismiss.mock.calls[0][0].operationId });
+  await waitFor(() => expect(document.querySelector('[data-also-gone="ext_axler/ax5a"]')).toBeNull());
+  expect(both()).toBe(false);
+});
