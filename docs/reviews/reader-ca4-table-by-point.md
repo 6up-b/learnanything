@@ -214,3 +214,131 @@ Pytest files run (new: `test_reader_ca4_table_by_point.py`):
 
 Vitest files run (new: `screens/reader/comparePointTable.test.tsx`):
 `app/App.fixRound2.test.tsx`, `app/App.fixRound3.test.tsx`, `app/App.fixRound4.test.tsx`, `app/App.fixRound5.test.tsx`, `app/App.shell.test.tsx`, `app/App.today.test.tsx`, `app/App.wrapUpSkim.test.tsx`, `app/classicIsBase.test.ts`, `app/shellChrome.test.ts`, `screens/attentionBudget.test.tsx`, `screens/reader/checkOffer.test.ts`, `screens/reader/compareKeepSwitchOff.test.tsx`, `screens/reader/compareKeep.test.tsx`, `screens/reader/comparePointTable.test.tsx`, `screens/reader/compareScopeCodexReview.test.tsx`, `screens/reader/compareScope.test.tsx`, `screens/reader/figures/advancedPanels.test.tsx`, `screens/reader/figures/libraryOfferSettle.test.tsx`, `screens/reader/figures/readerFigures.test.tsx`, `screens/reader/figures/showMe.test.tsx`, `screens/reader/figures/tutorOfferPress.test.tsx`, `screens/reader/figuresWithReadingPath.test.tsx`, `screens/reader/intentBoxInShell.test.tsx`, `screens/reader/IntentBox.test.tsx`, `screens/reader/intentSwitchOff.test.tsx`, `screens/reader/libraryAskJobs.test.tsx`, `screens/reader/libraryAskSwitchOff.test.tsx`, `screens/reader/libraryAsk.test.tsx`, `screens/reader/libraryExercisesReader.test.tsx`, `screens/reader/libraryExercises.test.tsx`, `screens/reader/libraryRoles.test.tsx`, `screens/reader/nextStepFold.test.tsx`, `screens/reader/paletteAskPostures.test.tsx`, `screens/reader/paletteAsk.test.tsx`, `screens/reader/readerHooks.parity.test.tsx`, `screens/reader/readingPathsReader.test.tsx`, `screens/reader/readingPathsRefresh.test.tsx`, `screens/reader/readingPathsSwitchOff.test.tsx`, `screens/reader/recapSwitchOff.test.tsx`, `screens/reader/rw1bReview.test.tsx`, `screens/ReaderScreen.branches.test.tsx`, `screens/ReaderScreen.checkOffer.test.tsx`, `screens/ReaderScreen.cuesSwitchOff.test.tsx`, `screens/ReaderScreen.discoveredCuesReview.test.tsx`, `screens/ReaderScreen.discoveredCues.test.tsx`, `screens/ReaderScreen.doseOffer.test.tsx`, `screens/ReaderScreen.followsLearner.test.tsx`, `screens/ReaderScreen.guide.test.tsx`, `screens/ReaderScreen.inquiryOff.test.tsx`, `screens/ReaderScreen.inquiry.test.tsx`, `screens/ReaderScreen.k7.test.tsx`, `screens/ReaderScreen.marginMarksReview.test.tsx`, `screens/ReaderScreen.marginMarks.test.tsx`, `screens/ReaderScreen.parity.test.tsx`, `screens/ReaderScreen.pdfSelection.test.tsx`, `screens/ReaderScreen.preparing.test.tsx`, `screens/ReaderScreen.quickcheck.test.tsx`, `screens/ReaderScreen.recapReview.test.tsx`, `screens/ReaderScreen.recap.test.tsx`, `screens/ReaderScreen.review.test.tsx`, `screens/ReaderScreen.rw2cExample.test.tsx`, `screens/ReaderScreen.workbench.test.tsx`, `screens/reader/tutorBoundAsk.test.tsx`, `screens/reader/tutorExercises.test.tsx`, `screens/reader/tutorReader.test.tsx`, `screens/reader/tutorSwitchOff.test.tsx`, `screens/reader/voices.test.tsx`, `screens/workbench/switchOff.test.tsx`.
+
+## Landing onto main (2026-10-31)
+
+Landed in `learnanything-dl1` on `reader/ca4-table-by-point` (stage tip `8aaceff1c`, base `d7850780b` = CA3's
+verified tip) by merging `main` `5dbfd42b8`: Reader CA3's landing (with CA5a, the cold-retry successor mvp-0.38,
+the Oct 27 follow-ups and the RW5c design spec already on main). Main was neither fast-forwarded nor pushed. No
+migration and no successor: CA4 stays display and proposals at every version.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `2d93d8ba6` | `--no-ff` merge of `main` `5dbfd42b8`. **Conflicts** (CA3-landing resolutions vs CA4 edits): `template.py`, every default snapshot mvp-0.9 … mvp-0.37, where CA4's note is kept beside main's CA5a and cold-retry notes, and mvp-0.38 (cold-retry's new snapshot) gains CA4's line. **All 29 fingerprints** (mvp-0.9 … mvp-0.38) were recomputed with `defaults_fingerprint_for_version`, the template `.pyc` was cleared, and a recheck found 0 mismatches. The as-built notes in `ux_reader_compare_ask_v1.md` (CA5a's and CA4's, both kept). The switch-off contract pins `test_compare_keep_switch_off.py` and `test_reader_tutor_switch_off.py` now turn off CA3's, CA4's **and** CA5a's additions; `test_figures_switch_off.py` and `test_reading_paths.py` auto-merged and already pop or strip all three (`compareScope`, `compareByPoint`, `correspondence`). 431 generated reference notes were taken from main and regenerated in the next commit. `useLibraryAsk.ts` (CA3's `runCompare` and CA5a's `runPinsCompare` beside CA4's `compareAgain`/`whereElse`/`peek`), `LibraryAnswer.tsx`, `ReaderScreen.tsx`, `CompareScope.tsx`, `api/dto.ts`, `api/client.ts`, `library_ask.py` (both), `schema.py`, the parameter registry and `db_generate_reference.py` auto-merged; `npm run typecheck` was clean on the merge. |
+| `c1259ddf5` | DB/config reference regenerated on the merge. The hand-written counts in `Configuration.md` and `Database.md` move to **1073 effective leaves in 75 sections** (main's 1071 + CA4's 2). `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1163 notes). |
+| `36e3f1892` | The interaction tests (below). |
+
+`git diff main` lists no binary, no tracked database and nothing under `fixtures-local/`; `.gitignore` is unchanged.
+
+### Interactions with CA3 and CA5a
+
+All of these passed the first time; nothing needed fixing. Each new test was mutation-checked: with
+`CompareTable`'s by-point branch disabled the two by-point vitest cases fail; with the sidecar's `by_point`
+forced off, the five by-point server cases fail.
+
+**(i) CA5a's compare on a found section, by point and by book.** `findSectionByPoint.test.tsx` (vitest, the
+whole Reader screen, the four cases `by_point` on/off x CA3 on/off): the first comparison fails and *try again ↵*
+reruns it. With CA3 off it is CA5a's library-ask path: the rerun keeps the same two pins (CA5a F5/F8), no second
+ask and no notes. With CA3 on it is CA3's selection door: the rerun sends the same request, and no library ask is
+made. When the sidecar answers v2 (`by_point` on), the table by point renders (`data-compare-points`, the row's
+label); when it answers v1 (`by_point` off), the by-book table renders, with no points and no *compare again by
+point*. On the server (`tests/test_reader_ca4_landing.py`, C0a's coverage vault, from `reader.correspondents`' hit):
+- CA5a's pinned compare asks `by_point=True` and returns a v2 table whose cells sit in the columns. Off, it asks
+  without `by_point` and returns no `points` or `contract`. A rerun is the same comparison (cached; the same table
+  apart from exposure ids and the `cached` status).
+- CA3's selection door narrowed to the hit's book does the same. Off, the request and the table are CA3's
+  landing's: no `by_point`, no points.
+
+**(ii) CA3's tutor and named books with v2 tables.**
+- A stored v2 comparison from the selection door: the tutor named by `comparisonId` gets every passage it
+  compared, or says what it left out, and its prompt carries exactly the grounded passages.
+- With `by_point` on, a one-book selection (`too_few_sources`, nothing compared, no points) is asked about by
+  `passagesId`, as before.
+- Named books narrow the v2 table: its columns are the anchor's book and the named book only, and no cell names
+  the unnamed third book.
+- *Compare again by point*: a v1 comparison of named books was shown while `by_point` was off. Then the
+  frontend's request (CA3's pins door with the table's passages and the books it shows; the payload is pinned by
+  `comparePointTableCodexReview.test.tsx` F6) returns a v2 table over exactly those books.
+
+**(iii) The switch matrix** (`reader_compare.by_point` x `reader_compare.scope_enabled` x
+`reader.correspondence.enabled`, all eight): `libraryAsk.compareByPoint` is present exactly when `by_point` is on.
+`libraryAsk.compareScope` and the palette's `compare_books` are present exactly when scope is on.
+`correspondence` is `{enabled, findSection}` exactly when correspondence is on. With those removed, the eight
+contracts are identical to the all-off one. `by_point` off = v1 requested and the table by book exactly as CA3's
+landing, as (i) shows on both paths. `test_switched_off_the_reader_requests_v1_and_renders_by_book_exactly`
+covers the pins.
+
+### Regeneration
+
+- DB/config reference: regenerated and validated as above. Defaults fingerprints: all 29 recomputed.
+- The CLI help snapshot, sidecar serializer snapshot, desktop RPC contract and mobile allowlist pass as merged.
+  CA4 adds no RPC (`hiddenPoints` rides on the existing keep RPC), so nothing else needed regenerating.
+- Targeted run after the merge (44 files: every switch-off pin, the CA3/CA4/CA5a files, library ask, compare keep,
+  section coverage RPCs, the RPC/serializer/CLI/mobile pins, the upgrade and config tests; `-n 6`, 5G scope):
+  **899 passed**, 6 skipped (11 min 4 s).
+
+### Gate (`env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/ca4/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite at `36e3f1892` (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,435 passed, 3 failed**, 89 skipped, 47 xfailed. pytest 2,082.6 s (34:42); wall 34 min 46 s from taking the lock (it waited 30 min for another worktree's run, 15:55 to 16:26). The 3 failures were exactly the known environment pins for the installed Codex CLI 0.165.0: `test_diagnosis_isolation::test_configured_mcp_servers_are_listed_and_disabled` and `test_codex_isolation_mcp_check::test_the_installed_codex_passes_the_launch_check[False/True]`. Main at the time (`5dbfd42b8`) failed the same three. |
+| `main`'s Codex 0.165 lockdown fix (`e668f7121`), merged afterwards (`43f50b271`, no conflicts; CA4 touches no Codex file) | `test_codex_cli_0165_lockdown.py`, `test_codex_isolation_mcp_check.py`, `test_diagnosis_isolation.py` on the merged tip (5G, `-n 6`): **68 passed** (5.2 s; wall 7 s). The three failures above pass there. No full-suite rerun: the merge touched only the Codex lockdown and its tests. |
+| durability at `43f50b271` (`-m durability`, flock, 5G scope, `-n 6`) | **176 passed**, 1 skipped (57.8 s; wall 59 s from the lock, which other worktrees held for about 33 min first) |
+| owner lane at `36e3f1892` (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-ca4/`) | 83 passed, **2 failed**, 4 skipped (57.5 s; wall 59 s). The two failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy. |
+| frontend (`apps/learnloop-tauri`, at `36e3f1892`) | `npm install` ok; `npm run typecheck` clean; whole vitest (`--maxWorkers=4`, 5G): **228 files, 2010 passed** (58.2 s; wall 59 s); `npm run frontend:build` ok (4 s); `cargo check --manifest-path src-tauri/Cargo.toml` ok (39 s) |
+
+No timing-looking failure appeared, so nothing needed a rerun.
+
+### Smoke on owner copies
+
+The smoke ran on fresh backup-API copies of the same three mvp035 owner copies (`fixtures-local/smoke-ca4-fresh/`).
+Each copy was upgraded with `learnloop upgrade --to mvp-0.38` (prints `mvp-0.35 -> mvp-0.38`), then
+`rebuild-derived-state`. The RPCs ran through a real sidecar process (`python -m learnloop_sidecar` over stdio).
+- Everything ran under `env -i` with an empty `HOME`, `CODEX_HOME` and config dir,
+  `LEARNLOOP_COVERAGE_MODELS=off` and AI base URLs at `127.0.0.1:9`, so no comparison could be made.
+- Audit hooks refused non-loopback sockets and process starts, and **logged nothing**.
+- Only counts, statuses and booleans were recorded (driver: `fixtures-local/landing/smoke_ca4/smoke.py`, control:
+  `control.py`).
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| stored comparisons / kept comparisons (v1) | 0 / 0 | 0 / 0 | 0 / 0 |
+| a kept v1 comparison reopens by book | none to reopen (no copy has a comparison) | same | same |
+| contract `compareByPoint`: on / off / on again | true / absent / true | same | same |
+| selection door on one passage, `by_point` on: status, rows, points | `too_few_sources`, 1, 0 | same | same |
+| ... `by_point` off | `too_few_sources`, 1, 0 (the same) | same | same |
+| tables changed by the off/on toggle | none beyond `facet_capability_evidence` and `facet_recall_state`, which change in **every** sidecar session with no toggle too (control run: two plain sessions, then off, on, on; the same two tables move at every step); `source_comparisons`, `library_asks` and every other table unchanged | same | same |
+| `rebuild --shadow` before / after (mastery/facet/schedule) | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 |
+| `model_call_receipts` rows added | 0 | 0 | 0 |
+
+### Owner notes
+
+- Kill switch: `[reader_compare] by_point` (default true). With it off, v1 is requested and every comparison is
+  by book exactly as CA3's landing (contract without `compareByPoint`, today's keep, rows and row takes refused).
+- `[reader_compare] max_perspectives = 4` is a `keep` key: a bound on stored size, not a tuned number.
+- No upgrade is needed for CA4 itself. The owner vaults' pending `upgrade --to mvp-0.38` (cold-retry) is unchanged
+  by it. None of the owner copies holds a comparison, so no kept v1 comparison could be reopened on real data;
+  the test `test_a_v1_comparison_kept_before_ca4_reopens_by_book` covers that path.
+
+### Open items
+
+- **Section locators in column headers**: the headers show the book and page, not the section.
+- **The provisional by-book layout while the comparison runs** is not built (the job has no progress signal).
+- **Rerun on a margin-mark reopen**: a kept comparison reopened from `⇄` has no library question beside it, so it
+  opens by book with no *compare again by point*.
+- **Hiding a kept row** supersedes its takes. Showing the row again re-proposes its cells, but not the takes.
+- **Cross-block quotes** (a quote spanning two anchor blocks) show as not addressed.
+- **No real v2 call has been checked** (no live calls at landing).
+- **From this landing:**
+  - In every sidecar session, the owner copies' `facet_capability_evidence` and `facet_recall_state` rows are
+    rewritten, whether or not anything was toggled. `rebuild --shadow` still reads 0/0/0. This is not CA4's: it
+    happens with the switch untouched. It is noted because a "nothing stored moved" check has to exclude those two
+    tables.
+  - CA5a's comparison (CA3 off) renders under the library answer's hits. If the section's ask returns no hits,
+    the comparison runs but nothing shows it. This was true before CA4 too. The landing test gives the ask hits
+    for both passages.
+  - The installed Codex CLI's launch-check pins need updating for its 2026-10-29 feature list. Main fails them
+    too, and they are not CA4's.
