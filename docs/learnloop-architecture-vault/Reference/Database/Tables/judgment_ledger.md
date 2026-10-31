@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086eca31edc10e081721f168e34b937f5ace27bc"
-source_commit_timestamp: "2026-10-27T20:17:50-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -155,6 +155,7 @@ None found by exact static reference scan.
 - `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/source_retrieval/reading_paths.py`
 - `src/learnloop/source_retrieval/role_labeller.py`
+- `src/learnloop/source_retrieval/section_coverage.py`
 - `src/learnloop/substrate/families.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
 - `src/learnloop/workbench/help_outcomes.py`

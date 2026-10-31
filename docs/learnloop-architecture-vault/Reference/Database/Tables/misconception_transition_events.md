@@ -3,8 +3,8 @@ title: "misconception_transition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086eca31edc10e081721f168e34b937f5ace27bc"
-source_commit_timestamp: "2026-10-27T20:17:50-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_transition_events"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `tests/passage_cue_fakes.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_cli_json.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_daily_plan_owner_decisions.py`
@@ -122,7 +123,6 @@ Indexes and uniqueness:
 - `tests/test_error_hunt_items.py`
 - `tests/test_exam_protection.py`
 - `tests/test_find_sources_intents.py`
-- `tests/test_guided_redo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

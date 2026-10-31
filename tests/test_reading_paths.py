@@ -69,6 +69,9 @@ def _without_rw5a(contract: dict) -> dict:
     for group in contract["intent"]["palette"]:
         group["actions"] = [action for action in group["actions"]
                             if action["effect"] != {"kind": "figure"} and action["effect"]["kind"] != "compare"]
+    # Reader CA5a (landed after a76c8358a, on by default) adds its own key, pinned by
+    # tests/test_reader_ca5a_find_section.py; these pins are about RW7a's switch.
+    assert contract.pop("correspondence") == {"enabled": True, "findSection": True}
     return contract
 
 

@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086eca31edc10e081721f168e34b937f5ace27bc"
-source_commit_timestamp: "2026-10-27T20:17:50-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
+  - "src/learnloop/cold_retry_reschedule_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
-  - "src/learnloop/one_ask_upgrade.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempt_content_state_upgrade.py`
 - `src/learnloop/claim_fixes_upgrade.py`
+- `src/learnloop/cold_retry_reschedule_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/one_ask_upgrade.py`
@@ -130,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_p2_acceptance.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_ingest_instrument_gates.py`
 - `tests/test_learner_report_superseded.py`
 - `tests/test_method_explicit_upgrade.py`
@@ -144,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_mvp020_upgrade.py`
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_mvp022_upgrade.py`
-- `tests/test_mvp023_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

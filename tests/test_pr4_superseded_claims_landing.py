@@ -228,7 +228,7 @@ def test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once(tmp_
     result = _upgrade(paths, LATEST_ALGORITHM_VERSION)
     assert result.exit_code == 0, result.output
     assert f"{start} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.37"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.38"
     [archive] = _archives(paths)
     assert archive.name.startswith(f"ad_guard_denials.archived-{start}-to-{LATEST_ALGORITHM_VERSION}-")
     assert archive.read_text(encoding="utf-8") == before and not log.exists()

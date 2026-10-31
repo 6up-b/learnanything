@@ -488,6 +488,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.figures import prompt_contract_fields as figure_fields
 
     contract.update(figure_fields(vault))
+    # CA5a's find this section in my other books (absent while
+    # reader.correspondence.enabled or curriculum.enabled is off).
+    from learnloop_sidecar.handlers.correspondents import prompt_contract_fields as correspondence_fields
+
+    contract.update(correspondence_fields(vault))
     return versioned(contract)
 
 

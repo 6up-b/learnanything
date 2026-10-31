@@ -14,7 +14,7 @@ from learnloop.db.migrate import (
     apply_migrations,
     discover_migrations,
 )
-from tests.owner_vaults import owner_vault, owner_vaults
+from tests.owner_vaults import owner_vaults, require_owner_vault
 
 #: These tests build older databases and upgrade them directly: the test
 #: suite's named allowance (F8 of the coordinated-migration verify).
@@ -147,7 +147,7 @@ def test_real_fk_rebuild_153_rolls_back_on_interruption(tmp_path, monkeypatch):
 
     repository_root = Path(__file__).resolve().parents[1]
     db = tmp_path / "state.sqlite"
-    shutil.copy2(owner_vault("arxiv") / "state.sqlite", db)
+    shutil.copy2(require_owner_vault("arxiv") / "state.sqlite", db)
     with connect(db) as connection:
         before_count = connection.execute(
             "SELECT COUNT(*) FROM practice_attempts"

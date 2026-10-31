@@ -6771,6 +6771,74 @@ export interface ReaderPromptContractDto {
   compareKeep?: CompareKeepContractDto;
   /** RW7a: reading paths in the Guide (present only while reading_paths.enabled is on). */
   readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
+  /** Reader CA5a: "find this section in my other books" in the Guide's footer
+   *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
+  correspondence?: { enabled: boolean; findSection: boolean };
+}
+
+// ── Reader CA5a: find this section in my other books ───────────────────────
+// ux_reader_compare_ask_v1 §6.2, §6.3; C0a's reader.correspondents.
+
+/** One other book's section, judged or (CA5a) found by search and not checked. */
+export interface CorrespondentSectionDto {
+  extractionId: string;
+  sectionId: string;
+  /** The section's own number and title, in the book's words. */
+  title: string;
+  sourceId: string;
+  sourceTitle: string;
+  /** The learner has read it through (a reading fact). */
+  read: boolean;
+  /** Where peek and go there land. */
+  jump: { extractionId: string; sectionId: string; spanId: string | null };
+  /** Judged coverage's treatment; null on a search hit (never shown for one). */
+  treatment: string | null;
+  /** "found by search, not checked" on a search hit. */
+  label?: string;
+  by: "search" | "judge" | "learner";
+}
+
+export interface CorrespondentSourceDto {
+  sourceId: string;
+  sourceTitle: string;
+  sections: CorrespondentSectionDto[];
+}
+
+export interface CorrespondentsDto {
+  extractionId: string;
+  sectionId: string;
+  status: "judged" | "unchecked" | "none" | "withheld";
+  message?: string;
+  /** Judged coverage per LO (CA5's list; CA5a only reads whether it is there). */
+  learningObjects: Array<{ learningObjectId: string; title: string; sources: CorrespondentSourceDto[] }>;
+  /** The live search hits by book (with search_fallback, no judged coverage). */
+  search: { label: string; sources: CorrespondentSourceDto[]; correctableLearningObjectIds: string[] } | null;
+  checkableLearningObjectIds: string[];
+}
+
+export type CoverageCorrectionChoice = "is_about" | "not_about" | "none";
+
+/** CA5a's peek: the hit's own section's first blocks (never the next unit's). */
+export interface CorrespondentPeekDto {
+  extractionId: string;
+  sectionId: string;
+  sourceId: string;
+  sourceTitle: string;
+  title: string;
+  jumpSpanId: string;
+  page: number | null;
+  blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  exposureEventIds: string[];
+}
+
+/** CA5a's "not about this" (or its undo), one durable operation. */
+export interface CorrespondentOperationDto {
+  operationId: string;
+  choice: "not_about" | "none";
+  learningObjectIds: string[];
+  undoOf: string | null;
+  replayed: boolean;
+  createdAt: string;
 }
 /** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
 export interface CompareKeepContractDto {

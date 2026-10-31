@@ -5,6 +5,7 @@ from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_gr
 from learnloop.algorithm_versions import (
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
     CLAIM_FIXES_ALGORITHM_VERSION,
+    COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
     READING_PATH_PLAN_ALGORITHM_VERSION,
@@ -100,8 +101,9 @@ def upgrade(
                 "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, "
                 f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, "
                 f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
-                f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION} or "
-                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}); default: the latest."
+                f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, "
+                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION} or {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}); "
+                "default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -232,12 +234,17 @@ def upgrade(
     with a newer one, so a rebuild applies each at the time you gave it and
     reproduces your live estimates, over an mvp-0.35 vault (or an mvp-0.9 to
     mvp-0.34 vault through the chain; no kill switch: nothing you see
-    changes). ``--to mvp-0.37`` (default, the latest successor; mobile PR-4)
+    changes). ``--to mvp-0.37`` (mobile PR-4)
     has an answer update only its question's review schedule, so it never
     reopens a question that was retired, parked or set aside, or brings back
     its old text, over an mvp-0.36 vault (or an mvp-0.9 to mvp-0.35 vault
     through the chain; kill switch:
-    ``practice.attempt_keeps_content_state = false``)."""
+    ``practice.attempt_keeps_content_state = false``). ``--to mvp-0.38``
+    (default, the latest successor) sets a new check on your own, on another
+    question a day later, when you take help on a repair's check on your own,
+    so the repair can still be measured (once per repair), over an mvp-0.37
+    vault (or an mvp-0.9 to mvp-0.36 vault through the chain; kill switch:
+    ``practice.reschedule_cold_after_assist = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -360,6 +367,10 @@ def upgrade(
         from learnloop.attempt_content_state_upgrade import upgrade_to_attempt_content_state
 
         result = upgrade_to_attempt_content_state(_root(vault))
+    elif to == COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION:
+        from learnloop.cold_retry_reschedule_upgrade import upgrade_to_cold_retry_reschedule
+
+        result = upgrade_to_cold_retry_reschedule(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -368,7 +379,8 @@ def upgrade(
             f"mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27, mvp-0.29, mvp-0.30, {WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, "
             f"{READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, "
             f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
-            f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION} or {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}."
+            f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION} or "
+            f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

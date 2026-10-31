@@ -899,6 +899,19 @@ no successor: comparisons stay display and retrieval. Two deviations, recorded t
 unavailable the ask box answers as today's library ask and offers *compare all your books on "…" ▸* (one press)
 rather than running a paid comparison of every book unasked; and the pending line is one line, not two stages.
 
+*As built (CA5a, branch `reader/ca5a-find-section`, `docs/reviews/reader-ca5a-find-section.md`):* the Guide
+footer's *find this section in my other books ▸* runs a quiet read first (`search_fallback` off) and shows only
+when no coverage has been judged and the section is not protected. Pressed, it lists the unchecked hits by book.
+Peek renders in the rail through `reader.correspondent_peek` (protection read again, the hit's own section's first
+blocks only, each one shown recorded as exposure), go there is the library hit's source detour, and compare is the
+library compare path (an ask anchored on the section, both passages pinned, the organizer's notes left to be asked
+for; a retry or the personalization chip reruns the comparison over the pins as the learner last left them, and
+with one pin left it reruns the ask and keeps that pin). *Not about this* is one idempotent operation,
+`reader.correspondent_dismiss`: a section-pair `learner_card` verdict (task `section_correspondence`) and C0a's
+correction per LO of the open section, in one transaction, with an undo of its own; a section with no LO gets the
+pair verdict only. The detour-strip crumb for a peek and §6.5's salience events are deferred to CA5. The new `[reader.correspondence]`
+section is the switch, and the prompt contract carries it only while `curriculum.enabled` is on too.
+
 *As built (CA4, branch `reader/ca4-table-by-point`, `docs/reviews/reader-ca4-table-by-point.md`):*
 `source_compare.v2` on the same route in one call (points with labels; per compared source a cell, verified quote
 and LearnLoop's line, or not addressed; per point its pairs' relations from the unchanged `RELATIONS`; requested

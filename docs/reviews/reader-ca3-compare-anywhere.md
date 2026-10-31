@@ -245,3 +245,128 @@ runs beside this stage in another worktree: expect a merge in `ReaderScreen.tsx`
 1. With the Decider unavailable, should the ask box run the paid comparison of every book at
    once (§4.3 as written), or keep the built behaviour (today's library answer plus *compare
    all your books on "…" ▸*, one press)? Recommended: keep the built behaviour.
+
+## Landing onto main (2026-10-31)
+
+Landed in `learnanything-merge2` on `reader/ca3-compare-anywhere` (stage tip `d7850780b`, base `1bcde2096`) by
+merging `main` `6d8f02f3d`: the Oct 27 follow-ups, the docs-only RW5c design spec, the cold-retry successor
+mvp-0.38 and Reader CA5a. Main was neither fast-forwarded nor pushed. No migration and no successor: CA3 stays
+display and retrieval at every version.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `4267e5ab7` | `--no-ff` merge of `main` `6d8f02f3d`. **Conflicts:** `useLibraryAsk.ts`. CA3's one-request `runCompare(key, request)` is kept. CA5a's pins compare is renamed `runPinsCompare` and is what CA5a's `run` reaches through its ref; while scope is on it goes through CA3's `pins` door, otherwise it is RW4a's/RW4d's call. `run` takes CA5a's `intent`, then CA3's `extra` state, and CA3's `compareFrom` and `askBox` states carry `intent: ask`. Other conflicts: `api/client.ts` (CA5a's RPCs, CA3's tutor signature); the as-built notes in `ux_reader_compare_ask_v1.md` (both kept); `template.py`, every default snapshot mvp-0.9 … mvp-0.37, where both notes are kept and mvp-0.38 gains CA3's line. **All 29 fingerprints** (mvp-0.9 … mvp-0.38) were recomputed with `defaults_fingerprint_for_version`, the template `.pyc` was cleared, and a recheck found 0 mismatches. The switch-off contract pins (`test_compare_keep_switch_off.py`, `test_reader_tutor_switch_off.py`, `test_reading_paths.py`) now turn off or strip **both** CA3's and CA5a's additions, as `test_figures_switch_off.py` already did. In the mobile allowlist both CA5a's and CA3's RPCs are desktop-only. 432 generated reference notes were taken from main and regenerated in the next commit. `ReaderScreen.tsx`, `LibraryAnswer.tsx`, `dto.ts`, the parameter registry and `schema.py` auto-merged. |
+| `0d97773d6` | DB/config reference regenerated on the merge. The hand-written counts in `Configuration.md` and `Database.md` move to **1071 effective leaves in 75 sections** (main's 1067 + CA3's 4). `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1163 notes). |
+| `f81ce3d0b` | Interaction (i) in the frontend and the interaction tests (below). |
+
+`git diff main` lists no binary, no tracked database and nothing under `fixtures-local/`; `.gitignore` is unchanged.
+
+### Interactions with CA5a
+
+**(i) Compare on a found section.** With CA3 on, `ReaderScreen.compareFoundSection` now sends CA3's one request
+through the selection door: `compareFrom({door: "selection", question: <section title>, anchorSpanIds: [the
+passage in view in this section, else its first], sourceIds: [the hit's book], openSourceId})`. No library answer
+is asked first. CA3's door refuses pins without an ask, so the hit's book finds its own passage by discovery,
+narrowed to that book, instead of being pinned. A retry after a failure reruns that request as it was (anchor and
+book kept). With CA3 off, CA5a's library-ask path is unchanged: an ask anchored on the section, both passages
+pinned. Its retry and personalization chip keep the pins (F5/F8), and if the hook's `compareWith` runs while CA3
+is on, its comparison goes through CA3's `pins` door with the same pins. New vitest tests:
+`findSectionReader.test.tsx` (CA3 on: the request shape, no library ask, no notes; **mutation-checked**, it
+fails with the branch disabled) and `libraryAskJobs.test.tsx` (CA3 on: a failed ask's retry and the chip keep
+the pins through the `pins` door; a failed comparison's `retryCompare` reruns the same request, for both the
+pins door and the find-section selection door).
+
+**(ii) Withheld and exam material, on both paths** (`tests/test_reader_ca3_landing_ca5a.py`, on C0a's coverage
+vault):
+- CA5a's peek and CA3's anchor without pins both refuse the held-out unit and the exam paper (`withheld` /
+  `exam_material`), before anything is read. No ask row is opened, no service call is made and no exposure row
+  is written.
+- After a section is marked held out *after* the search, both paths refuse it.
+- A held-out counterpart in the hit's own book on the very topic is never compared: CA3's narrowed request
+  leaves it out, and CA5a's path (CA3 off), which pins it, is refused whole (`comparison_withheld`, RW4d's
+  withholding). The only exposure rows written are the allowed peek's.
+
+All three tests passed first time; nothing needed fixing.
+
+**(iii) The switch matrix** (`reader_compare.scope_enabled` x `reader.correspondence.enabled`, all four): the
+contract has `libraryAsk.compareScope` and the palette has `compare_books` exactly when scope is on, and
+`correspondence` is `{enabled, findSection}` exactly when correspondence is on. With both of those removed, the
+four contracts are identical.
+
+### Regeneration
+
+- DB/config reference: regenerated and validated as above. Defaults fingerprints: all 29 recomputed.
+- The CLI help snapshot, sidecar serializer snapshot, desktop RPC contract, mobile allowlist (CA3's and CA5a's
+  new RPCs desktop-only) and the Settings disclosure of `ai.routing.compare_scope` (`ai/disclosures.py`) all
+  pass as merged. Nothing else needed regenerating.
+- Targeted run after the merge (205 files: everything naming the snapshots, fingerprints, parameter registry,
+  `METHOD_REGISTRY`, CLI help, either switch, the compare and tutor RPCs or the reference validator, plus the
+  CA3, CA5a, library-ask, compare and section-coverage files; `-n 6`, 5G scope): **4127 passed**, 39 skipped,
+  3 xfailed (19 min 24 s).
+
+### Gate (at `f81ce3d0b`; `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/ca3/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`; `lint-imports --no-cache` | **36 kept**, 0 broken |
+| full suite (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,405 passed, 3 failed**, 89 skipped, 47 xfailed. pytest 2,271.1 s (37:51); wall 37 min 54 s from taking the lock (got it at once). The 3 failures are the installed Codex CLI's launch-check pins: `test_diagnosis_isolation::test_configured_mcp_servers_are_listed_and_disabled` and `test_codex_isolation_mcp_check::test_the_installed_codex_passes_the_launch_check[False/True]`. Its feature list now has `features.prediction_preserve_parent_tools` and `skills.bundled`, after `/usr/lib/node_modules/@openai/codex` was updated on 2026-10-29, two days after CA5a's gate. They are deterministic when run alone. `main`'s tree (`git archive main`) fails the same three, so they come from the environment, not from CA3; CA3 touches no Codex provider file. Not fixed here: the lockdown's expected list is the Codex lockdown's own decision. |
+| durability (`-m durability`, flock, 5G scope, `-n 6`) | **176 passed**, 1 skipped (54.6 s; wall 60 s from the lock, which another worktree held for about 10 min first) |
+| owner lane (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-ca3/`) | 83 passed, **2 failed**, 4 skipped (50.4 s; wall 59 s). The failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy. |
+| frontend (`apps/learnloop-tauri`) | `npm install` ok; `npm run typecheck` clean; whole vitest (`--maxWorkers=4`, 5G): **225 files, 1981 passed** (43.5 s; wall 44 s); `npm run frontend:build` ok; `cargo check --manifest-path src-tauri/Cargo.toml` ok |
+
+### Smoke on owner copies
+
+The smoke ran on fresh backup-API copies of the same three mvp035 owner copies (`fixtures-local/smoke-ca3-fresh/`).
+Each copy was upgraded with `learnloop upgrade --to mvp-0.38` (prints `mvp-0.35 -> mvp-0.38`), then
+`rebuild-derived-state`, then the RPCs ran through a real sidecar process (`python -m learnloop_sidecar` over
+stdio, cwd outside the checkout).
+- Everything ran under `env -i` with an empty `HOME`, `CODEX_HOME` and config dir, `LEARNLOOP_COVERAGE_MODELS=off`
+  and AI base URLs at `127.0.0.1:9`, so the Decider and every compare model were unavailable.
+- Audit hooks refused non-loopback sockets and process starts, and **logged nothing**.
+- Only counts and status or refusal codes were recorded (driver: `fixtures-local/landing/smoke_ca3/smoke.py`).
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| library readings / readable sections / withheld sections | 3 / 49 / 13 | 2 / 11 / 5 | 12 / 20 / 20 |
+| contract: `compareScope`, `correspondence`, `compare_books` in the palette | on, on, yes | same | same |
+| selection door on one section (anchored on its first passage): status, rows, exposure rows | `too_few_sources`, 1 (the anchor), 1 | same | same |
+| ask-box door on another section: `reader.compare_scope` reading | `fallback` / `unavailable`; the *compare all your books on "…"* line is offered | same | same |
+| ... then today's library answer (`reader.library_ask`): status, hits | ok, 8 | ok, 8 | ok, 8 |
+| ... the one press (`ask_box` door, no books named) | `too_few_sources`, 0 rows | same | same |
+| withheld spans as anchors (3 each) | all three are teaching exclusions (exercise-cited / non-teaching roles), none held out: compared as the reading's own passage, `too_few_sources`, 1 row | same | same |
+| exam / held-out spans in the copy | none (nothing to probe; covered by (ii) above) | none | none |
+| `rebuild --shadow` before / after (mastery/facet/schedule) | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 | 0/0/0 / 0/0/0 |
+| `model_call_receipts` rows added | 0 | 0 | 0 |
+
+### Owner notes
+
+- Kill switch: `[reader_compare] scope_enabled` (default true). With it off, every door is RW4a's/RW4d's exactly,
+  and CA5a's compare on a found section is its library-ask path.
+- The `compare_scope` route (`ai.routing.compare_scope`, decider-only) is a **paid Decider call**, made only when
+  the learner presses the ask box. It is capped per day (`scope_max_calls_per_day = 200`) and time-boxed
+  (`scope_timeout_seconds = 4.0`), and it is disclosed in Settings.
+- No upgrade is needed for CA3 itself. The owner vaults' pending `upgrade --to mvp-0.38` (cold-retry) is
+  unchanged by it.
+
+### Open items
+
+- **The Decider unavailable** (§4.3 says compare every book at once): the built behaviour is today's library
+  answer plus the one-press *compare all your books on "…"* (owner question 1 above).
+- **Workbench**: the selection verb defers until the learner leaves the problem, rather than comparing inside the
+  workbench.
+- **Unstored comparisons** (`passagesId`) are held in sidecar memory. Making them durable needs a migration.
+- **The cancelled-bind race with CA3 off** (RW4d's pins) is still there: the fence is enabled only with CA3 on.
+- **Not built**: *change* on selection-started comparisons, chips inside the intent box, the two-stage pending
+  line.
+- **No real `compare_scope` call has been checked** (no live calls at landing).
+- **From this landing:**
+  - With CA3 on, CA5a's compare on a found section compares the hit's book by discovery, narrowed to that book,
+    rather than pinning the hit's own passage, because CA3's doors take no pins without an ask. If the hit's own
+    passage must lead, a door-level pin of the counterpart would need its own review.
+  - C0a's Library withholds whole sections for any teaching exclusion. Comparisons withhold exam and held-out
+    material only (`corpus.exam_exclusions`, by design). So an anchor on an exercise-cited passage of the open
+    book is compared, as RW4a pins are.
+  - The installed Codex CLI's launch-check pins need updating for its 2026-10-29 feature list. That fails on main
+    too and is not CA3's.

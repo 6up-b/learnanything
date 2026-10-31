@@ -18,9 +18,17 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   relays its offer once.
 * ``curriculum.coverage_correct``: *not about this* / *also about…* (or
   ``none``): a ``learner_card`` verdict and a ``learner`` row, nothing else.
+* ``reader.correspondent_peek`` (CA5a): a hit's first blocks, under
+  protection read now and restricted to the hit's own section, with one
+  ``source_exposure`` event per block shown.
+* ``reader.correspondent_dismiss`` (CA5a): *not about this* on an unchecked
+  hit (or its undo) as one idempotent operation in one transaction.
 
 Kill switch ``curriculum.enabled``: off, every RPC here refuses and no call
-is made. Display and retrieval context only: nothing here writes a plan,
+is made. Reader CA5a's ``reader.correspondence.enabled`` (respecting it) is
+the presentation's: off, the Reader's prompt contract has no
+``correspondence`` key and the Guide shows no *find this section in my other
+books*; the RPCs here keep C0a's behaviour. Display and retrieval context only: nothing here writes a plan,
 evidence, mastery, FSRS, scheduler state, provenance or anything served.
 """
 from __future__ import annotations
@@ -48,7 +56,34 @@ CORRESPONDENT_RPCS: tuple[str, ...] = (
     "curriculum.cover_job",
     "curriculum.coverage_correct",
 )
+#: Reader CA5a's own RPCs (the peek and the one-operation *not about this*;
+#: pinned desktop-only too). Refused while ``reader.correspondence.enabled``
+#: (or ``curriculum.enabled``) is off.
+FIND_SECTION_RPCS: tuple[str, ...] = (
+    "reader.correspondent_peek",
+    "reader.correspondent_dismiss",
+)
 COVER_ORIGIN = "curriculum.cover"
+
+
+def find_section_enabled(vault: Any) -> bool:
+    """Reader CA5a's switch (``reader.correspondence.enabled``), respecting
+    ``curriculum.enabled`` (which gates the data) and the Reader itself."""
+
+    reader = getattr(vault.config, "reader", None)
+    correspondence = getattr(reader, "correspondence", None)
+    return bool(getattr(correspondence, "enabled", False)) and SC.enabled(vault) and RD.reader_enabled(vault)
+
+
+def prompt_contract_fields(vault: Any) -> dict[str, Any]:
+    """What the Reader's prompt contract adds for CA5a (absent while off, so
+    the Guide is exactly as before): the pressed *find this section in my
+    other books*. CA5's one-line entry is not built: the Reader hides the
+    action for a section whose quiet read finds judged coverage."""
+
+    if not find_section_enabled(vault):
+        return {}
+    return {"correspondence": {"enabled": True, "find_section": True}}
 
 
 def _require(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]:
@@ -327,4 +362,72 @@ def curriculum_coverage_correct(ctx: SidecarContext, params: CoverageCorrectInpu
     return versioned({"correction": row})
 
 
-__all__ = ["CORRESPONDENT_RPCS"]
+# -- Reader CA5a: peek and "not about this" on an unchecked hit -----------------------------------
+
+
+def _require_find_section(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]:
+    vault, repository, resolved = _require(ctx, extraction_id)
+    if not find_section_enabled(vault):
+        raise SidecarError("correspondence_disabled",
+                           "Finding this section in your other books is off (reader.correspondence.enabled = false).")
+    return vault, repository, resolved
+
+
+class CorrespondentPeekInput(ParamsModel):
+    #: The hit's reading and section.
+    extraction_id: str
+    section_id: str
+
+
+@method("reader.correspondent_peek", CorrespondentPeekInput)
+def reader_correspondent_peek(ctx: SidecarContext, params: CorrespondentPeekInput) -> dict[str, Any]:
+    """A hit's first blocks for the Guide's peek (Codex review F1, F2): no model call."""
+
+    from learnloop.reader.span_view import SpanViewError, record_span_exposures
+
+    vault, repository, resolved = _require_find_section(ctx, params.extraction_id)
+    try:
+        view = SC.peek(vault, repository, resolved, params.section_id)
+    except SC.CoverageError as exc:
+        raise _sidecar_error(exc) from exc
+    # Every block shown is a delivered passage, recorded before it is returned.
+    try:
+        view["exposure_event_ids"] = record_span_exposures(
+            repository, resolved, [block["span_id"] for block in view["blocks"]], context="library")
+    except SpanViewError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    return versioned({"peek": view})
+
+
+class CorrespondentDismissInput(ParamsModel):
+    #: The open section.
+    extraction_id: str
+    section_id: str
+    #: The hit.
+    target_extraction_id: str
+    target_section_id: str
+    #: The client's name for this operation (the same id again writes nothing).
+    operation_id: str
+    #: Undo the operation it names instead.
+    undo_of: str | None = None
+
+
+@method("reader.correspondent_dismiss", CorrespondentDismissInput)
+def reader_correspondent_dismiss(ctx: SidecarContext, params: CorrespondentDismissInput) -> dict[str, Any]:
+    """*Not about this* on an unchecked hit, or its undo: one transaction (Codex review F3, F6)."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+
+    vault, repository, origin = _require_find_section(ctx, params.extraction_id)
+    target = resolve_extraction_id(repository, params.target_extraction_id)
+    if target is None:
+        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.target_extraction_id!r}.")
+    try:
+        record = SC.dismiss(vault, repository, (origin, params.section_id), (target, params.target_section_id),
+                            operation_id=params.operation_id, undo_of=params.undo_of)
+    except SC.CoverageError as exc:
+        raise _sidecar_error(exc) from exc
+    return versioned({"operation": record})
+
+
+__all__ = ["CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "find_section_enabled", "prompt_contract_fields"]

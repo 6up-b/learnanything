@@ -1233,6 +1233,20 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for mobile PR-4's successor: a live attempt writes only its item row's scheduling columns "
         "(active only closes, content_hash is content sync's), so it never reopens a row a content sync closed; "
         "off, the attempt upserts the whole row as the predecessor did. Never read by replay."),
+    # The cold-retry reschedule (mvp-0.38, owner decision 2026-10-25, CA2
+    # follow-up Q4; docs/reviews/cold-retry-after-assist.md): the kill switch
+    # of the successor that schedules one fresh repair cold retry after help
+    # was taken on a due one. A boolean (classified so every new key has a
+    # rule); the fresh retry's timing is the lane's existing delay and its
+    # bound (one per chain) is structural, so no weight, margin or threshold
+    # is added. Off restores the predecessor exactly; replay never reads it.
+    _ConfigRule(_exact(
+        "practice.reschedule_cold_after_assist",
+    ), "structural", "operational",
+        "kill switch for the cold-retry reschedule successor: help taken on a due repair cold retry withdraws it "
+        "and schedules one fresh cold retry on another independent surface at the lane's existing delay (one per "
+        "chain, a structural bound); off, the assisted retry is withdrawn at the next serve as the predecessor "
+        "did. Never read by replay."),
     # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
     # events in model contexts and on the router card. A boolean (classified
     # so every new key has a rule); the events are context, never a weight,
@@ -1434,6 +1448,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Reader CA5a (ux_reader_compare_ask_v1 §6.2, §13): "find this section in
+    # my other books". A boolean (classified so every new key has a rule):
+    # the Guide's pressed action over reader.correspondents' unchecked search
+    # hits; navigation and display, with no weight, margin or threshold (the
+    # hits keep the search's own order and C0a's per-source bound).
+    _ConfigRule(_exact(
+        "reader.correspondence.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
+        "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
+        "no measurement, scheduling or serving authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

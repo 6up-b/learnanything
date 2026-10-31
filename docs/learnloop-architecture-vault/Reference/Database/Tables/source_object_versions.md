@@ -3,8 +3,8 @@ title: "source_object_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086eca31edc10e081721f168e34b937f5ace27bc"
-source_commit_timestamp: "2026-10-27T20:17:50-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_versions"
@@ -124,7 +124,6 @@ Indexes and uniqueness:
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_label_roles_cli.py`
-- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_reread_safety.py`

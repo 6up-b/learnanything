@@ -14,6 +14,10 @@ import type {
   ReadingPathChoice,
   ReadingPathDepth,
   ReadingPathDto,
+  CorrespondentsDto,
+  CorrespondentOperationDto,
+  CorrespondentPeekDto,
+  CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -1640,6 +1644,19 @@ export const api = {
     call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
   readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
     call<ReadingPathDto>("reader_reading_path_override", { input }),
+  // Reader CA5a: the other books' sections for one section (no model call, no
+  // write), and C0a's "not about this" correction on one of them.
+  readerCorrespondents: (input: { extractionId: string; sectionId: string; searchFallback?: boolean }) =>
+    call<CorrespondentsDto>("reader_correspondents", { input }),
+  curriculumCoverageCorrect: (input: { extractionId: string; sectionId: string; learningObjectId: string; choice: CoverageCorrectionChoice; text?: string | null }) =>
+    call<{ correction: Record<string, unknown> }>("curriculum_coverage_correct", { input }),
+  // CA5a's peek at a hit (its own section's first blocks, protection read now,
+  // each block shown recorded as exposure) and "not about this" as one
+  // operation (undoOf: its undo), idempotent by the client's operation id.
+  readerCorrespondentPeek: (input: { extractionId: string; sectionId: string }) =>
+    call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
+  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
+    call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
   /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
    *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; passagesId?: string; question?: string | null }) =>

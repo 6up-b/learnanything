@@ -269,6 +269,8 @@ The newest learner row per (section, LO) stands over judge rows. A changed `stat
 
 On any correspondent or path line: *not about this* and *also about…* (a text box: "this is really about orthogonal projection"). The text is resolved to an LO by the same resolver as scope inputs, without a new route, and written as a `learner` row. Corrections are ground truth for coverage and are counted in the coverage report (§11) as the judge's error rate.
 
+*As built (Reader CA5a's fix round, `docs/reviews/reader-ca5a-find-section-codex-review.md`):* on an unchecked search hit (no LO of its own), *not about this* is one operation in one transaction: a section-pair `learner_card` verdict in `judgment_ledger` (task `section_correspondence`, `reader_section` → `reader_section`, the operation's record, idempotent by the client's operation id) plus a `learner` row per LO of the open section. A section with no LO gets the pair verdict only; no LO is inferred from search similarity. The pair verdict only hides the hit in that section's unchecked list; it is never coverage, evidence or a judge-error count.
+
 ### 6.6 What it never does
 
 - It is never evidence, never a prerequisite edge, never a provenance link. It does not write `source_refs`, `entity_source_links`, `relations.yaml` or LO status (P3 §7.3; RW4d's rule). Promoting a coverage row to provenance would be a canonical change through the existing proposal review, and is not in this spec.

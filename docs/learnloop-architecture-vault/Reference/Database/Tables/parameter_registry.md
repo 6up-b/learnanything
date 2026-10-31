@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086eca31edc10e081721f168e34b937f5ace27bc"
-source_commit_timestamp: "2026-10-27T20:17:50-04:00"
+source_commit: "4267e5ab7ca7767b6b9189c144cd9294163536e7"
+source_commit_timestamp: "2026-10-31T14:03:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/registry.py"
+  - "src/learnloop/cold_retry_reschedule_upgrade.py"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/repositories.py"
@@ -123,6 +124,7 @@ Indexes and uniqueness:
 - `tests/test_ad23_successor.py`
 - `tests/test_architecture.py`
 - `tests/test_attempt_content_state_successor.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figures_show_me_codex_review.py`
@@ -134,7 +136,6 @@ Indexes and uniqueness:
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_plan_follows_path.py`
 - `tests/test_reader_ca2_one_ask.py`
-- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_rw2b_review.py`
 - `tests/test_reading_paths.py`
 - `tests/test_rebuild_equivalence_review.py`

@@ -70,6 +70,8 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         # Reader CA4 (landed after this golden too): off, so its contract key is
         # absent and the comparison is v1's, by book; these pins are RW4d's.
         set_config(paths, "reader_compare", by_point=False)
+        # Reader CA5a (after this golden too): off, so its contract key is absent.
+        set_config(paths, "reader.correspondence", enabled=False)
     ctx = context(paths.root)
     real = service.propose_comparison
     llm = FakeServiceLLM()

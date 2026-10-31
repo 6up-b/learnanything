@@ -2685,10 +2685,23 @@ class PracticeConfig(BaseModel):
     reopens it). Off, or below the tag: the attempt writes the whole row from
     the vault it graded against, exactly as the predecessor. Replay never
     reads it (replay rebuilds the whole row and re-closes what was closed).
+
+    ``reschedule_cold_after_assist`` is the kill switch of the successor
+    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION`` (owner decision 2026-10-25,
+    Reader CA2 follow-up Q4; ``docs/reviews/cold-retry-after-assist.md``). At
+    that tag or later, with it on (and ``ask.cold_help_converts`` on, which
+    admits the assisted attempt at all): help taken on a due repair
+    ``cold_retry`` withdraws that retry in the attempt's own step and
+    schedules one fresh cold retry for the same repair on another independent
+    surface, timed by the lane's existing delay; a fresh retry that is itself
+    assisted spawns none. Off, or below the tag: the assisted retry is left to
+    the next serve's withdrawal, exactly as the predecessor. Replay never
+    reads it (replay schedules nothing).
     """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
     attempt_keeps_content_state: bool = True
+    reschedule_cold_after_assist: bool = True
 
 
 class RolesConfig(BaseModel):
@@ -2789,6 +2802,36 @@ class CurriculumConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
     cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
+
+
+class ReaderCorrespondenceConfig(BaseModel):
+    """Reader CA5a: *find this section in my other books*
+    (ux_reader_compare_ask_v1 §6.2, §6.3; CA5's *also in your books* will
+    share the switch).
+
+    A pressed action in the Guide's footer reads ``reader.correspondents``
+    for the section in view and, while the section has no judged coverage,
+    lists the live search hits grouped by book, each labelled *found by
+    search, not checked* (no treatment words): peek, go there, and compare
+    through the library compare path. *Not about this* records a coverage
+    correction exactly as C0a's ``curriculum.coverage_correct`` does. The
+    action is hidden for a section that has judged coverage. No model call
+    and no write besides the correction. ``enabled`` is the kill switch: off
+    (or with ``curriculum.enabled`` off, which gates the data), the Reader's
+    prompt contract carries no ``correspondence`` key and the Guide is
+    exactly as before CA5a. Navigation and display only: no successor.
+    """
+
+    enabled: bool = True
+
+
+class ReaderConfig(BaseModel):
+    """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
+
+    ``correspondence``: CA5a's (and later CA5's) switch.
+    """
+
+    correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -4036,6 +4079,7 @@ class LearnLoopConfig(BaseModel):
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
+    reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

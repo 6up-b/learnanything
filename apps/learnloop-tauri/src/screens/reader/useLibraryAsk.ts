@@ -219,9 +219,18 @@ function failureLine(error: unknown, fallback: string): string {
   return code && SAYS_WHY.has(code) ? errorMessage(error) : fallback;
 }
 
+/** What the learner asked for: a library answer, or (CA5a) a comparison of
+ *  these pins, which a retry or the personalization chip runs again (Codex
+ *  review F5: never the ordinary answer and its notes in its place). A
+ *  comparison's pins follow the learner's pins after it starts (a changed
+ *  pin, an explicit compare), so a rerun never brings back a pin the learner
+ *  removed (re-review F8). */
+export type LibraryAskIntent = { kind: "ask" } | { kind: "compare"; pins: string[] };
+
 export interface LibraryAskState {
   key: number;
   request: LibraryAskRequest;
+  intent: LibraryAskIntent;
   personalized: boolean;
   ask: Stage<LibraryAskDto>;
   notes: Stage<LibraryNotesDto>;
@@ -358,13 +367,20 @@ export function useLibraryAsk({
     }
   }, [runJob, update]);
 
+  // Defined below (it needs runJob and update); run reaches it through this ref.
+  const runCompareRef = useRef<(key: number, askId: string, pins: string[]) => Promise<void>>(async () => undefined);
+
   const run = useCallback(async (request: LibraryAskRequest, personalized: boolean,
-                                 extra: Partial<LibraryAskState> = {}) => {
+                                 intent: LibraryAskIntent = { kind: "ask" }, extra: Partial<LibraryAskState> = {}) => {
     if (!enabled) return;
+    if (intent.kind === "compare" && !settings?.compare) return;
     for (const stage of JOB_STAGES) cancelStage(stage);
     const key = ++keyRef.current;
+    const comparing = intent.kind === "compare";
     setState({
-      key, request, personalized, ask: { phase: "pending", value: null, failure: null }, notes: IDLE, pinned: [],
+      key, request, intent, personalized, ask: { phase: "pending", value: null, failure: null },
+      // A comparison's notes wait to be asked for ("write the notes").
+      notes: comparing ? CANCELLED : IDLE, pinned: comparing ? [...intent.pins] : [],
       compare: IDLE, tutor: IDLE, practice: IDLE, peek: null, ...extra,
     });
     try {
@@ -374,27 +390,32 @@ export function useLibraryAsk({
       }));
       if (keyRef.current !== key || ask === null) return;
       update(key, () => ({ ask: { phase: "landed", value: ask, failure: null } }));
-      if (ask.hits.length > 0) void loadNotes(key, ask.askId);
+      // Fewer than two pins left (F8): the ask reruns with the pin kept, and
+      // compare waits for a second one, as in an ordinary ask.
+      if (comparing) {
+        if (intent.pins.length >= 2) await runCompareRef.current(key, ask.askId, intent.pins);
+      } else if (ask.hits.length > 0) void loadNotes(key, ask.askId);
     } catch (error) {
       if (keyRef.current !== key) return;
       update(key, () => ({ ask: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't look in your books.") } }));
     }
-  }, [enabled, cancelStage, loadNotes, runJob, update]);
+  }, [enabled, settings, cancelStage, loadNotes, runJob, update]);
 
   /** Ask (the learner's act). The personalized chip starts at the vault's default. */
   const ask = useCallback((request: LibraryAskRequest) => {
     void run(request, settings?.personalizedDefault ?? true);
   }, [run, settings]);
 
+  /** Run the same operation again: a comparison stays a comparison of the same pins. */
   const retry = useCallback(() => {
     const current = stateRef.current;
-    if (current) void run(current.request, current.personalized);
+    if (current) void run(current.request, current.personalized, current.intent);
   }, [run]);
 
-  /** The chip: asking again with personalization on or off (a new ask). */
+  /** The chip: asking again with personalization on or off (a new ask, the same intent). */
   const setPersonalized = useCallback((on: boolean) => {
     const current = stateRef.current;
-    if (current && current.personalized !== on) void run(current.request, on);
+    if (current && current.personalized !== on) void run(current.request, on, current.intent);
   }, [run]);
 
   const retryNotes = useCallback(() => {
@@ -422,9 +443,11 @@ export function useLibraryAsk({
   const togglePin = useCallback((hitKey: string) => {
     const current = stateRef.current;
     if (!current) return;
-    update(current.key, (s) => ({
-      pinned: s.pinned.includes(hitKey) ? s.pinned.filter((k) => k !== hitKey) : [...s.pinned, hitKey],
-    }));
+    update(current.key, (s) => {
+      const pinned = s.pinned.includes(hitKey) ? s.pinned.filter((k) => k !== hitKey) : [...s.pinned, hitKey];
+      // A comparison's intent follows the pins (F8); an ordinary ask stays one.
+      return s.intent.kind === "compare" ? { pinned, intent: { kind: "compare", pins: pinned } } : { pinned };
+    });
   }, [update]);
 
   /** Two pinned passages from different sources (the service has no source cap). */
@@ -459,17 +482,13 @@ export function useLibraryAsk({
     }
   }, [cancelStage, runJob, update]);
 
-  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
-  const compare = useCallback(async (perspectives: string[] = []) => {
-    const current = stateRef.current;
-    if (!current?.ask.value || !settings?.compare) return;
-    const key = current.key;
-    const askId = current.ask.value.askId;
-    const pinnedSpanKeys = current.pinned;
+  /** The pins' comparison (RW4a/RW4d; CA5a's compare of two sections runs it
+   *  once its ask lands). With CA3 on, the pins are one more door of the one request. */
+  const runPinsCompare = useCallback(async (key: number, askId: string, pinnedSpanKeys: string[], perspectives: string[] = []) => {
     const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : [];
     if (scopeOn) {
       // CA3: the pins are one more door of the one request.
-      void runCompare(key, { door: "pins", askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
+      await runCompare(key, { door: "pins", askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
       return;
     }
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
@@ -482,7 +501,26 @@ export function useLibraryAsk({
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, keep, openSourceId, runJob, update, scopeOn, runCompare]);
+  }, [keep, openSourceId, runJob, update, scopeOn, runCompare]);
+  runCompareRef.current = runPinsCompare;
+
+  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
+  const compare = useCallback(async (perspectives: string[] = []) => {
+    const current = stateRef.current;
+    if (!current?.ask.value || !settings?.compare) return;
+    if (current.intent.kind === "compare") update(current.key, () => ({ intent: { kind: "compare", pins: [...current.pinned] } }));
+    await runPinsCompare(current.key, current.ask.value.askId, current.pinned, perspectives);
+  }, [settings, runPinsCompare, update]);
+
+  /** Reader CA5a: compare two sections' passages through this same path. The
+   *  ask is anchored on the open section (its title is the question), both
+   *  passages are pinned, and the comparison runs once the ask lands. The
+   *  organizer's notes wait to be asked for ("write the notes"): the learner
+   *  asked to compare, so no other model call is made for them. */
+  const compareWith = useCallback(async (request: LibraryAskRequest, pins: string[]) => {
+    if (pins.length < 2) return;
+    await run(request, settings?.personalizedDefault ?? true, { kind: "compare", pins });
+  }, [run, settings]);
 
   /** CA3: open a comparison with no library answer (the selection verb, the tutor's offer, the ask box). */
   const compareFrom = useCallback((request: CompareRequest, chips: ScopeChips | null = null,
@@ -493,7 +531,7 @@ export function useLibraryAsk({
     const query = request.question ?? "";
     setState({
       key, request: { query, entry: "reader", extractionId: request.extractionId ?? null, spanIds: request.anchorSpanIds ?? [] },
-      personalized: false, ask: IDLE, notes: IDLE, pinned: [], compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
+      intent: { kind: "ask" }, personalized: false, ask: IDLE, notes: IDLE, pinned: [], compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
       direct: request, chips: chips ?? { books: [], anchored: Boolean(request.anchorSpanIds?.length), topic: query || null,
         unmatched: null, judgmentId: null, words: null },
       library, previous: [],
@@ -512,7 +550,7 @@ export function useLibraryAsk({
     for (const stage of JOB_STAGES) cancelStage(stage);
     const key = ++keyRef.current;
     setState({
-      key, request, personalized: settings?.personalizedDefault ?? true, ask: IDLE, notes: IDLE, pinned: [],
+      key, request, intent: { kind: "ask" }, personalized: settings?.personalizedDefault ?? true, ask: IDLE, notes: IDLE, pinned: [],
       compare: IDLE, tutor: IDLE, practice: IDLE, peek: null, scope: { phase: "pending", value: null, failure: null },
     });
     let reading: CompareScopeReadingDto | null = null;
@@ -535,7 +573,7 @@ export function useLibraryAsk({
     // A library question (or a reading that failed): today's sources-first answer;
     // when nothing could be read, comparing all the books is one press away.
     const missed = !reading || reading.status === "fallback" && reading.reason !== "too_few_books" && reading.reason !== "cold_attempt";
-    void run(request, settings?.personalizedDefault ?? true, missed ? { compareAllWords: request.query } : {});
+    void run(request, settings?.personalizedDefault ?? true, { kind: "ask" }, missed ? { compareAllWords: request.query } : {});
   }, [enabled, scopeOn, settings, cancelStage, runJob, run, compareFrom]);
 
   /** CA3: "compare all your books on …" after a reading that failed. */
@@ -853,7 +891,7 @@ export function useLibraryAsk({
 
   return {
     enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
-    compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
+    compare, compareWith, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
     // CA3 (absent in effect while scopeOn is false: each returns without a call).
     scopeOn, askBox, compareFrom, compareBooks, compareAll, setBooks, reword, refine, retryCompare,
     replaceView, keepViews,
