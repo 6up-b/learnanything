@@ -339,3 +339,213 @@ Not run, and why:
 2. **F5, historical replay of the reader section:** exact replay of a past `as_of` would need digest-row versions (a
    migration) or a summary recomputed as of the cutoff. Nothing reads a past cutoff today, and the stored card payload
    is the record. Queue it as a follow-up if replays of past cards become a goal.
+
+## Fix round 3 (final verify)
+
+The stage's final Codex verify is job `20261101-031033-Azo8vb` (`/home/saturn/.cache/codex-agent/jobs/20261101-031033-Azo8vb`).
+It reviewed `ce77fe9317..reader/rw6b-p2-digest-card` (tip `a07e887966`). It confirmed F1, F2, F4, F7, F8 and F9
+fixed and reopened F3 (High), F5 and F6. This round fixes F3 and F6, records the orchestrator's rulings R1 and R2,
+and documents F5's contract under R2. **Spend: $0.** Fakes only; no model, paid or live call; no owner vault opened.
+Still no migration, no successor and no new config key.
+
+### The verify's findings (verbatim)
+
+> Reviewed only `ce77fe9317..reader/rw6b-p2-digest-card`. **F3, F5 and F6 remain reopened.**
+>
+> | Finding | Result |
+> |---|---|
+> | F1 | CONFIRMED-FIXED — reader activity reaches the rendered, serialized and hashed card. |
+> | F2 | CONFIRMED-FIXED — narration remains independent of follow-up planning. |
+> | F3 | REOPENED — takeover during an in-flight request still duplicates calls. |
+> | F4 | CONFIRMED-FIXED — narrative visibility remains gated. |
+> | F5 | REOPENED — later replans still change historical-cutoff results. |
+> | F6 | REOPENED — an earlier digest filter can discard prediction provenance. |
+> | F7 | CONFIRMED-FIXED — pending surfaces retain polling and cleanup. |
+> | F8 | CONFIRMED-FIXED — closed/reversed hypotheses remain filtered and deduplicated. |
+> | F9 | CONFIRMED-FIXED — reader activity participates in deterministic budget trimming. |
+>
+> **F3 [High] — successor sends while the predecessor's request is outstanding.**
+> Location: [reader_digest.py:505](/home/saturn/Documents/thinking/learnanything-dl2/src/learnloop/instructional/reader_digest.py:505), [paid.py:454](/home/saturn/Documents/thinking/learnanything-dl2/src/learnloop/practice_index/paid.py:454).
+>
+> Reproduction: block worker A inside its fake provider request, expire its lease, and invoke worker B before releasing A. B acquires the claim, finds no completed answer checkpoint, sends another request and publishes. Release A: it correctly returns `claimed` without publishing. **Observed: two requests and two completed receipts for one digest.** The new test waits for A's answer before starting the successor, missing this overlap.
+>
+> Fix: preserve and reconcile outstanding request ownership across lease takeover; prevent a successor from sending while the previous request remains unresolved, using provider idempotency where available.
+>
+> **F5 [Medium] — historical output still changes after replanning.**
+> Location: [reader_followups.py:1126](/home/saturn/Documents/thinking/learnanything-dl2/src/learnloop/instructional/reader_followups.py:1126), [router_reader.py:639](/home/saturn/Documents/thinking/learnanything-dl2/src/learnloop/daily_plan/router_reader.py:639).
+>
+> Reproduction: persist an incomplete digest for a session containing a follow-up to an older open inquiry. Read at cutoff T. Resolve the inquiry after T, recompute the actual `session_summary`, and persist it through the planner's update operation. Reading at T again changes `open_inquiries` from `['root']` to `[]`, despite the resolution history preserving its earlier open status.
+>
+> Fix: retain digest versions or reconstruct historical summaries. No production historical-card reconstruction caller was found; that limits impact but does not fix the reported contract.
+>
+> **F6 [Medium] — figure provenance is resolved after the digest has been discarded.**
+> Location: [router_reader.py:639](/home/saturn/Documents/thinking/learnanything-dl2/src/learnloop/daily_plan/router_reader.py:639).
+>
+> Reproduction: one session contains an inquiry on LO A and a missed figure prediction on distinct LO B. The actual summary reports `learning_objects_touched=['lo_A']`; the prediction has empty facets/spans. Figure provenance correctly resolves `pred_B → lo_B`, but requesting activity for B discards the digest before that lookup. **Observed: both `missed_predictions` and `formative_records` are empty.**
+>
+> Fix: include prediction provenance when selecting relevant digest rows, before `_touches` excludes them.
+>
+> No additional NEW defects found. Validation used in-memory reproductions, 11 existing pure regression cases, 84 budget comparisons and `git diff --check`. Full suites were not rerun. No files edited, prohibited locations read or live model calls made.
+>
+> VERDICT: REOPENED
+
+### Orchestrator rulings (verbatim)
+
+> - R1 (F1 deviation accepted): reader activity now reaches the hashed router card the router models read. With digest.enabled off it is byte-identical. That goes beyond my launch brief ("must not change any router decision"), but it is what spec §9.2 and §9.6 describe, and it follows TE0's precedent: router input changes without a successor, and router decisions are serving-time and not persisted meaning. Accepted without a successor; flagged to the owner.
+> - R2 (F5 ruled Low): no production caller reconstructs historical cards. as_of bounds event-timed rows; digest summaries are the latest version. Document that contract on reader_activity_for_card. Do not add digest versioning. Keep it as an open item for R2, the router rendering the section.
+
+### Closures
+
+| id | severity | verdict | commit | test or reason |
+|---|---|---|---|---|
+| F3 | High | **fixed**, structurally | `9abf421b50` | `test_reader_digest_narrative.py`: `test_the_narration_lease_outlives_the_routes_request_timeout`, `test_a_successor_never_sends_while_the_holder_renews_past_its_original_lease`, `test_a_holder_that_stops_renewing_is_taken_over_only_after_its_request_timed_out` |
+| F5 | Low (R2) | **contract documented**, no versioning (R2) | `2a4e97de65` | The `as_of` contract is in `reader_activity_for_card`'s docstring and the module docstring. Open item for router R2 |
+| F6 | Medium | **fixed** | `2a4e97de65` | `test_router_reader_activity.py::test_a_session_that_touched_the_lo_only_through_a_figure_is_kept_for_its_prediction` (the verify's reproduction) |
+| F1 | — | deviation accepted (R1) | — | No change. Flagged to the owner (open item 1) |
+
+#### F3: no takeover sends while the predecessor's request may be outstanding
+
+This supersedes the earlier rounds' F3 text where they differ. In particular, "a dead holder's lease lapses within
+120 s" no longer holds: the narration's lease is now longer.
+
+**Why the takeover could happen.** The narration's claim used the approach-map lease: 120 s, renewed every 30 s.
+No request timeout was passed, so the transport's default applied. At the default `ai.timeout_seconds = 180`, a
+request could outlive an unrenewed lease by a minute. Any renewal gap (a stalled heartbeat, a busy database) let a
+successor claim and send while the first request was still open.
+
+**The fix** makes the invariant structural. A claim can be taken over only after its holder has stopped renewing for
+longer than any of its requests can last.
+
+1. **Every request carries the route's configured timeout.**
+   - `reader_digest.request_timeout_seconds(vault, route)` resolves it the way `ai.client` does: the provider
+     profile's `timeout_seconds`, else `ai.timeout_seconds`.
+   - `NarrativeRoute.ask` passes it to `PaidCalls.call(request_timeout_seconds=...)`. This is a new optional argument.
+     It bounds each attempt's request on its own; with `deadline`, the smaller bound applies. Every other caller
+     is unchanged.
+   - Transports enforce `StructuredRequest.timeout_seconds`, as `PaidCalls`' own contract states. The ChatGPT plan's
+     deadline spans its rounds and retries.
+2. **The lease outlives the longest request.**
+   - `narration_lease_seconds(timeout)` = ⌈timeout⌉ + `map_builder.CLAIM_LEASE_SECONDS`.
+   - The margin is marked `keep`. It is the claims' existing liveness lease reused, not a new number. It covers the
+     time between the renewal and the send, and it stays longer than the heartbeat interval (30 s), so every beat
+     keeps the lease ahead.
+   - At the defaults, the lease is 300 s.
+   - `map_builder._claimed`, `_claim` and `_try_claim` gain `lease_seconds`, which defaults to the map's 120 s. So the
+     approach maps, outcome placement, AD and the merge are unchanged. The heartbeat renews with the claim's own
+     lease (`_Claim.lease_seconds`).
+3. **The worker renews just before each send and while the call is in flight.**
+   - `PaidCalls`' `admit` hook now runs `map_builder._renew_live`. It runs before every attempt, retries included.
+   - `_renew_live` checks the claim (owner, epoch, unexpired) and renews the full lease in the same fenced write
+     transaction. If the claim is lost, it raises `_LeaseLost` and nothing is sent.
+   - So at every send, the lease runs at least `timeout + margin` past it, even if every later heartbeat fails.
+   - The heartbeat keeps renewing while the request is open.
+4. **A successor can take over only an expired lease** (`claim_work`'s existing rule). Expiry now requires the holder
+   to have stopped renewing for longer than its last request's timeout. By then that request is over: the process
+   died, or the transport timed it out. A holder whose request failed meanwhile cannot retry, because the retry's
+   `admit` finds the lease gone. Publication is still checked under the write lock (re-review F3).
+5. **Idempotency keys:** no transport in `learnloop.ai` offers one, so the durable claim is the only guard. The
+   comment at the claim says so.
+
+**Tests** (fakes; the claims' wall clock `map_builder._lease_now` is a test clock, and the heartbeat interval is
+shortened so its beats are observable):
+
+- *A renews past its original lease.*
+  - A is blocked inside its fake request.
+  - The request carries the route's timeout. The lease renewed just before the send runs `timeout + margin` past it.
+  - The clock moves 4/3 of a lease past the original expiry, in steps, and A's heartbeat renews after each step.
+  - B, a second `Repository` on the same database, returns `claimed` with no send. Completed receipts: 0.
+  - A is released and narrates. Completed receipts: exactly 1.
+- *A stops renewing (killed).* A's renewals are made to fail, as a dead process's would. The fake enforces its
+  timeout, as every transport does.
+  - One second before the lease expires, a successor returns `claimed` with no send, and the lease is unchanged.
+  - After expiry (by then past A's request timeout), the successor takes over, sends once and narrates. Completed
+    receipts: 1.
+  - A is released. Its request has timed out. Its retry is refused by the lease check, so it neither re-sends nor
+    publishes.
+  - Afterwards: one completed receipt, one `kept` verdict, and the successor's narrative.
+- *The lease arithmetic:* lease = route timeout + `CLAIM_LEASE_SECONDS`, and that margin is longer than the
+  heartbeat interval.
+
+**Reproduced before the fix.** HEAD's `reader_digest.py`, `map_builder.py` and `paid.py` were put back over a scratch
+version of the "stops renewing" test (no `git stash`). The transport received no timeout (`None`) and the lease was
+120 s. The successor took over at 121 s, while A's request was still inside its 180 s timeout, and narrated. **Two
+completed receipts for one digest.** The verify observed the same. The three new tests also fail against HEAD,
+because the API they use does not exist there.
+
+The re-review's tests that force a takeover by rewriting the claim row (`_lapse_and_take_over`) are kept. They
+check the fencing (no send and no publication after the lease is lost), which still holds.
+
+#### F6: the prediction's provenance selects the row
+
+`reader_activity_for_card` now reads in this order:
+
+1. It bounds the digest rows by `as_of`.
+2. It resolves every missed prediction's provenance over those rows: figure, then passage (`span_ids_json`, else
+   `input_span_ids_json`), then LO. This is `_prediction_los`, now reading through `_prediction_events`.
+3. Only then does it keep a row, when `_touches` holds **or** one of its missed predictions resolves to a requested
+   LO (`_predicts_on`).
+
+The row's other entries keep their own scoping: inquiries, assisted-only work, follow-ups and hypotheses are still
+filtered by their own LOs or facets.
+
+**The test is the verify's reproduction.** It is a real session: an inquiry anchored on passage `s2` (LO A) and a
+stored figure prediction on passage `s1` (LO B). The summary reports `learning_objects_touched == [LO A]`, and the
+prediction has empty facets and spans. Asking for B returns the prediction in both `missed_predictions` and
+`formative_records`, and none of A's inquiries, assisted work or follow-ups. Asking for A keeps its inquiry and does
+not take B's prediction. An unrelated LO sees nothing. Against HEAD's `router_reader.py`, it fails (`[] ==
+[['pred_1']]`).
+
+#### F5 under R2: the documented contract
+
+`reader_activity_for_card`'s docstring now states the contract:
+
+- `as_of` bounds the event-timed rows: which digest rows exist, inquiry statuses, follow-up dispositions and dates,
+  claim answers, gap reversals, probe-episode closes and the narrative's verdict.
+- A digest row's `summary_json` and `valuation_json` are its latest version, so a later re-plan shows through. The
+  same holds for a rival's facet marginal and a causal factor's pending decision.
+- No production caller reconstructs a historical card. The stored card payload is the replay record.
+- A caller that needs exact historical cards needs digest versions first.
+
+The module docstring says the same ("every event-timed read", three inputs read as they are now). No digest
+versioning was added (R2).
+
+### Fix round 3 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --` at
+`-n 6` at most. The targeted run was serialized behind `flock /tmp/learnloop-fullsuite.lock`. `TMPDIR` was outside the
+worktree.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| `pytest tests/test_router_reader_activity.py -k figure` (after F6) | 2 passed (the new test failed against HEAD's `router_reader.py`) |
+| `pytest tests/test_reader_digest_narrative.py` (after F3) | 34 passed |
+| `pytest -n 6` over `test_reader_digest_narrative.py`, `test_router_reader_activity.py`, `test_approach_maps.py` | 218 passed |
+| `pytest -n 6` over the 107 files listed below, behind the flock | **2131 passed, 7 skipped** (233 s), exit 0 |
+| `git diff --check` | clean |
+
+**The 107 files** are the new and changed tests, and every test file that names `reader_digest`, `router_reader` /
+`reader_activity`, `reader_followups`, `practice_index.paid` / `PaidCalls`, `judgment_work_claims` /
+`judgment_claims`, `map_builder` (the shared claim helpers changed), `router.card` / `router_card` / `build_card` /
+`render_text` / `CardInputs`. They also include every `test_router_*.py` and `test_architecture.py`:
+
+`test_ad1_codex_rereview_fixes.py`, `test_ad1_codex_review_fixes.py`, `test_ad1_fix_round4.py`, `test_ad1_fix_round5.py`, `test_ad1_fix_round8.py`, `test_ad1_fix_round9.py`, `test_ad1_outside_and_cli.py`, `test_ad23_contract.py`, `test_ad23_t1_routes.py`, `test_ad2_model.py`, `test_ad3_subject_view.py`, `test_ad_epoch.py`, `test_ad_guard.py`, `test_ai_tool_isolation.py`, `test_approach_map_boundaries.py`, `test_approach_map_replay.py`, `test_approach_maps.py`, `test_architecture.py`, `test_card_lineage.py`, `test_chatgpt_plan_provider.py`, `test_codex_tool_lockdown.py`, `test_compare_sources_keep.py`, `test_e0_review_round5.py`, `test_hint_feedback_texts.py`, `test_hint_h2a_review.py`, `test_hint_h2b_fix4.py`, `test_hint_h2b_rereview.py`, `test_hint_h2b_review.py`, `test_hint_kill_switch.py`, `test_hint_outcome.py`, `test_intent_checks.py`, `test_judge_routes.py`, `test_label_roles_cli.py`, `test_mcp_c1a_landing.py`, `test_mcp_c1a_review.py`, `test_mcp_tools.py`, `test_method_explicit_landing.py`, `test_mobile_allowlist.py`, `test_output_budget.py`, `test_plan_first_transport_grant_scope.py`, `test_plan_first_transport_offer_grants.py`, `test_plan_first_transport_offer_grants_r5.py`, `test_plan_first_transport_paid_roles.py`, `test_practice_index_adapters.py`, `test_practice_index_dossiers.py`, `test_practice_index_find.py`, `test_project_atomicity.py`, `test_project_blindness.py`, `test_project_cli.py`, `test_project_experiment_store.py`, `test_project_probes.py`, `test_project_report.py`, `test_reader_active_reading.py`, `test_reader_ca6_side_by_side.py`, `test_reader_digest_narrative.py`, `test_reader_followups.py`, `test_reader_followups_rereview.py`, `test_reader_followups_review.py`, `test_reader_followups_round3.py`, `test_reader_followups_round4.py`, `test_reader_followups_round5.py`, `test_reader_followups_round6.py`, `test_reader_followups_round7.py`, `test_reader_followups_round8.py`, `test_reader_followups_successor.py`, `test_reader_followup_valuation.py`, `test_reader_formative_texts.py`, `test_reader_passage_check.py`, `test_reader_rw6b_landing.py`, `test_reader_session_digests_migration.py`, `test_reading_paths.py`, `test_recurrence_merge_composition.py`, `test_reread_safety_landing.py`, `test_router_card.py`, `test_router_coldness_covariates.py`, `test_router_g1_feasibility.py`, `test_router_g3_propensity.py`, `test_router_g4_restraint.py`, `test_router_g7_fallback.py`, `test_router_ladder_parity.py`, `test_router_offer_log.py`, `test_router_outcomes.py`, `test_router_p2_bridge.py`, `test_router_presentations.py`, `test_router_probe_ties.py`, `test_router_r1_composition.py`, `test_router_r2a_landing.py`, `test_router_r2a_serving.py`, `test_router_r2b_agreement.py`, `test_router_r2bc_landing.py`, `test_router_r2b_requests.py`, `test_router_r2b_serving.py`, `test_router_r2c_retrieval.py`, `test_router_r2c_teach_back.py`, `test_router_reader_activity.py`, `test_router_staged_p2.py`, `test_router_why_copy.py`, `test_source_retrieval_codex_unavailable.py`, `test_source_service_spend_accounting.py`, `test_sources_merge_composition.py`, `test_t6_followup_review.py`, `test_teacher_te0_confidence_events.py`, `test_teacher_te0_fix_round2.py`, `test_teacher_te0_review_fixes.py`, `test_workbench_check.py`, `test_workbench_hint_service.py`, `test_workbench_text_gaps.py`.
+
+Not run, and why:
+
+- **vitest, npm and cargo:** no frontend or `src-tauri` file changed.
+- **The durability lane:** no migration and no DB or connection code changed. The claim reuses `judgment_work_claims`
+  through the existing helpers, with a longer lease.
+- **The DB/config reference scripts:** neither the schema nor the config changed.
+- **The full suite:** it runs once, in the landing gate.
+
+### Open items for the owner (fix round 3)
+
+1. **R1, F1's deviation:** the card's Reader activity section reaches the router models with no successor. It is
+   accepted by the orchestrator's ruling and flagged to you. If you want it behind a successor, it would be mvp-0.41.
+2. **R2, F5 (Low):** historical cards read a digest row's latest summary and valuation. The contract is documented.
+   It stays open for router R2 (the router rendering the section). Digest versions would be needed only if past
+   cards are ever replayed.
+3. **F3's lease length:** a dead narrator's session is retried after the route's request timeout plus 120 s (300 s at
+   the defaults), not 120 s. This is the price of never paying twice. A narration is background work, so the delay
+   is invisible.

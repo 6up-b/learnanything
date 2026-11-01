@@ -2,7 +2,9 @@
 
 > **Codex review fix round:** see `reader-rw6b-p2-digest-card-codex-review.md`. It supersedes this record where they
 > differ. The card's Reader activity section is now rendered and hashed (F1). Narratives no longer need follow-ups
-> (F2). One durable claim is taken per narration (F3). Open questions 2–4 below are closed.
+> (F2). One durable claim is taken per narration (F3). Open questions 2–4 below are closed. Fix round 3 (final
+> verify): the claim's lease outlives the narration's longest request (F3), a figure's LO selects its session (F6),
+> and the `as_of` contract is documented (R2).
 
 Builds `spec_reader_workbench_v1` §9.2 (with §9.5, §9.6; UX §4.8, W14; G25) on top of part 1 (mvp-0.39,
 migration 227): the session narrative and reader activity for the router's learner-state card.
