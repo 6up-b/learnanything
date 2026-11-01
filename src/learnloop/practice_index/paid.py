@@ -428,6 +428,7 @@ class PaidCalls:
              validate: Callable[[Any], Any] | None = None,
              context: Mapping[str, Any] | None = None,
              deadline: float | None = None,
+             request_timeout_seconds: float | None = None,
              images: tuple[tuple[str, bytes], ...] = (),
              isolated: bool = False) -> Any:
         """One logical call, retried on provider failure within the retry cap.
@@ -445,6 +446,12 @@ class PaidCalls:
         each attempt's request carries the remaining time as its timeout (every
         transport enforces ``StructuredRequest.timeout_seconds``), and no attempt
         starts once it has passed (``AITurnTimeout``, never a retry).
+
+        ``request_timeout_seconds`` bounds each attempt's request on its own
+        (with ``deadline``, the smaller bound). A caller that must know when
+        its request is over (reader RW6b part 2, final verify F3: a claim's
+        lease that outlives its request) passes the route's configured
+        timeout here instead of trusting the transport's default.
 
         ``images`` (reader RW5a) go with the prompt to a transport that
         declares ``image_input`` (refused before sending otherwise). The
@@ -470,11 +477,12 @@ class PaidCalls:
         attempt = 0
         while True:
             tokens = estimated_call_tokens(prompt, result_model, truncation.budget)
-            timeout_seconds = None
+            timeout_seconds = request_timeout_seconds
             if deadline is not None:
-                timeout_seconds = deadline - time.monotonic()
-                if timeout_seconds <= 0:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
                     raise AITurnTimeout(f"{purpose}: the time box ran out before the request")
+                timeout_seconds = remaining if timeout_seconds is None else min(timeout_seconds, remaining)
             estimate = self.estimate(
                 tokens, candidates=0 if attempt else candidates,
                 pairs=0 if attempt else pairs, retries=1 if attempt else 0,

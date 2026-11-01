@@ -57,6 +57,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
+import math
 import os
 import threading
 from typing import Any
@@ -320,6 +321,35 @@ def capped_message(vault: Any) -> str:
             "The lists above are complete without it.")
 
 
+def request_timeout_seconds(vault: Any, route: PaidRoute) -> float:
+    """The route's configured per-request timeout: its provider profile's
+    ``timeout_seconds``, else ``ai.timeout_seconds`` (``ai.client``'s own
+    resolution). Every narrative request carries it explicitly, so when it
+    is over is known here, not left to a transport default (final verify F3)."""
+
+    ai = vault.config.ai
+    profile = ai.providers.get(route.provider or "")
+    configured = getattr(profile, "timeout_seconds", None) if profile is not None else None
+    return float(configured or ai.timeout_seconds)
+
+
+def narration_lease_seconds(timeout_seconds: float) -> int:
+    """The session claim's lease (final verify F3): it outlives the longest
+    request the narration can have outstanding, so a successor can take the
+    claim over only once the holder has stopped renewing it for longer than
+    any of its requests can last, which in practice means the holder died.
+
+    It is the route's configured request timeout plus a margin. keep: the
+    margin is the claims' ordinary liveness lease
+    (``hints.map_builder.CLAIM_LEASE_SECONDS``), reused, not a new number:
+    it covers the time between the renewal and the send, and it stays longer
+    than the heartbeat interval, so every beat keeps the lease ahead."""
+
+    from learnloop.hints import map_builder as claims
+
+    return int(math.ceil(float(timeout_seconds))) + claims.CLAIM_LEASE_SECONDS
+
+
 class NarrativeRoute:
     """The narrative's pinned route for one session."""
 
@@ -330,9 +360,12 @@ class NarrativeRoute:
         self.injected = client
         self.envelope = envelope
         #: Raises when the session's claim is no longer this worker's (Codex
-        #: re-review F3): checked before every attempt's request.
+        #: re-review F3); renews its full lease otherwise (final verify F3).
+        #: Run just before every attempt's request.
         self.live = live
         self.route: PaidRoute = plan_route(vault, ROUTE_TASK, client)  # type: ignore[arg-type]
+        #: Every request's timeout, which the session claim's lease outlives.
+        self.request_timeout = request_timeout_seconds(vault, self.route)
         self.client: Any | None = None
         self.calls: PaidCalls | None = None
 
@@ -376,6 +409,7 @@ class NarrativeRoute:
         with spend_envelopes(self.envelope):
             return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=ReaderDigestNarrativeV1,
                                    output_tokens=self.route.output_tokens,
+                                   request_timeout_seconds=self.request_timeout,
                                    metadata={"prompt_version": PROMPT_VERSION, "digest_id": owner_id})
 
     @property
@@ -499,11 +533,22 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
     # F3): two sidecars (or a sidecar and a CLI) never pay for the same
     # narrative. The claim is ``judgment_work_claims``' lease and heartbeat
     # (the approach-map builds' and AD's); whoever holds it re-reads the row
-    # first. A dead holder's lease lapses and the next Today build retries.
+    # first.
+    #
+    # Its lease outlives the longest request (final verify F3): it is the
+    # route's request timeout plus a margin, every request carries that
+    # timeout, the lease is renewed in full just before each send, and the
+    # heartbeat renews it while the call is in flight. A successor can take
+    # it over only once it expired with its holder no longer renewing it,
+    # by when the holder's last request has timed out: no takeover ever
+    # sends while the predecessor's request may still be outstanding. A dead
+    # holder's lease lapses and the next Today build retries. (No transport
+    # offers an idempotency key, so the claim is the only guard.)
     from learnloop.hints import map_builder as claims
 
+    route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))
     with claims._claimed(repository, digest_id, 0.0, key=claim_key(digest_id), task=CLAIM_TASK,
-                         producer=OWNER_KIND) as claim:
+                         producer=OWNER_KIND, lease_seconds=narration_lease_seconds(route.request_timeout)) as claim:
         if claim is None:
             result.status = "claimed"
             return result
@@ -512,8 +557,9 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
         if fresh is None or fresh.get("prompt_version"):
             result.status = "already"
             return result
+        route.live = lambda: claims._renew_live(repository, claim)
         try:
-            return _narrate_claimed(vault, repository, row, summary, result, claim, client=client, clock=clock)
+            return _narrate_claimed(vault, repository, row, summary, result, claim, route, clock=clock)
         except claims._LeaseLost as exc:
             # Taken over or lapsed (Codex re-review F3): this worker neither
             # sends nor publishes any more; the claim's holder narrates.
@@ -522,22 +568,19 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
 
 
 def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any], summary: Mapping[str, Any],
-                     result: NarrativeResult, claim: Any, *, client: Any | None,
+                     result: NarrativeResult, claim: Any, route: NarrativeRoute, *,
                      clock: Clock | None) -> NarrativeResult:
     """The narration itself, under the session's claim (Codex re-review F3).
-    The claim's liveness (owner, epoch, unexpired lease) is checked before
-    every attempt's request and, under the write lock, at publication; a lost
-    claim raises ``_LeaseLost`` and nothing more is sent or written. A paid
+    Just before every attempt's request the claim's liveness (owner, epoch,
+    unexpired lease) is checked and its full lease renewed (final verify F3);
+    at publication it is checked again under the write lock. A lost claim
+    raises ``_LeaseLost`` and nothing more is sent or written. A paid
     answer is checkpointed before it returns, so whoever holds the claim next
     lands it without a second request. Publication also stays the
     conditional write (``prompt_version IS NULL``): never over another's
     narrative."""
 
-    from learnloop.hints import map_builder as claims
-
     digest_id = str(row["id"])
-    route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock),
-                           live=lambda: claims._require_live(repository, claim))
     prompt = build_prompt(vault, repository, summary)
     try:
         answer = route.ask(prompt, owner_id=digest_id)
@@ -768,8 +811,10 @@ __all__ = [
     "digests_waiting",
     "narrate_digest",
     "narrate_waiting",
+    "narration_lease_seconds",
     "narrative_enabled",
     "narrative_view",
+    "request_timeout_seconds",
     "sessions_to_summarize",
     "summarize_ended_sessions",
     "validate_narrative",

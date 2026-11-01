@@ -641,3 +641,190 @@ def test_a_lease_lost_during_the_call_never_publishes_and_the_answer_is_not_paid
                                now=_now(), clock=at(400))
     assert result.status == "narrated" and later.calls == 0
     assert _row(repo, row["id"])["narrative_md"] == first.text
+
+
+# -- Final verify F3: no takeover sends while the predecessor's request may be outstanding ---------
+
+
+class LeaseClock:
+    """The claims' wall clock (``map_builder._lease_now``), moved by the test."""
+
+    def __init__(self) -> None:
+        from datetime import UTC, datetime
+
+        self.now = datetime.now(UTC).replace(microsecond=0)
+
+    def __call__(self) -> str:
+        return self.now.isoformat()
+
+    def advance(self, seconds: float) -> None:
+        from datetime import timedelta
+
+        self.now = self.now + timedelta(seconds=seconds)
+
+
+class TimedFake(BlockingFake):
+    """Holds its request open until released, remembering when (on the lease
+    clock) it was sent and with what timeout. With ``enforce_timeout`` it acts
+    as every transport does: released after its timeout ran out, it fails."""
+
+    def __init__(self, clock: LeaseClock, *, enforce_timeout: bool = False, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.clock = clock
+        self.enforce_timeout = enforce_timeout
+        self.sent_at = None
+        self.timeout_seconds = None
+
+    def complete(self, request: Any) -> Any:
+        from datetime import timedelta
+
+        if self.sent_at is None:
+            self.sent_at, self.timeout_seconds = self.clock.now, request.timeout_seconds
+        self.entered.set()
+        assert self.release.wait(30)
+        if self.enforce_timeout and self.clock.now > self.sent_at + timedelta(seconds=float(request.timeout_seconds)):
+            self.payloads.append({"timed_out": True})
+            raise AIProviderUnavailable("the request timed out")
+        return NarrativeFake.complete(self, request)
+
+
+def _lease(repo, digest_id: str) -> tuple[str | None, Any]:
+    from learnloop.clock import parse_utc
+
+    with repo.connection() as connection:
+        row = connection.execute("SELECT lease_owner, lease_expires_at FROM judgment_work_claims WHERE claim_key = ?",
+                                 (RN.claim_key(digest_id),)).fetchone()
+    return (row["lease_owner"], parse_utc(row["lease_expires_at"])) if row else (None, None)
+
+
+def _completed_receipts(repo, digest_id: str) -> int:
+    with repo.connection() as connection:
+        return connection.execute("SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND owner_id = ? "
+                                  "AND status = 'completed'", (RN.OWNER_KIND, digest_id)).fetchone()[0]
+
+
+def _wait_for(predicate, what: str) -> None:
+    import time
+
+    deadline = time.monotonic() + 10
+    while not predicate():
+        assert time.monotonic() < deadline, what
+        time.sleep(0.005)
+
+
+@pytest.fixture
+def lease_clock(monkeypatch):
+    from learnloop.hints import map_builder
+
+    clock = LeaseClock()
+    monkeypatch.setattr(map_builder, "_lease_now", clock)
+    # The heartbeat's interval, shortened so a test sees its beats; the lease is the narration's own.
+    monkeypatch.setattr(map_builder, "CLAIM_HEARTBEAT_SECONDS", 0.005)
+    return clock
+
+
+def _start(vault, repo, digest_id: str, client) -> tuple[Any, dict[str, Any]]:
+    import threading
+
+    results: dict[str, Any] = {}
+    worker = threading.Thread(target=lambda: results.update(result=RN.narrate_digest(
+        vault, repo, digest_id, client=client, now=_now(), clock=at(300))))
+    worker.start()
+    assert client.entered.wait(30)
+    return worker, results
+
+
+def test_the_narration_lease_outlives_the_routes_request_timeout(tmp_path):
+    from learnloop.hints import map_builder
+
+    vault, repo, _row_ = _session_with_question(tmp_path)
+    route = RN.NarrativeRoute(vault, repo, client=NarrativeFake(), envelope=None)
+    assert route.request_timeout == float(vault.config.ai.timeout_seconds)
+    lease = RN.narration_lease_seconds(route.request_timeout)
+    # The margin is the claims' ordinary liveness lease, and it stays longer than the heartbeat interval.
+    assert lease == route.request_timeout + map_builder.CLAIM_LEASE_SECONDS
+    assert map_builder.CLAIM_LEASE_SECONDS > map_builder.CLAIM_HEARTBEAT_SECONDS
+    assert RN.narration_lease_seconds(900.5) == 901 + map_builder.CLAIM_LEASE_SECONDS
+
+
+def test_a_successor_never_sends_while_the_holder_renews_past_its_original_lease(tmp_path, lease_clock):
+    from datetime import timedelta
+
+    from learnloop.db.repositories import Repository
+
+    vault, repo, row = _session_with_question(tmp_path)
+    timeout = RN.NarrativeRoute(vault, repo, client=NarrativeFake(), envelope=None).request_timeout
+    lease = RN.narration_lease_seconds(timeout)
+    first = TimedFake(lease_clock)
+    worker, results = _start(vault, repo, row["id"], first)
+    try:
+        holder, original = _lease(repo, row["id"])
+        # The request carries the route's timeout, and the lease renewed just before it outlives it.
+        assert first.timeout_seconds == timeout
+        assert original >= first.sent_at + timedelta(seconds=lease) > first.sent_at + timedelta(seconds=timeout)
+        # Held inside the request well past the original lease, renewing all the while.
+        for _ in range(4):
+            lease_clock.advance(lease / 3)
+            _wait_for(lambda: _lease(repo, row["id"])[1] >= lease_clock.now + timedelta(seconds=lease),
+                      "the holder's heartbeat renews its lease")
+        assert lease_clock.now > original
+        assert _lease(repo, row["id"])[0] == holder
+        # Another process: the claim is held, so it sends nothing.
+        second = NarrativeFake(text="A second narrative.")
+        result = RN.narrate_digest(load_vault(vault.root), Repository(repo.sqlite_path), row["id"], client=second,
+                                   now=_now(), clock=at(301))
+        assert result.status == "claimed" and second.calls == 0
+        assert _completed_receipts(repo, row["id"]) == 0
+    finally:
+        first.release.set()
+        worker.join(timeout=30)
+    assert results["result"].status == "narrated" and first.calls == 1
+    assert _row(repo, row["id"])["narrative_md"] == first.text
+    assert _completed_receipts(repo, row["id"]) == 1
+
+
+def test_a_holder_that_stops_renewing_is_taken_over_only_after_its_request_timed_out(tmp_path, lease_clock,
+                                                                                      monkeypatch):
+    from datetime import timedelta
+
+    from learnloop.db.repositories import Repository
+    from learnloop.hints import map_builder
+
+    vault, repo, row = _session_with_question(tmp_path)
+    timeout = RN.NarrativeRoute(vault, repo, client=NarrativeFake(), envelope=None).request_timeout
+    first = TimedFake(lease_clock, enforce_timeout=True)
+    worker, results = _start(vault, repo, row["id"], first)
+    try:
+        holder, expires = _lease(repo, row["id"])
+        real_renew = map_builder.renew_claim
+
+        def dead_holder(connection, *, owner, **kwargs):
+            # The holder's process died: its renewals stop (its heartbeat's writes never land).
+            if owner == holder:
+                raise RuntimeError("the holder is gone")
+            return real_renew(connection, owner=owner, **kwargs)
+
+        monkeypatch.setattr(map_builder, "renew_claim", dead_holder)
+        # Just before the lease runs out its request may still be outstanding: no successor sends.
+        lease_clock.advance((expires - lease_clock.now).total_seconds() - 1)
+        early = NarrativeFake(text="Too early.")
+        assert RN.narrate_digest(load_vault(vault.root), Repository(repo.sqlite_path), row["id"], client=early,
+                                 now=_now(), clock=at(301)).status == "claimed"
+        assert early.calls == 0 and _lease(repo, row["id"]) == (holder, expires)
+        # Expired with nobody renewing it: by now the holder's request has timed out.
+        lease_clock.advance(2)
+        assert lease_clock.now > first.sent_at + timedelta(seconds=timeout)
+        successor = NarrativeFake(text="The successor's narrative.")
+        result = RN.narrate_digest(load_vault(vault.root), Repository(repo.sqlite_path), row["id"],
+                                   client=successor, now=_now(), clock=at(302))
+        assert result.status == "narrated" and successor.calls == 1
+        assert _completed_receipts(repo, row["id"]) == 1
+    finally:
+        first.release.set()
+        worker.join(timeout=30)
+    # The holder's request had timed out; it neither retries nor publishes.
+    assert results["result"].status == "claimed"
+    assert first.payloads == [{"timed_out": True}]
+    assert _row(repo, row["id"])["narrative_md"] == "The successor's narrative."
+    assert _completed_receipts(repo, row["id"]) == 1
+    assert [v["verdict"] for v in _verdicts(repo, row["id"])] == ["kept"]
