@@ -46,6 +46,47 @@ def offers_enabled(vault: Any) -> bool:
     return bool(getattr(section, "offers_enabled", False))
 
 
+def learner_state_enabled(vault: Any) -> bool:
+    """Learner-blindness relax's kill switch, ``reader_tutor.learner_state_enabled``."""
+
+    from learnloop import reader_learner_state as RLS
+
+    return RLS.enabled(vault)
+
+
+def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderRestriction",
+                  binding: Any = None, *, now_iso: str | None = None) -> Any:
+    """The learner state one ``reader.ask`` hands the tutor, or None while the switch is off.
+
+    Learner-blindness relax (owner direction 2026-11-01): the passage's
+    learning objects (``passage_learning_objects``: the selection's, or a
+    follow-up's root selection) and the learner's state on them, through
+    ``learner_protection`` (``learnloop.reader_learner_state``). A question
+    asked during a cold administration -- the client's flag or the server's
+    own derivation -- carries none (recorded as omitted); a workbench-bound
+    one carries no earlier tutor answer. Whatever the RW1c switches."""
+
+    if not learner_state_enabled(vault):
+        return None
+    from learnloop import reader_learner_state as RLS
+    from learnloop.clock import utc_now_iso
+    from learnloop.reader import reader_dialogue as RD
+    from learnloop.source_retrieval import reader_tutor as RT
+
+    if params.cold_active or restricted.cold:
+        return RLS.omitted(RLS.OMITTED_COLD)
+    span_ids = [params.span_id, *params.selection_span_ids]
+    if params.parent_exchange_id and RD.inquiry_enabled(vault):
+        history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True)
+        ancestors = _ancestors(history, params.parent_exchange_id)
+        if ancestors:
+            span_ids = [ancestors[0]["span_id"], *(ancestors[0].get("selection_span_ids") or [])]
+    lo_ids = RT.passage_learning_objects(vault, repository, extraction_id=params.extraction_id, span_ids=span_ids)
+    bound_item = binding.item.id if binding is not None else (restricted.item_id or None)
+    return RLS.build(vault, repository, learning_object_ids=lo_ids, now_iso=now_iso or utc_now_iso(),
+                     bound_item_id=bound_item)
+
+
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     """What RW1c adds to the Reader's prompt contract (nothing while both switches are off)."""
 
@@ -395,6 +436,8 @@ __all__ = [
     "build_request",
     "ReaderRestriction",
     "fallback_practice_request",
+    "learner_state",
+    "learner_state_enabled",
     "offers",
     "offers_enabled",
     "prompt_contract_fields",

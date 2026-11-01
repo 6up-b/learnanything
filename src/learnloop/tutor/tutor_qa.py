@@ -58,6 +58,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
+    READER_LEARNER_STATE_SUFFIX,
     READER_TUTOR_EXPLORABLE_PROMPT_VERSION,
     READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION,
     READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION,
@@ -86,6 +87,7 @@ from learnloop.tutor.ai_contracts import (
     TutorQAContext,
     tutor_context_payload,
     tutor_qa_prompt,
+    reader_learner_state_on,
 )
 from learnloop.tutor import reader_modes
 from learnloop.config.schema import TutorQAConfig
@@ -205,6 +207,14 @@ def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
 
 
 def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
+    version = _base_prompt_version(context, tools=tools)
+    if reader_learner_state_on(context):
+        # Learner-blindness relax: the Reader context carries the learner state.
+        version = version + READER_LEARNER_STATE_SUFFIX
+    return version
+
+
+def _base_prompt_version(context: TutorQAContext, *, tools: bool) -> str:
     if isinstance(context, ReaderTutorExplorableShowMeQAContext):
         return (READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION if tools
                 else READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION)
@@ -771,6 +781,7 @@ def ask_question(
     count_every_question: bool = False,
     attempt_aliases: AttemptAliases | None = None,
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
+    reader_learner_state: Any = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -838,7 +849,16 @@ def ask_question(
     the withheld text, and the row keeps it with ``source_context.withheld``.
     ``attempt_aliases`` (Astra batch review; resolved by the adapter): the
     attempt's other identities, read as its own by the budget and the thread;
-    the row stores only the key it is asked under."""
+    the row stores only the key it is asked under.
+
+    Learner-blindness relax (``reader_tutor.learner_state_enabled``, built
+    by the adapter: ``learnloop.reader_learner_state.ReaderLearnerState``):
+    ``reader_learner_state`` adds the learner's state on the passage's
+    learning objects to a Reader context (``learner_state``, and TE0's
+    ``learner_confidence``) under its own prompt version suffix, and its
+    receipt to the question's ``source_context.learner_state``. Context
+    only: no facet, attempt, claim or mastery reads it. None keeps today's
+    Reader context byte for byte."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -1080,6 +1100,11 @@ def ask_question(
                 reader_tutor, inputs=bound_plan.lookup_inputs if bound_plan is not None else None)
             reader_retrieval = dict(lookup_manifest)
         ai_context = build_context()
+        if reader_learner_state is not None:
+            # Learner-blindness relax: the learner state joins the Reader
+            # context as built (every delivery path: the selection, a
+            # lookup, pinned passages); the guards above never read it.
+            ai_context = reader_learner_state.apply(ai_context)
         if extraction_id and span_id:
             from learnloop.reader.reader_progression import learning_objects_for_span
 
@@ -1109,6 +1134,8 @@ def ask_question(
                 source_context["delivery"] = dict(delivery)
             if reader_caller:
                 source_context["reader_caller"] = dict(reader_caller)
+            if reader_learner_state is not None:
+                source_context["learner_state"] = reader_learner_state.receipt()
         event_id = repository.insert_question_event(
             {**question_row, "source_context": source_context}, clock=clock,
         )
@@ -2089,8 +2116,11 @@ def _build_context(
     context carries the learner's confidence events on its topics
     (``learner_confidence``, ``learnloop.confidence_events``: each tap or
     hedge read with its outcome, protected attempts left out, fail closed),
-    absent with none. The Reader context never does: its manifest carries no
-    learner ability reading (design A.2)."""
+    absent with none. The Reader context builds none here: with the
+    learner-blindness relax on (``reader_tutor.learner_state_enabled``) the
+    adapter's ``reader_learner_state`` adds it, and the learner state, to the
+    context ``ask_question`` built; off, its manifest carries no learner
+    ability reading (design A.2)."""
 
     settings = vault.config.tutor_qa
     if context == "reader" and provided_source_spans is not None:
