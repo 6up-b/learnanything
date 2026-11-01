@@ -382,6 +382,25 @@ export function LibraryAnswer({
   };
   const prerequisites = ask?.expansions.find((expansion) => expansion.expansion === "prerequisites");
   const perspectiveList = () => perspectives.split(",").map((value) => value.trim()).filter(Boolean);
+  // The pins' comparison (and CA5a's two sections, CA3 off): under the hits,
+  // or (follow-ups Oct 31) on its own when a section comparison's ask found no
+  // hits, so a comparison that runs is always on screen (its table or a line
+  // saying it could not compare).
+  const pinsCompare = state.compare.phase !== "idle" ? (
+    <ModelActionState
+      phase={state.compare.phase}
+      verb={LIBRARY_COPY.comparing}
+      failure={state.compare.failure ?? undefined}
+      kept="Your pins are kept."
+      capRoute="comparison"
+      fallback="Reading the passages"
+      onCancel={ctl.cancelCompare}
+      onRetry={() => (ctl.scopeOn && state.lastCompare ? ctl.retryCompare() : void ctl.compare(perspectiveList()))}
+    >
+      {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
+      {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}
+    </ModelActionState>
+  ) : null;
   // The comparing keys (UX §3.5), only while focus is inside the answer (never
   // on the reading surface): ↑ ↓ move between passages · Space peek · p pin ·
   // o open · c compare pinned · Ctrl+↵ ask the tutor about pinned.
@@ -490,6 +509,13 @@ export function LibraryAnswer({
               />
             ) : null}
             {ask.hits.length === 0 ? <MeaningLabel style={{ fontSize: 12 }}>{LIBRARY_COPY.nothing}</MeaningLabel> : null}
+            {ask.hits.length === 0 && state.intent.kind === "compare" && !scopedCompare && pinsCompare ? (
+              // CA5a with CA3 off: the two sections' comparison runs on its own pins, found or not.
+              <div data-sections-compare="" style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+                <MeaningLabel style={{ fontSize: 11 }}>{LIBRARY_COPY.sectionsCompared}</MeaningLabel>
+                {pinsCompare}
+              </div>
+            ) : null}
             {ctl.keep && ask.comparedOn?.length ? (
               // RW4d: a kept comparison already holds some of these passages.
               <div data-compared-on="" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -573,21 +599,7 @@ export function LibraryAnswer({
                   // routed line shows as soon as the books are known (§4.2).
                   <CompareScopeBody ctl={ctl} onReword={null} onPracticePick={onPracticePick} Table={CompareTable}
                     practice={false} kept="Your question and the books are kept." />
-                ) : state.compare.phase !== "idle" ? (
-                  <ModelActionState
-                    phase={state.compare.phase}
-                    verb={LIBRARY_COPY.comparing}
-                    failure={state.compare.failure ?? undefined}
-                    kept="Your pins are kept."
-                    capRoute="comparison"
-                    fallback="Reading the passages"
-                    onCancel={ctl.cancelCompare}
-                    onRetry={() => (ctl.scopeOn && state.lastCompare ? ctl.retryCompare() : void ctl.compare(perspectiveList()))}
-                  >
-                    {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
-                    {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}
-                  </ModelActionState>
-                ) : null}
+                ) : pinsCompare}
                 {state.pinned.length > 0 ? (
                   <form
                     onSubmit={(event) => {

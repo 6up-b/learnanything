@@ -249,7 +249,9 @@ it("F5: x is neither offered nor acts while the comparing posture hides the Guid
   };
   api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: ask });
   api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_1", state: "done",
-    result: { askId: "la_1", status: "ok", rows: [], exposureEventIds: [] } });
+    // A whole table (follow-ups Oct 31: a section comparison with no hits is now drawn, so it must be a real one).
+    result: { askId: "la_1", status: "ok", header: "", rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
+      droppedLineCount: 0, exposureEventIds: [] } });
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   expect(keyBarOffersX()).toBe(true);

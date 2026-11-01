@@ -12,6 +12,7 @@ import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView
 import type { CorrespondentsDto, SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
 import { FIND_COPY } from "./FindSection";
+import { LIBRARY_COPY } from "./useLibraryAsk";
 
 const SPAN_IDS = view.blocks.map((block) => block.spanId!).filter(Boolean);
 
@@ -121,7 +122,9 @@ it("compare runs the library compare path on this section's passage and the hit'
   };
   api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: ask });
   api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_1", state: "done",
-    result: { askId: "la_1", status: "ok", rows: [], exposureEventIds: [] } });
+    // A whole table (follow-ups Oct 31: with no hits it is now drawn, so it must be a real one).
+    result: { askId: "la_1", status: "ok", header: "", rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
+      droppedLineCount: 0, exposureEventIds: [] } });
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
@@ -138,6 +141,55 @@ it("compare runs the library compare path on this section's passage and the hit'
   // The learner asked to compare: the organizer's notes wait to be asked for.
   expect(api.readerLibraryAskNotes).not.toHaveBeenCalled();
   expect(document.querySelector("[data-comparing-pane]")).toBeTruthy();
+});
+
+// Follow-ups Oct 31: with CA3 off, the comparison runs on the two sections'
+// own passages whether or not the library question found hits; with none, it
+// used to render nowhere (it lived under the hits). It shows on its own now.
+const NO_HITS_ASK = {
+  askId: "la_1", query: "6.1 Symmetric matrices", entry: "where_else_explained", status: "ok", policy: "reading",
+  personalized: false, basis: "keyword", learningObjectIds: [], extractionId: view.extractionId, anchorSpanIds: [], hits: [],
+  groups: { sources: [], expansions: [] }, expansions: [], expandGraph: false, sourceCount: 0, passageCount: 0,
+};
+const TWO_SECTIONS = {
+  askId: "la_1", status: "ok", header: "differences kept · each line quotes its own source",
+  rows: [
+    { sourceId: view.sourceId, sourceTitle: "Strang", key: `${view.extractionId}:${SPAN_IDS[0]}`, page: 289, isOpenSource: true,
+      contributes: [{ line: "orthogonal eigenvectors", quote: "Q^T Q = I", authorship: "ai" }], assumes: [], differs: [] },
+    { sourceId: "src_axler", sourceTitle: "Axler", key: "ext_axler:a7", page: 133, isOpenSource: false,
+      contributes: [{ line: "invariant subspaces first", quote: "U is invariant under T", authorship: "ai" }], assumes: [], differs: [] },
+  ],
+  alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [], droppedLineCount: 0, exposureEventIds: [],
+};
+
+async function compareFromFindSection() {
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
+  fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
+}
+
+it("with CA3 off and no hits for the section's question, the two sections' comparison is on screen", async () => {
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: NO_HITS_ASK });
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_1", state: "done", result: TWO_SECTIONS });
+  await compareFromFindSection();
+  const shown = await waitFor(() => {
+    const pane = document.querySelector("[data-sections-compare]");
+    expect(pane?.querySelector("[data-compare-table]")).toBeTruthy();
+    return pane!;
+  });
+  expect(shown.textContent).toContain(LIBRARY_COPY.sectionsCompared);
+  expect(shown.textContent).toContain("orthogonal eigenvectors");
+  expect(shown.textContent).toContain("invariant subspaces first");
+  expect(screen.getByText(LIBRARY_COPY.nothing)).toBeTruthy();  // the question still says it found nothing else
+});
+
+it("with CA3 off and no hits, a comparison that fails says so where it would have shown", async () => {
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: NO_HITS_ASK });
+  api.readerLibraryCompare.mockRejectedValue(new Error("boom"));
+  await compareFromFindSection();
+  await waitFor(() => expect(document.querySelector("[data-sections-compare]")?.textContent).toContain("Couldn't compare these passages."));
+  expect(document.querySelector("[data-compare-table]")).toBeNull();
 });
 
 it("go there opens the other book as a detour", async () => {

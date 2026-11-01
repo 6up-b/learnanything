@@ -66,6 +66,7 @@ export const LIBRARY_COPY = {
   personalizedOff: "personalized ○",
   personalizedWhy: "On: the notes may point out a passage that speaks to an open question of yours. Off: plain search order, and nothing about you is sent.",
   nothing: "Nothing in your books matched this yet.",
+  sectionsCompared: "Comparing the two sections you chose:",
   compare: "compare pinned",
   compareNeeds: "pin passages from two places to compare them",
   comparing: "comparing your sources",
