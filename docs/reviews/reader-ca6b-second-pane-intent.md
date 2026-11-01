@@ -83,11 +83,13 @@ pane's host, and `visiblePalette`'s new `hiddenKinds` is absent for the main box
 
 1. **No *work through this* and no *what matters here?* in the second pane.** The working posture closes side by side
    (CA6 disables it while working), and the workbench works on the open book. The Guide's reading path is the open
-   book's plan. A router answer naming either one falls back to Ask, as for any action not on offer.
-2. **The second pane's marks offer no *check me*,** because the shell opens a check only while its source is the open
-   one (RW3a review F3). They record no RW3b impression receipts, which are tied to the open book's visit and plan.
-   With discovery on, taps go through `reader.cue_tap` with the plan id (no visit id). Otherwise they use
-   `reader.cue_action`. Alt+↓ / Alt+↑ still move between the main pane's marks only.
+   book's plan. *(Codex fix round, F7: the second pane's routings now ask `reader.route_intent` with `sidePane`,
+   so the Decider is never offered either one; a routed action a box does not offer runs Ask and is recorded as not
+   used.)*
+2. ~~The second pane's marks offer no *check me* and record no RW3b receipts.~~ **Superseded by the Codex fix round
+   (F4-F6, F8, F9):** the pane runs the Reader's own cue controller on its book, so check me, discovery, impression
+   receipts, taps with the visit, try-first's tap, placement on resize and Alt+↓ / Alt+↑ all work there. See
+   `reader-ca6b-second-pane-intent-codex-review.md`.
 3. **An Ask from the second pane lands in the Ask rail,** labelled with that book. *show passage* is not shown for it,
    because its passage is beside the rail, not in the open book. Same-reading citations are not jump buttons there
    (another book's citation opens there, as RW1c's do). Its thread pushes no branch crumbs. The answer is stored in
