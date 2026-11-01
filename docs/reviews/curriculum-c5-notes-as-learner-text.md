@@ -70,7 +70,7 @@ syllabus; the one note that copies a past-paper question carries it only in its 
 hand to the mixed textbook's exam unit is never read); the Settings opt-in RPC writes the switch, queues the
 linked notes and, off again, the contract is C2's and a queued job is skipped unread; a vault opened with the
 opt-in on queues its linked notes.
-`tests/test_learner_note_source_kind_migration.py` (6, one durability): the widening keeps every row and id,
+`tests/test_learner_note_source_kind_migration.py` (5, one durability): the widening keeps every row and id,
 the FKs resolve, triggers and indexes are back, 212's body exactly plus the one kind, nothing new classified,
 the head holds 231 in rollback mode with no note gap.
 Frontend: `notesGaps.test.tsx` (4): Settings' opt-in off by default with its copy, on and off again, absent
@@ -110,7 +110,165 @@ No weight, margin or threshold: which gap a note shows is the model's judgment.
 
 ## Gate (this step; targeted, memory-capped)
 
-GATE_PLACEHOLDER
+Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G`, pytest at `-n 6`, vitest `--maxWorkers=4`, one test command at a time, `TMPDIR` outside the
+worktree. No live model call; no real `tend`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` (after the contract note, and on the final tree) | **37 kept, 0 broken** |
+| Head-fixture set: every test file naming `migration_head_231` or the extended chain lists (46 files) plus the migration test, the widening test, `test_table_roles.py`, `test_tracked_fixture_databases.py`, `test_coordinated_migrations.py` | first run 691 passed, 3 skipped, **13 failed** (the ten chain diffs that did not yet subtract 231's two rebuilt tables); after `C5_ALTERED_TABLES` the ten files plus the migration test: **52 passed** |
+| Targeted set (135 files, listed below): every file exercising a changed module (text_gaps pipeline, jobs, sources, judges, contract, the gap store, `note_links`, the notes handler, the sidecar context, config schema, template snapshots, parameter registry, disclosures, plan fallback) and the contract tests (CLI help snapshot, serializer snapshot, desktop RPC contract, mobile allowlist, architecture, table roles, coordinated migrations, tracked fixture databases, public-tip guards, Codex lockdown round 3, plan-first transport) | **2636 passed, 12 skipped, 5 xfailed, 0 failed** (23:09) |
+| `tests/test_notes_as_learner_text.py`, `tests/test_notes_never_read.py`, `tests/test_notes_linked.py` on the final tree (with the two tests added after the targeted run started) | **64 passed** |
+| Durability lane (`pytest -m durability`) over the head-fixture set and the migration, widening, tracked-fixture, coordinated-migration and table-roles tests | **26 passed** |
+| Frontend: `npm install`, `npm run typecheck`, `npm run frontend:build` | ok |
+| `npx vitest run --maxWorkers=4` on `notesGaps.test.tsx`, `readerNotes.test.tsx`, `compareKeep.test.tsx`, `SettingsScreen.test.tsx` | **4 files, 37 passed** |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` (`SCHEMA_HEAD` 231; prose leaf count 1106) | errors [] (360 table notes) |
+| `desktop_generate.py` then `desktop_validate.py` (pinned inventory: 300 TS / 292 entry-build / ACTIVE 305, one new TSX file) | passed, reproducible byte for byte |
+| `validate_vault.py` | passed (1371 notes) |
+| Defaults fingerprints | all 31 recomputed with `defaults_fingerprint_for_version`; a second pass changed 0 |
+
+Targeted test files:
+
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad23_t1_routes.py`
+- `tests/test_approach_maps_schema.py`
+- `tests/test_architecture.py`
+- `tests/test_attempt_content_state_successor.py`
+- `tests/test_batch3_landing.py`
+- `tests/test_chatgpt_plan_provider.py`
+- `tests/test_chatgpt_plan_workspace.py`
+- `tests/test_cli_help_snapshot.py`
+- `tests/test_codex_lockdown_round3.py`
+- `tests/test_cold_retry_reschedule.py`
+- `tests/test_config_refactor.py`
+- `tests/test_constraint_engine.py`
+- `tests/test_coordinated_migrations.py`
+- `tests/test_coverage_on_extract.py`
+- `tests/test_curriculum_c1_plan_follows_path.py`
+- `tests/test_curriculum_c3_exam_scoping.py`
+- `tests/test_decider_landing.py`
+- `tests/test_deliverable_codex_review.py`
+- `tests/test_deliverable_rpcs.py`
+- `tests/test_deliverable_scope.py`
+- `tests/test_desktop_rpc_contract.py`
+- `tests/test_diagnosis_context.py`
+- `tests/test_diagnosis_history_modes.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_embedding_backfill.py`
+- `tests/test_field_workbench_signals.py`
+- `tests/test_figure_predictions.py`
+- `tests/test_figure_rich_job.py`
+- `tests/test_figure_rich_rpc.py`
+- `tests/test_figures_codex_review.py`
+- `tests/test_figures_fix_round2.py`
+- `tests/test_figures_fix_round3.py`
+- `tests/test_figures_fix_round4.py`
+- `tests/test_figures_scope_redesign.py`
+- `tests/test_figures_show_me_codex_review.py`
+- `tests/test_figures_show_me.py`
+- `tests/test_figures_switch_off.py`
+- `tests/test_grading_cli.py`
+- `tests/test_held_grade_composition.py`
+- `tests/test_help_assists_schema.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_feedback_widening.py`
+- `tests/test_hint_h2b_review.py`
+- `tests/test_hypothesis_reference_contract.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_orchestrator_rulings.py`
+- `tests/test_kinship_feature.py`
+- `tests/test_learner_notes_migration.py`
+- `tests/test_learner_note_source_kind_migration.py`
+- `tests/test_learner_report_superseded.py`
+- `tests/test_learner_text_gaps_composition.py`
+- `tests/test_learner_text_gaps_flow.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_rereview.py`
+- `tests/test_learner_text_gaps_review.py`
+- `tests/test_learner_text_source_widening.py`
+- `tests/test_library_ask_review.py`
+- `tests/test_library_asks_migration.py`
+- `tests/test_library_exercises.py`
+- `tests/test_lp_claim_fixes.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_tools.py`
+- `tests/test_method_explicit_landing.py`
+- `tests/test_method_explicit_upgrade.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_mvp010_upgrade.py`
+- `tests/test_mvp011_upgrade.py`
+- `tests/test_mvp013_upgrade.py`
+- `tests/test_mvp014_upgrade.py`
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_mvp016_upgrade.py`
+- `tests/test_mvp017_upgrade.py`
+- `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
+- `tests/test_mvp022_upgrade.py`
+- `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_notes_as_learner_text.py`
+- `tests/test_notes_linked.py`
+- `tests/test_notes_never_read.py`
+- `tests/test_open_world_gate.py`
+- `tests/test_p0_cutover_mvp08.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_first_transport_grant_scope.py`
+- `tests/test_plan_first_transport_offer_grants.py`
+- `tests/test_plan_first_transport_offer_grants_r5.py`
+- `tests/test_plan_first_transport_paid_roles.py`
+- `tests/test_plan_first_transport.py`
+- `tests/test_plan_first_transport_today_quiet.py`
+- `tests/test_plan_follows_path.py`
+- `tests/test_probability_cli.py`
+- `tests/test_public_tip_guards.py`
+- `tests/test_reader_active_reading.py`
+- `tests/test_reader_ca2_one_ask.py`
+- `tests/test_reader_ca4_table_by_point.py`
+- `tests/test_reader_followups_successor.py`
+- `tests/test_reader_formative_texts.py`
+- `tests/test_reader_intent.py`
+- `tests/test_reader_rw1b_review.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reader_rw3b_protection.py`
+- `tests/test_reader_rw3b_review_fixes.py`
+- `tests/test_reader_tutor_retrieval.py`
+- `tests/test_reading_paths.py`
+- `tests/test_reading_step_switch.py`
+- `tests/test_rebuild_equivalence_review.py`
+- `tests/test_recurrence_commands.py`
+- `tests/test_registry_audit.py`
+- `tests/test_regrade_contract_successor.py`
+- `tests/test_regrade_contract_upgrade.py`
+- `tests/test_required_method_round3_review.py`
+- `tests/test_router_reader_activity.py`
+- `tests/test_rw2c_switch_off.py`
+- `tests/test_section_coverage_rpcs.py`
+- `tests/test_sensitivity_certificates.py`
+- `tests/test_serve_eligibility_review.py`
+- `tests/test_sidecar_close_cancels_jobs.py`
+- `tests/test_sidecar_serializer_snapshot.py`
+- `tests/test_source_roles.py`
+- `tests/test_t6_followup_composition.py`
+- `tests/test_table_roles.py`
+- `tests/test_teacher_te0_review_fixes.py`
+- `tests/test_tier1_decider.py`
+- `tests/test_tracked_fixture_databases.py`
+- `tests/test_ux_phase2_shell.py`
+- `tests/test_ux_phase4_landing.py`
+- `tests/test_workbench_in_session_gaps.py`
+- `tests/test_workbench_text_gaps.py`
+
+Head-fixture test files (first run): the 46 files of `git grep -l "migration_head_231|227, 228, 229, 231" -- 'tests/*.py'`.
 
 ## Landing notes
 
