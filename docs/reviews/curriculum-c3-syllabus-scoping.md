@@ -104,3 +104,119 @@ Fail-first evidence: with `scope_library`'s readable role and the synthesis skip
   `read_protection` call), plus the regenerated references.
 - The owner may want the past-papers list per subject once goals carry a subject or source sets (AD §16's
   deferred `source_set_ids`).
+
+## Landing onto main
+
+Branch `curriculum/c3-syllabus-scoping` (worktree `learnanything-dl2`), from tip `855e3b43d3`. Main was
+`e9693b3700` at the start and `7401484f91` at the end. **No paid or live call was made.** Every model was a fake.
+Every Python/CLI process ran under `env -i` with an empty, existing `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`, with `TMPDIR` outside the worktree. The real `tend` and the owner's notes were never
+touched; only C2's fake `tend` over synthetic notes in tmp was used. Only the mvp035 owner copies were opened,
+through fresh backup-API copies. No migration (C3 has none; the head stays main's 229).
+
+### Step 0: orchestrator scoped verify remainder (F1), fixed (`a41eeb95d9`)
+
+The third fallback of `deliverables.deliverable_subjects` counted the subjects named by active LOs. Now it reads
+`vault.subjects`, and only when exactly one subject is `status: active`; otherwise it returns no subjects, so no
+past paper contributes. Fail-first test:
+`test_a_second_active_subject_without_topics_leaves_an_unresolved_deliverable_without_past_papers` (linear algebra
+with LOs, plus an active physics subject with none). It failed before the fix (`frozenset({'linear-algebra'})`)
+and passes after it. A control (a paused second subject keeps the past papers) passes either way. This is recorded
+in the codex-review record as "Orchestrator scoped verify remainder, fixed".
+
+### Merges
+
+| Commit | What |
+|---|---|
+| `7e007245e5` | Merge of main `e9693b3700` (curriculum C2 notes, migration 229 / `migration_head_229`, `NotesGuard` composed into `CoverageGuard` with C1's gate; RW5d P2b; Reader follow-ups; facet fix). Conflicts: `config/template.py` (31 snapshot hunks: C2's note and C3's note both kept; every fingerprint recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`, 31 changed; a second pass changed 0); `section_coverage.CoverageGuard._refusal` (main's `also`/`gate` hooks and `(reason, exception)` refusals kept; `read_protection(..., readable_roles=self._library.protection.readable_roles)` on the same snapshot); 444 generated reference notes (main's side, then regenerated). The hand-kept prose leaf count went 1104 → 1105 (C3's `exam_units_in_scope`) in `Configuration.md` and `Database.md`. After that: `db_validate_reference` errors [], desktop catalog 299 TS / 291 entry-build / ACTIVE 304 reproducible, vault valid. A targeted run (C3, notes, section coverage, C1 landing, config, source roles, judge routes, CLI help, registry; 13 files) gave **286 passed**. |
+| `57a051a414` | The `note_link_judge` G-C1 sweep (below). |
+| `e8aaea0f12` | Merge of main `7401484f91` (Reader follow-ups Nov 1b: `figures/labels.py`, the figures service's `worded_row`, `openai_chat` `trust_env=False`, no "no such passage" pins on fresh compare rows). Conflicts: 440 generated reference notes only (main's side, then regenerated: `db_validate_reference` errors [], desktop catalog reproducible at 299 / ACTIVE 304, vault valid). `parameter_registry.py` auto-merged (`figure_labels` beside C3's switch); the 31 fingerprints already matched (0 changes). **No manual Python resolution**, so the full suite was not rerun. A targeted run (main's five new test files plus registry audit, both C3 files, config, compare keep, figures show-me, OpenRouter client, Codex lockdown round 3, notes linked; 14 files) gave **392 passed**. |
+
+### G-C1 for `note_link_judge` (`tests/test_curriculum_c3_exam_scoping.py`)
+
+`test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources` runs on the exam-scope fixture:
+
+- Setup: coverage is judged for every LO; the deliverable has the syllabus passage as an input; the scope and the
+  path are judged with `DeliverableFake`.
+- Linking: `note_links.link_goal` runs with C2's `NoteLinkFake` and C2's fake `tend` over three synthetic notes.
+  One is a Pocket Notes page that copies the fixture's practice-available past-paper question (with its
+  sentinel) verbatim.
+
+The test asserts:
+
+- At least two judge requests are made, so the sweep is not vacuous.
+- Strip each request of the learner's own `notes[].text`. What remains (topic title and statement; passage book,
+  section and opening; note titles and headings) contains none of the fixture's sentinels or sentinel words, no
+  `SYLLABUSMARKER`, no extraction that is never on a path, and no exam or syllabus section title.
+- The copied note reaches the judge at least once, and its quote appears only in its own text. The other notes
+  carry no sentinel.
+- Every `tend` argv (the queries) carries no sentinel and no syllabus marker.
+- Every stored link points at a `deliverable_path_sections` row and never at exam material.
+
+Fail check: with `note_links._lead` temporarily prefixed with a sentinel, the test failed (`AssertionError:
+PAPERPRACTICESENTINEL`). The change was reverted.
+
+### Gate
+
+| Step | Tree | Result |
+|---|---|---|
+| `uv run lint-imports --no-cache` | `57a051a414`, `e8aaea0f12` | **37 kept, 0 broken** each time |
+| Full pytest (`flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…`) | `57a051a414` | **23396 passed, 90 skipped, 47 xfailed, 0 failed** (38:38); no unexpected failure to rerun |
+| Durability lane (`pytest -m durability -n 6`, 5G scope) | `e8aaea0f12` (final) | **179 passed, 1 skipped** |
+| Owner lane (`pytest -m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies, `copy_tree_with_databases`, of `learnanything-ad1/fixtures-local/owner-copies-mvp035` in the gitignored `fixtures-local/landing-c3/`, then `landing-c3b/`) | `57a051a414`, `e8aaea0f12` | **83 passed, 2 failed, 4 skipped** both times. The two failures are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies::…[arxiv_v2]`). The count is unchanged (C3 adds no owner test). |
+| Frontend: `npm install`, `npm run typecheck`, whole vitest (`npx vitest run --maxWorkers=4`, 5G scope), `npm run frontend:build` | `57a051a414` (the second merge changed nothing under `apps/`) | ok; **249 files, 2375 passed**; typecheck clean; build ok |
+| `cargo check` | n/a | not run: the branch's `src-tauri` equals main's |
+| DB reference, desktop catalog, vault | after each merge | `db_validate_reference` errors [], `desktop_validate` passed (299 TS / 291 entry-build / ACTIVE 304, byte for byte), `validate_vault` passed |
+
+### Smoke on fresh owner copies (`fixtures-local/landing-c3-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.**
+
+- Copies: fresh backup-API copies of the three mvp035 owner copies.
+- Neutralizing: under each side's own code (`neutralize3.py`), every route points at the `127.0.0.1:9`
+  blackhole with the key variable unset; rewrite, rerank, dense and embeddings are off.
+- Code: main's `git archive e9693b3700` and the branch's `git archive 57a051a414`, each with `src/`,
+  `migrations/` and `tests/`.
+- Per copy, under its own side's code: a bare `upgrade`, the primary desktop start, `migrate_vault`,
+  `rebuild-derived-state`.
+- Isolation: every process ran under `env -i` with an audit hook that logs every process start and socket
+  connect and refuses non-loopback sockets and Codex starts.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| upgrade (main and branch) | mvp-0.35 → mvp-0.40, head 229 | same | same |
+| Today (3 queue variants, frozen clock), branch vs main | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| Daily plan dump (sidecar handlers, frozen clock, deterministic ids), branch vs main | **identical** (84,696 bytes) | identical (124,021) | identical (32,433) |
+| Source roles (every set member's default role and unit overrides; `source_unit_selections` role overrides), main vs branch; `source_sets.yaml` byte-compared with the fresh copy | unchanged | unchanged | unchanged |
+| Exam predicate and teaching exclusions, main vs branch | equal (no exam material) | equal (no exam material) | equal (no exam material) |
+| `syllabus` offered | branch `KNOWN_ROLES` has it, main's doesn't; the branch CLI `source-set add --help` names it; both desktop role pickers list it | same | same |
+| Synthetic deliverable (sentence of the vault's first six topic titles), resolved by the suite's local `DeliverableFake`: main, branch with `exam_units_in_scope` on, branch with it off | prompt v1 and identical text and state key in all three; no `past_papers_test` (past papers `[]`, subject `vector-spaces`); resolver contexts identical; scope view: main == off, and on == main once the on-only `on_past_papers` key (0 of 8 topics marked) is dropped | same (subject `counting`; 0 of 11 marked; the problem-set members map to no LO) | same (subject `llm`; 0 of 9 marked) |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0 | 0/0/0 |
+
+- **Receipts:** **0 new `model_call_receipts`** on every upgrade, Today, plan and shadow copy (probability's 56
+  historical rows, 42 completed and 14 failed, unchanged; the others have none). The scope copies hold, beyond
+  those 56, exactly 3 rows from the local `DeliverableFake` (one resolution per copy, provider `fake_deliverable`).
+- **Audit:** no entries at all: no process start, no socket connect of any kind, nothing refused.
+- **Timing:** the smoke ran at `57a051a414` against main `e9693b3700`. It was not rerun after the merge of
+  `7401484f91` (Reader follow-ups Nov 1b: figures wording, compare pins, the OpenAI chat transport's
+  `trust_env`), which touches nothing C3 reads; that landing recorded its own smoke.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "Past papers count only for the deliverable's subject: syllabus source sets first, then the single subject of its resolved topics, then the vault's only active subject; otherwise none. Accepted; flagged to the owner."
+- R2: "A syllabus may still appear as a compare_sources/find_sources counterpart (as notes and problem sets do); teaching grounding excludes it. Accepted for v1."
+- R3: "Held-out signals are covered by the exam predicate's own suite, not the C3 fixture. Accepted."
+- R4: "A Reader-selection action 'scope my deliverable from this passage' is queued as a follow-up; the scope panel's syllabus picker ships now."
+
+### Open items
+
+- **Owner (R1):** past papers count only for the deliverable's own subject (a syllabus's source sets, else the
+  single subject of its resolved topics, else the vault's only active subject). In a vault with two active
+  subjects and no syllabus, a first resolution sends no past-papers list.
+- **Follow-up (R4):** a Reader-selection action, "scope my deliverable from this passage".
+- **Follow-up (R2):** decide whether a syllabus should stay a `compare_sources`/`find_sources` counterpart once
+  compare grounding is revisited.
+- The owner may want past papers per subject once goals carry a subject or source sets (AD §16's deferred
+  `source_set_ids`); R1's fallback order stands until then.
+- No owner vault changes: no migration, no successor. `exam_units_in_scope` defaults on and has no effect on the
+  current vaults, which have no exam material and no problem-set unit mapped to an LO.
