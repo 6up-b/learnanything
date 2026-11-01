@@ -10,9 +10,9 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx"
-source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
-source_commit_timestamp: "2026-11-01T08:51:49-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5"
+source_commit_timestamp: "2026-11-01T09:39:06-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `517a3eec6bdd10976bb35ca9c5f2506fabfb9aec` |
-| Commit timestamp | `2026-11-01T08:51:49-05:00` |
+| Worktree state | `clean` |
+| Source commit | `b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5` |
+| Commit timestamp | `2026-11-01T09:39:06-05:00` |
 
 ## Activation and status evidence
 

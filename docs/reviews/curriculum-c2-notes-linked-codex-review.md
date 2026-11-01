@@ -181,3 +181,21 @@ so nothing expects it there; it stays a module constant labelled `keep`.
 
 Targeted gate: `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run --no-sync pytest -n 6
 tests/test_notes_linked.py tests/test_notes_never_read.py tests/test_learner_notes_migration.py`: **52 passed**.
+
+### Scoped verify of `bb852870fb` (Codex Sol, job `20261101-102907-K457GP`) and ruling R6
+
+The verify found the delayed AI judgment case fixed; sequential A→B→A and a refresh racing hide/undo pass; no
+regression in F1, F2 or F14. **Not clean** on two concurrent-refresh orderings:
+
+1. Two refreshes observe the same marker revision; the older read writes first, and the newer read's compare-and-set
+   then fails, so the older text shows.
+2. An unchanged read takes the equality shortcut (`read.text == current text`: no write), so it does not fence off an
+   older refresh still in flight, which can then advance the marker to its older text.
+
+**R6 (orchestrator ruling, verbatim):** "F13 remainder ruled Low under the proportionate protection bar and the
+stuck-loop rule (fourth round on the snapshot-currency class). It needs two concurrent background refreshes of the same
+hand-linked note racing an edit; the only effect is that the margin shows the note one edit stale until the next
+refresh. There is no data loss, no model call and no evidence. Queued follow-up: give each read a monotonic token taken
+at read start and publish by token order, with unchanged reads advancing the fence."
+
+No further F13 code change was made.
