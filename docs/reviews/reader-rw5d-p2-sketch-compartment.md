@@ -134,9 +134,38 @@ same digests through the whole compartment chain in vitest and in the real webvi
   script assets, the frame page, a non-URL Referer) are refused; header parsing.
 - **pytest**: see the gate.
 
-## Gate
+## Gate (this step; the full suite runs once, in the landing gate)
 
-(Filled in below after the runs.)
+All in `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, one test command at a time.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: clean.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Targeted pytest** (`pytest -n 6`, 105 files: every figure, sketch and Manim test file, the tests that pin the
+  figures contract, every test file that reads the defaults snapshot or the parameter registry, and the contract
+  tests: config refactor, registry audit, architecture, CLI help snapshot, sidecar contract, desktop RPC contract,
+  mobile allowlist, table roles, coordinated migrations, tracked fixture databases, public-tip guards): first run
+  **2330 passed, 7 failed, 17 skipped, 3 xfailed** (22 min). The 7: four contract pins that now carry
+  `sketch: true` (`test_reader_tutor_switch_off.py` ×2, `test_reading_paths.py` ×2) and the desktop RPC contract's
+  parser of `generate_handler!` (×3; the list is now bound to a name and wrapped by the frame guard). Fixed; rerun of
+  those three files plus `test_desktop_activation_audit.py` (its activation kinds gain "bundled worker entry"):
+  **61 passed**.
+  Files: `test_ad1_codex_review_fixes.py`, `test_ad23_owner_decisions.py`, `test_ad23_successor.py`, `test_architecture.py`, `test_attempt_content_state_successor.py`, `test_batch3_landing.py`, `test_cli_help_snapshot.py`, `test_cold_retry_reschedule.py`, `test_compare_keep_switch_off.py`, `test_config_refactor.py`, `test_constraint_engine.py`, `test_coordinated_migrations.py`, `test_curriculum_c1_plan_follows_path.py`, `test_deliverable_codex_review.py`, `test_desktop_rpc_contract.py`, `test_diagnosis_input_provenance.py`, `test_field_workbench_signals.py`, `test_figure_grammar.py`, `test_figure_offers.py`, `test_figure_panels.py`, `test_figure_predictions.py`, `test_figure_property.py`, `test_figure_region.py`, `test_figure_requests_migration.py`, `test_figure_revisions.py`, `test_figure_rich_contract.py`, `test_figure_rich_job.py`, `test_figure_rich_rereview_fixes.py`, `test_figure_rich_review_fixes.py`, `test_figure_rich_rpc.py`, `test_figures_codex_review.py`, `test_figures_final_round.py`, `test_figures_fix_round2.py`, `test_figures_fix_round3.py`, `test_figures_fix_round4.py`, `test_figures_fix_round5.py`, `test_figures_migration.py`, `test_figures_rpc.py`, `test_figures_rw5b_fix_round2.py`, `test_figures_rw5b_review.py`, `test_figures_scope_redesign.py`, `test_figures_show_me_codex_review.py`, `test_figures_show_me.py`, `test_figures_switch_off.py`, `test_figure_verification.py`, `test_grading_cli.py`, `test_intent_codex_rereview.py`, `test_kinship_feature.py`, `test_learner_report_superseded.py`, `test_library_exercises.py`, `test_lp_claim_fixes.py`, `test_manim_figure_checks.py`, `test_manim_sandbox_hostile.py`, `test_method_explicit_upgrade.py`, `test_mobile_allowlist.py`, `test_mvp010_upgrade.py`, `test_mvp011_upgrade.py`, `test_mvp013_upgrade.py`, `test_mvp014_upgrade.py`, `test_mvp015_upgrade.py`, `test_mvp016_upgrade.py`, `test_mvp017_upgrade.py`, `test_mvp018_upgrade.py`, `test_mvp020_upgrade.py`, `test_mvp021_upgrade.py`, `test_mvp022_upgrade.py`, `test_mvp023_upgrade.py`, `test_mvp024_upgrade.py`, `test_open_world_gate.py`, `test_p0_cutover_mvp08.py`, `test_plan_determinism.py`, `test_plan_follows_path.py`, `test_project_report.py`, `test_public_tip_guards.py`, `test_reader_ca2_one_ask.py`, `test_reader_ca4_table_by_point.py`, `test_reader_followups_successor.py`, `test_reader_intentions.py`, `test_reader_intent.py`, `test_reader_rw2b_review.py`, `test_reader_tutor_switch_off.py`, `test_reading_paths.py`, `test_reading_step_switch.py`, `test_rebuild_equivalence_review.py`, `test_recurrence_commands.py`, `test_registry_audit.py`, `test_regrade_contract_successor.py`, `test_regrade_contract_upgrade.py`, `test_router_reader_activity.py`, `test_rw2c_switch_off.py`, `test_sensitivity_certificates.py`, `test_serve_eligibility_review.py`, `test_sidecar_contract.py`, `test_sketch_engine.py`, `test_sketch_hostile.py`, `test_sketch_parity.py`, `test_sketch_sandbox_review.py`, `test_sketch_scene_parity.py`, `test_sketch_service.py`, `test_sketch_verify.py`, `test_source_roles.py`, `test_table_roles.py`, `test_teacher_te0_review_fixes.py`, `test_tracked_fixture_databases.py`, `test_ux_phase2_shell.py`; plus `test_desktop_activation_audit.py` in the rerun.
+- No migration and no DB/connection code changed, so no durability lane.
+- **Frontend:** `npm install` (adds the `esbuild` dev dependency; already installed), `npm run typecheck` (clean),
+  `npx vitest run --maxWorkers=4 src/screens/reader/figures/`: **15 files, 403 passed** (includes the new
+  `sketchCompartment.test.ts`, 21 cases, and the changed `sketchProtocol.test.ts`), `npm run frontend:build`
+  (clean; `dist/sketch-frame.html`'s script is byte-identical to the source, so its CSP hash holds).
+- **Rust:** `cargo check --offline --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` (clean) and
+  `cargo test --offline`: **29 passed** (3 new `frame_guard` tests).
+- **References:** `db_generate_reference.py` then `db_validate_reference.py` (0 errors; `figures.sketch_enabled`
+  now `true`; the other changes are line citations moved by the schema docstring and source-commit headers);
+  `desktop_generate.py` then `desktop_validate.py` (passes: 300 TypeScript + 6 Rust modules, ACTIVE 306, with the
+  new "bundled worker entry" rule for the Worker that `vite.config.mjs` bundles; the validator's pinned counts
+  moved accordingly). `module_validate.py` fails with 1,291 missing-note issues that predate this stage (no Python
+  module was added or removed here), so the module catalog was not regenerated.
+- **Fingerprints:** recomputed after clearing the config `__pycache__`: first pass 31 changed, second pass 0; parity
+  with `sketch_enabled = false` reproduces every base fingerprint.
+- **G-SM14 rerun:** PASS (above; full record in `docs/reviews/reader-rw5d-g-sm14-probe.md`).
 
 ## Open points
 
