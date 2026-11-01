@@ -9573,6 +9573,9 @@ export interface DeliverableScopeDto {
   subjectId: string | null;
   /** The vault's active subjects, offered when subjectId is null. */
   subjects: Array<{ subjectId: string; title: string }>;
+  /** Curriculum C3: the syllabi the learner may attach whole as a scope input (present only when the
+   *  library has one it may read; never exam material). */
+  syllabi?: Array<{ extractionId: string; title: string }>;
 }
 
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */

@@ -67,7 +67,7 @@ from learnloop.content.authoring.exercise_authoring import (
 )
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
 from learnloop.content.authoring.practice_leakage import build_held_out_inventory, screen_practice_payload
-from learnloop.content.sources.exam_material import exam_material
+from learnloop.content.sources.exam_material import SCOPE_ONLY_REFUSAL, exam_material, reference_keys, scope_only_among
 from learnloop.content.sources.exercise_statements import read_exercise_statement, selection_nodes
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -1213,6 +1213,12 @@ def _import_source_exercise(
     if statement is None:
         return fail("rejected", "exam_material: this exercise's region is exam or held-out material now (or "
                     "cannot be read), so it never becomes practice")
+    # Curriculum C3 (Codex review F3): a syllabus (a member or a unit override with a
+    # scope-only role) only scopes a deliverable and is never practice. It is not exam
+    # material, so the checks above pass it; it is refused here, on the complete region,
+    # before anything is sent, and again before the write.
+    if scope_only_among(vault, repository, [(str(extraction_id), str(span)) for span in statement.checked_span_ids]):
+        return fail("rejected", SCOPE_ONLY_REFUSAL)
     started = time.monotonic()
     deadline = None if time_box_seconds is None else started + float(time_box_seconds)
     selection = selection_nodes(statement)
@@ -1347,6 +1353,12 @@ def _import_source_exercise(
     elif ladder is None:
         verification["pending_check"] = {"trigger": "background", "started_at": started_at,
                                          "process": PROCESS_TOKEN, "content_hash": checked_hash}
+    # Publication (Codex review F3): the region and every block the draft cites are read
+    # again, from the vault as it is now, so a role made scope-only during the import
+    # writes nothing.
+    cited, cited_whole = reference_keys([draft.payload.get("provenance"), canonical])
+    if scope_only_among(load_vault(root), repository, [*region, *cited], cited_whole):
+        return fail("rejected", SCOPE_ONLY_REFUSAL, key_status=key_status, verification=verification)
     with repository.connection() as connection:
         update_import(connection, import_id, updated_at=utc_now_iso(clock), practice_item_id=str(draft.payload["id"]),
                       key_status=key_status, verification=verification, content_hash=checked_hash)

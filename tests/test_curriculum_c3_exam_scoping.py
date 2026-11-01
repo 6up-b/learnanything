@@ -49,6 +49,7 @@ from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
 ALL_LOS = ("lo_det", "lo_eigen", "lo_inner", "lo_matrices", "lo_spectral", "lo_vectors")
 OFF = "[curriculum]\nexam_units_in_scope = false"
+LA = ("linear-algebra",)
 
 
 def _deliverable(paths, repository, sentence="Only my midterm: eigenvalues, determinants and matrix computations",
@@ -254,7 +255,7 @@ def test_a_syllabus_made_exam_during_the_call_keeps_nothing(tmp_path):
 def test_past_papers_contribute_their_lo_ids_only_and_held_out_units_nothing(tmp_path):
     paths, repository = build_exam_scope_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
-    assert DL.past_paper_learning_objects(vault, repository) == list(PAST_PAPER_LOS)  # lo_spectral: held out only
+    assert DL.past_paper_learning_objects(vault, repository, LA) == list(PAST_PAPER_LOS)  # lo_spectral: held out only
     goal_id, vault = _deliverable(paths, repository)
     fake = DeliverableFake()
     result = DL.resolve(vault, repository, goal_id, client=fake)
@@ -267,7 +268,7 @@ def test_past_papers_contribute_their_lo_ids_only_and_held_out_units_nothing(tmp
     # A unit held out later stops contributing at once.
     save_unit_selection(repository, "ext_paper", list(PAPER), exam_use_modes={
         "paper_q1": "held_out_evaluation", "paper_q2": "blueprint_only", "paper_q3": "held_out_evaluation"})
-    assert "lo_matrices" not in DL.past_paper_learning_objects(load_vault(paths.root), repository)
+    assert "lo_matrices" not in DL.past_paper_learning_objects(load_vault(paths.root), repository, LA)
 
 
 def test_an_unreadable_predicate_contributes_nothing(tmp_path, monkeypatch):
@@ -277,7 +278,7 @@ def test_an_unreadable_predicate_contributes_nothing(tmp_path, monkeypatch):
         raise RuntimeError("unreadable")
 
     monkeypatch.setattr(EM, "exam_material", broken)
-    assert DL.past_paper_learning_objects(load_vault(paths.root), repository) == []
+    assert DL.past_paper_learning_objects(load_vault(paths.root), repository, LA) == []
 
 
 def test_off_is_c0b_byte_for_byte(tmp_path, monkeypatch):

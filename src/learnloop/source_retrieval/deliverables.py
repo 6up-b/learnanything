@@ -68,7 +68,7 @@ from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources import exam_material as EM
-from learnloop.content.sources.role_authority import SCOPE_ONLY_ROLES, is_scope_only_role
+from learnloop.content.sources.role_authority import SCOPE_ONLY_ROLES
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import deliverables as store
 from learnloop.db.stores.judgments import append_judgment
@@ -620,7 +620,28 @@ def scope_library(vault: Any, repository: Repository) -> SC.Library:
 def syllabus_extractions(vault: Any, repository: Repository) -> frozenset[str]:
     """The readings a ``syllabus`` member holds whole (whole-document scope inputs)."""
 
-    return frozenset(EM.role_material(vault, repository, is_scope_only_role).extractions)
+    return frozenset(EM.scope_only_material(vault, repository).extractions)
+
+
+def syllabus_documents(vault: Any, repository: Repository) -> list[dict[str, str]]:
+    """The syllabi the learner may attach whole as a scope input (C3, §5.2; Codex review
+    F5): every reading a ``syllabus`` member holds whole that the scope library reads now
+    (exam material, a reading held back or an unreadable predicate: none). By title."""
+
+    try:
+        library = scope_library(vault, repository)
+        syllabus = syllabus_extractions(vault, repository)
+    except Exception:  # noqa: BLE001 - an unreadable predicate offers nothing
+        return []
+    found: list[dict[str, str]] = []
+    for extraction_id in sorted(syllabus):
+        if extraction_id in library.left_out or extraction_id not in library.extractions:
+            continue
+        reading = library.reading(extraction_id)
+        if reading is None or not reading.texts:
+            continue
+        found.append({"extraction_id": extraction_id, "title": reading.source_title or extraction_id})
+    return sorted(found, key=lambda entry: (entry["title"].casefold(), entry["extraction_id"]))
 
 
 def whole_document_spans(vault: Any, repository: Repository, extraction_id: str) -> list[str]:
@@ -785,6 +806,10 @@ class ScopePrompt:
     state_key: str
     #: The template it was rendered from (v2 only when the past-papers list was sent).
     version: str = SCOPE_PROMPT_VERSION
+    #: The past-papers ids sent (C3, §9.2) and the subjects they were read for: the request
+    #: guard reads them again before every request and the publication (Codex review F4).
+    past_papers: tuple[str, ...] = ()
+    subjects: frozenset[str] = frozenset()
 
 
 def _bounded_topics(vault: Any, budget_chars: int) -> list[dict[str, Any]]:
@@ -805,39 +830,144 @@ def exam_units_in_scope(vault: Any) -> bool:
     return bool(getattr(getattr(vault.config, "curriculum", None), "exam_units_in_scope", False))
 
 
-def past_paper_learning_objects(vault: Any, repository: Repository) -> list[str]:
-    """§9.2: the active LOs that practice-available exam and problem-set units map to, by id.
+def _source_of_extractions(repository: Repository, extraction_ids: Iterable[str]) -> dict[str, str]:
+    """``{extraction id: source id}`` for the readings named (unknown ones are absent)."""
 
-    A unit maps to an LO when the LO's provenance cites a block of it. Practice-available
-    is the predicate's: exam material (every exam member, exam unit and outline exam pick)
-    or problem-set material (members or unit overrides) that is *not* in the held-out
-    partition (``held_out_evaluation`` units, readings held back until marked, held-out
-    signals), so ``blueprint_only`` and ``available_for_practice`` units count and a
-    held-out unit never does. A ref naming an extraction without a block counts only when
-    that extraction is assessment material whole with nothing held out in it. Ids only:
-    no text of any unit is read. An unreadable predicate contributes nothing (fail closed)."""
+    from contextlib import closing
 
+    from learnloop.db.connection import connect
+
+    ids = sorted({str(value) for value in extraction_ids if value})
+    found: dict[str, str] = {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            for extraction_id, source_id in connection.execute(
+                    "SELECT run.id, revision.source_id FROM source_extraction_runs AS run "
+                    "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id "
+                    f"WHERE run.id IN ({', '.join('?' for _ in chunk)})", chunk):
+                if source_id is not None:
+                    found[str(extraction_id)] = str(source_id)
+    return found
+
+
+def _set_subjects_by_source(vault: Any) -> dict[str, set[str]]:
+    """``{source id: the subjects of the source sets holding it}``."""
+
+    found: dict[str, set[str]] = {}
+    for source_set in getattr(vault, "source_sets", None) or ():
+        for member in source_set.members:
+            found.setdefault(str(member.source_id), set()).add(str(source_set.subject_id))
+    return found
+
+
+def _active_subjects(vault: Any, learning_object_ids: Iterable[str]) -> set[str]:
+    subjects: set[str] = set()
+    for lo_id in learning_object_ids:
+        learning_object = vault.learning_objects.get(str(lo_id))
+        if learning_object is not None and learning_object.status == "active":
+            subjects.update(str(subject) for subject in learning_object.subjects or ())
+    return subjects
+
+
+def deliverable_subjects(vault: Any, repository: Repository, goal_id: str,
+                         inputs: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The subjects a deliverable is about, from its own explicit context (§5.3: the
+    past-papers mapping is "of this subject"; Codex review F1), first that names one:
+
+    1. the source sets holding the readings its passage inputs (a syllabus) come from;
+    2. the subjects of the topics its newest resolution needs, when they are one subject;
+    3. the vault's subject, when every active topic belongs to one.
+
+    Otherwise ambiguous: empty, and no past paper contributes (an unrelated subject's
+    papers are never presented as this course's). An unreadable reading names nothing."""
+
+    passages = [str(row.get("extraction_id") or "") for row in inputs if row.get("kind") == "passage"]
+    if passages:
+        try:
+            sources = _source_of_extractions(repository, passages)
+        except Exception:  # noqa: BLE001 - an unreadable reading names no subject
+            sources = {}
+        by_source = _set_subjects_by_source(vault)
+        named = {subject for extraction_id in passages for subject in by_source.get(sources.get(extraction_id, ""), ())}
+        if named:
+            return frozenset(named)
+    needed = _active_subjects(vault, [entry["learning_object_id"]
+                                      for entry in needed_learning_objects(vault, repository, goal_id)])
+    if len(needed) == 1:
+        return frozenset(needed)
+    if needed:
+        return frozenset()
+    every = _active_subjects(vault, vault.learning_objects)
+    return frozenset(every) if len(every) == 1 else frozenset()
+
+
+def _learning_object_refs(vault: Any, learning_object: Any) -> list[Any]:
+    """The LO's own source refs and its canonical facets' (Reader's mapping,
+    ``reader_progression.learning_objects_for_section``; Codex review F2)."""
+
+    from learnloop.vault.models import learning_object_facet_union
+
+    refs = list(getattr(getattr(learning_object, "provenance", None), "source_refs", None) or ())
+    facets = getattr(vault, "evidence_facets", None) or {}
+    for facet_id in learning_object_facet_union(learning_object):
+        facet = facets.get(vault.canonical_facet_id(str(facet_id)))
+        if facet is not None:
+            refs.extend(getattr(getattr(facet, "provenance", None), "source_refs", None) or ())
+    return refs
+
+
+def past_paper_learning_objects(vault: Any, repository: Repository, subjects: Iterable[str]) -> list[str]:
+    """§9.2: the active LOs of ``subjects`` that practice-available exam and problem-set
+    units of those subjects map to, by id.
+
+    A unit maps to an LO when the LO's provenance, or one of its canonical evidence
+    facets' (Codex review F2), cites a block of it. Practice-available is the predicate's:
+    exam material (every exam member, exam unit and outline exam pick) or problem-set
+    material (members or unit overrides) that is *not* in the held-out partition
+    (``held_out_evaluation`` units, readings held back until marked, held-out signals),
+    so ``blueprint_only`` and ``available_for_practice`` units count and a held-out unit
+    never does. A ref naming an extraction without a block counts only when that
+    extraction is assessment material whole with nothing held out in it.
+
+    **Of this subject** (Codex review F1): only LOs of ``subjects`` count, and a unit whose
+    source belongs to source sets counts only when one of them is of ``subjects`` (a source
+    in no set, an outline pick, is judged by its LO's subject). No subjects (ambiguous,
+    :func:`deliverable_subjects`): nothing. Ids only: no text of any unit is read. An
+    unreadable predicate contributes nothing (fail closed)."""
+
+    wanted = frozenset(str(subject) for subject in subjects)
+    if not wanted:
+        return []
     try:
         exam = EM.exam_material(vault, repository)
         problem_sets = EM.role_material(vault, repository,
                                         lambda role: str(role or "").strip() in PAST_PAPER_ROLES)
+        assessment = exam.material.union(problem_sets)
+        held = exam.held_out
+        if assessment.empty:
+            return []
+        sources = _source_of_extractions(repository, set(assessment.extractions)
+                                         | {key[0] for key in assessment.spans})
     except Exception:  # noqa: BLE001 - an unreadable predicate contributes nothing
         return []
-    assessment = exam.material.union(problem_sets)
-    held = exam.held_out
-    if assessment.empty:
-        return []
+    by_source = _set_subjects_by_source(vault)
+
+    def of_subject(extraction_id: str) -> bool:
+        owners = by_source.get(sources.get(extraction_id, ""))
+        return not owners or bool(owners & wanted)
+
     held_touched = held.touched
     found: list[str] = []
     for lo_id in sorted(vault.learning_objects):
         learning_object = vault.learning_objects[lo_id]
-        if learning_object.status != "active":
+        if learning_object.status != "active" or not wanted & {str(s) for s in learning_object.subjects or ()}:
             continue
-        refs = getattr(getattr(learning_object, "provenance", None), "source_refs", None) or ()
-        for ref in refs:
+        for ref in _learning_object_refs(vault, learning_object):
             keys, whole = EM.source_ref_keys(ref)
-            if any(assessment.covers(*key) and not held.covers(*key) for key in keys) or any(
-                    assessment.covers(extraction) and extraction not in held_touched for extraction in whole):
+            if any(assessment.covers(*key) and not held.covers(*key) and of_subject(key[0]) for key in keys) or any(
+                    assessment.covers(extraction) and extraction not in held_touched and of_subject(extraction)
+                    for extraction in whole):
                 found.append(lo_id)
                 break
     return found
@@ -854,8 +984,13 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
         else:
             text = str(row.get("text_md") or "")
         sent.append({"n": index, "kind": row["kind"], "text": text})
-    # C3 (§9.2): ids only, and only behind the switch; off (or nothing to add) leaves v1 exactly.
-    past = past_paper_learning_objects(vault, repository) if exam_units_in_scope(vault) else []
+    # C3 (§9.2): ids only, of this deliverable's subject, and only behind the switch; off (or
+    # nothing to add) leaves v1 exactly.
+    subjects: frozenset[str] = frozenset()
+    past: list[str] = []
+    if exam_units_in_scope(vault):
+        subjects = deliverable_subjects(vault, repository, goal.id, inputs)
+        past = past_paper_learning_objects(vault, repository, subjects)
     used = len(json.dumps(sent)) + (len(json.dumps(past)) if past else 0)
     topics = _bounded_topics(vault, max(0, budget - used))
     context: dict[str, Any] = {
@@ -870,7 +1005,8 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
     text = render_structured_prompt("Deliverable scope", version,
                                     {"instructions": instructions, "context": context})
     return ScopePrompt(text=text, input_ids=tuple(str(row["id"]) for row in inputs),
-                       state_key=content_key({"prompt_version": version, "prompt": text}), version=version)
+                       state_key=content_key({"prompt_version": version, "prompt": text}), version=version,
+                       past_papers=tuple(past), subjects=subjects if past else frozenset())
 
 
 def validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
@@ -938,15 +1074,24 @@ def needed_learning_objects(vault: Any, repository: Repository, goal_id: str) ->
 
 
 def passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[str, Any]], *,
-                  live_vault: Callable[[], Any] | None = None) -> SC.CoverageGuard | None:
+                  live_vault: Callable[[], Any] | None = None,
+                  prompt: ScopePrompt | None = None) -> SC.CoverageGuard | None:
     """C0a's :class:`SC.CoverageGuard` over the sections the passage inputs read (Codex
     review F1): protection is read again, from the vault as it is now (``live_vault``,
     the sidecar's generation-bound provider; else its files), before every physical
-    request and before the receipt. None when no input is a passage (nothing of a book
-    is sent). An unreadable predicate raises ``DeliverableError("exam_material")``."""
+    request and before the receipt.
+
+    C3 (Codex review F4): when ``prompt`` sent past-papers ids, the same guard also reads
+    them again, on the same snapshot (its ``gate``), for the subjects they were read for:
+    an id that no longer has a practice-available unit (one marked held out meanwhile)
+    refuses every later request and the publication, text-only inputs included.
+
+    None when no input is a passage and no past-papers id was sent (nothing of a book or a
+    paper is read). An unreadable predicate raises ``DeliverableError("exam_material")``."""
 
     passages = [row for row in inputs if row.get("kind") == "passage"]
-    if not passages:
+    sent = tuple(prompt.past_papers) if prompt is not None else ()
+    if not passages and not sent:
         return None
     try:
         library = scope_library(vault, repository)  # a syllabus passage is read again under protection too
@@ -962,7 +1107,14 @@ def passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[s
             section_id = reading.all_spans.get(str(span))
             if section_id is not None:
                 keys.append((extraction_id, section_id))
-    return SC.CoverageGuard(library, keys, live_vault=live_vault)
+    gate = None
+    if sent:
+        subjects = prompt.subjects if prompt is not None else frozenset()
+
+        def gate(now: Any) -> bool:
+            return set(sent) <= set(past_paper_learning_objects(now, repository, subjects))
+
+    return SC.CoverageGuard(library, keys, live_vault=live_vault, gate=gate)
 
 
 def _superseded_ledger(goal_id: str, prompt: ScopePrompt, needs: Any, unmatched: Any, model: str, now: str,
@@ -1005,7 +1157,7 @@ def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | N
         return ScopeResult("fresh", resolution=latest)
     route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
                       envelope=daily_envelope(vault, repository, clock=clock), label="your deliverable's scope")
-    guard = passage_guard(vault, repository, rows, live_vault=live_vault)
+    guard = passage_guard(vault, repository, rows, live_vault=live_vault, prompt=prompt)
     if cached is None:
         try:
             output = route.ask(prompt.text, ScopeResolutionV1, owner_id=f"{goal_id}:{prompt.state_key[:16]}",
@@ -1219,10 +1371,11 @@ def scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, An
               for entry in needs]
     if topics and exam_units_in_scope(vault):
         # C3 (§9.2): "your past papers test this", by id; off, the view is C0b's exactly.
-        tested = set(past_paper_learning_objects(vault, repository))
+        tested = set(past_paper_learning_objects(vault, repository, deliverable_subjects(
+            vault, repository, goal_id, [row for row in inputs if row["kind"] in SCOPE_KINDS])))
         for topic in topics:
             topic["on_past_papers"] = topic["learning_object_id"] in tested
-    return {
+    view: dict[str, Any] = {
         "goal_id": goal_id, "title": goal.title, "sentence": goal.intent_sentence, "kind": kind_of(goal),
         "due_at": goal.due_at, "depth": depth_of(repository, goal_id),
         "inputs": [{"id": row["id"], "kind": row["kind"], "text": row.get("text_md"),
@@ -1239,6 +1392,12 @@ def scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, An
             "id": latest["id"], "origin": latest["origin"], "model": latest["model"],
             "created_at": latest["created_at"], "facet_scope": latest.get("facet_scope") or {}},
     }
+    # C3 (§5.2; Codex review F5): the syllabi the panel offers to read whole, present only
+    # when the library has one (no syllabus: the view is C0b's exactly).
+    syllabi = syllabus_documents(vault, repository)
+    if syllabi:
+        view["syllabi"] = syllabi
+    return view
 
 
 def deliverable_goals(vault: Any, repository: Repository) -> list[Any]:
@@ -1281,6 +1440,7 @@ __all__ = [
     "create_deliverable",
     "decide_unmatched",
     "deliverable_goals",
+    "deliverable_subjects",
     "depth_of",
     "exam_units_in_scope",
     "goal_of",
@@ -1295,6 +1455,7 @@ __all__ = [
     "scope_for",
     "scope_library",
     "scope_view",
+    "syllabus_documents",
     "syllabus_extractions",
     "topic_records",
     "validate_resolution",

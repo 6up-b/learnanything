@@ -111,7 +111,7 @@ from contextlib import closing
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES
+from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES, is_scope_only_role
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_block_fts import UnitRow, extraction_units, source_extraction_ids
 from learnloop.db.stores.source_service import shown_items
@@ -983,6 +983,39 @@ def role_material(vault_or_sets: Any, repository: Any, withheld_role: Callable[[
     return Material.from_acc(acc)
 
 
+#: Why scope-only material never becomes practice (curriculum C3; the import's refusal reason).
+SCOPE_ONLY_REFUSAL = ("scope_only: this is syllabus material, which LearnLoop uses only to scope your "
+                      "deliverables, so it never becomes practice")
+
+
+def scope_only_material(vault_or_sets: Any, repository: Any) -> Material:
+    """Curriculum C3 (spec §9.1, §9.3; Q2): the material of members and unit overrides
+    whose role only scopes a deliverable (``role_authority.SCOPE_ONLY_ROLES``: a
+    syllabus), resolved as every role without exam protection is (:func:`role_material`).
+    It is never protected, and never practice either: every practice import refuses it
+    at admission and again before it writes (:func:`scope_only_among`)."""
+
+    return role_material(vault_or_sets, repository, is_scope_only_role, member_reason="scope_only_member",
+                         unit_reason="scope_only_unit")
+
+
+def scope_only_among(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]],
+                     whole: Iterable[str] = ()) -> bool:
+    """Whether any of these blocks (or readings named whole) is scope-only material
+    (:func:`scope_only_material`, Codex review F3), independently of exam protection.
+    An unreadable predicate answers True (fail closed: nothing is made practice)."""
+
+    wanted = [(str(key[0]), str(key[1])) for key in keys]
+    named = [str(extraction) for extraction in whole if extraction]
+    if not wanted and not named:
+        return False
+    try:
+        material = scope_only_material(vault_or_sets, repository)
+    except Exception:  # noqa: BLE001 - an unreadable predicate makes nothing practice
+        return True
+    return bool(material.covered(wanted)) or any(material.covers(extraction) for extraction in named)
+
+
 def exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[str]]) -> frozenset[SpanKey]:
     """The keys among ``keys`` that are exam material."""
 
@@ -1518,6 +1551,7 @@ __all__ = [
     "Material",
     "PROTECTION_MARK_KEY",
     "REVIEWED_UNPLACED",
+    "SCOPE_ONLY_REFUSAL",
     "SourceMarks",
     "UNMARKED_READING",
     "UNRESOLVED_UNIT",
@@ -1543,6 +1577,8 @@ __all__ = [
     "raw_roots",
     "reading_held_back",
     "role_material",
+    "scope_only_among",
+    "scope_only_material",
     "scope_reading_of",
     "selection_marks_exact",
     "source_marks",

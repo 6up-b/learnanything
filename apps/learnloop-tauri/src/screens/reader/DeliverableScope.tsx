@@ -8,7 +8,8 @@
 // * DeliverableScopePanel: one line per topic with the phrase of the learner's it answers;
 //   the phrases not in the library yet with *add it* / *no* (a topic is created only on the
 //   learner's yes); *not this…* and *add…* as text boxes (learner text over delete buttons);
-//   the resolution's receipt on demand; "How deep for this?" while it is unanswered.
+//   the resolution's receipt on demand; "How deep for this?" while it is unanswered; with a
+//   syllabus in the library (curriculum C3), "from your syllabus" attaches one whole.
 //
 // Display only: the server resolves, validates and writes; this module words the result.
 import { useCallback, useEffect, useState } from "react";
@@ -65,6 +66,10 @@ export const SCOPE_COPY = {
   chooseSubject: "choose a subject…",
   pastPapers: "on your past papers",
   pastPapersTitle: "your past papers or problem sets test this topic (LearnLoop read which topics, never their questions)",
+  syllabus: "from your syllabus",
+  chooseSyllabus: "choose a syllabus…",
+  readSyllabus: "read it ↵",
+  syllabusTitle: "LearnLoop reads the whole syllabus to find what this needs; it never teaches from it or makes practice of it",
 } as const;
 
 /** "For your midterm: 14 topics from your books · 2 not in your library yet". */
@@ -93,6 +98,10 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
   // infer one (its subjectId null, or its no_subject refusal), then sent with add it.
   const [subjectId, setSubjectId] = useState("");
   const [askSubject, setAskSubject] = useState(false);
+  // Curriculum C3 (spec §5.2; Codex review F5): a syllabus in the library is attached whole
+  // as a passage input (no selection: the server reads every span and records them).
+  const [syllabusId, setSyllabusId] = useState("");
+  const syllabi = scope.syllabi ?? [];
   const subjects = scope.subjects ?? [];
   const choosing = (scope.subjectId == null || askSubject) && subjects.length > 0
     && scope.unmatched.some((entry) => entry.status === "open");
@@ -106,6 +115,20 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
       onChanged(out.scope);
     } catch (error) {
       onError(errorMessage(error, "Couldn't send that."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const attachSyllabus = async (extractionId: string) => {
+    setBusy(true);
+    try {
+      const out = await api.curriculumSetScope({ goalId: scope.goalId, kind: "passage", extractionId, spanIds: [] });
+      setNotice(scopeNotice(out));
+      setSyllabusId("");
+      onChanged(out.scope);
+    } catch (error) {
+      onError(errorMessage(error, "Couldn't read that syllabus."));
     } finally {
       setBusy(false);
     }
@@ -183,6 +206,20 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
         onChange={setNotThis} onSend={() => void send("correction", notThis.trim(), () => setNotThis(""))} />
       <TextBox label={SCOPE_COPY.add} placeholder={SCOPE_COPY.addPlaceholder} value={add} busy={busy}
         onChange={setAdd} onSend={() => void send("text", add.trim(), () => setAdd(""))} />
+      {syllabi.length ? (
+        <form data-deliverable-syllabus style={{ display: "flex", gap: 6, alignItems: "baseline" }} title={SCOPE_COPY.syllabusTitle}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (syllabusId) void attachSyllabus(syllabusId);
+          }}>
+          <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>{SCOPE_COPY.syllabus}</span>
+          <select aria-label={SCOPE_COPY.syllabus} value={syllabusId} onChange={(event) => setSyllabusId(event.target.value)} style={INPUT}>
+            <option value="">{SCOPE_COPY.chooseSyllabus}</option>
+            {syllabi.map((entry) => <option key={entry.extractionId} value={entry.extractionId}>{entry.title}</option>)}
+          </select>
+          <button type="submit" style={LINK} disabled={busy || !syllabusId}>{SCOPE_COPY.readSyllabus}</button>
+        </form>
+      ) : null}
       {scope.resolution && !scope.depth ? (
         <div role="group" aria-label={SCOPE_COPY.ask} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
           <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.text }}>{SCOPE_COPY.ask}</span>
