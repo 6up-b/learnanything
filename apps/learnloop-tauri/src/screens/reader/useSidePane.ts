@@ -17,30 +17,28 @@
 // * its capture target (this book's source, revision and reading), so a
 //   preset, a highlight, a note or an exercise import goes to this book;
 // * its active reading and its figures, on this reading;
-// * its margin cues: this book's Guide plan cues (RW3a, with RW3b's when the
-//   plan carries discovery), already within the learner's density budget for
-//   this book, placed by the same restraint rules as the Reader alone
-//   (cues.ts, computed when the text is laid out, never while scrolling),
-//   drawn static in the pane's gutter, out of the text column, and
-//   switchable from their popover (fewer, off for this book, off everywhere,
-//   each with an undo). The density setting is one setting: a change from
-//   either pane re-reads both plans.
+// * its margin cues: the Reader's own cue controller (useReaderCues) on this
+//   book's Guide plan, so the pane behaves as the Reader alone on this book
+//   (RW3a: the density budget, the restraint rules, the popover's actions
+//   and undos, check me, Alt+↓ / Alt+↑ while focus is in the pane; RW3b
+//   with discovery on: the background search for this book's missing links,
+//   impression receipts, taps with the visit, try this step first), drawn
+//   static in the pane's gutter, out of the text column, and placed again
+//   when the pane's size changes (Codex review F4-F6, F8, F9). The density
+//   setting is one setting: a change from either pane re-reads both plans.
 //
-// Display and learner-initiated actions only: nothing here writes evidence.
+// Display and learner-initiated actions only: nothing here writes evidence
+// (cue taps and receipts are salience-only, as in the main pane).
 // Off (side by side not shown), the hook holds nothing and reads nothing.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { api } from "../../api/client";
-import type { CueDensity, ReaderCueDto, ReaderCuesDto, ReaderIntentContractDto, SideBySideSectionDto } from "../../api/dto";
-import { errorMessage } from "../../errors";
-import { logReaderAction } from "./activity";
-import { CUE_COPY, placeCueMarks, stepDown } from "./cues";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import type { ReaderGuidePlanDto, ReaderIntentContractDto, SideBySideSectionDto } from "../../api/dto";
 import { useFigures, type FiguresContract } from "./figures/useFigures";
 import { readGuidePlan } from "./guidePlan";
 import type { PaneSelection } from "./SideBySidePane";
 import { useActiveReading } from "./useActiveReading";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./useIntentBox";
 import type { ReaderIntentActionDto } from "../../api/dto";
-import type { CueReceipt } from "./MarginMark";
+import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./useReaderCues";
 
 /** What the second pane's palette leaves out: the open book's own views (U13: absent, never disabled). */
 export const SIDE_PANE_HIDDEN_KINDS: ReadonlyArray<string> = ["work_through", "reading_path"];
@@ -80,13 +78,18 @@ export interface SidePaneInput {
   reloadMainPlan: () => Promise<void> | void;
   visitPayload: () => { visit_id: string | null; extraction_id: string | null };
   onError: (message: string) => void;
+  offline: boolean;
+  /** How many of the book's next lines "let me try the next step" folds. */
+  foldBlocks: number;
+  /** "check me" on this book's marks: the shell opens the item (absent: no check me). */
+  onCheckMe?: (request: CueCheckMeRequest, origin: CueRequestOrigin) => void;
 }
 
 const noop = () => undefined;
 
 export function useSidePane(input: SidePaneInput) {
   const { shown, section, intentContract, muted, notes, hostRef, onRun, onCancelRun, onSelectedHere,
-    activeReadingOn, figuresContract, densityKey, reloadMainPlan, visitPayload, onError } = input;
+    activeReadingOn, figuresContract, densityKey, reloadMainPlan, visitPayload, onError, offline, foldBlocks, onCheckMe } = input;
   const extractionId = shown && section ? section.extractionId : null;
   const sourceId = shown && section ? section.sourceId : null;
   const sectionKey = extractionId && section ? `${extractionId}::${section.sectionId}` : null;
@@ -151,7 +154,10 @@ export function useSidePane(input: SidePaneInput) {
   const marksChanged = useCallback(() => setMarksVersion((value) => value + 1), []);
 
   const cues = useSidePaneCues({
-    extractionId, sourceId, blocks: section?.blocks ?? null, muted, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+    extractionId, sourceId, blocks: section?.blocks ?? null, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+    ...(onCheckMe ? { onCheckMe } : {}),
+    // RW3b: "try this step first" is RW1b's next-step question at that line, in this pane.
+    ...(activeReadingOn ? { onTryFirst: (spanId: string) => void active.start("next_step", [spanId], fold([spanId], foldBlocks)) } : {}),
   });
 
   return {
@@ -162,187 +168,116 @@ export function useSidePane(input: SidePaneInput) {
 
 export type SidePane = ReturnType<typeof useSidePane>;
 
-/** Reader CA6b: the second pane's margin cues (RW3a/RW3b), as if it were the Reader alone. */
+/** Reader CA6b: the second pane's margin cues (RW3a/RW3b), as if it were the
+ *  Reader alone: the Reader's own cue controller (useReaderCues) on this
+ *  book's plan, surface and passages (Codex review F4-F6, F8, F9). So the
+ *  second pane runs RW3b's discovery for this book (its own open id, the
+ *  sidecar's per-open call budget, the plan re-read when a job found
+ *  something), RW3b's impression receipts (shown, held out and set aside,
+ *  under the plan each cue was first seen on, in this book's own cue visit),
+ *  taps with that visit, "try this step first" recorded with its tap, "check
+ *  me", Alt+↓ / Alt+↑ while focus is in this pane, and placement again
+ *  whenever the pane's size changes (the splitter, the window), never on
+ *  scroll. */
 function useSidePaneCues({
-  extractionId, sourceId, blocks, muted, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+  extractionId, sourceId, blocks, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+  onCheckMe, onTryFirst,
 }: {
   extractionId: string | null;
   sourceId: string | null;
   blocks: SideBySideSectionDto["blocks"] | null;
   muted: boolean;
+  offline: boolean;
   densityKey: string | null;
   hostRef: RefObject<HTMLDivElement | null>;
   reloadMainPlan: () => Promise<void> | void;
   visitPayload: () => { visit_id: string | null; extraction_id: string | null };
   onError: (message: string) => void;
+  onCheckMe?: (request: CueCheckMeRequest, origin: CueRequestOrigin) => void;
+  onTryFirst?: (spanId: string) => void;
 }) {
-  const [cues, setCues] = useState<ReaderCuesDto | null>(null);
-  const [shown, setShown] = useState<string[]>([]);
-  const [openCueId, setOpenCueId] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<CueReceipt | null>(null);
-  const [tick, setTick] = useState(0);
-  const [resizeTick, setResizeTick] = useState(0);
-  const loggedRef = useRef<Set<string>>(new Set());
+  const [plan, setPlan] = useState<ReaderGuidePlanDto | null>(null);
   const generation = useRef(0);
 
   // This book's plan (a local read through the Reader's cache), re-read when
-  // the density changes anywhere or a preference changed here.
+  // the density changes anywhere; a re-read of the same reading keeps the
+  // marks drawn until it lands (no flicker) and skips the cache.
   const readFor = useRef<string | null>(null);
-  useEffect(() => {
+  const read = useCallback(async (force: boolean) => {
     generation.current += 1;
     const mine = generation.current;
-    // A re-read of the same reading keeps the marks drawn until it lands (no flicker) and skips the cache.
-    const again = readFor.current === extractionId && extractionId !== null;
-    readFor.current = extractionId;
-    if (!again) setCues(null);
-    if (!extractionId || !sourceId) return;
-    void Promise.resolve()
-      .then(() => readGuidePlan(sourceId, extractionId, again ? { force: true } : {}))
-      .then((plan) => {
-        if (generation.current !== mine) return;
-        // Only this reading's own cues (a plan for another reading is not this pane's).
-        setCues(plan && plan.extractionId === extractionId && plan.cues ? plan.cues : null);
-      })
-      .catch(() => undefined);
-  }, [extractionId, sourceId, densityKey, tick]);
-
-  // Per book: the marks counted this visit, the open popover, the receipt.
-  useEffect(() => {
-    loggedRef.current = new Set();
-    setOpenCueId(null);
-    setReceipt(null);
-  }, [extractionId]);
-
-  useEffect(() => {
-    const onResize = () => setResizeTick((value) => value + 1);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // Which marks are drawn: the Reader's restraint rules, computed when the
-  // pane's text is laid out (a layout effect), never while scrolling.
-  const marksKey = (cues?.marks ?? []).map((cue) => `${cue.cueId}:${cue.rank}`).join("|");
-  const blocksKey = (blocks ?? []).map((block) => block.spanId).join("|");
-  useLayoutEffect(() => {
-    const body = hostRef.current;
-    if (!cues || cues.marks.length === 0 || !body || !blocks) {
-      setShown((current) => (current.length === 0 ? current : []));
-      return;
-    }
-    const placed = placeCueMarks({
-      marks: cues.marks,
-      muted,
-      working: false,
-      restoredSpanId: null,
-      onePerViewport: cues.onePerViewport,
-      positionOf: (spanId) => {
-        const element = Array.from(body.querySelectorAll<HTMLElement>("[data-sbs-span]")).find((node) => node.dataset.sbsSpan === spanId);
-        return element ? element.getBoundingClientRect().top : null;
-      },
-      viewportHeight: body.clientHeight,
-    });
-    const ids = placed.shown.map((cue) => cue.cueId);
-    setShown((current) => (current.length === ids.length && current.every((id, i) => id === ids[i]) ? current : ids));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marksKey, blocksKey, cues?.onePerViewport, muted, resizeTick]);
-
-  const byId = useMemo(() => new Map((cues?.marks ?? []).map((cue) => [cue.cueId, cue])), [cues]);
-  const bySpan = useMemo(() => {
-    const map = new Map<string, ReaderCueDto>();
-    for (const cueId of shown) {
-      const cue = byId.get(cueId);
-      if (cue && !map.has(cue.spanId)) map.set(cue.spanId, cue);
-    }
-    return map;
-  }, [shown, byId]);
-  const markOn = useCallback((spanId: string) => bySpan.get(spanId) ?? null, [bySpan]);
-
-  const cuesRef = useRef(cues);
-  cuesRef.current = cues;
-  // Each mark the learner could see counts once per visit, as the main pane's (this book's reading named).
-  const noteSeen = useCallback((cue: ReaderCueDto) => {
-    const current = cuesRef.current;
-    if (!current || !extractionId || loggedRef.current.has(cue.cueId)) return;
-    loggedRef.current.add(cue.cueId);
-    logReaderAction("cue_shown", {
-      ...visitPayload(), target_source_id: sourceId, target_extraction_id: extractionId, cue_id: cue.cueId, span_id: cue.spanId,
-      cue_kind: cue.kind, density: current.density, element: "margin_mark", entry: "side_by_side",
-    });
-  }, [extractionId, sourceId, visitPayload]);
-
-  const tap = useCallback((cue: ReaderCueDto, action: "opened" | "not_relevant" | "not_relevant_undone", text?: string) => {
-    if (!extractionId) return Promise.reject(new Error("no reading"));
-    const planId = cuesRef.current?.discovery?.planId;
-    if (planId) return api.readerCueTap({ extractionId, cueId: cue.cueId, action, text: text || null, planId });
-    return api.readerCueAction({ extractionId, cueId: cue.cueId, action, text: text || null });
-  }, [extractionId]);
-
-  const reloadBoth = useCallback(async () => {
-    setTick((value) => value + 1);
-    await reloadMainPlan();
-  }, [reloadMainPlan]);
-
-  const setPreferences = useCallback(async (change: { density?: CueDensity; sourceOff?: boolean }, via: "fewer" | "popover" | "undo") => {
     if (!extractionId || !sourceId) return;
     try {
-      await api.readerSetCuePreferences({
-        extractionId, sourceId, via, density: change.density ?? null, sourceOff: change.sourceOff ?? null,
-      });
-      await reloadBoth();
-    } catch (error) {
-      onError(errorMessage(error));
+      const next = await readGuidePlan(sourceId, extractionId, force ? { force: true } : {});
+      // Only this reading's own plan (a plan for another reading is not this pane's).
+      if (generation.current === mine) setPlan(next && next.extractionId === extractionId ? next : null);
+    } catch {
+      /* The marks the pane has stay; the next change re-reads. */
     }
-  }, [extractionId, sourceId, reloadBoth, onError]);
+  }, [extractionId, sourceId]);
+  useEffect(() => {
+    const again = readFor.current === extractionId && extractionId !== null;
+    readFor.current = extractionId;
+    if (!again) setPlan(null);
+    void Promise.resolve().then(() => read(again));
+  }, [extractionId, densityKey, read]);
+  const reloadPlan = useCallback(() => read(true), [read]);
+  // The density is one vault-wide setting (with a per-book off): a change
+  // made here re-reads both panes' plans.
+  const reloadBoth = useCallback(async () => {
+    await read(true);
+    await reloadMainPlan();
+  }, [read, reloadMainPlan]);
 
-  const density: CueDensity = cues?.density ?? "normal";
-  const openEarlier = useCallback((cue: ReaderCueDto) => {
-    void tap(cue, "opened").catch(() => undefined);
-  }, [tap]);
-  const notRelevant = useCallback((cue: ReaderCueDto, text: string) => {
-    setOpenCueId(null);
-    void tap(cue, "not_relevant", text)
-      .then(() => {
-        setReceipt({
-          id: `not_relevant:${cue.cueId}`, label: CUE_COPY.receiptNotRelevant, detail: cue.learningObjectTitle,
-          onUndo: () => {
-            setReceipt(null);
-            void tap(cue, "not_relevant_undone").then(() => setTick((value) => value + 1)).catch((error) => onError(errorMessage(error)));
-          },
-        });
-        setTick((value) => value + 1);
-      })
-      .catch((error) => onError(errorMessage(error)));
-  }, [tap, onError]);
-  const fewer = useCallback(() => {
-    const previous = density;
-    const next = stepDown(previous);
-    setOpenCueId(null);
-    setReceipt({ id: "preference", label: `${CUE_COPY.receiptDensity} ${next}.`, onUndo: () => {
-      setReceipt(null);
-      void setPreferences({ density: previous }, "undo");
-    } });
-    void setPreferences({ density: next }, "fewer");
-  }, [density, setPreferences]);
-  const offBook = useCallback(() => {
-    setOpenCueId(null);
-    setReceipt({ id: "preference", label: CUE_COPY.receiptBookOff, onUndo: () => {
-      setReceipt(null);
-      void setPreferences({ sourceOff: false }, "undo");
-    } });
-    void setPreferences({ sourceOff: true }, "popover");
-  }, [setPreferences]);
-  const offEverywhere = useCallback(() => {
-    const previous = density;
-    setOpenCueId(null);
-    setReceipt({ id: "preference", label: CUE_COPY.receiptEverywhereOff, onUndo: () => {
-      setReceipt(null);
-      void setPreferences({ density: previous }, "undo");
-    } });
-    void setPreferences({ density: "off" }, "popover");
-  }, [density, setPreferences]);
+  // The pane's text is laid out again when its size changes (the splitter,
+  // the rail's overlay, the window): placement then runs again. Never on
+  // scroll (a scroll changes no size).
+  const [geometry, setGeometry] = useState(0);
+  useEffect(() => {
+    const body = hostRef.current;
+    if (!extractionId || !body || typeof ResizeObserver === "undefined") return;
+    let last: string | null = null;
+    const observer = new ResizeObserver(() => {
+      const size = `${body.clientWidth}x${body.clientHeight}`;
+      if (size === last) return;
+      last = size;
+      setGeometry((value) => value + 1);
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, [extractionId, hostRef]);
 
-  return {
-    cues: extractionId ? cues : null, markOn, noteSeen, openCueId, setOpenCueId, receipt,
-    openEarlier, notRelevant, fewer, offBook, offEverywhere,
-  };
+  const render = useMemo(() => (extractionId && sourceId ? { extractionId, sourceId } : null), [extractionId, sourceId]);
+  const spanOrder = useMemo(
+    () => new Map((blocks ?? []).map((block, index) => [block.spanId, index] as const)), [blocks]);
+  const blocksKey = (blocks ?? []).map((block) => block.spanId).join("|");
+  // A mark moved to by Alt+↓ / Alt+↑ is placed in this pane (a placement, never reading).
+  const jumpToSpan = useCallback((spanId: string) => {
+    const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? [])
+      .find((element) => element.dataset.sbsSpan === spanId);
+    node?.scrollIntoView?.({ behavior: "auto", block: "center" });
+  }, [hostRef]);
+  // Alt+↓ / Alt+↑ are this pane's while focus is in it (the main pane's controller leaves them).
+  const ownsKey = useCallback((event: KeyboardEvent) => inSidePane(event.target), []);
+  // The funnel names the book beside (its source and reading) on each mark it counts.
+  const sideVisitPayload = useCallback(() => ({
+    ...visitPayload(), target_source_id: sourceId, target_extraction_id: extractionId, entry: "side_by_side",
+  }), [visitPayload, sourceId, extractionId]);
+  // RW3b's receipts for this book belong to this book's own cue visit (one per open of it).
+  const ownVisit = useCallback(() => null, []);
+
+  const cueCtl = useReaderCues({
+    render, working: false, offline, guidePlan: plan, reloadGuidePlan: reloadPlan, reloadAfterPreference: reloadBoth,
+    skimming: muted, restoredSpanId: null, surface: render ? "text" : "none", pdfBlocks: null, pdfLayout: null,
+    bodyRef: hostRef, layoutKey: `${blocksKey}:${geometry}`, spanOrder, readingSpan: null,
+    visitPayload: sideVisitPayload, jumpToSpan, notePlacement: noop, onError,
+    spanAttribute: "data-sbs-span", ownsKey, cueVisitId: ownVisit,
+    ...(onCheckMe ? { onCheckMe } : {}), ...(onTryFirst ? { onTryFirst } : {}),
+  });
+  return cueCtl;
+}
+
+/** Whether a key event happened in side by side's second pane. */
+export function inSidePane(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest("[data-side-by-side-pane]") !== null;
 }

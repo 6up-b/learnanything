@@ -977,7 +977,10 @@ export function App() {
         const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null);
         if (!stillOpen()) return false;
         setReaderCheck(readerWorkbenchCheck(request, offer, served.prompt));
-        if (options.fromStart) {
+        // Reader CA6b (Codex review F8): a check from side by side's second
+        // pane is that book's; the Reader opens it there (at the mark's
+        // passage, the way back), as the Reader alone on that book would.
+        if (options.fromStart || (readerSource !== null && readerSource.card.sourceId !== request.card.sourceId)) {
           setReaderSource({ card: request.card, spanId: request.spanId });
           setReaderOpenSeq((seq) => seq + 1);
           setTab("reader");

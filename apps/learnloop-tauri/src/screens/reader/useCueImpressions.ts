@@ -65,6 +65,10 @@ export interface CueImpressionsInput {
   bodyRef: RefObject<HTMLDivElement | null>;
   /** The funnel's visit, when RW1a's activity is on. */
   visitId: () => string | null;
+  /** Reader CA6b: the attribute naming a passage on the text surface (side
+   *  by side's second pane marks its passages `data-sbs-span`); absent:
+   *  `data-span-id`, the Reader's own. */
+  spanAttribute?: string;
 }
 
 export interface CueImpressions {
@@ -106,6 +110,7 @@ const discoveredCue = (cue: ReaderCueDto) => Boolean(cue.linkId);
 
 export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const { extractionId, cues, placement, surface, bodyRef, visitId } = input;
+  const textAttribute = input.spanAttribute ?? "data-span-id";
   const discovery = cues?.discovery ?? null;
   const localVisitRef = useRef<{ extractionId: string; id: string } | null>(null);
   const sentRef = useRef<Set<string>>(new Set());
@@ -246,7 +251,7 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     const body = bodyRef.current;
     const items = pendingRef.current;
     if (!body || items.length === 0) return;
-    const attribute = surface === "watch" ? "data-transcript-span" : "data-span-id";
+    const attribute = surface === "watch" ? "data-transcript-span" : textAttribute;
     const bySpan = new Map<Element, Pending[]>();
     for (const item of items) {
       const element = body.querySelector(`[${attribute}="${item.cue.spanId}"]`);
@@ -337,7 +342,7 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     // generation's late callbacks are discarded (F21). Receipts already
     // queued keep the plan they were seen on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId]);
+  }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId, textAttribute]);
 
   return { visitId: currentVisit, planFor, noteShown, noteFewer };
 }

@@ -69,7 +69,9 @@ export interface CueRequestOrigin {
 export type CueSurface = "text" | "pdf" | "watch" | "none";
 
 export interface ReaderCuesInput {
-  render: ReaderRenderViewDto | null;
+  /** The reading the marks are on (Reader CA6b: side by side's second pane
+   *  passes its own book's, so the same controller runs there). */
+  render: Pick<ReaderRenderViewDto, "extractionId" | "sourceId"> | null;
   /** RW2a: the source pane beside the workbench (no marks while working). */
   working?: boolean;
   offline: boolean;
@@ -102,6 +104,18 @@ export interface ReaderCuesInput {
    *  try-first action (W11). */
   onTryFirst?: (spanId: string) => void;
   onError: (message: string) => void;
+  /** Reader CA6b: the attribute naming a passage on the text surface
+   *  (`data-sbs-span` in side by side's second pane); absent: `data-span-id`. */
+  spanAttribute?: string;
+  /** Reader CA6b (Codex review F9): whether an Alt+↓ / Alt+↑ is this
+   *  surface's (the focused pane's); absent: every one. */
+  ownsKey?: (event: KeyboardEvent) => boolean;
+  /** Reader CA6b: the visit RW3b's receipts belong to; absent: the funnel's
+   *  (the second pane's book keeps its own, minted per open). */
+  cueVisitId?: () => string | null;
+  /** Reader CA6b: re-read after a density or book-off change (one vault-wide
+   *  setting: both panes' plans); absent: `reloadGuidePlan`. */
+  reloadAfterPreference?: () => Promise<void>;
 }
 
 export interface ReaderCues {
@@ -168,7 +182,9 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   const {
     render, offline, guidePlan, reloadGuidePlan, skimming, restoredSpanId, surface, pdfBlocks, pdfLayout,
     bodyRef, layoutKey, spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement, onCheckMe, onTryFirst, onError,
+    ownsKey, cueVisitId, reloadAfterPreference,
   } = input;
+  const spanAttribute = input.spanAttribute ?? "data-span-id";
   // RW2a: the workbench's source pane while working shows no LearnLoop marks.
   const working = input.working ?? false;
   const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null;
@@ -225,7 +241,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     let positionOf: (spanId: string) => number | null = () => null;
     if (surface === "text" && body) {
       positionOf = (spanId) => {
-        const element = body.querySelector(`[data-span-id="${spanId}"]`);
+        const element = body.querySelector(`[${spanAttribute}="${spanId}"]`);
         return element instanceof HTMLElement ? element.getBoundingClientRect().top : null;
       };
     } else if (surface === "pdf" && pdfLayout) {
@@ -264,7 +280,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     };
     setPlacedIds((current) => (samePlacement(current, ids) ? current : ids));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marksKey, cues?.onePerViewport, skimming, working, restoredSpanId, surface, pdfLayout, pdfBlocks, layoutKey, resizeTick]);
+  }, [marksKey, cues?.onePerViewport, skimming, working, restoredSpanId, surface, pdfLayout, pdfBlocks, layoutKey, resizeTick, spanAttribute]);
 
   // What each drawn mark says comes from the newest plan (review F2): a
   // diagnosis that lands, or any other change to a cue's content, shows at
@@ -291,8 +307,11 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   // RW3b: the background search for missing links, and the receipts.
   const discovery = cues?.discovery ?? null;
   useCueDiscovery({ extractionId, discovery, offline, reloadGuidePlan });
-  const funnelVisit = useCallback(() => visitPayload().visit_id, [visitPayload]);
-  const impressions = useCueImpressions({ extractionId, cues, placement, surface, bodyRef, visitId: funnelVisit });
+  const funnelVisit = useCallback(() => (cueVisitId ? cueVisitId() : visitPayload().visit_id), [visitPayload, cueVisitId]);
+  const impressions = useCueImpressions({
+    extractionId, cues, placement, surface, bodyRef, visitId: funnelVisit,
+    ...(input.spanAttribute ? { spanAttribute: input.spanAttribute } : {}),
+  });
 
   // Each mark the learner could see counts once per visit (the report's
   // proactive load): MarginMark says when it came into view (review F6).
@@ -353,6 +372,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
       if (screenLeavesKey(event, { ownChords: true })) return;
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (ownsKey && !ownsKey(event)) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
       const shown = shownRef.current;
@@ -373,7 +393,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cues, render, spanOrder, readingSpan, focusMark]);
+  }, [cues, render, spanOrder, readingSpan, focusMark, ownsKey]);
 
   const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string) => {
     if (!render) throw new Error("no source");
@@ -396,11 +416,11 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
         extractionId: render.extractionId, sourceId: render.sourceId, via,
         density: change.density ?? null, sourceOff: change.sourceOff ?? null,
       });
-      if (sameVisit(visit)) await reloadGuidePlan();
+      if (sameVisit(visit)) await (reloadAfterPreference ?? reloadGuidePlan)();
     } catch (error) {
       if (sameVisit(visit)) onError(errorMessage(error));
     }
-  }, [render, reloadGuidePlan, onError, sameVisit]);
+  }, [render, reloadGuidePlan, reloadAfterPreference, onError, sameVisit]);
 
   const openEarlier = useCallback((cue: ReaderCueDto) => {
     void tap(cue, "opened").catch(() => undefined);

@@ -118,7 +118,7 @@ import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
 import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
-import { useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
+import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
 import type { AskAnchor } from "./reader/useReaderInquiry";
 import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
@@ -239,6 +239,10 @@ export interface ReaderCheckMeRequest extends CueCheckMeRequest {
  *  on its verbatim statement, in the source it comes from. */
 export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
 
+
+/** Reader CA6b (Codex review F9): the main pane's cue keys are not the
+ *  second pane's (focus there moves among that pane's own marks). */
+const mainPaneOwnsCueKey = (event: KeyboardEvent): boolean => !inSidePane(event.target);
 
 /** Reader CA6b: what an intent acts on (one router, a context per pane): the
  *  main pane's selection, active reading and figures, or side by side's
@@ -724,6 +728,9 @@ export function ReaderScreen({
     onCheckMe: onCheckMe ? checkMeFromCue : undefined,
     // RW3b: "try the next step first" is RW1b's next-step question at that line.
     onTryFirst: activeReadingOn ? (spanId: string) => tryFirstRef.current?.(spanId) : undefined, onError,
+    // Reader CA6b (Codex review F9): Alt+↓ / Alt+↑ with focus in side by
+    // side's second pane are that pane's (its own cue controller).
+    ownsKey: mainPaneOwnsCueKey,
   });
   // RW6a: "Last time here" and Wrap up (screens/reader/useReaderRecap). Off
   // (no `recap` key from the sidecar) it asks nothing and renders nothing.
@@ -1443,6 +1450,18 @@ export function ReaderScreen({
   const runSideIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void>(() => undefined);
   const cancelSideIntentRunRef = useRef<(cancel: IntentCancel) => void>(() => undefined);
   const sbsSection = sbs.section && sbs.target && sbs.section.sectionId === sbs.target.sectionId ? sbs.section : null;
+  // Reader CA6b (Codex review F8): "check me" on the second pane's marks
+  // opens the item as the Reader alone would on that book: the card that
+  // goes with it is that book's, and only while the pane still shows the
+  // reading it was asked on. The shell opens it with the book hidden; its
+  // way back is that passage, in that book.
+  const sideExtractionRef = useRef<string | null>(null);
+  const checkMeFromSideCue = useCallback((request: CueCheckMeRequest, origin: CueRequestOrigin) => {
+    if (!onCheckMe || sideExtractionRef.current !== origin.extractionId) return;
+    const card = library?.find((entry) => entry.sourceId === origin.sourceId) ?? null;
+    if (!card) return;
+    onCheckMe({ ...request, card });
+  }, [onCheckMe, library]);
   const side = useSidePane({
     shown: sbsPanes,
     section: sbsSection,
@@ -1459,7 +1478,11 @@ export function ReaderScreen({
     reloadMainPlan: reloadGuidePlan,
     visitPayload,
     onError,
+    offline,
+    foldBlocks: contract?.activeReading?.foldBlocks ?? 3,
+    ...(onCheckMe ? { onCheckMe: checkMeFromSideCue } : {}),
   });
+  sideExtractionRef.current = side.extractionId;
   // Selecting in the main pane: the second pane's box lets go of its keys (one box answers keys at a time).
   const { releaseKeys: releaseSideKeys } = side;
   useEffect(() => {
@@ -3566,6 +3589,7 @@ export function ReaderScreen({
               // Reader CA6b: the intent box, cue marks, figures, fold and active reading of this pane.
               intent={side.box.enabled ? { box: side.box, onSelection: side.noteSelection } : null}
               marginFor={side.cues.cues ? (spanId) => {
+                // The Reader's own mark, with the second pane's own controller (as if it were the Reader alone).
                 const cue = side.cues.markOn(spanId);
                 return cue ? (
                   <MarginMark
@@ -3574,18 +3598,17 @@ export function ReaderScreen({
                     open={side.cues.openCueId === cue.cueId}
                     onOpenChange={(open) => side.cues.setOpenCueId(open ? cue.cueId : null)}
                     surface="text"
-                    canCheckMe={false}
-                    checkPhase="idle"
+                    canCheckMe={side.cues.canCheckMe}
+                    checkPhase={side.cues.checkPhase(cue.cueId)}
                     onOpenEarlier={() => side.cues.openEarlier(cue)}
-                    onCheckMe={() => undefined}
+                    onCheckMe={() => side.cues.checkMe(cue)}
                     onNotRelevant={(text) => side.cues.notRelevant(cue, text)}
-                    onFewer={side.cues.fewer}
+                    onFewer={() => side.cues.fewerOn(cue)}
                     onOffBook={side.cues.offBook}
                     onOffEverywhere={side.cues.offEverywhere}
-                    onSeen={() => side.cues.noteSeen(cue)}
-                    {...(activeReadingOn && cue.kind === "try_first" && side.cues.cues?.discovery?.tryFirst
-                      ? { onTryFirst: () => { side.cues.setOpenCueId(null); void side.active.start("next_step", [cue.spanId], side.fold([cue.spanId], foldBlocks)); } }
-                      : {})}
+                    onSeen={(planId) => side.cues.noteSeen(cue, planId)}
+                    planId={side.cues.planId}
+                    {...(side.cues.canTryFirst ? { onTryFirst: () => side.cues.tryFirst(cue) } : {})}
                   />
                 ) : null;
               } : null}
@@ -3597,10 +3620,14 @@ export function ReaderScreen({
                   if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
                 }} />
               ) : null}
-              foot={side.cues.receipt ? (
-                <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                  <span>{side.cues.receipt.label}</span>
-                  <button type="button" onClick={side.cues.receipt.onUndo} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2 }}>{CUE_COPY.undo}</button>
+              foot={side.cues.receipts.length ? (
+                <span style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
+                  {side.cues.receipts.map((receipt) => (
+                    <span key={receipt.id} style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                      <span>{receipt.label}</span>
+                      <button type="button" onClick={receipt.onUndo} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2 }}>{CUE_COPY.undo}</button>
+                    </span>
+                  ))}
                 </span>
               ) : null}
               marksVersion={side.marksVersion}

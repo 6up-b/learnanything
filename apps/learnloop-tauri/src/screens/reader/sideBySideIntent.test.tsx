@@ -174,8 +174,8 @@ function select(node: HTMLElement): void {
   fireEvent.mouseUp(node);
 }
 
-async function openSideBySide() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+async function openSideBySide(props: { onCheckMe?: (request: unknown) => void } = {}) {
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} {...(props.onCheckMe ? { onCheckMe: props.onCheckMe } : {})} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
@@ -570,3 +570,163 @@ it.each([["work_through"], ["what_matters_here"]])(
     expect(within(pane()!).getByText("(that isn't on offer here, so this asks)")).toBeTruthy();
   },
 );
+
+function discoveredCues(marks: ReaderCueDto[], extra: { heldOut?: ReaderCueDto[]; tryFirst?: boolean; planId?: string } = {}): ReaderCuesDto {
+  return cues(marks, {
+    discovery: {
+      version: "rw3b-discovered-cues-v1", planId: extra.planId ?? "cplan_side", targetsKey: "tk_side", targets: 1, holdoutRate: 0.1,
+      valueOrder: true, tryFirst: extra.tryFirst ?? false, heldOut: extra.heldOut ?? [], suppressed: [],
+    },
+  });
+}
+const found = (spanId: string, kind: ReaderCueDto["kind"] = "application") =>
+  cue(spanId, 0, { cueId: `dcue_${spanId}`, kind, linkId: `plink_${spanId}`, foundBy: "model" } as Partial<ReaderCueDto>);
+
+it("F4: opening the second book runs cue discovery for it (its own open), and its plan is re-read with what was found", async () => {
+  plans.side = { ...plans.side, cues: discoveredCues([]) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockImplementation(async () => {
+    plans.side = { ...plans.side, cues: discoveredCues([found("ax7a_2")]) };
+    return { jobId: "cjob_side", extractionId: "ext_axler", state: "done", result: { status: "done", targetsKey: "tk_side", calls: 1, links: 1 } };
+  });
+  await openSideBySide();
+  // At first the plan has no mark; discovery finds one, and it is drawn in the pane.
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='dcue_ax7a_2']")).toBeTruthy());
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+  expect(api.readerCueDiscovery.mock.calls[0][0]).toEqual({ extractionId: "ext_axler", sourceOpenId: expect.stringMatching(/^copen_/) });
+});
+
+it("F5: the second pane's discovered marks write RW3b receipts in that book's own visit; taps name it; try this step first records its tap", async () => {
+  const observed: Array<{ callback: IntersectionObserverCallback; targets: Element[] }> = [];
+  class FakeObserver {
+    callback: IntersectionObserverCallback;
+    targets: Element[] = [];
+    constructor(callback: IntersectionObserverCallback) { this.callback = callback; observed.push(this); }
+    observe(target: Element) { this.targets.push(target); }
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("IntersectionObserver", FakeObserver);
+  plans.side = { ...plans.side, cues: discoveredCues([found("ax7a_1", "try_first")], { heldOut: [found("ax7a_3")], tryFirst: true }) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "cjob_side", extractionId: "ext_axler", state: "done", result: { status: "done", targetsKey: "tk_side", calls: 0, links: 0 } });
+  api.readerCueTap.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "ev", verdict: "same", ledgerId: null, check: null, tryFirst: null,
+  }));
+  await openSideBySide();
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='dcue_ax7a_1']")).toBeTruthy());
+  // The held-out cue is never drawn; both passages are measured in view.
+  expect(pane()!.querySelector("[data-cue-mark='dcue_ax7a_3']")).toBeNull();
+  await waitFor(() => expect(observed.some((entry) => entry.targets.some((target) => (target as HTMLElement).dataset.sbsSpan))).toBe(true));
+  await act(async () => {
+    for (const entry of observed) {
+      entry.callback(entry.targets.map((target) => ({ isIntersecting: true, intersectionRatio: 1, target })) as unknown as IntersectionObserverEntry[], entry as unknown as IntersectionObserver);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 900));
+  });
+  const batches = api.readerCueImpressions.mock.calls.map((call) => call[0] as { extractionId: string; visitId: string; planId: string; entries: unknown[] });
+  expect(batches.length).toBeGreaterThan(0);
+  for (const batch of batches) expect(batch).toMatchObject({ extractionId: "ext_axler", planId: "cplan_side", visitId: expect.stringMatching(/^cues_/) });
+  const sent = batches.flatMap((batch) => batch.entries);
+  expect(sent).toContainEqual({ cueId: "dcue_ax7a_1", shown: true });
+  expect(sent).toContainEqual({ cueId: "dcue_ax7a_3", shown: false });
+  const visitId = batches[0].visitId;
+  // "try this step first": RW1b's next-step question on this book, and its tap with the visit and the plan.
+  fireEvent.click(pane()!.querySelector<HTMLElement>("[data-cue-mark='dcue_ax7a_1']")!);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: /try/i }));
+  await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith({ extractionId: "ext_axler", cueId: "dcue_ax7a_1", action: "try_first", visitId, planId: "cplan_side" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "next_step" }));
+  // An "open" tap carries the same visit (its impression's response).
+  fireEvent.click(pane()!.querySelector<HTMLElement>("[data-cue-mark='dcue_ax7a_1']")!);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.open} ·`) }));
+  await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith(expect.objectContaining({ cueId: "dcue_ax7a_1", action: "opened", visitId, planId: "cplan_side" })));
+});
+
+it("F6: widening the second pane places its marks again (one per screenful), and a scroll never does", async () => {
+  const tops: Record<string, number> = { ax7a_1: 0, ax7a_2: 300, ax7a_3: 900 };
+  const size = { width: 500 };
+  const resized: Array<() => void> = [];
+  vi.stubGlobal("ResizeObserver", class {
+    callback: () => void;
+    constructor(callback: () => void) { this.callback = callback; }
+    observe() { resized.push(this.callback); }
+    unobserve() {}
+    disconnect() {}
+  });
+  const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const top = this.dataset.sbsSpan !== undefined ? tops[this.dataset.sbsSpan] ?? 0 : 0;
+    return { top, bottom: top + 40, left: 0, right: 500, width: 500, height: 40, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get(this: HTMLElement) { return this.hasAttribute("data-sbs-body") ? 600 : 0; } });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get(this: HTMLElement) { return this.hasAttribute("data-sbs-body") ? size.width : 0; } });
+  try {
+    plans.side = { ...plans.side, cues: cues([cue("ax7a_1", 0, { cueId: "cue_a" }), cue("ax7a_3", 1, { cueId: "cue_b" })]) };
+    await openSideBySide();
+    // More than a screenful apart: both are drawn.
+    await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='cue_b']")).toBeTruthy());
+    expect(pane()!.querySelector("[data-cue-mark='cue_a']")).toBeTruthy();
+    // A scroll moves nothing (placement never runs on scroll).
+    tops.ax7a_3 = 300;
+    await act(async () => { fireEvent.scroll(sideBody()); });
+    expect(pane()!.querySelector("[data-cue-mark='cue_b']")).toBeTruthy();
+    // The splitter widens the pane: its text reflows, the marks now lie within one screenful.
+    size.width = 800;
+    await act(async () => { for (const callback of resized) callback(); });
+    await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='cue_b']")).toBeNull());
+    expect(pane()!.querySelector("[data-cue-mark='cue_a']")).toBeTruthy();
+  } finally {
+    rect.mockRestore();
+    // @ts-expect-error -- restore jsdom's own (prototype chain) getters
+    delete HTMLElement.prototype.clientHeight;
+    // @ts-expect-error -- as above
+    delete HTMLElement.prototype.clientWidth;
+  }
+});
+
+it("F8: check me on a second-pane mark opens that book's item, with that book's card and the mark's passage to come back to", async () => {
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_side", proposalId: "prop_side" } : null,
+  }));
+  const onCheckMe = vi.fn();
+  await openSideBySide({ onCheckMe });
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_side']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  expect(api.readerCueAction).toHaveBeenCalledWith({ extractionId: "ext_axler", cueId: "cue_side", action: "check_me", text: null });
+  expect(onCheckMe).toHaveBeenCalledWith({ practiceItemId: "pi_side", proposalId: "prop_side", spanId: "ax7a_2", card: AXLER });
+});
+
+it("F9: Alt+down / Alt+up move among the focused pane's own marks (each pane its own set)", async () => {
+  plans.main = { ...plans.main, cues: cues([cue(SPAN_IDS[2], 0, { cueId: "cue_main" })]) };
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  await openSideBySide();
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='cue_side']")).toBeTruthy());
+  await waitFor(() => expect(document.querySelector("[data-cue-mark='cue_main']")).toBeTruthy());
+  // Focus in the second pane: its own mark.
+  sideBody().focus();
+  await act(async () => { fireEvent.keyDown(sideBody(), { key: "ArrowDown", altKey: true }); });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-cue-mark")).toBe("cue_side"));
+  await act(async () => { fireEvent.keyDown(document.activeElement!, { key: "ArrowUp", altKey: true }); });
+  expect(document.activeElement?.getAttribute("data-cue-mark")).toBe("cue_side");
+  // Focus in the main pane: the main pane's mark.
+  const main = document.querySelector<HTMLElement>("[data-sbs-main]")!;
+  main.focus();
+  await act(async () => { fireEvent.keyDown(main, { key: "ArrowDown", altKey: true }); });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-cue-mark")).toBe("cue_main"));
+});
+
+it("F9: with marks only in the second pane, Alt+down there moves to them", async () => {
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_3", 0, { cueId: "cue_only" })]) };
+  await openSideBySide();
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='cue_only']")).toBeTruthy());
+  sideBody().focus();
+  await act(async () => { fireEvent.keyDown(sideBody(), { key: "ArrowDown", altKey: true }); });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-cue-mark")).toBe("cue_only"));
+});

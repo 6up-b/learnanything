@@ -91,6 +91,12 @@ vi.mock("../screens/ReaderScreen", () => ({
         >
           check me
         </button>
+        <button
+          type="button"
+          onClick={() => (props.onSourceChange as (source: unknown) => void)({ card: { sourceId: "src_strang", title: "Strang" }, spanId: "st1" })}
+        >
+          open Strang
+        </button>
       </div>
     );
   }
@@ -665,5 +671,52 @@ describe("landing, F7: Today's Begin and an implicit start share one pending sta
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     expect(startSession).toHaveBeenCalledTimes(1);
     expect((planLearnerPick.mock.calls[0] as unknown[])[1]).toBe("s_new");
+  });
+});
+
+// Reader CA6b (Codex review F8): "check me" on a mark in side by side's second
+// pane hands the shell that book's card. With the workbench on, the Reader
+// opens the check in that book (its passage the way back), as the Reader alone
+// on that book would; a check from the open book stays where it is.
+describe("CA6b, F8: a check from the book beside opens in that book", () => {
+  it("the Reader opens on the check's book at its passage, with the check for that book", async () => {
+    stubs.config = { workbench: { enabled: true } };
+    stubs.session = { ...STARTED, sessionId: "s1" };
+    const { planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Places" });
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
+    // The check's card is Probability (the book beside).
+    fireEvent.click(screen.getByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
+    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
+    const last = stubs.reader[stubs.reader.length - 1];
+    expect((last.workbench as { checkMe?: { sourceId: string; spanId: string } | null }).checkMe).toMatchObject({ sourceId: "src_prob", spanId: "sp3" });
+  });
+
+  it("a check from the open book keeps the Reader where it is (no reopen)", async () => {
+    stubs.config = { workbench: { enabled: true } };
+    stubs.session = { ...STARTED, sessionId: "s1" };
+    const { planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Places" });
+    await press({ key: "3", altKey: true });
+    // The Reader reports Probability open (the check's own book).
+    const reader = await screen.findByTestId("reader-stub");
+    await act(async () => {
+      (stubs.reader[stubs.reader.length - 1].onSourceChange as (source: unknown) => void)({ card: PROB, spanId: "sp1" });
+    });
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
+    const mounts = stubs.reader.length;
+    fireEvent.click(screen.getByRole("button", { name: "check me" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    await flush();
+    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp1");
+    // The same Reader (not mounted again on another book).
+    expect(screen.getByTestId("reader-stub")).toBe(reader);
+    expect(stubs.reader.length).toBeGreaterThanOrEqual(mounts);
   });
 });
