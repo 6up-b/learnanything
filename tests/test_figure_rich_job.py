@@ -322,3 +322,20 @@ def test_not_right_on_an_animation_comes_later(tmp_path, monkeypatch):
     with pytest.raises(FS.FigureRefused) as refused:
         FS.check_request(rig.vault, rig.repository, FS.revision_request(rig.repository, base, "wrong"))
     assert refused.value.code == "rich_revision_later"
+
+
+def test_the_report_shows_the_rich_tier_rows(tmp_path, monkeypatch):
+    from learnloop.reader.reader_report import build_reader_report
+
+    rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    rig.build()
+    rig.ingest.drain()
+    report = build_reader_report(rig.repository.sqlite_path, figures_enabled=True, figure_rich_enabled=True)
+    rich = report["figures"]["tiers"]["rich"]
+    assert rich["built"] == {"manim": {"illustrative": 1}} and rich["followed_a_quick_figure"] == 1
+    assert rich["build_seconds_p50"]["manim"] is not None
+    assert rich["why_this_tier"] == {"manim": [{"reason": WHY, "n": 1}]}
+    assert report["figures"]["tiers"]["verdicts"] == {"manim": 1}
+    assert {"fuller_opened", "quick_opened", "cancelled"} <= set(rich)
+    off = build_reader_report(rig.repository.sqlite_path, figures_enabled=True)
+    assert "tiers" not in off["figures"]

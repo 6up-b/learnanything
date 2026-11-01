@@ -218,6 +218,13 @@ MODULE_INVENTORY: dict[str, str] = {
     "figure_sketch": "src/learnloop/figures/sketch.py",
     "figure_sketch_engine": "src/learnloop/figures/sketch_engine.py",
     "figure_sketch_verify": "src/learnloop/figures/sketch_verify.py",
+    # Reader RW5d P2b (spec §9b, §15): the rich tiers' caps (the brief, the
+    # rich calls, the declared-function checks), the plan-wait retry interval
+    # and the Manim render sandbox's resource caps, every one a `keep`
+    # guardrail (no learner-model weight, margin or threshold).
+    "figure_rich": "src/learnloop/figures/rich.py",
+    "figure_manim": "src/learnloop/figures/manim_figure.py",
+    "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
     # quality margin or ranking weight is a constant: adoption, the screen's choice and whether
@@ -432,6 +439,43 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
 
 # Reader RW5d P2: the sketch tier's module constants (all keep: caps, tolerances, sandbox limits, identities).
+# Reader RW5d P2b: the rich tiers' module constants (all keep: caps, guardrails, sandbox limits).
+_reg_const("figure_rich:RICH_BRIEF_MAX", "constraint", kind="structural", owner="figure_rich",
+           rationale="keep: prompt size for the rich call (spec §15: 1,500 characters).")
+_reg_const("figure_rich:MAX_RICH_ATTEMPTS", "constraint", kind="structural", owner="figure_rich",
+           rationale="keep (money): rev 1's author cap carried to the rich call (spec §15: 2); the pacing repair "
+                     "is the second attempt.")
+_reg_const("figure_rich:PLAN_WAIT_RETRY_SECONDS", "operational", kind="structural", owner="figure_rich",
+           rationale="keep (operational): how often a rich job waiting for the ChatGPT plan is asked again while "
+                     "the learner reads (one cheap failed plan request at most per interval; never an offer).")
+_reg_const("figure_manim:MAX_FUNCTIONS", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (operational): declared functions per Manim figure (check work, check lines).")
+_reg_const("figure_manim:MAX_FUNCTION_ARGS", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (operational): checked arguments per declared function (3 grid values each: at most "
+                     "81 points, rev 1's grid).")
+_reg_const("figure_manim:MAX_FIGURE_CLAIMS", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (operational): claims per Manim figure.")
+_reg_const("figure_manim:MAX_PLOTTED", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (operational): plotted_from entries per Manim figure.")
+_reg_const("figure_manim:MAX_TITLE", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (display): a Manim figure's title length.")
+_reg_const("figure_manim:MAX_NARRATION", "constraint", kind="structural", owner="figure_manim",
+           rationale="keep (display): the narration (the video's transcript) length.")
+_reg_const("figure_manim:FUNCTION_CHECK_SECONDS", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (machine safety): the declared-function check's sandbox CPU and wall clock.")
+_reg_const("figure_manim:FUNCTION_CHECK_MEMORY_MB", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (machine safety): the declared-function check's address-space cap in the sandbox.")
+_reg_const("concept_animation:_STDERR_TAIL_CHARS", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (operational): how much of a failed render's stderr is kept for the repair round-trip "
+                     "and the failure view.")
+_reg_const("concept_animation:_PACING_OVER_SLACK_SECONDS", "operational", kind="structural",
+           owner="concept_animation",
+           rationale="keep (display): seconds over the pacing band's maximum the static pacing lint tolerates "
+                     "(a rough estimate catching a 3-second explainer, not a timer).")
+_reg_const("concept_animation:RENDER_MEMORY_MAX", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (machine safety, RW5d P2b spec §15): a figure render's memory cap (4 GiB; oomd history).")
+_reg_const("concept_animation:RENDER_TASKS_MAX", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (machine safety, RW5d P2b): a figure render's task cap in its scope (fork bombs).")
 _reg_const("figure_sketch:SKETCH_MAX_SOURCE_BYTES", "constraint", kind="structural", owner="figure_sketch",
            rationale="keep: bounds a sketch's program to one reviewable idea (spec §15: 32 KiB).")
 _reg_const("figure_sketch:SKETCH_MAX_ELEMENTS", "constraint", kind="structural", owner="figure_sketch",
