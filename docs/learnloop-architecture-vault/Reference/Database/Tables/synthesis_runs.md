@@ -3,8 +3,8 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "3ab6638afe8e6b1fdfe755adfd5c453e82dc4640"
+source_commit_timestamp: "2026-11-01T03:29:06-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
@@ -131,6 +131,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_migrations.py`

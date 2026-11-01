@@ -19,7 +19,7 @@
 * **G-C4.** Off (either switch) every plan build is RW7b's byte for byte;
   turning it off after the build puts RW7b's reading back while it has no
   reading history (the fresh choice), recorded in the receipt's ``moves``.
-* **Persisted meaning.** A successor (mvp-0.39 after mvp-0.38, ONE constant):
+* **Persisted meaning.** A successor (mvp-0.40 after mvp-0.39, ONE constant; built as mvp-0.39):
   no migration, a journalled activation, a shadow rebuild with zero deltas.
 
 Every model is a fake (``DeliverableFake``, ``PathJudgeFake``, C0a's coverage
@@ -36,10 +36,10 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
-    COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_VERSIONS,
     LATEST_ALGORITHM_VERSION,
+    READER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.daily_plan import engine as E
@@ -54,7 +54,7 @@ from tests.reading_path_fixtures import FixedClock, PathJudgeFake, call, context
 from tests.test_plan_follows_path import HEAD, _fixture_copy, _plan_state
 
 TAG = DELIVERABLE_PLAN_ALGORITHM_VERSION
-PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
+PREDECESSOR = READER_FOLLOWUPS_ALGORITHM_VERSION
 C1_OFF = "[curriculum]\nplan_uses_path = false\n"
 CURRICULUM_OFF = "[curriculum]\nenabled = false\n"
 RW7B_OFF = "[reading_paths]\nplan_uses_path = false\n"
@@ -180,11 +180,11 @@ def _spans(repository, extraction_id, section_id) -> list[str]:
 # -- the successor's vocabulary and switch ------------------------------------------------------------
 
 
-def test_the_successor_is_one_constant_after_the_cold_retry_reschedule():
+def test_the_successor_is_one_constant_after_rw6bs_followups():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
+    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
     assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
     assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG})
     for version in SUCCESSOR_CHAIN:
@@ -614,8 +614,8 @@ def _activated(paths, version=TAG) -> bool:
         ).fetchone() is not None
 
 
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.32", "mvp-0.37", "mvp-0.38"])
-def test_upgrade_to_mvp039_works_from_supported_versions(tmp_path, _cli_process, start):
+@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.32", "mvp-0.37", "mvp-0.38", "mvp-0.39"])
+def test_upgrade_to_mvp040_works_from_supported_versions(tmp_path, _cli_process, start):
     from learnloop.cli import app
 
     paths = create_placement_vault(tmp_path / "v", version=start)
@@ -627,7 +627,7 @@ def test_upgrade_to_mvp039_works_from_supported_versions(tmp_path, _cli_process,
         assert _activated(paths, PREDECESSOR)
 
 
-def test_a_bare_upgrade_targets_mvp039_and_refuses_twice(tmp_path, _cli_process):
+def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
@@ -657,7 +657,7 @@ def _interrupted(tmp_path, name, predecessor=PREDECESSOR, target=TAG):
     return paths
 
 
-def test_the_next_cli_command_completes_an_interrupted_mvp039_activation(tmp_path, _cli_process):
+def test_the_next_cli_command_completes_an_interrupted_mvp040_activation(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
@@ -695,10 +695,10 @@ def test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal(tmp_pa
     assert _version(paths) == PREDECESSOR and not _journal(paths).exists() and not _activated(paths)
 
 
-def test_an_interrupted_mvp038_activation_then_upgrade_to_mvp039_completes_it(tmp_path, _cli_process):
+def test_an_interrupted_mvp039_activation_then_upgrade_to_mvp040_completes_it(tmp_path, _cli_process):
     from learnloop.cli import app
 
-    paths = _interrupted(tmp_path, "interrupted038", "mvp-0.37", PREDECESSOR)
+    paths = _interrupted(tmp_path, "interrupted039", "mvp-0.38", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TAG}" in result.output
@@ -706,12 +706,12 @@ def test_an_interrupted_mvp038_activation_then_upgrade_to_mvp039_completes_it(tm
     assert _activated(paths, PREDECESSOR) and _activated(paths)
 
 
-def test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp038_journal(
+def test_without_a_completion_an_attach_refuses_and_the_upgrade_still_completes_the_mvp039_journal(
         tmp_path, monkeypatch):
     from learnloop import activation_journal
     from learnloop.deliverable_plan_upgrade import complete_interrupted_activation, upgrade_to_deliverable_plan
 
-    paths = _interrupted(tmp_path, "refused038", "mvp-0.37", PREDECESSOR)
+    paths = _interrupted(tmp_path, "refused039", "mvp-0.38", PREDECESSOR)
     monkeypatch.setattr(activation_journal, "_COMPLETER", None)
     with pytest.raises(activation_journal.InterruptedActivation, match=f"learnloop upgrade --to {PREDECESSOR}"):
         Repository(paths.sqlite_path)
