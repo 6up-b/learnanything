@@ -373,6 +373,36 @@ it("selecting in the main pane gives the keys back to it: its box routes on the 
   expect(api.readerLibraryCompare.mock.calls[0][0]).toMatchObject({ extractionId: view.extractionId, openSourceId: view.sourceId, sourceIds: ["src_axler"] });
 });
 
+it("skim: no marks in the second pane, its box opens only on `?`, and selecting in the main pane takes the keys (one box answers)", async () => {
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  await openSideBySide();
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='cue_side']")).toBeTruthy());
+  const [modeSelect] = screen.getAllByRole("combobox");
+  fireEvent.keyDown(modeSelect, { key: "Enter" });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+  // Skim is the mute button in both panes.
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark]")).toBeNull());
+  select(sideBlock());
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(within(pane()!).queryByRole("textbox", { name: BOX })).toBeNull();
+  // Then a selection in the main pane: only its box answers `?`.
+  const mainBlock = await screen.findByText(view.blocks[1].markdown);
+  select(mainBlock);
+  fireEvent.keyDown(document.body, { key: "?" });
+  const boxes = await screen.findAllByRole("textbox", { name: BOX });
+  expect(boxes).toHaveLength(1);
+  expect(pane()!.contains(boxes[0])).toBe(false);
+  // And back: a selection in the second pane takes the keys from the main pane's box.
+  fireEvent.keyDown(boxes[0], { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: BOX })).toBeNull());
+  select(mainBlock);
+  select(sideBlock());
+  fireEvent.keyDown(document.body, { key: "?" });
+  const after = await screen.findAllByRole("textbox", { name: BOX });
+  expect(after).toHaveLength(1);
+  expect(pane()!.contains(after[0])).toBe(true);
+});
+
 it("cue marks: the second pane draws its own book's marks in its gutter, as if it were the Reader alone, beside the main pane's", async () => {
   // (Not the restored line, which never carries a mark.)
   plans.main = { ...plans.main, cues: cues([cue(SPAN_IDS[2], 0)]) };
