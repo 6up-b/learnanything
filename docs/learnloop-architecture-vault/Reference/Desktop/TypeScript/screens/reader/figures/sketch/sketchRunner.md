@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures/sketch"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchRunner.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchRunner.ts"
-source_commit: "2c68e7375760f005bdfa58f82ce0603ab8459d40"
-source_commit_timestamp: "2026-10-31T19:32:36-04:00"
+source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
+source_commit_timestamp: "2026-11-01T14:49:03-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchRunner.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchRunner.ts) |
-| Source lines | 145 |
+| Source lines | 146 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2c68e7375760f005bdfa58f82ce0603ab8459d40` |
-| Commit timestamp | `2026-10-31T19:32:36-04:00` |
+| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
+| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 
@@ -60,32 +60,32 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface SketchRunner` — interface, line 20
-- `export type SketchRunnerFactory = ()` — type, line 28
-- `export function hostRunner(host: SketchEngineHost): SketchRunner` — function, line 31
-- `export function portRunner(worker:` — function, line 52
-- `export const WATCHDOG_MS = SKETCH_FRAME_MS * SKETCH_WATCHDOG_FRAMES` — const, line 89
-- `export function withWatchdog(runner: SketchRunner, ms: number = WATCHDOG_MS, onPause?: ()` — function, line 93
-- `export function workerRunner(): SketchRunner` — function, line 123
-- `export const SketchRunnerContext = createContext<SketchRunnerFactory>(workerRunner)` — const, line 145
+- `export interface SketchRunner` — interface, line 21
+- `export type SketchRunnerFactory = ()` — type, line 29
+- `export function hostRunner(host: SketchEngineHost): SketchRunner` — function, line 32
+- `export function portRunner(worker:` — function, line 53
+- `export const WATCHDOG_MS = SKETCH_FRAME_MS * SKETCH_WATCHDOG_FRAMES` — const, line 90
+- `export function withWatchdog(runner: SketchRunner, ms: number = WATCHDOG_MS, onPause?: ()` — function, line 94
+- `export function workerRunner(): SketchRunner` — function, line 124
+- `export const SketchRunnerContext = createContext<SketchRunnerFactory>(workerRunner)` — const, line 146
 
 ## Internal implementation anchors
 
-- `const wrap = <T,>(run: ()` — const, line 32
-- `let next = 1` — let, line 53
-- `const waiting = new Map<number,` — const, line 54
-- `let ended = false` — let, line 55
-- `const reply = parseWorkerReply(event.data as unknown, (id)` — const, line 59
-- `const entry = waiting.get(reply.id)!` — const, line 61
-- `const send = <T,>(op: WorkerOp, args: unknown[]): Promise<T>` — const, line 66
-- `const id = next++` — const, line 68
-- `let stopped = false` — let, line 94
-- `const guard = <T,>(call: ()` — const, line 95
-- `const timer = setTimeout(()` — const, line 98
-- `let real: SketchRunner | null = null` — let, line 124
-- `let disposed = false` — let, line 125
-- `const ready = import("./sketchWorkerClient").then((client)` — const, line 126
-- `const via = <T,>(call: (runner: SketchRunner)` — const, line 131
+- `const wrap = <T,>(run: ()` — const, line 33
+- `let next = 1` — let, line 54
+- `const waiting = new Map<number,` — const, line 55
+- `let ended = false` — let, line 56
+- `const reply = parseWorkerReply(event.data as unknown, (id)` — const, line 60
+- `const entry = waiting.get(reply.id)!` — const, line 62
+- `const send = <T,>(op: WorkerOp, args: unknown[]): Promise<T>` — const, line 67
+- `const id = next++` — const, line 69
+- `let stopped = false` — let, line 95
+- `const guard = <T,>(call: ()` — const, line 96
+- `const timer = setTimeout(()` — const, line 99
+- `let real: SketchRunner | null = null` — let, line 125
+- `let disposed = false` — let, line 126
+- `const ready = import("./sketchCompartmentClient").then((client)` — const, line 127
+- `const via = <T,>(call: (runner: SketchRunner)` — const, line 132
 
 ## Who imports or calls it
 
@@ -93,15 +93,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `SketchRunner`, `SketchRunnerContext`, `withWatchdog`; references `SketchRunner`, `SketchRunnerContext`, `withWatchdog`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchWorkerClient|src/screens/reader/figures/sketch/sketchWorkerClient.ts]] — import-or-re-export: `WorkerRequest`, `WorkerResponse`; references `WorkerRequest`, `WorkerResponse`
 
 ## Dependencies
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchCompartmentClient|src/screens/reader/figures/sketch/sketchCompartmentClient.ts]] — dynamic import
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchEngine|src/screens/reader/figures/sketch/sketchEngine.ts]] — import-or-re-export; imports `EntryPoints`, `Params`, `SKETCH_FRAME_MS`, `SKETCH_WATCHDOG_FRAMES`, `SketchEngineHost`, `SketchRunError`, `sceneDigest`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchProtocol|src/screens/reader/figures/sketch/sketchProtocol.ts]] — import-or-re-export; imports `SketchRead`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchWorkerClient|src/screens/reader/figures/sketch/sketchWorkerClient.ts]] — dynamic import
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchProtocol|src/screens/reader/figures/sketch/sketchProtocol.ts]] — import-or-re-export; imports `SketchRead`, `SketchReadText`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`
 
 ### Assets, platform, and third-party dependencies
 
@@ -119,6 +118,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.test.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartment.test.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartment.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

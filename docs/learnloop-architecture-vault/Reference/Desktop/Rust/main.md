@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/main.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/main.rs"
-source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
-source_commit_timestamp: "2026-11-01T09:50:06-05:00"
+source_commit: "f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95"
+source_commit_timestamp: "2026-11-01T14:40:42-05:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/main.rs](../../../../../apps/learnloop-tauri/src-tauri/src/main.rs) |
-| Source lines | 821 |
+| Source lines | 849 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
-| Commit timestamp | `2026-11-01T09:50:06-05:00` |
+| Source commit | `f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95` |
+| Commit timestamp | `2026-11-01T14:40:42-05:00` |
 
 ## Activation and status evidence
 
@@ -64,24 +64,24 @@ No library export; `fn main` is the Cargo binary entry point.
 
 ## Internal implementation anchors
 
-- `const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM"` — const, line 13
-- `const MAX_MEDIA_RANGE_BYTES: u64 = 4 * 1024 * 1024` — const, line 17
-- `fn llpdf_response(status: u16, body: Vec<u8>) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 24
-- `fn serve_llpdf( manager: &SidecarManager, uri_path: &str, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 33
-- `fn llmedia_response( status: u16, body: Vec<u8>, extra: Option<(String, String)>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 59
-- `fn slice_range(len: u64, range_header: Option<&str>) -> Option<Result<(u64, u64), ()>>` — fn, line 80
-- `fn serve_llmedia( manager: &SidecarManager, uri_path: &str, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 108
-- `fn media_read_failed() -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 129
-- `fn serve_media_file( path: &std::path::Path, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 133
-- `fn debug_zoom_enabled() -> bool` — fn, line 179
-- `fn main()` — fn, line 188
-- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 715
-- `fn llpdf_404s_for_absent_store_file()` — fn, line 730
-- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 736
-- `fn llmedia_404s_for_absent_animation()` — fn, line 753
-- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 761
-- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 766
-- `fn slice_range_math()` — fn, line 805
+- `const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM"` — const, line 14
+- `const MAX_MEDIA_RANGE_BYTES: u64 = 4 * 1024 * 1024` — const, line 18
+- `fn llpdf_response(status: u16, body: Vec<u8>) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 25
+- `fn serve_llpdf( manager: &SidecarManager, uri_path: &str, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 34
+- `fn llmedia_response( status: u16, body: Vec<u8>, extra: Option<(String, String)>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 60
+- `fn slice_range(len: u64, range_header: Option<&str>) -> Option<Result<(u64, u64), ()>>` — fn, line 81
+- `fn serve_llmedia( manager: &SidecarManager, uri_path: &str, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 109
+- `fn media_read_failed() -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 130
+- `fn serve_media_file( path: &std::path::Path, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 134
+- `fn debug_zoom_enabled() -> bool` — fn, line 180
+- `fn main()` — fn, line 189
+- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 743
+- `fn llpdf_404s_for_absent_store_file()` — fn, line 758
+- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 764
+- `fn llmedia_404s_for_absent_animation()` — fn, line 781
+- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 789
+- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 794
+- `fn slice_range_math()` — fn, line 833
 
 ## Who imports or calls it
 
@@ -96,13 +96,14 @@ No library export; `fn main` is the Cargo binary entry point.
 
 - [[Reference/Desktop/Rust/commands|src-tauri/src/commands.rs]] — module declaration
 - [[Reference/Desktop/Rust/errors|src-tauri/src/errors.rs]] — module declaration
+- [[Reference/Desktop/Rust/frame_guard|src-tauri/src/frame_guard.rs]] — module declaration
 - [[Reference/Desktop/Rust/sidecar|src-tauri/src/sidecar.rs]] — module declaration
 - [[Reference/Desktop/Rust/vault_watcher|src-tauri/src/vault_watcher.rs]] — module declaration
 
 ### Assets, platform, and third-party dependencies
 
 - Rust standard library: `std`
-- Imported packages/crates: `tauri`
+- Imported packages/crates: `tauri`, `webkit2gtk`
 
 ## Larger desktop and workflow participation
 

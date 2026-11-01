@@ -8,7 +8,7 @@
   `runtime_digest` and `checks_json`.
 - **Successor:** none (spec §14: content and display; nothing in scoring, scheduling, projection or serving reads a
   sketch).
-- **Kill switch:** `figures.sketch_enabled` (built default on, Q5; **ships off** at landing until G-SM14 passes, see "Landing onto main"). Off, the author's contract, prompt and reuse key are
+- **Kill switch:** `figures.sketch_enabled` (built default on, Q5; **ships off** at landing until G-SM14 passes, see "Landing onto main"; on again since the sketch compartment stage, 2026-11-01, when G-SM14 passed from inside it: `docs/reviews/reader-rw5d-p2-sketch-compartment.md`). Off, the author's contract, prompt and reuse key are
   RW5b's/P1's byte for byte, no `figure_tier` row is written, and a stored sketch lists as "can't draw this yet".
 - **Live calls:** none. Every model call in the tests is a fake (`AuthorFake` answers `("sketch", program, why)`). Python
   outside pytest ran only under `env -i` with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` and

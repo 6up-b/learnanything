@@ -384,7 +384,7 @@ Most of this is backend work in the sources spec. The learner meets it in four p
   - *can't draw this yet — needs a 3-D surface · noted*.
 - **States:** pending as a dim line under the passage, *◐ building an interactive version — about 30 s · keep reading* (the estimate only once measured). Failure keeps the request and offers *try again*.
 - **Records:** predictions and "what changed?" answers are formative (tier 2). Misses show in the recap. Nothing here is graded.
-- **Sketches** *(RW5d P2, `spec_reader_show_me_figures_v1.md` §6.6, §9; behind `figures.sketch_enabled`, which ships off until the G-SM14 webview probe passes)*: when the figure grammar can't express an idea, the figure may be a sealed simulation, in the same inline slot, badged *AI-written simulation · sandboxed · not checked against the book*, with its check lines and *not covered: … (drawn, not checked)*. Never the checked label.
+- **Sketches** *(RW5d P2, `spec_reader_show_me_figures_v1.md` §6.6, §9; behind `figures.sketch_enabled`, on by default since the G-SM14 webview probe passed from inside the sketch compartment, a sandboxed opaque-origin frame; it had shipped off until then)*: when the figure grammar can't express an idea, the figure may be a sealed simulation, in the same inline slot, badged *AI-written simulation · sandboxed · not checked against the book*, with its check lines and *not covered: … (drawn, not checked)*. Never the checked label.
 
 ### 4.8 Last time here, wrap up, the narrative **[RW6a, RW6b]**
 
@@ -1202,7 +1202,7 @@ The restored spec labels these DEFERRED (spec §17). Each has a place in this de
 
 | Deferred | Where it would appear |
 |---|---|
-| Generated-code figures in an isolated surface | the same inline figure slot (§4.7), labelled *"AI-written simulation · sandboxed"* (built as RW5d P2's sketch tier, `spec_reader_show_me_figures_v1.md` §9; ships off until its G-SM14 webview probe passes) |
+| Generated-code figures in an isolated surface | the same inline figure slot (§4.7), labelled *"AI-written simulation · sandboxed"* (built as RW5d P2's sketch tier, `spec_reader_show_me_figures_v1.md` §9; on by default since its G-SM14 webview probe passed from inside the sketch compartment) |
 | Page-image (visual) retrieval | library hits gain a page thumbnail beside the `§` excerpt (§4.5) |
 | OS-level or MCP learning service; browser or editor capture | the capture box and inbox (DL C1–C4); questions arriving from elsewhere open as inquiries in the returning posture |
 | Local rerankers | invisible; shows only as lower latency in the pending lines |

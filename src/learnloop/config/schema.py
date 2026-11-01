@@ -2695,11 +2695,13 @@ class FiguresConfig(BaseModel):
     checks against the claims it states. Labelled an AI-written simulation,
     never "checked against the book". Off: the author's contract is RW5b's
     byte for byte, and stored sketches list as "can't draw this yet".
-    Default **off** at landing (orchestrator decision 2026-10-31): it ships
-    off until the spec's merge gate G-SM14 (an IPC probe from inside the
-    sketch Worker in the real Tauri webview) passes; the owner turns it on
-    with ``figures.sketch_enabled = true`` after running the probe (recipe in
-    docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
+    Default **on** (Q5) since the sketch compartment (2026-11-01): the
+    engine's Worker runs from a blob inside a sandboxed, opaque-origin frame
+    whose CSP has ``connect-src 'none'``, and the spec's merge gate G-SM14 (an
+    IPC probe from inside it in the real Tauri webview) passed there
+    (docs/reviews/reader-rw5d-g-sm14-probe.md, "Rerun after the
+    compartment"). It had shipped off at the P2 landing (orchestrator decision
+    2026-10-31) because the first probe, from the URL-loaded Worker, failed.
 
     RW5d P2b (spec_reader_show_me_figures_v1 §8.4, §8.6, §9b): ``rich_tiers_enabled``:
     the rich tiers. When a rich tier is available on this machine the
@@ -2735,7 +2737,7 @@ class FiguresConfig(BaseModel):
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
     show_me_enabled: bool = True
-    sketch_enabled: bool = False
+    sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None

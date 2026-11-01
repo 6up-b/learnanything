@@ -10,8 +10,8 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/vite-env.d.ts"
 source_paths:
   - "apps/learnloop-tauri/src/vite-env.d.ts"
-source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
-source_commit_timestamp: "2026-07-21T13:26:14-04:00"
+source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
+source_commit_timestamp: "2026-11-01T14:49:03-05:00"
 source_worktree_state: "clean"
 activation_kind: "compiler-implicit"
 activation_evidence: "tsconfig.json includes src, and this declaration references vite/client for the current frontend build."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/vite-env.d.ts](../../../../../apps/learnloop-tauri/src/vite-env.d.ts) |
-| Source lines | 1 |
+| Source lines | 7 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `compiler-implicit` |
 | Worktree state | `clean` |
-| Source commit | `02c3e6e10f5ca37e16cef05657ee693b33502fb7` |
-| Commit timestamp | `2026-07-21T13:26:14-04:00` |
+| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
+| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 
@@ -64,7 +64,7 @@ No exported declaration; its `vite/client` reference augments the ambient TypeSc
 
 ## Internal implementation anchors
 
-No non-exported declaration anchor was detected by the static extractor.
+- `const source: string` — const, line 5
 
 ## Who imports or calls it
 

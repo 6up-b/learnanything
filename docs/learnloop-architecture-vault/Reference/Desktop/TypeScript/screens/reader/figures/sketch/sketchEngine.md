@@ -135,10 +135,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `Params`, `SketchRunError`; references `Params`, `SketchRunError`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/engineForTests|src/screens/reader/figures/sketch/engineForTests.ts]] — import-or-re-export: `SketchEngineHost`; references `SketchEngineHost`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketch.worker|src/screens/reader/figures/sketch/sketch.worker.ts]] — import-or-re-export: `SketchEngineHost`; references `SketchEngineHost`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchProtocol|src/screens/reader/figures/sketch/sketchProtocol.ts]] — import-or-re-export: `STATUS_NAMES`, `SketchEngineHost`, `SketchErrorKind`, `SketchRunError`, `sceneDigest`; references `STATUS_NAMES`, `SketchEngineHost`, `SketchErrorKind`, `SketchRunError`, `sceneDigest`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] — import-or-re-export: `EntryPoints`, `Params`, `SKETCH_FRAME_MS`, `SKETCH_WATCHDOG_FRAMES`, `SketchEngineHost`, `SketchRunError`, `sceneDigest`; references `EntryPoints`, `Params`, `SKETCH_FRAME_MS`, `SKETCH_WATCHDOG_FRAMES`, `SketchEngineHost`, `SketchRunError`, `sceneDigest`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchScene (ts)|src/screens/reader/figures/sketch/sketchScene.ts]] — import-or-re-export: `PLAY_TICKS`; references `PLAY_TICKS`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchWorkerCore|src/screens/reader/figures/sketch/sketchWorkerCore.ts]] — import-or-re-export: `SketchEngineHost`; references `SketchEngineHost`
 
 ## Dependencies
 
@@ -163,11 +163,11 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.test.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchParity.test.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchParity.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartment.test.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartment.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sketch_engine.py](../../../../../../../../../tests/test_sketch_engine.py) — cross-boundary name contract: references uniquely owned exported names `ENGINE_SHA256`, `SKETCH_FUEL_PER_CALL`, `SKETCH_MEMORY_BYTES`, `SKETCH_SERIALIZE_TICKS`; it does **not** directly execute this source module.
 - [tests/test_sketch_hostile.py](../../../../../../../../../tests/test_sketch_hostile.py) — cross-boundary name contract: references uniquely owned exported name `SketchRunError`; it does **not** directly execute this source module.
 - [tests/test_sketch_parity.py](../../../../../../../../../tests/test_sketch_parity.py) — cross-boundary name contract: references uniquely owned exported name `ENGINE_SHA256`; it does **not** directly execute this source module.
-- [tests/test_sketch_sandbox_review.py](../../../../../../../../../tests/test_sketch_sandbox_review.py) — cross-boundary name contract: references uniquely owned exported name `TESTED_DIGEST_HEX`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
