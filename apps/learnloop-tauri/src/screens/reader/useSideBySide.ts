@@ -32,6 +32,7 @@ import { api } from "../../api/client";
 import type { CorrespondentsDto, SideBySideSectionDto } from "../../api/dto";
 import { errorMessage } from "../../errors";
 import { logReaderAction, newActivityId } from "./activity";
+import { logCorrespondentAct } from "./correspondenceEvents";
 import { crumbLabel, firstCorrespondent, firstJudgedIn, isNarrowWindow, targetOf, type Pane, type PaneTarget } from "./sideBySide";
 
 export const SIDE_BY_SIDE_COPY = {
@@ -91,7 +92,7 @@ export interface SideBySideInput {
   onError: (message: string) => void;
 }
 
-export type SideBySideVia = "find_list" | "peek" | "key";
+export type SideBySideVia = "find_list" | "also_list" | "peek" | "key";
 /** How a side-by-side session ended (side_by_side_closed's `via`). */
 type EndedBy = "close" | "walked_off" | "replaced" | "source" | "switch_off";
 
@@ -285,12 +286,18 @@ export function useSideBySide({
         : pushCrumb(label, target);
     }
     const opened = start(target, entryId, sheet, here.sourceId);
-    logReaderAction(sheet ? "corresponding_section_peeked" : "side_by_side_opened", {
-      ...visit(), extraction_id: here.extractionId, source_id: here.sourceId, section_id: here.sectionId,
-      target_source_id: target.sourceId, target_extraction_id: target.extractionId,
-      target_section_id: target.sectionId, target_span_id: target.spanId, by: target.by, via,
-      ...(sheet ? {} : { side_by_side_id: opened.sessionId, detour_id: entryId }),
-    });
+    if (sheet) {
+      // The narrow window's peek is CA5's event: its one definition (correspondenceEvents.ts).
+      logCorrespondentAct("corresponding_section_peeked", here.extractionId, here.sectionId,
+        { ...target, jump: { spanId: target.spanId } }, via, { ...visit(), source_id: here.sourceId });
+    } else {
+      logReaderAction("side_by_side_opened", {
+        ...visit(), extraction_id: here.extractionId, source_id: here.sourceId, section_id: here.sectionId,
+        target_source_id: target.sourceId, target_extraction_id: target.extractionId,
+        target_section_id: target.sectionId, target_span_id: target.spanId, by: target.by, via,
+        side_by_side_id: opened.sessionId, detour_id: entryId,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pushCrumb, replaceCrumb, start]);
 

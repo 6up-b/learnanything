@@ -271,6 +271,8 @@ export function FindSection({
 
   const sideBySide = useCallback((hit: CorrespondentSectionDto) => {
     if (!hit.jump.spanId || !onSideBySide) return;
+    // Side by side takes the peek's place (its crumb replaces the peek's).
+    setPeek(null);
     onSideBySide(hit);
   }, [onSideBySide]);
 

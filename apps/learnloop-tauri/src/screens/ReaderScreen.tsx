@@ -3634,7 +3634,8 @@ export function ReaderScreen({
                 onHide={hideAlsoInBooks}
                 onGoThere={(target) => void openLibraryHit(target)}
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
-                // `s` side by side: CA6's entry is wired here when it lands (a seam: absent, `s` does nothing).
+                // `s` side by side (CA6): the same entry as CA5a's find list's.
+                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
                 onPeekChange={setAlsoPeek}
                 onAvailableChange={setAlsoAvailable}
                 onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}

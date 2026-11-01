@@ -64,6 +64,44 @@ def test_the_prompt_contract_carries_side_by_side_only_while_its_switch_and_curr
     assert contract["sideBySide"] == {"enabled": True} and "correspondence" not in contract
 
 
+@pytest.mark.parametrize("side_by_side", [True, False])
+@pytest.mark.parametrize("correspondence", [True, False])
+@pytest.mark.parametrize("curriculum", [True, False])
+def test_the_switch_matrix_each_switch_controls_only_its_own_key(tmp_path, side_by_side, correspondence, curriculum):
+    """Landing onto main (CA5 x CA6): reader.side_by_side.enabled x reader.correspondence.enabled x
+    curriculum.enabled. ``sideBySide`` is there iff its switch and curriculum are on; ``correspondence``
+    (CA5a's find list and CA5's line) iff its switch and curriculum are on; nothing else in the contract
+    moves with the two Reader switches, and all off is the contract without either key (today)."""
+    def contract_for(name, sbs, corr, cur):
+        config = (f"[reader.side_by_side]\nenabled = {str(sbs).lower()}\n"
+                  f"[reader.correspondence]\nenabled = {str(corr).lower()}\n"
+                  f"[curriculum]\nenabled = {str(cur).lower()}\n")
+        paths, _repository = build_coverage_vault(tmp_path / name, config=config)
+        return call(_ctx(paths), "reader.prompt_contract", {})
+
+    contract = contract_for("cell", side_by_side, correspondence, curriculum)
+    assert ("sideBySide" in contract) == (side_by_side and curriculum)
+    assert ("correspondence" in contract) == (correspondence and curriculum)
+    if side_by_side and curriculum:
+        assert contract["sideBySide"] == {"enabled": True}
+    if correspondence and curriculum:
+        assert contract["correspondence"]["alsoInBooks"] is True
+    # The two Reader switches move only their own keys, at either curriculum setting.
+    neither = contract_for("neither", False, False, curriculum)
+    assert {k: v for k, v in contract.items() if k not in ("sideBySide", "correspondence")} == neither
+    assert "sideBySide" not in neither and "correspondence" not in neither
+
+
+def test_one_definition_of_each_correspondence_event_and_field():
+    """CA5's correspondenceEvents.ts and CA6's records share one allowlist entry per event."""
+    events = list(RI.CLIENT_ACTION_EVENTS)
+    assert len(events) == len(set(events))
+    assert events.count("corresponding_section_peeked") == 1
+    assert events.count("corresponding_section_opened") == 1
+    assert {"section_id", "target_source_id", "target_extraction_id", "target_section_id", "by",
+            "leader", "side_by_side_id", "seconds_open", "error_kind"} <= RI.ACTIVITY_FIELDS
+
+
 @pytest.mark.parametrize("config,code", [
     ("[reader.side_by_side]\nenabled = false", "side_by_side_disabled"),
     ("[curriculum]\nenabled = false", "side_by_side_disabled"),

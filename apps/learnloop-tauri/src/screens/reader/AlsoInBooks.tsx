@@ -360,6 +360,8 @@ export function AlsoInBooks({
 
   const sideBySide = useCallback((hit: CorrespondentSectionDto) => {
     if (!onSideBySide || !hit.jump.spanId) return;
+    // Side by side takes the peek's place (its crumb replaces the peek's).
+    setPeek(null);
     onSideBySide(hit);
   }, [onSideBySide]);
 
