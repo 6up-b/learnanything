@@ -250,3 +250,16 @@ calls. Not merged with main and not renumbered (the landing does both).
 
 Fail-first: against `5dce9e2e73`'s sources, 7 of the 9 new tests fail at their target assertions; the two guards
 (the history-kept intent ending, and the plan read writing nothing) hold before and after.
+
+### Gate (fix round 3)
+
+Same rules as round 2 (5G scope, at most `-n 6`, `env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`).
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Iteration: the C1 files (rounds 1–3), the RW7b plan files, `test_intent_plan.py` and `test_deliverable_rpcs.py`:
+  **124 passed, 3 skipped**.
+- Targeted gate under `flock /tmp/learnloop-fullsuite.lock`: round 2's 120 files plus
+  `tests/test_curriculum_c1_fix_round3.py` (121), tree `63cae27494`: **2839 passed, 12 skipped** (owner-vault lane
+  and optional extras), 0 failed, in 31 min 9 s.
+- No migration, schema, config key, CLI, RPC signature, frontend or `src-tauri` change; no new numeric constant
+  (the diagnosis wait is placement's `DIAGNOSIS_WAIT_DAYS`).
