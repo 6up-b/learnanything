@@ -22,7 +22,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "docs" / "learnloop-architecture-vault" / "_scripts" / "desktop_generate.py"
-KINDS = {"entry-reachable build graph", "compiler-implicit", "vitest-support", "native-entry-reachable"}
+# "bundled worker entry": RW5d P2's sketch compartment, whose Worker vite.config.mjs bundles into a virtual module.
+KINDS = {"entry-reachable build graph", "bundled worker entry", "compiler-implicit", "vitest-support", "native-entry-reachable"}
 
 
 @functools.cache

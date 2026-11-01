@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/components/RewordConfirms.tsx"
 source_commit: "b3dca2b0505d83cf07dd82ea6d2065b34dbde343"
 source_commit_timestamp: "2026-10-13T16:45:00-04:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/RewordConfirms.tsx](../../../../../../apps/learnloop-tauri/src/components/RewordConfirms.tsx) |
-| Source lines | 210 |
+| Source lines | 211 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `b3dca2b0505d83cf07dd82ea6d2065b34dbde343` |
 | Commit timestamp | `2026-10-13T16:45:00-04:00` |
 
@@ -60,26 +60,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function fieldLabel(field: string): string` — function, line 42
-- `export function roleLabel(role: string): string` — function, line 46
-- `export function valueText(value: unknown): string` — function, line 51
-- `export function supportLine(confirm: FacetRewordConfirmDto): string` — function, line 65
-- `export function RewordConfirmList(` — function, line 153
+- `export function fieldLabel(field: string): string` — function, line 43
+- `export function roleLabel(role: string): string` — function, line 47
+- `export function valueText(value: unknown): string` — function, line 52
+- `export function supportLine(confirm: FacetRewordConfirmDto): string` — function, line 66
+- `export function RewordConfirmList(` — function, line 154
 
 ## Internal implementation anchors
 
 - `const FIELD_LABEL: Record<string, string> =` — const, line 18
 - `const ROLE_LABEL: Record<string, string> =` — const, line 31
-- `const SPAN_SUPPORT_LINE: Record<string, string> =` — const, line 58
-- `const check = confirm.spanSupport` — const, line 66
-- `const roles = Array.from(new Set(confirm.sources.map((source)` — const, line 76
-- `function SourceLine(` — function, line 80
-- `function RewordConfirmCard(` — function, line 95
-- `const changed = confirm.fields.map(fieldLabel).join(", ")` — const, line 104
-- `const visible = confirms.filter((confirm)` — const, line 164
-- `async function decide(confirm: FacetRewordConfirmDto, decision: "confirm" | "keep")` — function, line 167
-- `const wordingStyle: CSSProperties =` — const, line 200
-- `const button: CSSProperties =` — const, line 202
+- `const SPAN_SUPPORT_LINE: Record<string, string> =` — const, line 59
+- `const check = confirm.spanSupport` — const, line 67
+- `const roles = Array.from(new Set(confirm.sources.map((source)` — const, line 77
+- `function SourceLine(` — function, line 81
+- `function RewordConfirmCard(` — function, line 96
+- `const changed = confirm.fields.map(fieldLabel).join(", ")` — const, line 105
+- `const visible = confirms.filter((confirm)` — const, line 165
+- `async function decide(confirm: FacetRewordConfirmDto, decision: "confirm" | "keep")` — function, line 168
+- `const wordingStyle: CSSProperties =` — const, line 201
+- `const button: CSSProperties =` — const, line 203
 
 ## Who imports or calls it
 
@@ -110,6 +110,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/syllabusRole.test.tsx](../../../../../../apps/learnloop-tauri/src/components/syllabusRole.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/RewordConfirms.test.tsx](../../../../../../apps/learnloop-tauri/src/components/RewordConfirms.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

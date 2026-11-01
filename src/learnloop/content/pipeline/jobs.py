@@ -3262,16 +3262,25 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
     # Exam protection (2026-10-13): held-out material (the one exam predicate's
     # held-out partition) never becomes practice, whoever selects it. Checked
     # before any model call.
-    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.content.sources.exam_material import exam_material, scope_only_among
     from learnloop.vault.loader import load_vault
 
-    exam = exam_material(load_vault(ctx.vault_root), ctx.repo)
+    vault = load_vault(ctx.vault_root)
+    exam = exam_material(vault, ctx.repo)
     held = [str(node.get("span_id")) for node in raw_selection.get("nodes") or ()
             if isinstance(node, dict) and exam.is_held_out(extraction_id, str(node.get("span_id") or ""))]
     if held:
         raise IngestRunnerError(
             "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
             code="exam_material", details={"extraction_id": extraction_id, "span_ids": held})
+    # Curriculum C3 (Codex review F3): a syllabus only scopes a deliverable, never practice
+    # (checked again at the write, ``exercise_authoring.write_draft``).
+    selected = [str(node.get("span_id") or node.get("spanId") or "") for node in raw_selection.get("nodes") or ()
+                if isinstance(node, dict)]
+    if scope_only_among(vault, ctx.repo, [(extraction_id, span) for span in selected if span]):
+        raise IngestRunnerError(
+            "This is your syllabus: LearnLoop uses it only to scope your deliverables, so it can't become practice.",
+            code="scope_only", details={"extraction_id": extraction_id})
     ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
     client = _exercise_import_client(ctx)
     source_id = str(payload.get("source_id") or "") or None

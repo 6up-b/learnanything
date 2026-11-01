@@ -6,6 +6,7 @@ from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
 from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
 from learnloop.content.pipeline.build_plan import build_build_plan
+from learnloop.content.sources.role_authority import is_scope_only_role
 from learnloop.content.sources.source_outline import (
     OutlineNotFound,
     build_source_outline,
@@ -1096,6 +1097,11 @@ def build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict
                 "no_units",
                 f"Member '{member.source_id}' has no units to inventory.",
             )
+        # Curriculum C3 (spec §9.1): a syllabus only scopes a deliverable; it is never read
+        # for a study map, so none of it is inventoried (synthesis skips it too).
+        units = [unit for unit in units if not is_scope_only_role(unit["role"])]
+        if not units:
+            continue
         entry = {"extraction_id": extraction_id, "units": units}
         # A member is "new / not yet synthesized" when its revision carries no unit
         # inventories yet — the in-app add path leaves them un-inventoried, so this

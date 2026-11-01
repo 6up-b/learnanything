@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
-source_commit_timestamp: "2026-11-01T16:50:10-05:00"
+source_commit: "3ddfd2d0d480d497bf2949bde8b7ae6f81ebd059"
+source_commit_timestamp: "2026-11-01T18:19:58-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/reader/source_objects.py`
+- `src/learnloop/source_retrieval/deliverables.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
 
 ### Direct SQL writers
@@ -153,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_source_objects.py`
 - `tests/test_ux_phase1_landing.py`
+- `tests/exam_scope_fixtures.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_protected_readings.py`
@@ -168,7 +170,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
-- `tests/test_source_block_fts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

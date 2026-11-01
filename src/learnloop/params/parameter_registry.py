@@ -1754,6 +1754,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "prerequisite section in the nearest active deliverable's fresh path order, in whichever book (the "
         "front-matter rule, exam filter and DL2's reading_allowed first); off, RW7b's plans byte for byte. "
         "Never read by replay."),
+    # Deliverable curriculum C3 (spec §9.2): the kill switch of the scope
+    # resolver's past-papers input. A boolean (classified so every new key has
+    # a rule); which topics count is the exam predicate's partition (held out
+    # or not) and the LOs' own provenance, so no weight, margin or threshold
+    # is added. Off restores C0b's resolution byte for byte.
+    _ConfigRule(_exact(
+        "curriculum.exam_units_in_scope",
+    ), "structural", "operational",
+        "kill switch for curriculum C3's past-papers scope input: the ids (never the text) of the topics "
+        "practice-available exam and problem-set units map to are read by the deliverable scope resolver; "
+        "held-out units contribute nothing. Off, C0b's resolution byte for byte. Scoping display and proposals "
+        "only, no measurement, scheduling or serving authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

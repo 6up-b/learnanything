@@ -1686,11 +1686,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # only because the effective config gains the keys; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version).
     # Reader RW5d P2 (the sketch tier; docs/reviews/reader-rw5d-p2-sketch.md) adds [figures]
-    # sketch_enabled (false: it ships off until the G-SM14 webview probe passes; a modelled default,
+    # sketch_enabled (it shipped false at the P2 landing; a modelled default,
     # left out of the decision-only template): sealed, verified simulations when the figure grammar
     # can't express an idea, content and display only,
     # at every version (no successor); every snapshot moves only because the effective config gains
     # the key; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Reader RW5d P2's sketch compartment (docs/reviews/reader-rw5d-p2-sketch-compartment.md) turns
+    # figures.sketch_enabled on (true, Q5's built default) once G-SM14 passed from inside the
+    # compartment (docs/reviews/reader-rw5d-g-sm14-probe.md, "Rerun after the compartment"): content
+    # and display only, at every version (no successor); every snapshot moves only because that one
+    # default flips; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
     # Reader RW5d P2b (the rich tiers, Manim half; docs/reviews/reader-rw5d-p2b-manim.md) adds [figures]
     # rich_tiers_enabled (true), manim_opt_in and manim_opt_in_at (unset: the standing opt-in is the
     # learner's, asked once on a press) and the chat route ai.routing.figure_rich_author (unset: the plan's
@@ -1749,6 +1754,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # learner-voice records at every version: no scoring, scheduling, projection or serving change
     # (no successor); every snapshot moves only because the effective config gains the section and
     # the route; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Curriculum C3 (exam scoping from a syllabus; spec_deliverable_curriculum_v1 §9, §12;
+    # docs/reviews/curriculum-c3-syllabus-scoping.md) adds [curriculum] exam_units_in_scope (true; a
+    # modelled default, left out of the decision-only template): the scope resolver also reads the ids,
+    # never the text, of the topics practice-available exam and problem-set units map to, and the
+    # syllabus source role scopes deliverables only. Scoping display and proposals at every version: no
+    # scoring, scheduling, projection or serving change (no successor); every snapshot moves only because
+    # the effective config gains the key; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
     # Learner data-relax 2 (owner principle 2026-11-01: the learner's questions, answers and history
     # are not private; include them where they help; docs/reviews/learner-data-relax-2.md) adds
     # [figures] author_learner_state = true (a modelled default, left out of the decision-only
@@ -1758,7 +1771,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # every version: no scoring, scheduling, projection or serving change (no successor); every snapshot
     # moves only because the effective config gains the key; all of them were recomputed from the
     # composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "03583c8fbe28c75a359a8fef3bcdc1acbeaa20c439800c1808ed86a283c82982",
+    "mvp-0.9": "6aa5ac8ba194f4023afa1d0cc492ac946a92d6b87024a39b7131f9a4f14e25d4",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1843,8 +1856,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.10": "404e447b2167469e87eca5bcfe2391b1985ed9f93fc243c11f390a6857da12fe",
+    "mvp-0.10": "58ee575da5c94b35725647ef584589cb3f205476004f448ea84cc58b6b0a0259",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1937,8 +1951,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.11": "77ee80bc5f5d39babbeb09d8ed1fc52543404dc0ed8db5b918f08ee314cf529e",
+    "mvp-0.11": "77995877e5e30fc80ab67c68f5e10abc531dc975205c43ef5d0793c4344a784f",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -2025,8 +2040,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.12": "ed0930626fc1a946d8a35d847996d962f97140fd9e9a30aec962389f012bc3a5",
+    "mvp-0.12": "31e008915c4bdf9d80287e373688f6d1ff90fd8d9bd3c9b461b7c6d02a486af3",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2108,8 +2124,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.13": "2e7f9dfea9486e97f801934a07019c039ec3c89ac25e3ee42888407300e449d4",
+    "mvp-0.13": "cd131b1be3a562b76052b052e16809c74ba3f6ab17b38d4ef3952f7ab4c52b99",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2190,8 +2207,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.14": "442c682f406a90faee650acd2616d28e4de3da9f6e4a7266b65bf803523631c8",
+    "mvp-0.14": "cef73c5902241ee1e56d1ec522df68044fcb4031b0e223a75604a3594fdff467",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2270,8 +2288,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.15": "657d5891c7592fd8a5d592089cf0708142c66fd58369012ab3ca17b7c2389a1b",
+    "mvp-0.15": "b93681733b000a15cb80c36b9a2ae75b18957a266e064dbf52453b1386d66607",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2357,8 +2376,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.16": "c6c3f3cccbe1fc0c514e0e3ee16f4dcc2bbbd41bec76ec7a2df30086c1ebe94f",
+    "mvp-0.16": "3f060a66b810f1fe0d01d944c6cd7d22fbbff377239043e01a0cd680438c36bd",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2440,8 +2460,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.17": "07e86efe5dcba6b0c3ace007b3c4c234931b409b89292e721aace58fe539867a",
+    "mvp-0.17": "d5d75c30bf221ea24acd032fa0624583be30911a609a54704dbe3ed8b93a3658",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2516,8 +2537,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.18": "a661288197340483a8a83f387497899554e46fea46522c3d86ad5a1a4f627892",
+    "mvp-0.18": "71049f4cdda3758910712b3810d6f1bdda0abae2e29e42a867d77c1b04cffd91",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2592,8 +2614,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.19": "3ff13b0de773dc108fad6210f49734a64f1459237a987990257e961d46b9f44d",
+    "mvp-0.19": "921dc48f4d2d8014c54923c5c86e22035b45489f27c6bc368ff24b5e68867fc8",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2664,8 +2687,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.20": "73a0164ffddd884d13521c8d9d2d5ed26081a0fe2ad23fe768cc073440344d84",
+    "mvp-0.20": "c71a4abbf510edf052f4a952be08aa571eb9fdd2eee87a260e6a6fd23a3e3f32",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2745,8 +2769,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.21": "409be4a029b8b5d11e757ea732fbdd7d684752a5a473e58318f9ed8e93c8e6c2",
+    "mvp-0.21": "232c11d7dd778810bf6b1dcef79bf981558cbaefa41360c02d2ece38f3781dd7",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2818,8 +2843,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.22": "592e174d5fd311b1676cb7b2c6ef9d85a09e44bf71f50bc98f74d3b54d39a9fa",
+    "mvp-0.22": "b63642f1933d970b991f43d6a6e70e475909c3e5a1c3c269b1e714419d9cd65f",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2886,8 +2912,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.23": "2b19cca31db1b09c27ea5ef26c36ba634b7ec1e6f4be8e3ef9d146532d23cbb8",
+    "mvp-0.23": "51f274ed26bebe75551a8f18ea90c4feb77e437c1113d822d6ed9a6dfcb225c0",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2951,8 +2978,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.24": "1ab40160dc150a13437db475d490b6d9dfe0c50e4664b7dc913476eede773e51",
+    "mvp-0.24": "2a09333c27eefcb4877695ec9a7f0cf2f326c2c62a0efe6d36d8b20a7b28960c",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -3014,8 +3042,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.25": "3e0987265fe509e2152ec17d7d474bd60bdde9fb51c116f877fb387bf0483b70",
+    "mvp-0.25": "9ae5c445ca2adb519650ea60c1c2c50210fb73ff4733c7985077844fadb233a7",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -3076,8 +3105,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.26": "b0baa26743c9545dd2056d87ff4bec0e0dcf1b6349924fb70a71701d6d3b4631",
+    "mvp-0.26": "ff2d223121b707e1e76d5a2338efbc8cdd4fb494987799752af2eaaa8bc58958",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -3138,8 +3168,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.27": "4d6b76e125ecb2beceed13e96be067540aa40b02099442d31bc2087a115d7612",
+    "mvp-0.27": "a27470271bb6e1033fb2dadf6bb1157ba8a3d7c7e9d26f776597b411e9d4efc2",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -3189,8 +3220,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.29": "91d87258a5f6c4fd1c331d2b4746645a69413c7d032affce92344c05e00bb6f7",
+    "mvp-0.29": "3a0aad09aab62a2b3add1740470a9f851535d4253d487f307f5f4464852691b3",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3234,8 +3266,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.30": "801ee07b3036d5ecc4f5134958d0b766d656a43a77076a9ab7e3ca2002dfef04",
+    "mvp-0.30": "28294fb2fa63753afa2c3f6f370602713f189f1b0fa83fa78756e7719dcebfb0",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3273,8 +3306,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.31": "6c5c93341084341da97a886530b4eb872a5a221ac487da827e7521733f479ae3",
+    "mvp-0.31": "759ee4fd798992a6244b9d8cf3eefdd7685f50c45479acdc42b147026b0e2307",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3309,8 +3343,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.32": "3f78ca40360a7469f8be9745fba693c74b39a9075e71c011ed24f2a54c735bda",
+    "mvp-0.32": "6c32b61e86f89590330c836676cdb59d65b25392229fc0bea09599f963a305f0",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3343,8 +3378,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.33": "13c601b5ca7aa5c811ba3f34cb9af65d8885245967db6419e3068754afe46596",
+    "mvp-0.33": "684f7111fbd341f07edf78f7a2c0433004bb563db251127fb7d9838c713879cd",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3376,8 +3412,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.34": "b19cf193dbc56e74131c70d4341335d862fa2a6214df4afa2dc1573031702bbb",
+    "mvp-0.34": "abcca84a4661e4ef011a78b19de84af539ffa83b1779de3a12b9e2c075fd2370",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3408,8 +3445,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.35": "44e7d81719cbcc19da6d56edb340f27cede89945e8e5557d6706ebe96ee89a2a",
+    "mvp-0.35": "fd6d9b5ab0238ffc3e5bca28167de7a0818b2a9ed7418de5ebf3e964df4380ea",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3435,8 +3473,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.36": "275869ceb8f8e6549c09e9bb63ebeb9fe4a11bb155deff24a007dfd07a6b1163",
+    "mvp-0.36": "fe88ca2431c4c9c0da4deaf1039e30f3b2423bf71ed7082e1511ce1fbfa1ec65",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3465,8 +3504,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.37": "d64d0c536f11c7e454b3eaff6e7694a1a0c87bef17ecec9925785eaeda8041b5",
+    "mvp-0.37": "0160e4cdc1ede1bd0ca9e9c1d58f4d955175796d03e4cb7d0ea84e75d868efc5",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3492,8 +3532,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest move it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge move it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope moves it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.38": "fde1a4771901a388688ef633c76380df7640315cec3abbc33b5e4cd251393713",
+    "mvp-0.38": "d6437aef5169012957996cf75cf3ab06e87570963cb532f4a7cc012b4786fec2",
     # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
     # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
     # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
@@ -3517,8 +3558,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.40).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest are in it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge are in it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope is in it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.39": "eb2fa9f4804e0e4b8845bcc3d2efc34651d7d9a9668a0792e659ee8ae8f895a6",
+    "mvp-0.39": "16518ec37e5ac823175217a33b20379018b8e6c07798187cc581bad1e8c8f89a",
     # mvp-0.40 (curriculum C1, the plan follows the deliverable;
     # spec_deliverable_curriculum_v1 §7.6, §8.1;
     # docs/reviews/curriculum-c1-plan-follows-path.md; built as mvp-0.39 and
@@ -3535,8 +3577,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest are in it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge are in it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
+    # Curriculum C3's [curriculum] exam_units_in_scope is in it too (see mvp-0.9; scoping display only, no successor).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
-    "mvp-0.40": "186bb2fe8f2df7c82958da807fecb1f84ce77f0c01ec0f624484108d446e84d3",
+    "mvp-0.40": "1bc2c356f3113ffa57b6fc344d987c8c096bed810da429d559816fba00134837",
 }
 
 

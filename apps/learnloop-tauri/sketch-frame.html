@@ -1,0 +1,102 @@
+<!doctype html>
+<!--
+  Reader RW5d P2, the sketch compartment (spec_reader_show_me_figures_v1 §9.3-9.4, gate G-SM14).
+  Loaded only as <iframe sandbox="allow-scripts"> (no allow-same-origin: an opaque origin) by
+  src/screens/reader/figures/sketch/sketchCompartment.ts. Its one script makes the sketch Worker from a
+  blob, so the Worker inherits this document's CSP. The policy below is enforced together with the header
+  Tauri adds (both must allow a request): connect-src 'none' stops fetch, XMLHttpRequest, WebSocket and
+  EventSource to ipc:, http://ipc.localhost or anywhere else before the request leaves WebKit.
+  script-src names only this script's SHA-256 (sketchCompartment.test.ts recomputes it) and
+  'wasm-unsafe-eval' for the engine; worker-src blob: lets the frame start the Worker and nothing else.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-emQFfwAXdRixTv/cOh+FLF/J8HyyHExoib3oYolFij8=' 'wasm-unsafe-eval'; worker-src blob:; child-src blob:; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; media-src 'none'; frame-src 'none'; object-src 'none'; manifest-src 'none'; form-action 'none'; base-uri 'none'" />
+    <meta name="referrer" content="no-referrer" />
+    <title>sketch engine</title>
+  </head>
+  <body>
+    <script>
+(() => {
+  "use strict";
+  // Mirrors of sketchFrameProtocol.ts (sketchCompartment.test.ts keeps them equal).
+  const ENGINE_MAX_BYTES = 2097152;
+  const WORKER_SOURCE_MAX_CHARS = 1048576;
+  const MESSAGE_MAX = 600;
+  let control = null;
+  let worker = null;
+  let workerUrl = "";
+  let booted = false;
+  const isBuffer = (value) => Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+  const isPlain = (value) => typeof value === "object" && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+  const tell = (message) => {
+    try { control.postMessage(message); } catch (_) { /* the Reader is gone */ }
+  };
+  const stop = () => {
+    if (worker) {
+      try { worker.terminate(); } catch (_) { /* already stopped */ }
+      worker = null;
+    }
+    if (workerUrl) {
+      try { URL.revokeObjectURL(workerUrl); } catch (_) { /* already revoked */ }
+      workerUrl = "";
+    }
+  };
+  const fail = (reason) => {
+    stop();
+    tell({ kind: "failed", message: String(reason).slice(0, MESSAGE_MAX) });
+  };
+  const boot = (data, ports) => {
+    if (booted) return;
+    booted = true;
+    if (Object.keys(data).length !== 3 || typeof data.worker !== "string" || !isBuffer(data.engine) || !ports || ports.length !== 1) {
+      fail("the sketch engine's start-up message was malformed");
+      return;
+    }
+    if (data.worker.length > WORKER_SOURCE_MAX_CHARS || data.engine.byteLength === 0 || data.engine.byteLength > ENGINE_MAX_BYTES) {
+      fail("the sketch engine's start-up message was too large");
+      return;
+    }
+    try {
+      workerUrl = URL.createObjectURL(new Blob([data.worker], { type: "text/javascript" }));
+      worker = new Worker(workerUrl);
+    } catch (caught) {
+      fail("the sketch engine could not start here (" + String(caught && caught.name) + ")");
+      return;
+    }
+    worker.onerror = (event) => {
+      if (event && typeof event.preventDefault === "function") event.preventDefault();
+      fail("the sketch engine stopped (" + String((event && event.message) || "error").slice(0, 200) + ")");
+    };
+    worker.onmessage = (event) => {
+      const notice = event.data;
+      if (!isPlain(notice)) return;
+      if (notice.kind === "started" && Object.keys(notice).length === 1) tell({ kind: "started" });
+      else if (notice.kind === "failed" && typeof notice.message === "string") fail(notice.message);
+    };
+    try {
+      worker.postMessage({ kind: "boot", engine: data.engine }, [ports[0], data.engine]);
+    } catch (caught) {
+      fail("the sketch engine could not start here (" + String(caught && caught.name) + ")");
+    }
+  };
+  const connect = (event) => {
+    if (control || event.source !== window.parent) return;
+    const data = event.data;
+    if (!isPlain(data) || data.kind !== "connect" || Object.keys(data).length !== 1 || !event.ports || event.ports.length !== 1) return;
+    window.removeEventListener("message", connect);
+    control = event.ports[0];
+    control.onmessage = (message) => {
+      const data = message.data;
+      if (!isPlain(data)) return;
+      if (data.kind === "boot") boot(data, message.ports);
+      else if (data.kind === "stop" && Object.keys(data).length === 1) stop();
+    };
+    tell({ kind: "connected" });
+  };
+  window.addEventListener("message", connect);
+})();
+    </script>
+  </body>
+</html>

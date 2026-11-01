@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
-source_commit_timestamp: "2026-11-01T16:50:10-05:00"
+source_commit: "3ddfd2d0d480d497bf2949bde8b7ae6f81ebd059"
+source_commit_timestamp: "2026-11-01T18:19:58-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/source_retrieval/deliverables.py`
 - `src/learnloop/substrate/dataset.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
 - `src/learnloop_sidecar/handlers/serializers.py`

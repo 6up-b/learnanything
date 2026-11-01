@@ -1,7 +1,8 @@
 // Reader RW5d P2: how the Reader talks to a sketch's sealed engine (spec_reader_show_me_figures_v1 §9.3).
 //
 // In the app every call goes to a dedicated Web Worker (sketch.worker.ts: no
-// DOM, terminable) through workerRunner; the vitest renderer tests run the
+// DOM, terminable) inside the sketch compartment, a sandboxed opaque-origin
+// frame (sketchCompartment.ts), through workerRunner; the vitest renderer tests run the
 // same engine host in-process (hostRunner). withWatchdog wraps either: a call
 // that takes longer than SKETCH_FRAME_MS x SKETCH_WATCHDOG_FRAMES ends the
 // runner (the Worker is terminated) and the sketch shows as paused. Every
@@ -15,7 +16,7 @@ import { createContext } from "react";
 import { sceneDigest, SKETCH_FRAME_MS, SKETCH_WATCHDOG_FRAMES, SketchRunError, type EntryPoints, type Params, type SketchEngineHost } from "./sketchEngine";
 import { parseWorkerReply, type SketchRead, type WorkerOp, type WorkerRequest, type WorkerResponse } from "./sketchProtocol";
 
-export type { SketchRead, WorkerRequest, WorkerResponse } from "./sketchProtocol";
+export type { SketchRead, SketchReadText, WorkerRequest, WorkerResponse } from "./sketchProtocol";
 
 export interface SketchRunner {
   load(code: string): Promise<EntryPoints>;
@@ -119,11 +120,11 @@ export function withWatchdog(runner: SketchRunner, ms: number = WATCHDOG_MS, onP
   };
 }
 
-/** The Worker, created on first use (its module is loaded only in the app). */
+/** The Worker in its compartment, created on first use (its module is loaded only in the app). */
 export function workerRunner(): SketchRunner {
   let real: SketchRunner | null = null;
   let disposed = false;
-  const ready = import("./sketchWorkerClient").then((client) => {
+  const ready = import("./sketchCompartmentClient").then((client) => {
     real = portRunner(client.createSketchWorker());
     if (disposed) real.dispose();
     return real;

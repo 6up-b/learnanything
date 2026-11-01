@@ -1,17 +1,17 @@
 ---
-title: "Desktop module · src/screens/reader/figures/sketch/sketchWorkerClient.ts"
+title: "Desktop module · src/screens/reader/figures/sketch/sketchCompartmentClient.ts"
 type: "desktop-module-reference"
 status: "current"
 refactor_status: "ACTIVE"
 version: "1.0.0"
-module: "desktop.src.screens.reader.figures.sketch.sketchWorkerClient"
+module: "desktop.src.screens.reader.figures.sketch.sketchCompartmentClient"
 language: "TypeScript"
 area: "TypeScript/screens/reader/figures/sketch"
-source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts"
+source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts"
 source_paths:
-  - "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts"
-source_commit: "8427228c2d6ecbf8bf612e57a5e1d5d0c0d7fb6b"
-source_commit_timestamp: "2026-10-31T14:41:14-04:00"
+  - "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts"
+source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
+source_commit_timestamp: "2026-11-01T14:49:03-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -25,7 +25,7 @@ tags:
   - "refactor/active"
 ---
 
-# `src/screens/reader/figures/sketch/sketchWorkerClient.ts`
+# `src/screens/reader/figures/sketch/sketchCompartmentClient.ts`
 
 Area: [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
 
@@ -41,30 +41,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 | Fact | Value |
 |---|---|
-| Source | [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts) |
-| Source lines | 11 |
+| Source | [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts) |
+| Source lines | 10 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8427228c2d6ecbf8bf612e57a5e1d5d0c0d7fb6b` |
-| Commit timestamp | `2026-10-31T14:41:14-04:00` |
+| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
+| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchWorkerClient|src/screens/reader/figures/sketch/sketchWorkerClient.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] → [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchCompartmentClient|src/screens/reader/figures/sketch/sketchCompartmentClient.ts]]
 
 ## Public API
 
-- `export function createSketchWorker():` — function, line 5
+- `export function createSketchWorker(): WorkerLike` — function, line 8
 
 ## Internal implementation anchors
 
-No non-exported declaration anchor was detected by the static extractor.
+- `const engineBytes = appEngineBytes(wasmUrl)` — const, line 6
 
 ## Who imports or calls it
 
@@ -77,12 +77,12 @@ No non-exported declaration anchor was detected by the static extractor.
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketch.worker|src/screens/reader/figures/sketch/sketch.worker.ts]] — import-or-re-export; imports `SketchWorker`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] — import-or-re-export; imports `WorkerRequest`, `WorkerResponse`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchCompartment|src/screens/reader/figures/sketch/sketchCompartment.ts]] — import-or-re-export; imports `WorkerLike`, `appEngineBytes`, `createSketchCompartment`
 
 ### Assets, platform, and third-party dependencies
 
-No explicit asset, standard-library, package, or crate dependency was detected.
+- Local asset: [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm)
+- Imported packages/crates: `virtual:sketch-worker-source`
 
 ## Larger desktop and workflow participation
 
@@ -108,6 +108,6 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ### Regeneration checklist
 
-1. Modify [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchWorkerClient.ts) and focused tests.
+1. Modify [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchCompartmentClient.ts) and focused tests.
 2. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_generate.py`.
 3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_validate.py`.
