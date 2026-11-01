@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx"
-source_commit: "e97d2e15256a04b74ec95b6da207772675f3f8f2"
-source_commit_timestamp: "2026-09-03T10:31:35-07:00"
+source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
+source_commit_timestamp: "2026-11-01T08:37:27-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx](../../../../../../apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx) |
-| Source lines | 405 |
+| Source lines | 309 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `e97d2e15256a04b74ec95b6da207772675f3f8f2` |
-| Commit timestamp | `2026-09-03T10:31:35-07:00` |
+| Source commit | `73e04e71c69fef5371cef306d228eedd8bf67836` |
+| Commit timestamp | `2026-11-01T08:37:27-05:00` |
 
 ## Activation and status evidence
 
@@ -60,7 +60,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ConceptAnimationSection(` — function, line 152
+- `export function ConceptAnimationSection(` — function, line 56
 
 ## Internal implementation anchors
 
@@ -68,26 +68,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const PHASE_LABEL: Record<string, Record<string, string>> =` — const, line 10
 - `function phaseLabel(status: string, renderer: string): string` — function, line 25
 - `const LINK_STYLE =` — const, line 29
-- `const CODEC_HINT = "this webview cannot decode H.264: install gstreamer1.0-libav (Debian/Ubuntu) or gst-libav (Arch) and restart the app"` — const, line 39
-- `type MediaFailure =` — type, line 42
-- `function describeMediaError(error: MediaError | null): MediaFailure` — function, line 44
-- `const detail = error?.message ? ` ($` — const, line 45
-- `function useAnimationBlobUrl(fileName: string | null, attempt: number)` — function, line 64
-- `let cancelled = false` — let, line 72
-- `let objectUrl: string | null = null` — let, line 73
-- `function AnimationPlayer(` — function, line 96
-- `const failure: MediaFailure | null = loadError ?` — const, line 105
-- `function StoryboardList(` — function, line 135
-- `const pollRef = useRef<number | null>(null)` — const, line 160
-- `const stopPolling = ()` — const, line 162
-- `const pollStatus = (animationId: string, renderer: string = "manim")` — const, line 169
-- `const interval = renderer === "video_model" ? 5000 : 2000` — const, line 173
-- `let cancelled = false` — let, line 186
-- `const rows = result.animations ?? []` — const, line 196
-- `const preferred = rows.find((row)` — const, line 197
-- `const generate = async ()` — const, line 213
-- `const requested = await api.requestConceptAnimation(` — const, line 217
-- `const videoRenderer = runtime?.renderer === "video_model"` — const, line 248
+- `function StoryboardList(` — function, line 39
+- `const pollRef = useRef<number | null>(null)` — const, line 64
+- `const stopPolling = ()` — const, line 66
+- `const pollStatus = (animationId: string, renderer: string = "manim")` — const, line 73
+- `const interval = renderer === "video_model" ? 5000 : 2000` — const, line 77
+- `let cancelled = false` — let, line 90
+- `const rows = result.animations ?? []` — const, line 100
+- `const preferred = rows.find((row)` — const, line 101
+- `const generate = async ()` — const, line 117
+- `const requested = await api.requestConceptAnimation(` — const, line 121
+- `const videoRenderer = runtime?.renderer === "video_model"` — const, line 152
 
 ## Who imports or calls it
 
@@ -102,12 +93,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AnimationRuntimeDto`, `ConceptAnimationDto`, `StoryboardDto`
+- [[Reference/Desktop/TypeScript/components/AnimationPlayer|src/components/AnimationPlayer.tsx]] — import-or-re-export; imports `AnimationPlayer`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 
 ### Assets, platform, and third-party dependencies
 
-- Imported packages/crates: `@tauri-apps/api/core`, `react`
+- Imported packages/crates: `react`
 
 ## Larger desktop and workflow participation
 
