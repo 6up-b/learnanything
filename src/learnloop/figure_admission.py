@@ -279,6 +279,16 @@ def rich_tiers_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "rich_tiers_enabled", False))
 
 
+def author_learner_state_enabled(vault: Any) -> bool:
+    """Learner data-relax 2: ``figures.author_learner_state`` under
+    ``figures.enabled``: the figure author is sent the learner's state on the
+    passage's topics (``learnloop.figures.learner_state``). Off: the author's
+    payload, prompt and reuse keys are the predecessor's byte for byte."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "author_learner_state", False))
+
+
 def manim_opt_in(vault: Any) -> str | None:
     """Reader RW5d P2b: the learner's standing opt-in for Manim figures
     (``"standing"``), their "not now" (``"declined"``), or None (not asked)."""
@@ -382,6 +392,7 @@ __all__ = [
     "TUTOR_EXPLORABLE_TASK",
     "TUTOR_FIGURE_GOAL_TASK",
     "advanced_panels_enabled",
+    "author_learner_state_enabled",
     "explorable_yes",
     "figure_goal_digest",
     "figure_home_keys",

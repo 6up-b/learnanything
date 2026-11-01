@@ -32,7 +32,17 @@ refuse a figure any of whose spans is held out now (Codex review F1).
 **What a prompt carries.** The selected passage, the paragraphs around it
 (held-out ones left out), the figure's crop when a figure block or a region
 was selected and the route reads images (a region needs it), and, for a "not
-right?" version, the earlier spec and the learner's note. No learner data.
+right?" version, the earlier spec and the learner's note. Learner data-relax
+2 (owner principle 2026-11-01: the learner's questions, answers and history
+are not private; include them where they help): with
+``figures.author_learner_state`` on, also ``learner_state``, the learner's
+state on the passage's topics (:mod:`.learner_state`: status in words, open
+misconception and gap statements, at most two recent answers of theirs, read
+through ``learner_protection`` so exam, held-out, reserved and cold-in-flight
+work never shows), under the prompt version's ``+learner-v1``, and the reuse
+key names its hash. Only a non-empty state does any of this: a learner with
+no state (or the switch off) is sent, prompted and keyed exactly as before.
+Figures stay help, never evidence.
 
 **RW5b** (spec §8.7). With ``figures.advanced_panels_enabled`` the author
 is told of heat maps, vector fields, trajectories and iterated maps (its own
@@ -250,6 +260,11 @@ class FigureRequest:
     #: of an animation's "not right?": the note re-runs the tier choice
     #: instead of going to the rich author with the earlier program.
     different_kind: bool = False
+    #: Learner data-relax 2: the learner's state on the passage's topics
+    #: (:func:`learnloop.figures.learner_state.learner_state`), set by the build
+    #: with ``figures.author_learner_state`` on, never by a client; None when
+    #: off or empty (then payload, prompt and reuse key are the predecessor's).
+    learner_state: dict[str, Any] | None = None
 
 
 @dataclass
@@ -1243,7 +1258,8 @@ REUSE_ORIGIN = "selection"
 
 def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
                  advanced: bool = False, grounding: Grounding | None = None, sketch: bool = False,
-                 tiers: Sequence[str] | None = None, rich_runtime: str | None = None) -> str:
+                 tiers: Sequence[str] | None = None, rich_runtime: str | None = None,
+                 learner_state: Mapping[str, Any] | None = None) -> str:
     """The reuse key: the spec and prompt versions (RW5b's panels have their
     own prompt version, so RW5a's hashes are unchanged while they are off)
     and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`).
@@ -1264,12 +1280,19 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     carries ``+rich-v1`` and the menu, and the key names ``tiers_allowed`` and
     the rich tier versions (``manim-fig-v1``, the Manim version and the
     sandbox profile); with none on the menu, it is exactly P2's. A revision
-    asking for a different kind of figure names it (Codex re-review F13)."""
+    asking for a different kind of figure names it (Codex re-review F13).
+
+    Learner data-relax 2: a non-empty ``learner_state`` (what the author is
+    sent about the learner) puts ``+learner-v1`` on the prompt version and
+    names the state's hash; None or empty, the key is exactly the
+    predecessor's (a learner with no state keeps today's keys and reuse)."""
 
     show_me = show_me_input(request)
+    learner = bool(learner_state)
     key: dict[str, Any] = {
         "spec_version": S.SPEC_VERSION,
-        "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers),
+        "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
+                                                  learner=learner),
         "extraction_id": request.extraction_id,
         "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
@@ -1294,6 +1317,10 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
         key["rich"] = {"tiers_allowed": list(menu),
                        "manim": {"version": M.MANIM_FIG_VERSION, "runtime": rich_runtime}
                        if "manim" in menu else None}
+    if learner:
+        from learnloop.figures.learner_state import state_hash
+
+        key["learner_state"] = state_hash(learner_state)
     return content_key(key)
 
 
@@ -1492,6 +1519,10 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
         payload["learner_note"] = request.revision_note or ""
     if problems:
         payload["problems_with_the_last_attempt"] = list(problems)[:12]
+    if request.learner_state:
+        # Learner data-relax 2: where the learner stands on the passage's
+        # topics (protected work never in it); absent with none.
+        payload["learner_state"] = request.learner_state
     return payload
 
 
@@ -1564,13 +1595,18 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     request.tiers_allowed = menu
     tiers = menu if R.rich_menu(menu) is not None else None
     runtime = RICH.runtime_digest(vault) if tiers is not None and "manim" in tiers else None
+    # Learner data-relax 2: the learner's state on the passage's topics
+    # (None with the switch off or nothing to say: everything below is then
+    # the predecessor's byte for byte).
+    request.learner_state = _learner_state(vault, repository, request, context, grounding)
+    learner = request.learner_state
     input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding, sketch=sketch,
-                              tiers=tiers, rich_runtime=runtime)
+                              tiers=tiers, rich_runtime=runtime, learner_state=learner)
     # The same input under the other settings (RW5b's panels, RW5d P2's
     # sketch tier, RW5d P2b's rich menu): a shown figure drawable now is never
     # paid for again.
     other_hash = [request_hash(request, context, digest, advanced=a, grounding=grounding, sketch=k, tiers=t,
-                               rich_runtime=runtime)
+                               rich_runtime=runtime, learner_state=learner)
                   for a, k, t in ((not advanced, sketch, tiers), (advanced, not sketch, None),
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
@@ -1629,6 +1665,26 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                                  input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
                                  advanced=advanced, grounding=grounding, sketch=sketch, tiers=tiers,
                                  spawn_rich=spawn_rich, generation=generation)
+
+
+def _learner_state(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                   grounding: Grounding) -> dict[str, Any] | None:
+    """Learner data-relax 2: what the author is told about the learner on
+    the passage's topics (:mod:`.learner_state`), or None (switched off,
+    nothing to say, or unreadable: the predecessor's build)."""
+
+    from learnloop.figures import learner_state as LS
+
+    if not LS.enabled(vault):
+        return None
+    if anchored(request):
+        spans = [*request.span_ids, *([request.region["span_id"]] if request.region else [])]
+        los = LS.anchored_learning_objects(vault, repository, extraction_id=request.extraction_id, span_ids=spans)
+    else:
+        home = request.reading_at or {}
+        keys = list(grounding.keys) or [(str(home.get("extraction_id") or ""), str(home.get("span_id") or ""))]
+        los = LS.anchored_learning_objects(vault, repository, extraction_id=None, span_ids=(), keys=keys)
+    return LS.learner_state(vault, repository, los) if los else None
 
 
 def _rich_pending(vault: Any, repository: Repository, request: FigureRequest, input_hash: str
@@ -1821,7 +1877,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     grounding = grounding or Grounding("anchor")
     show_me = show_me_input(request)
     images = (image,) if image is not None else ()
-    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers)
+    learner = bool(request.learner_state)
+    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
+                                             learner=learner)
     # RW5d P2b: with a rich tier on the menu the contract is V3 (the tier judgment, always receipted).
     v3 = tiers is not None
     request.tiers_allowed = tuple(tiers) if v3 else (("grammar", "sketch") if sketch else ("grammar",))
@@ -1839,7 +1897,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
         prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
                                                  grounding=grounding),
-                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers)
+                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner)
         try:
             output = author.ask(prompt, R.output_model(sketch=sketch, tiers=tiers), images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
