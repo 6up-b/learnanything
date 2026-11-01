@@ -19,9 +19,11 @@ from typing import Any, Literal, Mapping
 RetrievalPolicy = Literal["reading", "assisted_practice", "post_attempt", "cold_attempt"]
 POLICIES: tuple[str, ...] = ("reading", "assisted_practice", "post_attempt", "cold_attempt")
 #: Caller kinds (§5.2). ``code`` is a server-side caller with no model in the
-#: loop (the plan, S2b, the Reader's UI); ``agent`` is an external agent.
+#: loop (the plan, S2b, the Reader's UI); ``agent`` is an external agent;
+#: ``teacher`` is a lesson's teacher (teacher TE1, spec_teacher_v1 §9.1: reading
+#: with no check open, assisted practice bound to an open lesson check's item).
 CALLER_KINDS: tuple[str, ...] = ("tutor", "plan", "reader", "need", "router", "agent", "harvest",
-                                 "learner", "dl3_box", "code")
+                                 "learner", "dl3_box", "code", "teacher")
 #: Tutor contexts bound to a practice item.
 ITEM_BOUND_CONTEXTS = frozenset({"practice", "feedback"})
 

@@ -55,9 +55,9 @@ from learnloop.vault.required_method import fit_presented_prompt, presented_prom
 
 TOOL_REQUEST_TASK = "source_tool_request"
 #: Callers whose requests are recorded in ``source_tool_calls`` (§10.4).
-RECORDED_CALLERS = ("tutor", "router", "agent")
+RECORDED_CALLERS = ("tutor", "router", "agent", "teacher")
 #: Callers whose requests a model wrote (a ``judgment_ledger`` row each).
-MODEL_CALLERS = ("tutor", "router")
+MODEL_CALLERS = ("tutor", "router", "teacher")
 #: Run when the offer is shown (cheap, time-boxed); the rest run when tapped.
 EAGER_TOOLS = frozenset({"find_practice", "find_sources", "find_facets", "practice_availability"})
 PROMPT_CHARS = 400

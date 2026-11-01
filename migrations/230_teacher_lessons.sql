@@ -39,6 +39,9 @@
 -- weight's posterior (§12.1), the forecast pool's weight (§12.2) and the
 -- tap/hedge recalibration (LP-min), with the per-update trace. Recomputed in
 -- order from lesson_checks and practice_attempts, as of each check.
+--
+-- And source_tool_calls.caller_kind gains 'teacher' (a rebuild at the end of
+-- this file, every row and id preserved).
 CREATE TABLE lessons (
   id TEXT PRIMARY KEY,
   driver TEXT NOT NULL CHECK (driver = 'desktop' OR driver LIKE 'chat:%'),
@@ -219,3 +222,66 @@ CREATE TABLE confidence_calibration_state (
   through_at TEXT,
   priors_version TEXT NOT NULL
 );
+
+-- source_tool_calls.caller_kind gains 'teacher' (spec_teacher_v1 §9.1: the
+-- lesson's find_sources and find_practice requests are recorded under caller
+-- kind teacher, as the tutor's are under tutor). SQLite cannot widen a CHECK in
+-- place, so the table is rebuilt temp-then-rename with every row and id
+-- preserved, under PRAGMA foreign_keys = OFF, as migrations 208 and 212 did:
+-- DROP TABLE removes the old indexes and triggers, which are recreated on the
+-- renamed table with the same names and definitions; the table's own parent_id
+-- foreign key names source_tool_calls and resolves to the rebuilt table, and the
+-- runner's foreign_key_check runs before the migration commits. The same
+-- columns, defaults, CHECKs, indexes and append-only triggers.
+PRAGMA foreign_keys = OFF;
+
+CREATE TABLE source_tool_calls__230 (
+  id TEXT PRIMARY KEY,
+  parent_id TEXT REFERENCES source_tool_calls(id),
+  row_kind TEXT NOT NULL CHECK (row_kind IN ('request', 'run')),
+  created_at TEXT NOT NULL,
+  caller_kind TEXT NOT NULL CHECK (caller_kind IN ('tutor', 'router', 'agent', 'teacher')),
+  caller_ref TEXT,
+  -- The stored caller context the policy was derived from (re-read at run time,
+  -- so the policy cannot change between the answer and the run).
+  context_json TEXT NOT NULL,
+  policy TEXT NOT NULL,
+  tool TEXT NOT NULL CHECK (tool IN ('find_practice', 'find_sources', 'compare_sources', 'find_facets',
+                                     'practice_availability')),
+  arguments_json TEXT NOT NULL,
+  dropped_json TEXT NOT NULL DEFAULT '[]',
+  ledger_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('requested', 'refused', 'ran', 'failed')),
+  result_ref TEXT,
+  result_keys_json TEXT NOT NULL DEFAULT '[]',
+  source_versions_json TEXT NOT NULL DEFAULT '{}',
+  model TEXT,
+  prompt_version TEXT,
+  latency_ms INTEGER,
+  cost_json TEXT,
+  CHECK ((row_kind = 'request' AND parent_id IS NULL AND status IN ('requested', 'refused'))
+         OR (row_kind = 'run' AND parent_id IS NOT NULL AND status IN ('ran', 'failed')))
+);
+
+INSERT INTO source_tool_calls__230 (
+  id, parent_id, row_kind, created_at, caller_kind, caller_ref, context_json, policy, tool, arguments_json,
+  dropped_json, ledger_id, status, result_ref, result_keys_json, source_versions_json, model, prompt_version,
+  latency_ms, cost_json
+)
+SELECT
+  id, parent_id, row_kind, created_at, caller_kind, caller_ref, context_json, policy, tool, arguments_json,
+  dropped_json, ledger_id, status, result_ref, result_keys_json, source_versions_json, model, prompt_version,
+  latency_ms, cost_json
+FROM source_tool_calls;
+
+DROP TABLE source_tool_calls;
+ALTER TABLE source_tool_calls__230 RENAME TO source_tool_calls;
+
+CREATE INDEX idx_source_tool_calls_parent ON source_tool_calls(parent_id);
+CREATE INDEX idx_source_tool_calls_caller ON source_tool_calls(caller_kind, caller_ref, created_at);
+CREATE TRIGGER source_tool_calls_no_update BEFORE UPDATE ON source_tool_calls
+BEGIN SELECT RAISE(ABORT, 'source tool calls are append-only'); END;
+CREATE TRIGGER source_tool_calls_no_delete BEFORE DELETE ON source_tool_calls
+BEGIN SELECT RAISE(ABORT, 'source tool calls are append-only'); END;
+
+PRAGMA foreign_keys = ON;

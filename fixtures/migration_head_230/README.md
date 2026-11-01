@@ -53,7 +53,10 @@ companion files.
   (RAW_LEDGER), `lesson_turn_payloads` (WORKFLOW), `lesson_checks` and
   `lesson_receipts` (RECEIPT), `lesson_weight_state`, `lesson_weight_trace` and
   `confidence_calibration_state` (DERIVED, one replayer), their autoindexes,
-  indexes and the ledger triggers, with no row (no lesson is in this fixture).
+  indexes and the ledger triggers, with no row (no lesson is in this fixture);
+  and rebuilds `source_tool_calls` (its `caller_kind` CHECK gains `teacher`;
+  the same columns, indexes and append-only triggers, every row kept: it has
+  none here).
 
 No other object changed definition, and only `schema_migrations` gained a row
 (230); every other table's rows are identical, so the sanitized content carries

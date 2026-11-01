@@ -40,6 +40,12 @@ REFERENCE_ADOPTION_DISABLED = "reference_adoption_disabled"
 #: off restores the predecessor's queue; the LO stays in the vault.
 LEARNER_TEXT_GAP_MECHANISM = "learner_text_gap_v1"
 LEARNER_TEXT_GAP_DISABLED = "learner_text_gap_disabled"
+#: Versioned provenance of a teacher TE1 lesson check (``provenance.mechanism`` on the item;
+#: spec_teacher_v1 §12: minted items stay lesson-only in v1). Such an item is never served by any
+#: routine door: it is answered only inside its lesson. No item carries it below the teacher's
+#: successor, so every other item's serving is unchanged at every version.
+TEACHER_LESSON_MECHANISM = "teacher_lesson_v1"
+LESSON_HOLD = "lesson_hold"
 
 
 def created_from_learner_text(learning_object: Any) -> bool:
@@ -149,14 +155,24 @@ def practice_item_serving_block(vault: LoadedVault, item: PracticeItem) -> str |
 
     Its LO's block first (``learning_object_serving_block``), then
     ``"reference_adoption_disabled"`` for a sweep-adopted card while
-    ``tutor_qa.adopt_reference_questions`` is off."""
+    ``tutor_qa.adopt_reference_questions`` is off, then ``"lesson_hold"`` for a
+    teacher lesson's check item (held to its lesson, spec_teacher_v1 §12)."""
 
     block = learning_object_serving_block(vault, item.learning_object_id)
     if block is not None:
         return block
     if adopted_by_reference_sweep(item) and not vault.config.tutor_qa.adopt_reference_questions:
         return REFERENCE_ADOPTION_DISABLED
+    if minted_for_lesson(item):
+        return LESSON_HOLD
     return None
+
+
+def minted_for_lesson(item: PracticeItem) -> bool:
+    """True for a lesson check's held item (teacher TE1)."""
+
+    extra: dict[str, Any] = item.provenance.model_extra or {}
+    return extra.get("mechanism") == TEACHER_LESSON_MECHANISM
 
 
 def practice_item_servable(vault: LoadedVault, item: PracticeItem) -> bool:
