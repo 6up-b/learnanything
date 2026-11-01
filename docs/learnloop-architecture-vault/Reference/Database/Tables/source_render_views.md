@@ -3,8 +3,8 @@ title: "source_render_views"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12270a744171db67901712c580a34fb2951e8f64"
-source_commit_timestamp: "2026-11-01T03:37:38-05:00"
+source_commit: "7c433f99ddc15041ff815ae9b6a0a967e39e781f"
+source_commit_timestamp: "2026-11-01T06:46:54-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_views"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/source_retrieval/section_coverage.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/reader/source_identity.py"
   - "src/learnloop/reader/source_render_views.py"
 tags:
   - "learnloop/database/table"
@@ -114,6 +115,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/reader/source_identity.py`
 - `src/learnloop/reader/source_render_views.py`
 
 > [!note] Static-reference boundary
@@ -124,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_render_views.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_reader_source_identity_guard.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

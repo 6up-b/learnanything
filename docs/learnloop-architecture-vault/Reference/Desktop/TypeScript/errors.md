@@ -10,8 +10,8 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/errors.ts"
 source_paths:
   - "apps/learnloop-tauri/src/errors.ts"
-source_commit: "719233b9e6a9f5c689fc3466bf87c6e4521b93bb"
-source_commit_timestamp: "2026-10-21T13:40:43-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/errors.ts](../../../../../apps/learnloop-tauri/src/errors.ts) |
-| Source lines | 76 |
+| Source lines | 89 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `719233b9e6a9f5c689fc3466bf87c6e4521b93bb` |
-| Commit timestamp | `2026-10-21T13:40:43-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -68,14 +68,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type ErrorReport = |` — type, line 40
 - `export type ReportError = (message: string, report?: ErrorReport)` — type, line 45
 - `export function getCommandError(error: unknown): CommandError | null` — function, line 53
-- `export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string` — function, line 66
+- `export const SPAN_MISMATCH_CODE = "span_extraction_mismatch"` — const, line 68
+- `export const SPAN_MISMATCH_COPY = "That passage belongs to another reading` — const, line 69
+- `export function isSpanMismatch(error: unknown): boolean` — function, line 72
+- `export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string` — function, line 77
 
 ## Internal implementation anchors
 
 - `const DEFAULT_ERROR_MESSAGE = "Something went wrong. Please try again."` — const, line 3
 - `const candidate = error as Partial<CommandError>` — const, line 55
-- `const command = getCommandError(error)` — const, line 67
-- `const message = (error as` — const, line 72
+- `const command = getCommandError(error)` — const, line 78
+- `const message = (error as` — const, line 85
 
 ## Who imports or calls it
 
@@ -106,7 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `ReportError`; references `ReportError`
 - [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|src/screens/MaintenanceScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `SPAN_MISMATCH_COPY`, `errorMessage`; references `SPAN_MISMATCH_COPY`, `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/feedback/CompareMethods|src/screens/feedback/CompareMethods.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|src/screens/practice/HelpStyleSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/practice/useAdaptiveHints|src/screens/practice/useAdaptiveHints.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
@@ -132,7 +135,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|src/screens/reader/useReaderRecap.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderRequests|src/screens/reader/useReaderRequests.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `SPAN_MISMATCH_COPY`, `errorMessage`; references `SPAN_MISMATCH_COPY`, `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `ErrorReport`, `errorMessage`; references `ErrorReport`, `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/underhood/tools|src/screens/underhood/tools.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
@@ -159,6 +162,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx](../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/ReaderScreen.workbench.test.tsx](../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.workbench.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/NoticeHost.test.tsx](../../../../../apps/learnloop-tauri/src/components/NoticeHost.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/notices.shell.test.ts](../../../../../apps/learnloop-tauri/src/app/notices.shell.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 

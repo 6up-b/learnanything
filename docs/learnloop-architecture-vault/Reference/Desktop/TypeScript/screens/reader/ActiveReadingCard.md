@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ActiveReadingCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ActiveReadingCard.tsx"
-source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
-source_commit_timestamp: "2026-10-17T16:32:21-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ActiveReadingCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ActiveReadingCard.tsx) |
-| Source lines | 271 |
+| Source lines | 272 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `18472d5aca8fd0639c52af23f42a094883ffa91f` |
-| Commit timestamp | `2026-10-17T16:32:21-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,31 +60,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const ACTIVE_COPY =` — const, line 27
-- `export function foldLine(count: number): string` — function, line 46
-- `export function NextStepFoldLine(` — function, line 52
-- `export function ActiveReadingCard(` — function, line 73
+- `export const ACTIVE_COPY =` — const, line 26
+- `export function foldLine(count: number): string` — function, line 45
+- `export function NextStepFoldLine(` — function, line 51
+- `export function ActiveReadingCard(` — function, line 72
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 15
-- `const active = ctl.active` — const, line 79
-- `const copy = ACTIVE_COPY[active.style]` — const, line 81
-- `const question = active.question` — const, line 82
-- `function QuestionBody(` — function, line 109
-- `const active = ctl.active!` — const, line 114
-- `const question = active.question!` — const, line 115
-- `const copy = ACTIVE_COPY[active.style]` — const, line 116
-- `const answered = question.status === "answered" || question.status === "escalated"` — const, line 118
-- `const escalated = question.status === "escalated"` — const, line 119
-- `const fromBook = question.answerBasis === "source"` — const, line 120
-- `function PracticeLine(` — function, line 215
-- `const active = ctl.active!` — const, line 216
-- `const question = active.question!` — const, line 217
-- `function AnotherWayCard(` — function, line 231
-- `const another = ctl.another!` — const, line 232
-- `const otherBook = Boolean(hit.sourceId && ctl.sourceId && hit.sourceId !== ctl.sourceId)` — const, line 254
-- `const label = otherBook ? "from a different book" : hit.role === "worked_example" ? "a worked example instead" : "elsewhere in this book"` — const, line 255
+- `const linkStyle =` — const, line 14
+- `const active = ctl.active` — const, line 78
+- `const copy = ACTIVE_COPY[active.style]` — const, line 80
+- `const question = active.question` — const, line 81
+- `function QuestionBody(` — function, line 108
+- `const active = ctl.active!` — const, line 113
+- `const question = active.question!` — const, line 114
+- `const copy = ACTIVE_COPY[active.style]` — const, line 115
+- `const response = active.draft` — const, line 117
+- `const setResponse = ctl.setDraft` — const, line 118
+- `const answered = question.status === "answered" || question.status === "escalated"` — const, line 119
+- `const escalated = question.status === "escalated"` — const, line 120
+- `const fromBook = question.answerBasis === "source"` — const, line 121
+- `function PracticeLine(` — function, line 216
+- `const active = ctl.active!` — const, line 217
+- `const question = active.question!` — const, line 218
+- `function AnotherWayCard(` — function, line 232
+- `const another = ctl.another!` — const, line 233
+- `const otherBook = Boolean(hit.sourceId && ctl.sourceId && hit.sourceId !== ctl.sourceId)` — const, line 255
+- `const label = otherBook ? "from a different book" : hit.role === "worked_example" ? "a worked example instead" : "elsewhere in this book"` — const, line 256
 
 ## Who imports or calls it
 
@@ -107,7 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Assets, platform, and third-party dependencies
 
-- Imported packages/crates: `react`
+No explicit asset, standard-library, package, or crate dependency was detected.
 
 ## Larger desktop and workflow participation
 

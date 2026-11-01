@@ -93,6 +93,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/rw1bReview.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/rw1bReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/readingPathsReader.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/readingPathsReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/nextStepFold.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/nextStepFold.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
@@ -100,7 +101,6 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/libraryExercisesReader.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/libraryExercisesReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/libraryAskSwitchOff.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/libraryAskSwitchOff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/libraryAsk.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/libraryAsk.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/reader/intentBoxInShell.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/intentBoxInShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

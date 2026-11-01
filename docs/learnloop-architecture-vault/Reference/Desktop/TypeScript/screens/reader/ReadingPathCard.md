@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx"
-source_commit: "65d05c98a63f6acadbfc171e08bdab860b5c9d2c"
-source_commit_timestamp: "2026-10-21T02:02:32-04:00"
+source_commit: "0c5bc9546b622e4d87b7075f53b026c74b9e5462"
+source_commit_timestamp: "2026-11-01T02:25:38-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx) |
-| Source lines | 264 |
+| Source lines | 268 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `65d05c98a63f6acadbfc171e08bdab860b5c9d2c` |
-| Commit timestamp | `2026-10-21T02:02:32-04:00` |
+| Source commit | `0c5bc9546b622e4d87b7075f53b026c74b9e5462` |
+| Commit timestamp | `2026-11-01T02:25:38-05:00` |
 
 ## Activation and status evidence
 
@@ -61,27 +61,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface ReadingPathCardProps` — interface, line 27
-- `export function ReadingPathCard(` — function, line 42
+- `export function ReadingPathCard(` — function, line 45
 
 ## Internal implementation anchors
 
 - `const LINK =` — const, line 22
-- `const shown = useRef(extractionId)` — const, line 47
-- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 48
-- `const read = useCallback(async (params:` — const, line 50
-- `const asked = extractionId` — const, line 51
-- `const result = await api.readerReadingPath(` — const, line 53
-- `const timer = window.setTimeout(()` — const, line 71
-- `const refreshedFor = useRef(refreshKey)` — const, line 83
-- `const timer = window.setTimeout(()` — const, line 87
-- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 91
-- `const result = await api.readerReadingPathSetDepth(` — const, line 94
-- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 106
-- `const result = await api.readerReadingPathOverride(` — const, line 110
-- `const askDepth = path.status === "ask_depth" || choosing` — const, line 130
-- `const exercises = exercisesWorthTrying(path)` — const, line 131
-- `function SectionRow(` — function, line 216
-- `const offered = offeredChoice(section)` — const, line 226
+- `const jump = (spanId: string, sectionId: string)` — const, line 46
+- `const shown = useRef(extractionId)` — const, line 51
+- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 52
+- `const read = useCallback(async (params:` — const, line 54
+- `const asked = extractionId` — const, line 55
+- `const result = await api.readerReadingPath(` — const, line 57
+- `const timer = window.setTimeout(()` — const, line 75
+- `const refreshedFor = useRef(refreshKey)` — const, line 87
+- `const timer = window.setTimeout(()` — const, line 91
+- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 95
+- `const result = await api.readerReadingPathSetDepth(` — const, line 98
+- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 110
+- `const result = await api.readerReadingPathOverride(` — const, line 114
+- `const askDepth = path.status === "ask_depth" || choosing` — const, line 134
+- `const exercises = exercisesWorthTrying(path)` — const, line 135
+- `function SectionRow(` — function, line 220
+- `const offered = offeredChoice(section)` — const, line 230
 
 ## Who imports or calls it
 

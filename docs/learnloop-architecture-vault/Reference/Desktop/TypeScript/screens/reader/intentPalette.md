@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/intentPalette.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/intentPalette.ts"
-source_commit: "73d7d146740284eca0a5ff26ab53593429e7cc20"
-source_commit_timestamp: "2026-10-26T10:42:06-04:00"
+source_commit: "0c5bc9546b622e4d87b7075f53b026c74b9e5462"
+source_commit_timestamp: "2026-11-01T02:25:38-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -48,8 +48,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `73d7d146740284eca0a5ff26ab53593429e7cc20` |
-| Commit timestamp | `2026-10-26T10:42:06-04:00` |
+| Source commit | `0c5bc9546b622e4d87b7075f53b026c74b9e5462` |
+| Commit timestamp | `2026-11-01T02:25:38-05:00` |
 
 ## Activation and status evidence
 

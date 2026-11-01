@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/TutorAnswer.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/TutorAnswer.tsx"
-source_commit: "423464b380cd6dd56b564ec186dadd50a539c6f5"
-source_commit_timestamp: "2026-10-27T17:45:05-04:00"
+source_commit: "1f78f64af411eae2775f808630040a0ca567a097"
+source_commit_timestamp: "2026-11-01T03:14:01-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/TutorAnswer.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/TutorAnswer.tsx) |
-| Source lines | 184 |
+| Source lines | 186 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `423464b380cd6dd56b564ec186dadd50a539c6f5` |
-| Commit timestamp | `2026-10-27T17:45:05-04:00` |
+| Source commit | `1f78f64af411eae2775f808630040a0ca567a097` |
+| Commit timestamp | `2026-11-01T03:14:01-05:00` |
 
 ## Activation and status evidence
 
@@ -64,14 +64,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface TutorPassageRef` — interface, line 39
 - `export interface ExchangeOffers` — interface, line 46
 - `export interface TutorRailProps` — interface, line 53
-- `export function TutorAnswer(` — function, line 82
+- `export function TutorAnswer(` — function, line 84
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 77
-- `const view = tutor ? exchange.tutor ?? null : null` — const, line 86
-- `const excerpt = view?.excerpt ?? null` — const, line 96
-- `const label = view?.retrieval?.label ?? null` — const, line 97
+- `const linkStyle =` — const, line 79
+- `const view = tutor ? exchange.tutor ?? null : null` — const, line 88
+- `const excerpt = view?.excerpt ?? null` — const, line 98
+- `const label = view?.retrieval?.label ?? null` — const, line 99
 
 ## Who imports or calls it
 

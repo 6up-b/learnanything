@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts"
-source_commit: "1455cbf292f09ea73c24f9a2b8519d39570bf336"
-source_commit_timestamp: "2026-10-20T15:48:24-04:00"
+source_commit: "d21ef7b9590e97eb74ba29e515d05f521a1fd270"
+source_commit_timestamp: "2026-11-01T02:49:21-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts) |
-| Source lines | 138 |
+| Source lines | 185 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `1455cbf292f09ea73c24f9a2b8519d39570bf336` |
-| Commit timestamp | `2026-10-20T15:48:24-04:00` |
+| Source commit | `d21ef7b9590e97eb74ba29e515d05f521a1fd270` |
+| Commit timestamp | `2026-11-01T02:49:21-05:00` |
 
 ## Activation and status evidence
 
@@ -60,38 +60,44 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const DISCOVERY_POLL_MS: readonly number[] = [1_500, 3_000, 5_000, 10_000]` — const, line 33
-- `export const DISCOVERY_MAX_READS = 60` — const, line 35
-- `export const DISCOVERY_MAX_REASKS = 3` — const, line 37
-- `export const TARGETS_PENDING_POLL_MS = 4_000` — const, line 39
-- `export const TARGETS_PENDING_POLL_MAX_MS = 60_000` — const, line 40
-- `export interface CueDiscoveryInput` — interface, line 42
-- `export function useCueDiscovery(` — function, line 54
+- `export const DISCOVERY_POLL_MS: readonly number[] = [1_500, 3_000, 5_000, 10_000]` — const, line 43
+- `export const DISCOVERY_MAX_READS = 60` — const, line 45
+- `export const DISCOVERY_MAX_REASKS = 3` — const, line 47
+- `export const TARGETS_PENDING_POLL_MS = 4_000` — const, line 49
+- `export const TARGETS_PENDING_POLL_MAX_MS = 60_000` — const, line 50
+- `export interface CueDiscoveryInput` — interface, line 52
+- `export function useCueDiscovery(` — function, line 70
 
 ## Internal implementation anchors
 
-- `function foundSomething(job: ReaderCueDiscoveryJobDto): boolean` — function, line 50
-- `const askedRef = useRef<Map<string, string>>(new Map())` — const, line 56
-- `const reasksRef = useRef<Map<string, number>>(new Map())` — const, line 58
-- `const reloadRef = useRef(reloadGuidePlan)` — const, line 60
-- `const targetsKey = discovery?.targetsKey ?? null` — const, line 62
-- `const targetsPending = Boolean(discovery?.targetsPending)` — const, line 63
-- `const openRef = useRef<` — const, line 65
-- `let cancelled = false` — let, line 74
-- `let done = false` — let, line 75
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 76
-- `const finish = (job: ReaderCueDiscoveryJobDto)` — const, line 77
-- `const answered = job.result?.targetsKey ?? null` — const, line 82
-- `const stale = job.result?.status === "cancelled" || (answered !== null && answered !== targetsKey)` — const, line 83
-- `const key = `$` — const, line 84
-- `const asked = reasksRef.current.get(key) ?? 0` — const, line 85
-- `const read = (jobId: string, reads: number)` — const, line 92
-- `const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)]` — const, line 94
-- `const sourceOpenId = openRef.current?.id ?? `copen_$` — const, line 102
-- `let cancelled = false` — let, line 119
-- `let delay = TARGETS_PENDING_POLL_MS` — let, line 120
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 121
-- `const poll = ()` — const, line 122
+- `function foundSomething(job: ReaderCueDiscoveryJobDto): boolean` — function, line 66
+- `const askedRef = useRef<Map<string, string>>(new Map())` — const, line 72
+- `const reasksRef = useRef<Map<string, number>>(new Map())` — const, line 74
+- `const reloadRef = useRef(reloadGuidePlan)` — const, line 76
+- `const targetsKey = discovery?.targetsKey ?? null` — const, line 78
+- `const targetsPending = Boolean(discovery?.targetsPending)` — const, line 79
+- `const openKey = openKeyInput === undefined ? extractionId : openKeyInput` — const, line 80
+- `const openRef = useRef<` — const, line 83
+- `const openId = openRef.current?.id ?? null` — const, line 89
+- `const paused = openId !== null && !extractionId` — const, line 91
+- `const pausedRef = useRef(paused)` — const, line 92
+- `const runningRef = useRef<Set<()` — const, line 96
+- `const running = runningRef.current` — const, line 98
+- `let cancelled = false` — let, line 109
+- `let done = false` — let, line 110
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 111
+- `const stop = ()` — const, line 112
+- `const finish = (job: ReaderCueDiscoveryJobDto)` — const, line 118
+- `const answered = job.result?.targetsKey ?? null` — const, line 124
+- `const stale = job.result?.status === "cancelled" || (answered !== null && answered !== targetsKey)` — const, line 125
+- `const key = `$` — const, line 126
+- `const asked = reasksRef.current.get(key) ?? 0` — const, line 127
+- `const read = (jobId: string, reads: number)` — const, line 134
+- `const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)]` — const, line 139
+- `let cancelled = false` — let, line 166
+- `let delay = TARGETS_PENDING_POLL_MS` — let, line 167
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 168
+- `const poll = ()` — const, line 169
 
 ## Who imports or calls it
 

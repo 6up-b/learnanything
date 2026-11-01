@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx"
-source_commit: "015e0270653ead506e571b2c26fd88b8254ac1ce"
-source_commit_timestamp: "2026-10-19T03:10:43-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx) |
-| Source lines | 257 |
+| Source lines | 280 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `015e0270653ead506e571b2c26fd88b8254ac1ce` |
-| Commit timestamp | `2026-10-19T03:10:43-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -61,53 +61,55 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface ReaderExchange` — interface, line 20
-- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 44
-- `export function ReaderAskBranches(` — function, line 69
+- `export interface AskAbout extends SourceIdentity` — interface, line 50
+- `export const aboutLine = (about: AskAbout): string` — const, line 62
+- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 64
+- `export function ReaderAskBranches(` — function, line 89
 
 ## Internal implementation anchors
 
-- `interface Props` — interface, line 46
-- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 67
-- `const byId = new Map(exchanges.map((exchange)` — const, line 84
-- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 85
-- `const parents = new Map<string, string | null>()` — const, line 86
-- `let parent = exchange.parentExchangeId` — let, line 90
-- `const seen = new Set([exchange.id])` — const, line 91
-- `let cursor = parent` — let, line 92
-- `const ancestor = byId.get(cursor)` — const, line 94
-- `const search = query.trim().toLowerCase()` — const, line 105
-- `const visible = new Set<string>()` — const, line 106
-- `let id: string | null = exchange.id` — let, line 109
-- `const buttonStyle =` — const, line 116
-- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 118
-- `const resolution = exchange.resolution ?? "open"` — const, line 120
-- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 122
-- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 123
-- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 124
-- `function statusChips(root: ReaderExchange)` — function, line 145
-- `const resolution = root.resolution ?? "open"` — const, line 147
-- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 148
-- `function branch(exchange: ReaderExchange, depth: number)` — function, line 174
-- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 176
-- `const replies = children.get(exchange.id) ?? []` — const, line 177
-- `const isRoot = depth === 0` — const, line 178
-- `const resolution = exchange.resolution ?? "open"` — const, line 179
+- `interface Props` — interface, line 66
+- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 87
+- `const byId = new Map(exchanges.map((exchange)` — const, line 104
+- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 105
+- `const parents = new Map<string, string | null>()` — const, line 106
+- `let parent = exchange.parentExchangeId` — let, line 110
+- `const seen = new Set([exchange.id])` — const, line 111
+- `let cursor = parent` — let, line 112
+- `const ancestor = byId.get(cursor)` — const, line 114
+- `const search = query.trim().toLowerCase()` — const, line 125
+- `const visible = new Set<string>()` — const, line 126
+- `let id: string | null = exchange.id` — let, line 129
+- `const buttonStyle =` — const, line 136
+- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 138
+- `const resolution = exchange.resolution ?? "open"` — const, line 140
+- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 142
+- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 143
+- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 144
+- `function statusChips(root: ReaderExchange)` — function, line 166
+- `const resolution = root.resolution ?? "open"` — const, line 168
+- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 169
+- `function branch(exchange: ReaderExchange, depth: number)` — function, line 195
+- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 197
+- `const replies = children.get(exchange.id) ?? []` — const, line 198
+- `const isRoot = depth === 0` — const, line 199
+- `const resolution = exchange.resolution ?? "open"` — const, line 200
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ReaderExchange`; references `ReaderExchange`
-- [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`; references `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AskAbout`, `ReaderExchange`; references `AskAbout`, `ReaderExchange`
+- [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`, `aboutLine`; references `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`, `aboutLine`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export: `ReaderExchange`; references `ReaderExchange`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `InquiryCommitment`, `ReaderExchange`; references `InquiryCommitment`, `ReaderExchange`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `AskAbout`, `InquiryCommitment`, `ReaderExchange`; references `AskAbout`, `InquiryCommitment`, `ReaderExchange`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InquiryResolution`, `ReaderAnswerMode`, `ReaderTutorViewDto`, `TutorCitationDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InquiryResolution`, `ReaderAnswerMode`, `ReaderTutorViewDto`, `SourceIdentity`, `TutorCitationDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export; imports `ExchangeOffers`, `TutorAnswer`, `TutorRailProps`

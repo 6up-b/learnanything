@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/returnStack.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/returnStack.ts"
-source_commit: "42fc3a995cf040e1c4fd84e7656601631e56cb84"
-source_commit_timestamp: "2026-10-31T19:41:54-04:00"
+source_commit: "d21ef7b9590e97eb74ba29e515d05f521a1fd270"
+source_commit_timestamp: "2026-11-01T02:49:21-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,21 +42,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/returnStack.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/returnStack.ts) |
-| Source lines | 145 |
+| Source lines | 156 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `42fc3a995cf040e1c4fd84e7656601631e56cb84` |
-| Commit timestamp | `2026-10-31T19:41:54-04:00` |
+| Source commit | `d21ef7b9590e97eb74ba29e515d05f521a1fd270` |
+| Commit timestamp | `2026-11-01T02:49:21-05:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/app/readerCheck|src/app/readerCheck.ts]] → [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]]
 
 ## Public API
 
@@ -77,7 +77,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function unreturnedDetours(stack: ReturnStack): ReturnEntry[]` — function, line 112
 - `export function markReturned(stack: ReturnStack, ids: readonly string[]): ReturnStack` — function, line 118
 - `export function dropCurrent(stack: ReturnStack, id: string): ReturnStack` — function, line 127
-- `export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide">>): ReturnStack` — function, line 139
+- `export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide" | "spanId">>): ReturnStack` — function, line 139
+- `export function besideTrail(stack: ReturnStack): ReturnStack | null` — function, line 153
 
 ## Internal implementation anchors
 
@@ -94,9 +95,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `stackGoTo`; references `stackGoTo`
+- [[Reference/Desktop/TypeScript/app/readerCheck|src/app/readerCheck.ts]] — import-or-re-export: `ReturnStack`; references `ReturnStack`
+- [[Reference/Desktop/TypeScript/app/readerWorkbench|src/app/readerWorkbench.ts]] — import-or-re-export: `ReturnStack`; references `ReturnStack`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ReturnStack`, `besideTrail`, `stackGoTo`; references `ReturnStack`, `besideTrail`, `stackGoTo`
 - [[Reference/Desktop/TypeScript/screens/reader/DetourStrip|src/screens/reader/DetourStrip.tsx]] — import-or-re-export: `ReturnStack`, `hasDetour`; references `ReturnStack`, `hasDetour`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`; references `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `ReturnStack`; references `ReturnStack`
 
 ## Dependencies
 

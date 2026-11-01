@@ -88,6 +88,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `readGuidePlan`; references `readGuidePlan`
 - [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `useGuideDiagnosisRefresh`; references `useGuideDiagnosisRefresh`
+- [[Reference/Desktop/TypeScript/screens/reader/useSidePane|src/screens/reader/useSidePane.ts]] — import-or-re-export: `readGuidePlan`; references `readGuidePlan`
 
 ## Dependencies
 

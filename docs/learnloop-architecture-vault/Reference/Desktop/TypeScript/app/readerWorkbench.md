@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/readerWorkbench.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/readerWorkbench.ts"
-source_commit: "91798158c8ddffe10e073647f6aa4d6202a10eff"
-source_commit_timestamp: "2026-10-20T02:20:34-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/readerWorkbench.ts](../../../../../../apps/learnloop-tauri/src/app/readerWorkbench.ts) |
-| Source lines | 89 |
+| Source lines | 102 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `91798158c8ddffe10e073647f6aa4d6202a10eff` |
-| Commit timestamp | `2026-10-20T02:20:34-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,12 +60,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderWorkbenchOrigin` — interface, line 17
-- `export function workbenchReturn(result: WorkbenchSubmitDto, at: ReaderWorkbenchOrigin): ReaderReturn` — function, line 23
-- `export function readerTargetBack( back: ReaderReturn, options:` — function, line 33
-- `export function sessionAfterWorkbenchSubmit( current: SessionSnapshot | null, practiceSession: SessionSnapshot | null, ): SessionSnapshot | null` — function, line 44
-- `export function readerWorkbenchCheck( request:` — function, line 60
-- `export function consumeShown<T>(current: T | null, shown: unknown): T | null` — function, line 87
+- `export interface ReaderWorkbenchOrigin` — interface, line 18
+- `export function workbenchReturn(result: WorkbenchSubmitDto, at: Omit<ReaderWorkbenchOrigin, "reading">): ReaderReturn` — function, line 30
+- `export function readerTargetBack( back: ReaderReturn, options:` — function, line 43
+- `export function sessionAfterWorkbenchSubmit( current: SessionSnapshot | null, practiceSession: SessionSnapshot | null, ): SessionSnapshot | null` — function, line 54
+- `export function readerWorkbenchCheck( request:` — function, line 70
+- `export function consumeShown<T>(current: T | null, shown: unknown): T | null` — function, line 100
 
 ## Internal implementation anchors
 
@@ -82,9 +82,10 @@ No non-exported declaration anchor was detected by the static extractor.
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SessionSnapshot`, `SourceLibraryCard`, `WorkbenchSubmitDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SessionSnapshot`, `SourceIdentity`, `SourceLibraryCard`, `WorkbenchSubmitDto`
 - [[Reference/Desktop/TypeScript/app/practiceOffer|src/app/practiceOffer.ts]] — import-or-re-export; imports `PracticeOffer`
 - [[Reference/Desktop/TypeScript/app/readerCheck|src/app/readerCheck.ts]] — import-or-re-export; imports `ReaderReturn`
+- [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export; imports `ReturnStack`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export; imports `ReaderWorkbenchCheck`
 
 ### Assets, platform, and third-party dependencies

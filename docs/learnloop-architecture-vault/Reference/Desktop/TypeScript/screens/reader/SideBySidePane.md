@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx"
-source_commit: "61453ccb21cd26c0252d3cb946fbba4a7718f2bf"
-source_commit_timestamp: "2026-10-31T19:46:45-04:00"
+source_commit: "47cec5279eec7c2738ab839c558ebcbd603f4b6a"
+source_commit_timestamp: "2026-11-01T04:24:32-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx) |
-| Source lines | 322 |
+| Source lines | 378 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `61453ccb21cd26c0252d3cb946fbba4a7718f2bf` |
-| Commit timestamp | `2026-10-31T19:46:45-04:00` |
+| Source commit | `47cec5279eec7c2738ab839c558ebcbd603f4b6a` |
+| Commit timestamp | `2026-11-01T04:24:32-05:00` |
 
 ## Activation and status evidence
 
@@ -60,41 +60,49 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PaneSelection` — interface, line 32
-- `export interface SideBySidePaneProps` — interface, line 39
-- `export const SIDE_PANE_COPY =` — const, line 52
-- `export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(` — const, line 112
+- `export interface PaneSelection` — interface, line 42
+- `export interface SideBySidePaneProps` — interface, line 49
+- `export const SIDE_PANE_COPY =` — const, line 77
+- `export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(` — const, line 137
 
 ## Internal implementation anchors
 
-- `const LINK: CSSProperties =` — const, line 26
-- `function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean): [Map<string, string>, ()` — function, line 61
-- `let live = true` — let, line 69
-- `const next = new Map<string, string>()` — const, line 74
-- `const version = (row.version as Record<string, unknown>) ??` — const, line 76
-- `const spanId = String(segment.spanId ?? "")` — const, line 78
-- `function selectionIn(root: HTMLElement | null): PaneSelection | null` — function, line 90
-- `const sel = window.getSelection()` — const, line 91
-- `const range = sel.getRangeAt(0)` — const, line 93
-- `const quote = sel.toString().replace(/\s+/g, " ").trim()` — const, line 95
-- `const spans: string[] = []` — const, line 97
-- `const nodes: PaneSelection["nodes"] = []` — const, line 98
-- `const part = document.createRange()` — const, line 102
-- `const words = part.toString().replace(/\s+/g, " ").trim()` — const, line 106
-- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 116
-- `const target = ctl.target` — const, line 121
-- `const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null` — const, line 122
-- `const canCapture = Boolean(onCaptured && section?.revisionId)` — const, line 123
-- `const sheet = ctl.sheet` — const, line 125
-- `const leads = ctl.panes && ctl.leader === "side"` — const, line 126
-- `const sectionKey = section ? `$` — const, line 131
-- `const node = scrollRef.current` — const, line 134
-- `const capture = async (kind: "highlight" | "annotate", picked: PaneSelection, learnerText: string)` — const, line 142
-- `const setRefs = useCallback((node: HTMLDivElement | null)` — const, line 164
-- `const touch = ()` — const, line 171
-- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 172
-- `const header: ReactNode = ( <div data-sbs-header="" style=` — const, line 183
-- `const picked = selectionIn(scrollRef.current)` — const, line 230
+- `const LINK: CSSProperties =` — const, line 36
+- `function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean, version = 0): [Map<string, string>, ()` — function, line 86
+- `let live = true` — let, line 94
+- `const next = new Map<string, string>()` — const, line 99
+- `const version = (row.version as Record<string, unknown>) ??` — const, line 101
+- `const spanId = String(segment.spanId ?? "")` — const, line 103
+- `function selectionIn(root: HTMLElement | null): PaneSelection | null` — function, line 115
+- `const sel = window.getSelection()` — const, line 116
+- `const range = sel.getRangeAt(0)` — const, line 118
+- `const quote = sel.toString().replace(/\s+/g, " ").trim()` — const, line 120
+- `const spans: string[] = []` — const, line 122
+- `const nodes: PaneSelection["nodes"] = []` — const, line 123
+- `const part = document.createRange()` — const, line 127
+- `const words = part.toString().replace(/\s+/g, " ").trim()` — const, line 131
+- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 141
+- `const target = ctl.target` — const, line 144
+- `const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null` — const, line 145
+- `const draftKey = section ? `$` — const, line 149
+- `const selection = draft && draft.key === draftKey ? draft.selection : null` — const, line 151
+- `const noting = draft && draft.key === draftKey ? draft.noting : null` — const, line 152
+- `const setSelection = useCallback((picked: PaneSelection | null)` — const, line 153
+- `const setNoting = useCallback((text: string | null)` — const, line 157
+- `const canCapture = Boolean(onCaptured && section?.revisionId)` — const, line 161
+- `const sheet = ctl.sheet` — const, line 163
+- `const leads = ctl.panes && ctl.leader === "side"` — const, line 164
+- `const sectionKey = section ? `$` — const, line 169
+- `const node = scrollRef.current` — const, line 172
+- `const capture = async (kind: "highlight" | "annotate", picked: PaneSelection, learnerText: string)` — const, line 179
+- `const setRefs = useCallback((node: HTMLDivElement | null)` — const, line 201
+- `const touch = ()` — const, line 208
+- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 209
+- `const header: ReactNode = ( <div data-sbs-header="" style=` — const, line 220
+- `const picked = selectionIn(scrollRef.current)` — const, line 267
+- `const folded = Boolean(fold?.spans.has(block.spanId))` — const, line 286
+- `const firstFolded = folded && !(index > 0 && fold?.spans.has(section.blocks[index - 1].spanId))` — const, line 287
+- `const cue = folded ? null : marginFor?.(block.spanId) ?? null` — const, line 288
 
 ## Who imports or calls it
 
@@ -102,6 +110,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `SideBySidePane`; references `SideBySidePane`
+- [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `PaneSelection`; references `PaneSelection`
+- [[Reference/Desktop/TypeScript/screens/reader/useSidePane|src/screens/reader/useSidePane.ts]] — import-or-re-export: `PaneSelection`; references `PaneSelection`
 
 ## Dependencies
 
@@ -111,8 +121,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] — import-or-re-export; imports `IntentBox`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export; imports `IntentBoxController`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export; imports `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `SideBySide`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
 
@@ -131,6 +143,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/sideBySideReader.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideIntent.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

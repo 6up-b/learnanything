@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/readerCheck.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/readerCheck.ts"
-source_commit: "b318a1b412948156d73353248b1f2889c06f7df7"
-source_commit_timestamp: "2026-10-20T00:01:16-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/readerCheck.ts](../../../../../../apps/learnloop-tauri/src/app/readerCheck.ts) |
-| Source lines | 56 |
+| Source lines | 62 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `b318a1b412948156d73353248b1f2889c06f7df7` |
-| Commit timestamp | `2026-10-20T00:01:16-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,15 +60,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderReturn` — interface, line 15
-- `export function returnsToReader(readerReturn: ReaderReturn | null, practiceItemId: string | null): boolean` — function, line 24
-- `export function keepReaderReturn(readerReturn: ReaderReturn | null, openingItemId: string): ReaderReturn | null` — function, line 29
-- `export function readerCheckOffer( result: Pick<DailyPlanDto, "enabled" | "step">, practiceItemId: string, proposalId: string | null, /** RW4b: the sources service's import that wrote the item (a textbook exercise). */ importId: string | null = null, ): Practi…` — function, line 41
+- `export interface ReaderReturn` — interface, line 16
+- `export function returnsToReader(readerReturn: ReaderReturn | null, practiceItemId: string | null): boolean` — function, line 30
+- `export function keepReaderReturn(readerReturn: ReaderReturn | null, openingItemId: string): ReaderReturn | null` — function, line 35
+- `export function readerCheckOffer( result: Pick<DailyPlanDto, "enabled" | "step">, practiceItemId: string, proposalId: string | null, /** RW4b: the sources service's import that wrote the item (a textbook exercise). */ importId: string | null = null, ): Practi…` — function, line 47
 
 ## Internal implementation anchors
 
-- `const step = result.step` — const, line 48
-- `const item = step && step.kind === "item" ? step : null` — const, line 49
+- `const step = result.step` — const, line 54
+- `const item = step && step.kind === "item" ? step : null` — const, line 55
 
 ## Who imports or calls it
 
@@ -84,6 +84,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DailyPlanDto`, `SourceLibraryCard`
 - [[Reference/Desktop/TypeScript/app/practiceOffer|src/app/practiceOffer.ts]] — import-or-re-export; imports `PracticeOffer`
+- [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export; imports `ReturnStack`
 
 ### Assets, platform, and third-party dependencies
 

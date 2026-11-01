@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/app"
-source_commit: "9a3dbdeba182f91164b72d74f67bb3624218c94b"
-source_commit_timestamp: "2026-10-26T19:46:22-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -51,8 +51,8 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/practiceDraft|practiceDraft.ts]] | `ACTIVE` | Provides `PracticeDraftMirror`, `RestoredPracticeDraft`, `restoredPracticeDraft` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/practiceFeedback|practiceFeedback.ts]] | `ACTIVE` | Provides `simplePracticeFeedback`, `Verdict`, `VERDICT_TEXT`, `verdictOf` and related exports within the desktop's TypeScript/app ownership area. | 1 | 8 |
 | [[Reference/Desktop/TypeScript/app/practiceOffer|practiceOffer.ts]] | `ACTIVE` | Provides `ProposalOrigin`, `PracticeOffer`, `schedulerCandidateForServe`, `planPresentationForServe` and related exports within the desktop's TypeScript/app ownership area. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/app/readerCheck|readerCheck.ts]] | `ACTIVE` | Provides `ReaderReturn`, `returnsToReader`, `keepReaderReturn`, `readerCheckOffer` within the desktop's TypeScript/app ownership area. | 2 | 2 |
-| [[Reference/Desktop/TypeScript/app/readerWorkbench|readerWorkbench.ts]] | `ACTIVE` | Provides `ReaderWorkbenchOrigin`, `workbenchReturn`, `readerTargetBack`, `sessionAfterWorkbenchSubmit` and related exports within the desktop's TypeScript/app ownership area. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/app/readerCheck|readerCheck.ts]] | `ACTIVE` | Provides `ReaderReturn`, `returnsToReader`, `keepReaderReturn`, `readerCheckOffer` within the desktop's TypeScript/app ownership area. | 3 | 2 |
+| [[Reference/Desktop/TypeScript/app/readerWorkbench|readerWorkbench.ts]] | `ACTIVE` | Provides `ReaderWorkbenchOrigin`, `workbenchReturn`, `readerTargetBack`, `sessionAfterWorkbenchSubmit` and related exports within the desktop's TypeScript/app ownership area. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/app/recentVaults|recentVaults.ts]] | `ACTIVE` | Persists and normalizes the renderer's recent-vault list. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/app/shell|shell.ts]] | `ACTIVE` | Provides `ShellMode`, `shellMode`, `simpleShell`, `Place` and related exports within the desktop's TypeScript/app ownership area. | 2 | 11 |
 | [[Reference/Desktop/TypeScript/app/todayPlan|todayPlan.ts]] | `ACTIVE` | Provides `dayPhrase`, `TodayRow`, `onYourOwnItem`, `todayRows` and related exports within the desktop's TypeScript/app ownership area. | 3 | 2 |

@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
-source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
-source_commit_timestamp: "2026-10-17T14:51:16-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 688 |
+| Source lines | 692 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `cad657eb92a78cf517b5d0f2ce36e2c1c78337af` |
-| Commit timestamp | `2026-10-17T14:51:16-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -62,18 +62,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export const PALETTE: Array<` — const, line 19
 - `export interface ExerciseImportState` — interface, line 46
-- `export interface NotesRailProps` — interface, line 56
-- `export function NotesRail(props: NotesRailProps)` — function, line 145
+- `export interface NotesRailProps` — interface, line 60
+- `export function NotesRail(props: NotesRailProps)` — function, line 149
 
 ## Internal implementation anchors
 
-- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 143
-- `const spanId = selection?.spanId ?? activeSpan` — const, line 366
-- `const requestError = parseRequestError(request.errorJson)` — const, line 475
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 476
-- `const expanded = expandedRequests.has(request.id)` — const, line 477
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 478
-- `const next = new Set(ids)` — const, line 497
+- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 147
+- `const spanId = selection?.spanId ?? activeSpan` — const, line 370
+- `const requestError = parseRequestError(request.errorJson)` — const, line 479
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 480
+- `const expanded = expandedRequests.has(request.id)` — const, line 481
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 482
+- `const next = new Set(ids)` — const, line 501
 
 ## Who imports or calls it
 
@@ -86,7 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderArcDto`, `ReaderCoachLintDto`, `ReaderExerciseImportResult`, `ReaderRenderBlockDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderArcDto`, `ReaderCoachLintDto`, `ReaderExerciseImportResult`, `ReaderRenderBlockDto`, `SourceIdentity`
 - [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`

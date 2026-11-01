@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderCues.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderCues.ts"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
+source_commit_timestamp: "2026-11-01T03:48:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderCues.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderCues.ts) |
-| Source lines | 545 |
+| Source lines | 577 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
+| Commit timestamp | `2026-11-01T03:48:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,101 +60,102 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface CueCheckMeRequest` — interface, line 56
-- `export interface CueRequestOrigin` — interface, line 64
-- `export type CueSurface = "text" | "pdf" | "watch" | "none"` — type, line 69
-- `export interface ReaderCuesInput` — interface, line 71
-- `export interface ReaderCues` — interface, line 107
-- `export function useReaderCues(input: ReaderCuesInput): ReaderCues` — function, line 167
+- `export interface CueCheckMeRequest` — interface, line 57
+- `export interface CueRequestOrigin extends SourceIdentity` — interface, line 69
+- `export type CueSurface = "text" | "pdf" | "watch" | "none"` — type, line 74
+- `export interface ReaderCuesInput` — interface, line 76
+- `export interface ReaderCues` — interface, line 130
+- `export function useReaderCues(input: ReaderCuesInput): ReaderCues` — function, line 190
 
 ## Internal implementation anchors
 
-- `type CuePlacement, type CueSuppression, type PdfPageLayout, } from "./cues"` — type, line 48
-- `interface PlacedIds` — interface, line 143
-- `const NO_PLACEMENT: PlacedIds =` — const, line 151
-- `const FOCUS_RETRIES = 10` — const, line 152
-- `function sameHeldOut(a: PlacedIds, b: PlacedIds): boolean` — function, line 154
-- `const left = [...(a.heldOutPlaced ?? []), ...(a.heldOutSuppressed ?? []).map((entry)` — const, line 155
-- `const right = [...(b.heldOutPlaced ?? []), ...(b.heldOutSuppressed ?? []).map((entry)` — const, line 156
-- `function samePlacement(a: PlacedIds, b: PlacedIds): boolean` — function, line 160
-- `const working = input.working ?? false` — const, line 173
-- `const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null` — const, line 174
-- `const loggedRef = useRef<Set<string>>(new Set())` — const, line 183
-- `const marksKey = [...(cues?.marks ?? []), ...(cues?.discovery?.heldOut ?? []).map((cue)` — const, line 184
-- `const extractionId = render?.extractionId ?? null` — const, line 190
-- `const visitRef = useRef(0)` — const, line 191
-- `const sameVisit = useCallback((visit: number)` — const, line 198
-- `const onResize = ()` — const, line 210
-- `const heldOut = cues?.discovery?.heldOut` — const, line 218
-- `const body = bodyRef.current` — const, line 223
-- `let viewportHeight = body?.clientHeight ?? 0` — let, line 224
-- `let positionOf: (spanId: string)` — let, line 225
-- `const element = body.querySelector(`[data-span-id="$` — const, line 228
-- `const tops = pdfPageTops(pdfLayout)` — const, line 234
-- `const block = (pdfBlocks ?? []).find((entry)` — const, line 236
-- `const scroller = body.querySelector("[data-transcript-scroller]")` — const, line 240
-- `const element = body.querySelector(`[data-transcript-span="$` — const, line 243
-- `const next = placeCueMarks(` — const, line 247
-- `const ids: PlacedIds =` — const, line 257
-- `const placement = useMemo<CuePlacement>(()` — const, line 272
-- `const byId = new Map((cues?.marks ?? []).map((cue)` — const, line 273
-- `const heldById = new Map((cues?.discovery?.heldOut ?? []).map((cue)` — const, line 274
-- `const cue = byId.get(cueId)` — const, line 278
-- `const cue = heldById.get(cueId)` — const, line 284
-- `const discovery = cues?.discovery ?? null` — const, line 292
-- `const funnelVisit = useCallback(()` — const, line 294
-- `const impressions = useCueImpressions(` — const, line 295
-- `const cuesRef = useRef(cues)` — const, line 299
-- `const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 301
-- `const current = cuesRef.current` — const, line 302
-- `const shownBySpan = useMemo(()` — const, line 316
-- `const markOn = useCallback((spanId: string)` — const, line 317
-- `const shownRef = useRef<ReaderCueDto[]>([])` — const, line 325
-- `const focusMark = useCallback((cue: ReaderCueDto)` — const, line 327
-- `const find = ()` — const, line 328
-- `const present = find()` — const, line 335
-- `let tries = 0` — let, line 341
-- `const retry = ()` — const, line 342
-- `const element = find()` — const, line 344
-- `const onKey = (event: KeyboardEvent)` — const, line 352
-- `const target = event.target` — const, line 356
-- `const shown = shownRef.current` — const, line 358
-- `const direction = event.key === "ArrowDown" ? 1 : -1` — const, line 360
-- `const focused = (document.activeElement as HTMLElement | null)?.dataset?.cueMark ?? null` — const, line 361
-- `let from = focused ? shown.findIndex((cue)` — let, line 362
-- `const here = spanOrder.get(readingSpan ?? "") ?? -1` — const, line 364
-- `const order = shown.map((cue)` — const, line 365
-- `const at = direction === 1 ? order.findIndex((index)` — const, line 366
-- `const next = stepMark(shown.length, from, direction)` — const, line 369
-- `const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string)` — const, line 378
-- `const planId = impressions.planFor(cue) ?? cuesRef.current.discovery.planId` — const, line 384
-- `const setPreferences = useCallback(async (change:` — const, line 391
-- `const visit = visitRef.current` — const, line 393
-- `const openEarlier = useCallback((cue: ReaderCueDto)` — const, line 405
-- `const checkMe = useCallback((cue: ReaderCueDto)` — const, line 409
-- `const visit = visitRef.current` — const, line 411
-- `const origin: CueRequestOrigin =` — const, line 412
-- `const check = result.check` — const, line 418
-- `const notRelevant = useCallback((cue: ReaderCueDto, text: string)` — const, line 432
-- `const visit = visitRef.current` — const, line 433
-- `const receipt: CueReceipt =` — const, line 438
-- `const density = cues?.density ?? "normal"` — const, line 459
-- `const fewer = useCallback(()` — const, line 460
-- `const previous = density` — const, line 461
-- `const next = stepDown(previous)` — const, line 462
-- `const offBook = useCallback(()` — const, line 475
-- `const offEverywhere = useCallback(()` — const, line 488
-- `const previous = density` — const, line 489
-- `const setDensity = useCallback((next: CueDensity)` — const, line 503
-- `const turnOnBook = useCallback(()` — const, line 509
-- `const canTryFirst = Boolean(onTryFirst) && Boolean(discovery?.tryFirst)` — const, line 516
-- `const tryFirst = useCallback((cue: ReaderCueDto)` — const, line 517
-- `const planId = impressions.planFor(cue) ?? cuesRef.current?.discovery?.planId` — const, line 521
-- `const fewerOn = useCallback((cue: ReaderCueDto)` — const, line 526
-- `const discoveredTryFirst = discovery ? discovery.tryFirst : null` — const, line 530
-- `const discovered = useMemo( ()` — const, line 531
-- `const checkPhase = useCallback((cueId: string)` — const, line 534
-- `const receipts = useMemo( ()` — const, line 535
+- `type CuePlacement, type CueSuppression, type PdfPageLayout, } from "./cues"` — type, line 49
+- `interface PlacedIds` — interface, line 166
+- `const NO_PLACEMENT: PlacedIds =` — const, line 174
+- `const FOCUS_RETRIES = 10` — const, line 175
+- `function sameHeldOut(a: PlacedIds, b: PlacedIds): boolean` — function, line 177
+- `const left = [...(a.heldOutPlaced ?? []), ...(a.heldOutSuppressed ?? []).map((entry)` — const, line 178
+- `const right = [...(b.heldOutPlaced ?? []), ...(b.heldOutSuppressed ?? []).map((entry)` — const, line 179
+- `function samePlacement(a: PlacedIds, b: PlacedIds): boolean` — function, line 183
+- `const spanAttribute = input.spanAttribute ?? "data-span-id"` — const, line 196
+- `const working = input.working ?? false` — const, line 198
+- `const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null` — const, line 199
+- `const loggedRef = useRef<Set<string>>(new Set())` — const, line 208
+- `const marksKey = [...(cues?.marks ?? []), ...(cues?.discovery?.heldOut ?? []).map((cue)` — const, line 209
+- `const extractionId = render?.extractionId ?? null` — const, line 215
+- `const visitRef = useRef(0)` — const, line 216
+- `const sameVisit = useCallback((visit: number)` — const, line 223
+- `const onResize = ()` — const, line 235
+- `const heldOut = cues?.discovery?.heldOut` — const, line 243
+- `const body = bodyRef.current` — const, line 248
+- `let viewportHeight = body?.clientHeight ?? 0` — let, line 249
+- `let positionOf: (spanId: string)` — let, line 250
+- `const element = body.querySelector(`[$` — const, line 253
+- `const tops = pdfPageTops(pdfLayout)` — const, line 259
+- `const block = (pdfBlocks ?? []).find((entry)` — const, line 261
+- `const scroller = body.querySelector("[data-transcript-scroller]")` — const, line 265
+- `const element = body.querySelector(`[data-transcript-span="$` — const, line 268
+- `const next = placeCueMarks(` — const, line 272
+- `const ids: PlacedIds =` — const, line 282
+- `const placement = useMemo<CuePlacement>(()` — const, line 297
+- `const byId = new Map((cues?.marks ?? []).map((cue)` — const, line 298
+- `const heldById = new Map((cues?.discovery?.heldOut ?? []).map((cue)` — const, line 299
+- `const cue = byId.get(cueId)` — const, line 303
+- `const cue = heldById.get(cueId)` — const, line 309
+- `const discovery = cues?.discovery ?? null` — const, line 317
+- `const funnelVisit = useCallback(()` — const, line 322
+- `const impressions = useCueImpressions(` — const, line 323
+- `const cuesRef = useRef(cues)` — const, line 330
+- `const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 332
+- `const current = cuesRef.current` — const, line 333
+- `const shownBySpan = useMemo(()` — const, line 347
+- `const markOn = useCallback((spanId: string)` — const, line 348
+- `const shownRef = useRef<ReaderCueDto[]>([])` — const, line 356
+- `const focusMark = useCallback((cue: ReaderCueDto)` — const, line 358
+- `const find = ()` — const, line 359
+- `const present = find()` — const, line 366
+- `let tries = 0` — let, line 372
+- `const retry = ()` — const, line 373
+- `const element = find()` — const, line 375
+- `const onKey = (event: KeyboardEvent)` — const, line 383
+- `const target = event.target` — const, line 388
+- `const shown = shownRef.current` — const, line 390
+- `const direction = event.key === "ArrowDown" ? 1 : -1` — const, line 392
+- `const focused = (document.activeElement as HTMLElement | null)?.dataset?.cueMark ?? null` — const, line 393
+- `let from = focused ? shown.findIndex((cue)` — let, line 394
+- `const here = spanOrder.get(readingSpan ?? "") ?? -1` — const, line 396
+- `const order = shown.map((cue)` — const, line 397
+- `const at = direction === 1 ? order.findIndex((index)` — const, line 398
+- `const next = stepMark(shown.length, from, direction)` — const, line 401
+- `const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string)` — const, line 410
+- `const planId = impressions.planFor(cue) ?? cuesRef.current.discovery.planId` — const, line 416
+- `const setPreferences = useCallback(async (change:` — const, line 423
+- `const visit = visitRef.current` — const, line 425
+- `const openEarlier = useCallback((cue: ReaderCueDto)` — const, line 437
+- `const checkMe = useCallback((cue: ReaderCueDto)` — const, line 441
+- `const visit = visitRef.current` — const, line 443
+- `const origin: CueRequestOrigin =` — const, line 444
+- `const check = result.check` — const, line 450
+- `const notRelevant = useCallback((cue: ReaderCueDto, text: string)` — const, line 464
+- `const visit = visitRef.current` — const, line 465
+- `const receipt: CueReceipt =` — const, line 470
+- `const density = cues?.density ?? "normal"` — const, line 491
+- `const fewer = useCallback(()` — const, line 492
+- `const previous = density` — const, line 493
+- `const next = stepDown(previous)` — const, line 494
+- `const offBook = useCallback(()` — const, line 507
+- `const offEverywhere = useCallback(()` — const, line 520
+- `const previous = density` — const, line 521
+- `const setDensity = useCallback((next: CueDensity)` — const, line 535
+- `const turnOnBook = useCallback(()` — const, line 541
+- `const canTryFirst = Boolean(onTryFirst) && Boolean(discovery?.tryFirst)` — const, line 548
+- `const tryFirst = useCallback((cue: ReaderCueDto)` — const, line 549
+- `const planId = impressions.planFor(cue) ?? cuesRef.current?.discovery?.planId` — const, line 553
+- `const fewerOn = useCallback((cue: ReaderCueDto)` — const, line 558
+- `const discoveredTryFirst = discovery ? discovery.tryFirst : null` — const, line 562
+- `const discovered = useMemo( ()` — const, line 563
+- `const checkPhase = useCallback((cueId: string)` — const, line 566
+- `const receipts = useMemo( ()` — const, line 567
 
 ## Who imports or calls it
 
@@ -162,13 +163,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `CueCheckMeRequest`, `CueRequestOrigin`, `useReaderCues`; references `CueCheckMeRequest`, `CueRequestOrigin`, `useReaderCues`
+- [[Reference/Desktop/TypeScript/screens/reader/useSidePane|src/screens/reader/useSidePane.ts]] — import-or-re-export: `CueCheckMeRequest`, `CueRequestOrigin`, `useReaderCues`; references `CueCheckMeRequest`, `CueRequestOrigin`, `useReaderCues`
 
 ## Dependencies
 
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CueDensity`, `ReaderCueDto`, `ReaderCuesDto`, `ReaderGuidePlanDto`, `ReaderPdfBlockDto`, `ReaderRenderViewDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CueDensity`, `ReaderCueDto`, `ReaderCuesDto`, `ReaderGuidePlanDto`, `ReaderPdfBlockDto`, `ReaderRenderViewDto`, `SourceIdentity`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/MarginMark|src/screens/reader/MarginMark.tsx]] — import-or-re-export; imports `CueCheckPhase`, `CueReceipt`
