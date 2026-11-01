@@ -842,6 +842,14 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     never the proposal the learner's row was copied from. A link made by hand shows its
     note's current snapshot (Codex re-review F13)."""
 
+    return [link_view(row, note) for row, note in effective_rows(repository, rows, goal_id=goal_id)]
+
+
+def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
+                   goal_id: str | None = None) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    """:func:`effective`'s links as (link row, the snapshot it shows), oldest first: the
+    one rule for which links stand (curriculum C5's gap reading reads the same pairs)."""
+
     if not rows:
         return []
     with repository.connection() as connection:
@@ -861,12 +869,12 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     with repository.connection() as connection:
         notes = store.notes_by_id(connection, (row["note_id"] for row in shown.values() if row["authorship"] == "ai"))
         newest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in by_hand))
-    views = []
+    pairs: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
     for row in sorted(shown.values(), key=lambda r: (str(r["created_at"]), str(r["id"]))):
         note = notes.get(str(row["note_id"])) if row["authorship"] == "ai" else newest.get(str(row["note_key"]))
         if note is not None:
-            views.append(link_view(row, note))
-    return views
+            pairs.append((row, note))
+    return pairs
 
 
 def date_label(captured_on: str | None) -> str | None:

@@ -34,7 +34,13 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
 from learnloop.diagnosis.text_gaps.contract import LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
-from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDeferred, failed_row, process_learner_text
+from learnloop.diagnosis.text_gaps.pipeline import (
+    PipelineClients,
+    ReadingDeferred,
+    ReadingWaits,
+    failed_row,
+    process_learner_text,
+)
 from learnloop.diagnosis.text_gaps.sources import (
     SourceWithheld,
     StuckTextSource,
@@ -42,6 +48,8 @@ from learnloop.diagnosis.text_gaps.sources import (
     figures_enabled,
     is_figure_prediction,
     formative_row,
+    learner_note_ids,
+    learner_notes_enabled,
     hint_feedback_ids,
     hint_feedback_row,
     learner_text,
@@ -270,11 +278,26 @@ def reconcile_hint_feedback(vault: LoadedVault, repository: Repository, *, clock
 #: The kinds :func:`sweep_backlog` sweeps (all of them unless told).
 BACKLOG_KINDS = ("stuck_answer", "tutor_question", "diagnosis", "reader_formative", "hint_feedback",
                  "workbench_text")
+#: Curriculum C5: linked notes, swept only with the learner's opt-in
+#: (``notes.gaps_enabled``); counted only then, so a sweep switched off is
+#: today's exactly.
+NOTE_BACKLOG_KINDS = ("learner_note",)
+
+
+def enqueue_learner_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None) -> int:
+    """Curriculum C5: queue every linked note's current snapshot that has no reading yet
+    (and queue again one whose job was skipped while it was not linked or switched off,
+    now that it is linked again). Called when a link run ends, when the learner links a
+    note or keeps a link, and when the sidecar opens a vault; idempotent, no model call.
+    Switched off it reads no note row and queues nothing. Returns how many it queued."""
+
+    return sweep_backlog(vault, repository, clock=clock, kinds=NOTE_BACKLOG_KINDS).get("learner_note", 0)
 
 
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
                   stuck_source: StuckTextSource | None = None, include_history: bool = False,
-                  dry_run: bool = False, kinds: tuple[str, ...] = BACKLOG_KINDS) -> dict[str, int]:
+                  dry_run: bool = False, kinds: tuple[str, ...] = BACKLOG_KINDS + NOTE_BACKLOG_KINDS
+                  ) -> dict[str, int]:
     """Queue unread learner texts (``learnloop gaps run --backlog``).
 
     Stuck answers always, missed active-reading answers while
@@ -324,6 +347,17 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
         for assist_id in workbench_text_ids(repository):
             if queue("workbench_text", assist_id):
                 counts["workbench_text"] += 1
+    if "learner_note" in kinds and learner_notes_enabled(vault):
+        # Curriculum C5: the notes linked now (never a hidden link or an unlinked note).
+        counts["learner_note"] = 0
+        for note_id in learner_note_ids(vault, repository):
+            if queue("learner_note", note_id):
+                counts["learner_note"] += 1
+            elif (job := job_rows.get(("learner_note", note_id))) is not None and job.get("state") == "skipped" \
+                    and ("learner_note", note_id) not in gap_rows:
+                # Skipped while it was hidden or switched off; linked again now.
+                if dry_run or _requeue(repository, str(job["id"]), clock=clock):
+                    counts["learner_note"] += 1
     if include_history and {"tutor_question", "diagnosis"} & set(kinds):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             questions = [str(row[0]) for row in connection.execute(
@@ -340,6 +374,11 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
             if queue("diagnosis", diagnosis_id):
                 counts["diagnosis"] += 1
     return counts
+
+
+def _requeue(repository: Repository, job_id: str, *, clock: Clock | None) -> bool:
+    with repository.atomic():
+        return store.requeue_skipped_job(repository.connection(), job_id, now=utc_now_iso(clock))
 
 
 def _reading_checkpointed(job: Mapping[str, Any]) -> bool:
@@ -516,6 +555,15 @@ def process_next_gap_job(
         outcome.state = "retry_later" if released else "lease_lost"
         outcome.error = "figures_changed"
         return outcome
+    except ReadingWaits as exc:
+        # Curriculum C5: a note's reading waits for the ChatGPT plan (nothing was
+        # sent): released with its attempt refunded, read again later; the rest
+        # of the queue goes on.
+        released = release(not_before=_later(BACKOFF_SECONDS, clock), error=f"waiting: {exc.reason}"[:500],
+                           refund=True)
+        outcome.state = "retry_later" if released else "lease_lost"
+        outcome.error = "waiting_for_plan"
+        return outcome
     except ReadingDeferred as exc:
         if exc.spend and (cancelled_outcome := stopped()) is not None:
             return cancelled_outcome
@@ -579,7 +627,8 @@ def _retry_or_fail(
 #: ``context_judge`` of each source (a text gone since it was queued is
 #: logged with an empty text).
 _CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader",
-                  "reader_formative": "gap_reader", "workbench_text": "gap_reader", "hint_feedback": "gap_reader"}
+                  "reader_formative": "gap_reader", "workbench_text": "gap_reader", "hint_feedback": "gap_reader",
+                  "learner_note": "gap_reader"}
 
 
 def _skip(
@@ -687,6 +736,7 @@ __all__ = [
     "enqueue_figure_explanation",
     "enqueue_figure_prediction",
     "enqueue_after_diagnosis",
+    "enqueue_learner_notes",
     "enqueue_stuck_answer",
     "enqueue_tutor_question",
     "enqueue_workbench_text",

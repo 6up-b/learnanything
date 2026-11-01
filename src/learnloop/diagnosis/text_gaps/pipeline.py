@@ -21,6 +21,15 @@ LLM judge and the context model's kind decide only what it gave no answer
 (``tier1``). The switches ``decider_routes.learner_gap_judge`` and
 ``decider_routes.learner_gap_kind`` restore the steps above.
 
+**A note the learner linked (curriculum C5, ``learner_note``).** Tier 2 and
+read on the ChatGPT plan only (``contract.NOTE_SOURCE_KINDS``): the reading
+and every pair verdict come from the notes' plan route (``note_link_judge``,
+:func:`note_reader_client`), never the Decider, the gap judge's own route, an
+embedding or the drafter; the context model's kind decides; an unmatched
+prerequisite is never created (a note is never a generation input); the
+receipts keep no prompt text; and the row keeps no note text. With the plan
+down (or the route not the plan) the reading waits (:class:`ReadingWaits`).
+
 Without a pick (the reading failed, the chooser gave none, the switch is off)
 nothing is targeted and the field loader keeps the F11 grounded rule, then
 the opt-in classifier. Failures of optional steps are recorded in the row's
@@ -50,7 +59,8 @@ says (:func:`_resume`). A job switched off or gone after it wrote is logged
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from contextlib import closing
+from contextlib import closing, nullcontext
+from contextvars import ContextVar
 from dataclasses import dataclass
 import logging
 from pathlib import Path
@@ -68,6 +78,7 @@ from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequi
 from learnloop.diagnosis.text_gaps.contract import (
     DRAFT_ROUTE,
     NON_SERVING_SOURCE_KINDS,
+    NOTE_SOURCE_KINDS,
     PIPELINE_VERSION,
     UNREAD,
     GapReading,
@@ -115,6 +126,20 @@ SETTLED = ("judged", "already_judged")
 _STOPS = ("SpendLimitExceeded", "SpendCancelled", "AIInterrupted")
 
 
+#: Set while a note the learner linked is read (curriculum C5): Tier 1's
+#: Decider switches do not apply (:func:`_tier1`), so no note-derived text
+#: reaches the Decider (an OpenRouter model).
+_READING_NOTE: ContextVar[bool] = ContextVar("learnloop_text_gaps_reading_note", default=False)
+#: The route whose provider may read the learner's notes (curriculum C2's,
+#: spec §10.4: the ChatGPT plan only; ``plan_fallback.PLAN_ONLY_TASKS``).
+NOTE_READER_TASK = "note_link_judge"
+#: The one provider type that may read a note (C2's ``note_links.PLAN_PROFILE_TYPE``).
+PLAN_PROFILE_TYPE = "chatgpt_plan"
+#: ``LEARNLOOP_NOTE_LINK_MODELS=off`` (C2's switch; the test suite sets it): no
+#: real client is resolved for a note's reading.
+NOTE_MODELS_ENV = "LEARNLOOP_NOTE_LINK_MODELS"
+
+
 class ReadingDeferred(Exception):
     """The reading cannot be finished now: no ledger row is written.
 
@@ -131,6 +156,16 @@ class ReadingDeferred(Exception):
         self.spend = spend
 
 
+class ReadingWaits(ReadingDeferred):
+    """A note's reading waits for the ChatGPT plan (curriculum C5, spec §10.4):
+    the plan is down, or the notes' route is not the plan. Nothing was sent;
+    the job is released with its attempt refunded and read again later (it
+    never fails for waiting), and the rest of the queue goes on."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+
+
 @dataclass
 class PipelineClients:
     """Client factories, resolved only when a step needs one (None: unavailable)."""
@@ -139,6 +174,9 @@ class PipelineClients:
     reader: ClientFactory | None = None
     decider: ClientFactory | None = None
     drafter: ClientFactory | None = None
+    #: Curriculum C5: the notes' ChatGPT-plan client (:func:`note_reader_client`),
+    #: the only client a note's reading and its pair verdicts may use.
+    note_reader: ClientFactory | None = None
     tutor: ClientFactory | None = None
     embedder: ClientFactory | None = None
 
@@ -164,6 +202,34 @@ def _ready(vault: LoadedVault, task: str, *, timeout: int | None = None) -> Any 
     return resolved.client if resolved.ready else None
 
 
+def is_plan_client(client: Any) -> bool:
+    """Whether ``client`` sends to the ChatGPT plan itself (spec §10.4)."""
+
+    return str(getattr(client, "provider_type", "") or "").strip().lower() == PLAN_PROFILE_TYPE
+
+
+def note_reader_client(vault: LoadedVault, *, timeout: int | None = None) -> Any | None:
+    """The notes' plan client for a note's reading, or None (the reading waits).
+
+    Resolved quietly (no OpenRouter offer, no grant: ``note_link_judge`` is in
+    ``plan_fallback.PLAN_ONLY_TASKS``) and kept only when the route resolves to
+    a ChatGPT-plan profile, with no fallback, and the client itself is the
+    plan's."""
+
+    import os
+
+    if os.environ.get(NOTE_MODELS_ENV, "").strip().lower() == "off":
+        return None
+    from learnloop.ai import plan_fallback
+    from learnloop.ai.routing import is_plan_profile, ready_client_for_task
+
+    with plan_fallback.quiet():
+        resolved = ready_client_for_task(vault.root, vault.config, NOTE_READER_TASK, timeout_seconds=timeout)
+    if not resolved.ready or resolved.fallback_from or not is_plan_profile(vault.config, resolved.provider_name):
+        return None
+    return resolved.client if is_plan_client(resolved.client) else None
+
+
 def default_clients(vault: LoadedVault) -> PipelineClients:
     timeout = int(vault.config.learner_text_gaps.judge_timeout_seconds)
 
@@ -179,7 +245,23 @@ def default_clients(vault: LoadedVault) -> PipelineClients:
         drafter=lambda: _ready(vault, "authoring"),
         tutor=lambda: _ready(vault, "tutor_qa"),
         embedder=embedder,
+        note_reader=lambda: note_reader_client(vault, timeout=timeout),
     )
+
+
+def note_clients(clients: PipelineClients) -> PipelineClients:
+    """The clients a note's reading may use (curriculum C5, spec §10.4): the plan
+    client for the reading and the pair verdicts; no Decider, no drafter, no
+    tutor and no embedder. Raises :class:`ReadingWaits` when there is no plan
+    client (the plan is down, or the notes' route is not the plan)."""
+
+    reader = clients.get("note_reader")
+    if reader is None:
+        raise ReadingWaits("your notes are read only by the ChatGPT plan, which isn't available now")
+    if not is_plan_client(reader):
+        raise ReadingWaits("your notes are read only by the ChatGPT plan, and the notes' route "
+                           "(ai.routing.note_link_judge) is another provider: nothing was sent")
+    return PipelineClients(judge=lambda: reader, reader=lambda: reader, note_reader=lambda: reader)
 
 
 def authoritative(chooser: str, reading: GapReading | None, decider: DeciderKind) -> str:
@@ -257,6 +339,8 @@ def _tier1(vault: LoadedVault, switch: str) -> bool:
     it did with that setting before mvp-0.22.
     """
 
+    if _READING_NOTE.get():
+        return False  # a note's reading never reaches the Decider (curriculum C5)
     return decider_enabled(vault.config, switch) and bool(vault.config.learner_text_gaps.decider_enabled)
 
 
@@ -308,6 +392,11 @@ def _with_standing(
 
 def _embed_query(repository: Repository, budget: TextBudget, clients: PipelineClients, vault: LoadedVault,
                  subject: Any, field_name: str, detail: dict[str, Any]) -> tuple[Any, str | None]:
+    if _READING_NOTE.get():
+        # A gap named from a note is never embedded (curriculum C5, spec §10.4):
+        # the structural candidates are judged by the plan.
+        detail["embedding"] = "never_for_notes"
+        return None, None
     if not vault.config.embedding.enabled:
         detail["embedding"] = "disabled"
         return None, None
@@ -533,6 +622,11 @@ def _create(
         if not config.create_prerequisites_enabled:
             detail["reason"] = "creation_disabled"
             return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
+        if text.source_kind in NOTE_SOURCE_KINDS:
+            # A note is never a generation input (curriculum C5, spec §10.2):
+            # nothing is drafted from it.
+            detail["reason"] = "never_drafted_from_a_note"
+            return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
         if actions.creations_today(repository, now_iso=now_iso) >= int(config.max_creations_per_day):
             detail["reason"] = "daily_cap"
             return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
@@ -735,7 +829,8 @@ def _decide(
             GapReading.from_progress(recorded) if isinstance(recorded, Mapping) else None,
             DeciderKind(**dict(decided["decider"])), str(decided["chooser"]), str(decided["kind"]),
         )
-    if _tier1(vault, "learner_gap_kind"):
+    note = text.source_kind in NOTE_SOURCE_KINDS
+    if not note and _tier1(vault, "learner_gap_kind"):
         # Tier 1: the Decider's kind is authoritative; the context model names the gap.
         from learnloop.diagnosis.text_gaps import tier1
 
@@ -758,6 +853,16 @@ def _decide(
     if reading is not None and reading.status == "ok":
         log_reading(repository, text, reading)
     decider = DeciderKind("disabled")
+    if note:
+        # A note is read by the plan's model only: no Decider, and the context
+        # model's kind decides (curriculum C5, spec §10.4).
+        if reading is not None and reading.status != "ok":
+            # The plan answered nothing usable: read again later, never logged as unread.
+            raise ReadingDeferred(f"the note's reading {reading.status}")
+        kind = authoritative("context_model", reading, decider)
+        checkpoint(decided={"reading": reading.as_progress() if reading is not None else None,
+                            "decider": decider.as_dict(), "chooser": "context_model", "kind": kind})
+        return reading, decider, "context_model", kind
     if config.decider_enabled:
         decider_client = clients.get("decider")
         decider = decider_kind(repository, budget, decider_client, text) if decider_client is not None else DeciderKind("unavailable")
@@ -797,6 +902,9 @@ def process_learner_text(
     if not config.enabled:
         return None
     clients = clients or default_clients(vault)
+    note = text.source_kind in NOTE_SOURCE_KINDS
+    if note:
+        clients = note_clients(clients)  # raises ReadingWaits without the plan
     budget = budget or TextBudget.for_text(vault)
     state: dict[str, Any] = dict(progress or {})
     save = save_progress or (lambda _payload: None)
@@ -806,28 +914,58 @@ def process_learner_text(
         save(dict(state))
 
     now_iso = utc_now_iso(clock)
-    with budget.receipts(repository, text.subject_key):
-        reading, decider, chooser, kind = _decide(
-            repository, text, vault, budget=budget, clients=clients, progress=state, checkpoint=checkpoint,
+    from learnloop.ai.execution import withhold_receipt_input
+
+    reading_note = _READING_NOTE.set(note)
+    try:
+        # A note's receipts keep no prompt text (curriculum C5, as C2's F3).
+        with withhold_receipt_input() if note else nullcontext(), budget.receipts(repository, text.subject_key):
+            outcome, reading, decider, chooser, kind = _read_and_act(
+                root, vault, repository, text, budget=budget, clients=clients, now_iso=now_iso, clock=clock,
+                state=state, checkpoint=checkpoint)
+    finally:
+        _READING_NOTE.reset(reading_note)
+    return _log(root, repository, text, outcome, reading=reading, decider=decider, chooser=chooser, kind=kind,
+                budget=budget, now_iso=now_iso, clock=clock)
+
+
+def _read_and_act(
+    root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget,
+    clients: PipelineClients, now_iso: str, clock: Clock | None, state: dict[str, Any], checkpoint: Checkpoint,
+) -> tuple[actions.ActionOutcome, GapReading | None, DeciderKind, str, str]:
+    """The reading and its action (inside the text's receipts)."""
+
+    reading, decider, chooser, kind = _decide(
+        repository, text, vault, budget=budget, clients=clients, progress=state, checkpoint=checkpoint,
+    )
+    resumed = _resume(root, vault, repository, text, budget=budget, clients=clients, now_iso=now_iso,
+                      clock=clock, progress=state, checkpoint=checkpoint)
+    if resumed is not None:
+        # What was written was a prerequisite; it is logged as one.
+        outcome, kind = resumed, "prerequisite"
+    elif kind == "prerequisite" and reading is not None and reading.status == "ok" and reading.names(kind):
+        outcome = _prerequisite(
+            root, vault, repository, text, reading, chooser=chooser, budget=budget, clients=clients,
+            now_iso=now_iso, clock=clock, progress=state, checkpoint=checkpoint,
         )
-        resumed = _resume(root, vault, repository, text, budget=budget, clients=clients, now_iso=now_iso,
-                          clock=clock, progress=state, checkpoint=checkpoint)
-        if resumed is not None:
-            # What was written was a prerequisite; it is logged as one.
-            outcome, kind = resumed, "prerequisite"
-        elif kind == "prerequisite" and reading is not None and reading.status == "ok" and reading.names(kind):
-            outcome = _prerequisite(
-                root, vault, repository, text, reading, chooser=chooser, budget=budget, clients=clients,
-                now_iso=now_iso, clock=clock, progress=state, checkpoint=checkpoint,
-            )
-        elif kind == "misconception" and reading is not None and reading.status == "ok" and reading.names(kind):
-            outcome = _belief(vault, repository, text, reading, budget=budget, clients=clients, clock=clock)
-        elif kind in ("prerequisite", "misconception"):
-            outcome = actions.ActionOutcome("unnamed", detail={"reason": "the context model named no gap of this kind"})
-        elif kind in ("slip", "wording"):
-            outcome = actions.ActionOutcome("signal_only")
-        else:
-            outcome = actions.ActionOutcome("none", detail={"reason": "unread"} if kind == UNREAD else {})
+    elif kind == "misconception" and reading is not None and reading.status == "ok" and reading.names(kind):
+        outcome = _belief(vault, repository, text, reading, budget=budget, clients=clients, clock=clock)
+    elif kind in ("prerequisite", "misconception"):
+        outcome = actions.ActionOutcome("unnamed", detail={"reason": "the context model named no gap of this kind"})
+    elif kind in ("slip", "wording"):
+        outcome = actions.ActionOutcome("signal_only")
+    else:
+        outcome = actions.ActionOutcome("none", detail={"reason": "unread"} if kind == UNREAD else {})
+    return outcome, reading, decider, chooser, kind
+
+
+def _log(
+    root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *,
+    reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str,
+    clock: Clock | None,
+) -> dict[str, Any] | None:
+    """Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment)."""
+
     vault = load_vault(root)
     advance = None
     # A missed active-reading answer's gap is content only: no sooner check
@@ -851,7 +989,7 @@ def process_learner_text(
         "source_kind": text.source_kind, "source_id": text.source_id, "attempt_id": text.attempt_id,
         "practice_item_id": text.practice_item_id,
         "anchor_learning_object_id": text.anchor or (text.anchor_learning_object_ids[0] if text.anchor_learning_object_ids else None),
-        "subject_id": text.subject_id, "learner_text": text.text[:4000], "chooser": chooser,
+        "subject_id": text.subject_id, "learner_text": stored_words(text), "chooser": chooser,
         "context_judge": text.context_judge,
         "context_kind": reading.kind if reading is not None and reading.status == "ok" else None,
         "decider_kind": decider.choice, "decider_json": decider.as_dict(), "kind": kind,
@@ -900,7 +1038,9 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
         question_record,
     )
 
-    if text.source_kind == "tutor_question":
+    if text.source_kind in NOTE_SOURCE_KINDS:
+        pass  # the row keeps no note text (curriculum C5): nothing to record
+    elif text.source_kind == "tutor_question":
         record_text_write(
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=question_record(connection, str(text.question_event_id or text.source_id),
@@ -941,6 +1081,15 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
             )
 
 
+def stored_words(text: LearnerText) -> str:
+    """The words a ``learner_text_gaps`` row keeps: the learner's text, bounded;
+    none for a note (curriculum C5, spec §10.4: the note stays in its
+    snapshot, so no reader of the gap table, such as the router's card, the
+    learner context or the owner's report, can send it anywhere)."""
+
+    return "" if text.source_kind in NOTE_SOURCE_KINDS else text.text[:4000]
+
+
 def failed_row(
     text: LearnerText, *, vault: LoadedVault, error: str, now_iso: str, progress: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -964,8 +1113,9 @@ def failed_row(
         "source_kind": text.source_kind, "source_id": text.source_id, "attempt_id": text.attempt_id,
         "practice_item_id": text.practice_item_id,
         "anchor_learning_object_id": text.anchor_learning_object_ids[0] if text.anchor_learning_object_ids else None,
-        "subject_id": text.subject_id, "learner_text": text.text[:4000],
-        "chooser": str(vault.config.learner_text_gaps.chooser), "context_judge": text.context_judge,
+        "subject_id": text.subject_id, "learner_text": stored_words(text),
+        "chooser": "context_model" if text.source_kind in NOTE_SOURCE_KINDS else str(vault.config.learner_text_gaps.chooser),
+        "context_judge": text.context_judge,
         "kind": UNREAD, "action": "failed", "edge_id": edge_id,
         "created_concept_id": created.get("concept_id") if written else None,
         "created_learning_object_id": written,
@@ -1012,8 +1162,14 @@ def named_gaps_for_card(
 
 
 __all__ = [
+    "NOTE_READER_TASK",
     "PipelineClients",
     "ReadingDeferred",
+    "ReadingWaits",
+    "is_plan_client",
+    "note_clients",
+    "note_reader_client",
+    "stored_words",
     "authoritative",
     "default_clients",
     "failed_row",

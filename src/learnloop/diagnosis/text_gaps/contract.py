@@ -30,7 +30,8 @@ PIPELINE_VERSION = "learner-text-gaps-v1"
 #: Versioned provenance of what the pipeline writes into the vault: a created
 #: concept / LO, an added prerequisite edge (the serving gate reads it).
 PROVENANCE_MECHANISM = LEARNER_TEXT_GAP_MECHANISM
-SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text", "hint_feedback")
+SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text", "hint_feedback",
+                "learner_note")
 #: The kinds this pipeline reads today: ``workbench_text`` is admitted by the
 #: schema (migration 208) for RW2b, which builds its adapter; until then a
 #: queued one is skipped as having nothing to read.
@@ -40,8 +41,11 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: Reader workbench RW2b reads ``workbench_text`` (its adapter,
 #: :func:`~.sources.workbench_text`): stuck steps, replies and discriminating
 #: answers written while working in steps.
+#: Curriculum C5 (migration 231) adds ``learner_note``: a note the learner
+#: linked (spec_deliverable_curriculum_v1 §10.2), read by its adapter
+#: (:func:`~.sources.learner_note_text`) only while ``notes.gaps_enabled``.
 READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback",
-                         "workbench_text")
+                         "workbench_text", "learner_note")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak
@@ -53,7 +57,19 @@ READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_
 #: ``hint_feedback`` (adaptive hints H2b) joins them for the same reason: a
 #: gap named in a reply to a hint is content and the next hint's rivals,
 #: never a serving change (spec_adaptive_hints_v1 §9; no successor).
-NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback")
+#: ``learner_note`` (curriculum C5) joins them: a note "only ever steers what
+#: to suggest, never grades you" (owner Q9; spec §12 C5, no successor).
+NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback", "learner_note")
+#: The kinds whose text is the learner's own NOTES (curriculum C5, spec §10.4):
+#: read by a model only on the ChatGPT plan (the notes' route,
+#: ``ai.routing.note_link_judge``; with the plan down the reading waits),
+#: never by the Decider (an OpenRouter model), never embedded (the named gap
+#: is matched by the plan's judge over the structural candidates only) and
+#: never drafted into a new topic (a note is never a generation input,
+#: §10.2): an unmatched prerequisite named from a note stays unmatched. The
+#: gap row stores no note text (``learner_text`` is empty: the note stays in
+#: its snapshot), so no reader of the gap table sends it anywhere.
+NOTE_SOURCE_KINDS = ("learner_note",)
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
 KINDS = LEARNER_GAP_KINDS
@@ -73,6 +89,8 @@ DECIDER_NEEDED_QUESTION_SET = "prerequisite-needed-qs-v1"
 READER_PROMPT_VERSION = "learner-gap-reader-v1"
 #: RW1b: the same reader, told it reads a missed active-reading answer.
 READER_FORMATIVE_PROMPT_VERSION = "learner-gap-reader-formative-v1"
+#: Curriculum C5: the same reader, told it reads a note the learner wrote.
+READER_NOTE_PROMPT_VERSION = "learner-gap-reader-note-v1"
 NEEDED_PROMPT_VERSION = "prerequisite-needed-v1"
 DRAFT_PROMPT_VERSION = "learner-gap-prerequisite-draft-v1"
 
@@ -290,6 +308,20 @@ READER_FORMATIVE_TASK = (
     "and the expected answer are background only: report on the learner's own words."
 )
 
+# Curriculum C5 (spec_deliverable_curriculum_v1 §10.2, §12 C5): a note the
+# learner wrote in their own notes (grove, Obsidian, a Pocket Notes page),
+# linked to the topics and passages it discusses.
+READER_NOTE_TASK = (
+    "You read ONE note the learner wrote in their own notes, in their own words, which they linked "
+    "(or kept a link) to what they are studying: the topics in `context.learning_objects` and, when "
+    "given, the book's passages in `context.passages`. A note is not an answer to any question and is "
+    "never graded: it may restate, question, apply or push back on the material, or be unfinished. "
+    "Name a gap only when the note itself shows one (a missing prerequisite it relies on, or a wrong "
+    "belief it states); a correct, partial or exploratory note is `none`. Return a LearnerGap as "
+    "schema-valid JSON only. " + LEARNER_GAP_RULES + " The topics and passages are background only: "
+    "report on the learner's own words."
+)
+
 NEEDED_TASK_TEXT = (
     "Decide whether the learning objective in `context.prerequisite` is NEEDED to do the "
     "practice item in `context.item`: the item builds on it, so a learner without it could "
@@ -343,6 +375,9 @@ __all__ = [
     "READER_FORMATIVE_PROMPT_VERSION",
     "READER_FORMATIVE_TASK",
     "NON_SERVING_SOURCE_KINDS",
+    "NOTE_SOURCE_KINDS",
+    "READER_NOTE_PROMPT_VERSION",
+    "READER_NOTE_TASK",
     "READABLE_SOURCE_KINDS",
     "READER_TASK",
     "SAME_BELIEF_TASK",

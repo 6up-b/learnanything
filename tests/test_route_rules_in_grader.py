@@ -603,10 +603,10 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.db.migrate import discover_migrations
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_231"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
-    assert max(m.version for m in discover_migrations()) == 229
+    assert max(m.version for m in discover_migrations()) == 231
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]

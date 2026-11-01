@@ -238,6 +238,18 @@ def enqueue_job(
     return job_id
 
 
+def requeue_skipped_job(connection: sqlite3.Connection, job_id: str, *, now: str) -> bool:
+    """Queue a skipped job again (curriculum C5: a note skipped while it was hidden or
+    switched off, linked again); False when it is not skipped (read, queued, leased)."""
+
+    cursor = connection.execute(
+        "UPDATE learner_text_gap_jobs SET state = 'queued', lease_owner = NULL, lease_expires_at = NULL, "
+        "not_before = NULL, last_error = NULL, updated_at = ? WHERE id = ? AND state = 'skipped'",
+        (now, job_id),
+    )
+    return cursor.rowcount == 1
+
+
 def jobs(connection: sqlite3.Connection, *, states: Iterable[str] | None = None) -> list[dict[str, Any]]:
     if not _table_present(connection, "learner_text_gap_jobs"):
         return []

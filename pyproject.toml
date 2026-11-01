@@ -431,6 +431,12 @@ forbidden_modules = [
     "learnloop.curriculum.notes_tend",
     "learnloop.db.stores.learner_notes",
 ]
+# Curriculum C5 (spec §10.2, §12 C5): the one declared exception. With the learner's
+# opt-in (notes.gaps_enabled, default off) a LINKED note is a tier-2 learner-text-gaps
+# input; the gap pipeline's adapter (learnloop.diagnosis.text_gaps.sources) reads it
+# through learnloop.source_retrieval.note_gaps (read-only, the plan only). text_gaps is
+# a namespace package grimp does not graph, so tests/test_notes_never_read.py pins that
+# exception statically (the only importer of note_gaps outside the sidecar and the CLI).
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]

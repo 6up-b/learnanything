@@ -56,6 +56,8 @@ from learnloop.diagnosis.text_gaps.contract import (
     PAIR_QUESTION_INSTRUCTIONS,
     READER_FORMATIVE_PROMPT_VERSION,
     READER_FORMATIVE_TASK,
+    READER_NOTE_PROMPT_VERSION,
+    READER_NOTE_TASK,
     READER_PROMPT_VERSION,
     READER_PURPOSE,
     READER_ROUTE,
@@ -225,6 +227,9 @@ def kind_state(text: LearnerText) -> dict[str, Any]:
         "hint_feedback": "text the learner wrote back to a hint while answering a question: a reply saying the "
                          "hint did not connect to their work, or an answer to a question that tells two "
                          "explanations of their trouble apart",
+        # Curriculum C5: never asked of the Decider (a note is read on the plan only);
+        # named so the state is defined for every kind.
+        "learner_note": "a note the learner wrote in their own notes and linked to what they study",
     }[text.source_kind]
     return {"learner_text": text.text, "what_it_is": surface, "about": dict(text.context)}
 
@@ -326,11 +331,16 @@ def decider_kind(repository: Repository, budget: TextBudget, client: Any, text: 
 def reader_version(text: LearnerText) -> str:
     """The reader's prompt version for this text (RW1b's formative answers have their own task)."""
 
+    if text.source_kind == "learner_note":
+        return READER_NOTE_PROMPT_VERSION  # curriculum C5: a note the learner linked
     return READER_FORMATIVE_PROMPT_VERSION if text.source_kind == "reader_formative" else READER_PROMPT_VERSION
 
 
 def reader_prompt(text: LearnerText) -> str:
-    task = READER_FORMATIVE_TASK if text.source_kind == "reader_formative" else READER_TASK
+    if text.source_kind == "learner_note":
+        task = READER_NOTE_TASK
+    else:
+        task = READER_FORMATIVE_TASK if text.source_kind == "reader_formative" else READER_TASK
     return render_structured_prompt(
         "learnloop learner gap reader", reader_version(text),
         {"task": task, "context": {"learner_text": text.text, **dict(text.context)}},
