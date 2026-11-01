@@ -219,10 +219,13 @@ def test_no_state_keeps_todays_key_so_the_switch_reuses_todays_figure(tmp_path, 
     paths, repository = _plain_vault(tmp_path, switch=False)
     author = AuthorFake([flagship(kind="illustrative")])
     build(context(paths.root, author=author))
-    set_config(paths, "figures", author_learner_state=True)
+    config = paths.root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    assert "author_learner_state = false" in text
+    config.write_text(text.replace("author_learner_state = false", "author_learner_state = true"), encoding="utf-8")
     again = AuthorFake([flagship(kind="illustrative")])
     result = build(context(paths.root, author=again))
-    assert again.calls == 0 and result["figure"]["id"] == rows(repository, "interactive_figures")[0]["id"]
+    assert again.calls == 0 and result["reused"] is True
     assert len(rows(repository, "interactive_figures")) == 1
     assert learner_state(load_vault(paths.root), repository, [LO]) is None
 
