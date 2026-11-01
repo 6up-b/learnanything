@@ -208,3 +208,126 @@ Every pytest, vitest and npm command ran inside `systemd-run --user --scope --qu
   has 36 tests (6 new, and 3 rewritten: the palette test, the not-offered fallback, which replaces the two-case F7 table, and F8), `App.today.test.tsx` 24 (1 new), `readerWorkbench.test.ts`
   1 new and `returnStack.test.ts` 1 new. `npm run frontend:build`: ok.
 - Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added in this round.
+
+## Fix round 3 (final verify)
+
+The stage's final Codex verify (job `20261101-023146-5YAMhu`, on `257684b592`) confirmed F1 and F7 as fixed. It
+reopened F8, F10 and F11 and raised F12, all Medium. Each was reproduced first with a vitest test that fails on
+`257684b592`: the tests were committed alone (`aaa5a0d1d0`) and run against the unchanged sources, and all five
+ReaderScreen-level tests and two of the three hook tests failed for the reported reason. The fixes are in
+`d21ef7b959`. No migration, no config key, no new parameter (nothing to classify in `parameter_registry.py`), no
+schema change, no Python change, no paid or live call, no vault opened and no GUI launched.
+
+### Verbatim findings
+
+> Reviewed `3056566ca7..reader/ca6b-second-pane-intent` at `257684b592`.
+>
+> | Finding | Result |
+> |---|---|
+> | F1 [High] | **CONFIRMED-FIXED**: live commitments retain the second book's context; history projection remains scoped to its extraction. |
+> | F7 | **CONFIRMED-FIXED**: both missing actions have handlers and palette/router availability. |
+> | F8 | **REOPENED**: returning can restore the wrong second-pane section. |
+> | F10 | **REOPENED**: a late failure can restore grounding after a new composer opens. |
+> | F11 | **REOPENED**: direct source detours still suppress discovery when returning. |
+>
+> **F8 [Medium]: returning restores the initial second-pane section.**
+> **Location:** [ReaderScreen.tsx:1550](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/ReaderScreen.tsx:1550), consuming the crumb maintained by [useSideBySide.ts:430](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/reader/useSideBySide.ts:430).
+> **Reproduction:** Open Strang beside Axler section A. Move Axler to section B, then start "check me" there. Return from practice/feedback and press Alt+←. `goSide` updates the displayed target without updating the crumb; the final handoff preserves that stale crumb. An isolated hook reproduction showed **B before the check, A after returning**. Work-through uses the same trail.
+> **Fix:** Snapshot the current pair and passage into its return entry before the handoff, or update the crumb whenever either pane moves.
+>
+> **F10 [Medium]: a pending failure repopulates forgotten grounding.**
+> **Location:** [useReaderInquiry.ts:815](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts:815), [useReaderInquiry.ts:855](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts:855).
+> **Reproduction:** Start a routed second-pane Ask on passage A and leave its promise pending. Open a new composer on passage B, then reject the old request. Although `forgetFailedAsk()` ran, the old catch restores its request and question. Submit those words from the new composer: `ask()` replays A's grounding and routed answer mode. The isolated hook reproduction sent **A twice**, despite the current composer pointing to B.
+> **Fix:** Give composers a generation identity. A failure may populate retry state only while its composer generation remains current.
+>
+> **F11 [Medium]: returning through a source detour skips fresh discovery.**
+> **Location:** [useCueDiscovery.ts:66](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts:66).
+> **Reproduction:** Complete discovery on main book A, open B through a source detour, then return to A with unchanged targets. `openSource` replaces the render directly; extraction never becomes null. The new open ID is minted, but A's completed-target cache survives and suppresses the request. An isolated hook reproduction of **A → B → A**, including plan-loading intervals, observed discovery calls only for **A → B**. Explicit close/reopen does work.
+> **Fix:** Reset deduplication state on every actual source-open transition, including direct source replacement.
+>
+> ### F12 [Medium] Section navigation replenishes the discovery budget
+>
+> **Location:** [useCueDiscovery.ts:66](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts:66), reached through [ReaderScreen.tsx:1488](/home/saturn/Documents/thinking/learnanything-merge2/apps/learnloop-tauri/src/screens/ReaderScreen.tsx:1488).
+>
+> **Scenario:** Move the second pane to another section, manually or through follow-along. While it loads, `sbsSection` becomes null, so discovery interprets ordinary navigation as closing the book. The isolated reproduction issued two requests with unchanged extraction/targets but **different `sourceOpenId`s**. Each section change can therefore replenish the per-open judge-call budget; the separate daily cap still applies.
+>
+> **Fix:** Track source-open lifetime separately from section availability. Pause during section loading while retaining the open ID, completed targets, and budget.
+>
+> Validation: TypeScript checking passed; four isolated React hook reproductions confirmed the failures above. Suite tests and build were not run. No files were edited, and no prohibited files or vault databases were read.
+>
+> VERDICT: REOPENED
+> codex-job: /home/saturn/.cache/codex-agent/jobs/20261101-023146-5YAMhu
+
+### Closures
+
+| id | severity | verdict | commit | test (fails on `257684b592`, passes after) |
+|---|---|---|---|---|
+| F8 | Medium (reopened) | **fixed** | `d21ef7b959` | `sideBySideIntent.test.tsx`: *F8 round 3: check me after the second pane moved to 7.B keeps 7.B as the way back …* (the shell's trail names 7.B at the mark's passage; Alt+← here and in the Reader the shell opens again both reopen 7.B), *F8 round 3: work through this after the second pane moved to 7.B …* |
+| F10 | Medium (reopened) | **fixed** | `d21ef7b959` | *F10 round 3: a failure that lands after a new composer opened leaves no retry …* (A pending, a new composer on another passage, A rejects, submit: the second call is that composer's passage and an ordinary question; `readerAsk` is called twice in all) |
+| F11 | Medium (reopened) | **fixed** | `d21ef7b959` | *F11 round 3: back on the main book after a source detour (A, then B, then A) is a fresh discovery for A, under a new open*; `rw3bReview.test.tsx` *CA6b F11: A, then B, then A again … is three opens* |
+| F12 | Medium | **fixed** | `d21ef7b959` | *F12 round 3: moving the second pane among its book's sections keeps its open …* (no ask for unchanged targets; a new target names the same open id); `rw3bReview.test.tsx` *CA6b F12: a section loading within one open … pauses discovery …* (also: a job still running is read to its end) and *CA6b F12: a job left running when the open ends is not read on* (a control that passes before and after) |
+
+Rejected: none.
+
+### What changed
+
+- **F8 (a snapshot at the handoff, the brief's first option).** Just before a handoff leaves side by side (*check
+  me* on a second-pane mark, *work through this* from the second pane, and the reading path's *try it*, which all go
+  through `takeBesideBook`), the crumb takes the pair as it is now. The second pane's target is the section it shows
+  now (moved by hand or by follow along since side by side opened), with the handoff's passage as its `spanId`. The
+  main pane's passage is the one read now. This uses `useReaderInquiry.snapshotSideBySide`, which acts only while a
+  `side_by_side` entry is the current one. `replaceCurrent` now also accepts `spanId`. The stack is what
+  `besideTrail` carries, so the same pair comes back in this Reader (Alt+← or the crumb) and in a Reader the shell
+  opens again after its practice or feedback screen. The crumb is not updated on every pane move: other detours
+  taken from side by side (a peek, a branch, a library hit) still return to the pair as it was last opened or
+  replaced, as before this stage.
+- **F10.** `useReaderInquiry` keeps a composer generation (`composerGenRef`). `submitAsk` records the generation it
+  was asked from. Its failure leaves the retry record only while that generation is still current. The words are
+  still put back in the composer, as before. The generation moves on with every new composer (`forgetFailedAsk`), a
+  source reset, and a change of selection or thread. In `ReaderScreen`, the new composer is now a generation at once:
+  the empty Enter in the second pane, *ask about this book instead*, and the composer going back to the open book
+  (the second pane's selection gone, or a routed Ask with words while a second-pane composer was open) all call
+  `openComposer`, which forgets the failed request and bumps the generation in the same handler. This replaces the
+  re-review's effect on the composer anchor. That effect ran after the render, and it could not tell a pending
+  request from a new one.
+- **F11 and F12 (one structural fix).** `useCueDiscovery` tracks the source open apart from the reading shown. Its
+  new optional `openKey` names the open. When it is absent, the reading itself is the open (the main pane). A new open
+  (a new `sourceOpenId`, nothing asked yet, and so a fresh per-open budget at the sidecar) comes only when `openKey`
+  changes. That happens when the open source's identity changes, direct replacement included (A, then B, then A is
+  three opens), or when the open ends (`openKey` null: closed). A reading that is briefly absent while `openKey`
+  stays the same pauses discovery. No new ask is made, and the open id, what was asked, the re-ask counts and any job
+  being read are kept. A job running across a pause is read to its end, and the reading coming back asks nothing
+  again. The open ending (or the Reader unmounting) stops every job of that open. The second pane passes its book
+  (`sbs.target.extractionId`, through `useSidePane`'s new `openBook` and `useReaderCues`' new `discoveryOpenKey`).
+  That value stays set while a section loads (by hand or by follow along) and while the pane is hidden by a comparison
+  or a narrow window. It goes to null when side by side closes (closed, walked off, switched off, or another book in
+  the main pane).
+- **ReaderScreen-level wrapper test** (the re-review's open limit): `ReaderScreen.workbench.test.tsx` *CA6b: a submit
+  made on a Reader opened with the way back to side by side hands that way back to the shell*. It is coverage for
+  existing behaviour, so it passes before and after.
+
+### Interactions and limits
+
+- A selection or thread change while an Ask is pending now drops that Ask's retry when it fails (a new generation).
+  The record already listed both as ending the retry. The only difference is timing: a failure that lands after the
+  change no longer brings the retry back.
+- Within one open of the second book, the pane's discovery request names the book's reading, as before. Section
+  changes therefore never ask again for unchanged targets, and a new target asks within the same open and budget.
+- RW6b part 2 also edits `ReaderScreen`. This round's changes there are the handoff snapshot next to
+  `takeBesideBook`, `openBook` on `useSidePane`, and `openComposer` replacing direct anchor sets (four places).
+
+### Gate (fix round 3; targeted, the full suite runs once at landing)
+
+Every vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`,
+one test run at a time, with TMPDIR outside the worktree.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- No Python changed: no pytest. No migration, DB or connection code, or schema change: no durability run and no DB
+  reference regeneration. `src-tauri` is unchanged: no cargo check.
+- Frontend (`apps/learnloop-tauri`): `npm run typecheck` clean. Vitest (`--maxWorkers=4`) on the re-review's set
+  (the same selection rule, with no new test file this round): **122 files, 1312 passed** (1303 + 9 new: 5 in
+  `sideBySideIntent.test.tsx`, 3 in `rw3bReview.test.tsx`, 1 in `ReaderScreen.workbench.test.tsx`). In a first run of
+  the set, the unrelated `figures/sketch/sketchSandboxReview.test.tsx` *keeps the checks … played to t_max* failed
+  once on timing under load (`t = 0 / 100`, 12 s). It passed alone (9/9) and in the full rerun. `npm run
+  frontend:build`: ok.
+- Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added.
