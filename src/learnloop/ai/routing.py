@@ -148,6 +148,9 @@ AITask = Literal[
     "reader_digest",
     # Deliverable curriculum C2: the note link judge (a listwise task, background, plan only).
     "note_link_judge",
+    # Teacher TE1: the lesson's teacher (a chat task, one call per lesson turn, pressed: plan first,
+    # a granted OpenRouter offer covers the lesson; spec_teacher_v1 §17).
+    "teacher",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -290,6 +293,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # learner's candidate notes discuss one LO or its primary passage
     # (background, the ChatGPT plan only; display and learner-voice records).
     "note_link_judge": "note_link_judge",
+    # Teacher TE1: one lesson turn (TeacherTurnV1) from the doctrine, the
+    # brief, the sources and the transcript (spec_teacher_v1 §8.2, §17).
+    "teacher_turn": "teacher",
     # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
     # subject; vault content only, never learner text), on AD's own route (the
     # compose onto T1: the plan's medium tier by default, spec §5.10).

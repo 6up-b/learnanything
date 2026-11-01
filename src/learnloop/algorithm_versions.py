@@ -627,6 +627,35 @@ READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
 # tag: RW7b's plans byte for byte, gate G-C4).
 DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 
+# mvp-0.41 (teacher TE1, the first good lesson, with curriculum C4 folded in;
+# docs/specs/spec_teacher_v1.md §18.3, §20; spec_deliverable_curriculum_v1
+# §8.2; docs/reviews/teacher-te1-first-lesson.md), on top of mvp-0.40
+# (curriculum C1; the chain stays linear: mvp-0.41 means everything mvp-0.40
+# means PLUS this). Built as mvp-0.41 on main's mvp-0.40; renumbered at its
+# landing if another successor lands first (ONE constant). Below the tag, no
+# lesson can open. From the tag on, with ``teacher.enabled`` on, a lesson the
+# learner starts (an LO's or a Reader selection's "Teach me this") is taught by
+# the ``teacher`` route from a brief built from the ledger; its checks are
+# minted items held to their lesson and answered as
+# ``reconstruction_after_walkthrough`` attempts graded by the blind grader,
+# entering mastery at a LEARNED mass (spec §12.1: a seeded prior centred on
+# the type's 0.5, moved only by later cold outcomes on unseen items of the
+# same LO; mixed with the teacher's forecast by a learned pool weight, §12.2);
+# its teaching text writes ``tutor_answer`` / ``source_review`` reveal rows
+# (basis ``lesson:<id>``), which prime later attempts under the mvp-0.27 rule;
+# and its close commits delayed retention and transfer checks (Check once).
+# That changes which new attempts are primed, what is served (lesson holds,
+# delayed checks) and how far mastery moves on a lesson check, so it is a
+# successor (the playbook; spec §18.3). Replay reads each check's recorded
+# mass (``lesson_checks``, a RECEIPT) through the one as-of seam
+# (``learner.lesson_weight.lesson_check_mass``); the weight posterior and the
+# tap/hedge recalibration are DERIVED (one replayer). Kill switches:
+# ``teacher.enabled`` (off, or below the tag: no lesson opens, so nothing
+# here writes and every path is mvp-0.40's byte for byte) and
+# ``teacher.weight.learned`` (off: a lesson check enters at the type's
+# configured 0.5); ``teacher.weight.source = "parametric"`` drops the pool.
+TEACHER_ALGORITHM_VERSION = "mvp-0.41"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -666,6 +695,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
     READER_FOLLOWUPS_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
+    TEACHER_ALGORITHM_VERSION,
 )
 
 
@@ -847,6 +877,9 @@ READER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(READER_FOLLOWUPS_ALG
 # (curriculum C1, behind ``curriculum.plan_uses_path`` and ``curriculum.enabled``).
 # Every later successor keeps it; gates must use this set, never equality.
 DELIVERABLE_PLAN_VERSIONS: frozenset[str] = successors_from(DELIVERABLE_PLAN_ALGORITHM_VERSION)
+# Versions at which a lesson may open (teacher TE1, behind ``teacher.enabled``).
+# Every later successor keeps it; gates must use this set, never equality.
+TEACHER_VERSIONS: frozenset[str] = successors_from(TEACHER_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

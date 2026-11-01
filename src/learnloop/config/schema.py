@@ -1508,6 +1508,13 @@ class AIRoutingConfig(BaseModel):
     # grant) and, with the plan down, it waits. Empty = ai.active_provider
     # (the ChatGPT plan under T1; estimated_only).
     note_link_judge: str | None = None
+    # Teacher TE1 (spec_teacher_v1 §17): the lesson's teacher, one structured
+    # call per lesson turn on the request path (lesson.turn). Empty: the ChatGPT
+    # plan's medium tier (keep: an operational route choice until a dry run picks
+    # the tier). A pressed action: with the plan down the lesson offers
+    # OpenRouter (T1 redesign D) once teacher.metered_price_per_million is set,
+    # and a metered lesson is held to teacher.max_lesson_cost_usd.
+    teacher: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1696,6 +1703,8 @@ DEFAULT_SERVING_TASK_ROUTES = {
     "retrieval_query_generator": CHATGPT_LUNA_PROVIDER,
     # Reader RW5d P2b: the rich figure author writes Manim scenes, the concept animation route's work.
     "figure_rich_author": CHATGPT_MEDIUM_PROVIDER,
+    # Teacher TE1 (spec_teacher_v1 §17): the plan's medium tier until a dry run picks the tier (keep).
+    "teacher": CHATGPT_MEDIUM_PROVIDER,
 }
 #: The pre-T1 table: the routes of a vault whose active provider is Codex
 #: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
@@ -1715,6 +1724,7 @@ LEGACY_CODEX_TASK_ROUTES = {
     "ad_relatedness": CODEX_MEDIUM_PROVIDER,
     "retrieval_query_generator": CODEX_LUNA_PROVIDER,
     "figure_rich_author": CODEX_MEDIUM_PROVIDER,
+    "teacher": CODEX_MEDIUM_PROVIDER,
 }
 #: `learnloop doctor --fix`: the plan profile that replaces each code-default
 #: Codex profile (no silent aliasing at load: receipts key on provider+model).
@@ -4080,6 +4090,35 @@ class UiConfig(BaseModel):
     shell: Literal["simple", "classic"] = "simple"
 
 
+class TeacherWeightConfig(BaseModel):
+    """The lesson-check weight's switches (spec_teacher_v1 §12.1, §12.2): operational only."""
+
+    learned: bool = True
+    source: Literal["pool", "parametric"] = "pool"
+
+
+class TeacherBriefConfig(BaseModel):
+    """What the lesson brief holds (§8.1): the prerequisite depth (``keep``) and curriculum C4's switch."""
+
+    depth: int = Field(default=2, ge=0)
+    use_deliverable: bool = True
+
+
+class TeacherContextConfig(BaseModel):
+    """The teacher's context budget (§9.2): the goal's sections whole up to this many tokens (``keep``)."""
+
+    sources_tokens: int = Field(default=24000, ge=0)
+
+
+class TeacherDelayedConfig(BaseModel):
+    """Delayed retention and transfer checks (§13)."""
+
+    target_retrievability: float = Field(default=0.9, gt=0.0, lt=1.0)
+    fallback_retention_days: float = Field(default=3.0, gt=0.0)
+    fallback_transfer_days: float = Field(default=7.0, gt=0.0)
+    max_wait_days: float = Field(default=14.0, gt=0.0)
+
+
 class TeacherConfig(BaseModel):
     """Teacher (spec_teacher_v1). TE0 (§15.2): the learner's confidence tap
     and the grader's hedge read, rendered as events with the outcome
@@ -4092,10 +4131,40 @@ class TeacherConfig(BaseModel):
     contexts is its predecessor's: no event, no stated limit, and the card is
     a ``learner_state_card_v1`` card. Context only: no scoring, scheduling,
     projection or serving reads it, at any algorithm version (no successor).
-    TE1 adds the lesson switches here (§18).
+    TE1 (§18.2, §18.3, §20) adds the lessons, the kill switches of the
+    successor ``TEACHER_ALGORITHM_VERSION``:
+
+    * ``enabled``: at that tag or later, a lesson the learner starts may open
+      (``learnloop.teacher``). Off, or below the tag, no lesson opens: nothing
+      of TE1 writes and every path is its predecessor's byte for byte.
+    * ``weight.learned``: a lesson check enters mastery at the learned mass
+      (§12.1); off, at the type's configured mass (0.5).
+    * ``weight.source``: ``pool`` mixes in the teacher's forecast by the
+      learned pool weight (§12.2); ``parametric`` uses §12.1's mass alone.
+    * ``brief.depth`` and ``context.sources_tokens``: context budgets
+      (``keep``); ``brief.use_deliverable`` is curriculum C4's switch (the
+      brief's goal and sources from the deliverable and its path, and the
+      learner's linked notes with ``read_note``; off: the brief has none of it).
+    * ``delayed``: the delayed checks' dating (§13): ``target_retrievability``
+      (R*, a seeded prior, basis ``published``: FSRS's default desired
+      retention), the two seeded fallbacks used only while the LO has no FSRS
+      state (basis ``legacy``), and ``max_wait_days`` (``keep``).
+    * ``metered_price_per_million``: the price of a metered (OpenRouter)
+      lesson; unset, no OpenRouter offer is made for a lesson (T1 redesign D).
+      ``max_lesson_cost_usd``: the per-lesson cap on a metered route
+      (``keep``, spend; set from one measured dry run, Q7: unset, a metered
+      lesson turn is refused before sending).
     """
 
     confidence_events_enabled: bool = True
+    # TE1: the successor's kill switch (off, or below the tag: no lesson opens).
+    enabled: bool = True
+    weight: TeacherWeightConfig = Field(default_factory=TeacherWeightConfig)
+    brief: TeacherBriefConfig = Field(default_factory=TeacherBriefConfig)
+    context: TeacherContextConfig = Field(default_factory=TeacherContextConfig)
+    delayed: TeacherDelayedConfig = Field(default_factory=TeacherDelayedConfig)
+    metered_price_per_million: float | None = None
+    max_lesson_cost_usd: float | None = None
 
 
 class EligibilityConfig(BaseModel):

@@ -41,6 +41,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("figure_rich_author", "llm", "figures_rich"),
     ("reader_digest", "llm", "reader_digest"),
     ("note_link_judge", "llm", "notes"),
+    ("teacher", "llm", "teacher"),
 )
 
 _WHEN = {
@@ -230,6 +231,16 @@ _WHEN = {
         "notes discuss it. Only on the ChatGPT plan: never OpenRouter, and with the plan down it waits. Only the "
         "notes it links are kept, in your vault. A note is never a source, never used to write questions and "
         "never evidence. It never grades you."
+    ),
+    "teacher": (
+        "From mvp-0.41, while teacher.enabled is on, only during a lesson you start (Teach me this): each "
+        "turn sends the lesson's teaching rules, a brief of what LearnLoop knows about you on the lesson's "
+        "topics (labels, predictions, your earlier answers and questions on them, the results of earlier "
+        "lessons and their later checks, and with your notes linked, which notes discuss them), the topic's "
+        "sections from your books (never exam or held-out material) and the lesson so far, including your "
+        "replies and answers. With the ChatGPT plan down you are asked before OpenRouter is used. The "
+        "teacher never grades you: your answers to its checks are graded by the grader, which sees only the "
+        "question, the answer and the rubric."
     ),
 }
 

@@ -1413,6 +1413,34 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for TE0's confidence events (the tap and the grader's hedge read with the outcome) in the "
         "router card, the history-aware diagnoser, the hint writer and the tutor; context only, no "
         "measurement, scheduling or serving authority; off, every context is its predecessor's."),
+    # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
+    # and curriculum C4's brief switch. Booleans and an enum (classified so every
+    # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
+    # priors are the module constants of learner.lesson_weight), so no weight,
+    # margin or threshold is added here. Off restores mvp-0.40 exactly.
+    _ConfigRule(_exact(
+        "teacher.enabled", "teacher.weight.learned", "teacher.weight.source", "teacher.brief.use_deliverable",
+    ), "structural", "operational",
+        "kill switches for teacher TE1's successor: lessons may open / a lesson check enters mastery at the "
+        "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
+        "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
+        "learned quantities move with the data, never with these."),
+    _ConfigRule(_exact(
+        "teacher.brief.depth", "teacher.context.sources_tokens", "teacher.delayed.max_wait_days",
+        "teacher.metered_price_per_million", "teacher.max_lesson_cost_usd",
+    ), "structural", "operational",
+        "keep: the brief's prerequisite depth and the sources' token budget (context budgets: cost and "
+        "latency, not a model of the learner) / no promised delayed check waits longer (a guardrail so a "
+        "promise is never dropped silently, RW6b's max_wait_days) / the owner's price and per-lesson cap "
+        "for a metered lesson (spend; unset, no OpenRouter offer and no metered turn)."),
+    _ConfigRule(_exact(
+        "teacher.delayed.target_retrievability", "teacher.delayed.fallback_retention_days",
+        "teacher.delayed.fallback_transfer_days",
+    ), "decision", "prior",
+        "seeded priors of the delayed checks' dates (spec §13, §18.4): R* = 0.9, basis published (FSRS's "
+        "default desired retention; RW6b's valuation replaces it); 3 and 7 days, basis legacy (RW6b's "
+        "retention fallback and capture.test_me_later_days), used only while the LO has no FSRS state. "
+        "Serving dates, never evidence."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
