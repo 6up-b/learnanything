@@ -130,3 +130,146 @@ exact pass counts). The full suite runs once, in the landing gate on the merged 
 3. **Prerequisite lines.** Only needed topics are linked (decision 4). Should a prerequisite's line get notes too?
 4. **A hidden link's undo after the reading changes.** *undo* stays beside a hidden note for the rest of the reading
    (Codex review F5); there is no list of hidden notes to bring one back later (Settings could list them).
+
+## Landing onto main
+
+The branch `curriculum/c2-notes-linked` (worktree `learnanything-ad1`, stage tip `bb4b647e7d`) lands onto main (final
+main merged: `6318d46cfe`). The orchestrator fast-forwards main and pushes. No paid or live call was made; the owner's `tend` was never run and no note
+of the owner's was opened (every notes run used the FAKE `tend` of `tests/notes_fixtures.py` over synthetic notes, or
+`LEARNLOOP_NOTES_TEND=off`).
+
+### F13 (Codex round 3), fixed first
+
+Codex round 3 (job `20261101-101544-wk64cb`) confirmed F1, F2 and F14 and reopened F13: a delayed AI judgment
+reactivated an obsolete snapshot. Fix `bb852870fb`: **recording AI proposals never advances the
+`note_snapshot_current` marker.** `_store_snapshot` only stores (a proposal keeps the snapshot it judged through its
+link row); `_show_read`, called only by a read of the note made to show it (`link_by_hand`, `refresh_learner_links`),
+advances the marker by compare-and-set on the revision (`store.current_revisions`, the newest marker's `rowid`) the
+read captured before asking tend. `store.current_notes` reads markers only (the newest-snapshot fallback is gone). Two
+failing-first regressions (the exact interleaving; a refresh whose marker was advanced meanwhile). Files:
+`note_links.py`, its store `db/stores/learner_notes.py` (used only by `note_links`), `tests/test_notes_linked.py`.
+`WAITING_RETRY_SECONDS` is not registered: the registry's module-constant audit scans only `MODULE_INVENTORY`, which
+lists no C2 module. The scoped verify (job `20261101-102907-K457GP`) found the delayed-judgment case fixed and two
+concurrent-refresh orderings open, ruled Low by R6 (below; details in the codex-review record).
+
+### Merges
+
+| Commit | What |
+|---|---|
+| `698ea6525e` | Merge of main `0708e12a18` (substrate facet write-on-change): no conflict. |
+| `4ede2ff1af` | References regenerated on the merged tree (line citations moved by the F13 edit and round 2): `db_validate_reference` errors [], desktop catalog reproducible (297 TS / 289 entry-build / ACTIVE 302), vault valid; round-3 verify and R6 recorded. All 31 defaults fingerprints equal `defaults_fingerprint_for_version` (template `.pyc` cleared). |
+| `ed113b9101` | Gate fixes (below): the notes adapter's two `tend` launch sites approved in the Codex lockdown list; the plan-only refusal says OpenRouter "isn't offered". |
+| `57d2d1b8b8` | Merge of main `82ba4c8dce` (Reader RW5d P2b Manim). Conflicts: `config/template.py` (31 snapshot hunks: main's notes and C2's note both kept, every fingerprint recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`; a second pass changed 0), `tests/test_judge_routes.py` (the disclosure set lists both `figure_rich_author` and `note_link_judge`, both sides' assertions kept), 450 generated reference notes (main's side, then regenerated). `src-tauri` (`commands.rs`, `main.rs`) auto-merged with both sides' passthroughs (`notes_*`, `figure_rich_cancel`, `figure_manim_opt_in`). Migration 229 stays 229 (main's head is 228); head fixture `migration_head_229`. |
+| `6d1bd6cc56` | References and catalog regenerated: `db_validate_reference` errors [] after composing the hand-kept prose counts (**360 table notes, 1104 leaves in 78 sections**: base 1091, RW5d P2b +4, C2 +9); `desktop_validate.py`'s pinned inventory composed (**299 TS, 291 entry-build, ACTIVE 304**: each side added 2); vault valid. |
+| `6322444431` | Merge of main `0d607bdfe9` (Reader follow-ups Nov 1). Conflict: `source_retrieval/section_coverage.py`, where main gave `CoverageGuard` a `gate` hook (C1's automatic refresh, judged on the same snapshot; a closed gate raises `GateClosed`) and C2 gave it `also`/`also_refusal` (`NotesGuard`'s notes authorization on the same snapshot). Composed: one guard takes both; on each snapshot `also` is judged first (its refusal wins), then the vault check, then the gate (closed and still published: `GateClosed`; replaced meanwhile: read again), then protection; `check` raises the refusal's own type through C2's `(reason, exception)` refusal; `admit` settles the outer gate on either (`GateClosed` is a `ProtectionChanged`). C1 passes only `gate`, C2 only `also`. 443 generated reference notes: main's side, then regenerated. No `src-tauri` or template conflict. |
+| `f6676e9375` | References and catalog regenerated (`db_validate_reference` errors [], desktop catalog passed at 299/291/ACTIVE 304, vault valid); `test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also` pins the composed hooks. |
+| `a39f7f467b` | Merge of main `6318d46cfe` (RW5d G-SM14 probe record: one new review doc, nothing else): no conflict; `db_validate_reference`, `desktop_validate` and `validate_vault` pass; no test rerun (documentation only). |
+
+### Gate
+
+Every run under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `LEARNLOOP_NOTES_TEND=off`,
+`TMPDIR` outside the worktree; pytest in `systemd-run --user --scope` (full suite 10G under
+`flock /tmp/learnloop-fullsuite.lock`, the rest 5G), vitest `--maxWorkers=4`. No live model call.
+
+| Step | Tree | Result |
+|---|---|---|
+| `uv run lint-imports --no-cache` | `4ede2ff1af`, `6d1bd6cc56`, `f6676e9375` | **37 kept, 0 broken** each time |
+| Full pytest (`flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…`) | `4ede2ff1af` (first merge) | 23151 passed, 89 skipped, 47 xfailed, **3 failed** (36:55): C2 defects, below; fixed in `ed113b9101`; the affected 14 files then **288 passed** |
+| Full pytest, same command | `6d1bd6cc56` (after the RW5d P2b merge and the fixes) | **23293 passed, 90 skipped, 47 xfailed, 0 failed** (38:19) |
+| Full pytest, same command | `f6676e9375` (after the Reader follow-ups merge; **final**) | **23357 passed, 90 skipped, 47 xfailed, 0 failed** (39:12) |
+| Targeted pytest after the third merge (`-n 6`, 37 files: notes, section coverage, C0b, C1, deliverables, judge routes, lockdown, plan-first transport, architecture, mobile allowlist, desktop RPC contract, serializer snapshot, AD guard/protected tables, table roles, and every test file the Reader follow-ups landing touched) | `6322444431` | **1190 passed** |
+| Durability lane (`pytest -m durability -n 6`, 5G scope, under the flock) | `ed113b9101`, `6d1bd6cc56`, final | **179 passed, 1 skipped** (`ed113b9101`, `6d1bd6cc56`); final (`f6676e9375`): **179 passed, 1 skipped** |
+| Owner lane (`pytest -m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies, `learnloop.db.copies.copy_tree_with_databases`, of `fixtures-local/owner-copies-mvp035` in the gitignored `fixtures-local/landing-c2/`, then `landing-c2b/`) | `ed113b9101`, `6d1bd6cc56` | **83 passed, 2 failed, 4 skipped** both times: exactly the two known failures, `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]`; no new owner test |
+| Frontend: `npm install`, `npm run typecheck`, `npm run frontend:build` | `ed113b9101`, `6d1bd6cc56`, final | ok each time |
+| Whole vitest (`npx vitest run --maxWorkers=4`, 5G scope) | `ed113b9101` | first run 2 failed / 2354 passed under load (each passes alone 3/3, below); whole rerun **246 files, 2356 passed** |
+| Whole vitest | `6d1bd6cc56` | **247 files, 2367 passed** |
+| Whole vitest | final (`f6676e9375`) | **247 files, 2367 passed** |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | `4ede2ff1af`, `57d2d1b8b8` (src-tauri auto-merged with RW5d P2b's passthroughs) | ok; the Reader follow-ups merge changed nothing under `src-tauri` |
+| DB reference, desktop catalog, vault | after each merge | `db_validate_reference` errors [], `desktop_validate` passed (final 299 TS / 291 entry-build / ACTIVE 304), `validate_vault` passed |
+
+**The three full-suite failures were C2 defects the stage's targeted gates never ran** (each failed alone 3/3 before the
+fix, deterministically):
+- `test_codex_lockdown_round3::test_every_process_launch_site_is_approved`: `notes_tend.search` and
+  `notes_tend._serve_reads` start `tend` (`subprocess.run`) and were not on the reviewed list. Reviewed and approved:
+  argv lists, no shell, a timeout, only the configured `tend` binary (`notes.tend.binary`, `LEARNLOOP_NOTES_TEND`, else
+  `tend` on `PATH`; absent or `off` starts nothing), no model call.
+- `test_plan_first_transport::test_every_task_under_code_defaults_resolves_tool_free_and_never_codex[True-paused]` and
+  `[True-signed_out]`: the contract is that a blocked offer's message says "isn't offered" or "nothing is offered";
+  C2's plan-only refusal said "never offered". The message now reads "Your notes are read only by the ChatGPT plan, so
+  OpenRouter isn't offered for this; it waits for the plan." (no behaviour change).
+
+### Smoke on fresh owner copies (`fixtures-local/landing-c2-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). Main's code `git archive 0708e12a18`, the branch's `git archive 4ede2ff1af`, each with `src/`,
+`migrations/` and `tests/`. Each copy under its own side's code: a bare `upgrade`, the primary desktop start,
+`migrate_vault`, `rebuild-derived-state`. Every process ran under `env -i` (empty `HOME`, `CODEX_HOME`, config dir,
+`LEARNLOOP_NOTES_TEND=off` unless the harness named the fake) with an audit hook logging every process start and
+refusing non-loopback sockets and Codex starts.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| upgrade (main and branch) | mvp-0.35 → mvp-0.40; branch head **229** (229 applied cleanly), main 228 | same | same |
+| rebuild-derived-state | 8 LOs, 70 attempts | ok | 3 LOs, 3 attempts |
+| Today (3 queue variants, frozen clock), branch vs main, `notes.enabled` default, tend absent | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| daily plan dump (sidecar handlers, frozen clock, deterministic ids), branch vs main | **identical** (84,696 bytes) | identical (124,021) | identical (32,433) |
+| tend absent: the six `notes.*` RPCs | all `notes_unavailable`; prompt contract has no `notes` key; nothing written | same | same |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0 | 0/0/0 |
+
+**With the FAKE tend over synthetic notes** (linear_algebra, a further copy; `[notes.tend]` allowlist naming the fake's
+synthetic folders; harness `scripts/notes_smoke.py`):
+- `notes.path` for a goal with no deliverable (the copies have none): no lines, no linking, no tend call.
+- **Linking without the plan waits:** a path with one needed topic (a real LO and a real reading section of the copy,
+  supplied by the harness since the copies have no judged path): `notes.path` started the run inline, which searched
+  tend twice and read once, then ended **`waiting`, reason `plan_only`** (the vault's route is the blackhole
+  `openai_chat`, not the ChatGPT plan): nothing sent, no link. The next read restarted nothing (0 tend calls; F14).
+- `notes.search` by the passage's section title found both synthetic notes; the learner's words searched with
+  `--words` only; every search carried `--json --local --notes-only`.
+- `notes.link` by hand: the passage's `›` mark shows the note "linked by you"; `notes.passages` gives the take text
+  `From your note “Smoke notes › …”`; `notes.decide hide` empties the marks, `keep` brings it back; a note outside the
+  allowlist is refused (`not_allowed`).
+- Rows: 1 snapshot, 3 link rows (link, hide, keep), 4 ledger rows (the link, its current-snapshot marker, hide, keep);
+  `rebuild --shadow` 0/0/0 afterwards.
+- **0 new `model_call_receipts`** across all 19 smoke databases (probability's 56 historical rows, 42 completed and 14
+  failed, unchanged in each copy; the others have none).
+- **Audit:** 6 entries, all the fake `tend` (4 `search`, 2 `serve`); **no socket connect of any kind**, nothing
+  refused, no Codex process.
+
+The smoke ran at `4ede2ff1af` against main `0708e12a18`, before the RW5d P2b and Reader follow-ups merges and the
+gate fixes; it was not rerun on the final tree. C2's own diff against main is unchanged by those merges apart from
+the composed `CoverageGuard` (covered by the targeted tests and the full suite) and the refusal wording; C2 adds
+nothing to Today or the plan, and both landings recorded their own smoke on fresh copies.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1's removal of the file fallback is accepted: notes show only while tend serve answers (privacy fails closed). Flagged to the owner as a departure from spec §10.1's fallback wording."
+- R2: "tend search runs with --local --notes-only; the learner's typed search is words-only. Accepted (narrowing only; laptop notes are not read from carson). Flagged to the owner."
+- R3: "note_link_judge has no METERED_PRICE_SETTINGS entry because it is plan-only and never offered OpenRouter. Accepted."
+- R4: "The shown-state (note_link_shown) and current-snapshot (note_snapshot_current) markers live in judgment_ledger rather than a new table. Accepted for v1; no migration change."
+- R5: "Notes link only to needed topics on the path; a list of hidden notes in Settings is queued as a follow-up."
+- R6: "F13 remainder ruled Low under the proportionate protection bar and the stuck-loop rule (fourth round on the snapshot-currency class). It needs two concurrent background refreshes of the same hand-linked note racing an edit; the only effect is that the margin shows the note one edit stale until the next refresh. There is no data loss, no model call and no evidence. Queued follow-up: give each read a monotonic token taken at read start and publish by token order, with unchanged reads advancing the fence."
+
+### Owner notes
+
+- **Migration 229** (`learner_notes`, `learner_note_links`) applies on `learnloop upgrade`; no successor, no algorithm
+  version, no `rebuild-derived-state` needed for C2 (run it anyway after the mvp-0.40 upgrade, as that upgrade prints).
+- **Notes show only while `tend serve` answers** (R1): there is no file fallback, so with tend's server down linking
+  waits and nothing is read around it. LearnLoop searches with `--local --notes-only` (R2): the laptop's notes are not
+  read from carson, and project-repo docs are excluded twice (tend's flag and `notes.tend.paths`).
+- **The ChatGPT plan only:** with the plan signed out or paused, linking waits quietly; OpenRouter is never offered for
+  it. Sign in with `learnloop ai signin chatgpt` for linking to run.
+- Linking needs a deliverable with a judged path (create one in the Guide); only needed topics get notes (R5).
+- Kill switch: `[notes] enabled = false` (or tend absent) hides every notes surface; the Reader, the path and Compare
+  are then today's exactly.
+
+### Open items
+
+1. **R6 follow-up:** monotonic read tokens published by token order, with unchanged reads advancing the fence (the
+   two concurrent-refresh orderings of the round-3 verify).
+2. **R5 follow-up:** a list of hidden notes in Settings (bring one back after the reading changes).
+3. Open questions 2 (remote notes) and 3 (prerequisite lines) above stay with the owner.
+4. Owner-flagged departures: R1 (no file fallback, spec §10.1) and R2 (`--local --notes-only`, words-only typed search).
+5. Two vitest tests failed once under full-run load and passed alone 3/3 and in a whole rerun
+   (`sideBySideCorrespondence.test.tsx` (iv), `sketchSandboxReview.test.tsx` "played to t_max"): timing-sensitive,
+   not C2's code.
