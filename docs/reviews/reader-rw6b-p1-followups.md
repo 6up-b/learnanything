@@ -182,3 +182,222 @@ Every pytest, vitest, npm and cargo command ran inside
    check already chosen in the question's space means nothing is added. This enforces the mode's one-measurement
    behaviour. It is not general conditional EVSI (the value of a second measurement given the first's outcomes).
    A later stage could condition `rank_feasible` on the seeded check's branches, as the information mode does.
+
+## Landing onto main (2026-10-31)
+
+The branch `reader/rw6b-followups` (stage tip `7ec6cdd4e`, base `5b3f66059`) landed in `learnanything-dl2`. I merged
+`main` twice: first `94494b4cc` (Curriculum C0b with migration 228, Reader CA3/CA4/CA5a, the RW5d P2 sketch tier
+with its default off, and the Codex 0.165 lockdown), then `2c3507003` (Reader CA5, which reached main during the
+gate). Main was neither fast-forwarded nor pushed. The successor keeps **mvp-0.39** (after mvp-0.38). Migration
+**227** keeps its number beside main's 228: the runner is set-based.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `b5fb1d9c9` | `--no-ff` merge of `94494b4cc`. **Fixtures:** I took main's `migration_head_228` and dropped the branch's `migration_head_227` rename entirely. `migration_head_226` was deleted on both sides. **Migration pins** (43 test files plus the 2 reference scripts and `sanitize_migration_head_fixture.py`) are resolved mechanically. Fixture paths and `SCHEMA_HEAD` are 228, the chains list `…, 226, 227, 228`, and the "nothing else changed" diffs subtract both `RW6B_ADDED_OBJECTS` and `C0B_ADDED_OBJECTS`. `tests/test_reader_session_digests_migration.py` now pins the head at 228 with 227 present. **`config/template.py`:** every snapshot from mvp-0.9 to mvp-0.37 keeps main's CA5a/CA3/CA4/C0b/RW5d-P2 notes, and mvp-0.9 also keeps RW6b's `[followups]` note. I rebuilt mvp-0.38's block (RW6b's note plus main's) and mvp-0.39's block (main's keys listed as "in it too"). **All 30 fingerprints** were recomputed with `defaults_fingerprint_for_version`, with the template `.pyc` cleared before and after; a recheck found 0 mismatches. 432 generated reference notes were taken from main's side and regenerated next. **Auto-merged:** the algorithm chain, the upgrade CLI and sidecar completers, the parameter registry, the mobile allowlist and the RPC lists. |
+| `9c913711c` | Head fixture rebuilt (below). DB/config reference regenerated: 1082 effective leaves in 76 sections, 358 table notes, with the prose counts corrected by hand. `db_validate_reference.py` errors []. |
+| `5d366d533` | Interaction tests: `tests/test_reader_rw6b_landing.py`, 5 tests (below). |
+| `75044d17e` | `--no-ff` merge of `2c3507003` (Reader CA5). **Conflicts:** `template.py` only. Every snapshot keeps CA5's note beside RW6b's, and mvp-0.39's block lists CA5's `hide_everywhere`/`hidden_sources`. All 30 fingerprints were recomputed again (0 mismatches). CA5 has no migration. |
+| `6eb2f5106` | DB/config reference regenerated: **1084 effective leaves in 76 sections** (main's 1079 plus RW6b's 5 `[followups]` keys), 358 table notes. `db_validate_reference.py`: **errors []**; `validate_vault.py` passes (1168 notes, 1166/1166 reachable). |
+
+`git diff main` lists no tracked database besides the head fixture and nothing under `fixtures-local/`.
+`.gitignore` is unchanged.
+
+### Migration and head fixture
+
+`fixtures/migration_head_228/state.sqlite` was rebuilt from **main's** tracked, sanitized `migration_head_228`, which
+already had 228 applied:
+- a backup-API copy under `fixtures-local/head228-rw6b/` had only `227_reader_session_digests.sql` applied, through
+  `apply_migrations` under `UPGRADE_SCRATCH_COPY`;
+- then `wal_checkpoint(TRUNCATE)` gave (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok
+  and `foreign_key_check` empty;
+- it was copied into place with the backup API, with no companion files.
+
+Compared with main's fixture, only `reader_session_digests`' five objects were added and only `schema_migrations`
+gained a row (227). Every other definition and row is identical, so the sanitized content carries over. The head
+now holds 226 + 227 + 228. The README has a section for this rebuild. The 5 hard-coded paths already named 228.
+`reader_session_digests` stays WORKFLOW in `table_roles`.
+
+### Interactions (`tests/test_reader_rw6b_landing.py`; every model a fake)
+
+All 5 tests passed on their first run against the product code. The only edits were to my own harness. **No product
+change.**
+
+- **(i) C0b's Check once commitments beside RW6b's follow-ups.**
+  - Setup: on the RW6b vault at mvp-0.39, one follow-up, plus a *check me later* (`deliverable_path`) and an *Am I
+    ready?* (`deliverable_ready`) check on other items, written exactly as `deliverable_path.create_check` writes
+    them.
+  - All three are due checks in DL2's one maintain-lane view and are servable. The serve-time gate returns `None`
+    for both C0b checks.
+  - An exposure since creation on every candidate (an impression in another proposal) holds the follow-up
+    (`seen_in_proposal`). It leaves each Check once **identical** to its state with `followups.enabled = false`.
+  - **Finding (DL2's own rule, no change):** `create_check` picks the LO's first unattempted item, which can be the
+    item a follow-up already checks. The learner's newer Check once then decides that item: the follow-up is
+    `replaced` and the Check once is served cold. A separate test pins this.
+- **(ii) The mvp-0.38 reschedule keeps repair ownership.**
+  - Setup: the rows `reschedule_assisted_cold_retry` leaves. The assisted retry is `expired`, and one fresh
+    `cold_retry` on another surface keeps the primed source attempt, with its context marked.
+  - At planning, the claim gets no retention question: the note is `cold_retry_pending` with the fresh task.
+  - An existing follow-up is held (`repair_retry_owns`, naming the fresh task). Re-valuation retires it as
+    `RETIRE_REPAIR_OWNS`.
+- **(iii) CA5a's peek writes the exposure the gate reads.**
+  - `record_span_exposures(..., context="library")` is the call `reader.correspondent_peek` makes. Run on the
+    item's source span after valuation, it holds the follow-up as `source_exposed`, citing those exposure event
+    ids.
+  - Main has no side-by-side read yet. RW5d figures write no `source_exposure` rows: they are generated content,
+    not source text.
+- **(iv) Covered by existing tests that pin the latest tag; both pass in the full suite.**
+  - An interrupted mvp-0.38 activation followed by `upgrade --to mvp-0.39`:
+    `test_reader_followups_successor.py::test_an_interrupted_mvp038_activation_then_upgrade_to_mvp039_completes_it`
+    and the attach-refusal case.
+  - The denial-log archive happens exactly once per upgrade command, direct or chained from mvp-0.35, and a refused
+    run archives nothing: `test_pr4_superseded_claims_landing.py::test_landing_iii_*`, which asserts
+    `LATEST_ALGORITHM_VERSION == "mvp-0.39"`.
+
+### Regeneration
+
+- **DB/config reference:** regenerated and validated after each merge, as above.
+- **Defaults fingerprints:** all 30 recomputed after each merge.
+- **CLI help snapshot, sidecar serializer snapshot, desktop RPC contract and mobile allowlist:** all pass as merged.
+  RW6b's five RPCs stay desktop-only beside CA5's. Nothing else needed regenerating.
+
+### Gate (`env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/rw6b/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` (wasmtime 50.0.1 added), `uv pip install pypdfium2`; `lint-imports --no-cache` | **36 kept**, 0 broken, both after the first merge and on the final tip |
+| Targeted run after the first merge (135 files: every test file either side changed since the base, the upgrade chain, snapshots, references, RPC/serializer pins, mobile allowlist; `-n 6`, 5G) | **2332 passed**, 12 skipped, 3 xfailed (22 min 50 s, under load from a parallel landing) |
+| Targeted run after the second merge (the test files CA5 changed, the landing and successor tests, snapshots, config, registry, template, cold-retry, C0b landing, CA5a, public-tip guards, migrations, table roles, the PR-4 archive test; `-n 6`, 5G) | **611 passed** (2 min 39 s) |
+| Full suite at `6eb2f5106` (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,866 passed, 1 failed**, 89 skipped, 47 xfailed. pytest 2,122.1 s (35:22); wall 35 min 25 s after a 37 min wait for the lock. The failure, `test_stuck_prompt.py::test_kill_switch_restores_dont_know_exactly` (field mass 0.7 vs 0.6786), **passed 3/3 alone**. It is timing-sensitive under load, and neither its file nor its code is touched by this branch. An earlier full run, started before CA5 reached main, was stopped at 46% to merge CA5 and was not counted. |
+| Durability (`-m durability`, 5G, `-n 6`) | **177 passed**, 1 skipped (58.7 s; wall 60 s). Run in its own 5G scope without the lock: the lock queue held three other landings, and this lane is about a minute long. |
+| Owner lane (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-rw6b/`) | 83 passed, **2 failed**, 4 skipped (50.0 s; wall 51 s). The failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`. |
+| Frontend (`apps/learnloop-tauri`) | `npm install` ok; `npm run typecheck` clean (13 s); whole vitest (`--maxWorkers=4`, 5G): **238 files, 2206 passed** (54 s); `npm run frontend:build` ok; `cargo check --manifest-path src-tauri/Cargo.toml` ok |
+
+### Parity on owner copies (`fixtures-local/landing-rw6b/`)
+
+**Setup.**
+- Fresh backup-API copies of the three mvp035 owner copies were taken. Routes were neutralized to the
+  `127.0.0.1:9` blackhole with key variables unset, and rewrite/rerank/dense/embeddings were turned off.
+- Main's code (`git archive 2c3507003`) and the merged branch's code (`git archive 6eb2f5106`) each came with their
+  own `migrations/`.
+- Everything ran under `env -i` with an empty `HOME`, `CODEX_HOME` and config dir. Audit hooks logged every process
+  start and refused any non-loopback socket. **The audit log stayed empty: no process start and no socket connect
+  in any run.**
+- Only counts, hashes and status codes were recorded. Drivers: `scripts/rw6b_{a,b,b2,c,d,e}.sh`.
+
+**(a) `upgrade --to mvp-0.38`, main's code vs the branch's.**
+- Each side ran the upgrade, a primary sidecar load and `rebuild-derived-state`.
+- The branch's databases differ from main's only by migration 227's five objects: an empty `reader_session_digests`
+  plus a `schema_migrations` row. `sql_diffs` is empty, there are no added columns, and the row differences are
+  exactly the main-vs-main noise floor (`a_main2`).
+- fk 0/0 and integrity ok.
+- Shadow is **0/0/0** on both sides for all three copies. `doctor` is identical (57/1, 102/48, 76/47 issues/errors,
+  the known content errors).
+
+**(b) `upgrade --to mvp-0.39` (from the mvp-0.38 copies) and a bare upgrade from mvp-0.35.**
+- **The upgrade:** it prints `mvp-0.38 -> mvp-0.39` and leaves no journal. A bare `upgrade` from mvp-0.35 prints
+  `mvp-0.35 -> mvp-0.39`.
+- **Learner state:** 0 LOs moved, 0 schedules moved, and every row of the predecessor is preserved. The activation
+  rewrites the derived facet tables with equal counts, refreshes `parameter_registry` (352 rows), and adds one
+  rebuild receipt and one manifest.
+- **Serving:** Today is **identical** after the version stamp (525,266, 740,827 and 344,204 bytes). The daily plan
+  picks the same blocks and items. Only the router card's version-bearing hashes move (`content_hash`, `card_hash`,
+  `snapshot_hash`), checked mechanically.
+- **Shadow:** right after the upgrade, every changed row differs **only** in its `algorithm_version` stamp (21/18/34
+  LOs), as with the mvp-0.38 upgrade. After `rebuild-derived-state`, which the upgrade itself prints as the next
+  step, the shadow is **0/0/0** for the direct and the chained upgrade.
+- **The first Today, as copied:** none of the three copies has a reader session (no `reader_view_opened`), so
+  nothing waits and nothing is planned. The Today build takes 0.06–0.22 s, and shadow is 0/0/0 afterwards.
+- **The first Today, with one seeded ended session with activity:** the session was seeded through product APIs at
+  T = 2026-10-30 15:00Z: a visit, a `work_through` workbench session with the book visible and two steps, and, on
+  probability and arxiv_v2, a self-graded attempt with one hint. Today was then built through `get_today_queue`
+  at 2026-10-31 13:00Z.
+  - Today returned in **0.28/0.11/0.11 s** (linear_algebra/probability/arxiv_v2) while `reader-followups` started in the background, so planning never
+    blocks Today.
+  - The job raised one `discriminate` question (an open probe episode) on each copy.
+  - **No model call:** linear_algebra's relevance judge did not run ("metered rerank route without
+    `practice_index.rerank_price_per_million`"), so its digest stays `incomplete` and is re-asked at the next
+    build. On probability and arxiv_v2 the pool was empty, so the digest is `planned` with no check.
+  - **0 follow-up commitments.** Coming up renders 0/0/0. A second Today the same day behaves the same.
+  - Shadow is **0/0/0** both before and after the Today build.
+- **0 new `model_call_receipts` rows** in any of the 69 databases (probability's 56 historical rows are unchanged).
+
+**(c) `followups.enabled = false` at mvp-0.39 reproduces mvp-0.38.**
+- Comparisons ran on the plain copies and on copies seeded with the same reader session.
+- The Today queue (`build_due_queue`, three session modes) and the sidecar's Today summary are **identical** to the
+  mvp-0.38 copy after the version stamp on all six pairs.
+- The daily plan is identical apart from the router card's version-bearing hashes.
+- With the switch off, the seeded session plans nothing: no digest and no commitment.
+
+**(d) An interrupted mvp-0.39 activation** (the process dies right after the config publication, before the
+activation commits): the label reads mvp-0.39 and the journal stands.
+- `upgrade --to mvp-0.39` completes it. A second run is refused: "vault is already mvp-0.39".
+- The desktop start (`SidecarContext.load`) completes it.
+- After completion, the database equals the clean upgrade's with 0 normalized row differences and 0 LOs moved.
+- The attaches that may not complete it refuse with the journal message: `Repository`, `open_vault_repository`,
+  the secondary sidecar attach and the remote `check_schema`.
+- `doctor` **refuses** too (`InterruptedActivation`, printed as an uncaught traceback). This is main's behaviour:
+  `ops/doctor.py` and `Repository.attach` are unchanged by this branch.
+
+**(e) `ad report --json`.** There are no new denials: the guard reads `denials: 0` on every copy before and after
+the upgrade and after the Today builds. Each upgrade command archives the log exactly once:
+- probability's 6 historical denials are archived once by the mvp-0.38 upgrade (`…archived-mvp-0.35-to-mvp-0.38-…`);
+- the later mvp-0.39 upgrade on those copies has nothing new to archive and writes none;
+- the chained bare upgrade archives once as `…archived-mvp-0.35-to-mvp-0.39-…`.
+
+### Orchestrator landing ruling
+
+The last Sol verify (job 20261031-213011-RfteNw) confirmed every earlier finding fixed. It raised one remaining
+Medium:
+- A regrade of a sibling attempt that lands DURING re-valuation's valuation window can make a `below_stop`
+  retirement of a shared check stale. The guard compares the digest row, not outside evidence. This can retire a
+  check that a reopened retention question still needed. Manual restore recovers it.
+
+The ruling accepts it as LOW under the owner's proportionate bar:
+- It needs a concurrent regrade of exactly the sibling that answered the question, inside a seconds-long window.
+- The harm is one follow-up check not scheduled. It never serves an exposed check cold and never writes wrong
+  evidence, and the learner can restore the check.
+- This was the ninth review round on concurrency in the same subsystem.
+
+It is recorded as an open item, with the suggested future fix: include the answering attempts' grade/revision ids in
+the snapshot comparison.
+
+The verifier also raised a Low: the production valuer may persist an idempotent calibration-channel snapshot before
+the guard.
+
+### Owner notes
+
+- **Upgrade steps:**
+  - back up the vaults;
+  - close the desktop app, the MCP server and the phone page;
+  - run `learnloop upgrade --to mvp-0.39` (a bare `learnloop upgrade` targets it; from mvp-0.35 it chains);
+  - then run `learnloop rebuild-derived-state`, as the upgrade prints. The shadow is 0/0/0 only after that step.
+- **Kill switch:** `[followups] enabled = false`. Off plans exactly as mvp-0.38 (parity (c)), and existing checks
+  stay listed and can be undone. `formative_questions_enabled` is on and `generate_when_nothing_fits` is off.
+- **The first Today after upgrading** plans the reader sessions that ended in the last 14 days, in the background.
+  Each question is one paid relevance call (`practice_rerank`), within `followups.max_daily_cost_usd` ($0.50) and
+  the source-service cap. Today itself is never blocked.
+  - Your three vault copies have no reader sessions, so there is nothing to plan on them now.
+  - A metered rerank route without `practice_index.rerank_price_per_million` skips the relevance judge. The session
+    then stays `incomplete` and is retried at later builds, with no call.
+- New vaults start at mvp-0.39.
+
+### Open items
+
+1. **F8:** the deferred textbook-exercise import.
+2. **A formative-only retention question** with no FSRS state and no practiced attempt is dated at
+   `followups.max_wait_days`, labelled `capped`. The alternative is a seeded, learned fallback prior.
+3. **Generation stays off** (`generate_when_nothing_fits`) until PF exposes a source-anchored request API.
+4. **Decision-mode seeding is one measurement.** It is not a conditional EVSI over the seeded check's branches.
+5. **The paging bound is conservative.**
+6. **A check whose digest row is gone stays held** (`licensing_unreadable`). Re-valuation retires it and re-asks.
+7. **The accepted Low race** (the ruling above). Suggested fix: compare the answering attempts' grade/revision ids in
+   the re-valuation snapshot.
+8. **The production valuer may write an idempotent calibration-channel snapshot before the guard** (the verifier's
+   Low).
+9. **Landing observations:**
+   - A C0b Check once on the follow-up's own item replaces the follow-up, by DL2's rule (see (i)).
+   - `doctor` on an interrupted activation refuses with an uncaught traceback rather than a clean message. This is
+     main's behaviour.
+   - `test_stuck_prompt::test_kill_switch_restores_dont_know_exactly` is timing-sensitive under load.
