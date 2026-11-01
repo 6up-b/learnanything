@@ -828,3 +828,70 @@ def test_re_f14_a_waiting_run_is_not_restarted_by_every_read(tmp_path, monkeypat
     assert call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})["linking"] == "waiting"
     assert _tend_searches(fake_tend) > searches  # asked again: tried now
     assert metered.calls == 0
+
+
+# -- Codex round 3 (F13 reopened): only a refresh read advances the current snapshot -------------
+
+def test_re3_f13_a_delayed_judgment_never_makes_its_snapshot_current_again(tmp_path, monkeypatch):
+    """Codex round 3, F13: the learner linked note A by hand; a background judgment reads A
+    and is held; the note changes to B and a concurrent refresh shows B; the judgment of A
+    is then recorded. Recording a model's proposal never advances the current-snapshot
+    marker, so the hand link still shows B (no later refresh is needed: ``link_goal`` may
+    stop at a topic that waits). The model's proposal keeps the snapshot it judged (A)."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    fake_tend.save()
+    vault, target = _target(paths, repository, goal_id)
+    refreshed: list[int] = []
+
+    def meanwhile():  # the judgment of A is held here, at the model
+        _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+        refreshed.append(NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)))
+
+    notes.on_call = meanwhile
+    result = NL.judge_target(vault, repository, target, settings=NL.tend_settings(vault), client=notes)
+    assert result.status == "linked" and notes.calls == 1 and refreshed == [1]
+    texts = _hand_texts(ctx)
+    assert texts and all("Version B" in text for text in texts)  # the newer read still shows
+    # The model's proposal shows the snapshot it judged.
+    proposed = [line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))
+                if line["authorship"] == "ai" and line["note"]["heading"] == "Eigen page"]
+    assert proposed and "Worked the 2x2 eigen example" in proposed[0]["note"]["text"]
+    with repository.connection() as connection:
+        markers = connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE task = ?",
+                                     (NL.CURRENT_TASK,)).fetchone()[0]
+    assert markers == 2  # the hand link's read (A) and the refresh's (B); none for the proposal
+
+
+def test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing(tmp_path, monkeypatch):
+    """Codex round 3, F13 (compare-and-set): a refresh observes the current snapshot (A),
+    reads B slowly; meanwhile the note changes to C and another refresh shows C. The slow
+    refresh's write finds the marker advanced past what it observed and writes nothing."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    vault = load_vault(paths.root)
+    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
+    real_read = NT.read_sections
+    inner: list[int] = []
+
+    def slow_read(settings, hits):
+        result = real_read(settings, hits)  # B, read before the note changed again
+        monkeypatch.setattr(NL.NT, "read_sections", real_read)
+        _set_note(fake_tend, entry, "# Eigen page\nVersion C of the page.\n", "h-c")
+        inner.append(refresh())
+        return result
+
+    monkeypatch.setattr(NL.NT, "read_sections", slow_read)
+    assert refresh() == 0 and inner == [1]
+    texts = _hand_texts(ctx)
+    assert texts and all("Version C" in text for text in texts)
+    with repository.connection() as connection:
+        stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
+    assert not any("Version B" in text for text in stored)  # the obsolete read stored nothing

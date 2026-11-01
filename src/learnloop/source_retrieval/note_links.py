@@ -636,7 +636,7 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
                     created_at=now)
                 if not discusses:
                     continue
-                note_row_id = _snapshot(connection, note, now)
+                note_row_id = _store_snapshot(connection, note, now)  # never the note's current one
                 passage = about == "passage"
                 store.insert_link(connection, {
                     "id": "nl_" + new_ulid(), "note_id": note_row_id, "note_key": note.hit.note_key,
@@ -655,19 +655,40 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
     return JudgeResult("linked", lo, state_key=key, linked=linked)
 
 
-def _snapshot(connection: Any, note: NT.NoteText, now: str) -> str:
-    """The note's snapshot (stored once per content hash; only ever for a linked note),
-    made the snapshot the note shows now (Codex re-review F13: a marker is appended when
-    it was not, a text the note had before included). Never a link row."""
+def _store_snapshot(connection: Any, note: NT.NoteText, now: str) -> str:
+    """The note's snapshot (stored once per content hash; only ever for a linked note).
+    Storing it never changes which snapshot the note shows (Codex round 3, F13): a model's
+    proposal keeps the snapshot it judged through its link row's ``note_id``."""
 
-    note_key = note.hit.note_key
-    current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
-    snapshot_id = store.insert_note(connection, {
-        "id": "ln_" + new_ulid(), "note_key": note_key, "path": note.hit.path,
+    return store.insert_note(connection, {
+        "id": "ln_" + new_ulid(), "note_key": note.hit.note_key, "path": note.hit.path,
         "heading_path": note.hit.heading_path, "line": note.hit.line, "content_hash": _content_hash(note),
         "title": note.hit.title, "heading": note.hit.heading, "captured_on": note.hit.captured_on,
         "origin": note.hit.origin if note.hit.origin in NT.ORIGINS else "tend", "text_md": note.text,
         "truncated": 1 if note.truncated else 0, "created_at": now})
+
+
+def _observed(repository: Repository, note_keys: Iterable[str]) -> dict[str, int]:
+    """The current-snapshot revision of each note, captured before its text is read."""
+
+    with repository.connection() as connection:
+        return store.current_revisions(connection, CURRENT_TASK, note_keys)
+
+
+def _show_read(connection: Any, note: NT.NoteText, observed: int, now: str) -> str | None:
+    """Inside the caller's write transaction: a read of the note made to show it (a link by
+    hand, a refresh) makes its text the snapshot the note shows (Codex re-review F13), a
+    text the note had before included (that snapshot again) — but only if no newer read
+    advanced the marker since this read captured ``observed`` (compare-and-set, Codex
+    round 3). Returns the snapshot shown now by this read, or None when a newer read won
+    (nothing is stored). Recording a model's proposal never calls this."""
+
+    note_key = note.hit.note_key
+    revision = store.current_revisions(connection, CURRENT_TASK, [note_key])[note_key]
+    if revision != observed:
+        return None  # another read advanced it after this one looked: that read stands
+    snapshot_id = _store_snapshot(connection, note, now)
+    current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
     if current is None or str(current["id"]) != snapshot_id:
         append_judgment(
             connection, task=CURRENT_TASK, left_kind=CURRENT_LEFT, left_id=opaque(note_key), right_kind=CURRENT_RIGHT,
@@ -756,8 +777,11 @@ def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.Te
     kept = [row for row in word.values() if row["status"] == "accepted" and not row.get("learning_object_id")]
     if not kept:
         return 0
+    # Captured before tend is asked, and before the snapshots it is compared with (Codex
+    # round 3, F13): a read recorded after this point wins, and this one's write is dropped.
+    observed = _observed(repository, (row["note_key"] for row in kept))
     with repository.connection() as connection:
-        latest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in kept))
+        latest = store.current_notes(connection, CURRENT_TASK, observed)
     resolved: dict[str, NT.NoteHit] = {}
     for note_key, note in latest.items():
         hit = _resolve(settings, note)
@@ -781,13 +805,11 @@ def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.Te
             if not still:
                 continue  # hidden (or changed) meanwhile: the learner's newest word stands
             guard.check_notes("refreshing a note you linked")
-            current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
-            if current is not None and current["content_hash"] == _content_hash(read):
-                continue  # another writer made it current meanwhile
             # A new text is a new snapshot; a text the note had before is that snapshot,
-            # current again (Codex re-review F13). Neither is a new acceptance.
-            _snapshot(connection, read, now)
-            refreshed += 1
+            # current again (Codex re-review F13). Neither is a new acceptance. A read
+            # another writer superseded meanwhile writes nothing (compare-and-set).
+            if _show_read(connection, read, observed.get(note_key, 0), now) is not None:
+                refreshed += 1
     return refreshed
 
 
@@ -1058,6 +1080,7 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
                           title=" ".join(str(hit.get("title") or "").split()) or os.path.basename(resolved),
                           line=line, snippet="", content_hash=str(hit.get("content_hash") or ""), mtime=mtime, via="",
                           origin=NT.origin_of(resolved, settings.pocket_roots))
+    observed = _observed(repository, [note_hit.note_key])[note_hit.note_key]  # before the read (F13, round 3)
     try:
         texts = NT.read_sections(settings, [note_hit])
     except NT.TendUnavailable as exc:
@@ -1074,7 +1097,9 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
     now = utc_now_iso(clock)
     with repository.atomic():
         connection = repository.connection()
-        note_id = _snapshot(connection, read, now)
+        # The snapshot the learner linked; it shows unless a newer read of the note was
+        # recorded meanwhile, which then shows instead (compare-and-set, F13 round 3).
+        note_id = _show_read(connection, read, observed, now) or _store_snapshot(connection, read, now)
         ledger_id = append_judgment(
             connection, task=LEDGER_TASK, left_kind="reader_passage",
             left_id=passage_key(extraction_id, section_id, span_id), right_kind=LEDGER_RIGHT,

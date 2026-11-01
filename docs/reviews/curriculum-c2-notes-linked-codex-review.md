@@ -139,3 +139,45 @@ The full pytest suite, the whole durability lane and the whole vitest run were n
   `learner_note_snapshot`). It records display state only. No migration (still 229).
 - `section_coverage.CoverageGuard` gained an optional `also` / `also_refusal` pair (default none, so existing callers
   are unchanged), plus the module functions `published_snapshot` and `still_published`, which it now uses itself.
+
+## Round 3 (Codex job `20261101-101544-wk64cb`): F1, F2, F14 confirmed fixed; F13 reopened, fixed
+
+Codex's round 3 confirmed F1, F2 and F14 fixed and every other round-1 finding fixed, and reopened F13: *a delayed
+judgment reactivates an obsolete snapshot*. The learner links note A by hand; a background judgment reads A and is held;
+the note changes to B and a concurrent refresh shows B; the judgment of A is then recorded, and `_snapshot` (called for
+each AI proposal) reused A's row and appended a current-snapshot marker, making A current again; when the next topic is
+unavailable, `link_goal` returns `waiting` before its final refresh, so A stays displayed.
+
+**Fix (structural, as directed): snapshot storage is separate from advancing the current marker.**
+
+- `_store_snapshot` stores a snapshot (once per content hash) and nothing else. Recording AI proposals calls only this:
+  **a model's proposal never advances `note_snapshot_current`**, and it keeps the snapshot it judged through its link
+  row's `note_id` (shown as such).
+- `_show_read` is the only writer of the marker, called only by a read of the note made to show it: `link_by_hand` and
+  `refresh_learner_links`. Each read captures the note's marker revision **before** asking tend
+  (`store.current_revisions`: the newest marker's `rowid`, 0 with none) and, inside its write transaction, advances the
+  marker only if the revision is unchanged (compare-and-set); otherwise a newer read stands and nothing is stored. A
+  refresh whose write is dropped is not counted; a link by hand whose compare-and-set loses still writes its link row
+  (naming the snapshot the learner linked), and the note shows the newer read.
+- `store.current_notes` now reads markers only, in append order (marker `rowid`; markers are appended only under the
+  compare-and-set inside a write transaction, so append order is record order). The fallback to the note's newest
+  snapshot is gone: it would have let a snapshot stored for a proposal become what a note shows. Every note linked by
+  hand has a marker (its link appends one, or a newer read already did).
+
+Failing tests first (both failed on `bb4b647e7d` for the reported reason, both pass now):
+`test_re3_f13_a_delayed_judgment_never_makes_its_snapshot_current_again` (the exact interleaving: hand link A, the
+judgment of A held at the model while the note changes to B and a refresh shows B; after the judgment records, the
+hand link shows B with no further refresh, the model's proposal shows A, and exactly 2 markers exist) and
+`test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing` (a refresh reads B slowly while the note
+changes to C and another refresh shows C: the slow refresh writes nothing, C shows, and no B snapshot is stored).
+
+Files: `src/learnloop/source_retrieval/note_links.py`, `src/learnloop/db/stores/learner_notes.py` (its store, used only
+by `note_links`: `current_revisions`, marker-only `current_notes`), `tests/test_notes_linked.py`. No migration, schema,
+frontend or config change.
+
+`WAITING_RETRY_SECONDS` is not added to `parameter_registry`: the registry's module-constant audit
+(`module_numeric_constants`) scans only `MODULE_INVENTORY`, which does not list `note_links` (nor any other C2 module),
+so nothing expects it there; it stays a module constant labelled `keep`.
+
+Targeted gate: `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- uv run --no-sync pytest -n 6
+tests/test_notes_linked.py tests/test_notes_never_read.py tests/test_learner_notes_migration.py`: **52 passed**.

@@ -75,8 +75,8 @@ def latest_note(connection: sqlite3.Connection, note_key: str) -> dict[str, Any]
 
 
 def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
-    """The newest snapshot of each note, by note key (the fallback of :func:`current_notes`
-    for a note with no current-snapshot marker)."""
+    """The newest snapshot of each note, by note key (creation order: not what a note
+    shows, which is :func:`current_notes`)."""
 
     wanted = sorted({str(key) for key in note_keys})
     if not wanted:
@@ -89,27 +89,45 @@ def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> di
     return out
 
 
-def current_notes(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
-    """The snapshot each note shows now, by note key (Codex re-review F13): the one named
-    by the note's newest current-snapshot marker (``judgment_ledger`` task ``task``,
-    ``right_id`` the snapshot's id), appended whenever a read finds the note's text is
-    another snapshot's, a text it had before included; a note with no marker shows its
-    newest snapshot."""
+def _markers(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, tuple[int, dict[str, Any]]]:
+    """Each note's newest current-snapshot marker, in append order: (its ``rowid``, the
+    snapshot it names). Markers are appended only inside a write transaction that saw
+    the previous newest one (:func:`current_revisions`), so append order is the order the
+    reads were recorded in."""
 
-    newest = latest_notes(connection, note_keys)
-    if not newest:
+    wanted = sorted({str(key) for key in note_keys})
+    if not wanted:
         return {}
-    by_id = {str(row["id"]): row for row in _dicts(connection.execute(
-        f"SELECT * FROM learner_notes WHERE note_key IN ({','.join('?' for _ in newest)})", sorted(newest)))}
-    out = dict(newest)
-    wanted = sorted(by_id)
-    for (right_id,) in connection.execute(
-            f"SELECT right_id FROM judgment_ledger WHERE task = ? AND judge = 'exact_key' "
-            f"AND right_id IN ({','.join('?' for _ in wanted)}) ORDER BY created_at, rowid", (task, *wanted)):
-        row = by_id.get(str(right_id))
-        if row is not None:
-            out[str(row["note_key"])] = row
+    out: dict[str, tuple[int, dict[str, Any]]] = {}
+    cursor = connection.execute(
+        f"SELECT j.rowid AS marker_rowid, n.* FROM judgment_ledger AS j JOIN learner_notes AS n ON n.id = j.right_id "
+        f"WHERE j.task = ? AND j.judge = 'exact_key' AND n.note_key IN ({','.join('?' for _ in wanted)}) "
+        f"ORDER BY j.rowid", (task, *wanted))
+    for row in _dicts(cursor):
+        revision = int(row.pop("marker_rowid"))
+        out[str(row["note_key"])] = (revision, row)
     return out
+
+
+def current_notes(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The snapshot each note shows now, by note key (Codex re-review F13, round 3): the one
+    named by the note's newest current-snapshot marker (``judgment_ledger`` task ``task``,
+    ``right_id`` the snapshot's id). Only a read of the note made to show it (a link by
+    hand, a refresh) appends a marker; a snapshot stored for a model's proposal never
+    does, so a note no such read made current has no entry here."""
+
+    return {key: row for key, (_revision, row) in _markers(connection, task, note_keys).items()}
+
+
+def current_revisions(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, int]:
+    """Each note's current-snapshot revision (its newest marker's ``rowid``; 0 with none):
+    a read captures it before reading the note, and advances the marker only if it is
+    unchanged inside the write transaction (compare-and-set), so an older read never
+    replaces a marker a newer read advanced."""
+
+    keys = sorted({str(key) for key in note_keys})
+    found = _markers(connection, task, keys)
+    return {key: (found[key][0] if key in found else 0) for key in keys}
 
 
 def note_count(connection: sqlite3.Connection) -> int:
@@ -225,6 +243,7 @@ __all__ = [
     "ai_rows_for_state",
     "insert_link",
     "current_notes",
+    "current_revisions",
     "current_states",
     "judged",
     "latest_notes",
