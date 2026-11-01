@@ -3,8 +3,8 @@ title: "Config - reader_intent"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7c433f99ddc15041ff815ae9b6a0a967e39e781f"
-source_commit_timestamp: "2026-11-01T06:46:54-05:00"
+source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
+source_commit_timestamp: "2026-11-01T08:51:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_intent"
@@ -24,6 +24,7 @@ source_paths:
   - "tests/codex_cli_fakes.py"
   - "tests/hint_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_ad1_codex_rereview_fixes.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round4.py"
-  - "tests/test_ad1_send_guard.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -52,11 +52,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_intent.enabled` | `true` | boolean | modeled default or validator seed | Turns reader intent behavior on or off within reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2516`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop_sidecar/handlers/reader_intent.py:79` |
-| `reader_intent.speculative_enabled` | `true` | boolean | modeled default or validator seed | Turns speculative behavior on or off within reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2517`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop_sidecar/handlers/reader_intent.py:97` |
-| `reader_intent.speculate_after_ms` | `600` | integer | modeled default or validator seed | Controls speculate after ms in reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2518`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop_sidecar/handlers/reader_intent.py:98` |
-| `reader_intent.timeout_seconds` | `4.0` | number | modeled default or validator seed | Sets the timeout duration in seconds for reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2519`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop_sidecar/handlers/reader_intent.py:99` |
-| `reader_intent.max_calls_per_day` | `200` | integer | modeled default or validator seed | Caps calls per day allowed by reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2520`; `src/learnloop/ai/plan_fallback.py:128` |
+| `reader_intent.enabled` | `true` | boolean | modeled default or validator seed | Turns reader intent behavior on or off within reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2525`; `src/learnloop/ai/plan_fallback.py:134`; `src/learnloop_sidecar/handlers/reader_intent.py:79` |
+| `reader_intent.speculative_enabled` | `true` | boolean | modeled default or validator seed | Turns speculative behavior on or off within reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2526`; `src/learnloop/ai/plan_fallback.py:134`; `src/learnloop_sidecar/handlers/reader_intent.py:97` |
+| `reader_intent.speculate_after_ms` | `600` | integer | modeled default or validator seed | Controls speculate after ms in reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2527`; `src/learnloop/ai/plan_fallback.py:134`; `src/learnloop_sidecar/handlers/reader_intent.py:98` |
+| `reader_intent.timeout_seconds` | `4.0` | number | modeled default or validator seed | Sets the timeout duration in seconds for reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2528`; `src/learnloop/ai/plan_fallback.py:134`; `src/learnloop_sidecar/handlers/reader_intent.py:99` |
+| `reader_intent.max_calls_per_day` | `200` | integer | modeled default or validator seed | Caps calls per day allowed by reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2529`; `src/learnloop/ai/plan_fallback.py:134` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -69,6 +69,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/codex_cli_fakes.py`
 - `tests/hint_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
-- `tests/test_ad1_send_guard.py`
 
 ## Extension and modification guidance
 

@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7c433f99ddc15041ff815ae9b6a0a967e39e781f"
-source_commit_timestamp: "2026-11-01T06:46:54-05:00"
+source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
+source_commit_timestamp: "2026-11-01T08:51:49-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 228
+schema_head: 229
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"

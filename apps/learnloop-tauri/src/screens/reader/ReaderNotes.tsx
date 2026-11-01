@@ -319,7 +319,8 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
     }
   }, [extractionId, spanId, onError]);
 
-  useEffect(() => { void search(""); }, [search]);
+  const on = ctx !== null;
+  useEffect(() => { if (on) void search(""); }, [search, on]);
 
   const link = async (hit: NoteHitDto) => {
     setBusy(true);

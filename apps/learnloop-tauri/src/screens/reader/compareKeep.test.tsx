@@ -33,6 +33,7 @@ const { api, contract } = vi.hoisted(() => ({
     runSourceTool: vi.fn(), recordSourceOfferShown: vi.fn(),
     readerKeptComparisons: vi.fn(), readerLibraryCompareKeep: vi.fn(), readerLibraryCompareRemove: vi.fn(),
     readerLibraryCompareReopen: vi.fn(),
+    notesMarks: vi.fn(), notesSearch: vi.fn(), notesLink: vi.fn(), notesDecide: vi.fn(), notesPassages: vi.fn(), notesPath: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
 }));
@@ -427,4 +428,44 @@ it("a take on a comparison another question keeps is sent as the question the le
   fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
   await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ toolCallId: "stc_c", extractionId: "ext_text", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+});
+
+// -- curriculum C2: the learner's notes beside the passage (spec §10.3) ------------------------------
+
+const NOTES = { enabled: true, lexicalOnly: false, pocketNotesLabel: "handwritten · transcribed by Pocket Notes", takePrefix: "From your note" };
+
+it("C2: › marks a passage with a linked note (the learner's own mark) and the passage menu links one by hand", async () => {
+  const span = view.blocks[1].spanId!;
+  contract.value = { ...contract.value, notes: NOTES };
+  api.notesMarks.mockResolvedValue({ extractionId: view.extractionId, marks: [{ spanId: span, notes: [{
+    linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo", extractionId: view.extractionId,
+    sectionId: "sec", spanId: span, goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model", how: "restates",
+    howWords: null, howLine: null, line: "your note from 3 Oct",
+    note: { title: "Pocket page", heading: "Eigen page", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "pocket_notes",
+            originLabel: NOTES.pocketNotesLabel, text: "Worked the 2x2 case by hand.", truncated: false } }] }] });
+  api.notesSearch.mockResolvedValue({ query: "Spectral theorem", hits: [] });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  await screen.findByText(view.blocks[1].markdown);
+  await waitFor(() => expect(api.notesMarks).toHaveBeenCalledWith({ extractionId: view.extractionId }));
+  const mark = await screen.findByRole("button", { name: /your note from 3 Oct: open it/ });
+  expect(mark.textContent).toBe("›");
+  expect(mark.closest("[data-span-id]")?.getAttribute("data-span-id")).toBe(span);
+  await act(async () => { fireEvent.click(mark); });
+  expect(screen.getByText("Worked the 2x2 case by hand.", { exact: false })).toBeTruthy();
+  expect(screen.getByText(NOTES.pocketNotesLabel)).toBeTruthy();
+  // The passage menu offers "link one of your notes…" and opens the picker on that passage.
+  const block = mark.closest("[data-span-id]") as HTMLElement;
+  fireEvent.contextMenu(block, { clientX: 20, clientY: 20 });
+  await act(async () => { fireEvent.click(await screen.findByText("link one of your notes…")); });
+  await waitFor(() => expect(api.notesSearch).toHaveBeenCalledWith({ extractionId: view.extractionId, spanId: span }));
+});
+
+it("C2: without notes in the contract no › mark is read or drawn and the menu is today's", async () => {
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  const text = await screen.findByText(view.blocks[1].markdown);
+  await waitFor(() => expect(api.readerKeptComparisons).toHaveBeenCalled());
+  expect(api.notesMarks).not.toHaveBeenCalled();
+  fireEvent.contextMenu(text.closest("[data-span-id]") as HTMLElement, { clientX: 20, clientY: 20 });
+  expect(screen.queryByText("link one of your notes…")).toBeNull();
+  expect(document.querySelector("[data-note-mark]")).toBeNull();
 });
