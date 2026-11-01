@@ -249,7 +249,7 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
     with work.lock:
         if (work.judging.get(key) or {}).get("state") == "running":
             return
-        work.judging[key] = {"state": "running"}
+        work.judging[key] = {"state": "running", "by": "guide"}
     grant, origin, stamp = _unit(vault, f"deliverable-path:{goal_id}:{depth}")
     client = getattr(ctx, "deliverable_path_client", None)
     sqlite_path = repository.sqlite_path
@@ -262,6 +262,7 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
         from learnloop.db.repositories import Repository
 
         outcome: dict[str, Any] | None
+        claimed = key
         with plan_fallback.unit(grant, origin, stamp) as offers:
             try:
                 # The vault as it is when the job runs, not when it was spawned (Codex
@@ -271,25 +272,57 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
                     outcome = {"state": "failed", "reason": "vault_switched", "message": SC.STALE_MESSAGE}
                 else:
                     worker = Repository.attach(sqlite_path)
-                    with record_model_calls(worker, owner_kind="sidecar_rpc",
-                                            owner_id=f"curriculum.path:{goal_id}:{depth}"):
-                        result = DP.judge(current, worker, goal_id, client=client, live_vault=live_vault)
-                    outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
-                        "state": "failed", "reason": result.reason, "message": result.message}
+                    # The inputs prepared here are the ones sent (fix round 3, Medium 3): the
+                    # claim moves to their key immediately before the call, and the judge
+                    # gathers nothing again. Another job holding that key sends it instead.
+                    inputs = DP.path_inputs(current, worker, goal_id)
+                    sent = (goal_id, inputs.depth, inputs.state_key()) if inputs is not None else key
+                    if not _move_claim(work, key, sent):
+                        outcome = None  # the same state is being judged by the other job
+                    else:
+                        claimed = sent
+                        with record_model_calls(worker, owner_kind="sidecar_rpc",
+                                                owner_id=f"curriculum.path:{goal_id}:{depth}"):
+                            result = DP.judge(current, worker, goal_id, client=client, live_vault=live_vault,
+                                              inputs=inputs)
+                        outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
+                            "state": "failed", "reason": result.reason, "message": result.message}
             except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
                 LOG.warning("deliverable path judgment failed: %s", type(exc).__name__, exc_info=exc)
                 outcome = {"state": "failed", "reason": "judge_failed",
                            "message": "Couldn't choose a path across your books just now. Try again ↵"}
         offer = offers.hint() if outcome is not None else None
         with work.lock:
-            if outcome is None:
+            if claimed != key and (work.judging.get(key) or {}).get("by") == "guide":
                 work.judging.pop(key, None)
+            if outcome is None:
+                if (work.judging.get(claimed) or {}).get("by") == "guide":
+                    work.judging.pop(claimed, None)
             else:
-                work.judging[key] = outcome
+                work.judging[claimed] = outcome
             if offer is not None:
-                work.offers[key] = offer
+                work.offers[claimed] = offer
 
     _spawn(ctx, f"deliverable-path-{goal_id}-{depth}", run)
+
+
+def _move_claim(work: _Work, held: tuple[str, str, str], wanted: tuple[str, str, str]) -> bool:
+    """The Guide's job moving its claim from the key it was started for (``held``) to the
+    key of the inputs it prepared (``wanted``), immediately before its call: False when
+    another job (the daily refresh, or another Guide job) is running ``wanted``, so this
+    one sends nothing. The held key's mark is cleared once the claim moves."""
+
+    if held == wanted:
+        return True
+    with work.lock:
+        if (work.judging.get(wanted) or {}).get("state") == "running":
+            if (work.judging.get(held) or {}).get("by") == "guide":
+                work.judging.pop(held, None)
+            return False
+        work.judging[wanted] = {"state": "running", "by": "guide"}
+        if (work.judging.get(held) or {}).get("by") == "guide":
+            work.judging.pop(held, None)
+    return True
 
 
 def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:

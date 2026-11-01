@@ -1810,9 +1810,10 @@ def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None =
     and statuses only, never text.
 
     ``in_flight(goal_id, depth, state_key)`` (the sidecar's coalescing set, shared with the
-    Guide's judgments; Codex review fix round 2, Medium 5) is entered around the judgment
-    and yields whether this job claimed that deliverable's path state: unclaimed (the
-    Guide's judgment for the same state is running), nothing is sent (``coalesced``)."""
+    Guide's judgments; Codex review fix round 2, Medium 5) is entered immediately around the
+    judgment, keyed by the inputs this job prepared and then sends (fix round 3, Medium 3),
+    and yields whether it claimed that deliverable's path state: unclaimed (the Guide's
+    judgment for the same state is running), nothing is sent (``coalesced``)."""
 
     from learnloop.ai import plan_fallback
 
@@ -1826,13 +1827,23 @@ def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None =
                 return {"status": "fresh", "goal_id": path.goal_id, "depth": path.depth}
             if path.status != "stale":
                 continue  # nothing judged, no depth, withheld or unreadable: nothing to refresh here
-            claim = in_flight(path.goal_id, str(path.depth), str(path.state_key)) if in_flight else nullcontext(True)
+            # The inputs sent are prepared here, once, and the claim is their key, taken
+            # immediately before the call (fix round 3, Medium 3): a state that moved since
+            # the stale read is the one claimed and sent, and the judge gathers nothing again.
+            try:
+                inputs = path_inputs(vault, repository, path.goal_id, clock=clock)
+            except SC.CoverageError:
+                continue  # protection unreadable now: nothing is sent
+            if inputs is None:
+                continue
+            key = inputs.state_key()
+            claim = in_flight(path.goal_id, inputs.depth, key) if in_flight else nullcontext(True)
             with claim as claimed:
                 if not claimed:
-                    return {"status": "coalesced", "goal_id": path.goal_id, "depth": path.depth,
-                            "state_key": path.state_key}
-                result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault)
-            return {"status": result.status, "goal_id": path.goal_id, "depth": path.depth,
+                    return {"status": "coalesced", "goal_id": path.goal_id, "depth": inputs.depth, "state_key": key}
+                result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault,
+                               inputs=inputs)
+            return {"status": result.status, "goal_id": path.goal_id, "depth": inputs.depth,
                     "reason": result.reason, "state_key": result.state_key}
     return {"status": "none"}
 

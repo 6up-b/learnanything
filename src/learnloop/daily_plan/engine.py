@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
-from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
     ReviewItem,
@@ -409,16 +409,20 @@ def _read_failed(receipt: Mapping[str, Any] | None) -> bool:
 _INTENT_UNREAD = object()
 
 
-def _fresh_reading_fingerprint(env: Any) -> str:
-    """The fingerprint of :func:`_fresh_reading`'s inputs (``reading_choice.fingerprint``):
-    the switches every branch reads, the vault's goals (the deliverables, their due dates
-    and priorities, nearest first), each goal's days left (in the deliverable path's key;
-    whole days from now, in UTC, as ``deliverable_path.learner_context`` counts them), the
-    local and UTC dates, DL1's daily minutes (in the path's key too), and the table
-    counters. Read without a model call; conservative (when unsure, an input is in)."""
+def _fresh_reading_fingerprint(env: Any) -> str | None:
+    """The fingerprint of :func:`_fresh_reading`'s inputs (``reading_choice.fingerprint``;
+    fix round 3): the vault database as a whole (any committed write invalidates), the
+    config (a hash of all of it: the switches every branch reads are in it), the vault's
+    goals (each dumped) with each goal's days left (in the deliverable path's key; whole
+    days from now, in UTC, as ``deliverable_path.learner_context`` counts them, which turn
+    at the due time of day, not at midnight), the local and UTC dates, and the diagnosis
+    waits run out by now (placement's ``DIAGNOSIS_WAIT_DAYS``: a deadline crossed changes
+    an LO's status with no write). Read without a model call; None when it cannot be."""
+
+    from datetime import timedelta
 
     from learnloop.daily_plan import reading_choice as RC
-    from learnloop.source_retrieval import deliverable_path as DP
+    from learnloop.placement.rules import DIAGNOSIS_WAIT_DAYS
 
     vault = env.vault
     now_iso = env.now_iso()
@@ -429,27 +433,13 @@ def _fresh_reading_fingerprint(env: Any) -> str:
         days_left = max(0, (due - now).days) if due is not None and now is not None else None
         dump = goal.model_dump_json() if hasattr(goal, "model_dump_json") else repr(goal)
         goals.append([str(goal.id), dump, days_left])
-    reading_paths = getattr(vault.config, "reading_paths", None)
-    curriculum = getattr(vault.config, "curriculum", None)
     parts = {
-        "switches": {
-            "algorithm_version": vault.config.algorithms.algorithm_version,
-            "plan_active": plan_active(vault),
-            "reading_rule": reading_step_rule(vault),
-            "from_furthest": reading_from_furthest_active(vault),
-            "reading_paths": [bool(getattr(reading_paths, "enabled", False)),
-                              bool(getattr(reading_paths, "plan_uses_path", False))],
-            "curriculum": [bool(getattr(curriculum, "enabled", False)),
-                           bool(getattr(curriculum, "plan_uses_path", False))],
-            "rw7b": reading_path_plan_active(vault),
-            "c1": deliverable_plan_active(vault),
-        },
         "config": hashlib.sha256(vault.config.model_dump_json().encode("utf-8")).hexdigest(),
         "goals": goals,
         "dates": [env.today(), now_iso[:10]],
-        "daily_minutes": DP.daily_minutes(vault, env.repository),
     }
-    return RC.fingerprint(env.repository, parts)
+    cutoff = utc_now_iso(FrozenClock(now - timedelta(days=DIAGNOSIS_WAIT_DAYS))) if now is not None else now_iso
+    return RC.fingerprint(env.repository, parts, diagnosis_cutoff=cutoff)
 
 
 def _remembered_fresh_reading(
@@ -465,7 +455,7 @@ def _remembered_fresh_reading(
     from learnloop.daily_plan import reading_choice as RC
 
     try:
-        fingerprint: str | None = _fresh_reading_fingerprint(env)
+        fingerprint = _fresh_reading_fingerprint(env)
     except Exception:  # noqa: BLE001 - no fingerprint: the choice is computed, never trusted from the memo
         logging.getLogger(__name__).warning("could not fingerprint the plan's reading choice", exc_info=True)
         fingerprint = None
@@ -3106,25 +3096,24 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                         (item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": hold})
                     )
                     item.displaced_at = now
+    receipt = record.split.get("reading_path")
+    c1_plan = isinstance(receipt, Mapping) and receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2
     for block in record.blocks:
         if block.ended_at is None and not block.is_reading and block.items and all(item.resolved for item in block.items):
             writes.append((block.id, "block_ended", {"outcome": "completed", "minutes_counted": round(block.est_minutes(), 4)}))
             block.ended_at = now
-        elif block.ended_at is None and block.is_reading and block.started_at is None:
-            # DL2 (Codex review F7): a reading block not yet started whose
-            # source a later choice took out of reading (Pause, Reference,
-            # Let go, Keep, Light touch, "Check once") is ended unread; its
-            # minutes are not counted.
-            reading_intent = intent if intent is not None else intent_view(env)
-            extraction = str((block.reading or {}).get("extraction_id") or "")
-            if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
-                writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
-                block.ended_at = now
-    receipt = record.split.get("reading_path")
-    if isinstance(receipt, Mapping) and receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2:
-        # Curriculum C1 (fix round 2): the plan's reading is the fresh choice while it has
-        # no reading history (one invariant for switches and refreshes alike).
+        elif not c1_plan:
+            # DL2's intent ending, in block order as before (v1 and no-receipt plans).
+            _end_reading_out_of_intent(env, block, intent, now, writes)
+    if c1_plan:
+        # Curriculum C1 (fix rounds 2 and 3): the plan's reading is the fresh choice while
+        # it has no reading history (one invariant for switches, refreshes and intent
+        # alike). It runs before DL2's intent ending: an unread reading on a source taken
+        # out of reading moves to the fresh choice (which honours ``reading_allowed``); a
+        # reading with history is left to DL2's ending below, as before.
         path_split = _reading_follows_fresh_choice(env, record, now, writes)
+        for block in record.blocks:
+            _end_reading_out_of_intent(env, block, intent, now, writes)
     else:
         path_split = _reading_path_switched_off(env, record, now, writes)
     if writes or path_split is not None:
@@ -3141,6 +3130,22 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                     store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
         return _reload(env, record.id)
     return record
+
+
+def _end_reading_out_of_intent(
+    env: PlanEnv, block: PlannedBlock, intent: Any, now: str, writes: list[tuple[str, str, dict[str, Any]]]
+) -> None:
+    """DL2 (Codex review F7): a reading block not yet started whose source a later choice
+    took out of reading (Pause, Reference, Let go, Keep, Light touch, "Check once") is
+    ended unread; its minutes are not counted. ``intent`` is the reconcile's view when it
+    read one (else it is read here)."""
+
+    if block.ended_at is None and block.is_reading and block.started_at is None:
+        reading_intent = intent if intent is not None else intent_view(env)
+        extraction = str((block.reading or {}).get("extraction_id") or "")
+        if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
+            writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
+            block.ended_at = now
 
 
 def _path_split_reopens(split: Mapping[str, Any]) -> bool:
@@ -3292,15 +3297,19 @@ def _move_plan_reading(
 
 def _reading_has_history(env: PlanEnv, record: PlanRecord) -> bool:
     """Whether the plan's reading has reading history (C1's invariant): a live reading block
-    (:func:`_live_reading_blocks`) that started, ended (completed, or ended any other way:
-    kept as it is, as RW7b keeps it) or took reading progress (``note_reading_progress``,
+    (:func:`_live_reading_blocks`) that started, ended (completed, or ended any other way
+    but DL2's intent ending of an unread block: kept as it is, as RW7b keeps it) or took
+    reading progress (``note_reading_progress``,
     a prefetched block read in the reader without being started; Codex review fix round 2,
     Medium 4), or progress on the staged reading's section since it was staged (the Library
     read it: its row now differs from the receipt's ``staged_progress`` snapshot; spans
     only grow and a completion stamps once)."""
 
     for block in _live_reading_blocks(record):
-        if block.started_at is not None or block.ended_at is not None or block.reading_progress is not None:
+        if block.started_at is not None or block.reading_progress is not None:
+            return True
+        if block.ended_at is not None and not (block.outcome == "displaced" and block.ended_reason == "intent"):
+            # DL2's intent ending of an unread block is no reading (fix round 3, Medium 1).
             return True
     staged = record.split.get("reading")
     if not isinstance(staged, Mapping):
