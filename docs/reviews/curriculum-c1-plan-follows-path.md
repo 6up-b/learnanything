@@ -119,7 +119,229 @@ the no-deliverable and head-fixture parities and the shadow rebuild.
 
 ## Gate (this step; the full suite runs once at landing)
 
-GATE_PLACEHOLDER
+Run on the stage tip (worktree `learnanything-ad1`), every test command inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, the big run also under
+`flock /tmp/learnloop-fullsuite.lock`:
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| `uv run pytest -n 6` on the 197 targeted files below | **9624 passed, 24 skipped, 3 xfailed, 0 failed** (45 min 52 s) |
+| `tests/test_curriculum_c1_plan_follows_path.py` alone (iteration) | 37 passed |
+| `db_generate_reference.py`, `db_validate_reference.py`, `validate_vault.py` (config changed: one new leaf) | 1078 effective leaves in 75 sections, 357 table notes; **errors []**; vault valid (1166 notes, 1164/1164 reachable). The prose counts in `Configuration.md` and `Database.md` were moved from 1077 to 1078 by hand |
+| `tests/cli_help_snapshot.json` | regenerated (`python tests/test_cli_help_snapshot.py --write` under `env -i`): only `upgrade` moved |
+
+Not run, by the rule: the full suite, the whole durability lane (no migration, DB or connection code changed), vitest,
+`npm run frontend:build` and `cargo check` (no frontend or `src-tauri` change).
+
+The targeted files: every test file that exercises the daily plan (engine, reading, records, the sidecar's plan
+RPCs, RW7b's reading paths), every file pinning the successor chain or the latest version, every deliverable /
+section-coverage file, every file reading the activation journal, the defaults snapshots or the parameter
+registry, and the contract tests (CLI help snapshot, mobile allowlist, desktop RPC contract, architecture,
+table roles, coordinated migrations, tracked fixture databases, E0 isolation, config refactor):
+
+<details><summary>197 files</summary>
+
+- `tests/test_ad1_codex_rereview_fixes.py`
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_migration.py`
+- `tests/test_ad1_outside_and_cli.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r5.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad23_intent_compose.py`
+- `tests/test_ad23_inversion.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_pool_membership.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad2_serving.py`
+- `tests/test_ad3_monitoring.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_relatedness.py`
+- `tests/test_ad3_subject_view.py`
+- `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_ad_denial_log.py`
+- `tests/test_ad_epoch.py`
+- `tests/test_ad_guard_offer_receipts.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_guard_reachable_reads.py`
+- `tests/test_ai_config.py`
+- `tests/test_approach_maps_schema.py`
+- `tests/test_architecture.py`
+- `tests/test_assumed_known.py`
+- `tests/test_attempt_content_state_successor.py`
+- `tests/test_batch3_landing.py`
+- `tests/test_block_chooser_interface.py`
+- `tests/test_cli_help_snapshot.py`
+- `tests/test_cold_retry_reschedule.py`
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_config_refactor.py`
+- `tests/test_constraint_engine.py`
+- `tests/test_coordinated_migrations.py`
+- `tests/test_coverage_on_extract.py`
+- `tests/test_curriculum_c0b_landing.py`
+- `tests/test_curriculum_c1_plan_follows_path.py`
+- `tests/test_daily_plan_admission.py`
+- `tests/test_daily_plan_build.py`
+- `tests/test_daily_plan_composition.py`
+- `tests/test_daily_plan_kill_switch.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_reading.py`
+- `tests/test_daily_plan_reentry.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_daily_plan_review_regressions.py`
+- `tests/test_daily_plan_rpc.py`
+- `tests/test_daily_plan_split.py`
+- `tests/test_deliverable_codex_review.py`
+- `tests/test_deliverable_curriculum_migration.py`
+- `tests/test_deliverable_path.py`
+- `tests/test_deliverable_rpcs.py`
+- `tests/test_deliverable_scope.py`
+- `tests/test_desktop_rpc_contract.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_dl2_rw4b_keyed_pick_check.py`
+- `tests/test_duration_estimates.py`
+- `tests/test_e0_isolation.py`
+- `tests/test_evsi_staged_binding.py`
+- `tests/test_exam_protection_identity.py`
+- `tests/test_exam_protection_landing.py`
+- `tests/test_exam_protection_review.py`
+- `tests/test_field_workbench_signals.py`
+- `tests/test_figures_show_me_codex_review.py`
+- `tests/test_figures_switch_off.py`
+- `tests/test_grading_cli.py`
+- `tests/test_help_assists_schema.py`
+- `tests/test_hint_contracts.py`
+- `tests/test_hint_h2a_review_round2.py`
+- `tests/test_instructional_layering.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_intent_exclusion.py`
+- `tests/test_intent_fix_round4.py`
+- `tests/test_intent_fix_round5.py`
+- `tests/test_intent_fix_round6.py`
+- `tests/test_intent_fix_round7.py`
+- `tests/test_intent_goal_deadline.py`
+- `tests/test_intent_orchestrator_rulings.py`
+- `tests/test_intent_plan.py`
+- `tests/test_intent_recall_targets.py`
+- `tests/test_intent_resolution.py`
+- `tests/test_judge_routes.py`
+- `tests/test_kinship_feature.py`
+- `tests/test_learner_claim_application_migration.py`
+- `tests/test_learner_claim_superseded_migration.py`
+- `tests/test_learner_pick_proposal.py`
+- `tests/test_learner_report_superseded.py`
+- `tests/test_learner_text_gaps_composition.py`
+- `tests/test_library_asks_migration.py`
+- `tests/test_library_exercises.py`
+- `tests/test_lp_claim_fixes.py`
+- `tests/test_lp_claim_fixes_rereview.py`
+- `tests/test_lp_claim_fixes_review.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_tools.py`
+- `tests/test_method_explicit_landing.py`
+- `tests/test_method_explicit_upgrade.py`
+- `tests/test_mobile_allowlist.py`
+- `tests/test_mvp010_upgrade.py`
+- `tests/test_mvp011_upgrade.py`
+- `tests/test_mvp013_upgrade.py`
+- `tests/test_mvp014_upgrade.py`
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_mvp016_upgrade.py`
+- `tests/test_mvp017_upgrade.py`
+- `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
+- `tests/test_mvp022_upgrade.py`
+- `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
+- `tests/test_open_world_gate.py`
+- `tests/test_p0_cutover_mvp08.py`
+- `tests/test_plan_determinism_landing.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_follows_path.py`
+- `tests/test_post_attempt_pipeline.py`
+- `tests/test_pr4_superseded_claims_landing.py`
+- `tests/test_rbeq_pr2_landing.py`
+- `tests/test_reader_ca2_fix_orchestrator.py`
+- `tests/test_reader_ca2_one_ask.py`
+- `tests/test_reader_ca3_landing_ca5a.py`
+- `tests/test_reader_ca4_landing.py`
+- `tests/test_reader_ca4_table_by_point.py`
+- `tests/test_reader_ca5a_find_section.py`
+- `tests/test_reader_intent.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reader_rw3a_landing.py`
+- `tests/test_reader_rw3b_migration.py`
+- `tests/test_reader_rw3b_protection.py`
+- `tests/test_reader_rw4b_admission_idempotency.py`
+- `tests/test_reader_rw4b_fix6.py`
+- `tests/test_reader_rw7a_migration.py`
+- `tests/test_reader_tutor_switch_off.py`
+- `tests/test_reading_paths.py`
+- `tests/test_reading_step_switch.py`
+- `tests/test_rebuild_equivalence_review.py`
+- `tests/test_recurrence_commands.py`
+- `tests/test_reference_gate_imports.py`
+- `tests/test_registry_audit.py`
+- `tests/test_regrade_contract_successor.py`
+- `tests/test_regrade_contract_upgrade.py`
+- `tests/test_required_method_grading.py`
+- `tests/test_reread_safety_landing.py`
+- `tests/test_retrieval_spaces_migration.py`
+- `tests/test_router_card.py`
+- `tests/test_router_g1_feasibility.py`
+- `tests/test_router_g4_restraint.py`
+- `tests/test_router_g7_fallback.py`
+- `tests/test_router_presentations.py`
+- `tests/test_router_r1_composition.py`
+- `tests/test_router_r2a_landing.py`
+- `tests/test_router_r2a_serving.py`
+- `tests/test_router_r2b_agreement.py`
+- `tests/test_router_r2bc_landing.py`
+- `tests/test_router_r2b_requests.py`
+- `tests/test_router_r2b_serving.py`
+- `tests/test_router_r2c_retrieval.py`
+- `tests/test_router_r2c_teach_back.py`
+- `tests/test_route_rules_in_grader.py`
+- `tests/test_router_why_copy.py`
+- `tests/test_rw2c_switch_off.py`
+- `tests/test_rw2d_receipts_migration.py`
+- `tests/test_rw7b_codex_review_fixes.py`
+- `tests/test_rw7b_fix_round2.py`
+- `tests/test_salience_firewall.py`
+- `tests/test_section_coverage_migration.py`
+- `tests/test_section_coverage.py`
+- `tests/test_section_coverage_review.py`
+- `tests/test_section_coverage_rpcs.py`
+- `tests/test_sensitivity_certificates.py`
+- `tests/test_serve_eligibility.py`
+- `tests/test_serve_eligibility_review.py`
+- `tests/test_source_exercise_rpcs.py`
+- `tests/test_source_roles.py`
+- `tests/test_t1_batch_origin_migration.py`
+- `tests/test_table_roles.py`
+- `tests/test_teacher_te0_confidence_events.py`
+- `tests/test_teacher_te0_review_fixes.py`
+- `tests/test_today_headline.py`
+- `tests/test_tracked_fixture_databases.py`
+- `tests/test_ux_phase1_landing.py`
+- `tests/test_ux_phase1_round2_rereview.py`
+- `tests/test_ux_phase1_round2_review.py`
+- `tests/test_ux_phase1_usability_round1.py`
+- `tests/test_ux_phase2_shell.py`
+- `tests/test_ux_phase4_feedback.py`
+- `tests/test_ux_phase4_landing.py`
+- `tests/test_voi_merge_composition.py`
+- `tests/test_voi_stopping.py`
+- `tests/test_voi_v2.py`
+
+</details>
 
 ## Renumbering at landing
 
