@@ -211,6 +211,57 @@ def test_the_card_copy_is_bounded_and_says_what_it_left_out():
     assert "(3 older reader entries left out)" in build_card(_with_section(_inputs(1), many)).text
 
 
+# -- re-review F9: the reader section is inside the card's token budget ---------------------------
+
+
+def _busy(inquiries: int = RR.CARD_LIST_LIMIT) -> dict:
+    words = "w" * (RR.EXCERPT_CHARS - 1)
+    return {**ACTIVITY,
+            "open_inquiries": [{"question_excerpt": f"{i}{words}", "age_days": i, "depth": 3, "exchanges": 9,
+                                "learning_object_ids": ["lo"]} for i in range(inquiries)],
+            "candidate_actions": [{"kind": "continue_reading", "from": "reader_section_progress",
+                                   "label": "2.3 The SVD"}],
+            "narrative": {**ACTIVITY["narrative"], "text": "word " * 120}}
+
+
+@pytest.mark.parametrize("budget", [1_000, 1_500, 2_000])
+def test_the_reader_section_fits_wherever_the_predecessor_card_fits(budget):
+    from tests.test_router_card import _inputs
+
+    inputs = _inputs(3)
+    predecessor = build_card(inputs, token_budget=budget)
+    assert predecessor.tokens <= budget
+    card = build_card(_with_section(inputs, _busy()), token_budget=budget)
+    assert card.tokens <= budget
+    # The predecessor's content is never traded for reader entries.
+    assert card.json["recent_work"] == predecessor.json["recent_work"]
+    assert {key: card.truncation[key] for key in predecessor.truncation} == predecessor.truncation
+
+
+def test_the_budget_trims_reader_entries_deterministically_and_says_so():
+    from tests.test_router_card import _inputs
+
+    inputs = _with_section(_inputs(3), _busy())
+    full = build_card(inputs, token_budget=10**6)
+    assert len(full.json["evidence_sections"]["reader_activity"]["open_inquiries"]) == RR.CARD_LIST_LIMIT
+    budget = full.tokens - 200
+    card = build_card(inputs, token_budget=budget)
+    assert card.tokens <= budget and card == build_card(inputs, token_budget=budget)
+    section = card.json["evidence_sections"]["reader_activity"]
+    kept = section["open_inquiries"]
+    left = section["omitted"]
+    assert sum(left.values()) == card.truncation["dropped_reader_entries"] > 0
+    # The newest inquiries stay (oldest first in the list); the typed card's own record is the section's.
+    assert kept == full.json["evidence_sections"]["reader_activity"]["open_inquiries"][-len(kept):]
+    assert "dropped_reader_entries" not in card.json["truncation"]
+    assert f"({sum(left.values())} older reader entr" in card.text
+    # With no room for any of it, the section goes whole and the card is the predecessor's.
+    bare = build_card(_inputs(3), token_budget=10**6)
+    gone = build_card(inputs, token_budget=bare.tokens)
+    assert gone.json == bare.json and gone.text == bare.text and gone.card_hash == bare.card_hash
+    assert gone.truncation["dropped_reader_section"] == 1
+
+
 def test_the_router_reads_the_section_and_the_kill_switch_restores_the_predecessor(tmp_path, monkeypatch):
     from learnloop.daily_plan.engine import _live_context, decide, get_or_create_today
     from tests.test_router_card import _card_world
