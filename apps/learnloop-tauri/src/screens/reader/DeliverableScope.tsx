@@ -63,6 +63,8 @@ export const SCOPE_COPY = {
   nothingYet: "Nothing resolved yet: say what you need below.",
   subject: "a new topic goes in",
   chooseSubject: "choose a subject…",
+  pastPapers: "on your past papers",
+  pastPapersTitle: "your past papers or problem sets test this topic (LearnLoop read which topics, never their questions)",
 } as const;
 
 /** "For your midterm: 14 topics from your books · 2 not in your library yet". */
@@ -145,6 +147,11 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
         <span key={topic.learningObjectId} data-deliverable-topic={topic.learningObjectId}
           style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
           {topic.title}{topic.phrase ? <span style={{ color: COLOR.textFaint }}> · “{topic.phrase}”</span> : null}
+          {topic.onPastPapers ? (
+            <span data-past-papers title={SCOPE_COPY.pastPapersTitle} style={{ color: COLOR.textFaint }}>
+              {" "}· {SCOPE_COPY.pastPapers}
+            </span>
+          ) : null}
         </span>
       ))}
       {choosing ? (

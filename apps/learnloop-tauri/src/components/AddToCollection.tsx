@@ -20,8 +20,14 @@ const SOURCE_ROLES = [
   "alternate_explanation",
   "problem_set",
   "exam",
-  "notes"
+  "notes",
+  "syllabus"
 ] as const;
+
+// Curriculum C3 (spec §9.1): what a role does, said where it is chosen. A syllabus only
+// scopes your deliverables; given the exam role it would be hidden whole instead.
+export const SYLLABUS_ROLE_HINT =
+  "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)";
 
 function kebab(value: string): string {
   return value
@@ -207,6 +213,9 @@ export function AddToCollectionPanel({
             </span>
             <TermSelect value={role} options={SOURCE_ROLES as unknown as string[]} onChange={setRole} width={200} />
           </div>
+          {role === "syllabus" && (
+            <span data-role-hint="syllabus" style={{ color: COLOR.textFaint, fontSize: 11 }}>{SYLLABUS_ROLE_HINT}</span>
+          )}
 
           {error && <Faint style={{ fontSize: 11, color: COLOR.red }}>{error}</Faint>}
 

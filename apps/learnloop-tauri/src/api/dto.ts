@@ -9562,7 +9562,9 @@ export interface DeliverableScopeDto {
   kind: "exam" | "quest";
   dueAt: string | null;
   depth: ReadingPathDepth | null;
-  topics: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  /** onPastPapers (curriculum C3, present only with curriculum.exam_units_in_scope on): your past papers
+   *  or problem sets test this topic (by its id; their questions are never read). */
+  topics: Array<{ learningObjectId: string; title: string; phrase: string; onPastPapers?: boolean }>;
   unmatched: Array<{ phrase: string; proposedTitle: string; proposedStatement: string; status: "open" | "created" | "declined";
     createdLearningObjectId: string | null }>;
   inputs: Array<{ id: string; kind: string; text: string | null; extractionId: string | null; createdAt: string }>;

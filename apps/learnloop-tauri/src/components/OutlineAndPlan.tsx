@@ -15,7 +15,7 @@ import type {
   StartExtractionRepairInput
 } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermCheckbox, TermSelect } from "./term";
-import { AddToCollectionPanel } from "./AddToCollection";
+import { AddToCollectionPanel, SYLLABUS_ROLE_HINT } from "./AddToCollection";
 import { simpleShell } from "../app/shell";
 import { screenLeavesKey } from "../app/keymap";
 
@@ -31,7 +31,8 @@ const SOURCE_ROLES = [
   "alternate_explanation",
   "problem_set",
   "exam",
-  "notes"
+  "notes",
+  "syllabus"
 ] as const;
 // Roles that carry assessment-only authority: they never define concepts (§4.2).
 const ASSESSMENT_ONLY_ROLES = new Set(["exam", "problem_set"]);
@@ -576,6 +577,9 @@ function RoleControl({
         <Faint style={{ color: COLOR.amber, fontSize: 11 }}>
           assessment-only authority — never defines concepts
         </Faint>
+      )}
+      {effectiveRole === "syllabus" && (
+        <span data-role-hint="syllabus" style={{ color: COLOR.textFaint, fontSize: 11 }}>{SYLLABUS_ROLE_HINT}</span>
       )}
     </div>
   );

@@ -2961,6 +2961,14 @@ class CurriculumConfig(BaseModel):
     re-judged quietly once a day (plan only) and is not followed meanwhile.
     Off, or below the tag: RW7b's plans byte for byte (gate G-C4). Replay
     never reads it.
+
+    C3 (spec §9, §12) adds the ``syllabus`` source role (scope input only:
+    never taught from, never practice, never protected) and
+    ``exam_units_in_scope``: the scope resolver also reads the ids, never the
+    text, of the topics practice-available exam and problem-set units map to
+    ("your past papers test these"); held-out units contribute nothing. Off:
+    C0b's resolution byte for byte. Scoping display and proposals only: no
+    scoring, scheduling, projection or serving change, so no successor.
     """
 
     enabled: bool = True
@@ -2976,6 +2984,9 @@ class CurriculumConfig(BaseModel):
     # C1 (spec §7.6): the plan's reading block follows the nearest active
     # deliverable's fresh path across books (a successor; off: RW7b's plans).
     plan_uses_path: bool = True
+    # C3 (spec §9.2): practice-available exam and problem-set units' LO
+    # mappings (ids only) are a scope-resolution input (off: C0b's prompt).
+    exam_units_in_scope: bool = True
 
 
 class ReaderCorrespondenceConfig(BaseModel):
