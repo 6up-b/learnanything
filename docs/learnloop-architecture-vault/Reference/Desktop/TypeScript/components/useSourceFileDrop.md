@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/useSourceFileDrop.ts"
 source_paths:
   - "apps/learnloop-tauri/src/components/useSourceFileDrop.ts"
-source_commit: "64d39668a1d275c2910f98388ac612ae5391d694"
-source_commit_timestamp: "2026-07-27T19:00:47-05:00"
+source_commit: "70866da1637aa602a71c9e116c898a04ee14e99b"
+source_commit_timestamp: "2026-10-13T22:15:46-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,31 +42,32 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/useSourceFileDrop.ts](../../../../../../apps/learnloop-tauri/src/components/useSourceFileDrop.ts) |
-| Source lines | 105 |
+| Source lines | 121 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `64d39668a1d275c2910f98388ac612ae5391d694` |
-| Commit timestamp | `2026-07-27T19:00:47-05:00` |
+| Source commit | `70866da1637aa602a71c9e116c898a04ee14e99b` |
+| Commit timestamp | `2026-10-13T22:15:46-04:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/NewVaultWizard|src/components/NewVaultWizard.tsx]] → [[Reference/Desktop/TypeScript/components/useSourceFileDrop|src/components/useSourceFileDrop.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/useSourceFileDrop|src/components/useSourceFileDrop.ts]]
 
 ## Public API
 
 - `export function isSupportedSourceFile(path: string): boolean` — function, line 50
 - `export async function pickSourceFile(): Promise<string | null>` — function, line 63
-- `export function useSourceFileDrop(` — function, line 76
+- `export async function pickSourceFiles(): Promise<string[]>` — function, line 78
+- `export function useSourceFileDrop(` — function, line 92
 
 ## Internal implementation anchors
 
-- `const SOURCE_EXTENSIONS = [ ".pdf", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt", ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac" ]` — const, line 6
+- `const SOURCE_EXTENSIONS = [ ".pdf", ".png", ".jpg", ".jpeg", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt", ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac" ]` — const, line 6
 - `type Subscriber =` — type, line 11
 - `const subscribers = new Map<symbol, Subscriber>()` — const, line 18
 - `let unlistenPromise: Promise<UnlistenFn> | null = null` — let, line 19
@@ -77,14 +78,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const supported = event.payload.paths.filter(isSupportedSourceFile)` — const, line 44
 - `const lower = path.toLowerCase()` — const, line 51
 - `const selected = await openDialog(` — const, line 64
-- `const callbackRef = useRef(onDrop)` — const, line 86
-- `const id = Symbol("source-file-drop")` — const, line 90
+- `const selected = await openDialog(` — const, line 79
+- `const callbackRef = useRef(onDrop)` — const, line 102
+- `const id = Symbol("source-file-drop")` — const, line 106
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `pickSourceFiles`, `useSourceFileDrop`; references `pickSourceFiles`, `useSourceFileDrop`
+- [[Reference/Desktop/TypeScript/components/AddSource|src/components/AddSource.tsx]] — import-or-re-export: `pickSourceFiles`; references `pickSourceFiles`
 - [[Reference/Desktop/TypeScript/components/NewVaultWizard|src/components/NewVaultWizard.tsx]] — import-or-re-export: `pickSourceFile`, `useSourceFileDrop`; references `pickSourceFile`, `useSourceFileDrop`
 - [[Reference/Desktop/TypeScript/components/QuickAddDialog|src/components/QuickAddDialog.tsx]] — import-or-re-export: `pickSourceFile`, `useSourceFileDrop`; references `pickSourceFile`, `useSourceFileDrop`
 - [[Reference/Desktop/TypeScript/screens/IngestScreen|src/screens/IngestScreen.tsx]] — import-or-re-export: `useSourceFileDrop`; references `useSourceFileDrop`

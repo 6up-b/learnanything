@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/GoalBanner.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/GoalBanner.tsx"
-source_commit: "4bfee21b99e126a187df694660dbff4f7bb6cbea"
-source_commit_timestamp: "2026-07-27T07:17:49-04:00"
+source_commit: "c7e2a82bdff910f39e41b1493c1144707b8cefe1"
+source_commit_timestamp: "2026-10-25T02:08:38-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -48,8 +48,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `4bfee21b99e126a187df694660dbff4f7bb6cbea` |
-| Commit timestamp | `2026-07-27T07:17:49-04:00` |
+| Source commit | `c7e2a82bdff910f39e41b1493c1144707b8cefe1` |
+| Commit timestamp | `2026-10-25T02:08:38-04:00` |
 
 ## Activation and status evidence
 
@@ -60,6 +60,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
+- `export function statusOf(attainment: number | null):` — function, line 44
 - `export function GoalBanner(` — function, line 129
 
 ## Internal implementation anchors
@@ -70,7 +71,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const d = daysUntil(dueAt)` — const, line 27
 - `function dueTone(dueAt: string | null): string` — function, line 35
 - `const d = daysUntil(dueAt)` — const, line 36
-- `function statusOf(attainment: number | null):` — function, line 44
 - `const f = attainment ?? 0` — const, line 45
 - `function actionOf(label: GoalAtRiskFacetDto["label"]): string` — function, line 51
 - `const pct = (value: number | null | undefined): string` — const, line 57
@@ -142,6 +142,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/components/GoalCard|src/components/GoalCard.tsx]] — import-or-re-export: `GoalBanner`, `statusOf`; references `GoalBanner`, `statusOf`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `GoalBanner`; references `GoalBanner`
 
 ## Dependencies

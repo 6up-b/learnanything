@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx"
-source_commit: "a6c3391bee0c4732249b52d238aa1660b1a3042e"
-source_commit_timestamp: "2026-07-28T01:49:30-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx) |
-| Source lines | 123 |
+| Source lines | 236 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a6c3391bee0c4732249b52d238aa1660b1a3042e` |
-| Commit timestamp | `2026-07-28T01:49:30-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,15 +60,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function DiagnosticReviewScreen(` — function, line 20
+- `export function DiagnosticReviewScreen(` — function, line 31
 
 ## Internal implementation anchors
 
-- `const CONTINUE_LABEL: Record<string, string> =` — const, line 14
-- `const handleContinue = useCallback(async ()` — const, line 52
-- `const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined` — const, line 57
-- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 69
-- `const onKey = (event: KeyboardEvent)` — const, line 83
+- `const CONTINUE_LABEL: Record<string, string> =` — const, line 18
+- `const PLAIN_CONTINUE_LABEL: Record<string, string> =` — const, line 25
+- `const simple = simplePracticeFeedback()` — const, line 68
+- `const sharedFix = onOpenRepair ? blockEnd.releasedFeedback.find((entry)` — const, line 71
+- `const handleContinue = useCallback(async ()` — const, line 75
+- `const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined` — const, line 80
+- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 92
+- `const runNextStep = useCallback(()` — const, line 105
+- `const onKey = (event: KeyboardEvent)` — const, line 114
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 117
+- `const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : PLAIN_CONTINUE_LABEL[blockEnd.route ?? ""] ?? "Continue"` — const, line 143
+- `const verdict = verdictOf(` — const, line 153
 
 ## Who imports or calls it
 
@@ -83,9 +90,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `GuidedRedoDto`, `ProbeBlockEndDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
+- [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
+- [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `DetailsToggle`, `PrimaryAction`, `quietLine`
 - [[Reference/Desktop/TypeScript/components/ProbeBlockResult|src/components/ProbeBlockResult.tsx]] — import-or-re-export; imports `ProbeBlockResult`
-- [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `KeyBar`
+- [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `KeyBar`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `Card`, `SectionHeader`
+- [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 
 ### Assets, platform, and third-party dependencies
 
@@ -102,6 +113,9 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

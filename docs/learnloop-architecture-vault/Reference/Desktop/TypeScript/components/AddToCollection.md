@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/AddToCollection.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/AddToCollection.tsx"
-source_commit: "64d39668a1d275c2910f98388ac612ae5391d694"
-source_commit_timestamp: "2026-07-27T19:00:47-05:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddToCollection.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.tsx) |
-| Source lines | 250 |
+| Source lines | 255 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `64d39668a1d275c2910f98388ac612ae5391d694` |
-| Commit timestamp | `2026-07-27T19:00:47-05:00` |
+| Source commit | `542adc8869b3c2d17c359f79a489c4b4b8519192` |
+| Commit timestamp | `2026-10-15T06:29:40-04:00` |
 
 ## Activation and status evidence
 
@@ -66,16 +66,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes" ] as const` — const, line 15
 - `function kebab(value: string): string` — function, line 26
-- `let cancelled = false` — let, line 62
-- `const list = setsSnap.sourceSets ?? []` — const, line 66
-- `const confirm = useCallback(async ()` — const, line 82
-- `const member =` — const, line 87
-- `let payload: SourceSetDto` — let, line 97
-- `let title: string` — let, line 98
-- `const members = [ ...sourceSet.members.filter((m)` — const, line 107
-- `const id = kebab(newName)` — const, line 114
-- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 138
-- `function ModeChip(` — function, line 233
+- `let cancelled = false` — let, line 66
+- `const list = setsSnap.sourceSets ?? []` — const, line 70
+- `const confirm = useCallback(async ()` — const, line 86
+- `const member =` — const, line 91
+- `let payload: SourceSetDto` — let, line 102
+- `let title: string` — let, line 103
+- `const members = [ ...sourceSet.members.filter((m)` — const, line 112
+- `const id = kebab(newName)` — const, line 119
+- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 143
+- `function ModeChip(` — function, line 238
 
 ## Who imports or calls it
 
@@ -105,7 +105,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/components/AddToCollection.test.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/ProbeBlockResult.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/ProbeBlockResult.tsx"
-source_commit: "61ea8d0d1aa6bc4241581ec16263f6514df44332"
-source_commit_timestamp: "2026-08-03T22:04:53-04:00"
+source_commit: "bb022fb4d1bc2fecf3a5cf591d7e5100fce29567"
+source_commit_timestamp: "2026-10-15T16:01:00-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ProbeBlockResult.tsx](../../../../../../apps/learnloop-tauri/src/components/ProbeBlockResult.tsx) |
-| Source lines | 198 |
+| Source lines | 209 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `61ea8d0d1aa6bc4241581ec16263f6514df44332` |
-| Commit timestamp | `2026-08-03T22:04:53-04:00` |
+| Source commit | `bb022fb4d1bc2fecf3a5cf591d7e5100fce29567` |
+| Commit timestamp | `2026-10-15T16:01:00-04:00` |
 
 ## Activation and status evidence
 
@@ -65,10 +65,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `const ROUTE_LABEL: Record<string, string> =` — const, line 21
-- `const startGuidedRedo = async (attemptId: string)` — const, line 58
-- `const redo = await api.startGuidedRedo(attemptId)` — const, line 62
-- `const reportContest = async ( attemptId: string, factorId: string | null, reason: UnresolvedCauseSelfReportResponse, )` — const, line 71
-- `const refreshed = await api.getFeedback(attemptId)` — const, line 87
+- `const startGuidedRedo = async (attemptId: string)` — const, line 63
+- `const redo = await api.startGuidedRedo(attemptId)` — const, line 67
+- `const reportContest = async ( attemptId: string, factorId: string | null, reason: UnresolvedCauseSelfReportResponse, )` — const, line 76
+- `const refreshed = await api.getFeedback(attemptId)` — const, line 92
 
 ## Who imports or calls it
 

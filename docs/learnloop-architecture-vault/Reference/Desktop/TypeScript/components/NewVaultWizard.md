@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/NewVaultWizard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/NewVaultWizard.tsx"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/NewVaultWizard.tsx](../../../../../../apps/learnloop-tauri/src/components/NewVaultWizard.tsx) |
-| Source lines | 941 |
+| Source lines | 943 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,62 +60,62 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function NewVaultWizard(` — function, line 33
+- `export function NewVaultWizard(` — function, line 34
 
 ## Internal implementation anchors
 
-- `const STEP_LABELS = ["vault"]` — const, line 27
-- `function kebabCase(value: string): string` — function, line 29
-- `const fileDragging = useSourceFileDrop(` — const, line 82
-- `async function refreshSubjects()` — function, line 95
-- `const snap = await api.loadVault()` — const, line 97
-- `const list = snap.vault?.subjects ?? []` — const, line 98
-- `async function createVault()` — function, line 106
-- `const trimmed = path.trim()` — const, line 108
-- `const result = await api.createVault(` — const, line 116
-- `async function browseForDirectory()` — function, line 136
-- `const selected = await openDialog(` — const, line 138
-- `async function browseForSource()` — function, line 149
-- `const picked = await pickSourceFile()` — const, line 151
-- `async function addSubject()` — function, line 160
-- `const title = newSubjectTitle.trim()` — const, line 161
-- `const id = kebabCase(title)` — const, line 163
-- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 167
-- `const candidate = source.trim()` — const, line 184
-- `let cancelled = false` — let, line 190
-- `const handle = window.setTimeout(()` — const, line 192
-- `let cancelled = false` — let, line 214
-- `const tick = async ()` — const, line 215
-- `const snap = await api.getProposals()` — const, line 217
-- `const batch = await api.getIngestBatch(bootstrapBatchId)` — const, line 224
-- `const id = window.setInterval(()` — const, line 232
-- `const stepValid = useMemo(()` — const, line 239
-- `const advance = ()` — const, line 244
-- `function finish()` — function, line 258
-- `const onKey = (event: KeyboardEvent)` — const, line 269
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 271
-- `const isInput = tag === "input" || tag === "textarea"` — const, line 272
-- `const primaryLabel = (()` — const, line 286
-- `function StepVault(` — function, line 435
-- `function StepFirstSource(` — function, line 532
-- `const hasSubject = bootstrapSubject !== null && subjects.includes(bootstrapSubject)` — const, line 573
-- `const canBootstrap = source.trim().length > 0 && hasSubject && pageSelectionError(pageSelection) === null` — const, line 574
-- `const sel = s === bootstrapSubject` — const, line 636
-- `function StepProposals(` — function, line 709
-- `function StepGoal(` — function, line 761
-- `function StepLoop()` — function, line 787
-- `function TabRow(` — function, line 830
-- `function CmdRow(` — function, line 839
-- `function Prose(` — function, line 848
-- `function Label(` — function, line 852
-- `const okBox: CSSProperties =` — const, line 860
-- `const backdropStyle: CSSProperties =` — const, line 870
-- `const modalStyle: CSSProperties =` — const, line 882
-- `const headerStyle: CSSProperties =` — const, line 894
-- `const footerStyle: CSSProperties =` — const, line 903
-- `const inputStyle: CSSProperties =` — const, line 912
-- `const primaryBtn: CSSProperties =` — const, line 923
-- `const ghostBtn: CSSProperties =` — const, line 933
+- `const STEP_LABELS = ["vault"]` — const, line 28
+- `function kebabCase(value: string): string` — function, line 30
+- `const fileDragging = useSourceFileDrop(` — const, line 83
+- `async function refreshSubjects()` — function, line 96
+- `const snap = await api.loadVault()` — const, line 98
+- `const list = snap.vault?.subjects ?? []` — const, line 99
+- `async function createVault()` — function, line 107
+- `const trimmed = path.trim()` — const, line 109
+- `const result = await api.createVault(` — const, line 117
+- `async function browseForDirectory()` — function, line 137
+- `const selected = await openDialog(` — const, line 139
+- `async function browseForSource()` — function, line 150
+- `const picked = await pickSourceFile()` — const, line 152
+- `async function addSubject()` — function, line 161
+- `const title = newSubjectTitle.trim()` — const, line 162
+- `const id = kebabCase(title)` — const, line 164
+- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 168
+- `const candidate = source.trim()` — const, line 185
+- `let cancelled = false` — let, line 191
+- `const handle = window.setTimeout(()` — const, line 193
+- `let cancelled = false` — let, line 215
+- `const tick = async ()` — const, line 216
+- `const snap = await api.getProposals()` — const, line 218
+- `const batch = await api.getIngestBatch(bootstrapBatchId)` — const, line 225
+- `const id = window.setInterval(()` — const, line 233
+- `const stepValid = useMemo(()` — const, line 240
+- `const advance = ()` — const, line 245
+- `function finish()` — function, line 259
+- `const onKey = (event: KeyboardEvent)` — const, line 270
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 273
+- `const isInput = tag === "input" || tag === "textarea"` — const, line 274
+- `const primaryLabel = (()` — const, line 288
+- `function StepVault(` — function, line 437
+- `function StepFirstSource(` — function, line 534
+- `const hasSubject = bootstrapSubject !== null && subjects.includes(bootstrapSubject)` — const, line 575
+- `const canBootstrap = source.trim().length > 0 && hasSubject && pageSelectionError(pageSelection) === null` — const, line 576
+- `const sel = s === bootstrapSubject` — const, line 638
+- `function StepProposals(` — function, line 711
+- `function StepGoal(` — function, line 763
+- `function StepLoop()` — function, line 789
+- `function TabRow(` — function, line 832
+- `function CmdRow(` — function, line 841
+- `function Prose(` — function, line 850
+- `function Label(` — function, line 854
+- `const okBox: CSSProperties =` — const, line 862
+- `const backdropStyle: CSSProperties =` — const, line 872
+- `const modalStyle: CSSProperties =` — const, line 884
+- `const headerStyle: CSSProperties =` — const, line 896
+- `const footerStyle: CSSProperties =` — const, line 905
+- `const inputStyle: CSSProperties =` — const, line 914
+- `const primaryBtn: CSSProperties =` — const, line 925
+- `const ghostBtn: CSSProperties =` — const, line 935
 
 ## Who imports or calls it
 
@@ -130,6 +130,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `StartingLevel`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/GoalWizard|src/components/GoalWizard.tsx]] — import-or-re-export; imports `GoalWizard`
 - [[Reference/Desktop/TypeScript/components/PageRangeSelector|src/components/PageRangeSelector.tsx]] — import-or-re-export; imports `PageRangeSelector`, `pageSelectionError`
 - [[Reference/Desktop/TypeScript/components/QuickAddDialog|src/components/QuickAddDialog.tsx]] — import-or-re-export; imports `QuickAddDialog`

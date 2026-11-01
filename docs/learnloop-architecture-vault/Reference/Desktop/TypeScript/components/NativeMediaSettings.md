@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/NativeMediaSettings.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/NativeMediaSettings.tsx"
-source_commit: "df36567be6701733d162bffc27ac2a72c43d872a"
-source_commit_timestamp: "2026-09-03T10:49:58-07:00"
+source_commit: "70866da1637aa602a71c9e116c898a04ee14e99b"
+source_commit_timestamp: "2026-10-13T22:15:46-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/NativeMediaSettings.tsx](../../../../../../apps/learnloop-tauri/src/components/NativeMediaSettings.tsx) |
-| Source lines | 323 |
+| Source lines | 324 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `df36567be6701733d162bffc27ac2a72c43d872a` |
-| Commit timestamp | `2026-09-03T10:49:58-07:00` |
+| Source commit | `70866da1637aa602a71c9e116c898a04ee14e99b` |
+| Commit timestamp | `2026-10-13T22:15:46-04:00` |
 
 ## Activation and status evidence
 
@@ -60,37 +60,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface SettingsStyles` — interface, line 33
-- `export function NativeMediaSettings(` — function, line 66
+- `export interface SettingsStyles` — interface, line 34
+- `export function NativeMediaSettings(` — function, line 67
 
 ## Internal implementation anchors
 
 - `const PDF_ENGINE_OPTIONS: Array<` — const, line 19
-- `const AUDIO_MODE_OPTIONS: Array<` — const, line 26
-- `const CHAT_PROVIDER_TYPES = new Set(["openai_chat", "openrouter"])` — const, line 31
-- `function ReadinessLine(` — function, line 40
-- `function ModalityChips(` — function, line 51
-- `const on = modalities.includes(modality)` — const, line 55
-- `const native = settings.ingest.native` — const, line 83
-- `const pdfState = native.modalities.find((entry)` — const, line 84
-- `const audioState = native.modalities.find((entry)` — const, line 85
-- `const inflightRef = useRef<Set<string>>(new Set())` — const, line 89
-- `const saveIngest = (input: Parameters<typeof api.updateIngestSettings>[0], toast: string)` — const, line 91
-- `const detect = (provider: string, refresh: boolean,` — const, line 103
-- `const applyModalities = (provider: string, inputModalities: string[])` — const, line 119
-- `const routed = [pdfState, audioState].filter( (state): state is NativeModalityStateDto` — const, line 137
-- `const providers = Array.from(new Set(routed.map((state)` — const, line 145
-- `const chatProviders: SettingsProviderDto[] = settings.ai.providers.filter((provider)` — const, line 152
-- `const detectButton = (provider: string)` — const, line 156
-- `const detection = detections[provider.name]` — const, line 251
-- `const detectionCurrent = detection != null && detection.model === provider.model` — const, line 254
-- `const detectedDiffers = detectionCurrent && detection.detected != null && (detection.detected.length !== provider.inputModalities.length || detection.detected.some((m)` — const, line 255
+- `const AUDIO_MODE_OPTIONS: Array<` — const, line 27
+- `const CHAT_PROVIDER_TYPES = new Set(["openai_chat", "openrouter"])` — const, line 32
+- `function ReadinessLine(` — function, line 41
+- `function ModalityChips(` — function, line 52
+- `const on = modalities.includes(modality)` — const, line 56
+- `const native = settings.ingest.native` — const, line 84
+- `const pdfState = native.modalities.find((entry)` — const, line 85
+- `const audioState = native.modalities.find((entry)` — const, line 86
+- `const inflightRef = useRef<Set<string>>(new Set())` — const, line 90
+- `const saveIngest = (input: Parameters<typeof api.updateIngestSettings>[0], toast: string)` — const, line 92
+- `const detect = (provider: string, refresh: boolean,` — const, line 104
+- `const applyModalities = (provider: string, inputModalities: string[])` — const, line 120
+- `const routed = [pdfState, audioState].filter( (state): state is NativeModalityStateDto` — const, line 138
+- `const providers = Array.from(new Set(routed.map((state)` — const, line 146
+- `const chatProviders: SettingsProviderDto[] = settings.ai.providers.filter((provider)` — const, line 153
+- `const detectButton = (provider: string)` — const, line 157
+- `const detection = detections[provider.name]` — const, line 252
+- `const detectionCurrent = detection != null && detection.model === provider.model` — const, line 255
+- `const detectedDiffers = detectionCurrent && detection.detected != null && (detection.detected.length !== provider.inputModalities.length || detection.detected.some((m)` — const, line 256
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/components/ChatGPTPlanSettings|src/components/ChatGPTPlanSettings.tsx]] — import-or-re-export: `SettingsStyles`; references `SettingsStyles`
 - [[Reference/Desktop/TypeScript/screens/SettingsScreen|src/screens/SettingsScreen.tsx]] — import-or-re-export: `NativeMediaSettings`; references `NativeMediaSettings`
 
 ## Dependencies

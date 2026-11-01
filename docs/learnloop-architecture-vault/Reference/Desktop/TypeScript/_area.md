@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
-source_commit: "c369ee23244d6f87e7bc33ef2c6a9bba55aeb982"
-source_commit_timestamp: "2026-09-23T15:38:43-04:00"
+source_commit: "1b846449d64d821865c07709b3d17092db9afe2a"
+source_commit_timestamp: "2026-10-31T22:16:54-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -33,6 +33,7 @@ The React renderer entry point and cross-cutting frontend modules.
 - [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] — Typed DTOs and the renderer-to-Tauri invocation facade.
 - [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] — Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state.
 - [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] — Reusable learner-facing controls and composite interaction surfaces.
+- [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] — Learner-facing copy policy: the jargon deny-list the vitest lints apply, and plain-language ingest error wording.
 - [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] — Deterministic renderer fixtures used to demonstrate or restore known states.
 - [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] — Markdown, mathematics, and live-editor rendering adapters.
 - [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] — Top-level routed workflow screens in the desktop shell.
@@ -41,9 +42,10 @@ The React renderer entry point and cross-cutting frontend modules.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 16 |
+| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 56 |
 | [[Reference/Desktop/TypeScript/main|main.tsx]] | `ACTIVE` | Bootstraps React, applies the persisted palette before first paint, and mounts the desktop application shell. | 1 | 0 |
 | [[Reference/Desktop/TypeScript/queueEvents|queueEvents.ts]] | `ACTIVE` | Provides the in-window event boundary that tells independent surfaces the practice queue changed. | 2 | 5 |
+| [[Reference/Desktop/TypeScript/testNodeShims.d|testNodeShims.d.ts]] | `ACTIVE` | Provides `readFileSync`, `readFileSync`, `writeFileSync`, `readdirSync` and related exports within the desktop's TypeScript ownership area. | 0 | 0 |
 | [[Reference/Desktop/TypeScript/vite-env.d|vite-env.d.ts]] | `ACTIVE` | Adds Vite's ambient client declarations to the TypeScript compilation unit. | 0 | 0 |
 
 ## Modification guidance

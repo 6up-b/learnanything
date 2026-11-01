@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/app"
-source_commit: "c6b42d30ce74596d2623fb91e1672350915d70fc"
-source_commit_timestamp: "2026-09-23T12:06:06-04:00"
+source_commit: "9a3dbdeba182f91164b72d74f67bb3624218c94b"
+source_commit_timestamp: "2026-10-26T19:46:22-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,14 +36,30 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 42 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 71 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 9 |
-| [[Reference/Desktop/TypeScript/app/keyboard|keyboard.ts]] | `ACTIVE` | Centralizes keyboard-target and shortcut guards shared by desktop interactions. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/app/practiceOffer|practiceOffer.ts]] | `ACTIVE` | Provides `PracticeOffer`, `schedulerCandidateForServe` within the desktop's TypeScript/app ownership area. | 0 | 1 |
-| [[Reference/Desktop/TypeScript/app/recentVaults|recentVaults.ts]] | `ACTIVE` | Persists and normalizes the renderer's recent-vault list. | 0 | 2 |
-| [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 25 |
+| [[Reference/Desktop/TypeScript/app/autoAdvance|autoAdvance.ts]] | `ACTIVE` | Provides `todayQueueInput`, `todayQueueKey`, `queueHead`, `NextQueueItem` and related exports within the desktop's TypeScript/app ownership area. | 5 | 4 |
+| [[Reference/Desktop/TypeScript/app/dailyPlan|dailyPlan.ts]] | `ACTIVE` | Provides `aboutMinutes`, `minutesPerDay`, `wholeMinutes`, `dailyPlanKey` and related exports within the desktop's TypeScript/app ownership area. | 5 | 8 |
+| [[Reference/Desktop/TypeScript/app/intentCheck|intentCheck.ts]] | `ACTIVE` | Provides `readerTargetForRestoration` within the desktop's TypeScript/app ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/app/keyScope|keyScope.ts]] | `ACTIVE` | Provides `keyScope` within the desktop's TypeScript/app ownership area. | 1 | 3 |
+| [[Reference/Desktop/TypeScript/app/keyboard|keyboard.ts]] | `ACTIVE` | Centralizes keyboard-target and shortcut guards shared by desktop interactions. | 0 | 4 |
+| [[Reference/Desktop/TypeScript/app/keymap|keymap.ts]] | `ACTIVE` | Provides `KeyAction`, `KeyBinding`, `ADD_FILES_CHORD`, `shellBindings` and related exports within the desktop's TypeScript/app ownership area. | 3 | 46 |
+| [[Reference/Desktop/TypeScript/app/notices|notices.ts]] | `ACTIVE` | Provides `NEEDS_SESSION`, `noticeAfterSessionBegins`, `NoticeCondition`, `ShellNotice` and related exports within the desktop's TypeScript/app ownership area. | 1 | 2 |
+| [[Reference/Desktop/TypeScript/app/planFallback|planFallback.ts]] | `ACTIVE` | Provides `PlanFallbackOffer`, `extractFallbackOffer`, `noteFallbackOffer`, `currentFallbackOffer` and related exports within the desktop's TypeScript/app ownership area. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/app/practiceDraft|practiceDraft.ts]] | `ACTIVE` | Provides `PracticeDraftMirror`, `RestoredPracticeDraft`, `restoredPracticeDraft` within the desktop's TypeScript/app ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/app/practiceFeedback|practiceFeedback.ts]] | `ACTIVE` | Provides `simplePracticeFeedback`, `Verdict`, `VERDICT_TEXT`, `verdictOf` and related exports within the desktop's TypeScript/app ownership area. | 1 | 8 |
+| [[Reference/Desktop/TypeScript/app/practiceOffer|practiceOffer.ts]] | `ACTIVE` | Provides `ProposalOrigin`, `PracticeOffer`, `schedulerCandidateForServe`, `planPresentationForServe` and related exports within the desktop's TypeScript/app ownership area. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/app/readerCheck|readerCheck.ts]] | `ACTIVE` | Provides `ReaderReturn`, `returnsToReader`, `keepReaderReturn`, `readerCheckOffer` within the desktop's TypeScript/app ownership area. | 2 | 2 |
+| [[Reference/Desktop/TypeScript/app/readerWorkbench|readerWorkbench.ts]] | `ACTIVE` | Provides `ReaderWorkbenchOrigin`, `workbenchReturn`, `readerTargetBack`, `sessionAfterWorkbenchSubmit` and related exports within the desktop's TypeScript/app ownership area. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/app/recentVaults|recentVaults.ts]] | `ACTIVE` | Persists and normalizes the renderer's recent-vault list. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/app/shell|shell.ts]] | `ACTIVE` | Provides `ShellMode`, `shellMode`, `simpleShell`, `Place` and related exports within the desktop's TypeScript/app ownership area. | 2 | 11 |
+| [[Reference/Desktop/TypeScript/app/todayPlan|todayPlan.ts]] | `ACTIVE` | Provides `dayPhrase`, `TodayRow`, `onYourOwnItem`, `todayRows` and related exports within the desktop's TypeScript/app ownership area. | 3 | 2 |
+| [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 2 |
+| [[Reference/Desktop/TypeScript/app/useGlobalAdd|useGlobalAdd.ts]] | `ACTIVE` | Provides `looksLikeSource`, `useGlobalAdd` within the desktop's TypeScript/app ownership area. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/app/wrapUpOffer|wrapUpOffer.ts]] | `ACTIVE` | Provides `WrapUpLanding`, `wrapUpOfferArmed` within the desktop's TypeScript/app ownership area. | 0 | 1 |
 
 ## Modification guidance
 

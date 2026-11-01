@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ReviewScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ReviewScreen.tsx"
-source_commit: "6fd60ddcf8feb8dd53c30194b9a24de4b94720dc"
-source_commit_timestamp: "2026-07-26T17:17:50-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReviewScreen.tsx) |
-| Source lines | 816 |
+| Source lines | 818 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `6fd60ddcf8feb8dd53c30194b9a24de4b94720dc` |
-| Commit timestamp | `2026-07-26T17:17:50-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,77 +60,77 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ReviewScreen(` — function, line 424
+- `export function ReviewScreen(` — function, line 425
 
 ## Internal implementation anchors
 
-- `const shortFacet = (facetId: string): string` — const, line 21
-- `const ATTEMPT_OUTCOME_HUES_ENABLED = true` — const, line 24
-- `const ATTEMPT_OUTCOME_HUE_MIX = 0.6` — const, line 25
-- `function attemptOutcomeTone(attempt: KnowledgeHistoryAttempt): string` — function, line 29
-- `const mix = (to: string)` — const, line 31
-- `function fmtDate(iso: string | null): string` — function, line 46
-- `const d = new Date(iso)` — const, line 48
-- `function EventBadge(` — function, line 58
-- `function FacetRef(` — function, line 67
-- `function changelogFacetToneLabel(entry: ReviewChangelogEntryDto): string` — function, line 99
-- `const WITHDRAWAL_REASON_LABEL: Record<BeliefWithdrawalReason, string> =` — const, line 110
-- `function attemptsBySession( changelog: ReviewChangelogEntryDto[], attempts: KnowledgeHistoryAttempt[] ): Record<string, KnowledgeHistoryAttempt[]>` — function, line 117
-- `const sessions = changelog .filter((entry)` — const, line 121
-- `const orderedAttempts = attempts .slice() .sort((left, right)` — const, line 125
-- `const grouped: Record<string, KnowledgeHistoryAttempt[]> =` — const, line 128
-- `let previousEnd = Number.NEGATIVE_INFINITY` — let, line 129
-- `const end = new Date(session.at).getTime()` — const, line 132
-- `const candidates = orderedAttempts.filter((attempt)` — const, line 133
-- `const at = new Date(attempt.t).getTime()` — const, line 134
-- `function ChangelogEntry(` — function, line 145
-- `const isRecalibration = entry.kind === "recalibration"` — const, line 156
-- `const isRegrade = entry.kind === "regrade"` — const, line 157
-- `const isWithdrawal = entry.kind === "belief_withdrawn"` — const, line 158
-- `const moved = entry.predictionsMoved` — const, line 159
-- `const touched = entry.misconceptionsTouched` — const, line 160
-- `const badges: Array<` — const, line 161
-- `const direction = entry.direction ?? "same"` — const, line 187
-- `const markerColor = isRecalibration ? COLOR.textFaint : isRegrade ? COLOR.amber : isWithdrawal ? COLOR.red : COLOR.cyan` — const, line 198
-- `const facetTone = COLOR.textDim` — const, line 205
-- `function statementPairText(hypothesis: WorkingHypothesisDto): string` — function, line 330
-- `const correction = hypothesis.correctionStatement.trim()` — const, line 331
-- `function WorkingHypothesis(` — function, line 340
-- `const claim: ClaimCandidateDto = useMemo(()` — const, line 353
-- `const lastTransition = hypothesis.history[hypothesis.history.length - 1] ?? null` — const, line 364
-- `const returned = hypothesis.history.some((item)` — const, line 365
-- `function InlineStat(` — function, line 402
-- `function SectionIntro(` — function, line 411
-- `const visitId = useRef<string>(mintVisitId())` — const, line 442
-- `let alive = true` — let, line 445
-- `const message = error instanceof Error ? error.message : String(error)` — const, line 452
-- `const onKeyDown = (event: KeyboardEvent)` — const, line 462
-- `let alive = true` — let, line 480
-- `const hypotheses = (log?.workingHypotheses ?? []).filter( (hypothesis)` — const, line 495
-- `const changelog = log?.changelog ?? []` — const, line 498
-- `const movementUp = changelog.reduce((sum, entry)` — const, line 499
-- `const movementDown = changelog.reduce((sum, entry)` — const, line 500
-- `const bodyStyle: CSSProperties =` — const, line 651
-- `const heroStyle: CSSProperties =` — const, line 657
-- `const summaryLineStyle: CSSProperties =` — const, line 663
-- `const summaryContextStyle: CSSProperties =` — const, line 672
-- `const summarySeparatorStyle: CSSProperties =` — const, line 679
-- `const heroTitleStyle: CSSProperties =` — const, line 684
-- `const heroCopyStyle: CSSProperties =` — const, line 693
-- `const contentGridStyle: CSSProperties =` — const, line 701
-- `const ledgerSectionStyle: CSSProperties =` — const, line 705
-- `const eyebrowStyle: CSSProperties =` — const, line 710
-- `const eyebrowInlineStyle: CSSProperties =` — const, line 717
-- `const sectionTitleStyle: CSSProperties =` — const, line 724
-- `const hypothesisStyle: CSSProperties =` — const, line 732
-- `const repairButtonStyle: CSSProperties =` — const, line 740
-- `const facetLinkStyle: CSSProperties =` — const, line 752
-- `const attemptLinkStyle: CSSProperties =` — const, line 762
-- `const timelineStyle: CSSProperties =` — const, line 772
-- `const historyRevealStyle: CSSProperties =` — const, line 777
-- `const timelineEntryStyle: CSSProperties =` — const, line 793
-- `const timelineMarkerStyle: CSSProperties =` — const, line 798
-- `const emptyStateStyle: CSSProperties =` — const, line 809
+- `const shortFacet = (facetId: string): string` — const, line 22
+- `const ATTEMPT_OUTCOME_HUES_ENABLED = true` — const, line 25
+- `const ATTEMPT_OUTCOME_HUE_MIX = 0.6` — const, line 26
+- `function attemptOutcomeTone(attempt: KnowledgeHistoryAttempt): string` — function, line 30
+- `const mix = (to: string)` — const, line 32
+- `function fmtDate(iso: string | null): string` — function, line 47
+- `const d = new Date(iso)` — const, line 49
+- `function EventBadge(` — function, line 59
+- `function FacetRef(` — function, line 68
+- `function changelogFacetToneLabel(entry: ReviewChangelogEntryDto): string` — function, line 100
+- `const WITHDRAWAL_REASON_LABEL: Record<BeliefWithdrawalReason, string> =` — const, line 111
+- `function attemptsBySession( changelog: ReviewChangelogEntryDto[], attempts: KnowledgeHistoryAttempt[] ): Record<string, KnowledgeHistoryAttempt[]>` — function, line 118
+- `const sessions = changelog .filter((entry)` — const, line 122
+- `const orderedAttempts = attempts .slice() .sort((left, right)` — const, line 126
+- `const grouped: Record<string, KnowledgeHistoryAttempt[]> =` — const, line 129
+- `let previousEnd = Number.NEGATIVE_INFINITY` — let, line 130
+- `const end = new Date(session.at).getTime()` — const, line 133
+- `const candidates = orderedAttempts.filter((attempt)` — const, line 134
+- `const at = new Date(attempt.t).getTime()` — const, line 135
+- `function ChangelogEntry(` — function, line 146
+- `const isRecalibration = entry.kind === "recalibration"` — const, line 157
+- `const isRegrade = entry.kind === "regrade"` — const, line 158
+- `const isWithdrawal = entry.kind === "belief_withdrawn"` — const, line 159
+- `const moved = entry.predictionsMoved` — const, line 160
+- `const touched = entry.misconceptionsTouched` — const, line 161
+- `const badges: Array<` — const, line 162
+- `const direction = entry.direction ?? "same"` — const, line 188
+- `const markerColor = isRecalibration ? COLOR.textFaint : isRegrade ? COLOR.amber : isWithdrawal ? COLOR.red : COLOR.cyan` — const, line 199
+- `const facetTone = COLOR.textDim` — const, line 206
+- `function statementPairText(hypothesis: WorkingHypothesisDto): string` — function, line 331
+- `const correction = hypothesis.correctionStatement.trim()` — const, line 332
+- `function WorkingHypothesis(` — function, line 341
+- `const claim: ClaimCandidateDto = useMemo(()` — const, line 354
+- `const lastTransition = hypothesis.history[hypothesis.history.length - 1] ?? null` — const, line 365
+- `const returned = hypothesis.history.some((item)` — const, line 366
+- `function InlineStat(` — function, line 403
+- `function SectionIntro(` — function, line 412
+- `const visitId = useRef<string>(mintVisitId())` — const, line 443
+- `let alive = true` — let, line 446
+- `const message = error instanceof Error ? error.message : String(error)` — const, line 453
+- `const onKeyDown = (event: KeyboardEvent)` — const, line 463
+- `let alive = true` — let, line 482
+- `const hypotheses = (log?.workingHypotheses ?? []).filter( (hypothesis)` — const, line 497
+- `const changelog = log?.changelog ?? []` — const, line 500
+- `const movementUp = changelog.reduce((sum, entry)` — const, line 501
+- `const movementDown = changelog.reduce((sum, entry)` — const, line 502
+- `const bodyStyle: CSSProperties =` — const, line 653
+- `const heroStyle: CSSProperties =` — const, line 659
+- `const summaryLineStyle: CSSProperties =` — const, line 665
+- `const summaryContextStyle: CSSProperties =` — const, line 674
+- `const summarySeparatorStyle: CSSProperties =` — const, line 681
+- `const heroTitleStyle: CSSProperties =` — const, line 686
+- `const heroCopyStyle: CSSProperties =` — const, line 695
+- `const contentGridStyle: CSSProperties =` — const, line 703
+- `const ledgerSectionStyle: CSSProperties =` — const, line 707
+- `const eyebrowStyle: CSSProperties =` — const, line 712
+- `const eyebrowInlineStyle: CSSProperties =` — const, line 719
+- `const sectionTitleStyle: CSSProperties =` — const, line 726
+- `const hypothesisStyle: CSSProperties =` — const, line 734
+- `const repairButtonStyle: CSSProperties =` — const, line 742
+- `const facetLinkStyle: CSSProperties =` — const, line 754
+- `const attemptLinkStyle: CSSProperties =` — const, line 764
+- `const timelineStyle: CSSProperties =` — const, line 774
+- `const historyRevealStyle: CSSProperties =` — const, line 779
+- `const timelineEntryStyle: CSSProperties =` — const, line 795
+- `const timelineMarkerStyle: CSSProperties =` — const, line 800
+- `const emptyStateStyle: CSSProperties =` — const, line 811
 
 ## Who imports or calls it
 
@@ -145,6 +145,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `BeliefWithdrawalReason`, `ClaimCandidateDto`, `KnowledgeHistoryAttempt`, `ReviewChangelogEntryDto`, `ReviewLogDto`, `WorkingHypothesisDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/ClaimSurface|src/components/ClaimSurface.tsx]] — import-or-re-export; imports `ClaimSurface`, `mintVisitId`
 - [[Reference/Desktop/TypeScript/components/CommandOverlayFrame|src/components/CommandOverlayFrame.tsx]] — import-or-re-export; imports `CommandOverlayFrame`
 - [[Reference/Desktop/TypeScript/components/KnowledgeModel|src/components/KnowledgeModel.tsx]] — import-or-re-export; imports `FacetEvidenceDrawer`

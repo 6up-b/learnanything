@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/OpenInSource.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/OpenInSource.tsx"
-source_commit: "a29853775f09f6b504620b1a8b6d5e890161f912"
-source_commit_timestamp: "2026-07-14T17:11:30-04:00"
+source_commit: "997c73beb8d7a90781f5d5de26c7fb292fae7c46"
+source_commit_timestamp: "2026-10-26T02:15:14-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/OpenInSource.tsx](../../../../../../apps/learnloop-tauri/src/components/OpenInSource.tsx) |
-| Source lines | 361 |
+| Source lines | 394 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a29853775f09f6b504620b1a8b6d5e890161f912` |
-| Commit timestamp | `2026-07-14T17:11:30-04:00` |
+| Source commit | `997c73beb8d7a90781f5d5de26c7fb292fae7c46` |
+| Commit timestamp | `2026-10-26T02:15:14-04:00` |
 
 ## Activation and status evidence
 
@@ -60,43 +60,43 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function OpenInSource(` — function, line 11
+- `export function OpenInSource(` — function, line 12
 
 ## Internal implementation anchors
 
-- `const handler = (e: KeyboardEvent)` — const, line 32
-- `let cancelled = false` — let, line 40
-- `const heading = view ? view.sectionPath.length > 0 ? view.sectionPath.join(" › ") : view.blockType : "Open in source"` — const, line 62
-- `const prev = view.previousSpans[view.previousSpans.length - 1]` — const, line 139
-- `const next = view.nextSpans[0]` — const, line 149
-- `function PdfRegion(` — function, line 167
-- `const left = Math.max(0, Math.min(100, (x0 / pageSize[0]) * 100))` — const, line 170
-- `const top = Math.max(0, Math.min(100, (y0 / pageSize[1]) * 100))` — const, line 171
-- `const width = Math.max(0.5, Math.min(100 - left, ((x1 - x0) / pageSize[0]) * 100))` — const, line 172
-- `const height = Math.max(0.5, Math.min(100 - top, ((y1 - y0) / pageSize[1]) * 100))` — const, line 173
-- `function youtubeVideoId(uri: string): string | null` — function, line 198
-- `const url = new URL(uri)` — const, line 200
-- `const host = url.hostname.replace(/^www\./, "")` — const, line 201
-- `const v = url.searchParams.get("v")` — const, line 204
-- `const parts = url.pathname.split("/").filter(Boolean)` — const, line 206
-- `const marker = parts.findIndex((p)` — const, line 207
-- `function timeRange(view: SpanViewDto):` — function, line 218
-- `const raw = (view.locator || "").replace(/^span:(?:[^/]+\/)?/, "")` — const, line 219
-- `const match = /^t=([0-9]+(?:\.[0-9]+)?)-([0-9]+(?:\.[0-9]+)?)$/.exec(raw)` — const, line 220
-- `function fmtTime(seconds: number): string` — function, line 225
-- `const s = Math.max(0, Math.floor(seconds))` — const, line 226
-- `const m = Math.floor(s / 60)` — const, line 227
-- `function YouTubeEmbed(` — function, line 231
-- `const uri = view.canonicalUri as string` — const, line 232
-- `const videoId = youtubeVideoId(uri)` — const, line 233
-- `const src = `https://www.youtube-nocookie.com/embed/$` — const, line 247
-- `function NeighborList(` — function, line 282
-- `const backdropStyle: CSSProperties =` — const, line 303
-- `const panelStyle: CSSProperties =` — const, line 315
-- `const headerStyle: CSSProperties =` — const, line 327
-- `const pageBoxStyle: CSSProperties =` — const, line 336
-- `const highlightBlockStyle: CSSProperties =` — const, line 344
-- `const navBtn: CSSProperties =` — const, line 354
+- `const handler = (e: KeyboardEvent)` — const, line 42
+- `let cancelled = false` — let, line 56
+- `const heading = view ? view.sectionPath.length > 0 ? view.sectionPath.join(" › ") : view.blockType : "Open in source"` — const, line 78
+- `const prev = view.previousSpans[view.previousSpans.length - 1]` — const, line 172
+- `const next = view.nextSpans[0]` — const, line 182
+- `function PdfRegion(` — function, line 200
+- `const left = Math.max(0, Math.min(100, (x0 / pageSize[0]) * 100))` — const, line 203
+- `const top = Math.max(0, Math.min(100, (y0 / pageSize[1]) * 100))` — const, line 204
+- `const width = Math.max(0.5, Math.min(100 - left, ((x1 - x0) / pageSize[0]) * 100))` — const, line 205
+- `const height = Math.max(0.5, Math.min(100 - top, ((y1 - y0) / pageSize[1]) * 100))` — const, line 206
+- `function youtubeVideoId(uri: string): string | null` — function, line 231
+- `const url = new URL(uri)` — const, line 233
+- `const host = url.hostname.replace(/^www\./, "")` — const, line 234
+- `const v = url.searchParams.get("v")` — const, line 237
+- `const parts = url.pathname.split("/").filter(Boolean)` — const, line 239
+- `const marker = parts.findIndex((p)` — const, line 240
+- `function timeRange(view: SpanViewDto):` — function, line 251
+- `const raw = (view.locator || "").replace(/^span:(?:[^/]+\/)?/, "")` — const, line 252
+- `const match = /^t=([0-9]+(?:\.[0-9]+)?)-([0-9]+(?:\.[0-9]+)?)$/.exec(raw)` — const, line 253
+- `function fmtTime(seconds: number): string` — function, line 258
+- `const s = Math.max(0, Math.floor(seconds))` — const, line 259
+- `const m = Math.floor(s / 60)` — const, line 260
+- `function YouTubeEmbed(` — function, line 264
+- `const uri = view.canonicalUri as string` — const, line 265
+- `const videoId = youtubeVideoId(uri)` — const, line 266
+- `const src = `https://www.youtube-nocookie.com/embed/$` — const, line 280
+- `function NeighborList(` — function, line 315
+- `const backdropStyle: CSSProperties =` — const, line 336
+- `const panelStyle: CSSProperties =` — const, line 348
+- `const headerStyle: CSSProperties =` — const, line 360
+- `const pageBoxStyle: CSSProperties =` — const, line 369
+- `const highlightBlockStyle: CSSProperties =` — const, line 377
+- `const navBtn: CSSProperties =` — const, line 387
 
 ## Who imports or calls it
 
@@ -104,10 +104,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
+- [[Reference/Desktop/TypeScript/components/AsPrinted|src/components/AsPrinted.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
 - [[Reference/Desktop/TypeScript/components/QuestionQueue|src/components/QuestionQueue.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
 - [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|src/screens/MaintenanceScreen.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
+- [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
 - [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `OpenInSource`; references `OpenInSource`
 
 ## Dependencies
 
@@ -115,6 +118,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SpanNeighborDto`, `SpanViewDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`
 
 ### Assets, platform, and third-party dependencies

@@ -79,6 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `selectWithDraftFlush`; references `selectWithDraftFlush`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `registerVaultDraft`; references `registerVaultDraft`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `registerVaultDraft`; references `registerVaultDraft`
 
 ## Dependencies
 

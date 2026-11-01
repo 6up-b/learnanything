@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/CausalAttribution.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/CausalAttribution.tsx"
-source_commit: "d0f25b2598a77dcc5236118dad9e1af2422d8682"
-source_commit_timestamp: "2026-08-16T20:45:34-04:00"
+source_commit: "532ecbbfed954328985c23876cf3a514c90ae604"
+source_commit_timestamp: "2026-10-16T04:53:33-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/CausalAttribution.tsx](../../../../../../apps/learnloop-tauri/src/components/CausalAttribution.tsx) |
-| Source lines | 1286 |
+| Source lines | 1288 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d0f25b2598a77dcc5236118dad9e1af2422d8682` |
-| Commit timestamp | `2026-08-16T20:45:34-04:00` |
+| Source commit | `532ecbbfed954328985c23876cf3a514c90ae604` |
+| Commit timestamp | `2026-10-16T04:53:33-04:00` |
 
 ## Activation and status evidence
 
@@ -62,10 +62,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export function formatCausalTarget(ref: CausalTargetRefDto | null | undefined): string` — function, line 38
 - `export function formatDivergenceAnchor( anchor: CausalDivergenceAnchorDto | null | undefined, ): string` — function, line 53
-- `export function CausalRepairStatusPanel(` — function, line 374
-- `export function useCausalRepairActions(` — function, line 490
-- `export function CausalFeedbackPanel(` — function, line 569
-- `export function CausalEpisodeInspector(` — function, line 910
+- `export function CausalRepairStatusPanel(` — function, line 376
+- `export function useCausalRepairActions(` — function, line 492
+- `export function CausalFeedbackPanel(` — function, line 571
+- `export function CausalEpisodeInspector(` — function, line 912
 
 ## Internal implementation anchors
 
@@ -96,58 +96,58 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const REPAIR_STATUS_PILL: Record<CausalRepairStatusState, string> =` — const, line 343
 - `const REPAIR_STATUS_HEADING: Record<CausalRepairStatusState, string> =` — const, line 351
 - `const PROBE_OFFER_COPY: Record<string, string> =` — const, line 361
-- `function probeOfferCopy(reason: string): string` — function, line 370
-- `const tone = REPAIR_STATUS_TONE[status.status] ?? "slate"` — const, line 388
-- `const busy = pendingActionId != null` — const, line 389
-- `const pendingChecks = status.pendingMachineCheckIds.length` — const, line 390
-- `const primary = action.id === "take_quick_check"` — const, line 450
-- `const color = primary ? COLOR.cyan : COLOR.amber` — const, line 451
-- `const runAction = useCallback( (actionId: CausalRepairActionId, status: CausalRepairStatusDto)` — const, line 505
-- `const factorId = status.factorId` — const, line 507
-- `const refresh = ()` — const, line 511
-- `const done = ()` — const, line 515
-- `const fail = (error: unknown)` — const, line 516
-- `const offer = result.offer` — const, line 529
-- `const graderFeedback = feedback.unverified.filter( (claim)` — const, line 597
-- `const nonHypothesisUnverified = feedback.unverified.filter( (claim)` — const, line 600
-- `const correctionRemainsUnverified = graderFeedback.length > 0 && feedback.verifiedCorrection === null` — const, line 603
-- `const hasUnverifiedClaims = nonHypothesisUnverified.length > 0 || feedback.causalHypotheses.length > 0 || correctionRemainsUnverified` — const, line 605
-- `const canContest = Boolean(feedback.contestAction.available && onContest)` — const, line 609
-- `const statement = claim.statement?.trim()` — const, line 628
-- `const statement = claim.statement?.trim()` — const, line 733
-- `function AuditRow(` — function, line 877
-- `function observedEvidence(hypothesis: CausalHypothesisDto): string | null` — function, line 895
-- `const value = hypothesis.evidence?.observedEvidence` — const, line 896
-- `function recordString(record: Record<string, unknown> | null, key: string): string | null` — function, line 900
-- `const value = record?.[key]` — const, line 901
-- `function recordNumber(record: Record<string, unknown> | null, key: string): number | null` — function, line 905
-- `const value = record?.[key]` — const, line 906
-- `const receipt = episode?.receipt` — const, line 911
-- `const hypothesisById = new Map( (episode?.hypotheses ?? []).map((hypothesis)` — const, line 920
-- `const axesById = new Map(receipt.attributionAxes.map((axis)` — const, line 923
-- `const orderedRefs = [...receipt.hypotheses].sort((left, right)` — const, line 924
-- `const leftRank = receipt.ordinalRanking.indexOf(left.id)` — const, line 925
-- `const rightRank = receipt.ordinalRanking.indexOf(right.id)` — const, line 926
-- `const selected = receipt.repairSelection.selected` — const, line 930
-- `const legacyTaxonomy = receipt.mechanismTaxonomy ??` — const, line 931
-- `const taxonomyClusters = Array.isArray(legacyTaxonomy.clusters) ? legacyTaxonomy.clusters : []` — const, line 932
-- `const taxonomyAbstained = Array.isArray(legacyTaxonomy.abstained) ? legacyTaxonomy.abstained : []` — const, line 935
-- `const tone = criterion.fullCredit ? COLOR.green : criterion.assessable ? COLOR.red : COLOR.textFaint` — const, line 960
-- `const mark = criterion.fullCredit ? "✓" : criterion.assessable ? "✗" : "·"` — const, line 961
-- `const hypothesis = hypothesisById.get(ref.id)` — const, line 1000
-- `const axis = axesById.get(ref.id)` — const, line 1002
-- `const support = receipt.supportScores[ref.id]` — const, line 1003
-- `const evidence = observedEvidence(hypothesis)` — const, line 1004
-- `const errorType = recordString(hypothesis.evidence, "errorType")` — const, line 1005
-- `const severity = recordNumber(hypothesis.evidence, "severity")` — const, line 1006
-- `const observedSignature = recordString(hypothesis.evidence, "observedSignature")` — const, line 1007
-- `const preregisteredSignature = recordString( hypothesis.evidence, "preregisteredSignature", )` — const, line 1008
-- `const applicabilitySurface = recordString(hypothesis.applicability, "surfaceFamily")` — const, line 1012
-- `const criterion = typeof claim.criterionId === "string" ? claim.criterionId : null` — const, line 1063
-- `const must = typeof claim.must === "string" ? humanize(claim.must) : null` — const, line 1065
-- `const cluster = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1233
-- `const group = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1252
-- `function AuditMetric(` — function, line 1279
+- `function probeOfferCopy(reason: string): string` — function, line 372
+- `const tone = REPAIR_STATUS_TONE[status.status] ?? "slate"` — const, line 390
+- `const busy = pendingActionId != null` — const, line 391
+- `const pendingChecks = status.pendingMachineCheckIds.length` — const, line 392
+- `const primary = action.id === "take_quick_check"` — const, line 452
+- `const color = primary ? COLOR.cyan : COLOR.amber` — const, line 453
+- `const runAction = useCallback( (actionId: CausalRepairActionId, status: CausalRepairStatusDto)` — const, line 507
+- `const factorId = status.factorId` — const, line 509
+- `const refresh = ()` — const, line 513
+- `const done = ()` — const, line 517
+- `const fail = (error: unknown)` — const, line 518
+- `const offer = result.offer` — const, line 531
+- `const graderFeedback = feedback.unverified.filter( (claim)` — const, line 599
+- `const nonHypothesisUnverified = feedback.unverified.filter( (claim)` — const, line 602
+- `const correctionRemainsUnverified = graderFeedback.length > 0 && feedback.verifiedCorrection === null` — const, line 605
+- `const hasUnverifiedClaims = nonHypothesisUnverified.length > 0 || feedback.causalHypotheses.length > 0 || correctionRemainsUnverified` — const, line 607
+- `const canContest = Boolean(feedback.contestAction.available && onContest)` — const, line 611
+- `const statement = claim.statement?.trim()` — const, line 630
+- `const statement = claim.statement?.trim()` — const, line 735
+- `function AuditRow(` — function, line 879
+- `function observedEvidence(hypothesis: CausalHypothesisDto): string | null` — function, line 897
+- `const value = hypothesis.evidence?.observedEvidence` — const, line 898
+- `function recordString(record: Record<string, unknown> | null, key: string): string | null` — function, line 902
+- `const value = record?.[key]` — const, line 903
+- `function recordNumber(record: Record<string, unknown> | null, key: string): number | null` — function, line 907
+- `const value = record?.[key]` — const, line 908
+- `const receipt = episode?.receipt` — const, line 913
+- `const hypothesisById = new Map( (episode?.hypotheses ?? []).map((hypothesis)` — const, line 922
+- `const axesById = new Map(receipt.attributionAxes.map((axis)` — const, line 925
+- `const orderedRefs = [...receipt.hypotheses].sort((left, right)` — const, line 926
+- `const leftRank = receipt.ordinalRanking.indexOf(left.id)` — const, line 927
+- `const rightRank = receipt.ordinalRanking.indexOf(right.id)` — const, line 928
+- `const selected = receipt.repairSelection.selected` — const, line 932
+- `const legacyTaxonomy = receipt.mechanismTaxonomy ??` — const, line 933
+- `const taxonomyClusters = Array.isArray(legacyTaxonomy.clusters) ? legacyTaxonomy.clusters : []` — const, line 934
+- `const taxonomyAbstained = Array.isArray(legacyTaxonomy.abstained) ? legacyTaxonomy.abstained : []` — const, line 937
+- `const tone = criterion.fullCredit ? COLOR.green : criterion.assessable ? COLOR.red : COLOR.textFaint` — const, line 962
+- `const mark = criterion.fullCredit ? "✓" : criterion.assessable ? "✗" : "·"` — const, line 963
+- `const hypothesis = hypothesisById.get(ref.id)` — const, line 1002
+- `const axis = axesById.get(ref.id)` — const, line 1004
+- `const support = receipt.supportScores[ref.id]` — const, line 1005
+- `const evidence = observedEvidence(hypothesis)` — const, line 1006
+- `const errorType = recordString(hypothesis.evidence, "errorType")` — const, line 1007
+- `const severity = recordNumber(hypothesis.evidence, "severity")` — const, line 1008
+- `const observedSignature = recordString(hypothesis.evidence, "observedSignature")` — const, line 1009
+- `const preregisteredSignature = recordString( hypothesis.evidence, "preregisteredSignature", )` — const, line 1010
+- `const applicabilitySurface = recordString(hypothesis.applicability, "surfaceFamily")` — const, line 1014
+- `const criterion = typeof claim.criterionId === "string" ? claim.criterionId : null` — const, line 1065
+- `const must = typeof claim.must === "string" ? humanize(claim.must) : null` — const, line 1067
+- `const cluster = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1235
+- `const group = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1254
+- `function AuditMetric(` — function, line 1281
 
 ## Who imports or calls it
 

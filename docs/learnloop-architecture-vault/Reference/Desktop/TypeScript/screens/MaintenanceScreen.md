@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx"
-source_commit: "8afe46254010114346f91d8643dc3ff29d8d8fe2"
-source_commit_timestamp: "2026-09-03T10:56:04-07:00"
+source_commit: "ee3cae01929e97d4c888f5ea2e53649536433b72"
+source_commit_timestamp: "2026-10-25T17:37:48-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/MaintenanceScreen.tsx) |
-| Source lines | 1297 |
+| Source lines | 1419 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8afe46254010114346f91d8643dc3ff29d8d8fe2` |
-| Commit timestamp | `2026-09-03T10:56:04-07:00` |
+| Source commit | `ee3cae01929e97d4c888f5ea2e53649536433b72` |
+| Commit timestamp | `2026-10-25T17:37:48-04:00` |
 
 ## Activation and status evidence
 
@@ -60,85 +60,94 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function MaintenanceScreen(` — function, line 72
+- `export function MaintenanceScreen(` — function, line 73
+- `export function TranscriptionReportCard(` — function, line 1329
 
 ## Internal implementation anchors
 
-- `function spanIdFromLocator(locator: string | null): string | null` — function, line 36
-- `const SEVERITY_PILL: Record<MaintenanceSeverity, PillColor> =` — const, line 40
-- `const RESOLUTION_KINDS:` — const, line 46
-- `const panel: CSSProperties =` — const, line 53
-- `const btn: CSSProperties =` — const, line 61
-- `const feedQuery = useCachedQuery(["maintenance_feed", subjectId], ()` — const, line 91
-- `const conflictsQuery = useCachedQuery(["list_source_conflicts", "open"], ()` — const, line 94
-- `const readinessQuery = useCachedQuery(["exam_readiness", subjectId], ()` — const, line 97
-- `const sourceSetsQuery = useCachedQuery(["list_source_sets"], ()` — const, line 100
-- `const healthQuery = useCachedQuery(["get_measurement_health"], ()` — const, line 101
-- `const adjudicationQuery = useCachedQuery(["adjudication_queue",` — const, line 104
-- `const notices: MaintenanceNoticeDto[] = feedQuery.data?.notices ?? []` — const, line 107
-- `const conflicts: SourceConflictDto[] = conflictsQuery.data?.conflicts ?? []` — const, line 108
-- `const readiness: ExamReadinessReportDto | null = readinessQuery.data?.report ?? null` — const, line 109
-- `const sourceSets: SourceSetSummaryDto[] = sourceSetsQuery.data?.sourceSets ?? []` — const, line 110
-- `const measurementHealth: MeasurementHealthDto | null = healthQuery.data ?? null` — const, line 111
-- `const adjudicationOwed: number | null = adjudicationQuery.data?.total ?? null` — const, line 113
-- `const reportError = useCallback( (err: unknown)` — const, line 125
-- `const reload = ()` — const, line 131
-- `const loadError = feedQuery.error ?? conflictsQuery.error ?? readinessQuery.error ?? sourceSetsQuery.error ?? healthQuery.error` — const, line 142
-- `const noticeAction = async (notice: MaintenanceNoticeDto, action: "dismiss" | "snooze")` — const, line 148
-- `const resolveDirection = async ( edgeId: string, resolution: EdgeDirectionResolution, rationale: string )` — const, line 156
-- `const runAppend = async (sourceSetId: string)` — const, line 168
-- `const res = await api.appendSource(` — const, line 172
-- `const resolve = async (conflict: SourceConflictDto, kind: ConflictResolutionKind)` — const, line 181
-- `let resolution: Record<string, unknown> =` — let, line 183
-- `const canonical = window.prompt("Canonical notation?") ?? ""` — const, line 185
-- `const alternate = window.prompt("Alternate notation?") ?? ""` — const, line 186
-- `const bySeverity = (sev: MaintenanceSeverity)` — const, line 196
-- `const scheduleColdProbes = async ()` — const, line 198
-- `const transitionProbe = async (candidateId: string, toStatus: string)` — const, line 209
-- `const needsReviewer = toStatus === "reviewed" || toStatus === "rejected"` — const, line 210
-- `const reviewer = needsReviewer ? window.prompt("Reviewer name?")?.trim() : null` — const, line 211
-- `const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null` — const, line 213
-- `const generateCommissioningPractice = async ()` — const, line 225
-- `const result = await api.generateCommissioningPractice(` — const, line 233
-- `const applyIntegrationBackfill = async ()` — const, line 242
-- `const confirmed = window.confirm( "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary." )` — const, line 243
-- `function metricValue(metric: MeasurementHealthDto["scoreboard"]["metrics"][number]): string` — function, line 459
-- `function MeasurementHealthPanel(` — function, line 465
-- `const reach = health.reachability.summary` — const, line 492
-- `const inference = health.inferencePrecheck.summary` — const, line 493
-- `const cold = health.coldProbes.coverage` — const, line 494
-- `const backfill = health.integrationBackfill.summary` — const, line 495
-- `const backfillChanges = (backfill.dispositions.DROP ?? 0) + (backfill.dispositions.LOWER ?? 0)` — const, line 496
-- `const queue = health.reachability.cells.filter((cell)` — const, line 498
-- `const nextStatus = (status: string): string | null` — const, line 499
-- `const next = nextStatus(candidate.status)` — const, line 736
-- `function TraceEvidenceBlock(` — function, line 768
-- `const t = traceEvidence` — const, line 773
-- `function InstrumentAuditBlock(` — function, line 828
-- `const hunts = audit.errorHuntOutcomes` — const, line 829
-- `const coverage = audit.discriminationProfileCoverage` — const, line 830
-- `const ladders = audit.ladderedStems.filter((stem)` — const, line 831
-- `const commissioning = audit.contrastPairCommissioning.summary` — const, line 832
-- `function ClarificationRateBlock(` — function, line 980
-- `const c = clarificationRate` — const, line 985
-- `function ConflictSide(` — function, line 1023
-- `const spanId = spanIdFromLocator(locator)` — const, line 1038
-- `const openable = extractionId != null && spanId != null` — const, line 1039
-- `function StudyMapDiffView(` — function, line 1056
-- `const diff = append.studyMapDiff` — const, line 1057
-- `const th: CSSProperties =` — const, line 1103
-- `const td: CSSProperties =` — const, line 1104
-- `const DIRECTION_ACTIONS:` — const, line 1108
-- `const REASON_COPY: Record<AmbiguousEdgeDirectionDetail["reason"], string> =` — const, line 1115
-- `function AmbiguousEdgeCard(` — function, line 1121
-- `const detail = notice.detail as unknown as AmbiguousEdgeDirectionDetail | null` — const, line 1130
-- `const edgeId = detail?.edgeId ?? (notice.action.edgeId as string | null | undefined) ?? null` — const, line 1133
-- `const evidence = detail?.evidence ?? null` — const, line 1134
-- `const src = detail.sourceConcept` — const, line 1138
-- `const tgt = detail.targetConcept` — const, line 1139
-- `function ConceptRef(` — function, line 1240
-- `function RestructureRequestCard(` — function, line 1261
-- `const detail = notice.detail as unknown as RestructureRequestDetail | null` — const, line 1268
+- `function spanIdFromLocator(locator: string | null): string | null` — function, line 37
+- `const SEVERITY_PILL: Record<MaintenanceSeverity, PillColor> =` — const, line 41
+- `const RESOLUTION_KINDS:` — const, line 47
+- `const panel: CSSProperties =` — const, line 54
+- `const btn: CSSProperties =` — const, line 62
+- `const feedQuery = useCachedQuery(["maintenance_feed", subjectId], ()` — const, line 92
+- `const conflictsQuery = useCachedQuery(["list_source_conflicts", "open"], ()` — const, line 95
+- `const readinessQuery = useCachedQuery(["exam_readiness", subjectId], ()` — const, line 98
+- `const sourceSetsQuery = useCachedQuery(["list_source_sets"], ()` — const, line 101
+- `const healthQuery = useCachedQuery(["get_measurement_health"], ()` — const, line 102
+- `const adjudicationQuery = useCachedQuery(["adjudication_queue",` — const, line 105
+- `const notices: MaintenanceNoticeDto[] = feedQuery.data?.notices ?? []` — const, line 108
+- `const conflicts: SourceConflictDto[] = conflictsQuery.data?.conflicts ?? []` — const, line 109
+- `const readiness: ExamReadinessReportDto | null = readinessQuery.data?.report ?? null` — const, line 110
+- `const sourceSets: SourceSetSummaryDto[] = sourceSetsQuery.data?.sourceSets ?? []` — const, line 111
+- `const measurementHealth: MeasurementHealthDto | null = healthQuery.data ?? null` — const, line 112
+- `const adjudicationOwed: number | null = adjudicationQuery.data?.total ?? null` — const, line 114
+- `const reportError = useCallback( (err: unknown)` — const, line 126
+- `const reload = ()` — const, line 132
+- `const loadError = feedQuery.error ?? conflictsQuery.error ?? readinessQuery.error ?? sourceSetsQuery.error ?? healthQuery.error` — const, line 143
+- `const noticeAction = async (notice: MaintenanceNoticeDto, action: "dismiss" | "snooze")` — const, line 149
+- `const resolveDirection = async ( edgeId: string, resolution: EdgeDirectionResolution, rationale: string )` — const, line 157
+- `const runAppend = async (sourceSetId: string)` — const, line 169
+- `const res = await api.appendSource(` — const, line 173
+- `const resolve = async (conflict: SourceConflictDto, kind: ConflictResolutionKind)` — const, line 182
+- `let resolution: Record<string, unknown> =` — let, line 184
+- `const canonical = window.prompt("Canonical notation?") ?? ""` — const, line 186
+- `const alternate = window.prompt("Alternate notation?") ?? ""` — const, line 187
+- `const bySeverity = (sev: MaintenanceSeverity)` — const, line 197
+- `const scheduleColdProbes = async ()` — const, line 199
+- `const transitionProbe = async (candidateId: string, toStatus: string)` — const, line 210
+- `const needsReviewer = toStatus === "reviewed" || toStatus === "rejected"` — const, line 211
+- `const reviewer = needsReviewer ? window.prompt("Reviewer name?")?.trim() : null` — const, line 212
+- `const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null` — const, line 214
+- `const generateCommissioningPractice = async ()` — const, line 226
+- `const result = await api.generateCommissioningPractice(` — const, line 234
+- `const applyIntegrationBackfill = async ()` — const, line 243
+- `const confirmed = window.confirm( "Apply the reviewed D3 coordination backfill? This rewrites authored learning-object YAML, rebuilds affected state, and records one learner-visible recalibration boundary." )` — const, line 244
+- `function metricValue(metric: MeasurementHealthDto["scoreboard"]["metrics"][number]): string` — function, line 466
+- `function MeasurementHealthPanel(` — function, line 472
+- `const reach = health.reachability.summary` — const, line 499
+- `const inference = health.inferencePrecheck.summary` — const, line 500
+- `const cold = health.coldProbes.coverage` — const, line 501
+- `const backfill = health.integrationBackfill.summary` — const, line 502
+- `const backfillChanges = (backfill.dispositions.DROP ?? 0) + (backfill.dispositions.LOWER ?? 0)` — const, line 503
+- `const queue = health.reachability.cells.filter((cell)` — const, line 505
+- `const nextStatus = (status: string): string | null` — const, line 506
+- `const next = nextStatus(candidate.status)` — const, line 743
+- `function TraceEvidenceBlock(` — function, line 775
+- `const t = traceEvidence` — const, line 780
+- `function InstrumentAuditBlock(` — function, line 835
+- `const hunts = audit.errorHuntOutcomes` — const, line 836
+- `const coverage = audit.discriminationProfileCoverage` — const, line 837
+- `const ladders = audit.ladderedStems.filter((stem)` — const, line 838
+- `const commissioning = audit.contrastPairCommissioning.summary` — const, line 839
+- `function ClarificationRateBlock(` — function, line 987
+- `const c = clarificationRate` — const, line 992
+- `function ConflictSide(` — function, line 1030
+- `const spanId = resolvedSpanId !== undefined ? resolvedSpanId : spanIdFromLocator(locator)` — const, line 1049
+- `const openable = extractionId != null && spanId != null` — const, line 1050
+- `function StudyMapDiffView(` — function, line 1067
+- `const diff = append.studyMapDiff` — const, line 1068
+- `const th: CSSProperties =` — const, line 1114
+- `const td: CSSProperties =` — const, line 1115
+- `const DIRECTION_ACTIONS:` — const, line 1119
+- `const REASON_COPY: Record<AmbiguousEdgeDirectionDetail["reason"], string> =` — const, line 1126
+- `function AmbiguousEdgeCard(` — function, line 1132
+- `const detail = notice.detail as unknown as AmbiguousEdgeDirectionDetail | null` — const, line 1141
+- `const edgeId = detail?.edgeId ?? (notice.action.edgeId as string | null | undefined) ?? null` — const, line 1144
+- `const evidence = detail?.evidence ?? null` — const, line 1145
+- `const src = detail.sourceConcept` — const, line 1149
+- `const tgt = detail.targetConcept` — const, line 1150
+- `function ConceptRef(` — function, line 1251
+- `function RestructureRequestCard(` — function, line 1272
+- `const detail = notice.detail as unknown as RestructureRequestDetail | null` — const, line 1279
+- `interface TranscriptionReportDetail` — interface, line 1319
+- `const detail = (notice.detail ??` — const, line 1340
+- `const itemId = detail.practiceItemId ?? notice.entityId ?? (notice.action.practiceItemId as string | undefined) ?? null` — const, line 1341
+- `const reports = detail.reports ?? 1` — const, line 1346
+- `const notes = detail.notes ?? []` — const, line 1347
+- `const printed = useAsPrinted(itemId)` — const, line 1348
+- `const save = async ()` — const, line 1349
+- `const prompt = draft.trim()` — const, line 1351
 
 ## Who imports or calls it
 
@@ -155,6 +164,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AmbiguousEdgeDirectionDetail`, `AppendResultDto`, `ConflictResolutionKind`, `EdgeDirectionResolution`, `ExamReadinessReportDto`, `GenerateCommissioningPracticeResult`, `MaintenanceNoticeDto`, `MaintenanceSeverity`, `MeasurementHealthDto`, `RestructureRequestDetail`, `SourceConflictDto`, `SourceSetSummaryDto`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
+- [[Reference/Desktop/TypeScript/components/AsPrinted|src/components/AsPrinted.tsx]] — import-or-re-export; imports `AsPrinted`, `useAsPrinted`
 - [[Reference/Desktop/TypeScript/components/OpenInSource|src/components/OpenInSource.tsx]] — import-or-re-export; imports `OpenInSource`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Dim`, `Divider`, `FONT_MONO`, `Faint`, `Pill`, `PillColor`, `SectionHeader`, `TermSelect`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
@@ -173,6 +183,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/MaintenanceScreen.transcription.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/MaintenanceScreen.transcription.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

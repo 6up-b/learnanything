@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures"
-source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
-source_commit_timestamp: "2026-07-21T13:26:14-04:00"
+source_commit: "cfb103d72ab61860c77b5ddc699d2267a180e772"
+source_commit_timestamp: "2026-10-27T17:57:00-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,7 +36,9 @@ Deterministic renderer fixtures used to demonstrate or restore known states.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
+| [[Reference/Desktop/TypeScript/fixtures/readerIntentContract|readerIntentContract.ts]] | `ACTIVE` | Exposes deterministic `readerIntentContract` fixture data for a reproducible desktop scenario. | 1 | 0 |
 | [[Reference/Desktop/TypeScript/fixtures/readerRenderView|readerRenderView.ts]] | `ACTIVE` | Exposes deterministic `readerRenderView` fixture data for a reproducible desktop scenario. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/fixtures/retryRequests|retryRequests.ts]] | `ACTIVE` | Exposes deterministic `retryRequests` fixture data for a reproducible desktop scenario. | 1 | 0 |
 
 ## Modification guidance
 

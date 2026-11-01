@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/QuickAddDialog.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/QuickAddDialog.tsx"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/QuickAddDialog.tsx](../../../../../../apps/learnloop-tauri/src/components/QuickAddDialog.tsx) |
-| Source lines | 636 |
+| Source lines | 642 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,43 +60,43 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function QuickAddDialog(` — function, line 21
+- `export function QuickAddDialog(` — function, line 23
 
 ## Internal implementation anchors
 
-- `const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"]` — const, line 16
-- `const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 17
-- `const NARROW_ADJUNCT_SCOPE = "Treat this source as a narrow enrichment adjunct. Make only additive changes: attach it to existing curriculum when it fits` — const, line 18
-- `const mountedRef = useRef(true)` — const, line 63
-- `const fileDragging = useSourceFileDrop(` — const, line 64
-- `async function browseForSource()` — function, line 83
-- `const picked = await pickSourceFile()` — const, line 85
-- `const handler = (e: KeyboardEvent)` — const, line 96
-- `const effectiveBrief = (): StudyMapBriefDto` — const, line 106
-- `const enrichmentActive = brief?.authoringPreset === "narrow_adjunct"` — const, line 110
-- `const applyEnrichmentPreset = ()` — const, line 112
-- `const clearEnrichmentPreset = ()` — const, line 124
-- `const next =` — const, line 127
-- `const runPlan = async (rangeIsCurrent = false)` — const, line 137
-- `const res = await api.planQuickAdd(` — const, line 147
-- `const command = getCommandError(err)` — const, line 153
-- `const importThenPlan = async ()` — const, line 164
-- `const batch = await api.startImportBatch(` — const, line 169
-- `const current = await api.getIngestBatch(batch.id)` — const, line 175
-- `const activeJob = current.jobs.find((job)` — const, line 177
-- `const progressStatus = current.status === "running" ? "running" : "queued"` — const, line 179
-- `const failed = current.jobs.find((job)` — const, line 187
-- `const confirmBuild = async ()` — const, line 212
-- `const res = await api.confirmQuickAdd(` — const, line 217
-- `const allConsented = consentTicked.every(Boolean)` — const, line 234
-- `const budgetValid = unlimitedTokenBudget || (inventoryOutputTokens >= 1_000 && inventoryOutputTokens <= 100_000)` — const, line 235
-- `function Label(` — function, line 568
-- `const backdropStyle: CSSProperties =` — const, line 576
-- `const modalStyle: CSSProperties =` — const, line 588
-- `const headerStyle: CSSProperties =` — const, line 600
-- `const footerStyle: CSSProperties =` — const, line 609
-- `const primaryBtn: CSSProperties =` — const, line 618
-- `const ghostBtn: CSSProperties =` — const, line 628
+- `const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"]` — const, line 18
+- `const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 19
+- `const NARROW_ADJUNCT_SCOPE = "Treat this source as a narrow enrichment adjunct. Make only additive changes: attach it to existing curriculum when it fits` — const, line 20
+- `const mountedRef = useRef(true)` — const, line 67
+- `const fileDragging = useSourceFileDrop(` — const, line 68
+- `async function browseForSource()` — function, line 87
+- `const picked = await pickSourceFile()` — const, line 89
+- `const handler = (e: KeyboardEvent)` — const, line 100
+- `const effectiveBrief = (): StudyMapBriefDto` — const, line 111
+- `const enrichmentActive = brief?.authoringPreset === "narrow_adjunct"` — const, line 115
+- `const applyEnrichmentPreset = ()` — const, line 117
+- `const clearEnrichmentPreset = ()` — const, line 129
+- `const next =` — const, line 132
+- `const runPlan = async (rangeIsCurrent = false)` — const, line 142
+- `const res = await api.planQuickAdd(` — const, line 152
+- `const command = getCommandError(err)` — const, line 158
+- `const importThenPlan = async ()` — const, line 169
+- `const batch = await api.startImportBatch(` — const, line 174
+- `const current = await api.getIngestBatch(batch.id)` — const, line 180
+- `const activeJob = current.jobs.find((job)` — const, line 182
+- `const progressStatus = current.status === "running" ? "running" : "queued"` — const, line 184
+- `const failed = current.jobs.find((job)` — const, line 192
+- `const confirmBuild = async ()` — const, line 217
+- `const res = await api.confirmQuickAdd(` — const, line 222
+- `const allConsented = consentTicked.every(Boolean)` — const, line 240
+- `const budgetValid = unlimitedTokenBudget || (inventoryOutputTokens >= 1_000 && inventoryOutputTokens <= 100_000)` — const, line 241
+- `function Label(` — function, line 574
+- `const backdropStyle: CSSProperties =` — const, line 582
+- `const modalStyle: CSSProperties =` — const, line 594
+- `const headerStyle: CSSProperties =` — const, line 606
+- `const footerStyle: CSSProperties =` — const, line 615
+- `const primaryBtn: CSSProperties =` — const, line 624
+- `const ghostBtn: CSSProperties =` — const, line 634
 
 ## Who imports or calls it
 
@@ -104,6 +104,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `QuickAddDialog`; references `QuickAddDialog`
+- [[Reference/Desktop/TypeScript/components/InboxStrip|src/components/InboxStrip.tsx]] — import-or-re-export: `QuickAddDialog`; references `QuickAddDialog`
 - [[Reference/Desktop/TypeScript/components/NewVaultWizard|src/components/NewVaultWizard.tsx]] — import-or-re-export: `QuickAddDialog`; references `QuickAddDialog`
 
 ## Dependencies
@@ -112,9 +113,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `QuickAddPlanDto`, `StudyMapBriefDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|src/components/AsciiLoadingBar.tsx]] — import-or-re-export; imports `AsciiLoadingBar`
 - [[Reference/Desktop/TypeScript/components/PageRangeSelector|src/components/PageRangeSelector.tsx]] — import-or-re-export; imports `PageRangeSelector`, `pageSelectionError`
 - [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|src/components/StudyMapBriefWizard.tsx]] — import-or-re-export; imports `StudyMapBriefWizard`
+- [[Reference/Desktop/TypeScript/components/quickAddConsent|src/components/quickAddConsent.ts]] — import-or-re-export; imports `initialConsentTicks`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `TermCheckbox`, `TermSelect`
 - [[Reference/Desktop/TypeScript/components/useSourceFileDrop|src/components/useSourceFileDrop.ts]] — import-or-re-export; imports `pickSourceFile`, `useSourceFileDrop`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`, `getCommandError`
