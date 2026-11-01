@@ -571,3 +571,73 @@ def test_rebuild_shadow_is_zero_with_a_narrative_present(tmp_path):
     assert result.live_database_unchanged is True
     with repo.connection() as connection:
         assert connection.execute("SELECT * FROM reader_session_digests").fetchall() == digests_before
+
+
+# -- Codex re-review F3: the claim's liveness before the request and at publication --------------
+
+
+def _lapse_and_take_over(repo, digest_id: str) -> None:
+    """The holder's lease lapses (its heartbeat stalled) and another process re-claims it."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores.judgment_claims import CLAIMED, claim_work
+
+    key = RN.claim_key(digest_id)
+    with repo.atomic():
+        connection = repo.connection()
+        connection.execute("UPDATE judgment_work_claims SET lease_expires_at = '2000-01-01T00:00:00+00:00' "
+                           "WHERE claim_key = ?", (key,))
+        status, _epoch = claim_work(connection, claim_key=key, task=RN.CLAIM_TASK, producer=RN.OWNER_KIND,
+                                    prompt_version=None, input_hash="", owner="proc_other:taker",
+                                    now=utc_now_iso(), lease_seconds=120)
+    assert status == CLAIMED
+
+
+def test_a_lease_lost_before_the_request_sends_nothing_and_writes_nothing(tmp_path, monkeypatch):
+    vault, repo, row = _session_with_question(tmp_path)
+    real = RN.build_prompt
+
+    def build_then_lose(*args: Any, **kwargs: Any) -> str:
+        prompt = real(*args, **kwargs)
+        _lapse_and_take_over(repo, row["id"])
+        return prompt
+
+    monkeypatch.setattr(RN, "build_prompt", build_then_lose)
+    client = NarrativeFake()
+    result = RN.narrate_digest(vault, repo, row["id"], client=client, now=_now(), clock=at(300))
+    assert result.status == "claimed"
+    assert client.calls == 0
+    assert _row(repo, row["id"])["prompt_version"] is None
+    assert _verdicts(repo, row["id"]) == []
+
+
+def test_a_lease_lost_during_the_call_never_publishes_and_the_answer_is_not_paid_twice(tmp_path):
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    vault, repo, row = _session_with_question(tmp_path)
+    first = BlockingFake()
+    results: dict[str, Any] = {}
+    worker = threading.Thread(target=lambda: results.update(first=RN.narrate_digest(
+        vault, repo, row["id"], client=first, now=_now(), clock=at(300))))
+    worker.start()
+    try:
+        assert first.entered.wait(30)
+        _lapse_and_take_over(repo, row["id"])
+    finally:
+        first.release.set()
+        worker.join(timeout=30)
+    # The stale holder paid for its answer but holds no lease: it publishes nothing.
+    assert results["first"].status == "claimed" and first.calls == 1
+    assert _row(repo, row["id"])["prompt_version"] is None
+    assert _verdicts(repo, row["id"]) == []
+    # Once the taker's lease is gone, the next holder lands the paid answer from its checkpoint, unasked.
+    with repo.atomic():
+        repo.connection().execute("UPDATE judgment_work_claims SET lease_expires_at = '2000-01-01T00:00:00+00:00' "
+                                  "WHERE claim_key = ?", (RN.claim_key(row["id"]),))
+    later = NarrativeFake(text="A different narrative.")
+    result = RN.narrate_digest(load_vault(vault.root), Repository(repo.sqlite_path), row["id"], client=later,
+                               now=_now(), clock=at(400))
+    assert result.status == "narrated" and later.calls == 0
+    assert _row(repo, row["id"])["narrative_md"] == first.text

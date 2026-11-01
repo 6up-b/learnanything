@@ -16,7 +16,11 @@ with its reasons; a kept one is recorded ``kept``).
 
 * **Once per session.** Before anything is asked, the session's durable
   claim is taken (``judgment_work_claims``, task :data:`CLAIM_TASK`; Codex
-  review F3), so two processes never pay for one narrative. The narrative
+  review F3), so two processes never pay for one narrative; its liveness is
+  re-checked before every request and, under the write lock, at
+  publication (re-review F3), so a worker whose lease lapsed or was taken
+  over neither sends nor publishes (its paid answer is checkpointed for the
+  next holder). The narrative
   is written to the digest row's narrative columns (``narrative_md``, ``cited_event_ids_json``, ``model``,
   ``prompt_version``) by :func:`learnloop.db.stores.reader_digests.set_narrative`;
   ``prompt_version`` marks the session as narrated whether the narrative was
@@ -49,7 +53,7 @@ model.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
@@ -319,11 +323,15 @@ def capped_message(vault: Any) -> str:
 class NarrativeRoute:
     """The narrative's pinned route for one session."""
 
-    def __init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any) -> None:
+    def __init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any,
+                 live: Callable[[], None] | None = None) -> None:
         self.vault = vault
         self.repository = repository
         self.injected = client
         self.envelope = envelope
+        #: Raises when the session's claim is no longer this worker's (Codex
+        #: re-review F3): checked before every attempt's request.
+        self.live = live
         self.route: PaidRoute = plan_route(vault, ROUTE_TASK, client)  # type: ignore[arg-type]
         self.client: Any | None = None
         self.calls: PaidCalls | None = None
@@ -361,8 +369,10 @@ class NarrativeRoute:
             if self.client is None:
                 raise NarrativeUnavailable("unavailable", message or "the narrative model is not ready")
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=self.subscription)
+        live = self.live
         self.calls = PaidCalls(route=self.route, budget=budget, price_per_million=self.price,
-                               repository=self.repository, owner_kind=OWNER_KIND, owner_id=owner_id)
+                               repository=self.repository, owner_kind=OWNER_KIND, owner_id=owner_id,
+                               admit=(lambda _estimate: live()) if live is not None else None)
         with spend_envelopes(self.envelope):
             return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=ReaderDigestNarrativeV1,
                                    output_tokens=self.route.output_tokens,
@@ -429,14 +439,24 @@ def _session_ended(row: Mapping[str, Any], now: datetime) -> bool:
 
 
 def _record(repository: Repository, row: Mapping[str, Any], *, narrative: str | None, cited: Sequence[str],
-            model: str, prompt: str, reasons: Sequence[str], words: int | None, clock: Clock | None) -> bool:
-    """The narrative (or the drop) and its verdict, in one transaction."""
+            model: str, prompt: str, reasons: Sequence[str], words: int | None, clock: Clock | None,
+            claim: Any | None = None) -> bool:
+    """The narrative (or the drop) and its verdict, in one transaction. With
+    ``claim``, only while it is still this worker's live lease (checked under
+    the write lock; Codex re-review F3): otherwise nothing is written and the
+    lease loss is raised. The paid answer stays checkpointed, so the next
+    holder lands it without asking again."""
 
     verdict = "kept" if narrative is not None else "dropped"
     rationale = {"reasons": list(reasons), "cited_event_ids": list(cited), "words": words,
                  "max_words": MAX_WORDS, "narrative_version": NARRATIVE_VERSION, "authority": AUTHORITY}
     with repository.atomic():
         connection = repository.connection()
+        if claim is not None:
+            from learnloop.hints import map_builder as claims
+
+            if not claims._holds(connection, claim):
+                raise claims._LeaseLost("the session's claim lapsed before the narrative was published")
         written = RDG.set_narrative(connection, str(row["id"]), narrative_md=narrative,
                                     cited_event_ids=list(cited) if narrative is not None else None,
                                     model=model, prompt_version=PROMPT_VERSION)
@@ -492,18 +512,32 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
         if fresh is None or fresh.get("prompt_version"):
             result.status = "already"
             return result
-        return _narrate_claimed(vault, repository, row, summary, result, client=client, clock=clock)
+        try:
+            return _narrate_claimed(vault, repository, row, summary, result, claim, client=client, clock=clock)
+        except claims._LeaseLost as exc:
+            # Taken over or lapsed (Codex re-review F3): this worker neither
+            # sends nor publishes any more; the claim's holder narrates.
+            result.status, result.reason = "claimed", str(exc)
+            return result
 
 
 def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any], summary: Mapping[str, Any],
-                     result: NarrativeResult, *, client: Any | None, clock: Clock | None) -> NarrativeResult:
-    """The narration itself, under the session's claim. Publication stays the
-    conditional write (``prompt_version IS NULL``): a writer whose lease
-    lapsed during the call still records what it paid for, and never over
-    another's narrative."""
+                     result: NarrativeResult, claim: Any, *, client: Any | None,
+                     clock: Clock | None) -> NarrativeResult:
+    """The narration itself, under the session's claim (Codex re-review F3).
+    The claim's liveness (owner, epoch, unexpired lease) is checked before
+    every attempt's request and, under the write lock, at publication; a lost
+    claim raises ``_LeaseLost`` and nothing more is sent or written. A paid
+    answer is checkpointed before it returns, so whoever holds the claim next
+    lands it without a second request. Publication also stays the
+    conditional write (``prompt_version IS NULL``): never over another's
+    narrative."""
+
+    from learnloop.hints import map_builder as claims
 
     digest_id = str(row["id"])
-    route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))
+    route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock),
+                           live=lambda: claims._require_live(repository, claim))
     prompt = build_prompt(vault, repository, summary)
     try:
         answer = route.ask(prompt, owner_id=digest_id)
@@ -521,7 +555,7 @@ def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any],
         # Paid for and unusable: dropped, once (never paid for again).
         result.model = route.model
         _record(repository, row, narrative=None, cited=(), model=result.model, prompt=prompt,
-                reasons=[f"invalid_output: {exc}"[:300]], words=None, clock=clock)
+                reasons=[f"invalid_output: {exc}"[:300]], words=None, clock=clock, claim=claim)
         _note(vault, digest_id, None)
         result.status, result.reasons = "dropped", ["invalid_output"]
         return result
@@ -535,11 +569,11 @@ def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any],
     cited = _dedupe(answer.cited_event_ids)
     if reasons:
         _record(repository, row, narrative=None, cited=cited, model=result.model, prompt=prompt, reasons=reasons,
-                words=count_words(text), clock=clock)
+                words=count_words(text), clock=clock, claim=claim)
         result.status, result.reasons = "dropped", reasons
     else:
         _record(repository, row, narrative=text, cited=cited, model=result.model, prompt=prompt, reasons=(),
-                words=count_words(text), clock=clock)
+                words=count_words(text), clock=clock, claim=claim)
         result.status = "narrated"
     _note(vault, digest_id, None)
     return result
