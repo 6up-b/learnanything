@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
-source_commit_timestamp: "2026-10-31T20:05:36-04:00"
+source_commit: "b5fb1d9c9af04ca2345d5411dca7cc1810d8339d"
+source_commit_timestamp: "2026-10-31T21:36:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/hints/report.py"
+  - "src/learnloop/instructional/reader_followups.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
-  - "src/learnloop/workbench/help_outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -113,6 +113,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/hints/report.py`
+- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/workbench/help_outcomes.py`

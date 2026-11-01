@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
-source_commit_timestamp: "2026-10-31T20:05:36-04:00"
+source_commit: "b5fb1d9c9af04ca2345d5411dca7cc1810d8339d"
+source_commit_timestamp: "2026-10-31T21:36:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -23,14 +23,14 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/commitment_arcs.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/intent/control.py"
+  - "src/learnloop/instructional/reader_followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -54,7 +54,7 @@ It belongs to the **curriculum** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/072_commitments.sql`.
-- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`, `217_reader_reading_paths.sql`.
+- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`, `217_reader_reading_paths.sql`, `227_reader_session_digests.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`

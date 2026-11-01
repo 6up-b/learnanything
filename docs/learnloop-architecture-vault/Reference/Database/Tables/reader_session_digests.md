@@ -3,13 +3,13 @@ title: "reader_session_digests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "b5fb1d9c9af04ca2345d5411dca7cc1810d8339d"
+source_commit_timestamp: "2026-10-31T21:36:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_session_digests"
   - "table reader_session_digests"
-schema_head: 227
+schema_head: 228
 table_name: "reader_session_digests"
 table_role: "workflow"
 functionality_status: "active"
@@ -112,6 +112,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_reader_followups.py`
 - `tests/test_reader_followups_review.py`
+- `tests/test_reader_followups_round5.py`
 - `tests/test_reader_followups_successor.py`
 - `tests/test_reader_session_digests_migration.py`
 
