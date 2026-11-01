@@ -135,3 +135,99 @@ TMPDIR in the session scratchpad.
 - Not run, because nothing they cover changed: frontend, cargo, migration,
   durability lane, DB reference scripts (no schema change). No live or paid calls
   were made.
+
+## Re-review
+
+Codex re-review job `20261101-095335-LiBVs6` (gpt-6.1-sol): VERDICT REOPENED.
+Both earlier findings were reopened for remaining gaps. It found no new
+independent defects.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A direct tutor RPC's reuse leaves no persisted question-to-comparison link | fixed | 69cbb0692e | `tests/test_whole_comparison_reuse_provenance.py::test_f1_rereview_a_direct_tutor_reuse_persists_its_question_for_later_readers` (failed before the fix: `withheld_comparisons` returned `frozenset()` after the hold-out); `::test_f1_rereview_a_reuse_for_an_unknown_question_is_not_persisted` |
+| F2 | Medium | One `SyncStream.write` gives every partial send the same timeout | fixed | 8080a4abd9 | `tests/test_chat_total_transport_deadline.py::test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline` (failed before the fix: a 1 s deadline returned after 4.05 s); `::test_f2_rereview_a_prompt_upload_in_partial_sends_completes_unchanged`; the location of `_SYNC_STREAM` is pinned in `::test_f2_the_deadline_is_armed_on_the_sdks_own_http_client` |
+
+### F1: a reuse persists the tutor question it was for
+
+**Reproduction.** A question asked in `ext_book` runs the comparison through the
+tool. A second question is asked at `ext_text:t3`, and the direct
+`compare_sources` RPC is called with `caller {kind: tutor, ref: <that question>}`.
+That call reuses the comparison (one `source_comparisons` row) and shows it,
+because nothing is held out yet. Chapter 5 is then held out. On the old code,
+RW4d's `withheld_comparisons` on the stored id still returned nothing. Nothing
+linked the second question to the comparison, because only a tool run's row
+does that.
+
+**Fix.**
+
+- `source_retrieval/compare.py`: on reuse, a tutor caller's question is added to
+  the stored comparison. This happens unless the comparison was made for that
+  question (`caller_ref`) or the question does not exist. An unknown question
+  would make the shared comparison unresolvable for every later reader. The
+  current call still fails closed on it through the guard, as before.
+- `db/stores/source_service.py`: `add_comparison_reuse_provenance(...,
+  question_event_ids=)` merges the question into
+  `caller_context_json.reuse_question_event_ids` (`REUSE_QUESTIONS_KEY`). The
+  merge is de-duplicated and write-on-change, in the same atomic write as the
+  reuse's pins.
+- `reader/source_objects.py`: `comparison_passages` reads that list the same way
+  it reads `caller_ref`. Every listed question is resolved. A malformed list
+  raises `LookupError`, so the comparison is withheld (fail closed).
+
+This covers all three surfaces, because each one reaches the same reuse branch:
+the direct RPC, `find_sources(compare)`, and the tool run. A tool run already
+has a row for its question, so the extra entry is redundant but harmless. There
+is no schema change: the existing JSON column of a WORKFLOW table holds it. No
+new parameter.
+
+### F2: every partial send is bounded by the deadline's remaining time
+
+**Reproduction.** The regression runs the real adapter, SDK, httpx and httpcore's
+real `SyncStream` over a fake socket. Each `send` accepts 8 bytes and takes
+0.06 s, which is well inside the per-operation timeout. httpcore's `write` loop
+calls `settimeout(timeout)` before every partial send with the value bounded
+once at the start of the write. On the old code, a 1 s deadline returned after
+**4.05 s**, with partial sends running the whole time.
+
+**Fix** (`ai/providers/openai_chat.py`, `_DeadlineNetworkStream.write`).
+
+- For httpcore's plain `SyncStream` (exact type), the deadline stream runs the
+  send loop itself on the stream's socket. That socket is TCP, or TLS directly
+  on it: `SSLSocket.send` does the TLS. The loop recomputes
+  `_bounded(timeout, WriteTimeout)` before every send. No send starts once the
+  deadline has passed. Errors map as httpcore's do: `socket.timeout` to
+  `WriteTimeout`, `OSError` to `WriteError`.
+- For any other stream, the buffer is written one TLS record (16 KiB) at a
+  time, and each piece is bounded afresh. This covers TLS-in-TLS through an
+  HTTPS proxy, whose socket carries the outer TLS and must not be written raw,
+  and test doubles. The piece size is a structural bound (RFC 8449), labelled
+  `keep`, and is not a tuned parameter.
+- Reads were already one bounded operation each. A `SyncStream.read` is one
+  `recv`. CPython's `SSLSocket` read and handshake each run under one internal
+  deadline per call.
+- Residual, out of this finding's scope: inside a TLS-in-TLS read, httpcore
+  loops `recv` under one timeout. A dribbling HTTPS proxy could stretch that one
+  read. The adapter configures no proxy itself.
+- The narration lease (`narration_lease_seconds`) is unchanged. It is now the
+  enforced bound for uploads too.
+
+## Re-review gate (this fix step; the full suite runs once, in the landing gate)
+
+Every pytest command ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`, with
+TMPDIR in the session scratchpad.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted run, `uv run pytest -n 6` on the same 51 files as the first fix round
+  (listed above): **1345 passed, 3 skipped** (154 s). These include the two
+  changed test files, `test_whole_comparison_reuse_provenance` and
+  `test_chat_total_transport_deadline`, and every test file that names the
+  changed functions: `test_compare_sources_keep`,
+  `test_whole_comparison_provenance_surfaces`.
+- `uv run pytest -n 6 --durable-sqlite` on the two whole-comparison files (the
+  changed store write under production pragmas and WAL): **16 passed**.
+- `git diff --check 2eb4bf6e61..HEAD`: clean.
+- Not run, because nothing they cover changed: frontend, cargo, migration,
+  durability lane, DB reference scripts (no schema change). No live or paid calls
+  were made.
