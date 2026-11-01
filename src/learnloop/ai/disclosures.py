@@ -39,6 +39,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("deliverable_path_judge", "llm", "curriculum_path"),
     ("figure_author", "llm", "figures"),
     ("reader_digest", "llm", "reader_digest"),
+    ("note_link_judge", "llm", "notes"),
 )
 
 _WHEN = {
@@ -212,6 +213,14 @@ _WHEN = {
         "and the gaps named from your questions, as ids, kinds and verdicts) with the titles of the topics and "
         "sections it names, so LearnLoop's model can write a short summary of what you did. Nothing you wrote, "
         "no passage text, never material held out for an exam. It never grades you and is never evidence."
+    ),
+    "notes": (
+        "While notes.enabled is on and tend is installed, in the background for each topic on a deliverable's "
+        "path: the topic's title and statement, the opening of its chosen passage, and the text of the notes of "
+        "yours tend found for it (only from the folders in notes.tend.paths), so LearnLoop's model can say which "
+        "notes discuss it. Only on the ChatGPT plan: never OpenRouter, and with the plan down it waits. Only the "
+        "notes it links are kept, in your vault. A note is never a source, never used to write questions and "
+        "never evidence. It never grades you."
     ),
 }
 

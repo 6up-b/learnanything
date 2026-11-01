@@ -72,6 +72,13 @@ os.environ["LEARNLOOP_COVERAGE_MODELS"] = "off"
 # path judge resolves a real client unless the test injected a fake
 # (ctx.deliverable_scope_client / ctx.deliverable_path_client, or the client argument).
 os.environ["LEARNLOOP_CURRICULUM_MODELS"] = "off"
+# Deliverable curriculum C2: the owner's real `tend` (and so the owner's
+# notes) is never reached by a test: the executable is absent unless a test
+# points LEARNLOOP_NOTES_TEND at its fake (tests/notes_fixtures.py), and the
+# note link judge resolves no real client unless a fake is injected
+# (ctx.note_link_client, or the client argument).
+os.environ["LEARNLOOP_NOTES_TEND"] = "off"
+os.environ["LEARNLOOP_NOTE_LINK_MODELS"] = "off"
 # Reader workbench RW5a: no figure route (figure_author) resolves a real
 # client unless the test injected a fake (ctx.figure_author_client, or the
 # service's author_client argument).

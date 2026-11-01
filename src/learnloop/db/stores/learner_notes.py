@@ -122,6 +122,41 @@ def ai_rows_for_state(connection: sqlite3.Connection, learning_object_id: str, s
         "ORDER BY created_at, rowid", (learning_object_id, state_key)))
 
 
+def judged(connection: sqlite3.Connection, task: str, learning_object_id: str, state_key: str) -> bool:
+    """Was this topic's candidate state judged (the model's verdict rows in the ledger)?"""
+
+    return connection.execute(
+        "SELECT 1 FROM judgment_ledger WHERE task = ? AND left_kind = 'learning_object' AND left_id = ? "
+        "AND input_hash = ? AND judge = 'llm' LIMIT 1", (task, learning_object_id, state_key)).fetchone() is not None
+
+
+def latest_states(connection: sqlite3.Connection, task: str, learning_object_ids: Iterable[str]) -> dict[str, str]:
+    """The newest judged state per topic (an older judgment's proposals give way to it)."""
+
+    wanted = sorted({str(lo) for lo in learning_object_ids})
+    if not wanted:
+        return {}
+    out: dict[str, str] = {}
+    for left_id, input_hash in connection.execute(
+            f"SELECT left_id, input_hash FROM judgment_ledger WHERE task = ? AND left_kind = 'learning_object' "
+            f"AND judge = 'llm' AND left_id IN ({','.join('?' for _ in wanted)}) ORDER BY created_at, rowid",
+            (task, *wanted)):
+        out[str(left_id)] = str(input_hash)
+    return out
+
+
+def takes_quoting_notes(connection: sqlite3.Connection, prefix: str) -> int:
+    """RW4d takes written from a note (*use as my take*), counted by their quote's prefix."""
+
+    found = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='source_object_relations'").fetchone()
+    if found is None:
+        return 0
+    return int(connection.execute(
+        "SELECT COUNT(*) FROM source_object_relations WHERE relation_type = 'learner_connects' "
+        "AND substr(COALESCE(learner_text, ''), 1, ?) = ?", (len(prefix), prefix)).fetchone()[0])
+
+
 def link_counts(connection: sqlite3.Connection) -> dict[str, int]:
     """Aggregates for the report: rows by authorship and status (never a note's text)."""
 
@@ -137,6 +172,9 @@ __all__ = [
     "NOTE_COLUMNS",
     "ai_rows_for_state",
     "insert_link",
+    "judged",
+    "latest_states",
+    "takes_quoting_notes",
     "insert_note",
     "latest_note",
     "learner_rows_for",
