@@ -644,9 +644,25 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
     """RW5d P2b (Codex review F9): try a rich build again that ended with no
     row (interrupted when LearnLoop stopped, or stopped with code's reason).
     The same job is requeued (its payload and request identity: a paid answer
-    is recovered, never paid for twice); a cancelled build is not."""
+    is recovered, never paid for twice); a cancelled build is not.
+
+    Codex re-review F14: a correction of an animation whose job stored a
+    failure is asked again instead: the same correction, a new generation
+    (the rich author asked afresh), started here (no author call: it goes
+    straight to the rich job, whose id is answered)."""
 
     vault, repository = _require(ctx)
+    revision = FS.rich_revision_retry(vault, repository, params.rich_job_id)
+    if revision is not None:
+        try:
+            outcome = FS.build_figure(vault, repository, revision,
+                                      author_client=getattr(ctx, "figure_author_client", None),
+                                      live_vault=ctx.loaded_vault, find=getattr(ctx, "figure_find_sources", None),
+                                      spawn_rich=_rich_spawner(ctx, vault))
+        except FS.FigureRefused as exc:
+            raise _refused(exc) from exc
+        started = (outcome.rich or {}).get("rich_job_id") or params.rich_job_id
+        return versioned({"rich_job_id": started, "state": "pending"})
     try:
         code = FS.retry_rich_job(vault, repository, params.rich_job_id)
     except FS.FigureRefused as exc:

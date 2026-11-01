@@ -197,6 +197,86 @@ def test_bounded_run_returns_the_output_tails_and_times_out(tmp_path):
         CA.bounded_run([sys.executable, "-c", "import time; time.sleep(30)"], cwd=str(tmp_path), timeout=0.5)
 
 
+# --- Codex re-review F12: cleanup on Windows (no os.killpg) ---------------------
+
+
+def _as_windows(monkeypatch):
+    """Windows as bounded_run sees it, on this machine: no ``os.killpg``, and
+    the process tree ended by ``taskkill /T`` (recorded here, not run)."""
+
+    import os
+
+    killed: list[int] = []
+    monkeypatch.delattr(os, "killpg", raising=False)
+    monkeypatch.setattr(CA, "_WINDOWS", True, raising=False)
+    monkeypatch.setattr(CA, "_kill_windows_tree", killed.append, raising=False)
+    return killed
+
+
+def _gone(pid: int) -> bool:
+    import os
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+def test_a_timeout_on_windows_ends_the_tree_and_reaps_the_renderer(tmp_path, monkeypatch):
+    """F12: before the fix the timeout cleanup raised AttributeError
+    (``os.killpg``) and the renderer kept running."""
+
+    import subprocess
+    import sys
+
+    killed = _as_windows(monkeypatch)
+    pid_file = tmp_path / "pid"
+    script = f"import os, time\nopen({str(pid_file)!r}, 'w').write(str(os.getpid()))\ntime.sleep(30)\n"
+    with pytest.raises(subprocess.TimeoutExpired):
+        CA.bounded_run([sys.executable, "-c", script], cwd=str(tmp_path), timeout=2)
+    pid = int(pid_file.read_text())
+    assert killed == [pid] and _gone(pid)
+
+
+def test_an_output_flood_on_windows_ends_the_tree_and_reaps_the_renderer(tmp_path, monkeypatch):
+    import sys
+
+    killed = _as_windows(monkeypatch)
+    flood = "import sys\nchunk = 'x' * 65536\nwhile True:\n    sys.stdout.write(chunk); sys.stderr.write(chunk)\n"
+    result = CA.bounded_run([sys.executable, "-c", flood], cwd=str(tmp_path), timeout=60,
+                            max_output_bytes=4 * 1024 * 1024, tail_bytes=1000)
+    assert result.output_exceeded is True and result.returncode not in (None, 0)
+    assert killed and len(result.stdout) <= 1000 and len(result.stderr) <= 1000
+
+
+class _Child:
+    pid = 4242
+
+    def __init__(self) -> None:
+        self.killed = 0
+
+    def kill(self) -> None:
+        self.killed += 1
+
+
+@pytest.mark.parametrize("windows", [True, False])
+def test_the_tree_kill_always_falls_back_to_killing_the_renderer(monkeypatch, windows):
+    """A failing tree kill (taskkill missing, a group already gone) still kills the process itself."""
+
+    import os
+
+    def refuses(*_args):
+        raise OSError("not here")
+
+    monkeypatch.setattr(CA, "_WINDOWS", windows, raising=False)
+    monkeypatch.setattr(CA, "_kill_windows_tree", refuses, raising=False)
+    monkeypatch.setattr(os, "killpg", refuses, raising=False)
+    child = _Child()
+    CA.terminate_process_tree(child)
+    assert child.killed == 1
+
+
 def test_render_scene_runs_bounded_by_default_and_fails_a_flood(monkeypatch):
     seen = {}
 

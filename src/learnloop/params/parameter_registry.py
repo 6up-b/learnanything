@@ -484,6 +484,9 @@ _reg_const("concept_animation:RENDER_MAX_OUTPUT_BYTES", "operational", kind="str
 _reg_const("concept_animation:RENDER_MAX_VIDEO_BYTES", "operational", kind="structural", owner="concept_animation",
            rationale="keep (machine safety, Codex review F3): the largest rendered mp4 read into the sidecar; a "
                      "larger file fails as too large, unread.")
+_reg_const("concept_animation:_TASKKILL_SECONDS", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (operational, Codex re-review F12): how long Windows' taskkill /T may take to end a "
+                     "render's process tree before the render itself is killed anyway.")
 _reg_const("figure_manim:MAX_CLAIM_WORK", "operational", kind="structural", owner="figure_manim",
            rationale="keep (machine safety, Codex review F2): the claim oracle's metered expression steps over one "
                      "Manim figure's claims (the sketch verifier's cap, reused).")

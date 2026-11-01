@@ -269,3 +269,29 @@ def test_not_right_on_an_animation_through_the_sidecar(tmp_path, monkeypatch, di
         assert author.calls == 1 and rich_author.calls == 2 and line["tier"] == "manim"
         assert result["figure"] is None and result["rich"]["state"] == "pending"
         assert rich_author.contexts[1]["learner_note"] == "red please"
+
+
+def test_a_failed_animation_correction_reads_as_failed_and_rich_retry_asks_again(tmp_path, monkeypatch):
+    """Codex re-review F14 through the sidecar: the correction's failed line
+    (the earlier animation stays), then ``figure.rich_retry`` asks afresh."""
+
+    wrong = RF.scene_output(declared={**RF.DECLARED, "claims": [
+        {"kind": "equals", "function": "x", "expr": "exp(a*t)*sin(b*t)"}]})
+    _paths, _repository, ctx, author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], [RF.scene_output(), wrong, wrong])
+    build(ctx)
+    (first,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    job = call(ctx, "reader.figure_revise", {"figureId": first["figureId"], "note": "red please"})
+    kept = ctx.figure_jobs.get(job["jobId"])
+    assert kept is not None and kept.done.wait(120)
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert [figure["figureId"] for figure in listed["figures"]] == [first["figureId"]]
+    (line,) = listed["richPending"]
+    assert line["state"] == "failed" and line["reason"]
+    retried = call(ctx, "figure.rich_retry", {"richJobId": line["richJobId"]})
+    assert retried["state"] == "pending" and retried["richJobId"] != line["richJobId"]
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert listed["richPending"] == []
+    (shown,) = listed["figures"]
+    assert shown["supersedesId"] == first["figureId"] and shown["verification"] == "illustrative"
+    assert author.calls == 1 and rich_author.calls == 4

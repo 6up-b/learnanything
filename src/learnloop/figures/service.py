@@ -1223,7 +1223,8 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     RW5d P2b (spec §8.5): with a rich tier on the menu, the prompt version
     carries ``+rich-v1`` and the menu, and the key names ``tiers_allowed`` and
     the rich tier versions (``manim-fig-v1``, the Manim version and the
-    sandbox profile); with none on the menu, it is exactly P2's."""
+    sandbox profile); with none on the menu, it is exactly P2's. A revision
+    asking for a different kind of figure names it (Codex re-review F13)."""
 
     show_me = show_me_input(request)
     key: dict[str, Any] = {
@@ -1234,6 +1235,12 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
     }
+    if request.different_kind:
+        # Codex re-review F13: "try a different kind of figure" is routed (and
+        # prompted) apart from the ordinary correction with the same note, so
+        # it is its own input: never that correction's pending job or its
+        # stored animation. Absent otherwise: every other key is unchanged.
+        key["different_kind"] = True
     if show_me:
         grounding = grounding or Grounding("anchor")
         key.update({"show_me": SHOW_ME_VERSION, "goal_text": request.goal_text, "goal_author": request.goal_author,
@@ -2378,13 +2385,30 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
     LearnLoop stopped, or stopped with code's reason) stays as a ``failed``
     line with that reason and its job (``figure.rich_retry`` requeues it),
     until a later build of the same input replaces it; a cancelled one is
-    gone (the learner chose)."""
+    gone (the learner chose).
+
+    Codex re-review F14: a correction of an animation ("not right?") whose
+    job stored a failure lists no line of its own (the earlier animation
+    stays the chain's shown version), so it stays as a ``failed`` line with
+    the stored reason (``figure.rich_retry`` asks again,
+    :func:`rich_revision_retry`), until a later correction of the same
+    figure replaces it."""
 
     if not enabled(vault) or not rich_enabled(vault):
         return []
     lines = []
     seen: set[str] = set()
-    stored_inputs: set[str] | None = None
+    corrected: set[str] = set()
+    stored: list[dict[str, Any]] | None = None
+
+    def stored_rows() -> list[dict[str, Any]]:
+        nonlocal stored
+        if stored is None:
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                stored = store.figures_for_extraction(connection, extraction_id) \
+                    if store.has_tables(connection) else []
+        return stored
+
     for job in RICH.rich_jobs(repository):
         payload = job.get("payload") or {}
         base = payload.get("base") or {}
@@ -2393,13 +2417,22 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
         if str(payload.get("input_hash")) in seen:
             continue
         seen.add(str(payload.get("input_hash")))
+        supersedes = payload.get("supersedes_id")
+        if supersedes:
+            # Jobs come newest first: a newer correction of the same figure
+            # speaks for it (its own line, or its stored version).
+            if str(supersedes) in corrected:
+                continue
+            corrected.add(str(supersedes))
         state = RICH.job_state(job)
-        if state["state"] not in ("pending", "waiting_for_plan", "failed"):
+        failed_correction = _failed_correction(payload, stored_rows()) if supersedes and \
+            state["state"] in ("done", "failed") else None
+        if failed_correction is not None:
+            reason = str((failed_correction.get("verification_report") or {}).get("reason") or "")
+            state = {"state": "failed", "reason": reason[:300] or "the job failed", "rich_job_id": job["id"]}
+        elif state["state"] not in ("pending", "waiting_for_plan", "failed"):
             continue
-        if state["state"] == "failed" and stored_inputs is None:
-            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-                stored_inputs = {row["input_hash"] for row in store.figures_for_extraction(connection, extraction_id)}
-        if state["state"] == "failed" and payload.get("input_hash") in (stored_inputs or set()):
+        elif state["state"] == "failed" and payload.get("input_hash") in {row["input_hash"] for row in stored_rows()}:
             # A stored row (the figure, or its stored failure) lists itself.
             continue
         if base.get("goal_text") is not None and not show_me_enabled(vault):
@@ -2410,6 +2443,55 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
             continue
         lines.append(_rich_line(FigureRequest(extraction_id=extraction_id, span_ids=[]), job, state))
     return lines
+
+
+def _failed_correction(payload: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """Codex re-review F14: the failure a correction job stored (its request's
+    row, ``failed``) while it is still the newest version of the figure it
+    corrects: nothing supersedes it and no later correction of that figure
+    was stored. None otherwise (it succeeded, stored nothing, or was replaced)."""
+
+    supersedes = payload.get("supersedes_id")
+    request_id = payload.get("request_id")
+    if not supersedes or not request_id:
+        return None
+    mine = [row for row in rows if row.get("request_id") == request_id and row.get("supersedes_id") == supersedes]
+    if not mine or mine[-1].get("verification") != "failed":
+        return None
+    failed = mine[-1]
+    later = [row for row in rows if row.get("supersedes_id") in (supersedes, failed["id"])]
+    if later and later[-1]["id"] != failed["id"]:
+        return None
+    return failed
+
+
+def rich_revision_retry(vault: Any, repository: Repository, job_id: str) -> FigureRequest | None:
+    """Codex re-review F14: "try again" on a correction of an animation whose
+    job stored a failure (the line :func:`rich_pending` lists): the same
+    correction (the figure it corrects, the learner's note), built afresh.
+    Its input is the same, and the stored failure starts the next generation,
+    so the rich author is asked anew (never the failed answer's checkpoint).
+    None for any other job (:func:`retry_rich_job` decides those)."""
+
+    if not rich_enabled(vault):
+        return None
+    job = repository.get_ingest_job(job_id)
+    if job is None or job.get("job_type") != RICH.RICH_JOB_TYPE:
+        return None
+    payload = job.get("payload") or {}
+    supersedes = payload.get("supersedes_id")
+    extraction_id = str((payload.get("base") or {}).get("extraction_id") or "")
+    if not supersedes or not extraction_id or RICH.job_state(job)["state"] not in ("done", "failed"):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not store.has_tables(connection):
+            return None
+        if _failed_correction(payload, store.figures_for_extraction(connection, extraction_id)) is None:
+            return None
+        previous = store.figure(connection, str(supersedes))
+    if previous is None:
+        return None
+    return revision_request(repository, previous, str((payload.get("revision") or {}).get("note") or ""))
 
 
 def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], Any]:

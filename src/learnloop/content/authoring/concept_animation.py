@@ -31,6 +31,7 @@ import ast
 import importlib.util
 import json
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -726,6 +727,53 @@ def render_launch(command: list[str], workdir: Path, bwrap: str | None,
     return command, {**env, **session}
 
 
+#: Windows has no process groups to kill (``os.killpg``): a render's tree is
+#: ended by ``taskkill /T`` there (Codex re-review F12).
+_WINDOWS = os.name == "nt"
+#: How long ``taskkill`` may take to end a render's tree before the render
+#: itself is killed anyway.
+_TASKKILL_SECONDS = 10
+
+
+def _session_kwargs() -> dict[str, Any]:
+    """POSIX: the child leads a new session, so its process group is it and
+    everything it starts. Windows: a new process group with no console
+    window (``taskkill /T`` follows the tree from its pid)."""
+
+    if _WINDOWS:
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                | getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+    return {"start_new_session": True}
+
+
+def _kill_windows_tree(pid: int) -> None:
+    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], stdin=subprocess.DEVNULL,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=_TASKKILL_SECONDS, check=False,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def terminate_process_tree(process: Any) -> None:
+    """End a render and everything it started, on any platform (Codex
+    re-review F12): the process group on POSIX (``SIGKILL``), the tree by
+    ``taskkill /T`` on Windows; then, whatever that did (a tree kill that
+    fails, a platform without it), the process itself, so the caller's
+    ``wait()`` always reaps it."""
+
+    import signal
+
+    try:
+        if _WINDOWS:
+            _kill_windows_tree(process.pid)
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
+    except (OSError, AttributeError, ValueError, subprocess.SubprocessError):
+        pass
+    try:
+        process.kill()
+    except OSError:
+        pass
+
+
 @dataclass
 class BoundedResult:
     """What :func:`bounded_run` returns: ``subprocess.CompletedProcess``'s
@@ -748,29 +796,22 @@ def bounded_run(command: list[str], *, cwd: str | None = None, env: Mapping[str,
     together pass ``max_output_bytes``, or ``timeout`` passes, the child's
     whole process group (it is started in a session of its own) is killed:
     the scope launcher, bubblewrap and, with ``--die-with-parent``, the
-    sandbox. Raises ``subprocess.TimeoutExpired`` on the timeout."""
+    sandbox; on Windows its process tree (:func:`terminate_process_tree`).
+    Raises ``subprocess.TimeoutExpired`` on the timeout."""
 
-    import os
-    import signal
     import threading
 
     del capture_output  # always captured (the tails)
     process = subprocess.Popen(command, cwd=cwd, env=dict(env) if env is not None else None,
                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               start_new_session=True)
+                               **_session_kwargs())
     tails = {"stdout": bytearray(), "stderr": bytearray()}
     total = [0]
     exceeded = threading.Event()
     guard = threading.Lock()
 
     def kill_group() -> None:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError, OSError):
-            try:
-                process.kill()
-            except OSError:
-                pass
+        terminate_process_tree(process)
 
     def drain(stream: Any, name: str) -> None:
         while True:
