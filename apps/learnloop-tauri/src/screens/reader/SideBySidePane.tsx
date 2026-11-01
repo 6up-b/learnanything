@@ -65,7 +65,8 @@ export interface SideBySidePaneProps {
   under?: ((spanId: string) => ReactNode) | null;
   /** Reader CA6b: the next-step fold over this book's following lines. */
   fold?: { spans: ReadonlySet<string>; line: ReactNode } | null;
-  /** Reader CA6b: the active-reading card for a selection here, under the text. */
+  /** Reader CA6b: the active-reading card for a selection here, under the text
+   *  (and, re-review F7, this book's reading path after "what matters here?"). */
   card?: ReactNode;
   /** Reader CA6b: a line under the text (a cue preference's receipt). */
   foot?: ReactNode;

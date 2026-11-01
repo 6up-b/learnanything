@@ -47,7 +47,7 @@ no model call, no paid or live call, no vault opened, no GUI launched.
   | make this explorable / show me… | `reader.figure_request` / `figure.request` on its reading. The figure lands under its passage in the pane. |
   | where else is this explained?, where is this used?, what do I need first? | The library ask, anchored on its reading (in the comparing posture; side by side comes back when it closes) |
   | how do my other books treat this? | A comparison anchored on its selection, with `openSourceId` its book and `sourceIds` **the other pane's book** (§4.1) |
-  | work through this, what matters here? | Not in the second pane's palette (absent, not disabled; U13). See deviation 1. |
+  | work through this, what matters here? | *(Codex re-review F7.)* **work through this**: that book comes to the main pane at the passage (a source detour from side by side's crumb), and the workbench opens there on the selection through the usual import. Side by side is one step back (Alt+← or the crumb). **what matters here?**: that book's reading path (the Guide's card, on its reading) in the pane. A section on it opens in the pane, and *try it* goes the way work through does. |
 
 - **Cue marks in the second pane (RW3a/RW3b).** The pane reads its own book's Guide plan (`readGuidePlan`, a local
   read through the Reader's cache) and takes only that reading's own cues. Those are already within the learner's
@@ -81,15 +81,18 @@ pane's host, and `visiblePalette`'s new `hiddenKinds` is absent for the main box
 
 ## Deviations and decisions (proposed defaults; owner may override)
 
-1. **No *work through this* and no *what matters here?* in the second pane.** The working posture closes side by side
-   (CA6 disables it while working), and the workbench works on the open book. The Guide's reading path is the open
-   book's plan. *(Codex fix round, F7: the second pane's routings now ask `reader.route_intent` with `sidePane`,
-   so the Decider is never offered either one; a routed action a box does not offer runs Ask and is recorded as not
-   used.)*
+1. ~~No *work through this* and no *what matters here?* in the second pane.~~ **Superseded by the Codex re-review
+   (F7):** both are in the second pane's palette, as in the main pane (§6.4 "Everything else works in both panes").
+   The working posture is still the open book's, so *work through this* first takes the second pane's book to the
+   main pane as a source detour, with side by side one step back. The fix round's `reader.route_intent` `sidePane`
+   restriction is removed, so the Decider is offered the same actions in both panes. A routed action a box does not
+   offer, such as work through with the workbench off, still runs Ask and is recorded as not used.
 2. ~~The second pane's marks offer no *check me* and record no RW3b receipts.~~ **Superseded by the Codex fix round
    (F4-F6, F8, F9):** the pane runs the Reader's own cue controller on its book, so check me, discovery, impression
    receipts, taps with the visit, try-first's tap, placement on resize and Alt+↓ / Alt+↑ all work there. See
-   `reader-ca6b-second-pane-intent-codex-review.md`.
+   `reader-ca6b-second-pane-intent-codex-review.md`. *(Re-review F8: check me first takes that book to the main pane
+   at the mark, so the way back to side by side is kept, and the shell carries it across its practice and feedback
+   screens.)*
 3. **An Ask from the second pane lands in the Ask rail,** labelled with that book. *show passage* is not shown for it,
    because its passage is beside the rail, not in the open book. Same-reading citations are not jump buttons there
    (another book's citation opens there, as RW1c's do). Its thread pushes no branch crumbs. The answer is stored in
@@ -111,7 +114,7 @@ later (skim and key ownership, below) and was not part of that run. The tests co
 - each routed action resolving to the second pane's source: ask with its label, empty Enter → the composer anchored
   there, preset, highlight, exercise import, where else, compare naming **the other pane's book**, active reading with
   the card in the pane and the next-step fold, another way, figure;
-- the palette leaving out work through and what matters here;
+- the palette leaving out work through and what matters here (since the re-review: the palette offering both, F7);
 - keys: `?` focuses the box, Esc closes the box before the pane, F6, a focused text field, and the first printable key;
 - selecting in the main pane gives it the keys, with main-pane routing and CA6's compare naming the second book while
   side by side is open;
@@ -182,8 +185,8 @@ anchored on the second pane), `debe6a26ea` (the skim/key-ownership test), and th
    `desktop_generate.py` and moves its hard-coded counts (293 → 294 TS/TSX, 285 → 286 entry-build, ACTIVE 298 → 299,
    before C1 / RW6b part 2's own changes). This follows CA6's precedent: the catalog was regenerated in the landing,
    on the merged tree.
-2. Owner check on deviations 1–5 (above), notably the two actions absent from the second pane's palette and *check
-   me* not offered on its marks.
+2. Owner check on deviations 3–5 (above). Deviations 1 and 2 were superseded in the Codex rounds: both actions and
+   *check me* now work in the second pane.
 3. RW6b part 2 (parallel in `learnanything-dl2`) also touches `ReaderScreen`. CA6b's ReaderScreen changes are
    confined to the side pane context, the router and the `SideBySidePane` props, so a merge conflict, if any, should
    be local to those hunks.
