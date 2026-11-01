@@ -94,11 +94,14 @@ without it no disclosure is added.
 5. **The gap row keeps no note text** (`learner_text = ''`): the router's card, the learner context (which the
    MCP server serves), the diagnoser's history and the owner's report read that column and send it to routes
    that are not the plan. The named gap stays, as for every kind (the model's words, as C2 shows its one line).
-6. **Beliefs go to the holding pen** (sighting or candidate) as for every tier-2 kind: hypotheses, which is what
-   §10.2's "steers hypotheses and routing" names.
+6. **Beliefs go to the holding pen only as sightings** (superseded by the Codex review, F1): a belief named from
+   a note never becomes a new candidate (its statement is the plan's words for the note, and the holding pen is
+   read by non-plan judges); it is a sighting of an entry that stands, or a signal only. The gap row keeps no
+   model words for a note either. See `curriculum-c5-notes-as-learner-text-codex-review.md`.
 7. **A note linked by hand to protected material is not read at all** (rather than read without that passage).
-8. **Waiting never fails a note**: plan down or route not the plan releases the job with its attempt refunded,
-   retried after the existing `BACKOFF_SECONDS` (60 s); the drain goes on.
+8. **Waiting never fails a note**: plan down, route not the plan, or (Codex review F5) the plan unavailable at
+   inference releases the job with its attempt refunded, retried after the existing `BACKOFF_SECONDS` (60 s); the
+   drain goes on.
 9. **A skipped note job is queued again when its note is linked again** (hidden then *undo*; the switch off
    then on), so a hide never loses the note for good.
 
