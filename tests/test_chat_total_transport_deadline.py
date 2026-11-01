@@ -4,13 +4,18 @@ ruling R3: "an abortable total transport deadline is an open item for the AI
 transport layer"; ``docs/reviews/reader-rw6b-p2-digest-card.md``).
 
 The SDK's ``timeout`` is httpx's per network operation, so a server that dribbles
-bytes held a request open past it. Now each physical request is over, from the
-caller's side, when its total deadline is: the request is aborted (its response
-stream closed) and the attempt fails. reader_digest's narration lease is that
-enforced bound plus the claims' liveness margin.
+bytes held a request open past it. Each physical request now has a total
+deadline enforced in the transport itself: every network operation (connect,
+TLS, upload, response headers and body) is bounded by the deadline's remaining
+time, in the calling thread. When the adapter raises, the request's transport
+work is over (Codex review F2: the earlier worker-thread design abandoned a
+request whose headers had not arrived, leaving it running while a retry or a
+successor could send again). reader_digest's narration lease is that enforced
+bound plus the claims' liveness margin.
 
-Everything runs through the real adapter and the real ``openai`` SDK over an
-in-memory httpx transport: nothing leaves the machine.
+Everything runs through the real adapter, the real ``openai`` SDK, httpx and
+httpcore's HTTP/1.1 over a fake socket (a network backend that honours each
+operation's timeout like a socket does): nothing leaves the machine.
 """
 from __future__ import annotations
 
@@ -20,7 +25,7 @@ import threading
 import time
 from typing import Any
 
-import httpx
+import httpcore
 import pytest
 
 from learnloop.ai.errors import CodexUnavailable
@@ -31,6 +36,8 @@ from learnloop.ai.transport import StructuredRequest
 from learnloop.config import AIProviderConfig
 
 KEY_ENV = "LEARNLOOP_TEST_DEADLINE_KEY"
+#: Slack for scheduling on a loaded test machine (the bound itself is exact).
+SLACK = 0.75
 
 
 class Answer(WireModel):
@@ -45,87 +52,219 @@ def _completion(content: str) -> bytes:
     }).encode()
 
 
-class Dribble(httpx.SyncByteStream):
-    """A valid completion body sent one byte every ``every`` seconds."""
+def _http_response(body: bytes) -> tuple[bytes, bytes]:
+    head = (b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+            + b"".join(b"X-Pad-%d: %s\r\n" % (index, b"p" * 20) for index in range(4))
+            + b"Content-Length: %d\r\n\r\n" % len(body))
+    return head, body
 
-    def __init__(self, body: bytes, *, every: float) -> None:
-        self.body = body
-        self.every = every
-        self.served = 0
+
+class FakeSocket(httpcore.NetworkStream):
+    """One connection of the fake server. Each operation honours its timeout
+    as a socket with ``settimeout`` does: an operation slower than it waits
+    the timeout, then raises."""
+
+    def __init__(self, server: "FakeServer") -> None:
+        self.server = server
+        self.head, self.body = _http_response(server.body)
+        self.position = 0
+        self.received = b""
         self.closed = threading.Event()
         self.closed_at: float | None = None
 
-    def __iter__(self):
-        for index in range(len(self.body)):
-            if self.closed.is_set():
-                return
-            time.sleep(self.every)
-            self.served += 1
-            yield self.body[index:index + 1]
+    def _operation(self, delay: float, timeout: float | None, error: type[Exception]) -> None:
+        with self.server.lock:
+            self.server.in_flight += 1
+            self.server.max_in_flight = max(self.server.max_in_flight, self.server.in_flight)
+        try:
+            if timeout is not None and delay > timeout:
+                time.sleep(max(0.0, timeout))
+                raise error("timed out")
+            time.sleep(delay)
+        finally:
+            with self.server.lock:
+                self.server.in_flight -= 1
+                self.server.last_operation_ended = time.monotonic()
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        self._operation(self.server.write_delay, timeout, httpcore.WriteTimeout)
+        self.received += buffer
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        wire = self.head + self.body
+        if self.position >= len(wire):
+            return b""
+        in_head = self.position < len(self.head)
+        every = self.server.head_every if in_head else self.server.body_every
+        self._operation(every, timeout, httpcore.ReadTimeout)
+        # A slow part arrives a byte per read; a prompt one in one read (the head never runs into the body).
+        end = self.position + 1 if every > 0 else (len(self.head) if in_head else len(wire))
+        chunk = wire[self.position:min(end, self.position + max_bytes)]
+        self.position += len(chunk)
+        self.server.served += len(chunk)
+        return chunk
 
     def close(self) -> None:
         if self.closed_at is None:
             self.closed_at = time.monotonic()
         self.closed.set()
 
+    def start_tls(self, ssl_context: Any, server_hostname: str | None = None,
+                  timeout: float | None = None) -> httpcore.NetworkStream:  # pragma: no cover - plain http here
+        return self
 
-class Server:
-    """An in-memory endpoint: each request gets ``make_stream()`` as its body."""
+    def get_extra_info(self, info: str) -> Any:
+        return None
 
-    def __init__(self, make_stream) -> None:
-        self.make_stream = make_stream
-        self.streams: list[Any] = []
+
+class FakeServer:
+    """The fake network: connect, upload, header and body delays per operation."""
+
+    def __init__(self, body: bytes, *, connect_delay: float = 0.0, write_delay: float = 0.0,
+                 head_every: float = 0.0, body_every: float = 0.0) -> None:
+        self.body = body
+        self.connect_delay = connect_delay
+        self.write_delay = write_delay
+        self.head_every = head_every
+        self.body_every = body_every
+        self.lock = threading.Lock()
+        self.sockets: list[FakeSocket] = []
         self.started: list[float] = []
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.served = 0
+        self.last_operation_ended: float | None = None
 
-    def __call__(self, request: httpx.Request) -> httpx.Response:
-        self.started.append(time.monotonic())
-        stream = self.make_stream()
-        self.streams.append(stream)
-        return httpx.Response(200, headers={"content-type": "application/json"}, stream=stream)
+    def backend(self) -> httpcore.NetworkBackend:
+        server = self
+
+        class Backend(httpcore.NetworkBackend):
+            def connect_tcp(self, host: str, port: int, timeout: float | None = None,
+                            local_address: str | None = None, socket_options: Any = None) -> httpcore.NetworkStream:
+                server.started.append(time.monotonic())
+                sock = FakeSocket(server)
+                sock._operation(server.connect_delay, timeout, httpcore.ConnectTimeout)
+                server.sockets.append(sock)
+                return sock
+
+            def connect_unix_socket(self, path: str, timeout: float | None = None,
+                                    socket_options: Any = None) -> httpcore.NetworkStream:  # pragma: no cover
+                raise httpcore.ConnectError("no unix sockets here")
+
+            def sleep(self, seconds: float) -> None:  # pragma: no cover
+                time.sleep(seconds)
+
+        return Backend()
 
 
-def _client(monkeypatch, server: Server, *, timeout: float = 1.0, name: str = "deadline_chat") -> Any:
+@pytest.fixture
+def fake_network(monkeypatch):
+    """Install a fake server as httpcore's default network backend (what the
+    SDK's own httpx client uses); returns a function that sets it."""
+
+    import httpcore._sync.connection_pool as pool_module
+
+    def install(server: FakeServer) -> FakeServer:
+        monkeypatch.setattr(pool_module, "SyncBackend", server.backend)
+        return server
+
+    return install
+
+
+def _client(monkeypatch, *, timeout: float = 1.0, name: str = "deadline_chat") -> Any:
     monkeypatch.setenv(KEY_ENV, "offline")
     profile = AIProviderConfig(type="openai_chat", base_url="http://deadline.invalid/v1", api_key_env=KEY_ENV,
                                model="deadline-model", response_format="json_object", timeout_seconds=timeout)
-    return OpenAIChatProviderClient(name, profile, transport=httpx.MockTransport(server))
+    return OpenAIChatProviderClient(name, profile)
 
 
-def _request_threads() -> list[threading.Thread]:
-    return [thread for thread in threading.enumerate() if thread.name.startswith("chat-request:")]
+def _ask(client: Any, timeout: float) -> Any:
+    return client.complete(StructuredRequest(purpose="deadline_probe", prompt="p", result_model=Answer,
+                                             timeout_seconds=timeout))
 
 
-def _join_request_threads() -> None:
-    for thread in _request_threads():
-        thread.join(timeout=5)
-    assert _request_threads() == []
+def _assert_transport_over(server: FakeServer, returned_at: float) -> None:
+    """When the adapter returned, no network operation was in flight and none
+    ran afterwards: the request was cancelled, not abandoned."""
+
+    with server.lock:
+        in_flight, served, ended = server.in_flight, server.served, server.last_operation_ended
+    assert in_flight == 0, "a network operation was still running when the adapter returned"
+    assert ended is None or ended <= returned_at
+    time.sleep(0.3)
+    assert server.served == served and server.in_flight == 0, "the request kept running after the adapter returned"
+    assert all(sock.closed.is_set() for sock in server.sockets)
 
 
-def test_rw6b2_f3_a_dribbling_response_is_aborted_at_the_total_deadline(monkeypatch):
+def test_rw6b2_f3_a_dribbling_response_is_aborted_at_the_total_deadline(monkeypatch, fake_network):
     body = _completion(Answer(text="x" * 40).model_dump_json())
     # Every read arrives well inside the per-operation timeout, but the whole body would take ~5 s.
-    server = Server(lambda: Dribble(body, every=5.0 / len(body)))
-    client = _client(monkeypatch, server, timeout=1.0)
+    server = fake_network(FakeServer(body, body_every=5.0 / len(body)))
+    client = _client(monkeypatch, timeout=1.0)
     started = time.monotonic()
     with pytest.raises(CodexUnavailable):
-        client.complete(StructuredRequest(purpose="deadline_probe", prompt="p", result_model=Answer,
-                                          timeout_seconds=1.0))
-    elapsed = time.monotonic() - started
-    assert elapsed < OC.enforced_total_seconds(1.0) + 0.75
-    # One physical request (no retry past the deadline), aborted: its stream was closed long before the body ended.
-    assert len(server.streams) == 1
-    (stream,) = server.streams
-    assert stream.closed.wait(5) and stream.served < len(body)
-    _join_request_threads()
+        _ask(client, 1.0)
+    returned = time.monotonic()
+    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    # One physical request (no retry past the deadline), aborted long before the body ended.
+    assert len(server.sockets) == 1 and server.served < len(server.sockets[0].head) + len(body)
+    _assert_transport_over(server, returned)
 
 
-def test_rw6b2_f3_a_prompt_response_is_unchanged(monkeypatch):
-    server = Server(lambda: httpx.ByteStream(_completion(Answer(text="ok").model_dump_json())))
-    client = _client(monkeypatch, server, timeout=5.0)
-    answer = client.complete(StructuredRequest(purpose="deadline_probe", prompt="p", result_model=Answer,
-                                               timeout_seconds=5.0))
-    assert answer.text == "ok" and len(server.streams) == 1
-    _join_request_threads()
+def test_f2_delayed_response_headers_are_cancelled_at_the_deadline_not_abandoned(monkeypatch, fake_network):
+    """Codex review F2: headers dribbled within each read timeout but past the
+    total deadline. Before, the caller gave up while the request kept running
+    on its worker (no response stream had been registered to close)."""
+
+    body = _completion(Answer(text="ok").model_dump_json())
+    head, _ = _http_response(body)
+    server = fake_network(FakeServer(body, head_every=5.0 / len(head)))
+    client = _client(monkeypatch, timeout=1.0)
+    started = time.monotonic()
+    with pytest.raises(CodexUnavailable):
+        _ask(client, 1.0)
+    returned = time.monotonic()
+    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    assert len(server.sockets) == 1 and server.served < len(head)
+    _assert_transport_over(server, returned)
+    assert server.max_in_flight == 1  # never two operations (a replacement request) at once
+
+
+def test_f2_slow_connect_and_upload_count_against_the_same_deadline(monkeypatch, fake_network):
+    """Connect and upload each finish inside the per-operation timeout; with the
+    headers that follow, the request passes its total deadline and is
+    cancelled within it."""
+
+    body = _completion(Answer(text="ok").model_dump_json())
+    head, _ = _http_response(body)
+    server = fake_network(FakeServer(body, connect_delay=0.45, write_delay=0.45, head_every=0.9 / len(head)))
+    client = _client(monkeypatch, timeout=1.0)
+    started = time.monotonic()
+    with pytest.raises(CodexUnavailable):
+        _ask(client, 1.0)
+    returned = time.monotonic()
+    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    assert len(server.sockets) == 1
+    _assert_transport_over(server, returned)
+
+
+def test_rw6b2_f3_a_prompt_response_is_unchanged(monkeypatch, fake_network):
+    server = fake_network(FakeServer(_completion(Answer(text="ok").model_dump_json())))
+    client = _client(monkeypatch, timeout=5.0)
+    answer = _ask(client, 5.0)
+    assert answer.text == "ok" and len(server.sockets) == 1
+    assert b"POST /v1/chat/completions" in server.sockets[0].received
+
+
+def test_f2_the_deadline_is_armed_on_the_sdks_own_http_client(monkeypatch):
+    """The adapter arms the SDK's default httpx client (its pool's network
+    backend); if a library upgrade moved it, this fails rather than the
+    deadline silently lapsing."""
+
+    client = _client(monkeypatch, timeout=5.0)
+    assert client._enforce_deadline
+    pool = client._client._client._transport._pool
+    assert isinstance(pool._network_backend, OC._DeadlineNetworkBackend)
 
 
 def test_rw6b2_f3_the_bound_is_the_attempts_timeout_with_its_floor():
@@ -145,7 +284,8 @@ def test_rw6b2_f3_the_narration_lease_is_the_enforced_bound_plus_the_claim_margi
             math.ceil(OC.enforced_total_seconds(timeout)) + map_builder.CLAIM_LEASE_SECONDS)
 
 
-def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publishes_nothing(tmp_path, monkeypatch):
+def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publishes_nothing(
+        tmp_path, monkeypatch, fake_network):
     from learnloop.instructional import reader_digest as RN
     from learnloop.vault.loader import load_vault
     from tests.test_reader_digest_narrative import _now, _row, _session_with_question, at
@@ -157,20 +297,23 @@ def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publis
     toml.write_text(text.replace("\n[ai]\n", "\n[ai]\ntimeout_seconds = 1\n", 1), encoding="utf-8")
     vault = load_vault(vault.root)
     body = _completion(json.dumps({"narrative": "You read.", "cited_event_ids": []}))
-    server = Server(lambda: Dribble(body, every=5.0 / len(body)))
-    client = _client(monkeypatch, server, timeout=600, name="deadline_digest")
+    head, _ = _http_response(body)
+    # Headers dribbled past the deadline (Codex review F2's case), each byte inside the read timeout.
+    server = fake_network(FakeServer(body, head_every=5.0 / len(head)))
+    client = _client(monkeypatch, timeout=600, name="deadline_digest")
     route = RN.NarrativeRoute(vault, repo, client=client, envelope=None)
     assert not route.subscription and route.request_timeout == 1.0
     lease = RN.narration_lease_seconds(route.request_timeout)
 
     result = RN.narrate_digest(vault, repo, row["id"], client=client, now=_now(), clock=at(300))
+    returned = time.monotonic()
 
     assert result.status != "narrated"
     assert _row(repo, row["id"])["narrative_md"] is None and _row(repo, row["id"])["prompt_version"] is None
-    assert server.streams, "the narration sent its request"
+    assert server.sockets, "the narration sent its request"
+    _assert_transport_over(server, returned)
+    assert server.max_in_flight == 1
     bound = OC.enforced_total_seconds(route.request_timeout)
-    for stream, started in zip(server.streams, server.started):
-        # Each physical request was aborted at the route's timeout (the enforced bound), inside the lease.
-        assert stream.closed.wait(5) and stream.served < len(body)
-        assert stream.closed_at - started < bound + 0.75 < lease
-    _join_request_threads()
+    for sock, started in zip(server.sockets, server.started):
+        # Each physical request was cancelled at the route's timeout (the enforced bound), inside the lease.
+        assert sock.closed_at - started < bound + SLACK < lease

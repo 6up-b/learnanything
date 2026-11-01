@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import contextvars
 import email.utils
 import json
 import logging
 import os
 import random
-import threading
 import time
 from contextvars import ContextVar
 from typing import Any
 
-import httpx
+import httpcore
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
@@ -81,100 +79,132 @@ _purpose_label: ContextVar[str | None] = ContextVar("chat_request_purpose", defa
 # ``timeout`` on an SDK request is httpx's per network operation: a server that
 # dribbles bytes keeps every read under it and holds the request open for as
 # long as it likes. Each physical request here also has a TOTAL deadline (the
-# attempt's timeout, the remaining time of the loop's deadline): the caller
-# waits for the request at most that long, then aborts it (its response
-# stream, when one is open, is closed, and a body still arriving raises at its
-# next chunk) and fails the attempt (``TotalDeadlineExceeded``). A request is
-# therefore over, from the caller's side, when its deadline is: a lease that
-# must outlive it (reader_digest's narration claim) can rely on that bound.
+# attempt's timeout, the remaining time of the loop's deadline), enforced in
+# the transport itself: the SDK's httpx pool sends through a network backend
+# that bounds every operation (connect, TLS, upload, response headers, body)
+# by the deadline's remaining time, in the calling thread, and refuses to
+# start one once the deadline has passed. The request is therefore over when
+# the adapter raises (``TotalDeadlineExceeded``): nothing is left running, so
+# a retry or a successor never sends beside it, and a lease that must outlive
+# it (reader_digest's narration claim) can rely on the bound (Codex review F2:
+# the earlier worker-thread wait abandoned a request whose response headers
+# had not arrived). Name resolution is the system resolver's; a deadline that
+# passed during it closes the new connection before anything is sent.
 
 #: The deadline's clock: real time, unlike the retry loop's replaceable
-#: ``_monotonic`` (the caller waits for the request in real time).
+#: ``_monotonic`` (the request's operations run in real time).
 _deadline_clock = time.monotonic
 
 
 class TotalDeadlineExceeded(TimeoutError):
-    """A physical request outlived its total transport deadline and was aborted."""
-
-
-def _close_quietly(stream: Any) -> None:
-    try:
-        stream.close()
-    except Exception:  # noqa: BLE001 - aborting a stream another thread reads may race its close
-        pass
+    """A physical request reached its total transport deadline and was cancelled."""
 
 
 class _RequestDeadline:
-    """One physical request's total deadline, shared by the caller that waits
-    on it and the response hook that arms the request's body."""
+    """One physical request's total deadline."""
 
     def __init__(self, seconds: float) -> None:
         self.seconds = float(seconds)
         self.at = _deadline_clock() + self.seconds
-        self._lock = threading.Lock()
-        self._streams: list[Any] = []
-        self.expired = False
+
+    def remaining(self) -> float:
+        return self.at - _deadline_clock()
 
     def passed(self) -> bool:
-        return self.expired or _deadline_clock() >= self.at
-
-    def track(self, stream: Any) -> bool:
-        """Close ``stream`` when the deadline expires; False if it already has."""
-
-        with self._lock:
-            if not self.expired:
-                self._streams.append(stream)
-                return True
-        return False
-
-    def expire(self) -> None:
-        """Abort the request: every response stream it opened is closed."""
-
-        with self._lock:
-            self.expired = True
-            streams, self._streams = self._streams, []
-        for stream in streams:
-            _close_quietly(stream)
+        return self.remaining() <= 0
 
 
-#: The deadline of the physical request being sent on this thread (its worker's).
+#: The deadline of the physical request being sent on this thread.
 _active_deadline: ContextVar[_RequestDeadline | None] = ContextVar("chat_transport_deadline", default=None)
 
 
-class _DeadlineStream(httpx.SyncByteStream):
-    """A response body that stops at its request's total deadline."""
-
-    def __init__(self, inner: Any, deadline: _RequestDeadline) -> None:
-        self._inner = inner
-        self._deadline = deadline
-
-    def __iter__(self) -> Any:
-        try:
-            for chunk in self._inner:
-                if self._deadline.passed():
-                    raise httpx.ReadTimeout("the request's total transport deadline passed")
-                yield chunk
-        except httpx.ReadTimeout:
-            raise
-        except Exception as exc:
-            if self._deadline.expired:  # closed under the read by the deadline
-                raise httpx.ReadTimeout("the request's total transport deadline passed") from exc
-            raise
-
-    def close(self) -> None:
-        _close_quietly(self._inner)
-
-
-def _arm_deadline(response: httpx.Response) -> None:
-    """httpx response hook: the body is read under the request's total deadline."""
+def _bounded(timeout: float | None, error: type[Exception]) -> float | None:
+    """One network operation's timeout under the active request's deadline:
+    its own timeout or the deadline's remaining time, whichever is shorter;
+    ``error`` (httpcore's timeout for the operation) once nothing remains."""
 
     deadline = _active_deadline.get()
     if deadline is None:
-        return
-    if deadline.passed() or not deadline.track(response.stream):
-        _close_quietly(response.stream)
-        raise httpx.ReadTimeout("the request's total transport deadline passed")
-    response.stream = _DeadlineStream(response.stream, deadline)
+        return timeout
+    remaining = deadline.remaining()
+    if remaining <= 0:
+        raise error("the request's total transport deadline passed")
+    return remaining if timeout is None else min(float(timeout), remaining)
+
+
+class _DeadlineNetworkStream(httpcore.NetworkStream):
+    """A connection whose every operation is bounded by the deadline of the
+    request using it (read at the operation: a pooled connection serves
+    requests with different deadlines)."""
+
+    def __init__(self, inner: httpcore.NetworkStream) -> None:
+        self._inner = inner
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return self._inner.read(max_bytes, _bounded(timeout, httpcore.ReadTimeout))
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        self._inner.write(buffer, _bounded(timeout, httpcore.WriteTimeout))
+
+    def close(self) -> None:
+        self._inner.close()
+
+    def start_tls(self, ssl_context: Any, server_hostname: str | None = None,
+                  timeout: float | None = None) -> httpcore.NetworkStream:
+        return _DeadlineNetworkStream(self._inner.start_tls(
+            ssl_context, server_hostname=server_hostname, timeout=_bounded(timeout, httpcore.ConnectTimeout)))
+
+    def get_extra_info(self, info: str) -> Any:
+        return self._inner.get_extra_info(info)
+
+
+class _DeadlineNetworkBackend(httpcore.NetworkBackend):
+    """httpcore's network backend with every connection under the deadline."""
+
+    def __init__(self, inner: httpcore.NetworkBackend) -> None:
+        self._inner = inner
+
+    def _opened(self, stream: httpcore.NetworkStream) -> httpcore.NetworkStream:
+        deadline = _active_deadline.get()
+        if deadline is not None and deadline.passed():
+            # The deadline passed while connecting (name resolution is not
+            # bounded by the timeout): close it before anything is sent.
+            stream.close()
+            raise httpcore.ConnectTimeout("the request's total transport deadline passed")
+        return _DeadlineNetworkStream(stream)
+
+    def connect_tcp(self, host: str, port: int, timeout: float | None = None, local_address: str | None = None,
+                    socket_options: Any = None) -> httpcore.NetworkStream:
+        return self._opened(self._inner.connect_tcp(
+            host, port, timeout=_bounded(timeout, httpcore.ConnectTimeout), local_address=local_address,
+            socket_options=socket_options))
+
+    def connect_unix_socket(self, path: str, timeout: float | None = None,
+                            socket_options: Any = None) -> httpcore.NetworkStream:
+        return self._opened(self._inner.connect_unix_socket(
+            path, timeout=_bounded(timeout, httpcore.ConnectTimeout), socket_options=socket_options))
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+def _arm_http_client(http_client: Any) -> bool:
+    """Put every connection pool of an httpx client (its transport and any
+    proxy mounts) behind the deadline backend. True when its default
+    transport is armed; False (the deadline is not enforced) when the
+    installed httpx/httpcore keep their pool elsewhere, which a test pins."""
+
+    armed = False
+    default = getattr(http_client, "_transport", None)
+    for transport in (default, *(getattr(http_client, "_mounts", None) or {}).values()):
+        pool = getattr(transport, "_pool", None)
+        backend = getattr(pool, "_network_backend", None)
+        if backend is None:
+            continue
+        if not isinstance(backend, _DeadlineNetworkBackend):
+            pool._network_backend = _DeadlineNetworkBackend(backend)
+        armed = armed or transport is default
+    return armed
 
 
 def enforced_total_seconds(timeout_seconds: float) -> float:
@@ -191,7 +221,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     default_base_url: str | None = None
     default_api_key_env = "OPENAI_API_KEY"
 
-    def __init__(self, provider_name: str, profile: AIProviderConfig, *, transport: Any | None = None):
+    def __init__(self, provider_name: str, profile: AIProviderConfig):
         self.provider_name = provider_name
         self.profile = profile
         self.model = profile.model
@@ -224,14 +254,18 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         if headers:
             client_kwargs["default_headers"] = headers
         # The total transport deadline (above): the SDK's own httpx client
-        # defaults, with the response hook that arms each body. ``transport``
-        # is a test seam (an in-memory httpx transport). Without the real SDK
-        # (an offline stand-in module) the deadline is not armed.
+        # (its defaults), with its connection pools behind the deadline
+        # backend. Without the real SDK (an offline stand-in module) the
+        # deadline is not armed.
         http_client_factory = getattr(openai, "DefaultHttpxClient", None)
-        self._enforce_deadline = http_client_factory is not None
+        self._enforce_deadline = False
         if http_client_factory is not None:
-            client_kwargs["http_client"] = http_client_factory(
-                event_hooks={"response": [_arm_deadline]}, **({"transport": transport} if transport else {}))
+            http_client = http_client_factory()
+            self._enforce_deadline = _arm_http_client(http_client)
+            if not self._enforce_deadline:
+                logger.warning("AI provider %s: the total transport deadline could not be armed on this httpx "
+                               "version; requests are bounded per network operation only", provider_name)
+            client_kwargs["http_client"] = http_client
         self._client = openai.OpenAI(**client_kwargs)
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
@@ -495,39 +529,27 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         raise _RequestFailed(request_error)
 
     def _create_within_deadline(self, kwargs: dict[str, Any]) -> Any:
-        """The SDK request under its total deadline (``kwargs["timeout"]``): sent
-        on a worker thread while the caller waits at most that long; past it,
-        the request is aborted (its response stream closed) and
-        :class:`TotalDeadlineExceeded` is raised. An abandoned worker's late
-        answer is never returned or metered."""
+        """The SDK request under its total deadline (``kwargs["timeout"]``), in
+        this thread: every network operation is bounded by the deadline's
+        remaining time (the deadline backend, above), so when this returns or
+        raises the request's transport work is over. Past the deadline the
+        request fails with :class:`TotalDeadlineExceeded`."""
 
         seconds = kwargs.get("timeout")
         if not self._enforce_deadline or not isinstance(seconds, (int, float)) or seconds <= 0:
             return self._client.chat.completions.create(**kwargs)
         deadline = _RequestDeadline(float(seconds))
-        outcome: dict[str, Any] = {}
-        finished = threading.Event()
-
-        def send() -> None:
-            _active_deadline.set(deadline)
-            try:
-                outcome["response"] = self._client.chat.completions.create(**kwargs)
-            except BaseException as exc:  # noqa: BLE001 - handed to the waiting caller
-                outcome["error"] = exc
-            finally:
-                finished.set()
-
-        worker = threading.Thread(target=contextvars.copy_context().run, args=(send,), daemon=True,
-                                  name=f"chat-request:{self.provider_name}")
-        worker.start()
-        if not finished.wait(deadline.seconds):
-            deadline.expire()
-            raise TotalDeadlineExceeded(
-                f"{self.provider_name} ({self.model}) request passed its total deadline of "
-                f"{deadline.seconds:.1f}s and was aborted")
-        if "error" in outcome:
-            raise outcome["error"]
-        return outcome["response"]
+        token = _active_deadline.set(deadline)
+        try:
+            return self._client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if deadline.passed() and isinstance(exc, self._connection_errors):
+                raise TotalDeadlineExceeded(
+                    f"{self.provider_name} ({self.model}) request reached its total deadline of "
+                    f"{deadline.seconds:.1f}s and was cancelled") from exc
+            raise
+        finally:
+            _active_deadline.reset(token)
 
     def _meter_response(self, response: Any) -> None:
         """Record usage on the receipt and the run, and spend the request budget."""
