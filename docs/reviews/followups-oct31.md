@@ -223,7 +223,7 @@ Also seen, not investigated: the first (migrating) load changed `learner_claims`
 | library/compare vitest files (18 files: every file importing `LibraryAnswer`/`useLibraryAsk`/`LIBRARY_COPY`/`readerLibraryCompare`, plus `alsoInBooks`, `findSection`) | 212 passed |
 | new-sample in-flight test alone ×20; both in-flight tests alone ×20 | 20/20; 20/20 |
 | `npm run frontend:build` | built |
-| whole `npx vitest run --maxWorkers=4` (once, under `flock /tmp/learnloop-fullsuite.lock`; required by item 1) | see the stage result |
+| whole `npx vitest run --maxWorkers=4` (once, under `flock /tmp/learnloop-fullsuite.lock`; required by item 1) | 237 files, 2197 passed (SketchFigure 19/19) |
 
 Not needed: cargo (no `src-tauri` change), durability lane (no DB/connection code), DB reference scripts
 (no schema change).
