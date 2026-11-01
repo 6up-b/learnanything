@@ -327,18 +327,27 @@ class FiguresGate:
     ``key(vault)`` is computed when the gate is made and again, from the
     vault configured now (``live_vault()``, the sidecar's loaded vault; else
     the vault reloaded from disk), before every request and at :meth:`check`.
+
+    ``hold(vault)`` (learner data-relax 2, Codex review F2), when given, is
+    asked at the same moments with the same vault: why the unit may send
+    nothing more now (a saved input that has become protected), or None.
+    A hold sets :attr:`held`.
     """
 
     def __init__(self, vault: Any, key: Callable[[Any], Hashable], *,
-                 live_vault: Callable[[], Any] | None = None) -> None:
+                 live_vault: Callable[[], Any] | None = None,
+                 hold: Callable[[Any], str | None] | None = None) -> None:
         self._root = getattr(vault, "root", None)
         self._key = key
         self._start = key(vault)
         self._live = live_vault
+        self._hold = hold
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the unit's requests are refused (None: they are not).
         self.changed: str | None = None
+        #: Whether :attr:`changed` came from ``hold`` (not a setting).
+        self.held = False
 
     def _current(self) -> Any | None:
         try:
@@ -362,6 +371,10 @@ class FiguresGate:
                     self.changed = "figures were switched off"
                 elif self._key(vault) != self._start:
                     self.changed = "the figure route, cap or price changed"
+                elif self._hold is not None:
+                    reason = self._hold(vault)
+                    if reason:
+                        self.changed, self.held = reason, True
             if self.changed is not None:
                 raise FiguresChanged(f"{purpose} not sent: {self.changed}; nothing more is asked")
 

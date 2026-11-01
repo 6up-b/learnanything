@@ -142,6 +142,7 @@ from learnloop.figure_admission import (
     FiguresChanged,
     FiguresGate,
     advanced_panels_enabled,
+    author_learner_state_enabled,
     figure_home_keys,
     figures_enabled,
     offers_enabled,
@@ -265,6 +266,11 @@ class FigureRequest:
     #: with ``figures.author_learner_state`` on, never by a client; None when
     #: off or empty (then payload, prompt and reuse key are the predecessor's).
     learner_state: dict[str, Any] | None = None
+    #: What that state was read from (``LearnerStateRead.inputs``: answers,
+    #: items, questions, passages), set with it by the build, never sent to a
+    #: model: a rich job carries it and checks it again before it sends the
+    #: saved state (Codex review F2).
+    learner_state_inputs: dict[str, Any] | None = None
 
 
 @dataclass
@@ -315,7 +321,9 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     """What a build depends on, compared before every request it makes
     (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch,
     the author route as configured, the day's cap and the price, and (RW5b)
-    whether the advanced panels are on (the author's prompt depends on it)."""
+    whether the advanced panels are on (the author's prompt depends on it);
+    likewise (learner data-relax 2, Codex review F2) whether the author is
+    sent the learner's state (``figures.author_learner_state``)."""
 
     from learnloop.practice_index.paid import plan_route
 
@@ -323,7 +331,7 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
             advanced_panels_enabled(vault), sketch_switch(vault), RICH.rich_tiers_switch(vault),
-            RICH.manim_tier_ready(vault))
+            RICH.manim_tier_ready(vault), author_learner_state_enabled(vault))
 
 
 def offer_build_key(vault: Any) -> tuple[Any, ...]:
@@ -1598,7 +1606,9 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     # Learner data-relax 2: the learner's state on the passage's topics
     # (None with the switch off or nothing to say: everything below is then
     # the predecessor's byte for byte).
-    request.learner_state = _learner_state(vault, repository, request, context, grounding)
+    read = _learner_state(vault, repository, request, context, grounding)
+    request.learner_state = read.state if read is not None else None
+    request.learner_state_inputs = read.inputs if read is not None and read.state else None
     learner = request.learner_state
     input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding, sketch=sketch,
                               tiers=tiers, rich_runtime=runtime, learner_state=learner)
@@ -1668,10 +1678,11 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
 
 
 def _learner_state(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
-                   grounding: Grounding) -> dict[str, Any] | None:
+                   grounding: Grounding) -> Any:
     """Learner data-relax 2: what the author is told about the learner on
-    the passage's topics (:mod:`.learner_state`), or None (switched off,
-    nothing to say, or unreadable: the predecessor's build)."""
+    the passage's topics and what it was read from
+    (:func:`.learner_state.read_learner_state`), or None (switched off or no
+    topics; an empty or unreadable state: the predecessor's build)."""
 
     from learnloop.figures import learner_state as LS
 
@@ -1684,7 +1695,7 @@ def _learner_state(vault: Any, repository: Repository, request: FigureRequest, c
         home = request.reading_at or {}
         keys = list(grounding.keys) or [(str(home.get("extraction_id") or ""), str(home.get("span_id") or ""))]
         los = LS.anchored_learning_objects(vault, repository, extraction_id=None, span_ids=(), keys=keys)
-    return LS.learner_state(vault, repository, los) if los else None
+    return LS.read_learner_state(vault, repository, los) if los else None
 
 
 def _rich_pending(vault: Any, repository: Repository, request: FigureRequest, input_hash: str
@@ -2211,13 +2222,19 @@ class _RichSpawn:
             "goal_text": request.goal_text, "grounding": self.grounding.mode, "origin": request.origin,
             "home": None if anchored(request) else dict(request.reading_at or {}),
         }
-        return {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
-                "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
-                "span_texts": dict(self.context.span_texts), "base": base,
-                "verdict": list(self.verdict) if self.verdict else None,
-                "author_model": self.author.model if self.author is not None else None,
-                "prompt_version": self.prompt_version, "build_mode": "pressed", "generation": self.generation,
-                "quick_dropped": self.quick_dropped, **self.extra}
+        payload = {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
+                   "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
+                   "span_texts": dict(self.context.span_texts), "base": base,
+                   "verdict": list(self.verdict) if self.verdict else None,
+                   "author_model": self.author.model if self.author is not None else None,
+                   "prompt_version": self.prompt_version, "build_mode": "pressed", "generation": self.generation,
+                   "quick_dropped": self.quick_dropped, **self.extra}
+        if "learner_state" in author_context:
+            # Learner data-relax 2 (Codex review F2): what the saved state was
+            # read from goes with the job (and the quick figure's intent), so
+            # the job checks it again before it sends the state.
+            payload["learner_state_inputs"] = request.learner_state_inputs
+        return payload
 
     def with_intent(self, report: Mapping[str, Any], request_row_id: str, figure_id: str) -> dict[str, Any]:
         """The quick figure's report with its rich job's intent (Codex review F8)."""

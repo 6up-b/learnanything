@@ -25,9 +25,22 @@ retry holds (cold-in-flight), a diagnostic probe or an item the vault cannot
 read shows nothing, and is skipped (the next unprotected answer takes its
 place). A statement written from any such answer is left out
 (``PastWork.evidence_reason``), and so is one whose answers cannot be
-established (fail closed). When the protection cannot be read at all, no
-answer and no statement is sent. Only an item's graded question is read,
-never a reference answer, an answer key or a rubric.
+established (fail closed). A gap's words are also checked against what its
+write-time record says they were written beside (``write_provenance``): the
+book passages of a reading-derived gap (an active-reading answer, a figure
+prediction: ``PastWork.source_reason``, so a passage now exam or held-out
+material withholds them) and the learner questions it came from
+(``PastWork.question_reason``); a gap with neither an answer, an item nor a
+complete record is left out (its inputs cannot be established; Codex review
+F1). When the protection cannot be read at all, no answer and no statement
+is sent. Only an item's graded question is read, never a reference answer,
+an answer key or a rubric.
+
+**What it was read from goes with it** (:class:`LearnerStateRead`): every
+answer, item, question and passage behind what the state shows, so a rich
+job that sends the saved state later (``figures.rich``) checks them again,
+against the protection as it is then, before each model call and before it
+stores anything (:func:`inputs_withheld`; Codex review F2).
 
 **Empty means the predecessor.** :func:`learner_state` returns None when there
 is nothing to say (no statement, no answer, every topic new): the author's
@@ -46,10 +59,12 @@ import json
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import closing
+from dataclasses import dataclass
 from typing import Any
 
 from learnloop.ai.execution import content_key
 from learnloop.db.connection import connect
+from learnloop.db.stores.write_provenance import Inputs, stored_record
 from learnloop.figure_admission import author_learner_state_enabled
 
 _LOG = logging.getLogger(__name__)
@@ -189,8 +204,26 @@ def _misconception_statements(connection: Any, repository: Any, past: Any, rule:
                 continue
             found.append({"topic": titles.get(lo, lo), "kind": "misconception", "statement": shown,
                           "written_by": WRITTEN_BY_DIAGNOSIS,
-                          "_at": str(getattr(record, "updated_at", None) or getattr(record, "created_at", "") or "")})
+                          "_at": str(getattr(record, "updated_at", None) or getattr(record, "created_at", "") or ""),
+                          "_inputs": Inputs.of(answers=[(answer, None) for answer in answers])})
     return found
+
+
+def _gap_inputs(connection: Any, row: Mapping[str, Any]) -> Inputs | None:
+    """What a gap's words were written from and beside: its answer and item,
+    and its write-time record's answers, items, questions and passages (a
+    reading-derived gap has no answer or item: its record names the passage
+    and topics; Codex review F1). None when that cannot be established: an
+    incomplete record, or no answer, no item and no record at all."""
+
+    own = Inputs.of(answers=[(row["attempt_id"], None)] if row.get("attempt_id") else (),
+                    items=[row["practice_item_id"]] if row.get("practice_item_id") else ())
+    stored = stored_record(connection, "learner_text_gap", str(row["id"]))
+    if stored is None:
+        return own if not own.empty else None
+    if not stored.record.complete:
+        return None
+    return own.union(stored.record.inputs)
 
 
 def _gap_statements(connection: Any, past: Any, rule: _AnswerText, los: Sequence[str],
@@ -210,15 +243,18 @@ def _gap_statements(connection: Any, past: Any, rule: _AnswerText, los: Sequence
         if not text:
             continue
         target = row.get("target_id") if row.get("target_id") in los else row.get("anchor_learning_object_id")
+        inputs = _gap_inputs(connection, row)
+        if inputs is None or inputs_reason(past, inputs):
+            continue  # unestablished inputs, or a protected answer, item, question or passage behind it
         shown, _note, withheld = statement_text(
             past, rule, "learner_text_gap", row["id"], text, STATEMENT_CHARS,
-            answers=[row["attempt_id"]] if row.get("attempt_id") else [],
-            items=[row["practice_item_id"]] if row.get("practice_item_id") else [],
+            answers=sorted(inputs.answers), items=sorted(inputs.items),
             los=(row.get("anchor_learning_object_id"),))
         if withheld or not shown:
             continue
         found.append({"topic": titles.get(str(target), str(target)), "kind": f"named {row['kind']}",
-                      "statement": shown, "written_by": written_by, "_at": str(row.get("created_at") or "")})
+                      "statement": shown, "written_by": written_by, "_at": str(row.get("created_at") or ""),
+                      "_inputs": inputs})
     return found
 
 
@@ -244,17 +280,55 @@ def _recent_answers(connection: Any, past: Any, rule: _AnswerText, los: Sequence
                                  "answer": text.answer}
         if text.stem:
             entry["question"] = text.stem
+        entry["_inputs"] = Inputs.of(answers=[(row["id"], None)])
         shown.append(entry)
         if len(shown) >= RECENT_ANSWERS:
             break
     return shown
 
 
-def learner_state(vault: Any, repository: Any, learning_object_ids: Iterable[str]) -> dict[str, Any] | None:
-    """The author's ``learner_state`` for these topics (module docstring), or
-    None when there is nothing to say (no statement, no answer, every topic
-    new) or it cannot be read (the author is then sent the predecessor's
-    payload)."""
+def inputs_reason(past: Any, inputs: Inputs) -> str | None:
+    """Why anything these inputs name is protected now, or None: the shared
+    protection's leakage rule on their answers and items
+    (``PastWork.evidence_reason``), each learner question's own check
+    (``PastWork.question_reason``) and the passages they were written beside
+    (``PastWork.source_reason``: exam or held-out material, conservative where
+    it cannot place them). Unreadable protection is a reason (fail closed).
+
+    A writer's reading of a rubric or worked solution (``solution_items``) is
+    not a reason here: it is not exam, held-out, reserved or cold-in-flight
+    material (each of which the items' own protection already covers)."""
+
+    from learnloop.learner_protection import WITHHELD_UNREADABLE
+
+    if not past.withheld.available:
+        return WITHHELD_UNREADABLE
+    reason = past.evidence_reason(sorted(inputs.answers), sorted(inputs.items))
+    if reason:
+        return reason
+    for event in sorted(inputs.questions):
+        reason = past.question_reason(event, inputs.questions[event])
+        if reason:
+            return reason
+    return past.source_reason(inputs.sources)
+
+
+@dataclass(frozen=True)
+class LearnerStateRead:
+    """One read: the ``state`` the author is sent (None: nothing to say, or
+    unreadable) and the ``inputs`` behind what it shows (``Inputs.as_json``:
+    the answers, items, questions and passages a later sender checks again,
+    :func:`inputs_withheld`). Never sent to a model."""
+
+    state: dict[str, Any] | None
+    inputs: dict[str, Any] | None = None
+
+
+def read_learner_state(vault: Any, repository: Any, learning_object_ids: Iterable[str]) -> LearnerStateRead:
+    """The author's ``learner_state`` for these topics (module docstring) and
+    what it was read from. The state is None when there is nothing to say
+    (no statement, no answer, every topic new) or it cannot be read (the
+    author is then sent the predecessor's payload)."""
 
     from learnloop.learner_protection import PastWork
     from learnloop.source_retrieval.reading_paths import lo_statuses
@@ -262,33 +336,72 @@ def learner_state(vault: Any, repository: Any, learning_object_ids: Iterable[str
     los = [lo for lo in dict.fromkeys(str(lo) for lo in learning_object_ids) if lo in vault.learning_objects]
     los = los[:MAX_TOPICS]
     if not los:
-        return None
+        return LearnerStateRead(None)
     titles = {lo: str(getattr(vault.learning_objects[lo], "title", "") or lo) for lo in los}
     try:
         statuses = lo_statuses(vault, repository, los)
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             past = PastWork(connection, vault, repository)
             rule = _AnswerText(past)
-            statements = [*_misconception_statements(connection, repository, past, rule, los, titles),
-                          *(_gap_statements(connection, past, rule, los, titles)
-                            if _table(connection, "learner_text_gaps") else [])]
-            answers = _recent_answers(connection, past, rule, los, titles)
+            if not past.withheld.available:
+                # Fail closed: with the protection unreadable no answer and no
+                # statement is sent, whatever it was written from (Codex review F1).
+                statements: list[dict[str, Any]] = []
+                answers: list[dict[str, Any]] = []
+            else:
+                statements = [*_misconception_statements(connection, repository, past, rule, los, titles),
+                              *(_gap_statements(connection, past, rule, los, titles)
+                                if _table(connection, "learner_text_gaps") else [])]
+                answers = _recent_answers(connection, past, rule, los, titles)
     except Exception:  # noqa: BLE001 - the author is then told nothing about the learner
         _LOG.warning("figure learner state could not be read; the figure is built without it", exc_info=True)
-        return None
+        return LearnerStateRead(None)
     statements.sort(key=lambda entry: entry["_at"], reverse=True)
-    statements = [{key: value for key, value in entry.items() if key != "_at"} for entry in statements]
     statements = statements[:MAX_STATEMENTS]
+    inputs = Inputs()
+    for entry in (*statements, *answers):
+        inputs = inputs.union(entry["_inputs"])
+    statements = [{key: value for key, value in entry.items() if not key.startswith("_")} for entry in statements]
+    answers = [{key: value for key, value in entry.items() if not key.startswith("_")} for entry in answers]
     topics = [{"topic": titles[lo], "status": STATUS_WORDS.get(statuses[lo].status, statuses[lo].status)}
               for lo in los if lo in statuses]
     if not statements and not answers and all(statuses[lo].status == "new" for lo in los if lo in statuses):
-        return None
+        return LearnerStateRead(None)
     state: dict[str, Any] = {"topics": topics}
     if statements:
         state["open_questions"] = statements
     if answers:
         state["recent_answers"] = answers
-    return state
+    return LearnerStateRead(state, inputs.as_json())
+
+
+def learner_state(vault: Any, repository: Any, learning_object_ids: Iterable[str]) -> dict[str, Any] | None:
+    """The state alone (:func:`read_learner_state`)."""
+
+    return read_learner_state(vault, repository, learning_object_ids).state
+
+
+#: Why a saved state may not be sent when what it was read from cannot be
+#: checked (no record of its inputs, or unreadable).
+INPUTS_UNKNOWN = "what it says about you could not be checked against what is protected now"
+
+
+def inputs_withheld(vault: Any, repository: Any, inputs: Any) -> str | None:
+    """Why a saved state (its :class:`LearnerStateRead` ``inputs``) may not
+    be sent now, or None: anything it was read from is protected now
+    (:func:`inputs_reason`, against the vault and the database as they are
+    now), or its inputs cannot be read (fail closed)."""
+
+    from learnloop.learner_protection import PastWork
+
+    if not isinstance(inputs, Mapping):
+        return INPUTS_UNKNOWN
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            return inputs_reason(PastWork(connection, vault, repository), Inputs.from_json(inputs))
+    except Exception:  # noqa: BLE001 - fail closed
+        _LOG.warning("figure learner state: its inputs could not be checked", exc_info=True)
+        return INPUTS_UNKNOWN
 
 
 def state_hash(state: Mapping[str, Any] | None) -> str | None:
@@ -300,15 +413,20 @@ def state_hash(state: Mapping[str, Any] | None) -> str | None:
 __all__ = [
     "ANSWER_CHARS",
     "ATTEMPTS_SCANNED",
+    "INPUTS_UNKNOWN",
     "MAX_STATEMENTS",
     "MAX_TOPICS",
     "QUESTION_CHARS",
     "RECENT_ANSWERS",
     "STATEMENT_CHARS",
     "STATUS_WORDS",
+    "LearnerStateRead",
     "anchored_learning_objects",
     "enabled",
     "excerpt",
+    "inputs_reason",
+    "inputs_withheld",
     "learner_state",
+    "read_learner_state",
     "state_hash",
 ]

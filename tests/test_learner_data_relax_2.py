@@ -29,7 +29,7 @@ from mcp import Client
 
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
-from learnloop.figures.learner_state import RECENT_ANSWERS, learner_state, state_hash
+from learnloop.figures.learner_state import RECENT_ANSWERS, learner_state, read_learner_state, state_hash
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, context, flagship, rows, \
     seed_probability_book, set_config, upsert_source_set
@@ -90,7 +90,7 @@ def _link(repository, lo_id: str = LO, span_id: str = "p3") -> None:
         connection.commit()
 
 
-def _history_world(tmp_path, *, switch: bool | None = None):
+def _history_world(tmp_path, *, switch: bool | None = None, rich: bool = False):
     """The chat frontend's seeded world (protected work planted with
     distinctive strings) plus the probability book, whose §5.4 equation
     block teaches its LO; newer protected answers and an exam-derived
@@ -98,7 +98,9 @@ def _history_world(tmp_path, *, switch: bool | None = None):
 
     world = build_world(tmp_path / "w")
     paths, repository = world.paths, world.repository
-    values = {"sketch_enabled": False, "rich_tiers_enabled": False}
+    values = {"sketch_enabled": False, "rich_tiers_enabled": rich}
+    if rich:
+        values["manim_opt_in"] = "standing"
     if switch is not None:
         values["author_learner_state"] = switch
     set_config(paths, "figures", **values)
@@ -187,6 +189,83 @@ def test_protection_unreadable_sends_no_answer_and_no_statement(tmp_path, monkey
     state = learner_state(load_vault(world.root), world.repository, [LO])
     # Fail closed: only the topic's status is left (or nothing at all).
     assert state is None or set(state) == {"topics"}
+
+
+# ---------------------------------------------------------------------------
+# Codex review F1: gaps with no answer and no item (reading-derived) are
+# checked against what their write-time record says they were written beside
+# ---------------------------------------------------------------------------
+
+READ_EXAM_GAP = "READ_EXAM_GAP_6120 thinks the exam passage says rows commute"
+READ_TEXT_GAP = "READ_TEXT_GAP_6121 thinks swapping rows keeps the determinant"
+UNRECORDED_GAP = "UNRECORDED_GAP_6122 no record of where it was written"
+
+
+def _source(source_id: str, extraction_id: str, span: str) -> dict:
+    return {"ref_type": "canonical_source", "ref_id": source_id, "source_id": source_id,
+            "extraction_id": extraction_id, "span_ids": [span]}
+
+
+def _reading_gaps(world) -> None:
+    """Three active-reading (``reader_formative``) gaps on the LO, none with an
+    answer or an item: one written beside the exam source's passage, one
+    beside an ordinary textbook passage (``src_text``), one with no record."""
+
+    from learnloop.db.stores.write_provenance import Inputs, WriteRecord, record_text_write
+    from tests.mcp_world import gap_row
+
+    with world.repository.connection() as connection:
+        for gap_id, text, source in (("gap_read_exam", READ_EXAM_GAP, _source("src_exam", "ext_exam", "s2")),
+                                     ("gap_read_text", READ_TEXT_GAP, _source("src_text", "ext_text", "t1")),
+                                     ("gap_unrecorded", UNRECORDED_GAP, None)):
+            gap_row(connection, gap_id, source_kind="reader_formative", source_id=f"raq_{gap_id}", attempt_id=None,
+                    item_id=None, text=text, target_kind="learning_object", target_id=LO)
+            if source is not None:
+                record_text_write(connection, kind="learner_text_gap", record_id=gap_id, text=text,
+                                  writer="gap_reader", record=WriteRecord(Inputs.of(topics=[LO], sources=[source])))
+        connection.commit()
+
+
+def _statements(state) -> set[str]:
+    return {entry["statement"] for entry in (state or {}).get("open_questions") or ()}
+
+
+def test_a_reading_derived_gap_is_checked_against_the_passage_it_was_written_beside(tmp_path, monkeypatch):
+    """F1: before the fix a gap with no answer and no item was sent whatever
+    its passage was: the exam passage's gap and the unrecorded one too."""
+
+    no_model_calls(monkeypatch)
+    world = _history_world(tmp_path)
+    _reading_gaps(world)
+    read = read_learner_state(load_vault(world.root), world.repository, [LO])
+    shown = _statements(read.state)
+    assert READ_TEXT_GAP in shown
+    assert READ_EXAM_GAP not in shown and UNRECORDED_GAP not in shown
+    # What it was read from goes with it (the ordinary passage among them).
+    assert _source("src_text", "ext_text", "t1")["source_id"] in {
+        ref.get("source_id") for ref in read.inputs["sources"]}
+    # The ordinary passage's source is reclassified as exam material: its gap is withheld now.
+    reclassified = json.loads(json.dumps(SOURCE_SET))
+    for member in reclassified["members"]:
+        if member["source_id"] == "src_text":
+            member["default_role"] = "exam"
+    upsert_source_set(world.root, reclassified)
+    assert READ_TEXT_GAP not in _statements(learner_state(load_vault(world.root), world.repository, [LO]))
+
+
+def test_protection_unreadable_withholds_reading_derived_gaps_too(tmp_path, monkeypatch):
+    """F1: with ``Withheld(available=False)`` an itemless gap's words used to be sent."""
+
+    from learnloop import learner_protection
+
+    no_model_calls(monkeypatch)
+    world = _history_world(tmp_path)
+    _reading_gaps(world)
+    monkeypatch.setattr(learner_protection, "withheld_items",
+                        lambda vault, repository: learner_protection.Withheld(available=False))
+    state = learner_state(load_vault(world.root), world.repository, [LO])
+    assert state is None or set(state) == {"topics"}
+    assert READ_TEXT_GAP not in json.dumps(state)
 
 
 def test_switched_off_the_payload_prompt_and_key_are_the_predecessors_byte_for_byte(tmp_path, monkeypatch):
@@ -333,3 +412,125 @@ def test_the_mcp_ledger_row_carries_its_arguments(tmp_path, monkeypatch):
     assert isinstance(bounded["nested"]["deep"], str)
     assert bounded_arguments("not an object") == {"value": "not an object"} and bounded_arguments(None) == {}
     json.dumps(bounded)
+
+
+# ---------------------------------------------------------------------------
+# Codex review F2: a queued rich job checks the saved learner state again
+# ---------------------------------------------------------------------------
+
+def _rich_history_rig(tmp_path, monkeypatch):
+    """The history world with Manim figures on (the rich job rig's runner and fakes)."""
+
+    from learnloop.content.pipeline.runner import IngestRunner, RunnerServices
+    from tests import rich_fixtures as RF
+    from tests.test_figure_rich_job import WHY, _Rig
+
+    world = _history_world(tmp_path, rich=True)
+    RF.ready_manim(monkeypatch)
+    rig = _Rig.__new__(_Rig)
+    rig.paths, rig.repository = world.paths, world.repository
+    rig.author = AuthorFake([("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    rig.rich_author = RF.RichAuthorFake()
+    rig.renders = RF.Renders()
+    rig.functions = RF.InProcessRunner()
+    rig.ingest = IngestRunner(rig.repository, vault_root=rig.paths.root, worker_id="w1", services=RunnerServices(
+        figure_rich_client_factory=lambda ctx: rig.rich_author, figure_rich_renderer=rig.renders,
+        figure_function_runner=rig.functions))
+    rig.batches = []
+    return rig
+
+
+def _switch_off(paths) -> None:
+    """``figures.author_learner_state = false`` in place (the section exists)."""
+
+    config = paths.root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    if "author_learner_state = true" in text:
+        text = text.replace("author_learner_state = true", "author_learner_state = false")
+    else:
+        text = text.replace("\n[figures]\n", "\n[figures]\nauthor_learner_state = false\n", 1)
+    config.write_text(text, encoding="utf-8")
+    assert "author_learner_state = false" in text
+
+
+def _make_exam_material(rig, item_id: str = "pi_edited") -> None:
+    """The item the shown answers were on now comes from the exam source."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = rig.paths.practice_item_path("linear-algebra", item_id)
+    item = read_yaml(path)
+    item["provenance"] = {"origin": "human", "source_refs": [
+        {"ref_type": "canonical_source", "ref_id": "src_exam", "extraction_id": "ext_exam", "span_ids": ["s2"]}]}
+    write_yaml(path, item)
+
+
+def test_a_queued_rich_job_never_sends_an_answer_whose_item_became_exam_material(tmp_path, monkeypatch):
+    """F2: before the fix the rich author still received the saved answers and question."""
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    payload = rig.job()["payload"]
+    state = payload["author_context"]["learner_state"]
+    assert state["recent_answers"] and payload["learner_state_inputs"]["answers"]
+    assert "att_unpinned" in payload["learner_state_inputs"]["answers"]
+    _make_exam_material(rig)
+    rig.ingest.drain()
+    job = rig.job()
+    assert rig.rich_author.calls == 0
+    assert job["status"] == "failed" and job["error"]["code"] == "exam_material", job
+    assert len(rows(rig.repository, "interactive_figures")) == 1  # only the quick figure
+
+
+def test_a_rich_job_stops_when_an_input_becomes_protected_while_it_runs(tmp_path, monkeypatch):
+    """F2: protection is checked again before every rich request and before the store (the gate's hold)."""
+
+    from tests import rich_fixtures as RF
+
+    class ProtectingRenders(RF.Renders):
+        def __call__(self, scene_code, scene_class, **kwargs):
+            _make_exam_material(rig)  # the answer's item becomes exam material while the video renders
+            return super().__call__(scene_code, scene_class, **kwargs)
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.renders = ProtectingRenders()
+    rig.ingest.services.figure_rich_renderer = rig.renders
+    rig.build()
+    rig.ingest.drain()
+    assert rig.rich_author.calls == 1 and len(rig.renders.calls) == 1
+    job = rig.job()
+    assert job["status"] == "failed" and job["error"]["code"] == "exam_material", job
+    assert len(rows(rig.repository, "interactive_figures")) == 1
+
+
+def test_a_queued_rich_job_with_learner_state_stops_when_the_switch_goes_off(tmp_path, monkeypatch):
+    """F2: the saved state survived ``figures.author_learner_state = false`` and was sent."""
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    assert rig.job()["payload"]["author_context"]["learner_state"]
+    _switch_off(rig.paths)
+    rig.ingest.drain()
+    job = rig.job()
+    assert rig.rich_author.calls == 0
+    assert job["status"] == "failed" and job["error"]["code"] == "figures_changed", job
+
+
+def test_a_saved_learner_state_with_no_record_of_its_inputs_is_never_sent(tmp_path, monkeypatch):
+    from learnloop.figures import rich as RICH
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    payload = dict(rig.job()["payload"])
+    payload.pop("learner_state_inputs")
+    with pytest.raises(RICH.RichJobStopped) as stopped:
+        RICH.run_rich_job(rig.vault, rig.repository, payload, client=rig.rich_author, renderer=rig.renders,
+                          function_runner=rig.functions)
+    assert stopped.value.code == "exam_material" and rig.rich_author.calls == 0
+
+
+def test_the_switch_is_in_the_build_and_rich_keys(tmp_path):
+    paths, _repository = _plain_vault(tmp_path, switch=True)
+    on = FS.build_key(load_vault(paths.root))
+    _switch_off(paths)
+    assert FS.build_key(load_vault(paths.root)) != on
