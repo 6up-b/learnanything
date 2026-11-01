@@ -502,3 +502,42 @@ def test_a_verifier_version_bump_reverifies_a_current_engines_report(tmp_path, m
     rechecked = _verdicts(repository)[-1]
     assert rechecked["left_id"] == figure["figureId"] and "sketch-verify-next" in rechecked["rationale"]
     assert "built under" in rechecked["rationale"] and f"{built_under})" in rechecked["rationale"]
+
+
+def test_the_shipped_default_is_off_and_never_loads_the_engine(tmp_path, monkeypatch):
+    """Landing decision (RW5d P2 ships off until G-SM14): a vault that never
+    set figures.sketch_enabled gets RW5b's contract, no figure_tier row, and
+    neither the engine nor wasmtime is touched."""
+
+    import learnloop.figures.sketch_engine as E
+    from learnloop.config.schema import FiguresConfig
+
+    assert FiguresConfig().sketch_enabled is False
+    paths, repository, ctx, author = _setup(tmp_path, [flagship(kind="illustrative")], sketch=False)
+    config = paths.root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    config.write_text("\n".join(line for line in text.splitlines() if not line.startswith("sketch_enabled")) + "\n",
+                      encoding="utf-8")
+    assert "sketch_enabled" not in config.read_text(encoding="utf-8")
+
+    def _no_engine(*_args, **_kwargs):
+        raise AssertionError("the sketch engine was loaded with the tier off")
+
+    monkeypatch.setattr(E, "engine_ready", _no_engine)
+    monkeypatch.setattr(E, "_compile", _no_engine)
+    ctx = context(paths.root, author=author)
+    assert "sketch" not in call(ctx, "reader.prompt_contract", {})["figures"]
+    figure = build(ctx)["figure"]
+    assert "tier" not in figure and "sketch" not in figure
+    assert "SketchProgramV1" not in author.prompts[0]
+    assert _ledger(repository, "figure_tier") == []
+
+
+def test_sidecar_start_imports_neither_wasmtime_nor_the_engine():
+    import subprocess
+    import sys
+
+    probe = ("import sys, learnloop_sidecar.server, learnloop_sidecar.registry; "
+             "print('wasmtime' in sys.modules, 'learnloop.figures.sketch_engine' in sys.modules)")
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True, timeout=120)
+    assert out.stdout.split() == ["False", "False"]

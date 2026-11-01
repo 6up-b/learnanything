@@ -82,7 +82,7 @@ def seed_probability_book(repository: Any) -> None:
 def build_figure_vault(root: Path, *, sketch: bool = False) -> tuple[Any, Any]:
     """RW5a/b's and P1's figure tests run with RW5d P2's sketch tier off (the
     author's contract is then RW5b's byte for byte, which they pin); the
-    sketch tests pass ``sketch=True`` (the shipped default)."""
+    sketch tests pass ``sketch=True`` (the stage default; it ships off until G-SM14)."""
 
     paths, repository, _spans = build_textbook_vault(root)
     set_config(paths, "figures", sketch_enabled=sketch)
