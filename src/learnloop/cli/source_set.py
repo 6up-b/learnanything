@@ -25,7 +25,10 @@ def source_set_add(
     set_id: Annotated[str, typer.Argument(help="Source-set id.")],
     source_id: Annotated[str, typer.Option("--source", help="Library source id.")],
     revision_id: Annotated[str, typer.Option("--revision", help="Pinned revision id (required, §4.3).")],
-    role: Annotated[str, typer.Option("--role", help="Membership role (open string).")] = "reference",
+    role: Annotated[str, typer.Option("--role", help=(
+        "Membership role (open string; known: primary_textbook, lecture, paper, reference, alternate_explanation, "
+        "problem_set, exam, notes, syllabus). A syllabus only scopes your deliverables: never taught from, never "
+        "practice, never protected (an exam role hides it whole)."))] = "reference",
     units: Annotated[list[str] | None, typer.Option("--unit", help="Scope unit id (repeatable). Empty = whole artifact.")] = None,
     reading: Annotated[str | None, typer.Option("--reading", help="Extraction id of the reading the --unit ids were chosen on (recorded with the scope).")] = None,
     priority: Annotated[int, typer.Option("--priority")] = 1,

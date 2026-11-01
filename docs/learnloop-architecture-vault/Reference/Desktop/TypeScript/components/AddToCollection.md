@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/AddToCollection.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/AddToCollection.tsx"
-source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
-source_commit_timestamp: "2026-10-15T06:29:40-04:00"
+source_commit: "e63a81c0807f929ac4cc5b77e209a5beace229a1"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddToCollection.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.tsx) |
-| Source lines | 255 |
+| Source lines | 264 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `542adc8869b3c2d17c359f79a489c4b4b8519192` |
-| Commit timestamp | `2026-10-15T06:29:40-04:00` |
+| Source commit | `e63a81c0807f929ac4cc5b77e209a5beace229a1` |
+| Commit timestamp | `2026-11-01T13:52:05-05:00` |
 
 ## Activation and status evidence
 
@@ -60,29 +60,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function AddToCollectionPanel(` — function, line 33
+- `export const SYLLABUS_ROLE_HINT = "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)"` — const, line 29
+- `export function AddToCollectionPanel(` — function, line 39
 
 ## Internal implementation anchors
 
-- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes" ] as const` — const, line 15
-- `function kebab(value: string): string` — function, line 26
-- `let cancelled = false` — let, line 66
-- `const list = setsSnap.sourceSets ?? []` — const, line 70
-- `const confirm = useCallback(async ()` — const, line 86
-- `const member =` — const, line 91
-- `let payload: SourceSetDto` — let, line 102
-- `let title: string` — let, line 103
-- `const members = [ ...sourceSet.members.filter((m)` — const, line 112
-- `const id = kebab(newName)` — const, line 119
-- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 143
-- `function ModeChip(` — function, line 238
+- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes", "syllabus" ] as const` — const, line 15
+- `function kebab(value: string): string` — function, line 32
+- `let cancelled = false` — let, line 72
+- `const list = setsSnap.sourceSets ?? []` — const, line 76
+- `const confirm = useCallback(async ()` — const, line 92
+- `const member =` — const, line 97
+- `let payload: SourceSetDto` — let, line 108
+- `let title: string` — let, line 109
+- `const members = [ ...sourceSet.members.filter((m)` — const, line 118
+- `const id = kebab(newName)` — const, line 125
+- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 149
+- `function ModeChip(` — function, line 247
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/components/OutlineAndPlan|src/components/OutlineAndPlan.tsx]] — import-or-re-export: `AddToCollectionPanel`; references `AddToCollectionPanel`
+- [[Reference/Desktop/TypeScript/components/OutlineAndPlan|src/components/OutlineAndPlan.tsx]] — import-or-re-export: `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`; references `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`
 - [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|src/components/SourceLibrarySidebar.tsx]] — import-or-re-export: `AddToCollectionPanel`; references `AddToCollectionPanel`
 
 ## Dependencies
@@ -105,6 +106,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/syllabusRole.test.tsx](../../../../../../apps/learnloop-tauri/src/components/syllabusRole.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/AddToCollection.test.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

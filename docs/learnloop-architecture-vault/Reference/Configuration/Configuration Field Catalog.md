@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "182a9f4d64d5eb6cafb856eae35715fb57928a23"
-source_commit_timestamp: "2026-11-01T16:39:51-05:00"
+source_commit: "57a051a4145cf050849d781a7b8d09f644eeda8e"
+source_commit_timestamp: "2026-11-01T15:17:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
@@ -12,8 +12,8 @@ aliases:
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 78
-field_count: 1108
-field_status_counts: {"ACTIVE": 1082, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+field_count: 1105
+field_status_counts: {"ACTIVE": 1079, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -34,17 +34,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1108 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1105 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1082 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1079 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1108-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1105-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -92,7 +92,7 @@ Every one of the 1108 effective leaves has a semantic Function, a runtime/refact
 | [[Config - fitting|`fitting`]] | 6 | Runtime configuration |
 | [[Config - trace_evidence|`trace_evidence`]] | 2 | Runtime configuration |
 | [[Config - diagnostic_augmentation|`diagnostic_augmentation`]] | 3 | Runtime configuration |
-| [[Config - diagnosis|`diagnosis`]] | 24 | Runtime configuration |
+| [[Config - diagnosis|`diagnosis`]] | 23 | Runtime configuration |
 | [[Config - recurrence|`recurrence`]] | 8 | Runtime configuration |
 | [[Config - stuck_prompt|`stuck_prompt`]] | 1 | Runtime configuration |
 | [[Config - hints|`hints`]] | 13 | Runtime configuration |
@@ -103,7 +103,7 @@ Every one of the 1108 effective leaves has a semantic Function, a runtime/refact
 | [[Config - workbench|`workbench`]] | 15 | Runtime configuration |
 | [[Config - recap|`recap`]] | 2 | Runtime configuration |
 | [[Config - followups|`followups`]] | 5 | Runtime configuration |
-| [[Config - digest|`digest`]] | 5 | Runtime configuration |
+| [[Config - digest|`digest`]] | 4 | Runtime configuration |
 | [[Config - reader_intent|`reader_intent`]] | 5 | Runtime configuration |
 | [[Config - reader_active_reading|`reader_active_reading`]] | 1 | Runtime configuration |
 | [[Config - reader_formative|`reader_formative`]] | 1 | Runtime configuration |
@@ -114,13 +114,13 @@ Every one of the 1108 effective leaves has a semantic Function, a runtime/refact
 | [[Config - practice|`practice`]] | 3 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |
 | [[Config - reading_paths|`reading_paths`]] | 3 | Runtime configuration |
-| [[Config - curriculum|`curriculum`]] | 6 | Runtime configuration |
+| [[Config - curriculum|`curriculum`]] | 7 | Runtime configuration |
 | [[Config - notes|`notes`]] | 8 | Runtime configuration |
 | [[Config - reader|`reader`]] | 4 | Runtime configuration |
-| [[Config - reader_tutor|`reader_tutor`]] | 3 | Runtime configuration |
+| [[Config - reader_tutor|`reader_tutor`]] | 2 | Runtime configuration |
 | [[Config - proof_check|`proof_check`]] | 1 | Runtime configuration |
 | [[Config - voi_stopping|`voi_stopping`]] | 8 | Runtime configuration |
-| [[Config - adaptive_difficulty|`adaptive_difficulty`]] | 27 | Runtime configuration |
+| [[Config - adaptive_difficulty|`adaptive_difficulty`]] | 26 | Runtime configuration |
 | [[Config - decider_routes|`decider_routes`]] | 10 | Runtime configuration |
 | [[Config - required_method|`required_method`]] | 1 | Runtime configuration |
 | [[Config - ui|`ui`]] | 2 | Runtime configuration |

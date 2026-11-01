@@ -36,7 +36,8 @@ const ROLE_LABEL: Record<string, string> = {
   alternate_explanation: "alternate explanation",
   notes: "notes",
   problem_set: "problem set",
-  exam: "exam"
+  exam: "exam",
+  syllabus: "syllabus"
 };
 
 export function fieldLabel(field: string): string {

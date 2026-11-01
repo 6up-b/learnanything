@@ -76,7 +76,7 @@ from learnloop.content.synthesis.facet_mint_gate import (
 from learnloop.learner.learner_profile import read_learner_profile
 from learnloop.learner.identifiability import analyze_identifiability, build_proposal_view
 from learnloop.content.sources import exam_material as EM
-from learnloop.content.sources.role_authority import role_authority
+from learnloop.content.sources.role_authority import is_scope_only_role, role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.synthesis.source_unit_selection import (
     compute_effective_units,
@@ -338,6 +338,11 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                     # never in the synthesis context.
                     held_out_span_ids |= {f"{extraction_id}:{span}" for span in (withheld or group_spans)}
                     continue
+            if is_scope_only_role(effective_role):
+                # Curriculum C3 (spec §9.1): a syllabus only scopes a deliverable. It is never
+                # a generation source, so no inventory of it reaches a study map (bootstrap or
+                # append), whatever inventory a manual run made.
+                continue
             row = _best_inventory(rows, unit_id, "combined")
             if row is None and len(source_unit_ids) > 1:
                 # Transition-safe fallback: an existing per-member cache remains

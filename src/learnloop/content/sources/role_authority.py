@@ -32,6 +32,7 @@ KNOWN_ROLES: frozenset[str] = frozenset(
         "paper",
         "exam",
         "notes",
+        "syllabus",
     }
 )
 
@@ -52,6 +53,11 @@ _MATRIX: dict[str, tuple[bool, bool]] = {
     # manual/unclear authority; review when used canonically. Fail closed by default
     # so `notes` gains nothing without explicit confirmation/manual grant.
     "notes": (False, True),
+    # Curriculum C3 (spec_deliverable_curriculum_v1 §9.1, Q2): a course syllabus scopes a
+    # deliverable and nothing else. Assessment alignment only (it says what is examined),
+    # never semantic authority, so it never teaches; it is not exam material, so it is
+    # never protected (a syllabus given the ``exam`` role is withheld whole instead).
+    "syllabus": (False, True),
 }
 
 # Inventory profile emphasis per role (§4.2: exam contributes assessment; problem_set
@@ -66,6 +72,9 @@ _ROLE_PROFILE: dict[str, str] = {
     "problem_set": "practice",
     "exam": "assessment",
     "notes": "semantic",
+    # A syllabus is never inventoried for a study map (``SCOPE_ONLY_ROLES``); a manual
+    # inventory reads it for what it says is examined.
+    "syllabus": "assessment",
 }
 
 
@@ -212,6 +221,10 @@ def can_authorize_assessment(role: str | None, *, manual_grant=None) -> bool:
 
 #: Roles whose citations count only as assessment alignment, never as semantic support.
 ASSESSMENT_ONLY_ROLES: frozenset[str] = frozenset({"exam"})
+#: Roles whose material only scopes a deliverable (curriculum C3, spec §9.1): never a
+#: teaching, generation or practice source, never on a deliverable path, never protected.
+#: Its passages may be a scope input of ``deliverable_scope_resolver``; nothing else reads it.
+SCOPE_ONLY_ROLES: frozenset[str] = frozenset({"syllabus"})
 #: Citation relations that can carry semantic support.
 SEMANTIC_SUPPORT_RELATIONS: frozenset[str] = frozenset({"primary", "support", "alternate"})
 #: Citation relations a provenance ref may carry.
@@ -222,6 +235,12 @@ CITATION_RELATIONS: frozenset[str] = frozenset(
 EXPLANATORY = "explanatory"
 EXAM_UNCORROBORATED = "exam_uncorroborated"
 UNSUPPORTED = "unsupported"
+
+
+def is_scope_only_role(role: str | None) -> bool:
+    """True iff the role's material only scopes a deliverable (``syllabus``, curriculum C3)."""
+
+    return str(role or "").strip() in SCOPE_ONLY_ROLES
 
 
 def is_semantic_support(role: str | None, relation: str | None) -> bool:

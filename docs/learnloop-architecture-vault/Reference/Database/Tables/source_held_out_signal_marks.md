@@ -3,8 +3,8 @@ title: "source_held_out_signal_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "182a9f4d64d5eb6cafb856eae35715fb57928a23"
-source_commit_timestamp: "2026-11-01T16:39:51-05:00"
+source_commit: "57a051a4145cf050849d781a7b8d09f644eeda8e"
+source_commit_timestamp: "2026-11-01T15:17:41-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_held_out_signal_marks"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 - `tests/test_exam_protection_identity.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_protected_readings.py`
+- `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_reread_safety.py`
 
