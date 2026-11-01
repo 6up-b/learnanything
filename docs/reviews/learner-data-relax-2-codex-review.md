@@ -129,3 +129,104 @@ run in this step. Every test command ran inside
   even when its passage is exam material. This predates this stage and is not
   changed here. It is a candidate for a follow-up that reuses
   `learner_state.inputs_reason`.
+
+## Re-review
+
+Re-review: Codex (gpt-6.1-sol), job `20261101-180806-ZroakT`, on c6c4c6c204.
+It confirmed F1 fixed and reopened F2. It found no new defects in the fix
+commits. Fix step: Claude Opus 5.5, 2026-11-01. Fakes only, no live calls,
+no paid calls.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | High | Reading-derived gaps bypass source protection | confirmed fixed by the re-review | 1102ce5184 | no change |
+| F2 | High (reopened) | A recovered rich job returns its stored figure without rechecking the learner state, and the rich row does not keep that state's inputs | fixed | 6d8062f919 | `test_a_recovered_rich_job_rechecks_its_stored_figures_learner_state` (the post-commit recovery regression), `test_a_rich_figure_keeps_the_inputs_of_the_learner_state_it_was_written_from`, `test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered`, `test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused`, `test_a_stored_rich_figure_without_learner_state_is_checked_as_before` |
+
+### F2 (reopened): reproduction
+
+I added the five tests above to `tests/test_learner_data_relax_2.py` and ran
+them against `rich.py` and `service.py` as of c6c4c6c204: all 5 failed and the
+16 existing tests passed. The recovery test reproduces the scenario directly.
+The job's figure committed. The same payload was run again (a resume before
+acknowledgement) after an answer's item became exam material, and
+`run_rich_job` returned the stored figure (`DID NOT RAISE`) with no protection
+check. With the fix, all 21 pass.
+
+### F2 (reopened): what changed (`src/learnloop/figures/rich.py`, `src/learnloop/figures/service.py`)
+
+- **Persisted with the figure.** When the job's saved context carries a
+  learner state, `_store` writes the job's `learner_state_inputs` into the
+  rich row's `verification_report` (`LEARNER_STATE_INPUTS_KEY`), for both
+  shown and failed rows. A JSON key inside the existing report means no schema
+  change and no migration. `figure_view` reads named report fields only, so
+  the record is never shown, and it is never sent to a model.
+- **One check.** `stored_learner_state_withheld(vault, repository, row)`
+  returns None when the row's author was sent no learner state (the key is
+  absent), so every other figure behaves exactly as before. Otherwise it runs
+  `learner_state.inputs_withheld` against the protection as it is now. A key
+  present with no usable record fails closed.
+- **Recovery.** `run_rich_job`'s already-stored return, and `_store`'s
+  concurrent-store (`IntegrityError`) return, go through `_recovered`. It
+  checks the stored row's inputs and, when the payload carries a learner
+  state, the payload's inputs too. Anything protected now stops the job with
+  `exam_material` instead of returning the figure. The switch is not
+  rechecked here, because a recovered figure sends nothing more to a model.
+- **Delivery.** `row_withheld` is the shared delivery gate behind
+  `figure_withheld`, the sidecar's `deliver_figure`, `list_figures`, the
+  compiled-figure read and the revision base. It now also asks
+  `stored_learner_state_withheld`, so a rich-only figure stops being listed or
+  delivered. `fuller_state` drops a fuller version whose inputs are protected
+  now: the quick figure stays, and its fuller version is not delivered or
+  named failed.
+- **Reuse.** `_reusable` (now passed the repository) reuses a rich-only figure
+  only while its learner inputs are unprotected. Otherwise the build goes
+  ahead with the learner state read fresh.
+
+This replaces the earlier "how delivery is read" note: stored rich figures
+whose author was sent a learner state *are* re-gated on later reads.
+
+### Gate (re-review fix step)
+
+Every test command ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at
+`-n 6`, with TMPDIR in the session scratchpad. No full suite, whole durability
+lane or whole vitest run.
+
+- `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **37 kept, 0 broken**.
+- `uv run pytest -n 6 -p no:randomly tests/test_learner_data_relax_2.py`:
+  **21 passed**. Against the pre-fix sources: 5 failed, 16 passed (the
+  reproduction).
+- Targeted lane, `uv run pytest -n 6 -p no:randomly <40 files>`:
+  **936 passed, 0 failed** (208.3 s). This is the first fix step's lane plus
+  the 5 new tests. Files: `tests/test_architecture.py`,
+  `tests/test_diagnosis_input_provenance.py`, every `tests/test_figure*.py`
+  (`test_figure_grammar`, `_label_wording`, `_offers`, `_panels`,
+  `_predictions`, `_property`, `_region`, `_requests_migration`,
+  `_revisions`, `_rich_contract`, `_rich_failed_correction_durable`,
+  `_rich_job`, `_rich_rereview_fixes`, `_rich_review_fixes`, `_rich_rpc`,
+  `_verification`) and `tests/test_figures*.py` (`_codex_review`,
+  `_final_round`, `_fix_round2` to `_fix_round5`, `_migration`, `_rpc`,
+  `_rw5b_fix_round2`, `_rw5b_review`, `_scope_redesign`,
+  `_show_me_codex_review`, `_show_me`, `_switch_off`),
+  `tests/test_learner_data_relax_2.py`, `tests/test_learner_text_gaps.py`,
+  `tests/test_learner_text_gaps_flow.py`, `tests/test_mcp_c1a_review.py`,
+  `tests/test_reader_followups.py`,
+  `tests/test_reader_followups_successor.py`, `tests/test_router_card.py`,
+  `tests/test_sketch_service.py`.
+- Not run, because nothing they cover changed: migrations and durability (no
+  schema, migration or connection code), frontend and cargo (no `apps/`
+  change), DB reference scripts (no schema change), config defaults snapshot
+  (no config key).
+
+### Open items (re-review)
+
+- A quick (grammar or sketch) figure whose author was sent the learner state
+  does not keep that state's inputs as a top-level record. The inputs exist
+  only inside its rich intent, when it has one. So a quick figure is not
+  re-gated on later reads for its learner inputs. It is built and delivered
+  in the same request, behind `deliver_figure`'s recheck, and a later build
+  rereads the state, so a changed state changes the reuse key. F2 covered the
+  delayed rich job only. Recording the inputs on quick rows the same way is a
+  one-line follow-up if wanted.
+- The router-card item from the first fix step stands.
