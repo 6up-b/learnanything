@@ -3,8 +3,8 @@ title: "source_tool_calls"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
-source_commit_timestamp: "2026-11-01T10:53:23-05:00"
+source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
+source_commit_timestamp: "2026-11-01T12:28:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_tool_calls"
@@ -125,6 +125,7 @@ None found by exact static reference scan.
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_reader_tutor_retrieval.py`
+- `tests/test_whole_comparison_provenance_surfaces.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
