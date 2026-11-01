@@ -1087,6 +1087,19 @@ def learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) 
     )
 
 
+def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str) -> str | None:
+    """Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read
+    for gaps now (None: it may), from ``vault`` as configured now. The note reading's
+    request gate (``pipeline.NoteGate``) asks before every request and before the gap row
+    is written. Switched off it reads no note row."""
+
+    if not learner_notes_enabled(vault):
+        return "your notes, or reading them for gaps, are switched off (or tend is gone)"
+    from learnloop.source_retrieval import note_gaps
+
+    return note_gaps.refusal(vault, repository, note_id)
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -1130,6 +1143,7 @@ __all__ = [
     "hint_feedback_row",
     "hint_feedback_text",
     "learner_note_ids",
+    "learner_note_refusal",
     "learner_note_text",
     "learner_notes_enabled",
     "learner_text",

@@ -35,6 +35,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from learnloop.curriculum import notes_tend as NT
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.source_retrieval import note_links as NL
@@ -81,9 +82,15 @@ class LinkedNote:
 def linked_notes(vault: Any, repository: Repository) -> list[LinkedNote]:
     """Every note linked now, by the snapshot its links show, oldest link first.
 
-    Only with :func:`enabled`; empty otherwise (no note row is read)."""
+    Only a note whose path is inside the allowlist as configured NOW (Codex review F2):
+    a note linked while its folder was allowed, whose folder the learner later removed
+    from ``notes.tend.paths``, is no gaps input (C2's rule: a note outside the allowlist
+    is never sent). Only with :func:`enabled`; empty otherwise (no note row is read)."""
 
     if not enabled(vault):
+        return []
+    settings = NL.tend_settings(vault)
+    if settings is None:
         return []
     with repository.connection() as connection:
         if not store.tables_present(connection):
@@ -91,6 +98,8 @@ def linked_notes(vault: Any, repository: Repository) -> list[LinkedNote]:
         rows = store.links(connection)
     by_snapshot: dict[str, dict[str, Any]] = {}
     for row, note in NL.effective_rows(repository, rows):
+        if not NT.allowed(str(note.get("path") or ""), settings.roots):
+            continue  # outside the allowlist as it is now (Codex review F2)
         entry = by_snapshot.setdefault(str(note["id"]), {"note": note, "los": [], "passages": []})
         lo = row.get("learning_object_id")
         if lo and str(lo) not in entry["los"]:
@@ -191,6 +200,24 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
     }
 
 
+def refusal(vault: Any, repository: Repository, note_id: str) -> str | None:
+    """Why the snapshot ``note_id`` may not be read for gaps now, or None when it may
+    (Codex review F3: the note reading's request gate asks before every request and
+    before the gap row is written). Read from ``vault`` as configured now: switched
+    off, tend gone, no longer linked (hidden, unlinked, superseded) or outside the
+    allowlist, or linked to protected material."""
+
+    if not enabled(vault):
+        return "your notes, or reading them for gaps, are switched off (or tend is gone)"
+    try:
+        found = note_text(vault, repository, note_id)
+    except NoteWithheld:
+        return "the note is linked to protected material"
+    if found is None:
+        return "the note is no longer linked (hidden, unlinked, changed, or outside the folders LearnLoop may read)"
+    return None
+
+
 __all__ = [
     "LinkedNote",
     "NoteWithheld",
@@ -199,4 +226,5 @@ __all__ = [
     "linked_note_ids",
     "linked_notes",
     "note_text",
+    "refusal",
 ]

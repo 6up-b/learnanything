@@ -26,9 +26,15 @@ read on the ChatGPT plan only (``contract.NOTE_SOURCE_KINDS``): the reading
 and every pair verdict come from the notes' plan route (``note_link_judge``,
 :func:`note_reader_client`), never the Decider, the gap judge's own route, an
 embedding or the drafter; the context model's kind decides; an unmatched
-prerequisite is never created (a note is never a generation input); the
-receipts keep no prompt text; and the row keeps no note text. With the plan
-down (or the route not the plan) the reading waits (:class:`ReadingWaits`).
+prerequisite is never created (a note is never a generation input) and a
+belief never becomes a new holding-pen candidate (Codex review F1); the
+receipts keep no prompt text; and the row keeps neither the note's text nor
+the model's words for its gap. Its requests are admitted on the notes' own
+route (Codex review F4) under :class:`NoteGate`, which reads consent, the
+link, the allowlist and protection again before every request and before the
+row is written (Codex review F3; a refusal is :class:`NoteReadingStopped`).
+With the plan down, the route not the plan, or the plan unavailable at
+inference (Codex review F5) the reading waits (:class:`ReadingWaits`).
 
 Without a pick (the reading failed, the chooser gave none, the switch is off)
 nothing is targeted and the field loader keeps the F11 grounded rule, then
@@ -60,13 +66,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing, nullcontext
-from contextvars import ContextVar
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import threading
 from typing import Any
 
-from learnloop.ai.errors import AIInterrupted
+from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
@@ -86,6 +92,7 @@ from learnloop.diagnosis.text_gaps.contract import (
     PrerequisiteDraft,
 )
 from learnloop.diagnosis.text_gaps.judges import (
+    READING_NOTE,
     DeciderKind,
     DeciderPairExecutor,
     LLMPairExecutor,
@@ -128,8 +135,9 @@ _STOPS = ("SpendLimitExceeded", "SpendCancelled", "AIInterrupted")
 
 #: Set while a note the learner linked is read (curriculum C5): Tier 1's
 #: Decider switches do not apply (:func:`_tier1`), so no note-derived text
-#: reaches the Decider (an OpenRouter model).
-_READING_NOTE: ContextVar[bool] = ContextVar("learnloop_text_gaps_reading_note", default=False)
+#: reaches the Decider (an OpenRouter model), and every request is admitted on
+#: the notes' own route (:func:`judges.gap_route`, Codex review F4).
+_READING_NOTE = READING_NOTE
 #: The route whose provider may read the learner's notes (curriculum C2's,
 #: spec §10.4: the ChatGPT plan only; ``plan_fallback.PLAN_ONLY_TASKS``).
 NOTE_READER_TASK = "note_link_judge"
@@ -158,12 +166,89 @@ class ReadingDeferred(Exception):
 
 class ReadingWaits(ReadingDeferred):
     """A note's reading waits for the ChatGPT plan (curriculum C5, spec §10.4):
-    the plan is down, or the notes' route is not the plan. Nothing was sent;
-    the job is released with its attempt refunded and read again later (it
-    never fails for waiting), and the rest of the queue goes on."""
+    the plan is down, or the notes' route is not the plan, or the plan became
+    unavailable while it was read (a usage limit, a sign-in gone: Codex review
+    F5). What it already judged stays in the ledger; the job is released with
+    its attempt refunded and read again later (it never fails for waiting),
+    and the rest of the queue goes on."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
+
+
+class NoteReadingStopped(BaseException):
+    """A note's reading may go no further (curriculum C5, Codex review F3): the
+    learner switched the opt-in, the notes or gap reading off, tend is gone, the
+    note's folder left the allowlist, its link was hidden or superseded, or what
+    it is linked to became protected material. Raised by :class:`NoteGate`
+    before a request is sent or the gap row is written: nothing more is sent or
+    written. A ``BaseException``, as C2's ``NotesSwitchedOff`` and RW5a's
+    ``FiguresChanged``: the pipeline turns an ``Exception`` from a judge into a
+    failed reading and carries on, which would send or write after consent
+    was withdrawn. The gap job ends ``skipped``; linked again, it is queued again."""
+
+
+class NoteGate:
+    """The request gate of one note's reading (curriculum C5, Codex review F3).
+
+    Before every physical model request (installed with
+    :func:`~learnloop.ai.execution.gate_model_requests`) and before the gap row
+    is written (:meth:`check`, inside the write's transaction), it reads the
+    vault as configured now (reloaded from disk) and asks the notes adapter
+    whether this snapshot may still be read: the opt-in, ``notes.enabled``,
+    ``learner_text_gaps.enabled`` and tend present; the link still standing
+    (not hidden, not superseded by a newer snapshot); the note's path inside the
+    current allowlist; and nothing it is linked to protected now
+    (``sources.learner_note_refusal``). The first refusal refuses everything
+    after it. Composes with the gate installed around it (the outer one admits
+    first; a refusal settles its admission)."""
+
+    def __init__(self, root: Path, repository: Repository, note_id: str) -> None:
+        self._root = Path(root)
+        self._repository = repository
+        self._note_id = str(note_id)
+        from learnloop.ai.execution import active_request_gate
+
+        self._outer = active_request_gate()
+        self._lock = threading.Lock()
+        #: Why the reading may send or write nothing more (None: it may).
+        self.changed: str | None = None
+
+    def _refusal(self) -> str | None:
+        from learnloop.diagnosis.text_gaps.sources import learner_note_refusal
+
+        try:
+            vault = load_vault(self._root)
+        except Exception:  # noqa: BLE001 - an unreadable configuration authorizes nothing
+            return "the vault's settings could not be read"
+        try:
+            return learner_note_refusal(vault, self._repository, self._note_id)
+        except Exception:  # noqa: BLE001 - undecidable is refused
+            return "whether the note may still be read could not be decided"
+
+    def check(self, purpose: str = "request") -> None:
+        """Raise :class:`NoteReadingStopped` when the reading may send or write nothing more."""
+
+        with self._lock:
+            if self.changed is None:
+                self.changed = self._refusal()
+            if self.changed is not None:
+                raise NoteReadingStopped(f"{purpose} refused: {self.changed}")
+
+    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+        admission = None if self._outer is None else self._outer.admit(client, purpose=purpose, prompt=prompt,
+                                                                       budget=budget)
+        try:
+            self.check(purpose)
+        except NoteReadingStopped:
+            if self._outer is not None:
+                self._outer.settle(admission, {})
+            raise
+        return admission
+
+    def settle(self, admission: Any, usage: dict[str, Any]) -> None:
+        if self._outer is not None:
+            self._outer.settle(admission, usage)
 
 
 @dataclass
@@ -313,6 +398,7 @@ def _judge_all(
         return tier1.judge_all(repository, kind, pairs, budget=budget, clients=clients)
     out: dict[str, Any] = {"llm": None, "decider": None, "llm_results": [], "decider_results": [],
                            "llm_unsettled": [], "decider_unsettled": []}
+    note = READING_NOTE.get()
     for name, executor_type, client in (
         ("llm", LLMPairExecutor, clients.get("judge")),
         ("decider", DeciderPairExecutor, clients.get("decider") if decider_on else None),
@@ -320,11 +406,18 @@ def _judge_all(
         if client is None or not pairs:
             continue
         executor = executor_type(budget, client)
-        results = _with_standing(repository, kind, judge_pairs(repository, kind, pairs, execute=executor),
+        # A note's pair verdicts stop (not fail) when the plan becomes unavailable
+        # (Codex review F5): the reading then waits for it.
+        stops = {"stop_on": (SpendLimitExceeded, AIInterrupted, AIProviderUnavailable)} if note else {}
+        results = _with_standing(repository, kind, judge_pairs(repository, kind, pairs, execute=executor, **stops),
                                  judge=name, producer=executor.producer)
         stop = _stopped(results)
         if stop is not None:
             raise ReadingDeferred(f"{name} pair judging stopped: {stop}", spend=True)
+        if note and (waiting := next((str(pair.error) for pair in results
+                                      if pair.status == "not_run" and pair.error), None)) is not None:
+            raise ReadingWaits(f"the ChatGPT plan became unavailable while your note was read ({waiting}); "
+                               "it is read again when the plan is back")
         out[name] = _verdicts(results)
         out[f"{name}_unsettled"] = _unsettled(results)
         out[f"{name}_results"] = [pair.as_dict() for pair in results]
@@ -916,17 +1009,31 @@ def process_learner_text(
     now_iso = utc_now_iso(clock)
     from learnloop.ai.execution import withhold_receipt_input
 
+    from learnloop.ai.execution import gate_model_requests
+
+    # A note's reading runs under its own request gate (Codex review F3): consent,
+    # the link, the allowlist and protection are read again before every request
+    # and before the row is written.
+    gate = NoteGate(root, repository, text.source_id) if note else None
     reading_note = _READING_NOTE.set(note)
     try:
         # A note's receipts keep no prompt text (curriculum C5, as C2's F3).
-        with withhold_receipt_input() if note else nullcontext(), budget.receipts(repository, text.subject_key):
+        with withhold_receipt_input() if note else nullcontext(), budget.receipts(repository, text.subject_key), \
+                gate_model_requests(gate) if gate is not None else nullcontext():
             outcome, reading, decider, chooser, kind = _read_and_act(
                 root, vault, repository, text, budget=budget, clients=clients, now_iso=now_iso, clock=clock,
                 state=state, checkpoint=checkpoint)
+    except AIProviderUnavailable as exc:
+        if not note:
+            raise
+        # The plan resolved, then became unavailable at inference (Codex review F5).
+        raise ReadingWaits(f"the ChatGPT plan became unavailable while your note was read "
+                           f"({type(exc).__name__}); it is read again when the plan is back") from exc
     finally:
         _READING_NOTE.reset(reading_note)
     return _log(root, repository, text, outcome, reading=reading, decider=decider, chooser=chooser, kind=kind,
-                budget=budget, now_iso=now_iso, clock=clock)
+                budget=budget, now_iso=now_iso, clock=clock,
+                before_write=(lambda: gate.check("writing the gap")) if gate is not None else None)
 
 
 def _read_and_act(
@@ -962,9 +1069,12 @@ def _read_and_act(
 def _log(
     root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *,
     reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str,
-    clock: Clock | None,
+    clock: Clock | None, before_write: Callable[[], None] | None = None,
 ) -> dict[str, Any] | None:
-    """Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment)."""
+    """Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment).
+
+    ``before_write`` (a note's :meth:`NoteGate.check`) runs first inside the write's
+    transaction: a refusal there writes nothing."""
 
     vault = load_vault(root)
     advance = None
@@ -985,6 +1095,15 @@ def _log(
         )
     detail = dict(outcome.detail)
     detail["spend"] = budget.spend.summary()
+    named = reading.named() if reading is not None else {}
+    if text.source_kind in NOTE_SOURCE_KINDS:
+        # Codex review F1: the model's words for a note's gap may echo the note, and
+        # the gap table's readers (the router's card, the learner context the MCP
+        # server serves, library asks, passage cues) send them to routes that are
+        # not the plan: the row keeps the kind and the vault's own target, never the
+        # words (they stay in the plan-only job's checkpoint).
+        named = {key: None for key in named}
+        detail["named_words"] = "not_kept_for_a_note"
     row = {
         "source_kind": text.source_kind, "source_id": text.source_id, "attempt_id": text.attempt_id,
         "practice_item_id": text.practice_item_id,
@@ -993,8 +1112,7 @@ def _log(
         "context_judge": text.context_judge,
         "context_kind": reading.kind if reading is not None and reading.status == "ok" else None,
         "decider_kind": decider.choice, "decider_json": decider.as_dict(), "kind": kind,
-        "named_json": {**(reading.named() if reading is not None else {}),
-                       "reading_status": reading.status if reading is not None else "none"},
+        "named_json": {**named, "reading_status": reading.status if reading is not None else "none"},
         "action": outcome.action, "target_kind": outcome.target_kind, "target_id": outcome.target_id,
         "target_subject_id": outcome.target_subject_id, "match_basis": outcome.match_basis,
         "edge_id": outcome.edge_id, "created_concept_id": outcome.created_concept_id,
@@ -1004,6 +1122,8 @@ def _log(
         "pipeline_version": PIPELINE_VERSION, "created_at": now_iso,
     }
     with repository.atomic():
+        if before_write is not None:
+            before_write()
         connection = repository.connection()
         gap_id = store.insert_gap(connection, row)
         _record_written_texts(connection, vault, text, outcome, gap_id=gap_id, learner_words=row["learner_text"],
@@ -1163,6 +1283,8 @@ def named_gaps_for_card(
 
 __all__ = [
     "NOTE_READER_TASK",
+    "NoteGate",
+    "NoteReadingStopped",
     "PipelineClients",
     "ReadingDeferred",
     "ReadingWaits",

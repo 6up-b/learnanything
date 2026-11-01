@@ -68,7 +68,13 @@ NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback
 #: never drafted into a new topic (a note is never a generation input,
 #: §10.2): an unmatched prerequisite named from a note stays unmatched. The
 #: gap row stores no note text (``learner_text`` is empty: the note stays in
-#: its snapshot), so no reader of the gap table sends it anywhere.
+#: its snapshot) and none of the model's words for the gap (``named_json``
+#: keeps the keys, empty: Codex review F1), and a belief named from a note
+#: never becomes a new holding-pen candidate (only a sighting of one that
+#: stands), so no reader of the gap table or the holding pen sends anything
+#: derived from a note off the plan. Its requests are admitted on the notes'
+#: route (``NOTE_ROUTE``) under a request gate that reads consent, the link,
+#: the allowlist and protection again before each request and the write.
 NOTE_SOURCE_KINDS = ("learner_note",)
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
@@ -103,6 +109,12 @@ READER_ROUTE = "learner_gap_reader"
 DECIDER_ROUTE = "learner_gap_decider"
 DRAFT_ROUTE = "authoring"
 EMBEDDING_ROUTE = "embedding"
+#: Curriculum C5 (Codex review F4): a note's reading and its pair verdicts are
+#: admitted on the notes' own route (``ai.routing.note_link_judge``, the
+#: ChatGPT plan), never under the gap reader's or judge's route: one budget
+#: shared across a queue (``learnloop gaps run``) keeps each route's billing
+#: class, so a metered gap route is never admitted as the plan's.
+NOTE_ROUTE = "note_link_judge"
 
 
 @dataclass(frozen=True)
@@ -375,6 +387,7 @@ __all__ = [
     "READER_FORMATIVE_PROMPT_VERSION",
     "READER_FORMATIVE_TASK",
     "NON_SERVING_SOURCE_KINDS",
+    "NOTE_ROUTE",
     "NOTE_SOURCE_KINDS",
     "READER_NOTE_PROMPT_VERSION",
     "READER_NOTE_TASK",

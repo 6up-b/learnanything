@@ -441,6 +441,10 @@ def test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context(tmp_pa
             "SELECT id FROM learner_notes WHERE path LIKE '%rank.org'")]
     with pytest.raises(SourceWithheld):
         learner_text(vault, repository, "learner_note", held_id)
+    # The note reading's request gate refuses it too (Codex review F3: protection read now).
+    from learnloop.diagnosis.text_gaps.sources import learner_note_refusal
+
+    assert learner_note_refusal(vault, repository, held_id) == "the note is linked to protected material"
     llm = PlanGapFake(reading=LearnerGap(kind="none"))
     outcomes = J.run_pending(paths.root, repository, owner="t", clients=_clients(llm), clock=CLOCK)
     assert {o.state for o in outcomes} <= {"done", "skipped"}
@@ -501,3 +505,255 @@ def test_a_vault_opened_with_the_opt_in_on_queues_its_linked_notes(tmp_path, mon
         assert {row[0] for row in _jobs(repository)} == set(_snapshots(repository).values())
     finally:
         reopened.close()
+
+
+# -- Codex review (C5) fixes -------------------------------------------------------------------------
+
+class PhysicalPlanFake(PlanGapFake):
+    """The plan's gap model whose every answer is one PHYSICAL request (a real plan client's
+    shape): admitted through the context's request gate before anything is sent."""
+
+    def complete(self, request):
+        from learnloop.ai.execution import model_call
+
+        with model_call(self, purpose=request.purpose, prompt=request.prompt):
+            return super().complete(request)
+
+
+class PlanOutageFake(PhysicalPlanFake):
+    """The plan resolves as ready, then its inference reports the usage limit reached."""
+
+    def __init__(self, *, down: set[str], **kwargs):
+        super().__init__(**kwargs)
+        self.down = set(down)
+
+    def complete(self, request):
+        from learnloop.ai.chatgpt_plan.session import ChatGPTPlanUsageExhausted
+
+        if request.purpose in self.down:
+            self.calls.append((request.purpose, {}))
+            raise ChatGPTPlanUsageExhausted("usage limit reached; plan requests are paused")
+        return super().complete(request)
+
+
+def _ordinary_text(source_id: str = "stuck-ordinary"):
+    from learnloop.diagnosis.text_gaps.contract import LearnerText
+
+    return LearnerText(source_kind="stuck_answer", source_id=source_id, text="I think eigenvalues are always positive",
+                       context_judge="gap_reader", created_at=NOW, subject_id="linear-algebra",
+                       anchor_learning_object_ids=("lo_eigen",))
+
+
+def _clear_backoff(repository, source_id: str) -> None:
+    with repository.atomic():
+        repository.connection().execute("UPDATE learner_text_gap_jobs SET not_before = NULL WHERE source_id = ?",
+                                        (source_id,))
+
+
+def test_f1_a_notes_belief_never_becomes_a_candidate_nor_leaves_the_plan_through_an_ordinary_gap(tmp_path, monkeypatch):
+    """Codex review F1: the plan's reader echoes the note (a synthetic sentinel) into the belief
+    it names. Nothing derived from the note is stored where ordinary consumers read it (no
+    holding-pen candidate, no named words on the gap row), so an ordinary gap on the same topic,
+    read by routes that are not the plan, never sends it."""
+
+    from learnloop.diagnosis.text_gaps import pipeline as P
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    echoed = f"Every matrix has real eigenvalues ({SENTINEL})"
+    plan = PlanGapFake(reading=LearnerGap(kind="misconception", belief_statement=echoed))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", snapshots["Eigen stuff"]))
+    assert outcome.state == "done"
+    with repository.connection() as connection:
+        pen = json.dumps([list(row) for row in connection.execute("SELECT * FROM misconception_candidates")])
+        gaps_dump = json.dumps([list(row) for row in connection.execute("SELECT * FROM learner_text_gaps")])
+    assert SENTINEL not in pen and SENTINEL not in gaps_dump
+    (gap,) = _gaps(repository)
+    assert gap["action"] != "belief_candidate"
+    assert json.loads(gap["detail_json"]).get("reason") == "never_a_candidate_from_a_note"
+    # An ordinary gap on lo_eigen, read and judged off the plan (the gap judge's route and the Decider).
+    other = GapLLMFake(reading=LearnerGap(kind="misconception", belief_statement="eigenvalues are always positive"))
+    decider = ChoiceDecider(kind="misconception", pair=always("different"))
+    P.process_learner_text(paths.root, repository, _ordinary_text(),
+                           clients=PipelineClients(judge=lambda: other, reader=lambda: other,
+                                                   decider=lambda: decider, drafter=lambda: other),
+                           clock=CLOCK)
+    assert other.calls  # the ordinary gap was read and judged: the check is not vacuous
+    assert SENTINEL not in json.dumps(other.calls, default=str)
+    assert SENTINEL not in json.dumps(decider.states, default=str)
+    # Every reader of the gap table that sends elsewhere reads no note-derived words.
+    with repository.connection() as connection:
+        card = P.named_gaps_for_card(connection)
+    assert SENTINEL not in json.dumps(card, default=str)
+
+
+def test_f2_a_note_outside_the_current_allowlist_is_never_queued_or_read(tmp_path, monkeypatch):
+    """Codex review F2: a note linked while its folder was allowed, then the folder removed from
+    ``notes.tend.paths``: its snapshot is no longer a gaps input (queue, text, read)."""
+
+    from learnloop.ops.settings_store import apply_config_updates
+    from learnloop.source_retrieval import note_gaps
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch, gaps=False)
+    snapshots = _snapshots(repository)
+    apply_config_updates(paths.root / "learnloop.toml", {("notes", "tend", "paths"): [str(fake_tend.quicknote)],
+                                                         ("notes", "gaps_enabled"): True})
+    vault = load_vault(paths.root)
+    assert note_gaps.linked_note_ids(vault, repository) == [snapshots["Eigen page"]]  # the excluded note drops out
+    assert J.enqueue_learner_notes(vault, repository) == 1
+    assert {row[0] for row in _jobs(repository)} == {snapshots["Eigen page"]}
+    assert learner_text(vault, repository, "learner_note", snapshots["Eigen stuff"]) is None
+    J.enqueue(repository, source_kind="learner_note", source_id=snapshots["Eigen stuff"], clock=CLOCK)
+    llm = PlanGapFake()
+    outcome = _run(paths, repository, _clients(llm), source=("learner_note", snapshots["Eigen stuff"]))
+    assert outcome.state == "skipped" and llm.calls == []
+
+
+def test_f3_revoking_consent_before_dispatch_sends_nothing(tmp_path, monkeypatch):
+    """Codex review F3: the text is built, then the learner turns the opt-in off before the
+    first request: the request gate refuses it, nothing is sent or logged, the job is skipped."""
+
+    from learnloop.ops.settings_store import apply_config_updates
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    original = J.learner_text
+
+    def built_then_switched_off(*args, **kwargs):
+        text = original(*args, **kwargs)
+        apply_config_updates(paths.root / "learnloop.toml", {("notes", "gaps_enabled"): False})
+        return text
+
+    monkeypatch.setattr(J, "learner_text", built_then_switched_off)
+    plan = PhysicalPlanFake(reading=LearnerGap(kind="none"))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", snapshots["Eigen stuff"]))
+    assert outcome.state == "skipped" and plan.calls == [] and _gaps(repository) == []
+    # The same with the notes switched off altogether.
+    monkeypatch.setattr(J, "learner_text", original)
+    apply_config_updates(paths.root / "learnloop.toml", {("notes", "gaps_enabled"): True})
+
+    def built_then_notes_off(*args, **kwargs):
+        text = original(*args, **kwargs)
+        apply_config_updates(paths.root / "learnloop.toml", {("notes", "enabled"): False})
+        return text
+
+    monkeypatch.setattr(J, "learner_text", built_then_notes_off)
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", snapshots["Eigen page"]))
+    assert outcome.state == "skipped" and plan.calls == [] and _gaps(repository) == []
+
+
+def test_f3_hiding_the_link_between_requests_stops_the_reading_and_writes_nothing(tmp_path, monkeypatch):
+    """Codex review F3: the learner hides the link after the reading request: the pair
+    verdicts are never sent and no gap row is written; *undo* queues it again."""
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    typed = next(line for line in lines if line["note"]["heading"] == "Eigen stuff")
+    hidden: dict = {}
+
+    class HidesAfterReading(PhysicalPlanFake):
+        def complete(self, request):
+            result = super().complete(request)
+            if request.purpose == "learner_gap_reading":
+                hidden.update(call(ctx, "notes.decide", {"link_id": typed["linkId"], "choice": "hide"}))
+            return result
+
+    plan = HidesAfterReading(reading=LearnerGap(kind="prerequisite", prerequisite_name="the determinant of a matrix"),
+                             decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", snapshots["Eigen stuff"]))
+    assert outcome.state == "skipped"
+    assert [purpose for purpose, _ in plan.calls] == ["learner_gap_reading"]  # no pair verdict was sent
+    assert _gaps(repository) == []
+    call(ctx, "notes.decide", {"link_id": hidden["linkId"], "choice": "keep"})
+    assert (snapshots["Eigen stuff"], "queued") in {row[:2] for row in _jobs(repository)}
+
+
+def test_f3_switched_off_before_the_final_write_writes_nothing(tmp_path, monkeypatch):
+    """Codex review F3: the opt-in turned off after the last request: the gap row is not written."""
+
+    from learnloop.ops.settings_store import apply_config_updates
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+
+    class OffAfterReading(PhysicalPlanFake):
+        def complete(self, request):
+            result = super().complete(request)
+            apply_config_updates(paths.root / "learnloop.toml", {("notes", "gaps_enabled"): False})
+            return result
+
+    plan = OffAfterReading(reading=LearnerGap(kind="none"))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", snapshots["Eigen stuff"]))
+    assert outcome.state == "skipped" and _gaps(repository) == []
+
+
+@pytest.mark.parametrize("note_first", [True, False])
+def test_f4_mixed_queues_keep_metered_routes_metered(tmp_path, monkeypatch, note_first):
+    """Codex review F4: one command budget across a note (the plan) and an ordinary gap (a
+    metered route), in both orders: the note is accounted on its own route, the ordinary gap's
+    requests stay metered and capped."""
+
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.offline_review.spend import ReviewSpend
+    from learnloop.diagnosis.text_gaps import pipeline as P
+    from learnloop.diagnosis.text_gaps.judges import TextBudget
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    vault = load_vault(paths.root)
+    caps = SpendCaps(max_candidates=100, max_pairs=100, max_retries=10, max_calls=100, max_total_tokens=2_000_000,
+                     max_estimated_usd=1.0)
+    shared = TextBudget.for_command(ReviewSpend(caps, price_per_million=1.0, config=vault.config))
+    plan = PlanGapFake(reading=LearnerGap(kind="none"))
+    metered = MeteredGapFake(reading=LearnerGap(kind="none"))
+    note_text = learner_text(vault, repository, "learner_note", snapshots["Eigen stuff"])
+
+    def note():
+        P.process_learner_text(paths.root, repository, note_text, clients=_clients(plan), budget=shared, clock=CLOCK)
+
+    def ordinary():
+        P.process_learner_text(paths.root, repository, _ordinary_text(),
+                               clients=PipelineClients(judge=lambda: metered, reader=lambda: metered),
+                               budget=shared, clock=CLOCK)
+
+    for step in ((note, ordinary) if note_first else (ordinary, note)):
+        step()
+    routes = shared.spend.routes
+    assert routes["learner_gap_reader"].billing == "metered"
+    assert routes[P.NOTE_READER_TASK].billing == "subscription"
+    assert _readings(plan) and _readings(metered)
+    assert (shared.spend.estimated_usd.get("learner_gap_reader") or 0.0) > 0.0  # the metered reading was charged
+    assert shared.spend.budget.used.total_tokens > 0
+
+
+def test_f4_the_dry_run_plan_names_the_notes_route(tmp_path, monkeypatch):
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    planned = J.plan(load_vault(paths.root), repository)
+    assert "note_link_judge" in planned["routes"] and planned["by_source"].get("learner_note") == 2
+
+
+def test_f5_a_plan_outage_at_inference_waits_and_never_fails_the_note(tmp_path, monkeypatch):
+    """Codex review F5: the plan resolves, then its inference reports the usage limit: the
+    reading waits (attempt refunded, backed off), however many times; never a failed gap."""
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    source = ("learner_note", snapshots["Eigen stuff"])
+    plan = PlanOutageFake(down={"learner_gap_reading"}, reading=LearnerGap(kind="none"))
+    for _round in range(J.MAX_ATTEMPTS + 2):
+        outcome = _run(paths, repository, _clients(plan), source=source)
+        assert (outcome.state, outcome.error) == ("retry_later", "waiting_for_plan")
+        _clear_backoff(repository, source[1])
+    assert _gaps(repository) == []
+    with repository.connection() as connection:
+        job = dict(connection.execute("SELECT * FROM learner_text_gap_jobs WHERE source_id = ?", (source[1],)).fetchone())
+    assert job["state"] == "queued" and job["attempt_count"] == 0
+    # The pair verdicts' outage waits too.
+    pairs_down = PlanOutageFake(down={"learner_gap_same_prerequisite"},
+                                reading=LearnerGap(kind="prerequisite", prerequisite_name="the determinant of a matrix"))
+    outcome = _run(paths, repository, _clients(pairs_down), source=source)
+    assert (outcome.state, outcome.error) == ("retry_later", "waiting_for_plan")
+    assert _gaps(repository) == []
+    # The plan back: read.
+    _clear_backoff(repository, source[1])
+    assert _run(paths, repository, _clients(PlanGapFake(reading=LearnerGap(kind="none"))), source=source).state == "done"

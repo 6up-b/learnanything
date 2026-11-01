@@ -32,9 +32,10 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
-from learnloop.diagnosis.text_gaps.contract import LearnerText
+from learnloop.diagnosis.text_gaps.contract import NOTE_ROUTE, LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import (
+    NoteReadingStopped,
     PipelineClients,
     ReadingDeferred,
     ReadingWaits,
@@ -555,6 +556,12 @@ def process_next_gap_job(
         outcome.state = "retry_later" if released else "lease_lost"
         outcome.error = "figures_changed"
         return outcome
+    except NoteReadingStopped as exc:
+        # Curriculum C5 (Codex review F3): the learner withdrew what let this note be
+        # read (the opt-in or the notes off, the link hidden, its folder out of the
+        # allowlist, its passage protected) before a request or the write: nothing
+        # more was sent or written. Skipped; linked again, the sweep queues it again.
+        return skip(f"stopped: {exc}"[:500], text)
     except ReadingWaits as exc:
         # Curriculum C5: a note's reading waits for the ChatGPT plan (nothing was
         # sent): released with its attempt refunded, read again later; the rest
@@ -710,6 +717,10 @@ def plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
         task: provider_for_task(vault.config, task).provider_name
         for task in ("learner_gap_judge", "learner_gap_reader", "learner_gap_decider", "authoring", "tutor_qa")
     }
+    if "learner_note" in by_source or bool(getattr(getattr(vault.config, "notes", None), "gaps_enabled", False)):
+        # Curriculum C5 (Codex review F4): a note's reading and pair verdicts run on the
+        # notes' own route (the ChatGPT plan), named here only when notes may be read.
+        routes[NOTE_ROUTE] = provider_for_task(vault.config, NOTE_ROUTE).provider_name
     return {
         "queued": len(jobs),
         "by_source": by_source,

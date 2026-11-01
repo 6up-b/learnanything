@@ -210,6 +210,11 @@ def reading_record(connection: Any, text: Any, reading: Any = None) -> WriteReco
     """What wrote a reading's named gap (a belief statement, a prerequisite
     name and line): its reader's inputs (see the module doc)."""
 
+    if text.source_kind == "learner_note":
+        # Curriculum C5 (Codex review F1): nothing written from a note's reading carries
+        # a provenance record (no holding-pen candidate, no drafted LO); a record here
+        # would name only its topics and lose that the words came from a note.
+        raise ValueError("a note's reading writes no record that needs write-time provenance")
     record = text_record(connection, text)
     if text.source_kind == "tutor_question":
         record = record.join(WriteRecord.incomplete(TUTOR_UNRECORDED))

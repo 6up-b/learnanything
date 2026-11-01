@@ -17,12 +17,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import closing, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 import json
 from typing import Any
 
 import numpy as np
 
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendCaps
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
@@ -52,6 +54,8 @@ from learnloop.diagnosis.text_gaps.contract import (
     NEEDED_QUESTION,
     NEEDED_TASK,
     NEEDED_TASK_TEXT,
+    NOTE_ROUTE,
+    NOTE_SOURCE_KINDS,
     PAIR_OPTIONS,
     PAIR_QUESTION_INSTRUCTIONS,
     READER_FORMATIVE_PROMPT_VERSION,
@@ -79,6 +83,19 @@ from learnloop.vault.required_method import presented_prompt
 #: ``COMMAND_RECEIPT_OWNER``, which the live cap does not count (re-review F5).
 MODEL_CALL_OWNER_KIND = PIPELINE_RECEIPT_OWNER
 ClientFactory = Callable[[], Any]
+
+#: Set while a note the learner linked is read (curriculum C5): the reading's
+#: and the pair verdicts' requests are admitted on the notes' route
+#: (:func:`gap_route`), and Tier 1's Decider switches do not apply.
+READING_NOTE: ContextVar[bool] = ContextVar("learnloop_text_gaps_reading_note", default=False)
+
+
+def gap_route(route: str) -> str:
+    """The route a gap request is admitted on: ``route``, or the notes' own route while a
+    note is read (Codex review F4: registrations are per route, so the plan's client is
+    never registered under a route an ordinary, possibly metered, gap uses)."""
+
+    return NOTE_ROUTE if READING_NOTE.get() else route
 
 
 def caps_for(vault: LoadedVault) -> SpendCaps:
@@ -167,10 +184,11 @@ class LLMPairExecutor:
         self.budget = budget
         self.client = client
         self.producer = producer_label(client)
-        budget.register_llm(JUDGE_ROUTE, client)
+        self.route = gap_route(JUDGE_ROUTE)
+        budget.register_llm(self.route, client)
 
     def __call__(self, prompt: str, result_model: type[SameOrDifferent], purpose: str) -> tuple[SameOrDifferent, str]:
-        with self.budget.request(JUDGE_ROUTE, purpose, input_tokens=estimate_tokens(prompt)):
+        with self.budget.request(self.route, purpose, input_tokens=estimate_tokens(prompt)):
             result = execute_structured_operation(
                 self.client, purpose=purpose, prompt=prompt, result_model=result_model, isolated=True,
             )
@@ -353,16 +371,23 @@ def read_text(budget: TextBudget, client: Any, text: LearnerText) -> GapReading:
     from learnloop.ai.spend import SpendLimitExceeded
 
     model = producer_label(client)
-    budget.register_llm(READER_ROUTE, client)
+    route = gap_route(READER_ROUTE)
+    budget.register_llm(route, client)
     prompt = reader_prompt(text)
     version = reader_version(text)
     try:
-        with budget.request(READER_ROUTE, READER_PURPOSE, input_tokens=estimate_tokens(prompt)):
+        with budget.request(route, READER_PURPOSE, input_tokens=estimate_tokens(prompt)):
             gap = execute_structured_operation(
                 client, purpose=READER_PURPOSE, prompt=prompt, result_model=LearnerGap, isolated=True,
             )
     except SpendLimitExceeded:
         return GapReading("none", judge="llm", judge_model=model, prompt_version=version, status="refused")
+    except AIProviderUnavailable:
+        if text.source_kind in NOTE_SOURCE_KINDS:
+            # Curriculum C5 (Codex review F5): the plan became unavailable at inference
+            # (a usage limit, a sign-in gone): the note's reading waits, never fails.
+            raise
+        return GapReading("none", judge="llm", judge_model=model, prompt_version=version, status="failed")
     except Exception:  # noqa: BLE001 - a failed reading falls back to the grounded rule
         return GapReading("none", judge="llm", judge_model=model, prompt_version=version, status="failed")
     return GapReading.from_gap(gap, judge="llm", judge_model=model, prompt_version=version)
@@ -411,9 +436,10 @@ def ask_needed(
     left, right = ("learning_object", learning_object_id), ("practice_item", practice_item_id)
     if judge_client is not None:
         producer = producer_label(judge_client)
-        budget.register_llm(JUDGE_ROUTE, judge_client)
+        route = gap_route(JUDGE_ROUTE)
+        budget.register_llm(route, judge_client)
         try:
-            with budget.request(JUDGE_ROUTE, NEEDED_PURPOSE, input_tokens=estimate_tokens(prompt)):
+            with budget.request(route, NEEDED_PURPOSE, input_tokens=estimate_tokens(prompt)):
                 verdict = execute_structured_operation(
                     judge_client, purpose=NEEDED_PURPOSE, prompt=prompt, result_model=NeededVerdict, isolated=True,
                 )
@@ -508,6 +534,8 @@ def query_vector(
 
 
 __all__ = [
+    "READING_NOTE",
+    "gap_route",
     "DeciderKind",
     "DeciderPairExecutor",
     "LLMPairExecutor",
