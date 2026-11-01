@@ -34,6 +34,17 @@ import { errorMessage } from "../../errors";
 import { logReaderAction, newActivityId } from "./activity";
 import { logCorrespondentAct } from "./correspondenceEvents";
 import { crumbLabel, firstCorrespondent, firstJudgedIn, isNarrowWindow, targetOf, type Pane, type PaneTarget } from "./sideBySide";
+import type { PaneSelection } from "./SideBySidePane";
+
+/** Reader CA6b fix round 6 (verify finding 3): the second pane's own
+ *  selection and unfinished note (CA6's bar, with the intent box off), kept
+ *  here, outside the pane, so a comparison hiding the pane (which unmounts it)
+ *  never loses them. Keyed by the section they were made in. */
+export interface SidePaneDraft {
+  key: string;
+  selection: PaneSelection | null;
+  noting: string | null;
+}
 
 export const SIDE_BY_SIDE_COPY = {
   narrow: "side by side needs a wider window",
@@ -147,6 +158,9 @@ export interface SideBySide {
   /** The second pane's reading position in a section (kept while a comparison takes the right side). */
   rememberScroll: (key: string, top: number) => void;
   scrollFor: (key: string) => number;
+  /** The pane's selection and unfinished note (round 6), kept while it is hidden. */
+  draft: SidePaneDraft | null;
+  setDraft: (update: (current: SidePaneDraft | null) => SidePaneDraft | null) => void;
 }
 
 function useNarrow(active: boolean): boolean {
@@ -204,6 +218,10 @@ export function useSideBySide({
   const lastFollow = useRef<LastFollow | null>(null);
   // The second pane's scroll position in its section (survives the pane being unmounted by a comparison).
   const sideScroll = useRef<{ key: string; top: number } | null>(null);
+  const [draft, setDraftState] = useState<SidePaneDraft | null>(null);
+  const setDraft = useCallback((update: (current: SidePaneDraft | null) => SidePaneDraft | null) => {
+    setDraftState((current) => (pairRef.current ? update(current) : null));
+  }, []);
 
   const visit = () => visitRef.current?.() ?? {};
 
@@ -241,6 +259,7 @@ export function useSideBySide({
     pendingOpen.current += 1;
     lastFollow.current = null;
     sideScroll.current = null;
+    setDraftState(null);
     setPair(null);
     setSection(null);
     setPhase("idle");
@@ -526,5 +545,7 @@ export function useSideBySide({
     clearNotice: () => setNotice(null),
     rememberScroll,
     scrollFor,
+    draft,
+    setDraft,
   };
 }

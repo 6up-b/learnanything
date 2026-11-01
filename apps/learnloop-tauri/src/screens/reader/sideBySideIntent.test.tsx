@@ -1459,3 +1459,28 @@ it("(c) a write the sidecar refuses as another reading's is said honestly (no si
   await waitFor(() => expect(api.readerCapture).toHaveBeenCalled());
   await waitFor(() => expect(onError).toHaveBeenCalledWith(SPAN_MISMATCH_COPY));
 });
+
+// ── Fix round 6 (verify finding 3) ─────────────────────────────────────────
+
+it("finding 3 (round 6): with the intent box off, an unfinished note in the second pane survives a comparison opened from the main pane", async () => {
+  const { intent: _off, ...withoutIntent } = ON;
+  state.contract = withoutIntent;
+  await openSideBySide();
+  select(sideBlock("ax7a_2"));
+  fireEvent.click(await within(pane()!).findByRole("button", { name: SIDE_PANE_COPY.note }));
+  fireEvent.change(within(pane()!).getByRole("textbox", { name: SIDE_PANE_COPY.note }), { target: { value: "My unfinished note" } });
+  // The main pane opens the library's ask box (a comparison): the second pane is hidden (unmounted).
+  await act(async () => { fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true }); });
+  await waitFor(() => expect(pane()).toBeNull());
+  await act(async () => { fireEvent.keyDown(window, { key: "Escape" }); });
+  await waitFor(() => expect(pane()).toBeTruthy());
+  // The note and its passage are still there; saving it captures that passage with those words.
+  const note = within(pane()!).getByRole("textbox", { name: SIDE_PANE_COPY.note }) as HTMLInputElement;
+  expect(note.value).toBe("My unfinished note");
+  await act(async () => { fireEvent.keyDown(note, { key: "Enter" }); });
+  await waitFor(() => expect(api.readerCapture).toHaveBeenCalledTimes(1));
+  expect(api.readerCapture.mock.calls[0][0]).toMatchObject({
+    sourceId: "src_axler", extractionId: "ext_axler", action: "annotate", learnerText: "My unfinished note",
+    rawSelection: { extractionId: "ext_axler", nodes: [{ spanId: "ax7a_2" }] },
+  });
+});

@@ -21,6 +21,8 @@ def require_identity(
     revision_id: str | None = None,
     span_keys: Iterable[str] = (),
     exchange_id: str | None = None,
+    render_view_id: str | None = None,
+    annotation_id: str | None = None,
 ) -> None:
     """Refuse with ``span_extraction_mismatch`` unless the passages (span ids,
     a raw selection's nodes and region, a preset's subject), the source and
@@ -33,6 +35,11 @@ def require_identity(
                 repository, extraction_id=extraction_id, span_ids=spans, source_id=source_id, revision_id=revision_id,
             )
             SI.require_exchange_in_extraction(repository, extraction_id=extraction_id, exchange_id=exchange_id)
+            # Round 6: a selection's render view and its nodes' own readings,
+            # and an annotation moved only within its own book.
+            SI.require_selection_provenance(repository, extraction_id=extraction_id, raw_selection=raw_selection,
+                                            render_view_id=render_view_id)
+            SI.require_annotation_source(repository, annotation_id=annotation_id, extraction_id=extraction_id)
         SI.require_span_keys(repository, span_keys)
     except SI.SpanExtractionMismatch as exc:
         raise SidecarError(SI.MISMATCH_CODE, str(exc), details=exc.details()) from exc

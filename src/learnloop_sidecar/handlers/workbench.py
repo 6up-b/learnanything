@@ -550,6 +550,7 @@ def _require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None:
                 raw_selection=request.get("raw_selection") or request.get("rawSelection"),
                 source_id=request.get("source_id") or request.get("sourceId"),
                 revision_id=request.get("revision_id") or request.get("revisionId"),
+                render_view_id=request.get("render_view_id") or request.get("renderViewId"),
             )
             if params.extraction_id and reading != params.extraction_id:
                 raise SidecarError(MISMATCH_CODE, "The problem's import is a selection of another reading.",

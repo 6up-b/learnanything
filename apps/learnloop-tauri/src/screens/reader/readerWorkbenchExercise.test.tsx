@@ -180,7 +180,7 @@ it("a refused import binds nothing and admits nothing", async () => {
 
 it("a fallback exercise opens with the Reader's own import request, and an exposed one with the book", async () => {
   api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ sourceExercise: undefined }), resumed: false });
-  const request = { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { nodes: [{ spanId: "t6", start: 0, end: 20 }] } };
+  const request = { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { extractionId: "ext_text", nodes: [{ spanId: "t6", start: 0, end: 20 }] } };
   const pick = { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_1"] };
   hook(book, { ...EXERCISE, proposalId: null, sourceExercise: undefined, importRequest: request, entry: "work_through", exercisePick: pick });
   await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));

@@ -883,7 +883,7 @@ def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str,
     _vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
-                     source_id=params.source_id, revision_id=params.revision_id)
+                     source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
     try:
         receipt = RC.capture(
             repository,
@@ -920,7 +920,7 @@ def reader_create_annotation(ctx: SidecarContext, params: ReaderCreateAnnotation
     _vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
-                     source_id=params.source_id, revision_id=params.revision_id)
+                     source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
     translation = ANN.translate_selection(
         repository, extraction_id=params.extraction_id,
         raw_selection=params.raw_selection, render_view_id=params.render_view_id,
@@ -999,6 +999,8 @@ class ReaderReanchorInput(ParamsModel):
 @method("reader.reanchor", ReaderReanchorInput)
 def reader_reanchor(ctx: SidecarContext, params: ReaderReanchorInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 6: an annotation moves only to a reading of its own book.
+    require_identity(repository, extraction_id=params.new_extraction_id, annotation_id=params.annotation_id)
     try:
         result = ANN.reanchor_annotation(
             repository, annotation_id=params.annotation_id, new_extraction_id=params.new_extraction_id
@@ -1090,7 +1092,8 @@ def reader_invoke_preset(ctx: SidecarContext, params: ReaderInvokePresetInput) -
     _vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
-                     subject_id=params.subject_id, source_id=params.source_id, revision_id=params.revision_id)
+                     subject_id=params.subject_id, source_id=params.source_id, revision_id=params.revision_id,
+                     render_view_id=params.render_view_id)
     try:
         receipt = RC.invoke_preset(
             repository,
@@ -1996,7 +1999,7 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
         raise SidecarError("validation_error", "The selection has no anchorable nodes.")
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=resolved, raw_selection=params.raw_selection,
-                     source_id=params.source_id, revision_id=params.revision_id)
+                     source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
     source_id = params.source_id or _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
@@ -2172,7 +2175,8 @@ def reader_manual_anchor(ctx: SidecarContext, params: ReaderManualAnchorInput) -
             "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
         )
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
-    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection)
+    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
+                     render_view_id=params.render_view_id, annotation_id=params.annotation_id)
     translation = ANN.translate_selection(
         repository,
         extraction_id=params.extraction_id,

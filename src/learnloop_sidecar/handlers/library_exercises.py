@@ -462,8 +462,9 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
         candidate["import_request"] = {
             "extraction_id": candidate["extraction_id"], "source_id": candidate["source_id"],
             "revision_id": candidate["revision_id"],
-            "raw_selection": selection_for_region(repository, candidate["extraction_id"], candidate["span_ids"],
-                                                  vault=vault),
+            # Reader CA6b fix round 6: the selection names its reading (span ids repeat across books).
+            "raw_selection": {**selection_for_region(repository, candidate["extraction_id"], candidate["span_ids"],
+                                                     vault=vault), "extraction_id": candidate["extraction_id"]},
             **({"learning_object_id": lo_ids[0]} if len(lo_ids) == 1 else {}),
         }
         candidate.pop("learning_object_ids", None)

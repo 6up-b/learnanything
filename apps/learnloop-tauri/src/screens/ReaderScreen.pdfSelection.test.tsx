@@ -284,7 +284,8 @@ describe("a selection on the original PDF", () => {
     const node = select("s1", "lazy dog");
     fireEvent.click(screen.getByRole("button", { name: "highlight" }));
     await settle();
-    expect(calls("reader_capture")[0].rawSelection).toEqual({ nodes: [node] });
+    // Reader CA6b fix round 6: the selection names its reading.
+    expect(calls("reader_capture")[0].rawSelection).toEqual({ extractionId: EXTRACTION_ID, nodes: [node] });
     const drawn = pane.props!.highlights!.find((highlight) => highlight.id === "ann_new");
     expect(drawn?.segments).toEqual([{ spanId: "s1", start: node.start, end: node.end }]);
     // The source's annotations are read with the open reading: placements.

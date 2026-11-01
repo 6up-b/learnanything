@@ -183,7 +183,7 @@ it("exercises alone are not 'nothing fits'", async () => {
 const FOUND: FindExercisesDto = { version: 1, status: "ok", policy: "reading", dropped: {}, candidates: [{
   key: "srcex:ext_text:t9", extractionId: "ext_text", spanIds: ["t9"], sourceId: "src_text", revisionId: "rev_text",
   sourceTitle: "Matrix Theory", page: 9, label: "Exercise 4, p. 9", statement: "4. Compute the eigenvalues of the diagonal matrix [[2,0],[0,3]].",
-  exposure: fresh, importRequest: { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { nodes: [{ spanId: "t9", start: 0, end: 60 }] } },
+  exposure: fresh, importRequest: { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { extractionId: "ext_text", nodes: [{ spanId: "t9", start: 0, end: 60 }] } },
   pick: { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_9"] },
 }] };
 

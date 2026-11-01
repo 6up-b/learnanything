@@ -20,7 +20,7 @@ const DEPTHS = [
 ];
 const EXERCISE: ReadingPathExerciseDto = {
   label: "Exercise 5.14", extractionId: "ext", spanIds: ["s9"], page: 4, statement: "5.14 Derive the CDF.", preview: "5.14 Derive the CDF.",
-  importRequest: { extractionId: "ext", sourceId: "src", revisionId: "rev", rawSelection: { nodes: [{ spanId: "s9", start: 0, end: 20 }] } },
+  importRequest: { extractionId: "ext", sourceId: "src", revisionId: "rev", rawSelection: { extractionId: "ext", nodes: [{ spanId: "s9", start: 0, end: 20 }] } },
 };
 
 function section(over: Partial<ReadingPathSectionDto> = {}): ReadingPathSectionDto {

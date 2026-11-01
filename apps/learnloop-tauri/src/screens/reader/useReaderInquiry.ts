@@ -1023,7 +1023,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         extractionId: about ? about.extractionId : render.extractionId,
         clientIdempotencyKey: key,
         renderViewId: about ? null : render.renderViewId,
-        rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
+        rawSelection: { extractionId: about ? about.extractionId : render.extractionId,
+          nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
         learnerText: "",
         subjectId: root.spanId,
       });

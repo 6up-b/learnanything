@@ -277,3 +277,110 @@ def test_library_ask_compare_and_tutor_pins(books):
     _refused(ctx, repository, "reader.library_compare", {"askId": "la_any", "pinnedSpanKeys": ["ext_a:a0", "ext_a:b1"]})
     _refused(ctx, repository, "reader.library_ask_tutor", {"askId": "la_any", "pinnedSpanKeys": ["ext_b:a1"],
                                                             "question": "why?"})
+
+
+# -- Fix round 6: span ids repeat across books ----------------------------------------------------------
+#
+# Production extractors number every book's blocks the same way (s0, s1, ...), so a passage id alone is not
+# its book. Two synthetic books, ``ext_x`` (src_x) and ``ext_y`` (src_y), both have s0, s1, s2, each with its
+# own render view.
+
+
+def _view(repository, *, source_id: str, revision_id: str, extraction_id: str) -> str:
+    return repository.insert_render_view({
+        "id": f"rv_{extraction_id}", "source_id": source_id, "revision_id": revision_id, "extraction_id": extraction_id,
+        "renderer_version": "1", "schema_version": "1", "content_hash": f"sha256:{extraction_id}",
+        "request_hash": f"req_{extraction_id}",
+    })
+
+
+@pytest.fixture
+def twins(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    append_config_toml(paths.root, _SWITCHES)
+    repository = Repository(paths.sqlite_path)
+    for book in ("x", "y"):
+        _register_revision(repository, source_id=f"src_{book}", revision_id=f"rev_{book}")
+        _persist(repository, _ir("s", 3), revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
+        _view(repository, source_id=f"src_{book}", revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
+    # A later reading of book x (a re-extraction of the same source).
+    _register_revision(repository, source_id="src_x", revision_id="rev_x2")
+    _persist(repository, _ir("s", 3), revision_id="rev_x2", extraction_id="ext_x2")
+    return paths, repository
+
+
+Y_S1 = {"nodes": [{"spanId": "s1", "quote": "Passage s1"}]}
+
+
+def test_round6_capture_refuses_another_books_render_view_with_an_id_this_book_also_has(twins):
+    paths, repository = twins
+    ctx = context(paths.root)
+    base = {"sourceId": "src_x", "revisionId": "rev_x", "extractionId": "ext_x", "action": "annotate",
+            "clientIdempotencyKey": "k6", "learnerText": "my note"}
+    # B's s1 through B's render view, with A's source, revision and reading (verify finding 1).
+    error = _refused(ctx, repository, "reader.capture", {**base, "renderViewId": "rv_ext_y", "rawSelection": Y_S1})
+    assert error.details["reason"] == "render_view"
+    # Without a render view, the selection names its own reading: another book's is refused.
+    error = _refused(ctx, repository, "reader.capture", {**base, "rawSelection": {**Y_S1, "extractionId": "ext_y"}})
+    assert error.details["reason"] == "selection_reading"
+    _refused(ctx, repository, "reader.capture", {**base, "rawSelection": {"nodes": [{"spanId": "s1", "extractionId": "ext_y"}]}})
+    _refused(ctx, repository, "reader.create_annotation", {
+        "sourceId": "src_x", "revisionId": "rev_x", "extractionId": "ext_x", "annotationType": "highlight",
+        "renderViewId": "rv_ext_y", "rawSelection": Y_S1,
+    })
+    # A render view that does not exist is no proof of provenance either.
+    _refused(ctx, repository, "reader.capture", {**base, "renderViewId": "rv_missing", "rawSelection": Y_S1})
+
+
+def test_round6_the_same_ids_in_their_own_book_capture_as_before(twins):
+    paths, repository = twins
+    receipt = call(context(paths.root), "reader.capture", {
+        "sourceId": "src_y", "revisionId": "rev_y", "extractionId": "ext_y", "action": "highlight",
+        "clientIdempotencyKey": "k_ok6", "renderViewId": "rv_ext_y", "rawSelection": {**Y_S1, "extractionId": "ext_y"},
+    })
+    assert receipt.get("annotation_id") or receipt.get("annotationId")
+
+
+def test_round6_preset_import_and_the_workbench_import_check_render_view_and_selection_reading(twins):
+    paths, repository = twins
+    ctx = context(paths.root)
+    x = {"sourceId": "src_x", "revisionId": "rev_x", "extractionId": "ext_x"}
+    _refused(ctx, repository, "reader.invoke_preset", {**x, "preset": "test_me_later", "clientIdempotencyKey": "p6",
+                                                        "renderViewId": "rv_ext_y", "rawSelection": Y_S1})
+    _refused(ctx, repository, "reader.import_exercise", {**x, "rawSelection": {**Y_S1, "extractionId": "ext_y"}})
+    _refused(ctx, repository, "reader.import_exercise", {**x, "renderViewId": "rv_ext_y", "rawSelection": Y_S1})
+    _refused(ctx, repository, "workbench.open", {
+        "origin": "reader", "entry": "work_through", "stemMd": "Prove it.", "clientIdempotencyKey": "w6",
+        "extractionId": "ext_x", "spanIds": ["s1"],
+        "importRequest": {**x, "renderViewId": "rv_ext_y", "rawSelection": Y_S1},
+    })
+
+
+def _annotation(paths, repository, *, book: str) -> str:
+    receipt = call(context(paths.root), "reader.capture", {
+        "sourceId": f"src_{book}", "revisionId": f"rev_{book}", "extractionId": f"ext_{book}", "action": "annotate",
+        "clientIdempotencyKey": f"ann_{book}", "learnerText": "kept",
+        "rawSelection": {"extractionId": f"ext_{book}", "nodes": [{"spanId": "s1", "quote": "Passage s1"}]},
+    })
+    return str(receipt.get("annotation_id") or receipt.get("annotationId"))
+
+
+def test_round6_reanchoring_moves_an_annotation_only_within_its_own_book(twins):
+    paths, repository = twins
+    ctx = context(paths.root)
+    annotation = _annotation(paths, repository, book="x")
+    # Verify finding 2: neither path attaches A's annotation to B.
+    error = _refused(ctx, repository, "reader.manual_anchor", {
+        "annotationId": annotation, "extractionId": "ext_y", "rawSelection": {**Y_S1, "extractionId": "ext_y"},
+    })
+    assert error.details["reason"] == "annotation_source"
+    error = _refused(ctx, repository, "reader.reanchor", {"annotationId": annotation, "newExtractionId": "ext_y"})
+    assert error.details["reason"] == "annotation_source"
+    # An earlier or later reading (another revision) of the same book is allowed, in both paths.
+    moved = call(ctx, "reader.reanchor", {"annotationId": annotation, "newExtractionId": "ext_x2"})
+    assert moved
+    anchored = call(ctx, "reader.manual_anchor", {
+        "annotationId": annotation, "extractionId": "ext_x2",
+        "rawSelection": {"extractionId": "ext_x2", "nodes": [{"spanId": "s2", "quote": "Passage s2"}]},
+    })
+    assert anchored

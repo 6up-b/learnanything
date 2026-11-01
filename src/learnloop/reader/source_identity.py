@@ -66,6 +66,86 @@ def selection_span_ids(raw_selection: Mapping[str, Any] | None) -> list[str]:
     return spans
 
 
+def selection_readings(raw_selection: Mapping[str, Any] | None) -> list[str]:
+    """Reader CA6b fix round 6: the readings a raw selection says its nodes
+    are passages of (each node's ``extractionId``, and the selection's own).
+    Span ids repeat across books (an extractor numbers every book ``s1``,
+    ``s2``, ...), so membership alone is not identity: a node that names its
+    reading must name the request's."""
+
+    if not raw_selection:
+        return []
+    readings: list[str] = []
+    own = raw_selection.get("extraction_id", raw_selection.get("extractionId"))
+    if own:
+        readings.append(str(own))
+    for node in raw_selection.get("nodes") or []:
+        if isinstance(node, Mapping):
+            reading = node.get("extraction_id", node.get("extractionId"))
+            if reading:
+                readings.append(str(reading))
+    region = raw_selection.get("region")
+    if isinstance(region, Mapping):
+        reading = region.get("extraction_id", region.get("extractionId"))
+        if reading:
+            readings.append(str(reading))
+    return readings
+
+
+def require_selection_provenance(
+    repository: Any, *, extraction_id: str, raw_selection: Mapping[str, Any] | None,
+    render_view_id: str | None,
+) -> None:
+    """Reader CA6b fix round 6 (verify finding 1): a selection's provenance is
+    the request's reading. Its render view (whose crosswalk resolves its
+    display nodes) must be a view of that reading, and every node or region
+    that names its reading must name that one. Span-id membership is checked
+    by ``require_source_identity``; this catches another book's passage whose
+    id the reading also has."""
+
+    if render_view_id:
+        view = repository.get_render_view(render_view_id)
+        if view is None or str(view.get("extraction_id") or "") != extraction_id:
+            raise SpanExtractionMismatch(
+                f"The render view {render_view_id!r} is not a view of the reading {extraction_id!r}.",
+                extraction_id=extraction_id, reason="render_view", span_ids=selection_span_ids(raw_selection),
+            )
+    others = [reading for reading in selection_readings(raw_selection) if reading != extraction_id]
+    if others:
+        raise SpanExtractionMismatch(
+            f"The selection is passages of {', '.join(sorted(set(others)))}, not of the reading {extraction_id!r}.",
+            extraction_id=extraction_id, reason="selection_reading", span_ids=selection_span_ids(raw_selection),
+        )
+
+
+def require_annotation_source(repository: Any, *, annotation_id: str | None, extraction_id: str) -> None:
+    """Reader CA6b fix round 6 (verify finding 2): an annotation is re-anchored
+    only onto a reading of its own source (an earlier or later reading, or
+    another revision, of the same book), never onto another book's. An
+    annotation that does not exist is left to the handler."""
+
+    if not annotation_id:
+        return
+    head = repository.annotation_head(annotation_id)
+    if head is None:
+        return
+    anchor = head.get("anchor") or {}
+    own_source = str(anchor.get("source_id") or head.get("source_id") or "")
+    run = repository.get_extraction_run(extraction_id)
+    if run is None:
+        raise SpanExtractionMismatch(
+            f"No reading {extraction_id!r} to move the annotation to.",
+            extraction_id=extraction_id, reason="unknown_extraction",
+        )
+    revision = repository.get_source_revision(str(run.get("revision_id") or ""))
+    destination = str((revision or {}).get("source_id") or "")
+    if own_source and destination != own_source:
+        raise SpanExtractionMismatch(
+            f"The annotation {annotation_id!r} is on another book than the reading {extraction_id!r}.",
+            extraction_id=extraction_id, reason="annotation_source",
+        )
+
+
 def subject_span_id(subject_id: str | None, extraction_id: str) -> list[str]:
     """A preset's subject: a bare span id of the reading, or a
     ``span:{extraction}/{span}`` locator (one naming another reading is a
@@ -169,6 +249,9 @@ def require_exchange_in_extraction(repository: Any, *, extraction_id: str, excha
 
 __all__ = [
     "MISMATCH_CODE",
+    "require_annotation_source",
+    "require_selection_provenance",
+    "selection_readings",
     "SpanExtractionMismatch",
     "require_exchange_in_extraction",
     "require_source_identity",

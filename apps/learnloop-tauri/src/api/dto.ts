@@ -7774,6 +7774,11 @@ export interface ReaderRawSelectionNode {
   edited?: boolean;
 }
 export interface ReaderRawSelection {
+  /** Reader CA6b fix round 6: the reading the nodes are passages of. Span ids
+   *  repeat across books (an extractor numbers every book s1, s2, ...), so the
+   *  selection names its reading; the sidecar refuses one that names another
+   *  reading than the request's. Required. */
+  extractionId: string;
   nodes: ReaderRawSelectionNode[];
   /** Learner-edited combined passage (capture editor): overrides the whole
    *  exercise surface while `nodes` keep anchoring the original blocks. */

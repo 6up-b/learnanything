@@ -1274,7 +1274,7 @@ export function ReaderScreen({
       await api.readerManualAnchor({
         annotationId,
         extractionId: render.extractionId,
-        rawSelection: { nodes: selectionNodes(selection) },
+        rawSelection: { extractionId: render.extractionId, nodes: selectionNodes(selection) },
         renderViewId: render.renderViewId,
       });
       setReanchorNotes((notes) => ({ ...notes, [annotationId]: "✓ anchored to your selection." }));
@@ -2059,7 +2059,7 @@ export function ReaderScreen({
           action,
           clientIdempotencyKey: newKey(),
           renderViewId: render.renderViewId,
-          rawSelection: { nodes },
+          rawSelection: { extractionId: render.extractionId, nodes },
           learnerText: "",
         });
         setAnnotations((a) => [
@@ -2228,7 +2228,8 @@ export function ReaderScreen({
     try {
       const common = {
         sourceId: target.sourceId, revisionId: target.revisionId, extractionId: target.extractionId,
-        clientIdempotencyKey: newKey(), renderViewId: target.renderViewId, rawSelection: { nodes: target.nodes }, learnerText,
+        clientIdempotencyKey: newKey(), renderViewId: target.renderViewId,
+        rawSelection: { extractionId: target.extractionId, nodes: target.nodes }, learnerText,
       };
       const receipt: ReaderPresetReceiptDto = "preset" in what
         ? await api.readerInvokePreset({ preset: what.preset, ...common, subjectId: target.spanId })
@@ -2291,7 +2292,7 @@ export function ReaderScreen({
           extractionId: render.extractionId,
           clientIdempotencyKey: newKey(),
           renderViewId: render.renderViewId,
-          rawSelection: editedText ? { nodes, editedText } : { nodes },
+          rawSelection: editedText ? { extractionId: render.extractionId, nodes, editedText } : { extractionId: render.extractionId, nodes },
           learnerText: note_,
           subjectId: selection.spanId,
         });
@@ -2355,7 +2356,7 @@ export function ReaderScreen({
         action: "highlight",
         clientIdempotencyKey: newKey(),
         renderViewId: render.renderViewId,
-        rawSelection: { nodes },
+        rawSelection: { extractionId: render.extractionId, nodes },
         learnerText: note_,
       });
       setAnnotations((a) => [
@@ -2418,7 +2419,7 @@ export function ReaderScreen({
         sourceId: target.sourceId,
         revisionId: target.revisionId,
         renderViewId: target.renderViewId,
-        rawSelection: { nodes },
+        rawSelection: { extractionId: target.extractionId, nodes },
         clientIdempotencyKey: newKey(),
       } : {
         extractionId: render.extractionId,
@@ -2427,7 +2428,7 @@ export function ReaderScreen({
         renderViewId: render.renderViewId,
         // Reader CA1 (§12.4): a region selection keeps its sub-box, so the
         // problem as printed is the learner's crop.
-        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection!.region ? { region: selection!.region } : {}) },
+        rawSelection: { extractionId: render.extractionId, ...(editedText ? { nodes, editedText } : { nodes }), ...(selection!.region ? { region: selection!.region } : {}) },
         clientIdempotencyKey: newKey(),
       });
       setExerciseImport({
@@ -3066,7 +3067,7 @@ export function ReaderScreen({
         sourceId: render.sourceId,
         revisionId: render.revisionId,
         renderViewId: render.renderViewId,
-        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection.region ? { region: selection.region } : {}) },
+        rawSelection: { extractionId: render.extractionId, ...(editedText ? { nodes, editedText } : { nodes }), ...(selection.region ? { region: selection.region } : {}) },
         clientIdempotencyKey: newKey(),
       },
     });
@@ -3186,7 +3187,7 @@ export function ReaderScreen({
             kind: "work", stemMd: target.quote, spanIds: [...new Set(target.nodes.map((node) => node.spanId))],
             importRequest: {
               extractionId: target.extractionId, sourceId: target.sourceId, revisionId: target.revisionId,
-              rawSelection: { nodes: target.nodes },
+              rawSelection: { extractionId: target.extractionId, nodes: target.nodes },
             },
           });
           return;

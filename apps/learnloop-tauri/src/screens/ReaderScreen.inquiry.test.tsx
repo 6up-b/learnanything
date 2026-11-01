@@ -161,7 +161,8 @@ it("revisit once is the existing test_me_later preset on the root's anchor", asy
   await openThread();
   fireEvent.click(screen.getByRole("button", { name: "revisit once" }));
   await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalledWith(expect.objectContaining({
-    preset: "test_me_later", rawSelection: { nodes: [{ spanId: "span_symmetric_prose", start: 0, end: 1_000_000 }] },
+    // Reader CA6b fix round 6: the selection names its reading.
+    preset: "test_me_later", rawSelection: { extractionId: view.extractionId, nodes: [{ spanId: "span_symmetric_prose", start: 0, end: 1_000_000 }] },
   })));
   expect(await screen.findByRole("button", { name: "revisit once ✓" })).toBeTruthy();
 });

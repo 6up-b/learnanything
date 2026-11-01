@@ -555,8 +555,10 @@ def exercise_view(vault: Any, repository: Repository, inputs: PathInputs, lead_s
         "label": exercise_label(statement.text, page), "extraction_id": inputs.extraction_id,
         "span_ids": list(spans), "page": page, "statement": text, "preview": preview,
         # "Try it": the Reader's own import of a selected problem (RW4b's fallback path).
+        # Reader CA6b fix round 6: the selection names its reading (span ids repeat across books).
         "import_request": {"extraction_id": inputs.extraction_id, "source_id": inputs.source_id,
-                           "revision_id": inputs.revision_id, "raw_selection": selection_nodes(statement)},
+                           "revision_id": inputs.revision_id,
+                           "raw_selection": {**selection_nodes(statement), "extraction_id": inputs.extraction_id}},
     }
 
 

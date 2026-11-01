@@ -139,12 +139,25 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
   bodyRef,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [selection, setSelection] = useState<PaneSelection | null>(null);
-  const [noting, setNoting] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const target = ctl.target;
   const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null;
+  // Fix round 6 (verify finding 3): the selection and the unfinished note
+  // live in side by side's controller (kept while a comparison unmounts this
+  // pane), for the section they were made in.
+  const draftKey = section ? `${section.extractionId}::${section.sectionId}` : null;
+  const { draft, setDraft } = ctl;
+  const selection = draft && draft.key === draftKey ? draft.selection : null;
+  const noting = draft && draft.key === draftKey ? draft.noting : null;
+  const setSelection = useCallback((picked: PaneSelection | null) => {
+    if (!draftKey) return;
+    setDraft((current) => ({ key: draftKey, selection: picked, noting: current && current.key === draftKey ? current.noting : null }));
+  }, [draftKey, setDraft]);
+  const setNoting = useCallback((text: string | null) => {
+    if (!draftKey) return;
+    setDraft((current) => ({ key: draftKey, selection: current && current.key === draftKey ? current.selection : null, noting: text }));
+  }, [draftKey, setDraft]);
   const canCapture = Boolean(onCaptured && section?.revisionId);
   const [marks, refreshMarks] = useOwnMarks(section?.sourceId ?? null, section?.extractionId ?? null, Boolean(onCaptured), marksVersion);
   const sheet = ctl.sheet;
@@ -158,8 +171,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = sectionKey ? scrollFor(sectionKey) : 0;
-    setSelection(null);
-    setNoting(null);
+    // The selection and note stay with their section (the draft is keyed by it).
     setSaved(false);
   }, [sectionKey, scrollFor]);
 
@@ -171,7 +183,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
       await api.readerCapture({
         sourceId: section.sourceId, revisionId: section.revisionId, extractionId: section.extractionId,
         action: kind, clientIdempotencyKey: newActivityId(), renderViewId: null,
-        rawSelection: { nodes: picked.nodes }, learnerText,
+        rawSelection: { extractionId: section.extractionId, nodes: picked.nodes }, learnerText,
       });
       onCaptured?.(kind);
       setSelection(null);
