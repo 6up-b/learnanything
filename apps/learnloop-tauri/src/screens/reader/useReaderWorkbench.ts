@@ -57,6 +57,7 @@ import {
   writeSplitWidth,
 } from "../workbench/splitWidth";
 import type { ReaderWorkbenchExercise } from "./exerciseCandidates";
+import type { ReturnStack } from "./returnStack";
 
 /** A margin cue's "check me", picked by the shell (D40): the item and the
  *  serve its answer is to. */
@@ -89,8 +90,10 @@ export interface ReaderWorkbenchProps {
   checkMe?: ReaderWorkbenchCheck | null;
   /** That check opened (or failed): the shell forgets THIS one, by identity. */
   onCheckMeShown?: (shown: ReaderWorkbenchCheck) => void;
-  /** A submit hands its attempt to the shell, with the way back to its passage. */
-  onSubmitted?: (result: WorkbenchSubmitDto, at: { card: SourceLibraryCard; spanId: string }) => void;
+  /** A submit hands its attempt to the shell, with the way back to its passage
+   *  (Reader CA6b, Codex re-review F8: and to side by side, when the book was
+   *  taken from its second pane: the Reader adds `besideTrail`). */
+  onSubmitted?: (result: WorkbenchSubmitDto, at: { card: SourceLibraryCard; spanId: string; besideTrail?: ReturnStack | null }) => void;
   /** Back from feedback: open this attempt's problem read-only (UX S6). */
   initialAttemptId?: string | null;
   /** The read-only problem was shown (the shell forgets the attempt). */

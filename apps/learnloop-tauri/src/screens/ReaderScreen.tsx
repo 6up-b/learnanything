@@ -23,6 +23,7 @@ import { setQueryData } from "../api/queryCache";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
+  ReaderImportExerciseInput,
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
   ReaderPdfViewDto,
@@ -81,7 +82,7 @@ import {
   logReaderActivity,
   newActivityId,
 } from "./reader/activity";
-import { goTo as stackGoTo } from "./reader/returnStack";
+import { besideTrail, goTo as stackGoTo, type ReturnStack } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
@@ -223,6 +224,11 @@ export interface ReaderOpenSource {
    *  threads): a span of another reading is translated, never opened as one
    *  of the reading the book opens on. Absent: the span is the open one's. */
   reading?: string | null;
+  /** Reader CA6b (Codex re-review F8): the return stack to open with, so a
+   *  check or a work through started from side by side's second pane keeps
+   *  its way back there (Alt+← reopens side by side) across the shell's
+   *  practice and feedback screens. Absent: the Reader opens as before. */
+  besideTrail?: ReturnStack | null;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -233,12 +239,21 @@ export interface ReaderCheckMeRequest extends CueCheckMeRequest {
   importId?: string | null;
   /** RW4b: an admitted exercise resumes its own problem ("practice_this"). */
   entry?: "check_me" | "practice_this";
+  /** Reader CA6b (Codex re-review F8): the way back to side by side, when the
+   *  check came from its second pane (the shell hands it back to the Reader). */
+  besideTrail?: ReturnStack | null;
 }
 
 /** RW4b "use this one" on a textbook exercise: the problem to open at once
  *  on its verbatim statement, in the source it comes from. */
 export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
 
+
+/** Reader CA6b (Codex re-review F7): the second pane's reading path, in its pane. */
+export const SIDE_PATH_COPY = {
+  heading: (title: string) => `WHAT MATTERS IN ${title.toUpperCase()}`,
+  close: "close",
+} as const;
 
 /** Reader CA6b (Codex review F9): the main pane's cue keys are not the
  *  second pane's (focus there moves among that pane's own marks). */
@@ -608,7 +623,7 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, askAnotherWay, askDidntHelp, cancelAsk,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, seedReturnStack, askAnotherWay, askDidntHelp, cancelAsk,
     setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
@@ -663,11 +678,26 @@ export function ReaderScreen({
     onCheckMe({ ...request, card });
   }, [onCheckMe]);
   // RW2a: the working posture (off: no entry anywhere, the Reader as before).
+  // Reader CA6b (Codex re-review F8): a submit made on a book taken from side
+  // by side's second pane keeps the way back there for the shell's feedback
+  // screen (the return stack, while side by side comes before the current
+  // entry); every other submit is handed on exactly as before.
+  const wbProps = useMemo<ReaderWorkbenchProps | undefined>(() => {
+    const submitted = workbench?.onSubmitted;
+    if (!workbench || !submitted) return workbench;
+    return {
+      ...workbench,
+      onSubmitted: (result, at) => {
+        const trail = besideTrail(returnStackRef.current);
+        submitted(result, trail ? { ...at, besideTrail: trail } : at);
+      },
+    };
+  }, [workbench, returnStackRef]);
   const wbCtl = useReaderWorkbench({
     enabled: algoConfig().workbench && !offline,
     extractionId: render?.extractionId ?? null,
     card: openCardRef.current,
-    props: workbench,
+    props: wbProps,
     onError,
   });
   const working = wbCtl.active !== null;
@@ -1093,11 +1123,17 @@ export function ReaderScreen({
   useEffect(() => {
     if (resumedRef.current || !initialSource || render) return;
     resumedRef.current = true;
+    const trail = initialSource.besideTrail ?? null;
     void openSource(
       initialSource.card,
       initialSource.spanId ?? undefined,
       initialSource.spanId && initialSource.reading ? { jumpReading: initialSource.reading } : {},
-    );
+    ).then((outcome) => {
+      // Reader CA6b (Codex re-review F8): back from a check or a work through
+      // that began in side by side's second pane, the way back there is the
+      // stack it left (the current entry is this book; side by side is behind it).
+      if (outcome === "opened" && trail && trail.entries[trail.cursor]?.sourceId === initialSource.card.sourceId) seedReturnStack(trail);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1450,18 +1486,37 @@ export function ReaderScreen({
   const runSideIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void>(() => undefined);
   const cancelSideIntentRunRef = useRef<(cancel: IntentCancel) => void>(() => undefined);
   const sbsSection = sbs.section && sbs.target && sbs.section.sectionId === sbs.target.sectionId ? sbs.section : null;
-  // Reader CA6b (Codex review F8): "check me" on the second pane's marks
-  // opens the item as the Reader alone would on that book: the card that
-  // goes with it is that book's, and only while the pane still shows the
-  // reading it was asked on. The shell opens it with the book hidden; its
-  // way back is that passage, in that book.
+  // Reader CA6b (Codex re-review F7, F8): what needs the open book -- the
+  // working posture of a check or a work through -- takes the second pane's
+  // book to the main pane first, at the passage, as a source detour from side
+  // by side's crumb (openLibraryHit). The crumb stays one step back, so Alt+←
+  // (or the crumb) reopens side by side; the shell keeps that way back across
+  // its practice and feedback screens (besideTrail). Once that book is the
+  // open one, the handoff runs (the effect below): the check goes to the shell
+  // with that book's card, or the work through opens on its selection.
+  type BesideRun =
+    | { kind: "check"; request: CueCheckMeRequest }
+    | { kind: "work"; stemMd: string; spanIds: string[]; importRequest: Omit<ReaderImportExerciseInput, "renderViewId" | "clientIdempotencyKey"> };
+  const [besideHandoff, setBesideHandoff] = useState<{ id: number; sourceId: string; extractionId: string; run: BesideRun } | null>(null);
+  const besideSeq = useRef(0);
+  const openBesideRef = useRef<(hit: { sourceId: string; extractionId: string; spanId: string }) => Promise<OpenOutcome>>(
+    () => Promise.resolve("not_opened"));
+  const takeBesideBook = useCallback((book: { sourceId: string; extractionId: string }, spanId: string, run: BesideRun) => {
+    const id = ++besideSeq.current;
+    setBesideHandoff({ id, sourceId: book.sourceId, extractionId: book.extractionId, run });
+    void openBesideRef.current({ sourceId: book.sourceId, extractionId: book.extractionId, spanId }).then((outcome) => {
+      if (outcome !== "opened") setBesideHandoff((current) => (current?.id === id ? null : current));
+    });
+  }, []);
+  // "check me" on the second pane's marks: only while the pane still shows
+  // the reading it was asked on; its book comes to the main pane at the
+  // mark's passage, and the shell opens the check there (book hidden).
   const sideExtractionRef = useRef<string | null>(null);
   const checkMeFromSideCue = useCallback((request: CueCheckMeRequest, origin: CueRequestOrigin) => {
     if (!onCheckMe || sideExtractionRef.current !== origin.extractionId) return;
-    const card = library?.find((entry) => entry.sourceId === origin.sourceId) ?? null;
-    if (!card) return;
-    onCheckMe({ ...request, card });
-  }, [onCheckMe, library]);
+    if (!library?.some((entry) => entry.sourceId === origin.sourceId)) return;
+    takeBesideBook(origin, request.spanId, { kind: "check", request });
+  }, [onCheckMe, library, takeBesideBook]);
   const side = useSidePane({
     shown: sbsPanes,
     section: sbsSection,
@@ -1480,9 +1535,30 @@ export function ReaderScreen({
     onError,
     offline,
     foldBlocks: contract?.activeReading?.foldBlocks ?? 3,
+    canWorkThrough: wbCtl.enabled,
     ...(onCheckMe ? { onCheckMe: checkMeFromSideCue } : {}),
   });
   sideExtractionRef.current = side.extractionId;
+  // The second book is the open one now: its handoff runs, once.
+  useEffect(() => {
+    const handoff = besideHandoff;
+    if (!handoff || !render || offline || render.sourceId !== handoff.sourceId) return;
+    setBesideHandoff(null);
+    if (handoff.run.kind === "check") {
+      const card = openCardRef.current;
+      if (!card || !onCheckMe || card.sourceId !== handoff.sourceId) return;
+      const trail = besideTrail(returnStackRef.current);
+      onCheckMe({ ...handoff.run.request, card, ...(trail ? { besideTrail: trail } : {}) });
+      return;
+    }
+    // A work through needs the reading its passages were selected on.
+    if (!wbCtl.enabled || render.extractionId !== handoff.extractionId) return;
+    const work = handoff.run;
+    void wbCtl.openSelection({
+      stemMd: work.stemMd, spanIds: work.spanIds,
+      importRequest: { ...work.importRequest, renderViewId: render.renderViewId, clientIdempotencyKey: newKey() },
+    });
+  }, [besideHandoff, render, offline, onCheckMe, wbCtl, returnStackRef]);
   // Selecting in the main pane: the second pane's box lets go of its keys (one box answers keys at a time).
   const { releaseKeys: releaseSideKeys } = side;
   useEffect(() => {
@@ -2529,6 +2605,7 @@ export function ReaderScreen({
     }
     return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
+  openBesideRef.current = openLibraryHit;
   // Reader CA5a: compare a section found in another book with the one in view,
   // through the library compare path (an ask anchored on this section, its
   // title the question, both passages pinned) while CA3 is off; with CA3 on,
@@ -3019,8 +3096,22 @@ export function ReaderScreen({
         }
         return importExercise().then((importBatchId) => ({ importBatchId }));
       case "work_through":
-        // Not in the second pane's palette (the working posture closes side by side).
-        if (pane.side) return;
+        if (sideSection && pane.side) {
+          // Reader CA6b (Codex re-review F7): the working posture is the open
+          // book's, so the second pane's book comes to the main pane at this
+          // passage (side by side one step back), and the work opens there on
+          // this selection, through the usual import.
+          const target = pane.side.target;
+          if (!target || !wbCtl.enabled) return;
+          takeBesideBook(sideSection, target.spanId, {
+            kind: "work", stemMd: target.quote, spanIds: [...new Set(target.nodes.map((node) => node.spanId))],
+            importRequest: {
+              extractionId: target.extractionId, sourceId: target.sourceId, revisionId: target.revisionId,
+              rawSelection: { nodes: target.nodes },
+            },
+          });
+          return;
+        }
         workThroughSelection();
         return;
       case "active_reading":
@@ -3071,8 +3162,13 @@ export function ReaderScreen({
         }
         return;
       case "reading_path":
-        // Not in the second pane's palette (the Guide's reading path is the open book's).
-        if (pane.side) return;
+        if (pane.side) {
+          // Reader CA6b (Codex re-review F7): that book's reading path, in its pane.
+          if (!contract?.readingPaths) return;
+          logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+          pane.side.showPath();
+          return;
+        }
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
         setRailCollapsed(false);
@@ -3619,11 +3715,48 @@ export function ReaderScreen({
               } : null}
               under={side.figures.enabled ? (spanId) => <FiguresUnder ctl={side.figures} spanId={spanId} /> : null}
               fold={side.active.folded.size ? { spans: side.active.folded, line: <NextStepFoldLine ctl={side.active} /> } : null}
-              card={activeReadingOn && (side.active.active || side.active.another) ? (
-                <ActiveReadingCard ctl={side.active} sourceTitle={sbsSection?.sourceTitle ?? null} onShowPassage={(spanId) => {
-                  const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
-                  if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
-                }} />
+              card={(activeReadingOn && (side.active.active || side.active.another)) || (side.pathShown && sbsSection) ? (
+                <>
+                  {activeReadingOn && (side.active.active || side.active.another) ? (
+                    <ActiveReadingCard ctl={side.active} sourceTitle={sbsSection?.sourceTitle ?? null} onShowPassage={(spanId) => {
+                      const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
+                      if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+                    }} />
+                  ) : null}
+                  {side.pathShown && sbsSection ? (
+                    // Reader CA6b (Codex re-review F7): "what matters here?" in
+                    // this pane: this book's reading path (the Guide's card, on
+                    // this reading). A section opens in this pane; "try it"
+                    // takes this book to the main pane for the workbench, as
+                    // work through does (side by side one step back).
+                    <div data-sbs-path="" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <Faint style={{ fontSize: 10 }}>{SIDE_PATH_COPY.heading(sbsSection.sourceTitle)}</Faint>
+                        <button type="button" onClick={side.closePath} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2 }}>{SIDE_PATH_COPY.close}</button>
+                      </div>
+                      <ReadingPathCard
+                        extractionId={sbsSection.extractionId}
+                        onJump={() => undefined}
+                        onJumpSection={(spanId, sectionId) => {
+                          if (sectionId !== sbsSection.sectionId) {
+                            sbs.goSide(sectionId);
+                            return;
+                          }
+                          const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
+                          if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+                        }}
+                        onTryExercise={wbCtl.enabled ? (exercise) => {
+                          const { renderViewId: _view, clientIdempotencyKey: _key, ...importRequest } = exercise.importRequest;
+                          takeBesideBook({ sourceId: sbsSection.sourceId, extractionId: exercise.extractionId }, exercise.spanIds[0] ?? sbsSection.jumpSpanId, {
+                            kind: "work", stemMd: exercise.statement, spanIds: exercise.spanIds, importRequest,
+                          });
+                        } : null}
+                        onError={onError}
+                        focusToken={side.pathFocus}
+                      />
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               foot={side.cues.receipts.length ? (
                 <span style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>

@@ -74,11 +74,6 @@ export interface UseIntentBoxArgs {
   protectedSelection: boolean;
   notes: boolean;
   canWorkThrough: boolean;
-  /** Reader CA6b: effects this pane's palette leaves out (absent: none, the main pane). */
-  hiddenKinds?: ReadonlyArray<string>;
-  /** Reader CA6b (Codex review F7): side by side's second pane. Its routings
-   *  ask the sidecar for that pane's actions only (absent: the main pane). */
-  sidePane?: boolean;
   hostRef: RefObject<HTMLDivElement | null>;
   /** Run an action; a capture or import resolves to what "change" may undo. */
   onRun: (action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void;
@@ -91,7 +86,7 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 export function useIntentBox(args: UseIntentBoxArgs) {
-  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hiddenKinds, sidePane, hostRef, onRun, onCancelRun } = args;
+  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hostRef, onRun, onCancelRun } = args;
   const enabled = contract !== null && extractionId !== null;
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState(false);
@@ -109,10 +104,10 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   const lastRun = useRef<Promise<IntentRunHandle | null>>(Promise.resolve(null));
   const focusPalette = useRef(false);
   const epoch = useRef(0);
-  const latest = useRef({ extractionId, spanIds, quote, notes, sidePane: Boolean(sidePane) });
-  latest.current = { extractionId, spanIds, quote, notes, sidePane: Boolean(sidePane) };
+  const latest = useRef({ extractionId, spanIds, quote, notes });
+  latest.current = { extractionId, spanIds, quote, notes };
 
-  const groups = contract ? visiblePalette(contract, { notes, protectedSelection, canWorkThrough, ...(hiddenKinds ? { hiddenKinds } : {}) }) : [];
+  const groups = contract ? visiblePalette(contract, { notes, protectedSelection, canWorkThrough }) : [];
   const actionsRef = useRef<ReaderIntentActionDto[]>([]);
   actionsRef.current = paletteActions(groups);
 
@@ -223,10 +218,7 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     const where = latest.current;
     if (!contract?.speculative || !where.extractionId || protectedSelection || !words) return;
     const first = api
-      .readerRouteIntent({
-        extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes,
-        ...(where.sidePane ? { sidePane: true } : {}),
-      })
+      .readerRouteIntent({ extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes })
       .then((answer) => (answer.status === "not_made" ? null : answer))
       .catch(() => null);
     const started = first.then((answer) => answer?.routingId || null);
@@ -285,7 +277,6 @@ export function useIntentBox(args: UseIntentBoxArgs) {
         const where = latest.current;
         const first = await api.readerRouteIntent({
           extractionId: where.extractionId ?? "", spanIds: where.spanIds, text: words, quote: where.quote, speculative: false, notes: where.notes,
-          ...(where.sidePane ? { sidePane: true } : {}),
         });
         routing = await settle(first);
       }

@@ -204,6 +204,8 @@ export interface ReaderInquiry {
   passageCheckOffered: boolean;
   submitAsk: (asked: string, parent: ReaderExchange | null, override?: AskOverride) => Promise<void>;
   ask: () => void;
+  /** Reader CA6b (re-review F8): the stack handed back across a remount. */
+  seedReturnStack: (stack: ReturnStack) => void;
   /** "try again": the request that just failed (re-review F10). */
   retryAsk: () => void;
   /** A new composer opened: a failed request is not its own (re-review F10). */
@@ -488,6 +490,14 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     setReturnStack(next);
     return true;
   }, []);
+
+  /** Reader CA6b (Codex re-review F8): the trail back to side by side the
+   *  Reader was handed when it opened again (besideTrail), as the stack. */
+  const seedReturnStack = useCallback((stack: ReturnStack) => {
+    if (!inquiry) return;
+    returnStackRef.current = stack;
+    setReturnStack(stack);
+  }, [inquiry]);
 
   const dropDetour = useCallback((entryId: string) => {
     const next = dropCurrent(returnStackRef.current, entryId);
@@ -1296,7 +1306,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, seedReturnStack, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
     markBranchDone,
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,

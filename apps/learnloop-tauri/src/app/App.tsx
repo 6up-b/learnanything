@@ -988,7 +988,11 @@ export function App() {
         return true;
       }
       setPracticeOffer(offer);
-      setReaderReturn({ card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId });
+      setReaderReturn({
+        card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId,
+        // Reader CA6b (Codex re-review F8): begun in side by side's second pane, back keeps the way there.
+        ...(request.besideTrail ? { besideTrail: request.besideTrail } : {}),
+      });
       setPrimedRetry(false);
       setRedoContext(null);
       setAskTarget(null);

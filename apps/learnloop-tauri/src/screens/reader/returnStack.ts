@@ -143,3 +143,14 @@ export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pi
   entries[stack.cursor] = { ...current, ...patch };
   return { ...stack, entries };
 }
+
+/** Reader CA6b (Codex re-review F8): the way back to side by side, kept
+ *  across the Reader unmounting (the shell's practice and feedback screens).
+ *  It is the stack itself, while a side_by_side entry comes before the
+ *  current one (a detour opened from side by side, such as its second book
+ *  taken to the main pane for a check or a work through); otherwise null, and
+ *  nothing is kept (every other return is the passage alone, as before). */
+export function besideTrail(stack: ReturnStack): ReturnStack | null {
+  if (stack.cursor < 1) return null;
+  return stack.entries.slice(0, stack.cursor).some((entry) => entry.kind === "side_by_side") ? stack : null;
+}

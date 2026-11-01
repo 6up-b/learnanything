@@ -11,6 +11,7 @@
  */
 import type { DailyPlanDto, SourceLibraryCard } from "../api/dto";
 import type { PracticeOffer } from "./practiceOffer";
+import type { ReturnStack } from "../screens/reader/returnStack";
 
 export interface ReaderReturn {
   card: SourceLibraryCard;
@@ -18,6 +19,9 @@ export interface ReaderReturn {
   practiceItemId: string;
   /** RW2a: the attempt was a Reader workbench submit; back opens its problem. */
   workbenchAttemptId?: string;
+  /** Reader CA6b (Codex re-review F8): begun from side by side's second pane:
+   *  the Reader opens with this return stack, side by side one step back. */
+  besideTrail?: ReturnStack | null;
 }
 
 /** Whether going back from `practiceItemId` returns to the Reader's passage. */

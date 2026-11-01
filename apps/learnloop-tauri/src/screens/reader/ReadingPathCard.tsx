@@ -28,6 +28,9 @@ export interface ReadingPathCardProps {
   extractionId: string;
   /** Moves the page to a section (ordinary reading navigation). */
   onJump: (spanId: string) => void;
+  /** Reader CA6b: present, a jump names its section too, and goes here
+   *  instead (side by side's second pane moves by section). */
+  onJumpSection?: (spanId: string, sectionId: string) => void;
   /** "Try it": the exercise in the workbench through the usual import, the
    *  book open; null when the workbench is off (the book is offered instead). */
   onTryExercise: ((exercise: ReadingPathExerciseDto) => void) | null;
@@ -39,7 +42,8 @@ export interface ReadingPathCardProps {
   refreshKey?: string;
 }
 
-export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, focusToken = 0, refreshKey = "" }: ReadingPathCardProps) {
+export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, onTryExercise, onError, focusToken = 0, refreshKey = "" }: ReadingPathCardProps) {
+  const jump = (spanId: string, sectionId: string) => (onJumpSection ? onJumpSection(spanId, sectionId) : jumpTo(spanId));
   const [path, setPath] = useState<ReadingPathDto | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
@@ -185,7 +189,7 @@ export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, 
                 open={open === section.sectionId}
                 busy={busy}
                 onToggle={() => setOpen((current) => (current === section.sectionId ? null : section.sectionId))}
-                onJump={() => onJump(section.startSpanId)}
+                onJump={() => jump(section.startSpanId, section.sectionId)}
                 onChoose={(choice) => void choose(section, choice)}
               />
             ))}
@@ -198,7 +202,7 @@ export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, 
                     {onTryExercise ? (
                       <button type="button" style={LINK} onClick={() => onTryExercise(section.exercise!)}>{COPY.tryIt}</button>
                     ) : (
-                      <button type="button" style={LINK} onClick={() => onJump(section.exercise!.spanIds[0] ?? section.startSpanId)}>
+                      <button type="button" style={LINK} onClick={() => jump(section.exercise!.spanIds[0] ?? section.startSpanId, section.sectionId)}>
                         {COPY.openInBook}
                       </button>
                     )}

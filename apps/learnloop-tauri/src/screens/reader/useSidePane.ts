@@ -11,9 +11,11 @@
 //   typed intentions routed by reader_intent on THIS pane's reading and
 //   passages. The box's keys apply in the pane that has the selection: the
 //   main pane's box is disarmed when the learner selects here, and this one
-//   when they select there. The palette leaves out what the open book alone
-//   can run (work through this: the working posture closes side by side;
-//   what matters here?: the Guide's reading path is the open book's);
+//   when they select there. The palette is the main pane's (Codex re-review
+//   F7): *work through this* takes this book to the main pane (the working
+//   posture is the open book's) with side by side one step back on the return
+//   stack, and *what matters here?* shows this book's reading path in the
+//   pane (pathShown, below);
 // * its capture target (this book's source, revision and reading), so a
 //   preset, a highlight, a note or an exercise import goes to this book;
 // * its active reading and its figures, on this reading;
@@ -39,9 +41,6 @@ import { useActiveReading } from "./useActiveReading";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./useIntentBox";
 import type { ReaderIntentActionDto } from "../../api/dto";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./useReaderCues";
-
-/** What the second pane's palette leaves out: the open book's own views (U13: absent, never disabled). */
-export const SIDE_PANE_HIDDEN_KINDS: ReadonlyArray<string> = ["work_through", "reading_path"];
 
 /** A selection's capture target: the book, revision and reading it goes to. */
 export interface PaneCaptureTarget {
@@ -81,6 +80,8 @@ export interface SidePaneInput {
   offline: boolean;
   /** How many of the book's next lines "let me try the next step" folds. */
   foldBlocks: number;
+  /** The workbench is on (work through this is offered, as in the main pane). */
+  canWorkThrough: boolean;
   /** "check me" on this book's marks: the shell opens the item (absent: no check me). */
   onCheckMe?: (request: CueCheckMeRequest, origin: CueRequestOrigin) => void;
 }
@@ -89,7 +90,8 @@ const noop = () => undefined;
 
 export function useSidePane(input: SidePaneInput) {
   const { shown, section, intentContract, muted, notes, hostRef, onRun, onCancelRun, onSelectedHere,
-    activeReadingOn, figuresContract, densityKey, reloadMainPlan, visitPayload, onError, offline, foldBlocks, onCheckMe } = input;
+    activeReadingOn, figuresContract, densityKey, reloadMainPlan, visitPayload, onError, offline, foldBlocks, onCheckMe,
+    canWorkThrough } = input;
   const extractionId = shown && section ? section.extractionId : null;
   const sourceId = shown && section ? section.sourceId : null;
   const sectionKey = extractionId && section ? `${extractionId}::${section.sectionId}` : null;
@@ -104,9 +106,7 @@ export function useSidePane(input: SidePaneInput) {
     // The pane never shows protected text (reader.side_by_side_section refuses it).
     protectedSelection: false,
     notes,
-    canWorkThrough: false,
-    hiddenKinds: SIDE_PANE_HIDDEN_KINDS,
-    sidePane: true,
+    canWorkThrough,
     hostRef,
     onRun,
     onCancelRun,
@@ -128,6 +128,27 @@ export function useSidePane(input: SidePaneInput) {
   useEffect(() => {
     setSelection(null);
   }, [sectionKey]);
+
+  // Codex re-review F7: "what matters here?" in this pane shows THIS book's
+  // reading path in the pane (the Guide's card, on this reading), until the
+  // learner closes it or the pane's book changes; a second ask brings it
+  // into view again.
+  const [pathFor, setPathFor] = useState<string | null>(null);
+  const [pathFocus, setPathFocus] = useState(0);
+  // Kept while the pane moves among this book's sections (its reading is
+  // briefly unknown while a section loads); gone when the pane closes or
+  // shows another book.
+  useEffect(() => {
+    if (!shown) setPathFor(null);
+    else if (extractionId) setPathFor((current) => (current === extractionId ? current : null));
+  }, [shown, extractionId]);
+  const showPath = useCallback(() => {
+    if (!extractionId) return;
+    setPathFor(extractionId);
+    setPathFocus((value) => value + 1);
+  }, [extractionId]);
+  const closePath = useCallback(() => setPathFor(null), []);
+  const pathShown = pathFor !== null && pathFor === extractionId;
 
   const active = useActiveReading({
     extractionId: activeReadingOn ? extractionId : null, sourceId, onError, onOpenRail: noop,
@@ -162,7 +183,7 @@ export function useSidePane(input: SidePaneInput) {
 
   return {
     extractionId, section: extractionId ? section : null, selection, noteSelection, releaseKeys, box, target,
-    active, figures, fold, marksVersion, marksChanged, cues,
+    active, figures, fold, marksVersion, marksChanged, cues, pathShown, pathFocus, showPath, closePath,
   };
 }
 
