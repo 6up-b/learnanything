@@ -247,3 +247,138 @@ outside the worktree.
 3. **Item 4's reach.** The total deadline is enforced in the OpenAI-compatible adapter only (the metered
    routes). The ChatGPT-plan, Codex, Decider and HTTP-adapter transports keep their own timeouts. The plan is
    unmetered, so R3's duplicate-charge concern does not apply to it.
+
+## Landing onto main
+
+The branch `reader/followups-nov1` (worktree `learnanything-astrafix`, stage tip `09d5d3e8c8` after the Codex fix
+round and re-review fix round) lands onto main. The orchestrator fast-forwards main and pushes. Codex state at landing:
+F1 [High] CONFIRMED-FIXED (job `20261101-101104-SYlL5G`); F2 [Medium] REOPENED only for the HTTPS-proxy TLS-in-TLS
+read path (ruled Low, R1 below).
+
+### Merges
+
+- `13bc3f75bf`: main `0708e12a18` (substrate facet write-on-change: `src/learnloop/db/repositories.py`, its test and
+  its two records) merged into the branch (a merge, not a rebase). No file is touched by both sides, so there was no
+  conflict. Main's tip was still `0708e12a18` before the full gate and again before this record was committed.
+- No regeneration was needed beyond the desktop catalog: no schema, config key or template change, so the DB and
+  config reference scripts were not run. `desktop_generate.py` then `desktop_validate.py` (under `env -i`) on the
+  merged tree: **validation passed** (295/295 TypeScript/TSX + 5/5 Rust, 24 area maps, ACTIVE=300, reproducible
+  byte-for-byte); the regeneration changed no file.
+
+### Gate (at `13bc3f75bf`)
+
+Every Python run under `env -i` with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR` outside
+the worktree. Every pytest run inside `systemd-run --user --scope` (full suite 10G/2G swap, the rest 5G/1G) under
+`flock /tmp/learnloop-fullsuite.lock`; every npm/vitest run in a 5G scope, vitest `--maxWorkers=4`. No live model call.
+
+- `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Full pytest** (`-n 8 --dist worksteal`, `faulthandler_timeout=600`): **23158 passed, 89 skipped, 47 xfailed, 0
+  failed** (37:09).
+- **Durability lane** (`-m durability`, `-n 6`): **178 passed, 1 skipped**.
+- **Owner lane** (`-m owner_vaults`, `-n 6`, `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies,
+  `learnloop.db.copies.copy_tree_with_databases`, of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,
+  probability,arxiv_v2}` in the gitignored `fixtures-local/landing-fu-nov1/`): **83 passed, 2 failed, 4 skipped**. The
+  failures are exactly the two known ones, `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`
+  and `test_placement_fixture_copies::…[arxiv_v2]`.
+- **Frontend:** `npm install` ok; `npm run typecheck` clean; `npm run frontend:build` built (the usual chunk-size
+  warning). Whole vitest: the first run had **1 failed, 2341 passed** (245 files):
+  `sideBySideCorrespondence.test.tsx` > "(iv) peek, side by side and go there each record once" (line 142, a `waitFor`
+  on the also-list focus). The file alone passed **3 of 3** (11/11); the branch changes neither it nor
+  `AlsoInBooks.tsx`. A second whole run failed one different test, the known load-timing flake
+  `FeedbackScreen.test.tsx` > "keeps the old Next where no live queue applies" (a spy called 0 times; recorded in
+  H1's and reread-safety's landings); that file alone passed **3 of 3** (11/11). The third whole run: **245 files,
+  2342 passed, 0 failed**. Both are recorded as load-timing flakes.
+- `cargo check`: not needed (nothing under `src-tauri` changed).
+
+### Smoke on fresh owner copies (`fixtures-local/landing-fu-nov1-smoke/`, drivers `scripts/prep.sh`, `scripts/rpc.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). Main's code is `git archive 0708e12a18` and the branch's `git archive 13bc3f75bf`, both with `src/`
+and `migrations/`. Each copy, under its own side's code: a bare `upgrade` (**mvp-0.35 → mvp-0.40**, head 228), the
+desktop start (`SidecarContext.load`), `migrate_vault` (0 applied), `rebuild-derived-state`. Every process ran under
+`env -i` with empty `HOME`, `CODEX_HOME` and config dir and an audit hook that refuses non-loopback sockets and Codex
+process starts.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| upgrade, desktop start, rebuild-derived-state (main and branch) | mvp-0.35 → mvp-0.40, ok (70 attempts) | same (3) | same (3) |
+| Today (3 queue variants, frozen clock), branch vs main | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| daily plan dump (deterministic ids), branch vs main | **identical** (84,711 bytes) | identical (124,036) | identical (32,448) |
+| readings with a ready render view / span ids shared by two books | 3 / 160 | 2 / 10 | 4 / 125 |
+
+**Reading-only Reader RPCs (item 2)** (`rpc_smoke.py`, through the sidecar's own handlers on a further copy of each
+side's rebuilt vault, real reader data). The request names book A's reading and a span id that book B also has.
+
+| RPC | another reading's key (`B:span`) | own key (`A:span`) | no keys, branch | no keys, main |
+|---|---|---|---|---|
+| `reader.set_answer_mode` | refused `span_extraction_mismatch` / `span_key_reading`, nothing written | ok (`interaction_events`) | ok | ok |
+| `reader.ask` | refused, `span_key_reading`, nothing written | passes the guard; `provider_unavailable` (blackhole, before any write) | same | same |
+| `reader.route_intent` (empty text: no model call) | refused, `span_key_reading`, nothing written | ok, nothing written | ok | ok |
+| `reader.active_question` (`why_step`) | refused, `span_key_reading`, nothing written | ok (`interaction_events`) | ok | ok |
+
+Identical on all three vaults. "Nothing written" is every table's row count unchanged. The no-key outcomes (outcome,
+code, tables changed) are identical between main's and the branch's code on every vault.
+
+**`compare_sources` (item 1).** A comparison needs two model steps (the passage verification and the comparison
+call). With routes at the blackhole they end before a comparison is stored, so nothing would reach RW4d's rule. The
+smoke therefore replaces those two steps **in process** with deterministic doubles: every retrieved passage is judged
+"answers", and the comparison quotes each passage's first words. The doubles use no client and no network, and do no
+metering. Retrieval (the real FTS index), pin admission, storage, reuse and the whole-comparison rule are the real code.
+The same doubles ran under main's code.
+
+- **Allowed when nothing is withheld**, on all three vaults: a `reader` caller (ref = a reading) and a `plan` caller
+  each make a fresh comparison (2, 2–3, or 10–12 sources), then the same call again reuses it. All 4 cases return `ok`
+  with a comparison id (fresh: `reused` false, one `source_comparisons` row; reuse: `reused` true, nothing written).
+  Each is identical to main's outcome (8/8 per vault).
+- **Exam material:** **no owner copy has exam or held-out material** (`exam_material`: 0 spans, 0 whole readings on
+  all three), so the owner data cannot exercise the refusal. As a supplement, a further copy of each side's arxiv_v2
+  marked one non-Reader reading's outline role as `exam` (`source_unit_selections.role_override`, one row; the
+  import-batch path that `exam_material` reads). The comparisons then leave that reading out (10/11 sources, the same
+  on both sides). Pinning one of its passages onto the plan caller's comparison gives:
+  - **branch:** refused **`comparison_withheld`**, with no row added;
+  - **main:** shown, as a reuse, with the pin dropped as "it is exam material". This is the Codex F1 gap on main.
+
+  The other 8 cases are identical between the two sides.
+- `rebuild --shadow --json` after the RPCs and comparisons (branch copies, including the marked one): **0/0/0** on
+  every vault, live unchanged. Also **0/0/0** on each upgraded, rebuilt branch copy before the RPCs.
+- **Model call receipts:** across the 20 smoke databases compared with their base copies, **0 new**. probability's 56
+  historical rows (42 completed, 14 failed) are unchanged in each copy.
+- **Audit:** the audit log was never written, so there was no process start and no socket connect of any kind. No
+  Codex process ran.
+
+### Orchestrator rulings (verbatim)
+
+- R1 (F2 remainder): "Ruled Low under the proportionate protection bar and the stuck-loop rule (third round on the transport-deadline class). It needs an HTTPS_PROXY environment variable naming an https:// proxy, which the owner does not configure; the overshoot is bounded by the proxy's per-recv pacing; a duplicate narration needs a priced metered route under digest.max_daily_cost_usd 0.25. Queued as a follow-up: bound nested TLS I/O, or set trust_env=False on the metered adapter's client."
+- R2: "find_sources(intent='compare') and the remote/MCP sources call are in scope for whole-comparison withholding: they carry the whole comparison. Accepted."
+- R3: "RW4d's comparison_passages reading (only a Reader caller's ref is a reading; only tutor tool runs are questions; agent/plan refs name no passage) is accepted as the intended rule; it removes false refusals."
+- R4: "Persisting a reuse call's resolvable dropped pins, unverified sources and tutor question on the shared comparison row follows RW4d's union-across-reuse rule. Accepted; flagged to the owner as a note."
+- R5: "Per-selection reading stamps with required span keys are queued as a follow-up (frontend refactor); keys stay optional now."
+
+### Rule slips (recorded by the implementer, see the stage gate's process notes)
+
+1. Two one-line `uv run python -c "import ..."` checks ran outside `env -i`: an import smoke test of the handlers, and
+   printing `learnloop.__file__` under the base path. They loaded modules only, opened no vault and made no network
+   call.
+2. One single-test pytest diagnostic (base sources, the helper test) ran without the memory scope.
+
+In this landing, every run followed the rules. The first desktop catalog command line failed before it ran anything
+(the shell did not split the wrapper variable), and was rerun through a wrapper script. Diagnostics outside the drivers
+were `sqlite3` reads of the smoke copies, and the one-row `UPDATE` on the two supplementary arxiv_v2 copies described
+above.
+
+### Open items
+
+1. **R1 follow-up (queued):** bound nested TLS I/O in `_DeadlineNetworkStream` (a TLS-in-TLS read under an
+   environment HTTPS proxy loops `recv` under one timeout: 2.0 s for a 1 s deadline), or set `trust_env=False` on
+   the metered adapter's client.
+2. **R5 follow-up (queued, frontend refactor):** stamp each Reader selection with the reading it was captured in,
+   then make `spanKeys` required on the reading-only RPCs (bare ids refused). Keys stay optional now.
+3. **Pre-existing RW4d fresh-path pin persistence:** a fresh comparison stores every dropped pin, including one dropped
+   as "no such passage" (`NO_SUCH_PASSAGE`). RW4d's `comparison_passages` cannot resolve that pin, so the stored
+   comparison is withheld whole (fail closed) for every later reader. The reuse path no longer writes such a pin
+   (Codex review F1). The fresh path is unchanged, as RW4d left it.
+4. **Owner note (R4):** a reuse call's resolvable dropped pins, unverified sources and tutor question are now added to
+   the shared comparison row (`dropped_pins_json`, `unverified_sources_json`,
+   `caller_context_json.reuse_question_event_ids`). This is a write-on-change, with no schema change.
