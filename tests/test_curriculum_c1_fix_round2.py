@@ -345,7 +345,7 @@ def test_l6_a_memo_hit_returns_exactly_what_the_choice_computed(tmp_path, monkey
     assert again == computed and json.dumps(again[1]) == json.dumps(computed[1])
 
 
-def test_l6_blocks_for_the_record(tmp_path, monkeypatch):
+def test_a_move_withdraws_the_staged_block_and_it_counts_no_minutes(tmp_path, monkeypatch):
     """The withdrawn block of a move counts no minutes and is no reading of the day."""
 
     c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
