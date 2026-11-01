@@ -190,3 +190,140 @@ anchored on the second pane), `debe6a26ea` (the skim/key-ownership test), and th
 3. RW6b part 2 (parallel in `learnanything-dl2`) also touches `ReaderScreen`. CA6b's ReaderScreen changes are
    confined to the side pane context, the router and the `SideBySidePane` props, so a merge conflict, if any, should
    be local to those hunks.
+
+## Landing onto main
+
+The branch `reader/ca6b-second-pane-intent` (worktree `learnanything-merge2`; the stage and fix rounds 1–6, round 6
+at `ff3b06e953`) is merged with main `06f54da975`: curriculum C1 mvp-0.40 and Reader RW6b part 2, the digest card.
+The orchestrator fast-forwards main and pushes.
+
+### Sol verdict (verbatim)
+
+The scoped Sol verify of round 6 (job `20261101-050244-su2sQH`) returned CLEAN:
+
+> No findings. All three round-6 fixes are closed for app-produced flows. No false refusals or main-pane regressions found; side-by-side off remains inert.
+
+### Merges, conflicts and regeneration
+
+| commit | what |
+|---|---|
+| `7c433f99dd` | Merge of main `06f54da975`. **No textual conflicts.** RW6b part 2's recap/wrap-up files (`useReaderRecap.ts`, `RecapCard.tsx`, `WrapUpPanel.tsx`, `DigestNarrative.tsx`) and CA6b's `ReaderScreen.tsx`, `useSidePane.ts` and reader hooks merged cleanly. The merged tree typechecks with every CA6b type requirement in force (`SourceIdentity` on persisting requests, checks and handoffs; `ReaderRawSelection.extractionId`); none of RW6b part 2's new code builds a raw selection or a check. CA6b touches no config, so no template snapshot or fingerprint. Main's `pyproject.toml` change is import-linter contracts only (no dependency). |
+| `4f7831bf92` | References and the desktop catalog regenerated on the merged tree. `db_generate_reference.py` (358 table notes; 478 notes restamped) and `db_validate_reference.py` (errors `[]`); `validate_vault.py` passes (1363 notes). `desktop_generate.py`: 295 TS/TSX + 5 Rust notes. The stage's `useSidePane.ts` (the stage's open item 1) is classified **entry-build**. `desktop_validate.py` counts moved to 295 TS / 287 entry-build / ACTIVE 300, and it passes byte for byte. |
+| `87fae5b2ef` | `tests/test_ux_phase3_today.py` (UX Phase 3, from main): three of its tests opened workbench problems on readings that did not exist (`ext_other`, `ext_gone`, `ext_book_v1`, mapped to sources by a monkeypatch). The passage-identity guard refuses passages of a reading that does not exist (fail closed), so the tests now seed those readings with the passages their problems name. The tests' assertions are unchanged; on main the file passes as it was. |
+
+`module_generate.py` / `module_validate.py` were not part of this landing. They report a long-stale Python module
+catalog on main itself (1287 issues: missing package descriptions and notes for many existing packages). That is
+pre-existing, and it is listed under open items.
+
+### Gate (at `4f7831bf92`; the test fix `87fae5b2ef` was rerun alone)
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted pytest (`-n 6`, 5G, under `flock`): the CA6b guard tests (`test_reader_source_identity_guard.py`),
+  `test_desktop_activation_audit.py`, `test_public_tip_guards.py`, RW6b part 2's tests (`test_reader_rw6b_p2_landing.py`,
+  `test_reader_digest_narrative.py`, `test_router_reader_activity.py`, `test_reader_session_digests_migration.py`,
+  `test_reader_rw6b_landing.py`), the round-5/6 fixture files (`test_reader_workbench_rw2a.py`,
+  `test_figures_rpc.py`, `test_reading_paths.py`), and `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py`,
+  `test_architecture.py`: **570 passed**.
+- Targeted vitest (`--maxWorkers=4`, 5G): the 122-file set plus RW6b part 2's `DigestNarrative.test.tsx`,
+  `narrativeLanding.test.tsx` and the recap tests: **124 files, 1343 passed**.
+- **Full pytest** (`flock /tmp/learnloop-fullsuite.lock`, 10G, `-n 8 --dist worksteal`, `env -i`): **23077 passed,
+  7 failed, 89 skipped, 47 xfailed** (36:35).
+  - **3 failures** were `test_ux_phase3_today.py`'s problems on non-existent readings (above). After `87fae5b2ef`
+    the file passes: 5 passed.
+  - **4 failures are pre-existing on main**: `test_route_rules_in_grader.py::test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`,
+    `::test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`,
+    `::test_f5_a_joint_regrade_supersedes_a_route_verdict` and
+    `test_required_method_grading.py::test_a_regrade_at_the_successor_keeps_the_method_rule_and_a_full_credit_regrade_clears_it`.
+    Each fails alone, 3 times out of 3, on this branch. They also fail identically on `git archive 06f54da975` (main's
+    code and tests, the same interpreter): 4 failed, 67 passed with `test_ux_phase3_today.py` in the same run. They
+    touch no CA6b file. Open item for the orchestrator.
+- **Durability lane** (`-m durability`, 10G, under `flock`): **177 passed, 1 skipped**.
+- **Owner lane** (`-m owner_vaults`, fresh backup-API copies of
+  `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in
+  `fixtures-local/landing-ca6b/`): **83 passed, 2 failed, 4 skipped**. The failures are exactly the two known ones,
+  `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and
+  `test_placement_fixture_copies::…[arxiv_v2]`.
+- **Frontend:** `npm install` ok; `npm run typecheck` clean; the whole vitest (`--maxWorkers=4`, 5G): **245 files,
+  2342 passed**; `npm run frontend:build` ok.
+- Nothing under `src-tauri` differs from main, so no cargo check.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-ca6b-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). Main's code is `git archive 06f54da975` and the branch's `git archive 4f7831bf92`, both with
+`src/` and `migrations/`. Each copy then ran:
+- a bare `upgrade` (**mvp-0.35 → mvp-0.40**, head 228);
+- the desktop start (primary load);
+- `rebuild-derived-state`.
+
+Every process ran under `env -i` with empty `HOME`, `CODEX_HOME` and config dir, and an audit hook that refuses
+non-loopback sockets and Codex process starts. Counts only.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| upgrade, primary load, rebuild-derived-state (main and branch) | mvp-0.35 → mvp-0.40, ok | same | same |
+| Today, branch vs main | identical (525,266 bytes) | identical (740,827) | identical (344,204) |
+| daily plan dump, branch vs main | identical (84,702 bytes) | identical (124,027) | identical (32,439) |
+| reader books with a ready render view / span ids shared by the two books driven | 3 / **160** | 2 / **10** | 4 / **125** |
+| `reader.capture` with the passage's own SourceIdentity | ok (7 tables written) | same | same |
+| … naming another reading's extraction id | `span_extraction_mismatch`, 0 tables changed | same | same |
+| … naming another book's source | `span_extraction_mismatch`, 0 changed | same | same |
+| … a colliding span id from another book through that book's render view | `span_extraction_mismatch`, 0 changed | same | same |
+| … a colliding span id with the selection naming that book | `span_extraction_mismatch`, 0 changed | same | same |
+| `reader.reanchor` / `reader.manual_anchor` to a reading of the same source | ok / ok | same | same |
+| `reader.reanchor` / `reader.manual_anchor` to another source | `span_extraction_mismatch` / same, 0 changed | same | same |
+| `rebuild --shadow` (branch copy; and after the guarded RPCs) | 0/0/0, live unchanged; 0/0/0 | same | same |
+
+- **Model call receipts:** across the 15 smoke databases compared with their base copies, **0 new**.
+  probability's 56 historical rows are unchanged in each copy.
+- **Audit:** the audit log was never written, so there was no process start and no socket connect of any kind. No
+  Codex process ran.
+- **Colliding ids are real:** the copies' readings share span ids across books (160, 10 and 125 between the two books
+  driven), which is the case round 6 closed.
+- **Same-source reanchor:** no copy has two readings of one source with a ready render view, so the smoke moved
+  annotations to the same reading. The move to an earlier or later reading of the same source is covered by
+  `test_round6_reanchoring_moves_an_annotation_only_within_its_own_book`.
+
+### Orchestrator rulings so far (verbatim from the review records)
+
+- Round 4: "The orchestrator ruled that finding 1 and the earlier F1 are one class: something begun in the second
+  pane is persisted or opened under the main book. So this round fixes the handler and also audits every action
+  reachable from the second pane, or from an object that came from it (table below)."
+- Round 5: "Wrong-book attribution had then produced Highs in four rounds. The orchestrator therefore directed a
+  structural change, so that the class cannot happen rather than being patched case by case. It has four parts: (a)
+  a fail-closed backend guard in one shared helper; (b) one client `SourceIdentity` type, required wherever a passage
+  is persisted or handed on; (c) an honest UI state for the typed refusal; (d) active-reading state and drafts kept
+  outside the conditionally mounted card."
+- Round 6: "The direction was to tighten the guard. Span-id membership alone is not identity, because production
+  extractors number every book's blocks the same way (`s0`, `s1`, …). So wherever the guard sees a render view, a node
+  id, a crosswalk or a region, it must check that it belongs to the named reading. The other guarded RPCs were audited
+  for the same weakness."
+- Round 6 brief: "After this I land it, ruling any finding that needs a hand-crafted RPC beyond what the UI can
+  produce as Low."
+
+### Owner notes
+
+- Cue discovery in the second pane shares the per-open judge-call budget: one open of the second book is one budget,
+  as when that book is opened alone, and moving among its sections never adds to it. It runs only while RW3b's
+  discovery is on.
+- Returning from a check or a work through begun in the second pane lands on the mark's (or the selection's)
+  passage in that book, with side by side one step back on the return stack: **Alt+←** reopens it, on the section the
+  pane showed at the handoff.
+- Every Reader write that names passages is now checked on the server against its reading. A refusal reads "That
+  passage belongs to another reading; reopen it." and writes nothing.
+
+### Open items
+
+1. **Extraction-qualified span keys** for the reading-only RPCs, where the reading id is the only provenance on the
+   wire: `workbench.open` (problem spans, source exercise), `reader.ask`, `set_answer_mode`, `route_intent`,
+   `active_question`, both figure requests, `reader.library_ask` and `enqueue_request`. A mismatch there needs a
+   hand-crafted RPC (Low by the round-6 ruling).
+2. Not guarded, listed in round 5: the reads, and the non-Reader RPCs `curriculum.set_scope`,
+   `import_source_exercise`, `compare_sources` and `ask_tutor_question`.
+3. **Pre-existing on main:** the 4 grader tests above (`test_route_rules_in_grader.py` ×3,
+   `test_required_method_grading.py` ×1) fail on main `06f54da975`'s own archive.
+4. **Pre-existing on main:** the Python module catalog (`module_generate.py` / `module_validate.py`) is stale, with
+   1287 issues. It belongs to the end-of-queue docs workflow.
+5. The stage's open items 2 and 3 (owner check on deviations 3–5; the RW6b part 2 overlap) are settled: the
+   overlap merged without conflict.
