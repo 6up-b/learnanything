@@ -329,3 +329,77 @@ def test_the_residual_writer_writes_nothing_when_nothing_changed(tmp_path):
     assert row["facet_id"] == "f_a" and row["residual_mean"] == 0.45
     assert row["updated_at"] == utc_now_iso(_at(9))
     assert row["created_at"] == utc_now_iso(_at(0))
+
+
+class _WriterBetweenComparisons:
+    """A repository connection that lets another connection commit right
+    before the writer takes its write lock: after the read-snapshot comparison
+    found a change, before ``BEGIN IMMEDIATE`` (no lock is held there)."""
+
+    def __init__(self, connection, interleave):
+        self._connection = connection
+        self._interleave = interleave
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+    def execute(self, sql, *args):
+        if sql.strip().upper() == "BEGIN IMMEDIATE" and self._interleave is not None:
+            interleave, self._interleave = self._interleave, None
+            interleave()
+        return self._connection.execute(sql, *args)
+
+
+def test_a_writer_committing_between_the_two_comparisons_is_reconciled_not_clobbered(tmp_path, monkeypatch):
+    """The preliminary comparison's plan is never applied: rows another writer
+    deleted, re-inserted (new rowid) or added in between are compared again
+    under the lock, so the table still ends equal to the projection."""
+
+    repo = Repository(tmp_path / "state.sqlite")
+    repo.replace_capability_residual_state(
+        rows=[_residual("f_a"), _residual("f_b")], algorithm_version="mvp-0.8", clock=_at(0)
+    )
+    stored = _keyed(_rows(repo.sqlite_path, "capability_residual_state"), CAPABILITY_KEY)
+
+    def other_writer():
+        with sqlite3.connect(repo.sqlite_path) as other:
+            columns = [name for name in stored[("f_a", "apply")] if name != "_rowid"]
+            row = stored[("f_a", "apply")]
+            other.execute("DELETE FROM capability_residual_state")
+            # f_a comes back under a new rowid; f_b is gone; f_c is new.
+            for facet in ("f_a", "f_c"):
+                values = {**row, "facet_id": facet, "id": f"crs_{facet}"}
+                other.execute(
+                    f"INSERT INTO capability_residual_state({', '.join(columns)}) "
+                    f"VALUES ({', '.join('?' for _ in columns)})",
+                    [values[name] for name in columns],
+                )
+
+    original = Repository.connection
+    calls = []
+
+    class _Borrowed:
+        def __init__(self, owned):
+            self._owned = owned
+
+        def __enter__(self):
+            calls.append(None)
+            return _WriterBetweenComparisons(self._owned.__enter__(), other_writer)
+
+        def __exit__(self, *exc):
+            return self._owned.__exit__(*exc)
+
+    monkeypatch.setattr(Repository, "connection", lambda self: _Borrowed(original(self)))
+    repo.replace_capability_residual_state(
+        rows=[_residual("f_a", mean=0.45), _residual("f_b")], algorithm_version="mvp-0.8", clock=_at(5)
+    )
+    monkeypatch.undo()
+    assert calls, "the writer did not borrow a connection"
+
+    after = _keyed(_rows(repo.sqlite_path, "capability_residual_state"), CAPABILITY_KEY)
+    assert set(after) == {("f_a", "apply"), ("f_b", "apply")}
+    assert after[("f_a", "apply")]["residual_mean"] == 0.45
+    assert after[("f_a", "apply")]["updated_at"] == utc_now_iso(_at(5))
+    # The projected id wins over the one the other writer stored.
+    assert after[("f_a", "apply")]["id"] == stored[("f_a", "apply")]["id"]
+    assert _values(after[("f_b", "apply")]) == _values(stored[("f_b", "apply")])
