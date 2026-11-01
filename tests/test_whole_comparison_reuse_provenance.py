@@ -201,3 +201,66 @@ def test_f1_a_cached_tutor_comparison_checks_the_current_questions_passage(tmp_p
     assert caught.value.code == "comparison_withheld"
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM source_comparisons").fetchone()[0] == 1
+
+
+# -- Codex re-review F1: a direct tutor RPC's reuse persists its question --------------------------
+
+
+def _question_of(repository, tool_call_id: str) -> str:
+    from learnloop.db.stores.source_service import tool_call
+
+    with repository.connection() as connection:
+        return str(tool_call(connection, tool_call_id)["caller_ref"])
+
+
+def test_f1_rereview_a_direct_tutor_reuse_persists_its_question_for_later_readers(tmp_path, monkeypatch):
+    """Codex re-review F1: a direct ``compare_sources`` RPC for a tutor question
+    reused a stored comparison while its question's passage was readable, and
+    no row linked that question to the comparison (only a tool run writes
+    one). Once the passage was held out, later readers still got the
+    comparison. The reuse now persists the question on the stored comparison,
+    so RW4d's rule reads it on every later read."""
+
+    from learnloop.reader import source_objects as SO
+
+    ctx, repository, spans = _tutor_flow(tmp_path, monkeypatch)
+    _fake_service(monkeypatch)
+    first = _ask_at(ctx, "ext_book", "s7")
+    warm = call(ctx, "run_source_tool", {"toolCallId": first["toolCallId"]})
+    comparison_id = warm["result"]["comparisonId"]
+    chapter = {("ext_text", span) for span in spans["ch5"]}
+    assert comparison_id and not (SO.comparison_passages(repository, comparison_id) & chapter)
+    # A second question at ext_text's chapter 5, compared through the DIRECT RPC (no tool run): a reuse.
+    question = _question_of(repository, _ask_at(ctx, "ext_text", "t3")["toolCallId"])
+    shown = call(ctx, "compare_sources", {"query": first["arguments"]["query"],
+                                          "caller": {"kind": "tutor", "ref": question}})
+    assert shown["comparisonId"] == comparison_id  # reused while the chapter was readable: shown
+    assert table_counts(repository, ["source_comparisons"]) == {"source_comparisons": 1}
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"ch5": "held_out_evaluation"})
+    vault, _ = ctx.require_vault()
+    # A later reader (no question of its own) reads the persisted question: withheld whole.
+    assert SO.withheld_comparisons(vault, repository, [(comparison_id, None)])
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "run_source_tool", {"toolCallId": first["toolCallId"]})
+    assert caught.value.code == "comparison_withheld"
+
+
+def test_f1_rereview_a_reuse_for_an_unknown_question_is_not_persisted(tmp_path, monkeypatch):
+    """A question that does not exist names no passage: it is not written onto
+    the shared comparison (every later read of it would be unresolvable)."""
+
+    from learnloop.reader import source_objects as SO
+    from learnloop.source_retrieval.compare import compare_sources
+    from learnloop.source_retrieval.policy import CallerContext
+
+    ctx, repository, _spans = _tutor_flow(tmp_path, monkeypatch)
+    first = _ask_at(ctx, "ext_book", "s7")
+    warm = call(ctx, "run_source_tool", {"toolCallId": first["toolCallId"]})
+    comparison_id = warm["result"]["comparisonId"]
+    vault, _ = ctx.require_vault()
+    llm = FakeServiceLLM()
+    caller = CallerContext(kind="tutor", ref="qe_no_such_question")
+    again = compare_sources(vault, repository, first["arguments"]["query"], caller=caller, client=llm,
+                            verify_client=llm)
+    assert again.comparison_id == comparison_id and again.reused
+    assert not SO.withheld_comparisons(vault, repository, [(comparison_id, None)])

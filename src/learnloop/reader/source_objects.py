@@ -323,8 +323,9 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
     across its reuse** (Codex verify of RW4d fix round 4, F1):
 
     * the stored comparison: its compared sources, counterparts, unverified
-      sources and dropped pins, and its own ``caller_ref`` (a tutor question;
-      for the Reader, the reading it was asked in);
+      sources and dropped pins, its own ``caller_ref`` (a tutor question;
+      for the Reader, the reading it was asked in), and the tutor questions
+      it was reused for (Codex re-review F1);
     * every ask that refers to it (showing it now, keeping it, a removal's
       snapshot, or a contributor its keep recorded), with each ask's anchor,
       binding and question, and ``ask_id`` / ``ask_ids`` (an ask acting now);
@@ -340,7 +341,7 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
     ``LookupError``; callers withhold the whole comparison (fail closed)."""
 
     from learnloop.db.stores.source_block_fts import existing_spans
-    from learnloop.db.stores.source_service import tool_requests_for_result
+    from learnloop.db.stores.source_service import REUSE_QUESTIONS_KEY, tool_requests_for_result
 
     if not comparison_id:
         raise LookupError("no comparison named")
@@ -366,6 +367,12 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
             # passage or reading (Reader follow-ups Nov 1: the direct RPC and the
             # tool runs reach this helper with such callers; reading "cli" as a
             # reading withheld every agent comparison as unresolvable).
+        # The tutor questions it was reused for (Codex re-review F1): a direct
+        # RPC's reuse links its question here, as a tool run's row does below.
+        reused_for = (stored.get("caller_context") or {}).get(REUSE_QUESTIONS_KEY, [])
+        if not isinstance(reused_for, list) or not all(isinstance(value, str) and value for value in reused_for):
+            raise LookupError(f"comparison {comparison_id!r} records malformed reuse questions")
+        events.extend(reused_for)
         asks.extend(ask_store.asks_referencing_comparison(connection, str(comparison_id)))
         for request in tool_requests_for_result(connection, str(comparison_id)):
             if request and str(request.get("caller_kind") or "") not in ("", "tutor"):

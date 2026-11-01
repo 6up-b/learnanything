@@ -546,10 +546,20 @@ def _compare_sources(
         # no passage contributed nothing and is not written (it would make the
         # shared comparison unresolvable for everyone).
         reuse_pins = [pin for pin in result.dropped_pins if pin.get("reason") != NO_SUCH_PASSAGE]
-        if reuse_pins or result.unverified_sources:
+        # Codex re-review F1: the tutor question this reuse is for, unless it
+        # is the one the comparison was made for. A tool run's row links it
+        # too, but a direct RPC writes none. A question that does not exist
+        # names no passage and is not written (it would make the shared
+        # comparison unresolvable); the current call still fails closed on it.
+        reuse_questions = [str(caller.ref)] if (
+            caller.kind == "tutor" and caller.ref
+            and not (stored.get("caller") == "tutor" and str(stored.get("caller_ref") or "") == str(caller.ref))
+            and repository.question_event(str(caller.ref)) is not None) else []
+        if reuse_pins or result.unverified_sources or reuse_questions:
             with repository.atomic(), repository.connection() as connection:
                 add_comparison_reuse_provenance(connection, str(stored["id"]), dropped_pins=reuse_pins,
-                                                unverified_sources=result.unverified_sources)
+                                                unverified_sources=result.unverified_sources,
+                                                question_event_ids=reuse_questions)
         payload = stored["comparison"]
         result.sources, result.relations = payload.get("sources", []), payload.get("relations", [])
         result.missing_perspectives = payload.get("missing_perspectives", [])
