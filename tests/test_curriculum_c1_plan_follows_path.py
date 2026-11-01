@@ -14,9 +14,11 @@
 * **Stale path.** Not followed (no model call from the plan): RW7b's choice
   stands and the receipt says ``stale``. Once a day, before the plan is built,
   the sidecar re-judges it quietly (plan only); a plan built meanwhile takes
-  the refreshed step while its reading is unstarted.
+  the refreshed step while its reading has no reading history (C1's invariant,
+  fix round 2: the plan's reading is what a fresh build would choose now).
 * **G-C4.** Off (either switch) every plan build is RW7b's byte for byte;
-  turning it off after the build puts RW7b's reading back while unstarted.
+  turning it off after the build puts RW7b's reading back while it has no
+  reading history (the fresh choice), recorded in the receipt's ``moves``.
 * **Persisted meaning.** A successor (mvp-0.39 after mvp-0.38, ONE constant):
   no migration, a journalled activation, a shadow rebuild with zero deltas.
 
@@ -456,18 +458,19 @@ def test_a_plan_built_on_a_stale_path_takes_the_refreshed_step_while_unstarted(t
     assert _at(split["reading"]) == ("ext_book", "ch_det") and split["reading"]["path_label"] == "prerequisite"
     receipt = split["reading_path"]
     assert receipt["chosen_by"] == "deliverable" and receipt["deliverable"]["status"] == "path"
-    refreshed = receipt["refreshed"]
-    assert refreshed["reason"] == "deliverable_path_refreshed" and refreshed["was"]["status"] == "stale"
-    assert _at(refreshed["from"]) == ("ext_book", "ch_eigen") and _at(refreshed["to"]) == ("ext_book", "ch_det")
-    # Recorded once: reading the plan again changes nothing.
+    [move] = receipt["moves"]
+    assert move["reason"] == "deliverable_path_moved" and receipt["move_count"] == 1
+    assert _at(move["from"]) == ("ext_book", "ch_eigen") and _at(move["to"]) == ("ext_book", "ch_det")
+    # Nothing changed since: reading the plan again writes nothing.
     call(ctx, "get_daily_plan", {})
-    assert _split(c1.repository)["reading_path"]["refreshed"] == refreshed
-    # The switch still reaches it afterwards: RW7b's reading comes back while unstarted.
+    assert _split(c1.repository) == split
+    # The switch still reaches it afterwards: RW7b's reading comes back (no reading history).
     append_config_toml(c1.paths.root, C1_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     assert _at(after["reading"]) == ("ext_book", "ch_eigen")
-    assert after["reading_path"]["transition"]["reason"] == "deliverable_path_off"
+    assert after["reading_path"]["moves"][-1]["reason"] == "deliverable_path_off"
+    assert after["reading_path"]["moves"][0] == move and after["reading_path"]["move_count"] == 2
 
 
 # -- G-C4: off is RW7b's plans byte for byte -----------------------------------------------------------
@@ -519,14 +522,15 @@ def test_switching_both_paths_off_after_the_build_puts_the_orders_reading_back(t
     append_config_toml(c1.paths.root, C1_OFF + RW7B_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
-    # Both paths off: the order's choice (RW7b's own receipt's predecessor), recorded once.
+    # Both paths off: the order's choice (what a build now gives), recorded in one move.
     assert _at(after["reading"]) == ("ext_book", "ch_eigen") and "path_label" not in after["reading"]
-    transition = after["reading_path"]["transition"]
-    assert transition["reason"] == "reading_path_off"
-    assert transition["switch"] == {"plan_uses_path": False, "enabled": True,
-                                    "curriculum": {"plan_uses_path": False, "enabled": True}}
+    [move] = after["reading_path"]["moves"]
+    assert move["reason"] == "reading_path_off"
+    assert move["switch"] == {"plan_uses_path": False, "enabled": True,
+                              "curriculum": {"plan_uses_path": False, "enabled": True}}
+    assert after["reading_path"]["deliverable"] is None and after["reading_path"]["rw7b"] is None
     call(context(c1.paths.root), "get_daily_plan", {})
-    assert _split(c1.repository)["reading_path"]["transition"] == transition
+    assert _split(c1.repository) == after
 
 
 def test_switching_c1_off_on_the_same_section_restores_rw7bs_label(tmp_path, monkeypatch):
@@ -537,7 +541,7 @@ def test_switching_c1_off_on_the_same_section_restores_rw7bs_label(tmp_path, mon
     after = _split(c1.repository)
     # RW7b's plan exactly: the same section, under RW7b's own label.
     assert after["reading"] == after["reading_path"]["predecessor"] and after["reading"]["path_label"] == "core"
-    assert after["reading_path"]["transition"]["reason"] == "deliverable_path_off"
+    assert after["reading_path"]["moves"][-1]["reason"] == "deliverable_path_off"
 
 
 def test_switching_c1_off_with_rw7b_on_puts_rw7bs_choice_back(tmp_path, monkeypatch):
@@ -548,9 +552,9 @@ def test_switching_c1_off_with_rw7b_on_puts_rw7bs_choice_back(tmp_path, monkeypa
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     assert _at(after["reading"]) == ("ext_book", "ch_eigen") and "path_label" not in after["reading"]
-    transition = after["reading_path"]["transition"]
-    assert transition["reason"] == "deliverable_path_off"
-    assert transition["switch"]["curriculum"] == {"plan_uses_path": False, "enabled": True}
+    move = after["reading_path"]["moves"][-1]
+    assert move["reason"] == "deliverable_path_off"
+    assert move["switch"]["curriculum"] == {"plan_uses_path": False, "enabled": True}
 
 
 def test_gc4_on_the_head_fixture_copy_on_and_off_are_rw7bs(tmp_path, monkeypatch):

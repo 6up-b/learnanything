@@ -128,17 +128,6 @@ def latest_judged(connection: sqlite3.Connection, goal_id: str, depth: str) -> l
     return judged(connection, goal_id, depth, str(row[0])) if row is not None else []
 
 
-def latest_judgment_id(connection: sqlite3.Connection, goal_id: str, depth: str) -> str | None:
-    """The judgment ledger id of the newest judge row at this depth, by insertion order
-    (whatever its state or timestamp): the identity curriculum C1's plan records for a
-    path it found stale, so a later judgment is seen however the clocks compare."""
-
-    row = connection.execute(
-        "SELECT ledger_id FROM deliverable_path_sections WHERE goal_id = ? AND depth = ? "
-        "AND learner_override IS NULL ORDER BY rowid DESC LIMIT 1", (goal_id, depth)).fetchone()
-    return str(row[0]) if row is not None else None
-
-
 def overrides(connection: sqlite3.Connection, goal_id: str, depth: str) -> dict[str, dict[str, Any]]:
     """The learner's newest row per LO at this depth (``none`` included: it clears)."""
 
@@ -175,7 +164,6 @@ __all__ = [
     "insert_resolution",
     "judged",
     "latest_judged",
-    "latest_judgment_id",
     "latest_resolution",
     "overrides",
     "resolution",

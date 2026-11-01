@@ -61,7 +61,7 @@ import hashlib
 import json
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import closing
+from contextlib import AbstractContextManager, closing, nullcontext
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
@@ -1644,10 +1644,6 @@ class DeliverablePlanPath:
     judged_state_key: str | None = None
     #: a ``stale`` path: the newest state judged at this depth (never read)
     latest_judged_state_key: str | None = None
-    #: a ``stale`` path: the ledger id of the newest judgment at this depth when the path
-    #: was read (:func:`store.latest_judgment_id`), read before the cache lookup so a
-    #: judgment recorded after it changes it (:func:`judged_since_read`)
-    latest_judgment_id: str | None = None
     #: an ``unreadable`` path: the exception's type (never its text)
     error: str | None = None
 
@@ -1678,7 +1674,6 @@ class DeliverablePlanPath:
         elif self.status == "stale":
             out["judgment"] = None
             out["latest_judged_state_key"] = self.latest_judged_state_key
-            out["latest_judgment_id"] = self.latest_judgment_id
         elif self.status == "unreadable":
             out["error"] = self.error
         return out
@@ -1716,15 +1711,12 @@ def deliverable_plan_path(vault: Any, repository: Repository, goal: Any, *,
             return DeliverablePlanPath(status="no_scope", depth=depth, **base)
         key = inputs.state_key()
         with repository.connection() as connection:
-            # The newest judgment's identity first (Codex review F3): a judgment recorded
-            # after this read, even in the same second, changes it.
-            mark = store.latest_judgment_id(connection, goal_id, depth)
             rows = store.judged(connection, goal_id, depth, key)
             latest = [] if rows else store.latest_judged(connection, goal_id, depth)
         if not rows:
             return DeliverablePlanPath(status="stale", depth=depth, state_key=key,
                                        latest_judged_state_key=str(latest[0]["state_key"]) if latest else None,
-                                       latest_judgment_id=mark, **base)
+                                       **base)
         lines = effective_lines(vault, repository, inputs, rows)
     except Exception as exc:  # noqa: BLE001 - the plan never fails on a path; RW7b decides
         import logging
@@ -1783,29 +1775,14 @@ def plan_deliverable(vault: Any, repository: Repository, *,
     return None, consulted
 
 
-def judged_since_read(repository: Repository, goal_id: str, depth: str | None, read_mark: str | None) -> bool:
-    """Whether the goal's path at ``depth`` was judged since a read that found it stale:
-    the newest judgment's identity (:func:`store.latest_judgment_id`) is no longer the
-    ``read_mark`` that read recorded. The cheap check a plan built on a stale path runs on
-    each read before it reads the paths again (C1's refresh adoption). Identity, not the
-    clock (Codex review F3): a judgment in the plan's own second, or one recorded between
-    the build's read and the plan's creation stamp, is seen."""
-
-    if not depth:
-        return False
-    with repository.connection() as connection:
-        if not store.tables_present(connection):
-            return False
-        mark = store.latest_judgment_id(connection, goal_id, depth)
-    return mark is not None and mark != read_mark
-
-
 #: The daily re-judgment's statuses: ``fresh`` (the nearest in-play path is current: no
 #: call), ``ready`` (judged now), ``unavailable`` (the plan is down, capped or unrouted:
 #: nothing asks, the plan falls back to RW7b and its receipt says ``stale``), ``none``
-#: (no deliverable path to refresh), ``switched_off``, plus :class:`JudgeResult`'s others.
-REFRESH_STATUSES: tuple[str, ...] = ("fresh", "ready", "unavailable", "none", "switched_off", "no_sections",
-                                     "no_scope", "stale")
+#: (no deliverable path to refresh), ``switched_off``, ``coalesced`` (a judgment for the same
+#: deliverable and path state is already in flight, the Guide's: no second call), plus
+#: :class:`JudgeResult`'s others.
+REFRESH_STATUSES: tuple[str, ...] = ("fresh", "ready", "unavailable", "none", "switched_off", "coalesced",
+                                     "no_sections", "no_scope", "stale")
 
 
 def plan_refresh_reason(vault: Any) -> str | None:
@@ -1821,14 +1798,21 @@ def plan_refresh_reason(vault: Any) -> str | None:
 
 
 def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
-                     live_vault: Callable[[], Any] | None = None) -> dict[str, Any]:
+                     live_vault: Callable[[], Any] | None = None,
+                     in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None = None,
+                     ) -> dict[str, Any]:
     """C1's daily job (§7.6): the deliverable path's key includes learner state (the days
     left among it), so a path the plan would follow goes stale; once a day, before the
     plan is built, the nearest deliverable whose path is in play is judged again,
     **quietly** (``plan_fallback.quiet``: the plan only, no OpenRouter offer, no grant
     honoured). A fresh path pays nothing. With the plan down the job ends ``unavailable``
     and nothing asks: the plan falls back to RW7b and its receipt says ``stale``. Counts
-    and statuses only, never text."""
+    and statuses only, never text.
+
+    ``in_flight(goal_id, depth, state_key)`` (the sidecar's coalescing set, shared with the
+    Guide's judgments; Codex review fix round 2, Medium 5) is entered around the judgment
+    and yields whether this job claimed that deliverable's path state: unclaimed (the
+    Guide's judgment for the same state is running), nothing is sent (``coalesced``)."""
 
     from learnloop.ai import plan_fallback
 
@@ -1842,7 +1826,12 @@ def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None =
                 return {"status": "fresh", "goal_id": path.goal_id, "depth": path.depth}
             if path.status != "stale":
                 continue  # nothing judged, no depth, withheld or unreadable: nothing to refresh here
-            result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault)
+            claim = in_flight(path.goal_id, str(path.depth), str(path.state_key)) if in_flight else nullcontext(True)
+            with claim as claimed:
+                if not claimed:
+                    return {"status": "coalesced", "goal_id": path.goal_id, "depth": path.depth,
+                            "state_key": path.state_key}
+                result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault)
             return {"status": result.status, "goal_id": path.goal_id, "depth": path.depth,
                     "reason": result.reason, "state_key": result.state_key}
     return {"status": "none"}
@@ -1881,7 +1870,6 @@ __all__ = [
     "guide_slice",
     "honest_label",
     "judge",
-    "judged_since_read",
     "nearest_deliverables",
     "override",
     "path_inputs",

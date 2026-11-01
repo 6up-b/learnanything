@@ -41,6 +41,8 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +112,11 @@ class _Work:
         #: for it again. Keyed by the statement (``DP.coverage_key``): a changed LO is
         #: tried again (Codex review F5).
         self.attempted: dict[str, set[tuple[str, str | None]]] = {}
+        #: Path judgments per (goal, depth, path state key): ``running`` while one is in
+        #: flight, else the failure the Guide shows. The one coalescing set of the Guide's
+        #: judgments and C1's daily refresh (Codex review fix round 2, Medium 5): either
+        #: one finding the other's key running sends nothing. (The state key already
+        #: names the depth; the depth is kept for the Guide's offers, keyed alike.)
         self.judging: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.offers: dict[Any, dict[str, Any]] = {}
         #: C1's daily quiet re-judgment: the local day it was last started for this vault,
@@ -212,6 +219,30 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
     _spawn(ctx, f"deliverable-coverage-{goal_id}", run)
 
 
+@contextmanager
+def _claim_path(work: _Work, goal_id: str, depth: str, state_key: str) -> Iterator[bool]:
+    """C1's daily refresh entering the coalescing set (``_Work.judging``) for one
+    deliverable's path state: yields False while a judgment for it is running (the
+    Guide's: nothing is sent), else marks it running for the Guide to see (its open then
+    starts no second judgment) and clears the mark when the refresh is done. The refresh
+    is quiet, so it leaves no failure for the Guide to show (an open there judges again)."""
+
+    key = (goal_id, depth, state_key)
+    with work.lock:
+        if (work.judging.get(key) or {}).get("state") == "running":
+            claimed = False
+        else:
+            work.judging[key] = {"state": "running", "by": "plan_refresh"}
+            claimed = True
+    try:
+        yield claimed
+    finally:
+        if claimed:
+            with work.lock:
+                if (work.judging.get(key) or {}).get("by") == "plan_refresh":
+                    work.judging.pop(key, None)
+
+
 def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, depth: str, state_key: str) -> None:
     work = _work(ctx)
     key = (goal_id, depth, state_key)
@@ -268,9 +299,11 @@ def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
     background (the plan never waits on a model, and the sidecar answers one request at a
     time): ``plan_fallback.quiet`` (the plan only, no OpenRouter offer, no grant). A plan
     built meanwhile follows RW7b with a receipt that says ``stale``, and takes the
-    deliverable's step once the path is fresh while its reading is unstarted
-    (``engine._deliverable_path_refreshed``). With the plan down it ends ``unavailable``
-    and nothing asks. Never raises into the plan."""
+    deliverable's step once the path is fresh while its reading has no reading history
+    (C1's invariant, ``engine._reading_follows_fresh_choice``). It shares the Guide's
+    coalescing set (:func:`_claim_path`): with the Guide's judgment for the same
+    deliverable and path state running, it sends nothing. With the plan down it ends
+    ``unavailable`` and nothing asks. Never raises into the plan."""
 
     try:
         from learnloop.daily_plan.engine import deliverable_plan_active, local_date
@@ -310,7 +343,9 @@ def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
             else:
                 worker = Repository.attach(sqlite_path)
                 with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id="curriculum.plan_refresh"):
-                    result = DP.refresh_for_plan(current, worker, client=client, live_vault=live_vault)
+                    result = DP.refresh_for_plan(
+                        current, worker, client=client, live_vault=live_vault,
+                        in_flight=lambda goal_id, depth, state_key: _claim_path(work, goal_id, depth, state_key))
         except BaseException as exc:  # noqa: BLE001 - a failed refresh leaves RW7b's plan, never the loop
             LOG.warning("the deliverable path's daily refresh failed: %s", type(exc).__name__, exc_info=exc)
             result = {"status": "failed", "reason": type(exc).__name__}
