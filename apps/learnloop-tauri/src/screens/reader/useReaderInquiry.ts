@@ -260,6 +260,11 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   const askPending = useRef(false);
   useEffect(() => () => { askEpoch.current += 1; }, []);
   const [history, setHistory] = useState<ReaderExchange[]>([]);
+  // Reader CA6b (Codex review F1): an inquiry about the book beside lives in
+  // that book's history, so its status, checks and reconnect answers name
+  // that reading (the sidecar refuses an exchange under another reading).
+  const historyRef = useRef(history);
+  historyRef.current = history;
   const [collapsedAskIds, setCollapsedAskIds] = useState<Set<string>>(new Set());
   const [askFindOpen, setAskFindOpen] = useState(false);
   const [askFindQuery, setAskFindQuery] = useState("");
@@ -616,6 +621,11 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // words stay in the composer until the answer lands; a failure keeps them.
   const [askPhase, setAskPhase] = useState<ModelActionPhase>("idle");
   const askJobRef = useRef<{ jobId: string; kind: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
+  // Reader CA6b (Codex review F3): the request that just failed, so "try
+  // again" asks it with the same grounding -- its parent, its anchor (the
+  // book beside's passage) and its routed answer mode -- whatever the open
+  // book's selection is now.
+  const failedAskRef = useRef<{ asked: string; parent: ReaderExchange | null; override?: AskOverride } | null>(null);
   const submitAsk = useCallback(async (
     asked: string,
     parent: ReaderExchange | null,
@@ -635,6 +645,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (inquiry && offline) return;
     const epoch = askEpoch.current;
     askPending.current = true;
+    failedAskRef.current = null;
     // The full capture selection widens the tutor's citable context to every
     // selected block, not just the primary one; a follow-up inherits its
     // parent's saved selection instead.
@@ -781,8 +792,10 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         // the ported branch's contract (its retry test, G1).
         if (inquiry) setAskPhase(phase);
         if (!inquiry || phase === "failed") onError(errorMessage(error));
-        // The learner's words stay in the composer for "try again".
+        // The learner's words stay in the composer for "try again", which
+        // asks them with this request's grounding (Codex review F3).
         if (inquiry && asked !== question.trim()) setQuestion(asked);
+        failedAskRef.current = { asked, parent, ...(override ? { override } : {}) };
       }
     } finally {
       if (epoch === askEpoch.current) {
@@ -795,6 +808,12 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     pushDetours, question, setBusy, noteUsableResult, askComposerRef]);
 
   const ask = useCallback(() => {
+    // "try again" on the words that just failed: the same request (Codex review F3).
+    const failed = failedAskRef.current;
+    if (failed && failed.asked === question.trim()) {
+      void submitAsk(failed.asked, failed.parent, failed.override);
+      return;
+    }
     // Reader CA6b: a new question from the composer the second pane opened is about that pane's selection.
     const anchor = composerAnchorRef?.current ?? null;
     if (anchor && !(inquiry && parentExchange)) {
@@ -803,6 +822,11 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     }
     void submitAsk(question.trim(), inquiry ? parentExchange : null);
   }, [submitAsk, question, inquiry, parentExchange, composerAnchorRef]);
+
+  // Another selection or thread: "try again" is no longer that request.
+  useEffect(() => {
+    failedAskRef.current = null;
+  }, [selection, parentExchange]);
 
   /** RW1c: "another way" under an answer -- a follow-up that retrieves with
    *  intent alternative, every passage the inquiry showed excluded (server-side). */
@@ -843,6 +867,11 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
 
   // ── RW1a: inquiry status, reconnect answers and the passage quick check ───
 
+  /** The reading an inquiry was asked in (the book beside's, for a thread about it). */
+  const extractionOf = useCallback((rootId: string): string => (
+    historyRef.current.find((item) => item.id === rootId)?.extractionId || render?.extractionId || ""
+  ), [render]);
+
   const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>) => {
     setHistory((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
@@ -850,7 +879,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip") => {
     if (!render || offline) return;
     try {
-      const result = await api.readerSetInquiryStatus({ extractionId: render.extractionId, exchangeId: root.id, resolution, trigger });
+      const result = await api.readerSetInquiryStatus({ extractionId: root.extractionId || render.extractionId, exchangeId: root.id, resolution, trigger });
       updateExchange(result.rootExchangeId, { resolution: result.resolution });
       if (result.resolution !== "open" && reconnect?.rootId === result.rootExchangeId) setReconnect(null);
     } catch (error) {
@@ -898,14 +927,21 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     commitPendingRef.current.add(slot);
     const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey());
     const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId];
+    // Reader CA6b (Codex review F1): a thread about the book beside commits
+    // on that book, its revision and reading, never the open one's.
+    const about = root.about ?? null;
+    if (about && !about.revisionId) {
+      onError("That book's passage can't be kept from here; open the book to keep it.");
+      return;
+    }
     try {
       const receipt = await api.readerInvokePreset({
         preset,
-        sourceId: render.sourceId,
-        revisionId: render.revisionId,
-        extractionId: render.extractionId,
+        sourceId: about ? about.sourceId : render.sourceId,
+        revisionId: about ? about.revisionId as string : render.revisionId,
+        extractionId: about ? about.extractionId : render.extractionId,
         clientIdempotencyKey: key,
-        renderViewId: render.renderViewId,
+        renderViewId: about ? null : render.renderViewId,
         rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
         learnerText: "",
         subjectId: root.spanId,
@@ -913,8 +949,11 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       delete commitKeysRef.current[slot];
       setInquiryCommitments((done) => ({ ...done, [root.id]: [...new Set([...(done[root.id] ?? []), preset])] }));
       if (receipt.arc) setArc(receipt.arc);
-      logReaderAction("action_invoked", { ...visitPayload(), action_kind: `inquiry:${preset}` });
-      void refreshAnnotations();
+      logReaderAction("action_invoked", {
+        ...visitPayload(), action_kind: `inquiry:${preset}`,
+        ...(about ? { target_source_id: about.sourceId, target_extraction_id: about.extractionId } : {}),
+      });
+      if (!about) void refreshAnnotations();
     } catch (error) {
       onError(errorMessage(error));
     } finally {
@@ -1004,7 +1043,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     const startedAt = Date.now();
     const activity = learnerActivitySnapshot();
     try {
-      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: rootId, answer: "quick_check", via });
+      const result = await api.readerReconnectAnswer({ extractionId: extractionOf(rootId), exchangeId: rootId, answer: "quick_check", via });
       if (result.question) {
         // Written earlier: it lands at once, with no wait and no model call.
         setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "landed", question: result.question } }));
@@ -1032,7 +1071,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       recordUnqueuedCheck(phase === "failed" ? "error" : phase);
       setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase, question: null } }));
     }
-  }, [render, offline, visitPayload, recordUnqueuedCheck]);
+  }, [render, offline, visitPayload, recordUnqueuedCheck, extractionOf]);
 
   /** Cancel a pending quick check: its job is cancelled (best effort) and the
    *  wait ends, recorded as cancelled. */
@@ -1069,7 +1108,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       return;
     }
     try {
-      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: line.rootId, answer, via });
+      const result = await api.readerReconnectAnswer({ extractionId: extractionOf(line.rootId), exchangeId: line.rootId, answer, via });
       updateExchange(result.rootExchangeId, { resolution: result.resolution });
     } catch (error) {
       onError(errorMessage(error));
@@ -1084,7 +1123,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       setRailTab("ask");
       if (text) void submitAsk(text, root);
     }
-  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk, setRailTab]);
+  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk, setRailTab, extractionOf]);
 
   // The passage check is written by a durable job: poll its cheap read and
   // the job's own state until it lands, fails (said in place: capped, the
@@ -1097,7 +1136,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       ([, check]) => check.batchId && check.waitId && (check.phase === "pending" || check.phase === "offline"),
     );
     if (watching.length === 0) return;
-    const extractionId = render.extractionId;
     const timer = window.setInterval(() => {
       for (const [rootId, check] of watching) {
         const batchId = check.batchId as string;
@@ -1110,7 +1148,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
           settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: "timeout" });
           setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "failed", question: null, batchId: null } } : checks));
         };
-        void api.readerInquiryQuestion({ extractionId, exchangeId: rootId, batchId })
+        void api.readerInquiryQuestion({ extractionId: extractionOf(rootId), exchangeId: rootId, batchId })
           .then((result) => {
             const job = result.job ?? null;
             if (result.question) {
@@ -1156,7 +1194,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       }
     }, INQUIRY_CHECK_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [render, offline, inquiryChecks, settleInquiryJob]);
+  }, [render, offline, inquiryChecks, settleInquiryJob, extractionOf]);
 
   const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string) => {
     const check = inquiryChecks[rootId];

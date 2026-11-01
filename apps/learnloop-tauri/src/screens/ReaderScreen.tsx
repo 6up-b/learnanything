@@ -2934,7 +2934,10 @@ export function ReaderScreen({
           // The second pane's Ask is about its own book and selection; the
           // answer lands in the Ask rail (side by side's overlay), labelled so.
           const anchor: AskAnchor = {
-            about: { extractionId: sideSection.extractionId, label: `${sideSection.sourceTitle} · ${clip(sideSection.title, 48)}` },
+            about: {
+              extractionId: sideSection.extractionId, sourceId: sideSection.sourceId, revisionId: sideSection.revisionId ?? null,
+              label: `${sideSection.sourceTitle} · ${clip(sideSection.title, 48)}`,
+            },
             spanId: pane.spanIds[0] ?? sideSection.jumpSpanId,
             selectionSpanIds: pane.spanIds,
             selectionQuote: pane.words.trim() || null,
@@ -2945,7 +2948,10 @@ export function ReaderScreen({
             setAskComposerAnchor(null);
             void submitAsk(text, null, { answerMode: "answerMode" in effect ? effect.answerMode : undefined, meta, anchor });
           } else {
-            // An empty Enter: the composer, on the second pane's selection (no model call).
+            // An empty Enter: the composer, on the second pane's selection (no
+            // model call), a new thread there: never a follow-up to the open
+            // book's thread (Codex review F2).
+            setParentExchange(null);
             setAskComposerAnchor(anchor);
             logReaderAction("action_invoked", { ...visitPayload(), action_kind: "ask_opened", ...meta });
             window.requestAnimationFrame(() => askComposerRef.current?.focus({ preventScroll: true }));

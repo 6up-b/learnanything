@@ -48,6 +48,11 @@ export interface ReaderExchange {
 /** Reader CA6b: the other book an Ask was about (side by side's second pane). */
 export interface AskAbout {
   extractionId: string;
+  /** That book and the revision it was read in (Codex review F1): a
+   *  commitment made on the thread ("revisit once", "make it something I can
+   *  do") goes to that book, never the open one. */
+  sourceId: string;
+  revisionId: string | null;
   /** "Axler · 5.C Eigenspaces", the rail's label. */
   label: string;
 }

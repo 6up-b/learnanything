@@ -42,7 +42,8 @@ const { api, plans, state } = vi.hoisted(() => ({
     readerCueAction: vi.fn(), readerCueTap: vi.fn(), readerSetCuePreferences: vi.fn(), readerCueImpressions: vi.fn(),
     getSpanView: vi.fn(), readerLibraryAsk: vi.fn(), readerLibraryAskNotes: vi.fn(), readerLibraryCompare: vi.fn(),
     readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(), readerSaveProgress: vi.fn(), readerCompareScope: vi.fn(),
-    findPractice: vi.fn(), recordProposalImpressions: vi.fn(),
+    findPractice: vi.fn(), recordProposalImpressions: vi.fn(), readerSetInquiryStatus: vi.fn(), readerCueDiscovery: vi.fn(),
+    readerCueDiscoveryJob: vi.fn(),
   },
   plans: { main: {} as Record<string, unknown>, side: {} as Record<string, unknown> },
   state: { contract: {} as Record<string, unknown> },
@@ -475,4 +476,81 @@ it("switched off (reader.side_by_side.enabled off): no second pane, no second bo
   // Every other book, as before CA6 (no source named).
   expect(payload.sourceIds ?? []).toEqual([]);
   expect(screen.queryByText(SIDE_BY_SIDE_COPY.lead)).toBeNull();
+});
+
+// ── Codex review (reader-ca6b-second-pane-intent) ─────────────────────────
+
+it("F1: a thread about the second pane's book keeps its commitments and status on that book (source, revision, reading)", async () => {
+  api.readerSetInquiryStatus.mockImplementation(async (input: { resolution: string; exchangeId: string }) => ({
+    rootExchangeId: input.exchangeId, questionEventId: "q", resolution: input.resolution, previousResolution: "open", openCount: 0,
+  }));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("about Axler · 7.A Self-adjoint operators", undefined, { timeout: 3000 });
+  fireEvent.click(await screen.findByRole("button", { name: "revisit once" }));
+  await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalled());
+  expect(api.readerInvokePreset.mock.calls[0][0]).toMatchObject({
+    preset: "test_me_later", sourceId: "src_axler", revisionId: "rev_axler", extractionId: "ext_axler", renderViewId: null,
+    rawSelection: { nodes: [{ spanId: "ax7a_1", start: 0, end: 1_000_000 }] }, subjectId: "ax7a_1",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "make it something I can do" }));
+  await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalledTimes(2));
+  expect(api.readerInvokePreset.mock.calls[1][0]).toMatchObject({ preset: "help_me_remember", sourceId: "src_axler", extractionId: "ext_axler" });
+  // Its status names that reading too (the sidecar refuses it under the open book's).
+  fireEvent.click(await screen.findByRole("button", { name: "resolved" }));
+  await waitFor(() => expect(api.readerSetInquiryStatus).toHaveBeenCalled());
+  expect(api.readerSetInquiryStatus.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", exchangeId: "a_side", resolution: "resolved" });
+});
+
+it("F1: dismissing a thread about the second pane's book names that book's reading", async () => {
+  api.readerSetInquiryStatus.mockImplementation(async (input: { resolution: string; exchangeId: string }) => ({
+    rootExchangeId: input.exchangeId, questionEventId: "q", resolution: input.resolution, previousResolution: "open", openCount: 0,
+  }));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("about Axler · 7.A Self-adjoint operators", undefined, { timeout: 3000 });
+  fireEvent.click(await screen.findByRole("button", { name: "dismiss" }));
+  await waitFor(() => expect(api.readerSetInquiryStatus).toHaveBeenCalled());
+  expect(api.readerSetInquiryStatus.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", exchangeId: "a_side", resolution: "dismissed" });
+});
+
+it("F2: after a main-book Ask, an empty Enter in the second pane starts a new thread about that book (no follow-up to the main thread)", async () => {
+  api.readerAsk.mockResolvedValueOnce({
+    eventId: "q_main", readerAnswerEventId: "a_main", parentExchangeId: null, answerMd: "Main answer", answerMode: "help_me_reason", citations: [], manifest: {},
+  });
+  await openSideBySide();
+  // A main-pane Ask lands (its thread becomes the reply parent).
+  const mainBlock = await screen.findByText(view.blocks[1].markdown);
+  select(mainBlock);
+  api.readerRouteIntent.mockResolvedValue(routed("ask_help_me_reason"));
+  const mainBox = (await screen.findByRole("textbox", { name: BOX })) as HTMLInputElement;
+  fireEvent.change(mainBox, { target: { value: "main question" } });
+  await act(async () => { fireEvent.keyDown(mainBox, { key: "Enter" }); });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  expect(api.readerAsk.mock.calls[0][0]).toMatchObject({ extractionId: view.extractionId });
+  await screen.findByText("Main answer");
+  // Then an empty Enter in the second pane, and the composer's question.
+  const box = await sideBox();
+  await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+  await screen.findByText(/ASKING ABOUT YOUR SELECTION IN Axler/);
+  const composer = screen.getByPlaceholderText("ask about this passage…");
+  fireEvent.change(composer, { target: { value: "what is an operator?" } });
+  fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  expect(api.readerAsk.mock.calls[1][0]).toMatchObject({
+    extractionId: "ext_axler", spanId: "ax7a_1", question: "what is an operator?", parentExchangeId: null, selectionSpanIds: ["ax7a_1"],
+  });
+});
+
+it("F3: try again after a failed second-pane Ask asks the same request (its book, passage, selection and routed answer mode)", async () => {
+  api.readerAsk.mockRejectedValueOnce(new Error("boom"));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  const retry = await screen.findByRole("button", { name: /try again/ });
+  fireEvent.click(retry);
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  const [first, second] = api.readerAsk.mock.calls.map((call) => call[0]);
+  expect(first).toMatchObject({ extractionId: "ext_axler", spanId: "ax7a_1", answerMode: "help_me_reason", selectionSpanIds: ["ax7a_1"], selectionQuote: SIDE_TEXT });
+  expect(second).toEqual(first);
 });
