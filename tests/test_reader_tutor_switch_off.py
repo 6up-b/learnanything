@@ -54,6 +54,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
     if not WRITE:
         # Recorded on the base tree, which has no [reader_tutor] section.
         set_config(paths, "reader_tutor", retrieval_enabled=False, offers_enabled=offers)
+        # Learner-blindness relax (after this golden too): off, so the tutor's
+        # context, the manifest and the contract are the base's.
+        set_config(paths, "reader_tutor", learner_state_enabled=False)
         # RW7a (landed after this golden was recorded): off, so its contract key
         # and Orient's "what matters here?" are absent; these pins are RW1c's.
         set_config(paths, "reading_paths", enabled=False)

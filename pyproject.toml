@@ -777,6 +777,46 @@ forbidden_modules = [
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "reader-learner-state-is-context-only"
+name = "The Reader tutor's learner state imports no evidence writer, and nothing that writes evidence reads it (learner-blindness relax)"
+type = "forbidden"
+# Learner-blindness relax (owner direction 2026-11-01): the Reader tutor's
+# learner state reads the ledger through learner_protection, the Today
+# headline's classes and TE0's confidence events, and is handed to the tutor
+# by the sidecar. It records no attempt, claim, mastery or grade.
+source_modules = ["learnloop.reader_learner_state"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.curriculum",
+    "learnloop.router",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "evidence-never-reads-the-reader-learner-state"
+name = "Replay, evidence and serving internals never read the Reader tutor's learner state (learner-blindness relax)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+]
+forbidden_modules = ["learnloop.reader_learner_state"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "learner-protection-sits-below-its-readers"
 name = "The shared learner protection depends on neither of its readers (the router card, the chat read model)"
 type = "forbidden"

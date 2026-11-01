@@ -46,10 +46,20 @@ MAIN_MANIFEST_KEYS = {
 
 
 def _switch_off(root) -> None:
+    # The learner-blindness relax's switch too (it landed after RW1a): its
+    # manifest suffix and learner state are not reader_inquiry fields.
     append_config_toml(root, """
     [reader_inquiry]
     enabled = false
+    [reader_tutor]
+    learner_state_enabled = false
     """)
+
+
+#: Learner-blindness relax (after RW1a; reader_tutor.learner_state_enabled,
+#: on by default): the manifest's version suffix and its learner state, not
+#: reader_inquiry fields, so RW1a's on-path pins read them apart.
+LEARNER_STATE_SUFFIX = RD.READER_LEARNER_STATE_CONTRACT_SUFFIX
 
 
 def test_service_off_is_the_flat_same_span_thread(tmp_path):
@@ -145,7 +155,7 @@ def test_rpcs_on_name_the_switch_and_the_branch_contract(tmp_path):
         {"jsonrpc": "2.0", "id": 2, "method": "reader.prompt_contract", "params": {}},
     ])[1]["result"]
     assert contract["inquiryEnabled"] is True
-    assert contract["version"] == "p3-reader-branches-v1"
+    assert contract["version"] == "p3-reader-branches-v1" + LEARNER_STATE_SUFFIX
     assert "the selected branch's reader ancestors only (most recent 12)" in contract["manifestIncludes"]
 
 
@@ -178,7 +188,7 @@ def test_rpcs_on_add_only_the_branch_fields(tmp_path, monkeypatch):
     assert set(answer) - MAIN_ASK_RESULT_KEYS - SOURCE_SERVICE_ASK_KEYS - READER_TUTOR_ASK_KEYS == {
         "parentExchangeId", "model"}
     assert answer["parentExchangeId"] is None and answer["model"] == "stub-reader-1"
-    assert answer["manifest"]["version"] == "p3-reader-branches-v1"
+    assert answer["manifest"]["version"] == "p3-reader-branches-v1" + LEARNER_STATE_SUFFIX
     (saved,) = history["exchanges"]
     assert set(saved) - MAIN_HISTORY_KEYS - READER_TUTOR_HISTORY_KEYS == {
         "parentExchangeId", "selectionSpanIds", "selectionQuoteMd", "selectionSourceQuoteMd",

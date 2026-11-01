@@ -119,7 +119,7 @@ def test_the_narrative_is_written_once_from_the_typed_summary_with_valid_citatio
     stored = _row(repo, row["id"])
     assert stored["narrative_md"] == fake.text
     assert stored["cited_event_ids"] and set(stored["cited_event_ids"]) <= RN.citable_ids(stored["summary"])
-    assert stored["model"] == "fake-digest-model" and stored["prompt_version"] == RN.PROMPT_VERSION
+    assert stored["model"] == "fake-digest-model" and stored["prompt_version"] == RN.prompt_version(vault)
     [verdict] = _verdicts(repo, row["id"])
     assert verdict["verdict"] == "kept" and verdict["judge"] == "verifier"
     # Receipted: the routed, capped path wrote its receipt.
@@ -135,7 +135,10 @@ def test_the_narrative_is_written_once_from_the_typed_summary_with_valid_citatio
 
 
 def test_the_prompt_carries_the_typed_summary_and_never_the_learners_words(tmp_path):
-    vault, repo, row = _session_with_question(tmp_path)
+    # With the learner-blindness relax's quotes off (on, the learner's own
+    # inquiry words may travel: tests/test_learner_blindness_relax.py).
+    vault, repo, row = _session_with_question(tmp_path, config="[digest]\nnarrative_quotes_inquiry = false\n")
+    vault = load_vault(vault.root)
     fake = NarrativeFake()
     RN.narrate_digest(vault, repo, row["id"], client=fake, now=_now(), clock=at(300))
     [payload] = fake.payloads
@@ -194,7 +197,7 @@ def test_an_invalid_citation_drops_the_narrative_records_why_and_is_never_paid_a
     result = RN.narrate_digest(vault, repo, row["id"], client=fake, now=_now(), clock=at(300))
     assert result.status == "dropped" and result.reasons == ["unknown_citations:evt_bogus"]
     stored = _row(repo, row["id"])
-    assert stored["narrative_md"] is None and stored["prompt_version"] == RN.PROMPT_VERSION
+    assert stored["narrative_md"] is None and stored["prompt_version"] == RN.prompt_version(vault)
     [verdict] = _verdicts(repo, row["id"])
     assert verdict["verdict"] == "dropped"
     assert json.loads(verdict["rationale"])["reasons"] == ["unknown_citations:evt_bogus"]
@@ -444,7 +447,11 @@ def test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated(tmp_pat
     assert RN.narrate_digest(vault, repo, row["id"], client=fake, now=_now(), clock=at(300)).status == "narrated"
     view = RN.narrative_view(vault, repo, extraction_id=EXT, session_key=session.session_id, now=_now())
     assert view["state"] == "landed" and view["text"] == fake.text
-    assert QUESTION not in fake.prompts[0]  # still the typed summary only
+    # Still the typed summary; the learner's own words travel only as the
+    # learner-blindness relax's inquiry quotes (digest.narrative_quotes_inquiry).
+    payload = fake.payloads[0]
+    assert QUESTION not in json.dumps(payload["summary"]) and QUESTION not in json.dumps(payload["titles"])
+    assert all(QUESTION in quote["learner_question"] for quote in payload["inquiry_quotes"])
 
     # Follow-ups switched on later plan the session as any unfinished one; the narrative stays.
     from learnloop.instructional import reader_followups as RF

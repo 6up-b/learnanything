@@ -23,6 +23,10 @@ WRITE = os.environ.get("RW5A_WRITE_GOLDEN") == "1"
 
 def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None) -> dict:
     paths, _repository, _spans = build_library_vault(tmp_path / "vault")
+    if not WRITE:
+        # The learner-blindness relax (after this golden): off, so the contract's
+        # version and manifest lists are the base's; these pins are RW5a's.
+        set_config(paths, "reader_tutor", learner_state_enabled=False)
     if enabled is not None:
         set_config(paths, "figures", enabled=enabled)
     if sketch is not None:
