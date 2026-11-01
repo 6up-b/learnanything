@@ -984,7 +984,11 @@ export function App() {
         // the way back to side by side (besideTrail), as the practice
         // screen's back does: Alt+← reopens side by side after the session starts.
         if (options.fromStart || (readerSource !== null && readerSource.card.sourceId !== request.card.sourceId)) {
-          setReaderSource({ card: request.card, spanId: request.spanId, ...(request.besideTrail ? { besideTrail: request.besideTrail } : {}) });
+          // Fix round 5 (verify finding 2): and the check's own reading, so the
+          // Reader opens it (or refuses the check honestly when that reading
+          // is no longer the book's), never another reading with its passage.
+          setReaderSource({ card: request.card, spanId: request.spanId, reading: request.reading.extractionId,
+            ...(request.besideTrail ? { besideTrail: request.besideTrail } : {}) });
           setReaderOpenSeq((seq) => seq + 1);
           setTab("reader");
         }
@@ -992,7 +996,7 @@ export function App() {
       }
       setPracticeOffer(offer);
       setReaderReturn({
-        card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId,
+        card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId, reading: request.reading.extractionId,
         // Reader CA6b (Codex re-review F8): begun in side by side's second pane, back keeps the way there.
         ...(request.besideTrail ? { besideTrail: request.besideTrail } : {}),
       });

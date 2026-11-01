@@ -180,7 +180,7 @@ it("a refused import binds nothing and admits nothing", async () => {
 
 it("a fallback exercise opens with the Reader's own import request, and an exposed one with the book", async () => {
   api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ sourceExercise: undefined }), resumed: false });
-  const request = { extractionId: "ext_text", rawSelection: { nodes: [{ spanId: "t6", start: 0, end: 20 }] } };
+  const request = { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { nodes: [{ spanId: "t6", start: 0, end: 20 }] } };
   const pick = { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_1"] };
   hook(book, { ...EXERCISE, proposalId: null, sourceExercise: undefined, importRequest: request, entry: "work_through", exercisePick: pick });
   await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
@@ -188,13 +188,15 @@ it("a fallback exercise opens with the Reader's own import request, and an expos
   expect(api.workbenchOpen.mock.calls[0][0].sourceExercise).toBeUndefined();
 });
 
+const TEXT_READING = { sourceId: "src_text", revisionId: "rev_text", extractionId: "ext_text" };
+
 it("a library pick carries its import, and a check's entry keeps or hides the book", () => {
   const offer = readerCheckOffer({ enabled: false, step: null } as never, "pi_ex_1", "pp_1", "sei_1");
   expect(offer.proposalOrigin).toEqual({ proposalId: "pp_1", importId: "sei_1" });
-  const check = readerWorkbenchCheck({ practiceItemId: "pi_ex_1", spanId: "t6", card: book, entry: "practice_this" }, offer, "served");
+  const check = readerWorkbenchCheck({ practiceItemId: "pi_ex_1", spanId: "t6", card: book, entry: "practice_this", reading: TEXT_READING }, offer, "served");
   expect(check.entry).toBe("practice_this");
   expect("admitsSessionId" in check).toBe(false); // no client-side acknowledgement any more (round 4, R1)
-  expect(readerWorkbenchCheck({ practiceItemId: "pi_1", spanId: "t6", card: book }, offer, "served").entry).toBeUndefined();
+  expect(readerWorkbenchCheck({ practiceItemId: "pi_1", spanId: "t6", card: book, reading: TEXT_READING }, offer, "served").entry).toBeUndefined();
   expect(readerCheckOffer({ enabled: false, step: null } as never, "pi_1", "pp_1").proposalOrigin).toEqual({ proposalId: "pp_1", importId: null });
 });
 

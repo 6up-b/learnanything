@@ -29,6 +29,7 @@ import { CUE_COPY } from "./cues";
 import { SIDE_PANE_COPY } from "./SideBySidePane";
 import { SIDE_BY_SIDE_COPY } from "./useSideBySide";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
+import { SPAN_MISMATCH_COPY } from "../../errors";
 
 const SPAN_IDS = view.blocks.map((block) => block.spanId!).filter(Boolean);
 const BOX = "What do you want to do with this?";
@@ -1368,4 +1369,93 @@ it("audit: on a thread about the second book, `p` (show passage) opens nothing i
   expect(strip().textContent).toBe(before);
   expect(screen.queryByRole("button", { name: "show passage" })).toBeNull();
   expect(screen.queryByRole("button", { name: "show inherited passage" })).toBeNull();
+});
+
+// ── Fix round 5 (structural: the second book's identity) ───────────────────
+
+it("finding 2: a check whose book opens on another reading than the mark's is refused honestly, never handed on", async () => {
+  // Opening Axler resolves a newer reading than the one the second pane showed.
+  api.readerRenderView.mockImplementation(async (input: { extractionId: string }) => (input.extractionId === "src_axler"
+    ? { ...AXLER_VIEW, extractionId: "ext_axler_NEW", renderViewId: "rv_axler_new" } : view));
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_side", proposalId: null } : null,
+  }));
+  const onCheckMe = vi.fn();
+  const onError = vi.fn();
+  render(<ReaderScreen initialSource={source} onError={onError} onCheckMe={onCheckMe} />);
+  await screen.findAllByText("6.1 Symmetric matrices");
+  await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_side']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(SPAN_MISMATCH_COPY));
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+  expect(onCheckMe).not.toHaveBeenCalled();
+});
+
+it("finding 2: a check the mark hands on carries the mark's reading (its book, revision and reading)", async () => {
+  axlerOpens();
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_side", proposalId: null } : null,
+  }));
+  const onCheckMe = vi.fn();
+  await openSideBySide({ onCheckMe });
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_side']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  expect(onCheckMe.mock.calls[0][0]).toMatchObject({
+    spanId: "ax7a_2", reading: { sourceId: "src_axler", revisionId: "rev_axler", extractionId: "ext_axler" },
+  });
+});
+
+it("finding 3: an unfinished answer in the second pane's active reading survives a comparison hiding the pane", async () => {
+  const QUESTION = {
+    id: "raq_side", extractionId: "ext_axler", sectionId: "ax7a", status: "proposed", questionMd: "Why are the eigenvalues real?",
+    expectedAnswerMd: "Take an eigenvector.", spanIds: ["ax7a_1"], practiceItemId: null, answeredAt: null, scopeKind: "selection",
+    questionStyle: "why_step", anchorSpanIds: ["ax7a_1"], responseMd: null, selfCheck: null, answerBasis: "source",
+    escalationLearningObjectId: null, missed: false,
+  };
+  api.readerActiveQuestion.mockResolvedValue({ anchorSpanIds: ["ax7a_1"], foldedSpanIds: [], batchId: null, question: QUESTION, status: "exists" });
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "ljob_compare", kind: "compare", askId: "la_c", state: "pending", result: null });
+  await openSideBySide();
+  await route("why_step", "why?");
+  const answer = (await within(pane()!).findByRole("textbox", { name: "Your answer" })) as HTMLTextAreaElement;
+  fireEvent.change(answer, { target: { value: "My unfinished proof" } });
+  // A comparison takes the right side: the second pane is hidden (unmounted).
+  await route("compare_books", "compare");
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
+  await waitFor(() => expect(pane()).toBeNull());
+  // The comparison closes: the pane is back, with the same question and the learner's words.
+  await act(async () => { fireEvent.keyDown(window, { key: "Escape" }); });
+  await waitFor(() => expect(pane()).toBeTruthy());
+  const again = (await within(pane()!).findByRole("textbox", { name: "Your answer" })) as HTMLTextAreaElement;
+  expect(again.value).toBe("My unfinished proof");
+  expect(api.readerActiveQuestion).toHaveBeenCalledTimes(1);
+});
+
+it("(c) a write the sidecar refuses as another reading's is said honestly (no silent failure)", async () => {
+  api.readerCapture.mockRejectedValueOnce({ code: "span_extraction_mismatch", message: "The passage(s) ax7a_1 are not in the reading.", retryable: false });
+  const onError = vi.fn();
+  render(<ReaderScreen initialSource={source} onError={onError} />);
+  await screen.findAllByText("6.1 Symmetric matrices");
+  await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
+  await route("highlight", "keep this");
+  await waitFor(() => expect(api.readerCapture).toHaveBeenCalled());
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(SPAN_MISMATCH_COPY));
 });

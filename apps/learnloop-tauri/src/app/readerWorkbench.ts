@@ -9,7 +9,7 @@
  * its passage; Next returns to reading at the passage. Every other attempt
  * goes back as today.
  */
-import type { SessionSnapshot, SourceLibraryCard, WorkbenchSubmitDto } from "../api/dto";
+import type { SessionSnapshot, SourceIdentity, SourceLibraryCard, WorkbenchSubmitDto } from "../api/dto";
 import type { ReaderWorkbenchCheck } from "../screens/reader/useReaderWorkbench";
 import type { PracticeOffer } from "./practiceOffer";
 import type { ReaderReturn } from "./readerCheck";
@@ -18,15 +18,21 @@ import type { ReturnStack } from "../screens/reader/returnStack";
 export interface ReaderWorkbenchOrigin {
   card: SourceLibraryCard;
   spanId: string;
+  /** Reader CA6b fix round 5: the reading `spanId` is in (the Reader opens
+   *  that reading, or translates the passage, never takes it as the open
+   *  reading's); null only when it is not known. */
+  reading: string | null;
   /** Reader CA6b (Codex re-review F8): the way back to side by side (absent: none). */
   besideTrail?: ReturnStack | null;
 }
 
 /** The way back kept while feedback shows a Reader workbench attempt. */
-export function workbenchReturn(result: WorkbenchSubmitDto, at: ReaderWorkbenchOrigin): ReaderReturn {
+export function workbenchReturn(result: WorkbenchSubmitDto, at: Omit<ReaderWorkbenchOrigin, "reading">): ReaderReturn {
   return {
     card: at.card,
     spanId: at.spanId,
+    // The problem's own reading (the session records it).
+    reading: result.session.extractionId ?? null,
     practiceItemId: result.session.practiceItemId ?? "",
     workbenchAttemptId: result.attempt.attemptId,
     ...(at.besideTrail ? { besideTrail: at.besideTrail } : {}),
@@ -39,7 +45,7 @@ export function readerTargetBack(
   options: { showProblem: boolean },
 ): { source: ReaderWorkbenchOrigin; initialAttemptId: string | null } {
   return {
-    source: { card: back.card, spanId: back.spanId, ...(back.besideTrail ? { besideTrail: back.besideTrail } : {}) },
+    source: { card: back.card, spanId: back.spanId, reading: back.reading, ...(back.besideTrail ? { besideTrail: back.besideTrail } : {}) },
     initialAttemptId: options.showProblem && back.workbenchAttemptId ? back.workbenchAttemptId : null,
   };
 }
@@ -65,6 +71,8 @@ export function readerWorkbenchCheck(
   request: {
     practiceItemId: string; spanId: string; card: SourceLibraryCard;
     entry?: ReaderWorkbenchCheck["entry"];
+    /** Reader CA6b fix round 5: the reading the passage is in (required). */
+    reading: SourceIdentity;
   },
   offer: PracticeOffer,
   servedPrompt: string,
@@ -73,6 +81,7 @@ export function readerWorkbenchCheck(
     practiceItemId: request.practiceItemId,
     spanId: request.spanId,
     sourceId: request.card.sourceId,
+    reading: request.reading,
     stemMd: servedPrompt,
     schedulerCandidateId: offer.candidateId ?? null,
     planPresentationId: offer.presentationId ?? null,

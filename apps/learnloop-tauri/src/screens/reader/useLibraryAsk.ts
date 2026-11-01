@@ -51,6 +51,7 @@ import type {
   LibraryTutorDto,
   ReaderPromptContractDto,
   SpanViewDto,
+  SourceIdentity,
 } from "../../api/dto";
 import { errorMessage, getCommandError } from "../../errors";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
@@ -141,6 +142,11 @@ export interface CompareRequest {
   toolCallId?: string | null;
   /** The bound workbench session the request comes from (Codex review F1). */
   workbenchSessionId?: string | null;
+  /** Reader CA6b fix round 5: the book, revision and reading the comparison
+   *  is anchored in (null: anchored in no book). Required, client-side only:
+   *  the comparison's state keeps it, so every follow-on (a reword, "where
+   *  else is this explained?", a practice pick) names the same book. */
+  identity: SourceIdentity | null;
 }
 
 /** The one payload every door sends (C1, K12): the same keys, whatever the door. */
@@ -188,10 +194,13 @@ export interface LibraryAskRequest {
   entry: LibraryAskEntry;
   extractionId: string | null;
   spanIds: string[];
-  /** Reader CA6b fix round 4: the book the ask is anchored in (side by
-   *  side's second pane: that book); absent, the open book. Its comparisons
-   *  lead with this book's passage (their `openSourceId`). */
-  sourceId?: string | null;
+  /** Reader CA6b fix rounds 4-5: the book, revision and reading the ask is
+   *  anchored in (side by side's second pane: that book; the open book's for
+   *  an ask from the main pane), or null for an ask anchored in no book (the
+   *  library page). Required: every request built from another (a follow-on
+   *  "where else", a comparison's reword) states it. Its comparisons lead
+   *  with this book (their `openSourceId`) and its practice picks open there. */
+  identity: SourceIdentity | null;
 }
 
 interface Stage<T> {
@@ -307,7 +316,7 @@ export function useLibraryAsk({
   const openSourceRef = useRef(openSourceId);
   openSourceRef.current = openSourceId;
   const openOf = useCallback((state: LibraryAskState | null | undefined): string | null =>
-    state?.request.sourceId ?? openSourceRef.current, []);
+    (state ? state.request.identity?.sourceId ?? null : null) ?? openSourceRef.current, []);
   const settings = contract?.libraryAsk ?? null;
   const enabled = Boolean(settings);
   // RW4d: keep this comparison and its perspectives field (absent while off).
@@ -500,7 +509,8 @@ export function useLibraryAsk({
     const openSourceId = openOf(stateRef.current);
     if (scopeOn) {
       // CA3: the pins are one more door of the one request.
-      await runCompare(key, { door: "pins", askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested });
+      await runCompare(key, { door: "pins", askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested,
+        identity: stateRef.current?.request.identity ?? null });
       return;
     }
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
@@ -543,7 +553,7 @@ export function useLibraryAsk({
     const query = request.question ?? "";
     setState({
       key, request: { query, entry: "reader", extractionId: request.extractionId ?? null, spanIds: request.anchorSpanIds ?? [],
-        sourceId: request.openSourceId ?? null },
+        identity: request.identity },
       intent: { kind: "ask" }, personalized: false, ask: IDLE, notes: IDLE, pinned: [], compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
       direct: request, chips: chips ?? { books: [], anchored: Boolean(request.anchorSpanIds?.length), topic: query || null,
         unmatched: null, judgmentId: null, words: null },
@@ -576,7 +586,8 @@ export function useLibraryAsk({
     if (reading?.status === "read" && reading.intent === "compare") {
       const titles = new Map((reading.library ?? []).map((book) => [book.sourceId, book.title]));
       compareFrom({ door: "ask_box", question: reading.topic || request.query, extractionId: request.extractionId,
-        sourceIds: reading.sourceIds, ...(request.sourceId ? { openSourceId: request.sourceId } : {}) }, {
+        sourceIds: reading.sourceIds, identity: request.identity,
+        ...(request.identity ? { openSourceId: request.identity.sourceId } : {}) }, {
         books: reading.sourceIds.map((sourceId) => ({ sourceId, title: titles.get(sourceId) ?? sourceId })),
         anchored: false, topic: reading.topic || request.query, unmatched: reading.unmatched,
         judgmentId: reading.judgmentId, askJudgmentId: reading.judgmentId, words: request.query,
@@ -594,7 +605,8 @@ export function useLibraryAsk({
     const current = stateRef.current;
     if (!current?.compareAllWords) return;
     compareFrom({ door: "ask_box", question: current.compareAllWords, extractionId: current.request.extractionId, sourceIds: [],
-      ...(current.request.sourceId ? { openSourceId: current.request.sourceId } : {}) }, {
+      identity: current.request.identity,
+      ...(current.request.identity ? { openSourceId: current.request.identity.sourceId } : {}) }, {
       books: [], anchored: false, topic: current.compareAllWords, unmatched: null, judgmentId: null, words: current.compareAllWords,
     });
   }, [compareFrom]);
@@ -610,7 +622,8 @@ export function useLibraryAsk({
     update(current.key, () => ({
       chips: { books, anchored: false, topic: ask.query, unmatched: null, judgmentId: null, words: null },
     }));
-    void runCompare(current.key, { door: "library_answer", askId: ask.askId, sourceIds: books.map((book) => book.sourceId), openSourceId: openOf(current) });
+    void runCompare(current.key, { door: "library_answer", askId: ask.askId, sourceIds: books.map((book) => book.sourceId),
+      openSourceId: openOf(current), identity: current.request.identity });
   }, [scopeOn, update, runCompare, openOf]);
 
   /** The comparison's own row (once its first table landed), else the library answer's. */
@@ -642,7 +655,7 @@ export function useLibraryAsk({
     const requestedPerspectives = perspectives ?? last?.requestedPerspectives ?? [];
     if (askId) {
       void runCompare(key, { door: "refine", askId, sourceIds, openSourceId: openOf(current), requestedPerspectives,
-        workbenchSessionId: last?.workbenchSessionId ?? null });
+        workbenchSessionId: last?.workbenchSessionId ?? null, identity: current.request.identity });
     } else if (current.direct) {
       // The first comparison has not landed (no row yet): start it again with these books.
       const base = stateRef.current?.chips ?? current.chips;
@@ -717,7 +730,8 @@ export function useLibraryAsk({
       const requested = [...before.filter((value) => value !== text), text];
       update(key, () => ({ refine: { phase: "landed", value: reading, failure: null } }));
       void runCompare(key, { door: "refine", askId, sourceIds: compared.map((book) => book.sourceId), openSourceId: openOf(now),
-        requestedPerspectives: requested, workbenchSessionId: now.lastCompare?.workbenchSessionId ?? null });
+        requestedPerspectives: requested, workbenchSessionId: now.lastCompare?.workbenchSessionId ?? null,
+        identity: now.request.identity });
       return;
     }
     update(key, () => ({ refine: { phase: "failed", value: reading, failure: SCOPE_COPY.refineMissed } }));
@@ -732,7 +746,7 @@ export function useLibraryAsk({
     const compared = shownCompared(current);
     void runCompare(current.key, { door: "refine", askId, sourceIds: compared, openSourceId: openOf(current),
       requestedPerspectives: [...limit.views.filter((view) => view !== remove), limit.pending],
-      workbenchSessionId: current.lastCompare?.workbenchSessionId ?? null });
+      workbenchSessionId: current.lastCompare?.workbenchSessionId ?? null, identity: current.request.identity });
   }, [runCompare, openOf]);
   const keepViews = useCallback(() => {
     const current = stateRef.current;
@@ -871,7 +885,7 @@ export function useLibraryAsk({
       // would widen to every book with a passage.
       const sourceIds = [...new Set(table.rows.map((row) => row.sourceId).filter((id): id is string => Boolean(id)))];
       void runCompare(current.key, { door: "pins", askId: table.askId, pinnedSpanKeys, sourceIds, openSourceId,
-        requestedPerspectives: requested });
+        requestedPerspectives: requested, identity: current.request.identity });
       return;
     }
     const key = current.key;
@@ -900,8 +914,10 @@ export function useLibraryAsk({
     const view = words.trim();
     if (!current || !byPoint || !view) return;
     const question = (asked ?? current.compare.value?.scope?.question ?? current.compare.value?.query ?? current.request.query ?? "").trim();
+    // Fix round 5 (verify finding 1): the follow-on ask keeps the book it came from.
     void run({ query: question ? `${question}: ${view}` : view, entry: "where_else_explained",
-      extractionId: current.request.extractionId, spanIds: current.request.spanIds }, current.personalized);
+      extractionId: current.request.extractionId, spanIds: current.request.spanIds, identity: current.request.identity },
+    current.personalized);
   }, [byPoint, run]);
 
   return {

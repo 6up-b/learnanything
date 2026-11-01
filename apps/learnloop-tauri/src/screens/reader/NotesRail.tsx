@@ -2,7 +2,7 @@
 // redesign): capture and the palette, exercise import, "make your own
 // practice", background requests, the commitment arc and the annotations.
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { ReaderArcDto, ReaderCoachLintDto, ReaderExerciseImportResult, ReaderRenderBlockDto } from "../../api/dto";
+import type { ReaderArcDto, ReaderCoachLintDto, ReaderExerciseImportResult, ReaderRenderBlockDto, SourceIdentity } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill, SectionHeader } from "../../components/term";
 import { PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
 import { MarkdownMath } from "../../render/MarkdownMath";
@@ -51,11 +51,10 @@ export interface ExerciseImportState {
   error: string | null;
   /** The passages the exercise was selected from (RW2a's workbench anchor). */
   spanIds?: string[];
-  /** Reader CA6b fix round 4: the book and reading the exercise was imported
-   *  from (side by side's second book, for one imported there): its "work
-   *  through this" opens in that book. */
-  sourceId?: string;
-  extractionId?: string;
+  /** Reader CA6b fix rounds 4-5: the book, revision and reading the exercise
+   *  was imported from (side by side's second book, for one imported there):
+   *  its "work through this" opens in that book. Required. */
+  identity: SourceIdentity;
 }
 
 export interface NotesRailProps {

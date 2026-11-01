@@ -46,8 +46,9 @@ import type {
   WorkbenchSessionDto,
   WorkbenchSubmitDto,
   WorkbenchSummaryDto,
+  SourceIdentity,
 } from "../../api/dto";
-import { errorMessage } from "../../errors";
+import { errorMessage, SPAN_MISMATCH_COPY } from "../../errors";
 import {
   SPLIT_STEP,
   clampSplitWidth,
@@ -66,6 +67,11 @@ export interface ReaderWorkbenchCheck {
   /** The passage the cue sits beside, and the source it is on. */
   spanId: string;
   sourceId: string;
+  /** Reader CA6b fix round 5 (verify finding 2): the book, revision and
+   *  reading `spanId` is a passage of. The check opens only on that reading;
+   *  when the Reader opened another (a newer extraction), it is refused, and
+   *  the learner is told, rather than opened with another reading's passage. */
+  reading: SourceIdentity;
   stemMd: string;
   schedulerCandidateId: string | null;
   planPresentationId: string | null;
@@ -387,6 +393,13 @@ export function useReaderWorkbench(input: {
     if (!enabled || !checkMe || !extractionId || !card || card.sourceId !== checkMe.sourceId) return;
     if (openedCheckRef.current?.check === checkMe && openedCheckRef.current.generation === generation.current) return;
     openedCheckRef.current = { check: checkMe, generation: generation.current };
+    if (extractionId !== checkMe.reading.extractionId) {
+      // Another reading of the book is open: its passage ids are not this
+      // check's. Refused here (the sidecar refuses it too), never sent.
+      propsRef.current?.onCheckMeShown?.(checkMe);
+      onError(SPAN_MISMATCH_COPY);
+      return;
+    }
     const sent = ticket(true);
     void api.workbenchOpen({
       origin: "reader", entry: checkMe.entry ?? "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,

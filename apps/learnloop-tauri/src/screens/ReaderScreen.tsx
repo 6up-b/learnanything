@@ -24,6 +24,7 @@ import type {
   ReaderAnswerMode,
   ReaderDisposition,
   ReaderImportExerciseInput,
+  SourceIdentity,
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
   ReaderPdfViewDto,
@@ -51,7 +52,7 @@ import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "..
 import { highlightFromPlacement, kindLabel, type PdfHighlight } from "../components/pdfSelection/highlights";
 import { exactNode } from "../components/pdfSelection/model";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
-import { errorMessage } from "../errors";
+import { errorMessage, SPAN_MISMATCH_COPY } from "../errors";
 import { DoseOffer } from "./reader/DoseOffer";
 import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
@@ -215,6 +216,16 @@ function newKey(): string {
   } catch {
     return `cap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
+}
+
+/** Reader CA6b fix round 5: a render's book, revision and reading. */
+function identityOf(view: Pick<ReaderRenderViewDto, "sourceId" | "revisionId" | "extractionId">): SourceIdentity {
+  return { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: view.extractionId };
+}
+
+/** Reader CA6b fix round 5: side by side's second pane's book, revision and reading. */
+function sectionIdentity(section: { sourceId: string; revisionId?: string | null; extractionId: string }): SourceIdentity {
+  return { sourceId: section.sourceId, revisionId: section.revisionId ?? null, extractionId: section.extractionId };
 }
 
 export interface ReaderOpenSource {
@@ -1506,7 +1517,9 @@ export function ReaderScreen({
     | { kind: "item"; practiceItemId: string; stemMd: string; spanIds: string[] }
     | { kind: "next_step"; spanId: string }
     | { kind: "show_me"; goal: string; spanId: string; origin: "tutor" | "show_me"; offerRef: string | null; lineKey: string | null };
-  const [besideHandoff, setBesideHandoff] = useState<{ id: number; sourceId: string; extractionId: string; run: BesideRun } | null>(null);
+  // Fix round 5: the handoff carries the book's identity (the passage's own
+  // source, revision and reading), never the main pane's.
+  const [besideHandoff, setBesideHandoff] = useState<{ id: number; book: SourceIdentity; run: BesideRun } | null>(null);
   const besideSeq = useRef(0);
   // What runs once the book is open (set below, where the Reader's own
   // controllers are), and what a handoff whose book did not open settles.
@@ -1525,10 +1538,10 @@ export function ReaderScreen({
     if (!shown || !sbsRef.current.panes) return;
     snapshotSideBySide(crumbLabel(shown), { ...shown, spanId });
   };
-  const takeBesideBook = useCallback((book: { sourceId: string; extractionId: string }, spanId: string, run: BesideRun) => {
+  const takeBesideBook = useCallback((book: SourceIdentity, spanId: string, run: BesideRun) => {
     snapshotBesideRef.current(spanId);
     const id = ++besideSeq.current;
-    setBesideHandoff({ id, sourceId: book.sourceId, extractionId: book.extractionId, run });
+    setBesideHandoff({ id, book, run });
     void openBesideRef.current({ sourceId: book.sourceId, extractionId: book.extractionId, spanId }).then((outcome) => {
       if (outcome !== "opened") {
         setBesideHandoff((current) => (current?.id === id ? null : current));
@@ -1577,20 +1590,24 @@ export function ReaderScreen({
   const besideRanRef = useRef(0);
   useEffect(() => {
     const handoff = besideHandoff;
-    if (!handoff || !render || offline || render.sourceId !== handoff.sourceId) return;
+    if (!handoff || !render || offline || render.sourceId !== handoff.book.sourceId) return;
     if (besideRanRef.current === handoff.id) return;
     besideRanRef.current = handoff.id;
     setBesideHandoff(null);
-    if (handoff.run.kind === "check") {
-      const card = openCardRef.current;
-      if (!card || !onCheckMe || card.sourceId !== handoff.sourceId) return;
-      const trail = besideTrail(returnStackRef.current);
-      onCheckMe({ ...handoff.run.request, card, ...(trail ? { besideTrail: trail } : {}) });
+    // Everything needs the reading its passages were selected (or asked, or
+    // marked) on. Opening the book may have resolved another reading (a newer
+    // extraction): then nothing runs, and the learner is told (fix round 5,
+    // verify finding 2: a check no longer dispatches before this guard).
+    if (render.extractionId !== handoff.book.extractionId) {
+      besideDroppedRef.current(handoff.run);
+      onError(SPAN_MISMATCH_COPY);
       return;
     }
-    // The rest needs the reading its passages were selected (or asked) on.
-    if (render.extractionId !== handoff.extractionId) {
-      besideDroppedRef.current(handoff.run);
+    if (handoff.run.kind === "check") {
+      const card = openCardRef.current;
+      if (!card || !onCheckMe || card.sourceId !== handoff.book.sourceId) return;
+      const trail = besideTrail(returnStackRef.current);
+      onCheckMe({ ...handoff.run.request, reading: handoff.book, card, ...(trail ? { besideTrail: trail } : {}) });
       return;
     }
     if (handoff.run.kind !== "work") {
@@ -1603,7 +1620,7 @@ export function ReaderScreen({
       stemMd: work.stemMd, spanIds: work.spanIds,
       importRequest: { ...work.importRequest, renderViewId: render.renderViewId, clientIdempotencyKey: newKey() },
     });
-  }, [besideHandoff, render, offline, onCheckMe, wbCtl, returnStackRef]);
+  }, [besideHandoff, render, offline, onCheckMe, wbCtl, returnStackRef, onError]);
   // Selecting in the main pane: the second pane's box lets go of its keys (one box answers keys at a time).
   const { releaseKeys: releaseSideKeys } = side;
   // A new composer (the second pane's, or back to the open book's): a failed
@@ -1695,14 +1712,14 @@ export function ReaderScreen({
     return () => window.removeEventListener("keydown", onKey);
   }, [sbs.enabled]);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false,
-    anchor?: { sourceId: string; extractionId: string }) => {
+    anchor?: SourceIdentity) => {
     if (!render || offline) return;
     setLibraryCompose(null);
     // Reader CA6b: a palette verb in side by side's second pane is anchored on
     // that pane's reading; the ask keeps that book too (fix round 4), for its
     // comparisons and its practice picks.
-    const extractionId = anchor?.extractionId ?? render.extractionId;
-    const request = { query, entry, extractionId, spanIds, ...(anchor ? { sourceId: anchor.sourceId } : {}) };
+    const identity = anchor ?? identityOf(render);
+    const request = { query, entry, extractionId: identity.extractionId, spanIds, identity };
     // CA3: the ask box (Ctrl+Shift+F) reads named books first; a palette verb asks as before.
     if (box) void libraryCtl.askBox(request);
     else libraryCtl.ask(request);
@@ -2422,8 +2439,9 @@ export function ReaderScreen({
         spanIds: [...new Set(nodes.map((node) => node.spanId))],
         // Fix round 4 (verify finding 1): the book the exercise is from, on
         // the import itself, so its "work through this" opens there.
-        sourceId: target ? target.sourceId : render.sourceId,
-        extractionId: target ? target.extractionId : render.extractionId,
+        identity: target
+          ? { sourceId: target.sourceId, revisionId: target.revisionId, extractionId: target.extractionId }
+          : { sourceId: render.sourceId, revisionId: render.revisionId, extractionId: render.extractionId },
       });
       if (!target) setSelectionActions((prev) => [...prev, "exercise_import"]);
       logReaderAction("action_invoked", {
@@ -2681,12 +2699,13 @@ export function ReaderScreen({
       // request as it was (anchor and book kept).
       libraryCtl.compareFrom({
         door: "selection", question: currentGuideSection.label, extractionId: render.extractionId,
-        anchorSpanIds: [here], sourceIds: [hit.sourceId], openSourceId: render.sourceId,
+        anchorSpanIds: [here], sourceIds: [hit.sourceId], openSourceId: render.sourceId, identity: identityOf(render),
       });
       return;
     }
     void libraryCtl.compareWith(
-      { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here] },
+      { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here],
+        identity: identityOf(render) },
       [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],
     );
   };
@@ -2795,7 +2814,9 @@ export function ReaderScreen({
     const hit = libraryCtl.state?.ask.value?.hits[0];
     const card = hit ? (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId) : undefined;
     if (!hit || !card || !onCheckMe) return;
-    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: hit.spanId, card });
+    // The hit's own book and reading (its revision is not known here: the sidecar checks the reading).
+    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: hit.spanId, card,
+      reading: { sourceId: card.sourceId, revisionId: null, extractionId: hit.extractionId } });
     if (algoConfig().workbench && opening === null) {
       void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
     }
@@ -2869,7 +2890,7 @@ export function ReaderScreen({
                     if (e.key === "Enter" && e.shiftKey && libraryCtl.enabled && librarySearch.trim()) {
                       e.preventDefault();
                       // CA3: with compare from anywhere on, the ask box first reads named books.
-                      void libraryCtl.askBox({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
+                      void libraryCtl.askBox({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [], identity: null });
                       return;
                     }
                     if (e.key === "Enter") setSearchDeep(true);
@@ -3161,7 +3182,7 @@ export function ReaderScreen({
           // this selection, through the usual import.
           const target = pane.side.target;
           if (!target || !wbCtl.enabled) return;
-          takeBesideBook(sideSection, target.spanId, {
+          takeBesideBook({ sourceId: target.sourceId, revisionId: target.revisionId, extractionId: target.extractionId }, target.spanId, {
             kind: "work", stemMd: target.quote, spanIds: [...new Set(target.nodes.map((node) => node.spanId))],
             importRequest: {
               extractionId: target.extractionId, sourceId: target.sourceId, revisionId: target.revisionId,
@@ -3185,7 +3206,7 @@ export function ReaderScreen({
         // (the second pane's: anchored on its reading; side by side comes back when it closes).
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || pane.words, effect.entry, pane.spanIds, false,
-          sideSection ? { sourceId: sideSection.sourceId, extractionId: sideSection.extractionId } : undefined);
+          sideSection ? sectionIdentity(sideSection) : undefined);
         return;
       case "compare":
         // CA3: Transfer's "how do my other books treat this?": a comparison
@@ -3197,7 +3218,7 @@ export function ReaderScreen({
           startCompareRef.current({
             door: "selection", question: text || pane.words, extractionId: sideSection.extractionId,
             anchorSpanIds: pane.spanIds, openSourceId: sideSection.sourceId, sourceIds: [render.sourceId],
-            workbenchSessionId: null,
+            workbenchSessionId: null, identity: sectionIdentity(sideSection),
           });
           return;
         }
@@ -3208,7 +3229,7 @@ export function ReaderScreen({
           const request: CompareRequest = {
             door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
             extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
-            workbenchSessionId: bound,
+            workbenchSessionId: bound, identity: identityOf(render),
             // Reader CA6: in side by side the source is the other pane's book (§4.1).
             ...(sbsPanes && sbs.target ? { sourceIds: [sbs.target.sourceId] } : {}),
           };
@@ -3262,16 +3283,16 @@ export function ReaderScreen({
   const sideShows = (extractionId: string, spanId: string): boolean =>
     side.extractionId === extractionId && Boolean(side.section?.blocks.some((block) => block.spanId === spanId));
   /** A practice pick on the second book: its check opens in that book (as check me on its marks does). */
-  const checkBeside = (book: { sourceId: string; extractionId: string }, spanId: string, practiceItemId: string, proposalId: string | null) => {
+  const checkBeside = (book: SourceIdentity, spanId: string, practiceItemId: string, proposalId: string | null) => {
     if (!onCheckMe || !library?.some((entry) => entry.sourceId === book.sourceId)) return;
-    takeBesideBook(book, spanId, { kind: "check", request: { practiceItemId, proposalId, spanId } });
+    takeBesideBook(book, spanId, { kind: "check", request: { practiceItemId, proposalId, spanId, reading: book } });
   };
   /** "work through this" on an imported exercise: in the book it was imported from (verify finding 1). */
   const workThroughImported = (item: { practiceItemId: string; prompt: string }) => {
     const imported = exerciseImport;
     const spanIds = imported?.spanIds ?? (activeSpan ? [activeSpan] : []);
-    if (imported?.sourceId && imported.extractionId && render && imported.extractionId !== render.extractionId) {
-      takeBesideBook({ sourceId: imported.sourceId, extractionId: imported.extractionId }, spanIds[0] ?? "",
+    if (imported && render && imported.identity.extractionId !== render.extractionId) {
+      takeBesideBook(imported.identity, spanIds[0] ?? "",
         { kind: "item", practiceItemId: item.practiceItemId, stemMd: item.prompt, spanIds });
       return;
     }
@@ -3299,7 +3320,7 @@ export function ReaderScreen({
       else requestShowMe(side.figures, run);
       return;
     }
-    takeBesideBook({ sourceId: about.sourceId, extractionId: about.extractionId }, run.spanId, run);
+    takeBesideBook({ sourceId: about.sourceId, revisionId: about.revisionId, extractionId: about.extractionId }, run.spanId, run);
   };
   besideRunRef.current = (run) => {
     if (run.kind === "item") {
@@ -3389,11 +3410,12 @@ export function ReaderScreen({
     // Fix round 4: an ask anchored in side by side's second pane is that
     // book's; its pick opens there, at the passage asked on (as check me does).
     const asked = libraryCtl.state?.request;
-    if (asked?.sourceId && asked.extractionId && asked.sourceId !== render.sourceId) {
-      checkBeside({ sourceId: asked.sourceId, extractionId: asked.extractionId }, asked.spanIds[0] ?? "", item.practiceItemId, proposalId);
+    if (asked?.identity && asked.identity.extractionId !== render.extractionId) {
+      checkBeside(asked.identity, asked.spanIds[0] ?? "", item.practiceItemId, proposalId);
       return;
     }
-    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: readingSpan ?? activeSpan ?? "", card });
+    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: readingSpan ?? activeSpan ?? "", card,
+      reading: identityOf(render) });
   };
   const resumeMark = (spanId: string | null | undefined) => {
     const entry = spanId ? wbResumeBySpan.get(spanId) : undefined;
@@ -3872,7 +3894,7 @@ export function ReaderScreen({
                         }}
                         onTryExercise={wbCtl.enabled ? (exercise) => {
                           const { renderViewId: _view, clientIdempotencyKey: _key, ...importRequest } = exercise.importRequest;
-                          takeBesideBook({ sourceId: sbsSection.sourceId, extractionId: exercise.extractionId }, exercise.spanIds[0] ?? sbsSection.jumpSpanId, {
+                          takeBesideBook({ sourceId: sbsSection.sourceId, revisionId: exercise.importRequest.revisionId, extractionId: exercise.extractionId }, exercise.spanIds[0] ?? sbsSection.jumpSpanId, {
                             kind: "work", stemMd: exercise.statement, spanIds: exercise.spanIds, importRequest,
                           });
                         } : null}
@@ -3902,7 +3924,7 @@ export function ReaderScreen({
                 libraryCtl.compareFrom({
                   door: "selection", question: picked.quote, extractionId: sbs.section.extractionId,
                   anchorSpanIds: picked.spanIds, openSourceId: sbs.section.sourceId, sourceIds: [render.sourceId],
-                  workbenchSessionId: null,
+                  workbenchSessionId: null, identity: sectionIdentity(sbs.section),
                 });
               } : null}
             />
@@ -4425,8 +4447,9 @@ export function ReaderScreen({
                     libraryCtl.compareFrom({
                       door: "tutor_offer", question: request.question, extractionId: exchange.extractionId,
                       anchorSpanIds: exchange.spanId ? [exchange.spanId] : [], toolCallId: request.toolCallId,
-                      // Fix round 4: an answer about the second book leads with that book.
+                      // Fix rounds 4-5: an answer about the second book leads with that book.
                       openSourceId: exchange.about?.sourceId ?? render.sourceId,
+                      identity: exchange.about ?? identityOf(render),
                     });
                   }
                   : null,

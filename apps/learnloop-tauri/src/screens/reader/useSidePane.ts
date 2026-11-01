@@ -156,6 +156,9 @@ export function useSidePane(input: SidePaneInput) {
 
   const active = useActiveReading({
     extractionId: activeReadingOn ? extractionId : null, sourceId, onError, onOpenRail: noop,
+    // Fix round 5 (verify finding 3): the question and the learner's draft
+    // stay while the pane is hidden or loads a section of the same book.
+    openKey: activeReadingOn ? openBook : null,
   });
   const figures = useFigures({ extractionId, contract: figuresContract });
 
@@ -179,7 +182,7 @@ export function useSidePane(input: SidePaneInput) {
   const marksChanged = useCallback(() => setMarksVersion((value) => value + 1), []);
 
   const cues = useSidePaneCues({
-    extractionId, sourceId, openBook, blocks: section?.blocks ?? null, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+    extractionId, sourceId, revisionId: section?.revisionId ?? null, openBook, blocks: section?.blocks ?? null, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
     ...(onCheckMe ? { onCheckMe } : {}),
     // RW3b: "try this step first" is RW1b's next-step question at that line, in this pane.
     ...(activeReadingOn ? { onTryFirst: (spanId: string) => void active.start("next_step", [spanId], fold([spanId], foldBlocks)) } : {}),
@@ -205,11 +208,12 @@ export type SidePane = ReturnType<typeof useSidePane>;
  *  whenever the pane's size changes (the splitter, the window), never on
  *  scroll. */
 function useSidePaneCues({
-  extractionId, sourceId, openBook, blocks, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+  extractionId, sourceId, revisionId, openBook, blocks, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
   onCheckMe, onTryFirst,
 }: {
   extractionId: string | null;
   sourceId: string | null;
+  revisionId: string | null;
   openBook: string | null;
   blocks: SideBySideSectionDto["blocks"] | null;
   muted: boolean;
@@ -284,7 +288,9 @@ function useSidePaneCues({
     return () => observer.disconnect();
   }, [extractionId, hostRef]);
 
-  const render = useMemo(() => (extractionId && sourceId ? { extractionId, sourceId } : null), [extractionId, sourceId]);
+  // Fix round 5: the pane's book, revision and reading (its marks' checks carry it).
+  const render = useMemo(() => (extractionId && sourceId ? { extractionId, sourceId, revisionId } : null),
+    [extractionId, sourceId, revisionId]);
   const spanOrder = useMemo(
     () => new Map((blocks ?? []).map((block, index) => [block.spanId, index] as const)), [blocks]);
   const blocksKey = (blocks ?? []).map((block) => block.spanId).join("|");

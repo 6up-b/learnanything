@@ -323,6 +323,8 @@ it("check me finds one short question and the shell opens it, on your own, comin
   fireEvent.click(within(screen.getByRole("group", { name: "this margin note" })).getByRole("button", { name: /^check me ·/ }));
   await waitFor(() => expect(onCheckMe).toHaveBeenCalledWith({
     practiceItemId: "pi_density_2", proposalId: "pp_1", spanId: "b1", card,
+    // Reader CA6b fix round 5: the mark's own reading goes with the check.
+    reading: { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: view.extractionId },
   }));
   expect(api.readerCueAction).toHaveBeenCalledWith(expect.objectContaining({ cueId: "cue_b1", action: "check_me" }));
 });

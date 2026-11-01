@@ -150,7 +150,7 @@ async function openAskBox(words: string) {
   fireEvent.submit(box.closest("form")!);
 }
 
-const KEYS = Object.keys(comparePayload({ door: "selection" })).sort();
+const KEYS = Object.keys(comparePayload({ identity: null, door: "selection" })).sort();
 
 it("the selection verb compares the selection with the other books, no pins (X1)", async () => {
   api.readerLibraryCompare.mockResolvedValue(done(table({
@@ -318,11 +318,11 @@ it("switched off, the selection's palette has no comparison verb", async () => {
 
 it("every door builds the same payload keys (C1)", () => {
   const doors = [
-    comparePayload({ door: "selection", question: "q", extractionId: "e", anchorSpanIds: ["s"] }),
-    comparePayload({ door: "ask_box", question: "q", sourceIds: ["a", "b"] }),
-    comparePayload({ door: "tutor_offer", question: "q", extractionId: "e", anchorSpanIds: ["s"], toolCallId: "t" }),
-    comparePayload({ door: "library_answer", askId: "la_1", sourceIds: ["a", "b"] }),
-    comparePayload({ door: "pins", askId: "la_1", pinnedSpanKeys: ["x:1", "y:2"] }),
+    comparePayload({ identity: null, door: "selection", question: "q", extractionId: "e", anchorSpanIds: ["s"] }),
+    comparePayload({ identity: null, door: "ask_box", question: "q", sourceIds: ["a", "b"] }),
+    comparePayload({ identity: null, door: "tutor_offer", question: "q", extractionId: "e", anchorSpanIds: ["s"], toolCallId: "t" }),
+    comparePayload({ identity: null, door: "library_answer", askId: "la_1", sourceIds: ["a", "b"] }),
+    comparePayload({ identity: null, door: "pins", askId: "la_1", pinnedSpanKeys: ["x:1", "y:2"] }),
   ];
   for (const payload of doors) expect(Object.keys(payload).sort()).toEqual(KEYS);
   expect(doors.every((payload) => !("policy" in payload))).toBe(true); // the server derives the policy

@@ -203,8 +203,8 @@ async function refineWith(pane: HTMLElement, words: string) {
 }
 
 it("F1: the payload names the bound workbench session, for every door", () => {
-  expect(comparePayload({ door: "selection" })).toHaveProperty("workbenchSessionId", null);
-  expect(comparePayload({ door: "refine", askId: "la_1", workbenchSessionId: "wb1" }).workbenchSessionId).toBe("wb1");
+  expect(comparePayload({ identity: null, door: "selection" })).toHaveProperty("workbenchSessionId", null);
+  expect(comparePayload({ identity: null, door: "refine", askId: "la_1", workbenchSessionId: "wb1" }).workbenchSessionId).toBe("wb1");
 });
 
 it("F1: the selection verb while working runs nothing until the learner leaves the problem", async () => {

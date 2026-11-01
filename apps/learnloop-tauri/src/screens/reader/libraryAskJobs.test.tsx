@@ -19,7 +19,9 @@ const { api } = vi.hoisted(() => ({
 vi.mock("../../api/client", () => ({ api }));
 
 const CONTRACT = { libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true } } as unknown as ReaderPromptContractDto;
-const REQUEST: LibraryAskRequest = { query: "symmetric matrices", entry: "where_else_explained", extractionId: "ext_a", spanIds: ["a1"] };
+const REQUEST: LibraryAskRequest = { query: "symmetric matrices", entry: "where_else_explained", extractionId: "ext_a", spanIds: ["a1"],
+  // No book named (fix round 5): its comparisons lead with the hook's open book.
+  identity: null };
 
 const ASK = {
   askId: "la_1", query: "symmetric matrices", entry: "where_else_explained", status: "ok", policy: "reading",
@@ -289,7 +291,7 @@ it("CA3 on: a failed comparison of the pins is rerun as the same request", async
 
 it("CA3 on: the find-section door (selection, anchored, the hit's book) reruns as it was after a failure", async () => {
   const request = { door: "selection" as const, question: "symmetric matrices", extractionId: "ext_a", anchorSpanIds: ["a1"],
-    sourceIds: ["src_b"], openSourceId: "src_a" };
+    sourceIds: ["src_b"], openSourceId: "src_a", identity: { sourceId: "src_a", revisionId: "rev_a", extractionId: "ext_a" } };
   const payload = { ...PINS_REQUEST, door: "selection", askId: null, question: "symmetric matrices", extractionId: "ext_a",
     anchorSpanIds: ["a1"], sourceIds: ["src_b"], pinnedSpanKeys: [], openSourceId: "src_a" };
   api.readerLibraryCompare

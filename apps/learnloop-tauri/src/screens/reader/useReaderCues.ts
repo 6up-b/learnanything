@@ -40,6 +40,7 @@ import type {
   ReaderGuidePlanDto,
   ReaderPdfBlockDto,
   ReaderRenderViewDto,
+  SourceIdentity,
 } from "../../api/dto";
 import { errorMessage } from "../../errors";
 import { logReaderAction } from "./activity";
@@ -57,11 +58,15 @@ export interface CueCheckMeRequest {
   practiceItemId: string;
   proposalId: string | null;
   spanId: string;
+  /** Reader CA6b fix round 5: the book, revision and reading `spanId` is a
+   *  passage of (the mark's own). Required: a check is opened only on that
+   *  reading, and refused (honestly) when the reading open is another. */
+  reading: SourceIdentity;
 }
 
 /** The source a request was made on (review F3): the shell opens the item
  *  only while that source is the one open. */
-export interface CueRequestOrigin {
+export interface CueRequestOrigin extends SourceIdentity {
   sourceId: string;
   extractionId: string;
 }
@@ -71,7 +76,7 @@ export type CueSurface = "text" | "pdf" | "watch" | "none";
 export interface ReaderCuesInput {
   /** The reading the marks are on (Reader CA6b: side by side's second pane
    *  passes its own book's, so the same controller runs there). */
-  render: Pick<ReaderRenderViewDto, "extractionId" | "sourceId"> | null;
+  render: (Pick<ReaderRenderViewDto, "extractionId" | "sourceId"> & { revisionId: string | null }) | null;
   /** RW2a: the source pane beside the workbench (no marks while working). */
   working?: boolean;
   offline: boolean;
@@ -436,7 +441,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   const checkMe = useCallback((cue: ReaderCueDto) => {
     if (!onCheckMe || !render) return;
     const visit = visitRef.current;
-    const origin: CueRequestOrigin = { sourceId: render.sourceId, extractionId: render.extractionId };
+    const origin: CueRequestOrigin = { sourceId: render.sourceId, revisionId: render.revisionId, extractionId: render.extractionId };
     setCheckPhases((phases) => ({ ...phases, [cue.cueId]: "finding" }));
     void tap(cue, "check_me")
       .then((result) => {
@@ -446,7 +451,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
         if (check?.status === "found" && check.practiceItemId) {
           setCheckPhases((phases) => ({ ...phases, [cue.cueId]: "idle" }));
           setOpenCueId(null);
-          onCheckMe({ practiceItemId: check.practiceItemId, proposalId: check.proposalId ?? null, spanId: cue.spanId }, origin);
+          onCheckMe({ practiceItemId: check.practiceItemId, proposalId: check.proposalId ?? null, spanId: cue.spanId, reading: origin }, origin);
         } else {
           setCheckPhases((phases) => ({ ...phases, [cue.cueId]: check?.status === "none" ? "none" : "failed" }));
         }

@@ -10,7 +10,7 @@
 // check at its top, and the inquiry keys (↑ ↓ move · ↵ expand · f follow-up ·
 // r resolved / done · o reopen · p show passage).
 import type { KeyboardEvent, ReactNode } from "react";
-import type { InquiryResolution, ReaderAnswerMode, ReaderTutorViewDto, TutorCitationDto } from "../../api/dto";
+import type { InquiryResolution, ReaderAnswerMode, ReaderTutorViewDto, SourceIdentity, TutorCitationDto } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { answerModeLabel } from "./readerShared";
@@ -46,7 +46,8 @@ export interface ReaderExchange {
 }
 
 /** Reader CA6b: the other book an Ask was about (side by side's second pane). */
-export interface AskAbout {
+/** Reader CA6b: the book an exchange is about (its SourceIdentity, fix round 5). */
+export interface AskAbout extends SourceIdentity {
   extractionId: string;
   /** That book and the revision it was read in (Codex review F1): a
    *  commitment made on the thread ("revisit once", "make it something I can

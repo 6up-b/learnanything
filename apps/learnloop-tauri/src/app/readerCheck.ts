@@ -16,6 +16,8 @@ import type { ReturnStack } from "../screens/reader/returnStack";
 export interface ReaderReturn {
   card: SourceLibraryCard;
   spanId: string;
+  /** Reader CA6b fix round 5: the reading `spanId` is in (null: not known). */
+  reading: string | null;
   practiceItemId: string;
   /** RW2a: the attempt was a Reader workbench submit; back opens its problem. */
   workbenchAttemptId?: string;

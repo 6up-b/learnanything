@@ -62,9 +62,22 @@ export function getCommandError(error: unknown): CommandError | null {
   };
 }
 
+/** Reader CA6b fix round 5: the sidecar refused a write whose passages are
+ *  not the reading it names (another book, or another reading of this one).
+ *  Nothing was written; the learner reopens the passage where it is. */
+export const SPAN_MISMATCH_CODE = "span_extraction_mismatch";
+export const SPAN_MISMATCH_COPY = "That passage belongs to another reading; reopen it.";
+
+/** Whether a rejection is the passage-identity refusal (nothing was written). */
+export function isSpanMismatch(error: unknown): boolean {
+  return getCommandError(error)?.code === SPAN_MISMATCH_CODE;
+}
+
 /** Return non-empty, user-safe copy for any JavaScript rejection shape. */
 export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string {
   const command = getCommandError(error);
+  // The typed refusal reads the same everywhere, as an honest failure.
+  if (command?.code === SPAN_MISMATCH_CODE) return SPAN_MISMATCH_COPY;
   if (command?.message.trim()) return command.message.trim();
   if (error instanceof Error && error.message.trim()) return error.message.trim();
   if (typeof error === "string" && error.trim()) return error.trim();

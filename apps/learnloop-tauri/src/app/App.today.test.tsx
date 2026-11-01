@@ -38,6 +38,8 @@ vi.mock("../components/useSourceFileDrop", () => ({ useSourceFileDrop: () => fal
 vi.mock("../components/InboxStrip", () => ({ InboxStrip: () => null }));
 
 const PROB = { sourceId: "src_prob", title: "Probability" };
+// Reader CA6b fix round 5: a check carries the reading its passage is in.
+const PROB_READING = { sourceId: "src_prob", revisionId: "rev_prob", extractionId: "ext_prob" };
 const BESIDE_TRAIL = {
   entries: [
     { id: "o", kind: "origin", sourceId: "src_strang" },
@@ -94,7 +96,8 @@ vi.mock("../screens/ReaderScreen", () => ({
               spanId: "sp3",
               card: PROB,
               proposalId: null,
-              importId: null
+              importId: null,
+              reading: PROB_READING
             })
           }
         >
@@ -109,6 +112,7 @@ vi.mock("../screens/ReaderScreen", () => ({
               card: PROB,
               proposalId: null,
               importId: null,
+              reading: PROB_READING,
               besideTrail: BESIDE_TRAIL
             })
           }
@@ -799,6 +803,8 @@ describe("CA6b fix round 4, finding 2: a check begun beside that waits on a sess
     await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
     expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
     expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe("2");
+    // Fix round 5 (finding 2): and the check's own reading, carried through the session start.
+    expect(screen.getByTestId("reader-stub").getAttribute("data-reading")).toBe("ext_prob");
   });
 
   it("simple: the implicit start, then the Reader reopened on the check's book carries the trail", async () => {

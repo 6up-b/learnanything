@@ -3,7 +3,6 @@
 // answer beside theirs, the three-way self-check, "reconstruct this later"'s
 // receipt with undo, and "another way to see this". Formative only: no grade,
 // no attempt; the voices say whose words each line is (W2).
-import { useState } from "react";
 import type { InquirySelfCheck } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
@@ -114,7 +113,9 @@ function QuestionBody({ ctl, sourceTitle, onShowPassage }: {
   const active = ctl.active!;
   const question = active.question!;
   const copy = ACTIVE_COPY[active.style];
-  const [response, setResponse] = useState("");
+  // Fix round 5 (finding 3): the draft lives in the controller, not here.
+  const response = active.draft;
+  const setResponse = ctl.setDraft;
   const answered = question.status === "answered" || question.status === "escalated";
   const escalated = question.status === "escalated";
   const fromBook = question.answerBasis === "source";

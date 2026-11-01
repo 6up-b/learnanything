@@ -12,24 +12,27 @@ const card = { sourceId: "src", title: "Probability" } as SourceLibraryCard;
 const result = {
   version: 1,
   attempt: { attemptId: "att_1" },
-  session: { sessionId: "wb1", practiceItemId: "pi_514", status: "submitted", attemptId: "att_1" },
+  session: { sessionId: "wb1", practiceItemId: "pi_514", status: "submitted", attemptId: "att_1", extractionId: "ext_wb" },
   practiceSession: { sessionId: "ps_new" },
 } as unknown as WorkbenchSubmitDto;
 
 it("a Reader workbench attempt keeps the way back to its problem", () => {
   const back = workbenchReturn(result, { card, spanId: "b2" });
-  expect(back).toEqual({ card, spanId: "b2", practiceItemId: "pi_514", workbenchAttemptId: "att_1" });
+  // Fix round 5: the problem's own reading goes with the way back.
+  expect(back).toEqual({ card, spanId: "b2", practiceItemId: "pi_514", workbenchAttemptId: "att_1", reading: "ext_wb" });
   expect(returnsToReader(back, "pi_514")).toBe(true);
   expect(returnsToReader(back, "pi_other")).toBe(false);
 });
 
 it("Esc or b opens the submitted problem; Next returns to reading at the passage", () => {
   const back = workbenchReturn(result, { card, spanId: "b2" });
-  expect(readerTargetBack(back, { showProblem: true })).toEqual({ source: { card, spanId: "b2" }, initialAttemptId: "att_1" });
-  expect(readerTargetBack(back, { showProblem: false })).toEqual({ source: { card, spanId: "b2" }, initialAttemptId: null });
+  // Fix round 5: the problem's own reading goes with the way back.
+  const reading = result.session.extractionId ?? null;
+  expect(readerTargetBack(back, { showProblem: true })).toEqual({ source: { card, spanId: "b2", reading }, initialAttemptId: "att_1" });
+  expect(readerTargetBack(back, { showProblem: false })).toEqual({ source: { card, spanId: "b2", reading }, initialAttemptId: null });
   // A Reader check (RW3a) has no workbench attempt: its passage, as before.
-  expect(readerTargetBack({ card, spanId: "b1", practiceItemId: "pi_check" }, { showProblem: true })).toEqual({
-    source: { card, spanId: "b1" }, initialAttemptId: null,
+  expect(readerTargetBack({ card, spanId: "b1", practiceItemId: "pi_check", reading: "ext_b" }, { showProblem: true })).toEqual({
+    source: { card, spanId: "b1", reading: "ext_b" }, initialAttemptId: null,
   });
 });
 
@@ -44,13 +47,14 @@ it("the submit's practice session becomes the app's when it had none or another"
 
 // Review F12 (D40): check me stays in the Reader as the pick's own serve.
 it("check me with the workbench on opens in the Reader as the pick's serve, plan on or off", () => {
-  const request = { practiceItemId: "pi_c", spanId: "b4", card };
+  const reading = { sourceId: "src", revisionId: "rev", extractionId: "ext" };
+  const request = { practiceItemId: "pi_c", spanId: "b4", card, reading };
   const planOn = readerCheckOffer(
     { enabled: true, step: { kind: "item", practiceItemId: "pi_c", schedulerCandidateId: "cand", presentationId: "pres" } } as never,
     "pi_c", "prop_1",
   );
   expect(readerWorkbenchCheck(request, planOn, "Is A^T A symmetric?")).toEqual({
-    practiceItemId: "pi_c", spanId: "b4", sourceId: "src", stemMd: "Is A^T A symmetric?",
+    practiceItemId: "pi_c", spanId: "b4", sourceId: "src", reading, stemMd: "Is A^T A symmetric?",
     schedulerCandidateId: "cand", planPresentationId: "pres",
   });
   const planOff = readerCheckOffer({ enabled: false, step: null } as never, "pi_c", "prop_1");
@@ -70,8 +74,8 @@ it("the way back to side by side goes with a submit and comes back with the Read
     cursor: 2,
   } as never;
   const back = workbenchReturn(result, { card, spanId: "b2", besideTrail: trail });
-  expect(back).toEqual({ card, spanId: "b2", practiceItemId: "pi_514", workbenchAttemptId: "att_1", besideTrail: trail });
-  expect(readerTargetBack(back, { showProblem: false })).toEqual({ source: { card, spanId: "b2", besideTrail: trail }, initialAttemptId: null });
-  expect(readerTargetBack(back, { showProblem: true }).source).toEqual({ card, spanId: "b2", besideTrail: trail });
+  expect(back).toEqual({ card, spanId: "b2", practiceItemId: "pi_514", workbenchAttemptId: "att_1", reading: "ext_wb", besideTrail: trail });
+  expect(readerTargetBack(back, { showProblem: false })).toEqual({ source: { card, spanId: "b2", reading: "ext_wb", besideTrail: trail }, initialAttemptId: null });
+  expect(readerTargetBack(back, { showProblem: true }).source).toEqual({ card, spanId: "b2", reading: "ext_wb", besideTrail: trail });
   expect(workbenchReturn(result, { card, spanId: "b2", besideTrail: null })).not.toHaveProperty("besideTrail");
 });

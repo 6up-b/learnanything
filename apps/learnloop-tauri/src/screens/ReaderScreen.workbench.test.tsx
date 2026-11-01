@@ -11,6 +11,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ReaderScreen } from "./ReaderScreen";
 import { readerRenderViewFixture as view } from "../fixtures/readerRenderView";
 import { setAlgoConfig } from "../app/algoConfig";
+import { SPAN_MISMATCH_COPY } from "../errors";
 import type { SourceLibraryCard, WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
 
 const api = vi.hoisted(() => ({
@@ -265,6 +266,7 @@ it("check me opens in the working posture with the book hidden and submits as th
   const check = {
     practiceItemId: "pi_check", spanId: "span_spectral_worked", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
     schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+    reading: { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: view.extractionId },
   };
   api.workbenchOpen.mockResolvedValue({ resumed: false, session: wbSession({ sessionId: "wb_check", practiceItemId: "pi_check",
     importStatus: "none", entry: "check_me", sourceVisible: false, stemMd: "Is A^T A symmetric?", spanIds: ["span_spectral_worked"],
@@ -295,6 +297,7 @@ it("check me puts the pick's serve on the problem, so it survives leaving and re
   const check = {
     practiceItemId: "pi_check", spanId: "span_spectral_worked", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
     schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+    reading: { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: view.extractionId },
   };
   api.workbenchOpen.mockResolvedValue({ resumed: true, session: wbSession({ sessionId: "wb_check", practiceItemId: "pi_check",
     importStatus: "none", entry: "work_through", sourceVisible: false, sourceShownAt: "2026-10-17T08:00:00Z",
@@ -413,4 +416,23 @@ it("CA6b: a submit made on a Reader opened with the way back to side by side han
   expect(at).toMatchObject({ card: source.card, spanId: "span_symmetric_prose" });
   expect(at.besideTrail?.cursor).toBe(2);
   expect(at.besideTrail?.entries.map((item) => item.kind)).toEqual(["origin", "side_by_side", "source"]);
+});
+
+// Reader CA6b fix round 5 (verify finding 2): a check carries the reading its
+// passage is in. When the Reader opened another reading of the book (a newer
+// extraction), the check is refused here and said honestly, never opened on
+// this reading with the other reading's passage.
+it("CA6b round 5: a check whose reading is not the one open is refused honestly and nothing is opened", async () => {
+  const onCheckMeShown = vi.fn();
+  const onError = vi.fn();
+  const check = {
+    practiceItemId: "pi_check", spanId: "span_old", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
+    schedulerCandidateId: null, planPresentationId: null,
+    reading: { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: "ext_older_reading" },
+  };
+  render(<ReaderScreen initialSource={source} onError={onError} workbench={{ practiceSessionId: "s1", checkMe: check, onCheckMeShown }} />);
+  await screen.findByText(PROSE);
+  await waitFor(() => expect(onCheckMeShown).toHaveBeenCalledWith(check));
+  expect(onError).toHaveBeenCalledWith(SPAN_MISMATCH_COPY);
+  expect(api.workbenchOpen).not.toHaveBeenCalled();
 });

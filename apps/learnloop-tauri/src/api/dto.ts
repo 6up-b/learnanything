@@ -7805,8 +7805,22 @@ export interface ReaderTranslationDto {
   confidence: number;
 }
 
+/** Reader CA6b fix round 5 (structural): the book, revision and reading a
+ *  passage belongs to. Every persisting Reader request and every object that
+ *  outlives the moment it was made in (an Ask, an import, a library request,
+ *  a check or a handoff) carries one, taken from where the passage was, never
+ *  from the main pane's render. The sidecar checks it against the passage ids
+ *  and refuses a mismatch (`span_extraction_mismatch`). `revisionId` is null
+ *  only where the client does not know it (a library hit); the sidecar then
+ *  checks the reading and the source. */
+export interface SourceIdentity {
+  sourceId: string;
+  revisionId: string | null;
+  extractionId: string;
+}
+
 /** reader.capture — the local-first capture receipt (spec §5.3). */
-export interface ReaderCaptureInput {
+export interface ReaderCaptureInput extends SourceIdentity {
   sourceId: string;
   revisionId: string;
   extractionId: string;
@@ -7922,7 +7936,7 @@ export interface TranscriptionReportDto {
 }
 
 /** P3 slice 2: nine-preset palette, demand-paged synthesis, source objects (§5-§7). */
-export interface ReaderInvokePresetInput {
+export interface ReaderInvokePresetInput extends SourceIdentity {
   preset: string;
   sourceId: string;
   revisionId: string;
@@ -7944,12 +7958,13 @@ export interface ReaderPresetReceiptDto extends ReaderCaptureReceiptDto {
 }
 
 // P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration.
-export interface ReaderImportExerciseInput {
+export interface ReaderImportExerciseInput extends SourceIdentity {
   extractionId: string;
   rawSelection: ReaderRawSelection;
   renderViewId?: string | null;
-  sourceId?: string | null;
-  revisionId?: string | null;
+  /** Reader CA6b fix round 5: required (the book the exercise is from). */
+  sourceId: string;
+  revisionId: string | null;
   learningObjectId?: string | null;
   clientIdempotencyKey?: string | null;
 }

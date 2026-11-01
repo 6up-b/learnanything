@@ -291,7 +291,8 @@ it("F7: a view no book fills offers where else is this explained, with its words
 const CONTRACT = {
   libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true, compareScope: true, compareByPoint: true },
 } as unknown as ReaderPromptContractDto;
-const REQUEST: LibraryAskRequest = { query: "why eigenvalues exist", entry: "reader", extractionId: "ext_axler", spanIds: ["a1"] };
+const REQUEST: LibraryAskRequest = { query: "why eigenvalues exist", entry: "reader", extractionId: "ext_axler", spanIds: ["a1"],
+  identity: { sourceId: "src_axler", revisionId: "rev_axler", extractionId: "ext_axler" } };
 const ASK = {
   askId: "la_1", query: "why eigenvalues exist", entry: "reader", status: "ok", policy: "reading", personalized: true,
   basis: "keyword", learningObjectIds: [], extractionId: "ext_axler", anchorSpanIds: ["a1"], hits: [],
@@ -326,4 +327,30 @@ it("F7: where else asks the library on the view's words, from the same open book
   await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(2));
   expect(api.readerLibraryAsk.mock.calls[1][0]).toEqual({ query: "why eigenvalues exist: an application",
     entry: "where_else_explained", extractionId: "ext_axler", spanIds: ["a1"], personalized: true });
+});
+
+// Reader CA6b fix round 5 (verify finding 1): a comparison begun in side by
+// side's second pane (Axler, beside Strang), then "where else is this
+// explained?": the follow-on ask keeps Axler, so its comparisons lead with
+// Axler, never the open book.
+it("CA6b round 5, finding 1: where else after a comparison begun on the second book keeps that book for every follow-on", async () => {
+  const AXLER_ID = { sourceId: "src_axler", revisionId: "rev_axler", extractionId: "ext_axler" };
+  api.readerLibraryCompare.mockResolvedValue(job("ljob_cmp", "compare", table()));
+  api.readerLibraryAsk.mockResolvedValue(job("ljob_ask", "ask", {
+    ...ASK, hits: [
+      { key: "ext_strang:s1", extractionId: "ext_strang", spanId: "s1", sourceId: "src_strang", sourceTitle: "Strang", text: "x" },
+      { key: "ext_other:o1", extractionId: "ext_other", spanId: "o1", sourceId: "src_other", sourceTitle: "Other", text: "y" },
+    ],
+  }));
+  // The open book (the main pane) is Strang.
+  const { result } = renderHook(() => useLibraryAsk({ contract: CONTRACT, openSourceId: "src_strang", onError: vi.fn() }));
+  act(() => result.current.compareFrom({ door: "selection", question: "why eigenvalues exist", extractionId: "ext_axler",
+    anchorSpanIds: ["a1"], openSourceId: "src_axler", sourceIds: ["src_strang"], identity: AXLER_ID }));
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1));
+  act(() => result.current.whereElse("an application", "why eigenvalues exist"));
+  await waitFor(() => expect(result.current.state?.ask.phase).toBe("landed"));
+  expect(result.current.state?.request.identity).toEqual(AXLER_ID);
+  act(() => result.current.compareBooks());
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(2));
+  expect(api.readerLibraryCompare.mock.calls[1][0]).toMatchObject({ door: "library_answer", openSourceId: "src_axler" });
 });

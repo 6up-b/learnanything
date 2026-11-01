@@ -51,6 +51,10 @@ export interface ActiveReadingState {
   reconstruct: { phase: "idle" | "pending" | "done" | "undone" | "failed"; message: string | null };
   /** "add to practice" on an answered question. */
   practice: { phase: "idle" | "pending" | "done" | "failed"; message: string | null };
+  /** Reader CA6b fix round 5 (verify finding 3): the learner's unfinished
+   *  answer, kept here rather than in the card, so hiding the card (side by
+   *  side's second pane behind a comparison) never loses it. */
+  draft: string;
 }
 
 export interface AnotherWayState {
@@ -87,11 +91,17 @@ function failureLine(code: string | null | undefined, message: string | null | u
 export function useActiveReading({
   extractionId,
   sourceId,
+  openKey,
   onError,
   onOpenRail,
 }: {
   extractionId: string | null;
   sourceId: string | null;
+  /** Reader CA6b fix round 5 (finding 3): the book open, when it outlives the
+   *  reading shown (side by side's second pane: its book, kept while a
+   *  section loads or a comparison hides the pane). The question, its draft
+   *  and "another way" go only when this changes; absent: the reading. */
+  openKey?: string | null;
   onError: (message: string) => void;
   /** The learner chose an active-reading action: show its card (their act). */
   onOpenRail: () => void;
@@ -152,7 +162,7 @@ export function useActiveReading({
     setActive({
       key, style, extractionId, anchorSpanIds: spanIds, foldedSpanIds: style === "next_step" ? localFold : [],
       foldOpen: false, batchId: null, question: null, phase: "pending", failure: null, busy: false,
-      reconstruct: NO_RECONSTRUCT, practice: NO_PRACTICE,
+      reconstruct: NO_RECONSTRUCT, practice: NO_PRACTICE, draft: "",
     });
     onOpenRail();
     try {
@@ -310,16 +320,23 @@ export function useActiveReading({
     setAnother(null);
   }, []);
 
-  // Another book: nothing carries over.
+  // Another book: nothing carries over. A pause within the same open (no
+  // reading shown for a moment) keeps the question and the learner's draft.
+  const readingKey = openKey === undefined ? extractionId : openKey;
   useEffect(() => {
     keyRef.current += 1;
     setActive(null);
     setAnother(null);
-  }, [extractionId]);
+  }, [readingKey]);
+  /** The learner's unfinished answer to the question open now. */
+  const setDraft = useCallback((text: string) => {
+    const current = activeRef.current;
+    if (current) update(current.key, { draft: text });
+  }, [update]);
 
   const folded = new Set(active && !active.foldOpen ? active.foldedSpanIds : []);
   return {
-    active, another, folded, start, answer, showMe, selfCheck, dismiss, unfold, close, retry, undoReconstruct,
+    active, another, folded, start, answer, showMe, selfCheck, dismiss, unfold, close, retry, undoReconstruct, setDraft,
     addToPractice, anotherWay, retryAnother, closeAnother, sourceId,
   };
 }

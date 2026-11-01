@@ -6,7 +6,7 @@ import type { PlanStepDto, SourceLibraryCard } from "../api/dto";
 import { planPresentationForServe, proposalOriginForServe, schedulerCandidateForServe } from "./practiceOffer";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 
-const back: ReaderReturn = { card: { sourceId: "src", title: "Probability" } as SourceLibraryCard, spanId: "b1", practiceItemId: "pi_check" };
+const back: ReaderReturn = { card: { sourceId: "src", title: "Probability" } as SourceLibraryCard, spanId: "b1", practiceItemId: "pi_check", reading: null };
 
 it("back from the checked item returns to its passage; from any other item, to the queue", () => {
   expect(returnsToReader(back, "pi_check")).toBe(true);
