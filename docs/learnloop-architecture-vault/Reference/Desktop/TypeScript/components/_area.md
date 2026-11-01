@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
-source_commit_timestamp: "2026-11-01T08:37:27-05:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -45,7 +45,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/AnimationPlayer|AnimationPlayer.tsx]] | `ACTIVE` | Provides the reusable `AnimationPlayer` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/AsPrinted|AsPrinted.tsx]] | `ACTIVE` | Provides the reusable `AsPrinted` interaction surface used by one or more desktop workflows. | 5 | 6 |
 | [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|AsciiLoadingBar.tsx]] | `ACTIVE` | Provides the reusable `AsciiLoadingBar` interaction surface used by one or more desktop workflows. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/components/AskOverlay|AskOverlay.tsx]] | `ACTIVE` | Provides the reusable `AskOverlay` interaction surface used by one or more desktop workflows. | 11 | 7 |
+| [[Reference/Desktop/TypeScript/components/AskOverlay|AskOverlay.tsx]] | `ACTIVE` | Provides the reusable `AskOverlay` interaction surface used by one or more desktop workflows. | 12 | 7 |
 | [[Reference/Desktop/TypeScript/components/BookCard|BookCard.tsx]] | `ACTIVE` | Provides the reusable `BookCard` interaction surface used by one or more desktop workflows. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/components/BookShelf|BookShelf.tsx]] | `ACTIVE` | Provides the reusable `BookShelf` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/CapturePhoto|CapturePhoto.tsx]] | `ACTIVE` | Provides the reusable `CapturePhoto` interaction surface used by one or more desktop workflows. | 4 | 2 |
