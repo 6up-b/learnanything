@@ -41,7 +41,8 @@
   output model and reuse key; parametrized test). This is how "V3 off" reads in code: V3 is used exactly when a rich tier
   is on the menu, so a vault with the switch on but no opt-in, or off Linux, keeps every reuse key it had.
 - The receipt: every V3 build appends `figure_tier` with the verdict (five values), `why_this_tier` as the rationale; the
-  request row records `tiers_allowed`. A status off the menu or an empty `why_this_tier` is a problem for the second
+  request row records `tiers_allowed`. A rich-only build's receipt is appended against its request (`left_kind`
+  `figure_request`) when the author's choice is accepted, whatever its job does next (Codex review F10). A status off the menu or an empty `why_this_tier` is a problem for the second
   attempt.
 - Reuse key (§8.5): with a rich tier on the menu it also names `tiers_allowed` and the Manim tier's versions
   (`manim-fig-v1`, the Manim version and the sandbox profile `bwrap-hardened-v1`). Like the panels and sketch
@@ -186,8 +187,8 @@
    writes the same Manim scenes. Revisit at the owner checkpoint (spec says so).
 5. **Plan wait:** "waits for the plan" is implemented as a retryable failed job (`waiting_for_plan`) requeued by a later
    `reader.figures` read (throttled), not a sleeping worker (which would hold the single ingest worker).
-6. **"Not right?" on a Manim figure** is refused with `rich_revision_later` (the spec sends the note and the earlier
-   program to `figure_rich_author`); asking again with the note in the box re-runs the tier choice. Open item.
+6. **"Not right?" on a Manim figure** sends the note and the earlier program to `figure_rich_author` on a rich job
+   (spec §8.5; built in the Codex review fixes, F11); "try a different kind of figure" re-runs the tier choice.
 7. **The inspector keeps its per-run consent click.** Q17 says the inspector's Linux path follows the standing opt-in; the
    hardened flags apply to it (shared profile), but its consent UI is unchanged in this stage. Open item.
 8. **A request that meets a pending rich-only build** is recorded with no figure (its row's `figure_id` stays NULL; the
@@ -246,6 +247,7 @@ MemorySwapMax=1G -- ...`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one run 
   `fixtures-local` copy.
 - **Adversarial review of the Manim hardening** before merge (spec §9b.5), against the hostile corpus above.
 - *usually about N min* on the pending lines is not shown yet (the report now has the p50; the desktop does not read it).
-- The concept inspector's consent click (deviation 7) and "not right?" on an animation (deviation 6).
+- The concept inspector's consent click (deviation 7).
+- Codex review fixes: `docs/reviews/reader-rw5d-p2b-manim-codex-review.md`.
 - The `SketchFigure.test.tsx` "draws a new sample with another seed" test timed out once (2,021 ms) when the whole
   figures folder ran in parallel with 4 workers; it passes alone (19/19). Pre-existing timing sensitivity, not touched.

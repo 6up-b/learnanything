@@ -785,15 +785,9 @@ def rich_job_for_quick(repository: Repository, fast_figure_id: str) -> dict[str,
     failed or was cancelled long ago."""
 
     try:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            found = connection.execute(
-                "SELECT id FROM ingest_jobs WHERE job_type = ? AND json_extract(payload_json, '$.fast_figure_id') = ? "
-                "ORDER BY created_at DESC, id DESC LIMIT 1", (RICH_JOB_TYPE, fast_figure_id)).fetchone()
+        job = repository.newest_ingest_job_by_payload(RICH_JOB_TYPE, "fast_figure_id", fast_figure_id)
     except sqlite3.Error:
         return None
-    if found is None:
-        return None
-    job = repository.get_ingest_job(str(found[0]))
     return dict(job) if job is not None else None
 
 

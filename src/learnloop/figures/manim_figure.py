@@ -385,7 +385,7 @@ def _mutated_names(tree: ast.Module) -> set[str]:
     """Names whose object is mutated somewhere in the scene, in any scope
     (Codex review F4): an item or attribute assigned, augmented or deleted
     (``A[0] = 1``, ``A.x += 1``, ``del A[0]``), or a method called on it
-    (``A.fill(0)``, ``L.append(1)``)."""
+    (``A.fill(0)``, ``L.append(1)``) or written through ``out=A``."""
 
     mutated: set[str] = set()
     for node in ast.walk(tree):
@@ -393,10 +393,15 @@ def _mutated_names(tree: ast.Module) -> set[str]:
             name = _root_name(node)
             if name:
                 mutated.add(name)
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            name = _root_name(node.func.value)
-            if name and not isinstance(node.func.value, ast.Call):
-                mutated.add(name)
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                name = _root_name(node.func.value)
+                if name:
+                    mutated.add(name)
+            for keyword in node.keywords:
+                # numpy's ``out=A`` writes into A, wherever it is called (the declared functions too).
+                if keyword.arg == "out" and (name := _root_name(keyword.value)):
+                    mutated.add(name)
     return mutated
 
 

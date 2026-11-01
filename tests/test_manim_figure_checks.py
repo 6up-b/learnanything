@@ -156,6 +156,7 @@ _MUTATING_SCENES = {
     "item": "import numpy as np\nA = np.array([1.0])\nA[0] = 2.0\n",
     "method": "import numpy as np\nA = np.array([1.0])\nA.fill(2.0)\n",
     "handed": "import numpy as np\nA = np.array([1.0])\nnp.copyto(A, 2.0)\n",
+    "out": "import numpy as np\nA = np.array([1.0])\n\ndef g(t):\n    return np.add(A, t, out=A)\n",
 }
 
 
@@ -164,7 +165,7 @@ def test_a_constant_the_scene_changes_makes_its_function_not_checkable(prelude):
     """F4: ``A = 1; A += 1; def f(t): return A * t`` used to pass ``f(t) = t``."""
 
     scene = "from manim import *\n" + _MUTATING_SCENES[prelude] + (
-        "\n\ndef f(t):\n    return float(A[0]) * t\n" if prelude in ("item", "method", "handed")
+        "\n\ndef f(t):\n    return float(A[0]) * t\n" if prelude in ("item", "method", "handed", "out")
         else "\n\ndef f(t):\n    return A * t\n") + (
         "\n\nclass S(Scene):\n    def construct(self):\n        axes = Axes()\n        self.play(Create(axes.plot(f)))\n")
     declared = {"functions": [{"name": "f", "args": [{"name": "t", "min": 0, "max": 2}]}],
