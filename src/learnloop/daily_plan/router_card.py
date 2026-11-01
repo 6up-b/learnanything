@@ -217,6 +217,9 @@ class CardGatherer:
                 self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns)
                 if confidence_on else ({}, None, 0))
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
+        # RW6b part 2 (spec §9.2): reader activity on the candidates' LOs, data
+        # beside the card (never hashed, rendered or read by a router model).
+        reader_activity = self._reader_activity(candidate_los, now_iso)
         session = {
             "plan_id": state.plan_id,
             "plan_kind": state.kind,
@@ -256,7 +259,22 @@ class CardGatherer:
             confidence_limit=confidence_limit,
             confidence_omitted=confidence_omitted,
             confidence_enabled=confidence_on,
+            reader_activity=reader_activity,
         )
+
+    def _reader_activity(self, los: Sequence[str], now_iso: str) -> dict[str, Any] | None:
+        """``ReaderActivityV1`` (RW6b part 2), or None (switched off, or
+        unreadable: logged, never named in the hashed ``unknowns``)."""
+
+        from learnloop.daily_plan import router_reader
+
+        if not router_reader.reader_activity_enabled(self.vault):
+            return None
+        try:
+            return router_reader.reader_activity_for_card(self.vault, self.repository, los, now_iso)
+        except Exception:  # noqa: BLE001 - the card never blocks the plan
+            _LOG.warning("router card: reader activity could not be read", exc_info=True)
+            return None
 
     @staticmethod
     def _confidence(

@@ -541,10 +541,11 @@ def _landed(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def narrative_view(vault: Any, repository: Repository, *, extraction_id: str, session_key: str | None,
-                   now: datetime, followups_live: bool, session_ended_at: str | None = None,
-                   client: Any | None = None, clock: Clock | None = None) -> dict[str, Any] | None:
+                   now: datetime, client: Any | None = None,
+                   clock: Clock | None = None) -> dict[str, Any] | None:
     """The session's narrative for "Last time here" and Wrap up, or None
-    (switched off, no ended session, or nothing will be written for it).
+    (switched off, no digest row for the session yet, or the session still
+    running).
 
     ``state``: ``landed`` (the text, its cited ids, the label), ``failed``
     (dropped once, never retried), ``capped`` (today's metered cap; the
@@ -557,10 +558,10 @@ def narrative_view(vault: Any, repository: Repository, *, extraction_id: str, se
         row = RDG.digest_for_session(connection, extraction_id, session_key)
     base = {"label": LABEL, "authority": AUTHORITY, "narrative_version": NARRATIVE_VERSION}
     if row is None:
-        # Part 1 writes the row after the session ends (the next Today build);
-        # a session still running has no narrative to wait for.
-        ended = followups_live and _session_ended({"ended_at": session_ended_at}, now)
-        return {**base, "state": "pending", "digest_id": None} if ended else None
+        # Part 1 writes the row at the first Today build after a session with
+        # activity ends; until then (and for a session with no activity, or
+        # one still running) there is no narrative to show or wait for.
+        return None
     if row.get("prompt_version"):
         if row.get("narrative_md"):
             return {**base, **_landed(row)}

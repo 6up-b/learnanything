@@ -93,8 +93,7 @@ def _narrative(ctx: SidecarContext, vault, repository, extraction_id: str, sessi
     if not RN.narrative_enabled(vault) or not isinstance(session, dict):
         return None
     return RN.narrative_view(vault, repository, extraction_id=extraction_id, session_key=session.get("session_id"),
-                             now=now, followups_live=RF.followups_enabled(vault),
-                             session_ended_at=session.get("ended_at"),
+                             now=now,
                              client=getattr(ctx, "reader_digest_client", None))
 
 
