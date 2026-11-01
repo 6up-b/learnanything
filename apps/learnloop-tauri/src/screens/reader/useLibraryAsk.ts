@@ -55,6 +55,7 @@ import type {
 } from "../../api/dto";
 import { errorMessage, getCommandError } from "../../errors";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
+import { passageKeys } from "./readerShared";
 
 export const LIBRARY_COPY = {
   title: "ASK YOUR LIBRARY",
@@ -407,6 +408,7 @@ export function useLibraryAsk({
       const ask = await runJob("ask", () => api.readerLibraryAsk({
         query: request.query, entry: request.entry, extractionId: request.extractionId,
         spanIds: request.spanIds, personalized,
+        ...(request.extractionId ? { spanKeys: passageKeys(request.extractionId, request.spanIds ?? []) } : {}),
       }));
       if (keyRef.current !== key || ask === null) return;
       update(key, () => ({ ask: { phase: "landed", value: ask, failure: null } }));

@@ -151,7 +151,7 @@ it("the tutor's offer calls nothing until pressed, then builds with origin tutor
   expect(api.readerFigureRequest).not.toHaveBeenCalled();
   fireEvent.click(buttons[0]);
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledTimes(1));
-  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_prob", spanIds: ["p3"], origin: "tutor", offerRef: "qe_1" });
+  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_prob", spanIds: ["p3"], origin: "tutor", offerRef: "qe_1", spanKeys: ["ext_prob:p3"] });
   expect(screen.queryByRole("button", { name: OFFER_COPY.makeExplorable })).toBeNull();
   expect(screen.getByText(OFFER_COPY.explorableBuilding)).toBeTruthy();
   await waitFor(() => expect(document.querySelector('[data-span="p3"]')!.textContent).toMatch(/building an interactive version/));

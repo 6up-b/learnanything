@@ -135,7 +135,8 @@ it("the palette carries both actions and each reaches only its own RPCs", async 
   const afterPath = api.readerReadingPath.mock.calls.length;
   expect(afterPath).toBeGreaterThanOrEqual(pathReads);
   fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
-  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null }));
+  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null,
+    spanKeys: [`${view.extractionId}:${anchor}`] }));
   expect(api.readerReadingPath.mock.calls.length).toBe(afterPath);
   expect(api.readerRouteIntent).not.toHaveBeenCalled();
 }, 15_000);

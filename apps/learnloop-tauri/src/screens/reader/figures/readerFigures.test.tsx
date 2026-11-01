@@ -91,7 +91,8 @@ it("make this explorable runs a build and the figure lands under its passage", a
   fireEvent.keyDown(window, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
   fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
-  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null }));
+  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [anchor], region: null,
+    spanKeys: [`${view.extractionId}:${anchor}`] }));
   const line = await screen.findByRole("button", { name: /interactive version/ });
   // Inline under its passage: the figure's slot follows the passage's block.
   const slot = line.closest(`[data-figures-under="${anchor}"]`);
@@ -114,7 +115,7 @@ it("RW5d P1: show me with words sends the selection and the words jointly (G-SM6
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
   fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
   await waitFor(() => expect(api.figureRequest).toHaveBeenCalledWith({
-    goalText: "but with p near 1", origin: "show_me", anchor: { extractionId: view.extractionId, spanIds: [anchor], region: null },
+    goalText: "but with p near 1", origin: "show_me", anchor: { extractionId: view.extractionId, spanIds: [anchor], region: null, spanKeys: [`${view.extractionId}:${anchor}`] },
     readingAt: null, offerRef: null,
   }));
   expect(api.readerFigureRequest).not.toHaveBeenCalled();

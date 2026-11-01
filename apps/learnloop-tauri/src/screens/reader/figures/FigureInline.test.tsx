@@ -266,7 +266,7 @@ it("shows a failed build with try again, and an unsupported one as noted", async
   expect(screen.getByText(FIGURE_FRAME.unsupported)).toBeTruthy();
   expect(screen.queryAllByRole("button", { name: /interactive version/ })).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.tryAgain }));
-  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_prob", spanIds: ["p3"], region: null });
+  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_prob", spanIds: ["p3"], region: null, spanKeys: ["ext_prob:p3"] });
   expect(await screen.findByText(FIGURE_COPY.pending)).toBeTruthy();
 });
 

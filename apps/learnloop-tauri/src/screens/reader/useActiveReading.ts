@@ -22,6 +22,7 @@ import { api } from "../../api/client";
 import type { InquirySelfCheck, ReaderActiveQuestionDto, ReaderActiveStyle } from "../../api/dto";
 import { errorMessage, getCommandError } from "../../errors";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
+import { passageKeys } from "./readerShared";
 
 /** How often a question being written is read back (a cheap local read). */
 const POLL_MS = 2000;
@@ -166,7 +167,7 @@ export function useActiveReading({
     });
     onOpenRail();
     try {
-      const asked = await api.readerActiveQuestion({ extractionId, spanIds, style });
+      const asked = await api.readerActiveQuestion({ extractionId, spanIds, style, spanKeys: passageKeys(extractionId, spanIds) });
       if (keyRef.current !== key) return;
       update(key, { anchorSpanIds: asked.anchorSpanIds, foldedSpanIds: asked.foldedSpanIds, batchId: asked.batchId });
       if (asked.question) landed(key, asked.question);

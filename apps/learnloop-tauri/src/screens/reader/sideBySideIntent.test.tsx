@@ -219,6 +219,7 @@ async function route(action: string, words = "why is this true?") {
   await waitFor(() => expect(api.readerRouteIntent).toHaveBeenCalled());
   expect(api.readerRouteIntent).toHaveBeenLastCalledWith({
     extractionId: "ext_axler", spanIds: ["ax7a_1"], text: words, quote: SIDE_TEXT, speculative: false, notes: false,
+    spanKeys: ["ext_axler:ax7a_1"],
   });
 }
 
@@ -310,12 +311,12 @@ it("active reading and another way run on the second pane's reading; the card sh
   await openSideBySide();
   await route("why_step", "why?");
   await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalled());
-  expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "why_step" });
+  expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "why_step", spanKeys: ["ext_axler:ax7a_1"] });
   await waitFor(() => expect(pane()!.querySelector("[data-sbs-card] [data-active-reading='why_step']")).toBeTruthy());
   // "let me try the next step" folds this book's next lines in this pane.
   api.readerActiveQuestion.mockResolvedValue({ anchorSpanIds: ["ax7a_1"], foldedSpanIds: ["ax7a_2", "ax7a_3"], batchId: null, question: null, status: "pending" });
   await route("next_step", "next");
-  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenLastCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "next_step" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenLastCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "next_step", spanKeys: ["ext_axler:ax7a_1"] }));
   await waitFor(() => expect(sideBlock("ax7a_2").hasAttribute("data-folded")).toBe(true));
   expect(pane()!.querySelector("[data-next-step-fold]")).toBeTruthy();
   await route("another_way", "another view");
@@ -327,7 +328,7 @@ it("make this explorable builds a figure on the second pane's reading", async ()
   await openSideBySide();
   await route("make_explorable", "explore it");
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalled());
-  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], region: null });
+  expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], region: null, spanKeys: ["ext_axler:ax7a_1"] });
 });
 
 it("the second pane's palette is the main pane's: work through this and what matters here? are offered there too (re-review F7)", async () => {
@@ -728,7 +729,7 @@ it("F5: the second pane's discovered marks write RW3b receipts in that book's ow
   fireEvent.click(pane()!.querySelector<HTMLElement>("[data-cue-mark='dcue_ax7a_1']")!);
   fireEvent.click(await within(pane()!).findByRole("button", { name: /try/i }));
   await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith({ extractionId: "ext_axler", cueId: "dcue_ax7a_1", action: "try_first", visitId, planId: "cplan_side" }));
-  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "next_step" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], style: "next_step", spanKeys: ["ext_axler:ax7a_1"] }));
   // An "open" tap carries the same visit (its impression's response).
   fireEvent.click(pane()!.querySelector<HTMLElement>("[data-cue-mark='dcue_ax7a_1']")!);
   fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.open} ·`) }));
@@ -1241,7 +1242,7 @@ it("audit: the tutor's offers on an answer about the second book act on that boo
   await askSideWithOffers();
   // "try the next step first": RW1b's question in the second pane, on that book's passage.
   fireEvent.click(await screen.findByRole("button", { name: /try the next step first/ }));
-  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step", spanKeys: ["ext_axler:ax7a_2"] }));
   // "show me": the figure is built on that book's reading, at the passage asked on.
   fireEvent.click(screen.getByRole("button", { name: /show me:/ }));
   await waitFor(() => expect(api.figureRequest).toHaveBeenCalledTimes(1));
@@ -1271,7 +1272,7 @@ it("audit: try the next step on an answer about the second book, with side by si
   fireEvent.click(await screen.findByRole("button", { name: /try the next step first/ }));
   await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
   await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledTimes(1));
-  expect(api.readerActiveQuestion.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step" });
+  expect(api.readerActiveQuestion.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step", spanKeys: ["ext_axler:ax7a_2"] });
 });
 
 it("audit: show me from the Ask rail on a thread about the second book builds the figure on that book", async () => {

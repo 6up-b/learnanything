@@ -12,6 +12,7 @@ import { api } from "../../../api/client";
 import type { FigureBuildResultDto, FigurePredictionResultDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
 import { frameBadge } from "./FigureInline";
+import { passageKeys } from "../readerShared";
 
 /** How often a running build is read (a background job: no hurry). */
 export const FIGURE_POLL_MS = 1500;
@@ -221,7 +222,7 @@ export function useFigures({
         if (!anchored && !readingAt) return Promise.resolve("skipped");
         return run(key, anchor, () => api.figureRequest({
           goalText: goal, origin,
-          anchor: anchored ? { extractionId, spanIds, region } : null,
+          anchor: anchored ? { extractionId, spanIds, region, spanKeys: passageKeys(extractionId, [...spanIds, region?.spanId]) } : null,
           readingAt, offerRef: input.offerRef ?? null,
         }), input.onLanded);
       }
@@ -229,9 +230,10 @@ export function useFigures({
       if (origin !== "selection") {
         // RW5b: an offer builds only while offers are on (the server checks the offer too).
         if (!contract?.offers) return Promise.resolve("skipped");
-        return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin: origin as "library" | "tutor", offerRef: input.offerRef ?? null }), input.onLanded);
+        return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin: origin as "library" | "tutor", offerRef: input.offerRef ?? null,
+          spanKeys: passageKeys(extractionId, spanIds) }), input.onLanded);
       }
-      return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }), input.onLanded);
+      return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region, spanKeys: passageKeys(extractionId, [...spanIds, region?.spanId]) }), input.onLanded);
     },
     [enabled, extractionId, contract, run],
   );

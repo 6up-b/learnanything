@@ -172,7 +172,7 @@ it("the hook sends a joint request with the selection and the words, and skips w
     await result.current.request({ spanIds: ["p3"], goalText: "  but with p near 1 ", origin: "show_me" });
   });
   expect(api.figureRequest).toHaveBeenCalledWith({
-    goalText: "but with p near 1", origin: "show_me", anchor: { extractionId: "ext", spanIds: ["p3"], region: null },
+    goalText: "but with p near 1", origin: "show_me", anchor: { extractionId: "ext", spanIds: ["p3"], region: null, spanKeys: ["ext:p3"] },
     readingAt: null, offerRef: null,
   });
   rerender({ showMe: false });

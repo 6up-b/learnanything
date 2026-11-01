@@ -159,7 +159,8 @@ it("a press in this book that the server refuses says it was not built and offer
   const pane = await libraryAnswer();
   press(pane, HERE);
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledWith({
-    extractionId: view.extractionId, spanIds: ["span_spectral_worked"], origin: "library", offerRef: "la_1" }));
+    extractionId: view.extractionId, spanIds: ["span_spectral_worked"], origin: "library", offerRef: "la_1",
+    spanKeys: [`${view.extractionId}:span_spectral_worked`] }));
   await waitFor(() => expect(offerLine(pane, HERE)).not.toContain(LIBRARY_EXPLORABLE_COPY.building));
   expect(offerLine(pane, HERE)).toContain(LIBRARY_EXPLORABLE_COPY.lapsed.not_built);
   expect(pane.querySelector(`[data-library-explorable="${HERE}"]`)).not.toBeNull();

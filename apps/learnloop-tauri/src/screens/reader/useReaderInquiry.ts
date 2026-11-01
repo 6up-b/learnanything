@@ -46,7 +46,7 @@ import { checkOffer } from "./checkOffer";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { type AskAbout, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
-import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
+import { clip, passageKeys, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
 import type { PaneTarget } from "./sideBySide";
@@ -726,9 +726,12 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     setBusy(true);
     if (inquiry) setAskPhase("pending");
     try {
+      const askReading = about?.extractionId ?? render.extractionId;
       const answer = await api.readerAsk({
-        extractionId: about?.extractionId ?? render.extractionId,
+        extractionId: askReading,
         spanId: groundingSpan,
+        // Follow-ups Nov 1: every passage named with the reading it is in (the exchange's book).
+        spanKeys: passageKeys(askReading, [groundingSpan, ...selectionSpanIds]),
         question: asked,
         ...(inquiry ? { parentExchangeId: parent?.id ?? null } : {}),
         answerMode: override?.answerMode ?? answerMode,

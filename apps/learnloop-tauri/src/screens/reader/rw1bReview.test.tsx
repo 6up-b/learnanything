@@ -305,7 +305,7 @@ it("F9: a video transcript folds the next step while the learner tries it", asyn
   select(cue);
   await screen.findByRole("textbox", { name: BOX });
   await pickFromPalette("let me try the next step");
-  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_video", spanIds: ["t1"], style: "next_step" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_video", spanIds: ["t1"], style: "next_step", spanKeys: ["ext_video:t1"] }));
   expect(await screen.findByText(/the next line is folded while you try/)).toBeTruthy();
   expect(screen.queryByText("So the density is weighted by the chance of each component.")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "show" }));

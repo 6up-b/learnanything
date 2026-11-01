@@ -1436,7 +1436,7 @@ export const api = {
   readerAsk: (input: ReaderAskInput) => mutatingReader(call<ReaderAnswerDto>("reader_ask", { input })),
   readerAskHistory: (extractionId: string) =>
     call<ReaderAskHistoryDto>("reader_ask_history", { input: { extractionId } }),
-  readerSetAnswerMode: (input: { extractionId: string; spanId: string; answerMode: ReaderAnswerMode }) =>
+  readerSetAnswerMode: (input: { extractionId: string; spanId: string; answerMode: ReaderAnswerMode; spanKeys?: string[] }) =>
     mutatingReader(call<{ eventId: string; answerMode: ReaderAnswerMode }>("reader_set_answer_mode", { input })),
   readerPresentQuestion: (input: { practiceItemId: string; readingPhase: string; goalId?: string | null; targetContractVersionId?: string | null }) =>
     call<Record<string, unknown>>("reader_present_question", { input }),
@@ -1596,7 +1596,7 @@ export const api = {
   // Reader workbench RW1b: the intent box's router (start, read, outcome) and
   // active reading (a question on a selection, its status and actions,
   // "reconstruct this later" and its undo).
-  readerRouteIntent: (input: { extractionId: string; spanIds: string[]; text: string; quote?: string; speculative?: boolean; notes?: boolean }) =>
+  readerRouteIntent: (input: { extractionId: string; spanIds: string[]; text: string; quote?: string; speculative?: boolean; notes?: boolean; spanKeys?: string[] }) =>
     call<ReaderIntentRoutingDto>("reader_route_intent", { input }),
   readerIntentRouting: (input: { routingId: string; waitMs?: number }) =>
     call<ReaderIntentRoutingDto>("reader_intent_routing", { input }),
@@ -1604,7 +1604,7 @@ export const api = {
   // asked while the routing still runs is recorded when it lands (deferred).
   readerIntentOutcome: (input: { routingId: string; outcome: "used" | "discarded" | "corrected" | "reverted"; action?: string | null; annotationId?: string | null }) =>
     call<{ routingId: string; recorded: boolean; deferred?: boolean; reverted?: { annotationId: string; commitmentId: string | null; requestId: string | null } }>("reader_intent_outcome", { input }),
-  readerActiveQuestion: (input: { extractionId: string; spanIds: string[]; style: ReaderActiveStyle }) =>
+  readerActiveQuestion: (input: { extractionId: string; spanIds: string[]; style: ReaderActiveStyle; spanKeys?: string[] }) =>
     mutatingReader(call<ReaderActiveQuestionRequestDto>("reader_active_question", { input })),
   readerActiveQuestionStatus: (input: { extractionId: string; anchorSpanIds: string[]; style: ReaderActiveStyle; batchId?: string | null }) =>
     call<ReaderActiveQuestionStatusDto>("reader_active_question_status", { input }),
@@ -1619,6 +1619,7 @@ export const api = {
   readerLibraryAsk: (input: {
     query: string; entry: LibraryAskEntry; extractionId?: string | null; spanIds?: string[];
     learningObjectIds?: string[]; personalized?: boolean | null; expand?: LibraryExpansion[] | null;
+    spanKeys?: string[];
   }) => call<LibraryJobDto<LibraryAskDto>>("reader_library_ask", { input }),
   // Each answers at once with a job (the sidecar never waits on a model on
   // the request path): read it with readerLibraryJob, cancel it with
@@ -1716,7 +1717,7 @@ export const api = {
   // this explorable", "not right?") answers at once with a job (the author,
   // the verifier and the sandbox run off the request path): read it with
   // readerFigureJob. Exam and held-out material is refused before any call.
-  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; origin?: "selection" | "library" | "tutor"; offerRef?: string | null }) =>
+  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; origin?: "selection" | "library" | "tutor"; offerRef?: string | null; spanKeys?: string[] }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
   // Reader RW5d P1: "show me" (FigureRequestV1): a goal in the learner's words,
   // with or without a passage; the same build job (read it with readerFigureJob).

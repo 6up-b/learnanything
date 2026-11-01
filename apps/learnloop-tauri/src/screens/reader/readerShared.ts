@@ -48,6 +48,16 @@ export interface ReaderSelection {
   region?: { spanId: string; page: number; bbox: number[] };
 }
 
+/** Reader follow-ups Nov 1 (CA6b open item 1): passages as `extraction:span`
+ *  keys, named by the reading they were taken in (the passage's own
+ *  SourceIdentity, never the main pane's render by default). The reading-only
+ *  RPCs send them beside the bare ids; the sidecar refuses a key that names
+ *  another reading than the request's (span ids repeat across books), and an
+ *  id sent without its key. */
+export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[] {
+  return [...new Set(spanIds.filter((span): span is string => Boolean(span)).map((span) => `${reading}:${span}`))];
+}
+
 export function selectionNodes(sel: {
   spanId: string;
   quote: string;
