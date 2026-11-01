@@ -1717,9 +1717,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # max_daily_cost_usd = 0.25 (keep) (modelled defaults, left out of the
     # decision-only template) and the chat route ai.routing.reader_digest: one
     # background narrative per reader session from its typed summary (salience
-    # only, never evidence) and reader activity beside the router card (never in
-    # its hash or a router model's input). Display and routing data at every
-    # version (no successor); every snapshot moves only because the effective
+    # only, never evidence) and the router card's "Reader activity" section
+    # (routing only, never evidence; absent with nothing to say or with
+    # digest.enabled off, the predecessor's card byte for byte). Display and
+    # routing data at every version (no successor, as TE0's card section);
+    # every snapshot moves only because the effective
     # config gains the section and the route; all of them were recomputed from
     # the composed defaults (defaults_fingerprint_for_version).
     "mvp-0.9": "0553da1aba2f97296da8ffdae220a64b5b8d0747f15b6c1c7bb6350d4c829821",

@@ -1408,15 +1408,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
     # Reader workbench RW6b part 2 (spec §9.2): the session narrative (one
     # background call per reader session, salience only, never evidence) and
-    # the router card's reader activity (data beside the card, never hashed or
-    # read by a router model). The 120-word bound is the spec's structural
-    # bound in code (reader_digest.MAX_WORDS), not a key.
+    # the router card's "Reader activity" section (routing only, never
+    # evidence). The 120-word bound is the spec's structural bound in code
+    # (reader_digest.MAX_WORDS), not a key; the card's per-list bound
+    # (router_reader.CARD_LIST_LIMIT) is a prompt-size bound, keep, not a key.
     _ConfigRule(_exact(
         "digest.enabled",
         "digest.narrative_enabled",
     ), "structural", "operational",
-        "kill switches for RW6b part 2 as a whole (the narrative and the router card's reader activity) / the "
-        "narrative alone; display and routing data, never evidence, no measurement, scheduling or serving "
+        "kill switches for RW6b part 2 as a whole (the narrative and the router card's Reader activity section) / "
+        "the narrative alone; display and routing data, never evidence, no measurement, scheduling or serving "
         "authority (no successor)."),
     _ConfigRule(_exact(
         "digest.max_daily_cost_usd",

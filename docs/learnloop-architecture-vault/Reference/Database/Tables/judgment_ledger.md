@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "aca248456eeb018af0f9703f284541298697d35f"
-source_commit_timestamp: "2026-11-01T01:19:43-05:00"
+source_commit: "aa99e79156d9d52a4ea10e632297ab17ca3413af"
+source_commit_timestamp: "2026-11-01T02:10:37-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -113,6 +113,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/proposals/method_statement_judge.py`
 - `src/learnloop/content/proposals/required_method_override.py`
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/figures.py`
 - `src/learnloop/db/stores/pf.py`

@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "aca248456eeb018af0f9703f284541298697d35f"
-source_commit_timestamp: "2026-11-01T01:19:43-05:00"
+source_commit: "aa99e79156d9d52a4ea10e632297ab17ca3413af"
+source_commit_timestamp: "2026-11-01T02:10:37-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/instructional/reader_followups.py"
+  - "src/learnloop/daily_plan/router_reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/reader/active_reading.py`

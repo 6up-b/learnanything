@@ -2458,7 +2458,8 @@ class DigestConfig(BaseModel):
     card's reader section (spec_reader_workbench_v1 §9.2, §9.6; UX §4.8).
 
     * ``narrative_enabled``: after a reader session RW6b planned (its digest
-      row), one background call (route ``reader_digest``) writes at most 120
+      row; with follow-ups not live, a summary-only row written for the
+      narrative), one background call (route ``reader_digest``) writes at most 120
       words from the session's typed summary only, citing the summary's event
       ids. Code validates the citations and the word bound: an invalid
       narrative is dropped and why is recorded (``judgment_ledger``, task
@@ -2467,11 +2468,11 @@ class DigestConfig(BaseModel):
       "summary written by LearnLoop's model". Tier 1 (salience only): never a
       source of a filled mark and never evidence. Off: no route call and no
       narrative anywhere (RW6b part 1 exactly).
-    * ``enabled``: RW6b part 2 as a whole: the narrative and the reader
-      section of the router's learner-state card
-      (``reader_activity_for_card``), which is data beside the card and never
-      in its hash, its text or anything a router model reads, so no decision
-      changes. Off: neither.
+    * ``enabled``: RW6b part 2 as a whole: the narrative and the "Reader
+      activity" section of the router's learner-state card
+      (``reader_activity_for_card``; router R2), which the router models read
+      (routing only, never evidence). Off: neither, and the card is the
+      predecessor's byte for byte.
     * ``price_per_million``: the owner's price for a metered narrative route
       (unset: a metered route is refused before sending). The ChatGPT plan
       needs none (estimated_only).

@@ -3,8 +3,8 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "aca248456eeb018af0f9703f284541298697d35f"
-source_commit_timestamp: "2026-11-01T01:19:43-05:00"
+source_commit: "aa99e79156d9d52a4ea10e632297ab17ca3413af"
+source_commit_timestamp: "2026-11-01T02:10:37-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/216_interactive_figures.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/reader/reader_observations.py"
-  - "src/learnloop/reader/reader_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,6 +96,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
@@ -121,6 +122,7 @@ None found by exact static reference scan.
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_switch_off.py`
+- `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
