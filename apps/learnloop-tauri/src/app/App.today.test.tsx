@@ -126,7 +126,15 @@ vi.mock("../screens/ReaderScreen", () => ({
   }
 }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
-vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
+vi.mock("../screens/StartScreen", () => ({
+  // Reader CA6b fix round 4: the classic shell's Begin, for a check waiting on a session.
+  StartScreen: (props: { onBegin?: (snapshot: unknown) => void }) => (
+    <div data-testid="start-stub">
+      start-stub
+      <button type="button" onClick={() => props.onBegin?.(STARTED)}>begin stub</button>
+    </div>
+  )
+}));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
 vi.mock("../screens/PracticeScreen", () => ({
   PracticeScreen: ({ practiceItemId, session, onBack }: { practiceItemId: string; session: { sessionId: string }; onBack?: () => void }) => (
@@ -768,5 +776,43 @@ describe("CA6b re-review, F8: back from a check begun beside keeps the way back 
     fireEvent.click(screen.getByRole("button", { name: "check me" }));
     fireEvent.click(await screen.findByRole("button", { name: "practice back" }));
     await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe(""));
+  });
+});
+
+// Reader CA6b fix round 4 (verify finding 2): a check begun in side by side's
+// second pane with no session yet waits for one (the classic shell); the
+// Reader the shell opens once the session begins (fromStart) keeps the way
+// back to side by side. The simple shell's implicit start reopens the Reader
+// through the same call when the check's book is not the open one.
+describe("CA6b fix round 4, finding 2: a check begun beside that waits on a session keeps the way back", () => {
+  it("classic: Begin, then the Reader opens on the check's book with the trail", async () => {
+    stubs.config = { ui: { shell: "classic" }, workbench: { enabled: true } };
+    const { planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByTestId("start-stub");
+    await press({ key: "9", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
+    fireEvent.click(screen.getByRole("button", { name: "check me beside" }));
+    fireEvent.click(await screen.findByRole("button", { name: "begin stub" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
+    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
+    expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe("2");
+  });
+
+  it("simple: the implicit start, then the Reader reopened on the check's book carries the trail", async () => {
+    stubs.config = { workbench: { enabled: true } };
+    const { startSession, planLearnerPick } = todayApis();
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Places" });
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
+    fireEvent.click(screen.getByRole("button", { name: "check me beside" }));
+    await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
+    expect(startSession).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
+    expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe("2");
   });
 });

@@ -48,8 +48,15 @@ const { api, plans, state } = vi.hoisted(() => ({
     findPractice: vi.fn(), recordProposalImpressions: vi.fn(), readerSetInquiryStatus: vi.fn(), readerCueDiscovery: vi.fn(),
     readerCueDiscoveryJob: vi.fn(), readerReadingPath: vi.fn(), workbenchForSource: vi.fn(), workbenchOpen: vi.fn(),
     workbenchRefreshImport: vi.fn(), workbenchGet: vi.fn(), workbenchAdmit: vi.fn(), workbenchLeave: vi.fn(),
+    recordSourceOfferShown: vi.fn(), runSourceTool: vi.fn(), cancelIngestBatch: vi.fn(), resolveQuestionEvent: vi.fn(),
+    readerReconnectAnswer: vi.fn(), readerInquiryQuestion: vi.fn(), readerSetAnswerMode: vi.fn(), readerLibraryTutor: vi.fn(), figureRequest: vi.fn(),
   },
-  plans: { main: {} as Record<string, unknown>, side: {} as Record<string, unknown> },
+  plans: {
+    main: {} as Record<string, unknown>, side: {} as Record<string, unknown>,
+    // Fix round 4: a test may turn on the Reader's plan cache (a read that is
+    // not forced gets the plan read before), as readGuidePlan's cache does.
+    cached: false, cache: new Map<string, Record<string, unknown>>(),
+  },
   state: { contract: {} as Record<string, unknown> },
 }));
 vi.mock("../../api/client", () => ({ api }));
@@ -60,7 +67,12 @@ vi.mock("../../api/useCachedQuery", () => ({
 }));
 vi.mock("./readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
 vi.mock("./guidePlan", () => ({
-  readGuidePlan: (_sourceId: string, extractionId: string) => Promise.resolve(extractionId === "ext_axler" ? plans.side : plans.main),
+  readGuidePlan: (_sourceId: string, extractionId: string, options: { force?: boolean } = {}) => {
+    if (plans.cached && !options.force && plans.cache.has(extractionId)) return Promise.resolve(plans.cache.get(extractionId));
+    const plan = extractionId === "ext_axler" ? plans.side : plans.main;
+    plans.cache.set(extractionId, plan);
+    return Promise.resolve(plan);
+  },
   useGuideDiagnosisRefresh: () => undefined,
 }));
 vi.mock("./useReaderRequests", () => ({
@@ -124,6 +136,8 @@ function cues(marks: ReaderCueDto[], extra: Partial<ReaderCuesDto> = {}): Reader
 beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
   resetReaderActivityForTests();
+  plans.cached = false;
+  plans.cache.clear();
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 1400 });
@@ -1098,4 +1112,247 @@ it("F12 round 3: moving the second pane among its book's sections keeps its open
   await waitFor(() => expect(sideAsks()).toHaveLength(2));
   const [first, second] = sideAsks();
   expect(second.sourceOpenId).toBe(first.sourceOpenId);
+});
+
+// ── Fix round 4 (verify findings 1-4; the second book's identity audit) ────
+
+const IMPORTED = {
+  practiceItemId: "pi_axler", title: "Exercise 7.A.1", prompt: SIDE_TEXT, learningObjectTitle: "self-adjoint operators",
+  capability: null, taskFeatures: {}, difficulty: null, evidenceFacets: [], hintCount: 0, classificationReason: null,
+};
+
+it("finding 1: an exercise imported from the second pane is worked through in that book (its reading and passages), never under the main book", async () => {
+  workbenchOn();
+  axlerOpens();
+  api.readerImportExercise.mockResolvedValue({ batchId: "batch_side", status: "queued" });
+  api.readerExerciseImportStatus.mockResolvedValue({
+    status: "completed", result: { extractionId: "ext_axler", items: [IMPORTED], skipped: [], warnings: [], anchorStatus: "exact" },
+  });
+  await openSideBySide();
+  await route("import_exercise", "import this");
+  await waitFor(() => expect(api.readerImportExercise).toHaveBeenCalledWith(expect.objectContaining({ extractionId: "ext_axler", sourceId: "src_axler" })));
+  // The completed import in Notes: "work through this".
+  fireEvent.click(screen.getByRole("button", { name: "expand the rail (\\)" }));
+  fireEvent.click(await screen.findByRole("button", { name: "notes" }));
+  const work = await screen.findByRole("button", { name: "work through this ▸" }, { timeout: 5000 });
+  fireEvent.click(work);
+  // That book opens in the main pane first; the workbench opens there, on its reading and passages.
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalled());
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({
+    entry: "work_through", practiceItemId: "pi_axler", extractionId: "ext_axler", spanIds: ["ax7a_1"],
+  });
+  expect(api.workbenchOpen).not.toHaveBeenCalledWith(expect.objectContaining({ extractionId: view.extractionId }));
+}, 15000);
+
+it("finding 4: an answer that lands after a new composer opened goes into history, and leaves that composer's draft and thread alone", async () => {
+  let resolveFirst: (value: unknown) => void = () => undefined;
+  api.readerAsk.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  // A new composer on another passage of the pane; the learner starts typing there.
+  select(sideBlock("ax7a_2"));
+  const box = (await within(pane()!).findByRole("textbox", { name: BOX })) as HTMLInputElement;
+  fireEvent.change(box, { target: { value: "" } });
+  await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+  await screen.findByText(/ASKING ABOUT YOUR SELECTION IN Axler/);
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "my own question" } });
+  // The first request's answer lands now.
+  await act(async () => {
+    resolveFirst({ eventId: "q_first", readerAnswerEventId: "a_first", parentExchangeId: null, answerMd: "First answer", answerMode: "help_me_reason", citations: [], manifest: {} });
+    await Promise.resolve();
+  });
+  expect(await screen.findByText("First answer")).toBeTruthy();
+  // The draft is the learner's still, and the composer is still on its own passage.
+  expect((screen.getByPlaceholderText("ask about this passage…") as HTMLTextAreaElement).value).toBe("my own question");
+  expect(screen.getByText(/ASKING ABOUT YOUR SELECTION IN Axler/)).toBeTruthy();
+  fireEvent.keyDown(screen.getByPlaceholderText("ask about this passage…"), { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  const second = api.readerAsk.mock.calls[1][0] as Record<string, unknown>;
+  expect(second).toMatchObject({ extractionId: "ext_axler", spanId: "ax7a_2", selectionSpanIds: ["ax7a_2"], question: "my own question" });
+  expect(second.parentExchangeId ?? null).toBeNull();
+});
+
+it("finding 3: what discovery found while the second pane was loading another section is drawn when it shows (the plan re-read past the cache)", async () => {
+  plans.cached = true;
+  plans.side = { ...plans.side, cues: discoveredCues([]) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "cjob_side", extractionId: "ext_axler", state: "pending", result: null });
+  api.readerCueDiscoveryJob.mockImplementation(async () => {
+    // The job finds a mark in 7.B (the plan the sidecar now serves has it).
+    plans.side = { ...plans.side, cues: discoveredCues([found("ax7b_2")]) };
+    return { jobId: "cjob_side", extractionId: "ext_axler", state: "done", result: { status: "done", targetsKey: "tk_side", calls: 1, links: 1 } };
+  });
+  let releaseB: () => void = () => undefined;
+  api.readerSideBySideSection.mockImplementation(async (input: { sectionId: string }) => {
+    if (input.sectionId !== "ax7b") return { section: SECTION_A_NEXT };
+    await new Promise<void>((resolve) => { releaseB = resolve; });
+    return { section: SECTION_B };
+  });
+  await openSideBySide();
+  await waitFor(() => expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1));
+  // The pane moves to 7.B; while that section loads, the job is read to its end.
+  fireEvent.click(within(pane()!).getByRole("button", { name: "next section: 7.B The spectral theorem" }));
+  await waitFor(() => expect(api.readerCueDiscoveryJob).toHaveBeenCalledTimes(1), { timeout: 4000 });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await act(async () => { releaseB(); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
+  await waitFor(() => expect(pane()!.querySelector("[data-cue-mark='dcue_ax7b_2']")).toBeTruthy());
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+}, 15000);
+
+// The tutor's offers under an answer about the second book (an Ask made in its pane).
+const TUTOR_ON = { retrieval: true, offers: true, anotherWay: true, personalizedDefault: true, tryNextStep: true, manifestIncludes: [] };
+const FIGURES_ON = { predictions: false, region: false, revisions: false, offers: true, showMe: true };
+function sideAnswerWithOffers() {
+  return {
+    eventId: "qe_side", readerAnswerEventId: "a_side", parentExchangeId: null, answerMd: "Side answer", answerMode: "help_me_reason",
+    citations: [], manifest: {}, toolRequests: [
+      { toolCallId: "stc_c", tool: "compare_sources", reason: "Your books differ here", run: "lazy", dropped: [], arguments: { query: "self-adjoint" } },
+    ],
+    tutor: {
+      modes: ["grounded"], excerpt: null, bridgeMd: null, abstained: false, abstentionLine: null, droppedExcerpt: null,
+      droppedBridge: null, intent: "explain", personalized: true, retrieval: { status: "verified", policy: "reading" },
+    },
+    tutorOffers: { buttons: [
+      { kind: "try_next_step", extractionId: "ext_axler", spanId: "ax7a_2", label: "try it", role: "step" },
+      { kind: "make_explorable", extractionId: "ext_axler", spanId: "ax7a_3", label: "make this explorable", role: "equation" },
+      { kind: "show_me", extractionId: "ext_axler", spanId: "", label: "the eigenvalues on a line", role: "goal" },
+    ] },
+  };
+}
+async function askSideWithOffers(): Promise<void> {
+  state.contract = { ...ON, readerTutor: TUTOR_ON, figures: FIGURES_ON };
+  api.readerAsk.mockResolvedValue(sideAnswerWithOffers());
+  api.readerFigureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.figureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.readerFigureJob.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "ljob_compare", kind: "compare", askId: "la_c", state: "pending", result: null });
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("Side answer");
+}
+
+it("audit: the tutor's offers on an answer about the second book act on that book (next step and show me in its pane; the comparison leads with it)", async () => {
+  await askSideWithOffers();
+  // "try the next step first": RW1b's question in the second pane, on that book's passage.
+  fireEvent.click(await screen.findByRole("button", { name: /try the next step first/ }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step" }));
+  // "show me": the figure is built on that book's reading, at the passage asked on.
+  fireEvent.click(screen.getByRole("button", { name: /show me:/ }));
+  await waitFor(() => expect(api.figureRequest).toHaveBeenCalledTimes(1));
+  expect(api.figureRequest.mock.calls[0][0]).toMatchObject({
+    goalText: "the eigenvalues on a line", origin: "tutor", offerRef: "qe_side", readingAt: { extractionId: "ext_axler", spanId: "ax7a_1" },
+  });
+  // "how do your books treat this?": the comparison anchored there leads with that book.
+  fireEvent.click(screen.getByRole("button", { name: /how do your books treat this\?/ }));
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1));
+  expect(api.readerLibraryCompare.mock.calls[0][0]).toMatchObject({ door: "tutor_offer", extractionId: "ext_axler", openSourceId: "src_axler" });
+});
+
+it("audit: make this explorable on an answer about the second book builds it on that book (opened in the main pane)", async () => {
+  axlerOpens();
+  await askSideWithOffers();
+  fireEvent.click(await screen.findByRole("button", { name: /make this explorable/ }));
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
+  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledTimes(1));
+  expect(api.readerFigureRequest.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7a_3"], origin: "tutor" });
+});
+
+it("audit: try the next step on an answer about the second book, with side by side closed, takes that book to the main pane and asks there", async () => {
+  axlerOpens();
+  await askSideWithOffers();
+  await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
+  await waitFor(() => expect(pane()).toBeNull());
+  fireEvent.click(await screen.findByRole("button", { name: /try the next step first/ }));
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledTimes(1));
+  expect(api.readerActiveQuestion.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7a_2"], style: "next_step" });
+});
+
+it("audit: show me from the Ask rail on a thread about the second book builds the figure on that book", async () => {
+  state.contract = { ...ON, figures: FIGURES_ON };
+  api.figureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("Side answer");
+  // The answer is the thread now (a follow-up about that book); its words, as a figure goal.
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "draw the eigenvalues" } });
+  fireEvent.click(screen.getByRole("button", { name: "show me ▸" }));
+  await waitFor(() => expect(api.figureRequest).toHaveBeenCalledTimes(1));
+  expect(api.figureRequest.mock.calls[0][0]).toMatchObject({
+    goalText: "draw the eigenvalues", origin: "show_me", readingAt: { extractionId: "ext_axler", spanId: "ax7a_1" },
+  });
+});
+
+it("audit: a reconnect answer on a thread about the second book names that book's reading", async () => {
+  api.resolveQuestionEvent.mockResolvedValue({});
+  api.readerReconnectAnswer.mockResolvedValue({ status: "recorded", question: null, batchId: null });
+  api.readerAsk
+    .mockResolvedValueOnce({ eventId: "q_root", readerAnswerEventId: "a_root", parentExchangeId: null, answerMd: "Root answer", answerMode: "help_me_reason", citations: [], manifest: {} })
+    .mockResolvedValueOnce({ eventId: "q_branch", readerAnswerEventId: "a_branch", parentExchangeId: "a_root", answerMd: "Branch answer", answerMode: "help_me_reason", citations: [], manifest: {} });
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("Root answer");
+  // A follow-up on that thread (still about that book), then marked done: the reconnect line asks about the root.
+  const composer = screen.getByPlaceholderText("ask about this passage…");
+  fireEvent.change(composer, { target: { value: "and why real?" } });
+  fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+  await screen.findByText("Branch answer");
+  expect(api.readerAsk.mock.calls[1][0]).toMatchObject({ extractionId: "ext_axler", parentExchangeId: "a_root" });
+  fireEvent.click(await screen.findByRole("button", { name: "done" }));
+  await waitFor(() => expect(api.resolveQuestionEvent).toHaveBeenCalledWith("q_branch", "resolved"));
+  fireEvent.click(await screen.findByRole("button", { name: "yes" }));
+  await waitFor(() => expect(api.readerReconnectAnswer).toHaveBeenCalledTimes(1));
+  expect(api.readerReconnectAnswer.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", exchangeId: "a_root", answer: "yes" });
+});
+
+const SIDE_LIBRARY_ASK = {
+  askId: "la_side", query: "other books", entry: "where_else_explained", status: "ok", policy: "reading",
+  personalized: true, basis: "keyword", learningObjectIds: ["lo_sym"], extractionId: "ext_axler", anchorSpanIds: ["ax7a_1"],
+  hits: [
+    { key: "ext_other:o1", extractionId: "ext_other", spanId: "o1", sourceId: "src_other", sourceTitle: "Other Book", section: "Chapter 5", page: 3, text: "Other book's passage.", role: "definition", group: "Foundation", expansion: null, learningObjectIds: [], authorship: "source", label: "source-authored" },
+    { key: `${view.extractionId}:${SPAN_IDS[1]}`, extractionId: view.extractionId, spanId: SPAN_IDS[1], sourceId: view.sourceId, sourceTitle: "Strang", section: "6.1", page: 3, text: "Strang's passage.", role: "definition", group: "Foundation", expansion: null, learningObjectIds: [], authorship: "source", label: "source-authored" },
+  ],
+  groups: { sources: [
+    { sourceId: "src_other", sourceTitle: "Other Book", groups: [{ group: "Foundation", keys: ["ext_other:o1"] }] },
+    { sourceId: view.sourceId, sourceTitle: "Strang", groups: [{ group: "Foundation", keys: [`${view.extractionId}:${SPAN_IDS[1]}`] }] },
+  ], expansions: [] },
+  expansions: [], expandGraph: false, sourceCount: 2, passageCount: 2,
+};
+async function sideLibraryAsk(props: { onCheckMe?: (request: unknown) => void } = {}) {
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "ljob_ask", kind: "ask", askId: "la_side", state: "done", result: SIDE_LIBRARY_ASK });
+  api.readerLibraryAskNotes.mockResolvedValue({ jobId: "ljob_notes", kind: "notes", askId: "la_side", state: "done", result: { askId: "la_side", status: "judged", notes: [], order: [] } });
+  await openSideBySide(props);
+  await route("where_else_explained", "other books");
+  const answer = await screen.findByRole("region", { name: "ask your library" });
+  await within(answer).findByText("Other book's passage.");
+  return answer;
+}
+
+it("audit: a library answer asked from the second pane compares with that book leading", async () => {
+  const answer = await sideLibraryAsk();
+  fireEvent.click(within(answer).getByRole("button", { name: /compare these books/ }));
+  await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1));
+  expect(api.readerLibraryCompare.mock.calls[0][0]).toMatchObject({ door: "library_answer", askId: "la_side", openSourceId: "src_axler" });
+});
+
+it("audit: a practice pick from a library answer asked in the second pane opens in that book, at the passage asked on", async () => {
+  axlerOpens();
+  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "pp_side", items: [
+    { rank: 1, practiceItemId: "pi_lib", learningObjectId: "lo_sym", learningObjectTitle: "self-adjoint", practiceMode: "short_answer", prompt: "Why real?", facetIds: [], rationale: null },
+  ] });
+  api.recordProposalImpressions.mockResolvedValue({});
+  const onCheckMe = vi.fn();
+  const answer = await sideLibraryAsk({ onCheckMe });
+  fireEvent.click(within(answer).getByRole("button", { name: /practice this question/ }));
+  await waitFor(() => expect(api.findPractice).toHaveBeenCalledTimes(1));
+  expect(api.findPractice.mock.calls[0][0]).toMatchObject({ caller: { kind: "reader", ref: "ext_axler" } });
+  fireEvent.click(await within(answer).findByRole("button", { name: /practice this ▸/ }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" });
+  expect(onCheckMe.mock.calls[0][0]).toMatchObject({ practiceItemId: "pi_lib", proposalId: "pp_side", spanId: "ax7a_1", card: AXLER });
 });
