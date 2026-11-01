@@ -22,7 +22,15 @@ structurally, from the constants below and not from a hand list of phrases:
   its own ``·`` segment or a whole text (*Verified*), as a lead
   (*Checked: ...*), or naming LearnLoop (*verified by LearnLoop*,
   *LearnLoop checked*);
-* a check-mark glyph (:data:`CHECK_GLYPHS`), which is badge vocabulary.
+* a check-mark glyph (:data:`CHECK_GLYPHS`), which is badge vocabulary;
+* N-a's source-verification claim (*matches the book*, *agrees with your
+  textbook*, *verified against the book*: :data:`SOURCE_CLAIM_VERBS`,
+  :data:`SOURCE_NOUNS`), with no check word or glyph needed (Codex review F1,
+  Nov 1b);
+* a badge form at the start of any line of its own, read at the text's
+  original line breaks without its Markdown lead or emphasis (a line reading
+  *- **Checked:** ...*), since the desktop keeps a narration's line breaks
+  (Codex review F2).
 
 Ordinary prose is not matched: *check that the area is 1*, *we verified the
 identity by expanding*, *the box is checked*. Matching ignores case and
@@ -34,6 +42,12 @@ handled by its tier's existing path. A spec or sketch is shown without the
 text (:func:`strip_json`). A Manim figure is refused
 (:func:`learnloop.figures.manim_figure.parse_figure`), as any other invalid
 answer is.
+
+A stored figure is presented under the same rule (Codex review F3,
+:func:`learnloop.figures.service.worded_row`): listed or reused, it is shown
+without its label-like text, a Manim title left out and each label-like
+transcript line replaced in code's words (:func:`strip_lines`). The stored
+row is never rewritten.
 
 Nothing here calls a model or touches the vault.
 """

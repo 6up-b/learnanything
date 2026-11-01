@@ -6,7 +6,7 @@ This stage builds four queued follow-ups. Each one has fail-first tests named af
 
 - **No migration, no successor, no config key. Kill switches unchanged.**
 - One new module constant, `figures/labels.py:MIN_SEGMENT_WORDS`, a `keep` structural bound. It is registered in `params/parameter_registry.py`.
-- Nothing here changes persisted meaning (scoring, scheduling, projections, serving).
+- Nothing here changes persisted meaning (scoring, scheduling, projections). It does change what a figure author's answer goes through: label-like free text now costs the existing repair call, then is stripped or refused, and a stored figure's label-like text is left out when presented (Codex review, below). That changes no evidence, so it takes no successor; the figure tiers' existing kill switches cover it.
 - No paid or live model call was made. Every model in the tests is a fake. The adapter test runs the real `openai` SDK and httpx over httpcore with a fake network backend, so no socket is opened.
 - No Python ran outside pytest except `lint-imports`.
 - Cost: $0.
@@ -175,5 +175,5 @@ Test files run: test_agent_run_tokens.py, test_ai_config.py, test_ai_runtime.py,
 
 1. **Owner (P2b item 2):** the Manim opt-in can now be given. R2's rule (item 1) is built and covers a Manim figure's title, narration, brief and tier reason.
 2. **First-attempt figure lost.** A label hit on the first attempt spends the one repair call on the wording. If that repair then fails for another reason (numerics, a schema error), the first attempt's figure is not kept as a fallback, the same as for any other first-attempt problem. Keeping a stripped first attempt as a fallback (as the Manim pacing repair does) would be a small follow-up if it matters in practice.
-3. **"matches the book" is not matched.** RW5c's eventual label is not a code-owned constant yet. When RW5c defines it in `figures/labels.py`, the rule covers it automatically. N-a's "never 'matches the book'" holds today because no code writes that label.
+3. ~~**"matches the book" is not matched.**~~ Superseded by the Codex review (F1): N-a's source-verification claim is matched on its own (`SOURCE_CLAIM_VERBS`, `SOURCE_NOUNS`).
 4. **The JS half.** `js_animation`'s `html`/`js` string literals (§9b.4) wait for the JS half (G-SM14).

@@ -3,8 +3,8 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9d6f8528c698d0b1d3952e6419ec507fa3906a51"
-source_commit_timestamp: "2026-11-01T14:31:34-05:00"
+source_commit: "c6a9063313677b1ef8662ca7da53df534a733900"
+source_commit_timestamp: "2026-11-01T15:02:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
@@ -122,6 +122,7 @@ None found by exact static reference scan.
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_figure_rich_failed_correction_durable.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figure_rich_rpc.py`
@@ -134,7 +135,6 @@ None found by exact static reference scan.
 - `tests/test_migrations.py`
 - `tests/test_plan_first_transport_offer_grants.py`
 - `tests/test_plan_first_transport_offer_grants_r5.py`
-- `tests/test_reader_active_reading.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
