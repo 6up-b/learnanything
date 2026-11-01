@@ -98,10 +98,12 @@ def prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None:
     if narrate:
         try:
             # A session waiting for its narrative starts the job; sessions
-            # planned in this job are narrated right after their planning
+            # planned in this job (or, with follow-ups not live, summarized
+            # for their narrative: Codex review F2) are narrated right after
             # (only when a narration could run now: no idle job otherwise).
             narrations = bool(RN.digests_waiting(vault, repository, now=now, client=client)) or (
-                bool(waiting) and RN.admission_problem(vault, repository, client=client) is None)
+                bool(waiting or RN.sessions_to_summarize(vault, repository, now=now))
+                and RN.admission_problem(vault, repository, client=client) is None)
         except Exception:  # noqa: BLE001 - a narrative never blocks the plan
             logging.getLogger(__name__).warning("reader narrative scan failed", exc_info=True)
             narrations = False
@@ -123,6 +125,10 @@ def prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None:
             logging.getLogger(__name__).warning("reader follow-up planning failed", exc_info=True)
         try:
             if narrations:
+                if not live:
+                    # Follow-ups off (or below their successor): the session's
+                    # summary is persisted for its narrative alone (F2).
+                    RN.summarize_ended_sessions(vault, repository, now=_now())
                 RN.narrate_waiting(vault, repository, now=_now(), client=client)
         except Exception:  # noqa: BLE001 - a failed narrative is retried at the next build
             logging.getLogger(__name__).warning("reader narrative failed", exc_info=True)

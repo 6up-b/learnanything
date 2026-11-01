@@ -2,7 +2,8 @@
 §9.2, §9.5, §9.6; UX §4.8, W14).
 
 After a reader session RW6b part 1 planned (its ``reader_session_digests``
-row), one background call on route ``reader_digest`` writes **at most 120
+row; with follow-ups not live, a summary-only row this module writes,
+:func:`summarize_ended_sessions`, Codex review F2), one background call on route ``reader_digest`` writes **at most 120
 words** about what the learner did, from the session's **typed summary
 only** (the summary stored on the digest row: ids, kinds, statuses and
 verdicts, never the learner's words) plus the titles of the topics and
@@ -13,7 +14,9 @@ the word bound. A narrative that fails is **dropped** and why is recorded
 (``judgment_ledger``, task ``reader_digest_narrative``, verdict ``dropped``
 with its reasons; a kept one is recorded ``kept``).
 
-* **Once per session.** The narrative is written to the digest row's
+* **Once per session.** Before anything is asked, the session's durable
+  claim is taken (``judgment_work_claims``, task :data:`CLAIM_TASK`; Codex
+  review F3), so two processes never pay for one narrative. The narrative is written to the digest row's
   narrative columns (``narrative_md``, ``cited_event_ids_json``, ``model``,
   ``prompt_version``) by :func:`learnloop.db.stores.reader_digests.set_narrative`;
   ``prompt_version`` marks the session as narrated whether the narrative was
@@ -114,8 +117,9 @@ class ReaderDigestNarrativeV1(WireModel):
 @dataclass
 class NarrativeResult:
     """What one narration did. ``status``: narrated | dropped | disabled |
-    no_digest | already | not_ended | unavailable | capped | unpriced |
-    models_off | unrouted | failed."""
+    no_digest | already | claimed (another process holds the session's
+    claim) | not_ended | unavailable | capped | unpriced | models_off |
+    unrouted | failed."""
 
     status: str
     digest_id: str
@@ -371,6 +375,14 @@ class NarrativeRoute:
         return str(getattr(self.client, "model", None) or self.route.model or "unknown")
 
 
+#: ``judgment_work_claims.task`` of a session's narration (Codex review F3).
+CLAIM_TASK = "reader_digest_narrative"
+
+
+def claim_key(digest_id: str) -> str:
+    return f"{CLAIM_TASK}:{digest_id}"
+
+
 #: Refusals before any call that last only while they hold.
 ADMISSION_REASONS = frozenset({"models_off", "unrouted", "unpriced", "capped"})
 
@@ -463,6 +475,34 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
         _note(vault, digest_id, None)
         result.status, result.reasons = "dropped", ["exam_material"]
         return result
+    # One durable claim per session before anything is asked (Codex review
+    # F3): two sidecars (or a sidecar and a CLI) never pay for the same
+    # narrative. The claim is ``judgment_work_claims``' lease and heartbeat
+    # (the approach-map builds' and AD's); whoever holds it re-reads the row
+    # first. A dead holder's lease lapses and the next Today build retries.
+    from learnloop.hints import map_builder as claims
+
+    with claims._claimed(repository, digest_id, 0.0, key=claim_key(digest_id), task=CLAIM_TASK,
+                         producer=OWNER_KIND) as claim:
+        if claim is None:
+            result.status = "claimed"
+            return result
+        with repository.connection() as connection:
+            fresh = RDG.digest(connection, digest_id)
+        if fresh is None or fresh.get("prompt_version"):
+            result.status = "already"
+            return result
+        return _narrate_claimed(vault, repository, row, summary, result, client=client, clock=clock)
+
+
+def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any], summary: Mapping[str, Any],
+                     result: NarrativeResult, *, client: Any | None, clock: Clock | None) -> NarrativeResult:
+    """The narration itself, under the session's claim. Publication stays the
+    conditional write (``prompt_version IS NULL``): a writer whose lease
+    lapsed during the call still records what it paid for, and never over
+    another's narrative."""
+
+    digest_id = str(row["id"])
     route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))
     prompt = build_prompt(vault, repository, summary)
     try:
@@ -503,6 +543,88 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
         result.status = "narrated"
     _note(vault, digest_id, None)
     return result
+
+
+#: A summary-only digest row's lifecycle marker (Codex review F2): the
+#: session's summary was persisted for its narrative while follow-ups were
+#: not live, and nothing was planned (``valuation_json.not_planned``, with
+#: why). Status ``incomplete``, so follow-ups plan it like any unfinished
+#: session once they are live; "planned with no checks" is part 1's
+#: ``planned`` row with an empty ``chosen``.
+NOT_PLANNED_KEY = "not_planned"
+
+
+def _not_planned_reason(vault: Any) -> str:
+    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
+
+    version = getattr(getattr(vault.config, "algorithms", None), "algorithm_version", None)
+    return "followups_off" if version in READER_FOLLOWUPS_VERSIONS else "below_followups_successor"
+
+
+def sessions_to_summarize(vault: Any, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]:
+    """Ended reader sessions within follow-ups' time cap with no digest row,
+    while narration is on and follow-ups are not live (switched off, or the
+    vault below their successor): the narrative's own sessions (Codex review
+    F2; ``digest.narrative_enabled`` and ``followups.enabled`` are separate
+    switches, §9.6). Cheap: the digests and the session list only; activity
+    is checked when a session is summarized. With follow-ups live, part 1
+    writes every row and this returns nothing."""
+
+    from datetime import timedelta
+
+    from learnloop.instructional import reader_followups as RF
+
+    if not narrative_enabled(vault) or RF.followups_enabled(vault):
+        return []
+    horizon = now - timedelta(days=RF.max_wait_days(vault))
+    with repository.connection() as connection:
+        known = {(row["extraction_id"], row["session_key"]) for row in RDG.digests(connection)}
+    out = []
+    for session in RS.all_sessions(repository):
+        ended = parse_utc(session.ended_at)
+        if ended is None or ended + RS.SESSION_GAP > now or ended < horizon:
+            continue
+        if (session.extraction_id, session.session_id) not in known:
+            out.append(session)
+    return out
+
+
+def summarize_ended_sessions(vault: Any, repository: Repository, *, now: datetime,
+                             clock: Clock | None = None) -> list[dict[str, Any]]:
+    """Persist the typed summary of each session :func:`sessions_to_summarize`
+    names and had activity, as a summary-only digest row (``incomplete``,
+    ``valuation_json.not_planned``; no commitment, no valuation, no model
+    call), so it can be narrated (Codex review F2). A row another process
+    wrote meanwhile stands."""
+
+    from learnloop.instructional import reader_followups as RF
+
+    written: list[dict[str, Any]] = []
+    reason = _not_planned_reason(vault)
+    for session in sessions_to_summarize(vault, repository, now=now):
+        summary = RC.session_summary(vault, repository, extraction_id=session.extraction_id, session=session,
+                                     now=now)
+        if not summary.get("activity"):
+            continue
+        digest_id = RF.digest_id_for(session.extraction_id, session.session_id)
+        stamp = utc_now_iso(clock)
+        with repository.atomic():
+            connection = repository.connection()
+            if RDG.digest_for_session(connection, session.extraction_id, session.session_id) is not None:
+                continue
+            RDG.insert_digest(connection, {
+                "id": digest_id, "extraction_id": session.extraction_id, "session_key": session.session_id,
+                "visit_ids": list(session.visit_ids), "started_at": session.started_at,
+                "ended_at": session.ended_at, "status": "incomplete", "summary": summary,
+                "followup_commitment_ids": [],
+                "valuation": {NOT_PLANNED_KEY: reason, "summary_version": summary.get("summary_version"),
+                              "questions": [], "chosen": [], "chosen_ids": []},
+                "created_at": stamp})
+        with repository.connection() as connection:
+            row = RDG.digest(connection, digest_id)
+        if row is not None:
+            written.append(row)
+    return written
 
 
 def digests_waiting(vault: Any, repository: Repository, *, now: datetime, client: Any | None = None,
@@ -614,5 +736,7 @@ __all__ = [
     "narrate_waiting",
     "narrative_enabled",
     "narrative_view",
+    "sessions_to_summarize",
+    "summarize_ended_sessions",
     "validate_narrative",
 ]

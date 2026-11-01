@@ -415,6 +415,137 @@ def test_a_narrative_written_meanwhile_never_supersedes_part_1s_plan(tmp_path):
     assert second["narrative_md"] == NarrativeFake().text  # the narrative stays
 
 
+# -- Codex review F2: narration does not need follow-ups ----------------------------------------
+
+
+def _commitment_count(repo) -> int:
+    with repo.connection() as connection:
+        return connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0]
+
+
+def _ended_session_without_digest(tmp_path, config: str, **kwargs):
+    vault, repo, _session = _seeded(tmp_path, config=config, **kwargs)
+    ask(vault, repo, QUESTION, 5)
+    with repo.connection() as connection:
+        assert RDG.digests(connection) == []
+    return vault, repo, RS.sessions_for_source(repo, EXT)[0]
+
+
+def test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated(tmp_path):
+    vault, repo, session = _ended_session_without_digest(tmp_path, "[followups]\nenabled = false\n")
+    before = _commitment_count(repo)
+    assert [s.session_id for s in RN.sessions_to_summarize(vault, repo, now=_now())] == [session.session_id]
+    [row] = RN.summarize_ended_sessions(vault, repo, now=_now(), clock=at(300))
+    assert row["status"] == "incomplete" and row["followup_commitment_ids"] == []
+    assert row["valuation"][RN.NOT_PLANNED_KEY] == "followups_off" and row["valuation"]["chosen"] == []
+    assert row["summary"]["activity"] and _commitment_count(repo) == before  # nothing planned
+    assert RN.sessions_to_summarize(vault, repo, now=_now()) == []  # once
+    fake = NarrativeFake()
+    assert RN.narrate_digest(vault, repo, row["id"], client=fake, now=_now(), clock=at(300)).status == "narrated"
+    view = RN.narrative_view(vault, repo, extraction_id=EXT, session_key=session.session_id, now=_now())
+    assert view["state"] == "landed" and view["text"] == fake.text
+    assert QUESTION not in fake.prompts[0]  # still the typed summary only
+
+    # Follow-ups switched on later plan the session as any unfinished one; the narrative stays.
+    from learnloop.instructional import reader_followups as RF
+    from tests.ux_phase1_support import set_config
+
+    set_config(vault.root, {("followups", "enabled"): True})
+    vault = load_vault(vault.root)
+    assert [s.session_id for s in RF.sessions_to_plan(vault, repo, now=_now())] == [session.session_id]
+    planned = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]))
+    assert planned["status"] == "planned" and planned["followup_commitment_ids"]
+    assert RN.NOT_PLANNED_KEY not in planned["valuation"] and planned["narrative_md"] == fake.text
+
+
+def test_below_the_follow_ups_successor_the_summary_row_says_so(tmp_path):
+    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
+
+    predecessor = "mvp-0.38"
+    assert predecessor not in READER_FOLLOWUPS_VERSIONS
+    vault, repo, _session = _ended_session_without_digest(tmp_path, "", version=predecessor)
+    [row] = RN.summarize_ended_sessions(vault, repo, now=_now(), clock=at(300))
+    assert row["valuation"][RN.NOT_PLANNED_KEY] == "below_followups_successor"
+
+
+@pytest.mark.parametrize("config", ["[digest]\nnarrative_enabled = false\n[followups]\nenabled = false\n", ""])
+def test_no_summary_row_with_narration_off_or_follow_ups_live(tmp_path, config):
+    vault, repo, _session = _ended_session_without_digest(tmp_path, config) if config else (
+        *_seeded(tmp_path)[:2], None)
+    assert RN.sessions_to_summarize(vault, repo, now=_now()) == []
+    assert RN.summarize_ended_sessions(vault, repo, now=_now()) == []
+
+
+def test_the_queue_build_narrates_a_session_with_follow_ups_off(tmp_path, monkeypatch):
+    from learnloop_sidecar.background_jobs import background_jobs
+    from learnloop_sidecar.handlers import reader_followups as handler
+
+    vault, repo, session = _ended_session_without_digest(tmp_path, "[followups]\nenabled = false\n")
+    monkeypatch.setattr(handler, "_now", lambda: _now())
+    fake = NarrativeFake()
+    ctx = context(vault.root, reader_digest_client=fake)
+    try:
+        loaded, repository = ctx.require_vault()
+        handler.prepare_followups(ctx, loaded, repository)
+        for thread in background_jobs(ctx).running:
+            thread.join(timeout=30)
+        with repo.connection() as connection:
+            row = RDG.digest_for_session(connection, EXT, session.session_id)
+        assert fake.calls == 1 and row["narrative_md"] == fake.text and row["followup_commitment_ids"] == []
+    finally:
+        ctx.close()
+
+
+# -- Codex review F3: one paid call per session across processes ---------------------------------
+
+
+class BlockingFake(NarrativeFake):
+    """Holds its call open until released (two narrations overlap)."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        import threading
+
+        super().__init__(**kwargs)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def complete(self, request: Any) -> Any:
+        self.entered.set()
+        assert self.release.wait(30)
+        return super().complete(request)
+
+
+def test_overlapping_narrations_from_two_repositories_pay_once(tmp_path):
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    vault, repo, row = _session_with_question(tmp_path)
+    first = BlockingFake()
+    results: dict[str, Any] = {}
+    worker = threading.Thread(target=lambda: results.update(first=RN.narrate_digest(
+        vault, repo, row["id"], client=first, now=_now(), clock=at(300))))
+    worker.start()
+    try:
+        assert first.entered.wait(30)
+        # Another process: its own repository on the same database, while the first call is in flight.
+        other_repo = Repository(repo.sqlite_path)
+        second = NarrativeFake(text="A second narrative.")
+        result = RN.narrate_digest(load_vault(vault.root), other_repo, row["id"], client=second, now=_now(),
+                                   clock=at(301))
+        assert result.status == "claimed" and second.calls == 0
+    finally:
+        first.release.set()
+        worker.join(timeout=30)
+    assert results["first"].status == "narrated" and first.calls == 1
+    assert _row(repo, row["id"])["narrative_md"] == first.text
+    # Afterwards the session is narrated: nobody pays again.
+    later = NarrativeFake()
+    assert RN.narrate_digest(vault, Repository(repo.sqlite_path), row["id"], client=later, now=_now(),
+                             clock=at(400)).status == "already"
+    assert later.calls == 0
+
+
 def test_the_narrative_is_written_once_even_when_two_writers_race(tmp_path):
     vault, repo, row = _session_with_question(tmp_path)
     with repo.connection() as connection:
