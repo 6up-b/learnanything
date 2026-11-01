@@ -78,6 +78,16 @@ def show_me_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "show_me_enabled", False))
 
 
+def sketch_enabled(vault: Any) -> bool:
+    """Reader RW5d P2: ``figures.sketch_enabled`` under ``figures.enabled``:
+    the sketch tier (a sealed, verified simulation when the grammar can't
+    express the idea). The switch only; whether this machine can run the
+    engine is :func:`learnloop.figures.sketch_engine.engine_ready`."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "sketch_enabled", False))
+
+
 def figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None:
     """Reader RW5d (Codex review F3, F4): where a figure built with no passage
     lands, as ``(extraction_id, span_id)``: the reading position of every

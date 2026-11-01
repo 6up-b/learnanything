@@ -86,6 +86,10 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
         # RW5d P1: present only while figures.show_me_enabled is on, so off the
         # contract is RW5b's, key for key.
         figures["show_me"] = True
+    if FS.sketch_enabled(vault):
+        # RW5d P2: present only while the sketch tier is on (and the engine
+        # ready), so off the contract is P1's, key for key.
+        figures["sketch"] = True
     return {"figures": figures}
 
 

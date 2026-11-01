@@ -1,0 +1,85 @@
+Third-party notices for sketch-engine.wasm
+==========================================
+
+apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm is
+built by build.py (this directory) from LearnLoop's own sketch_engine.c and the
+pinned sources in engine.lock.json. The binary contains code from the projects
+below, under the licences named. LearnLoop's own code is under the
+repository's licence.
+
+
+1. QuickJS-ng 0.17.0 (quickjs-amalgam.c), MIT License
+------------------------------------------------------
+
+Copyright (c) 2016-2026 Fabrice Bellard
+Copyright (c) 2017-2025 Charlie Gordon
+Copyright (c) 2023-2026 Ben Noordhuis
+Copyright (c) 2023-2026 Saúl Ibarra Corretgé
+Copyright (c) 2023 Marcin Kolny
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+QuickJS-ng's Unicode tables are generated from the Unicode Character
+Database, Copyright (c) 1991-2026 Unicode, Inc., under the Unicode License v3
+(https://www.unicode.org/license.txt).
+
+
+2. wasi-libc (wasi-sdk 34, wasi-libc 2e6fb9d8ee0c)
+--------------------------------------------------
+
+wasi-libc's own code: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT;
+used here under the MIT License (text as in section 1, with the copyright
+holders "Copyright (c) the wasi-libc contributors").
+
+musl libc parts: MIT License (text as in section 1),
+Copyright (c) 2005-2020 Rich Felker, et al.
+
+cloudlibc parts: BSD 2-Clause License, Copyright (c) 2015-2016 Nuxi,
+https://nuxi.nl/
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+
+dlmalloc (the allocator): written by Doug Lea and released to the public
+domain (CC0 1.0), https://creativecommons.org/publicdomain/zero/1.0/
+
+
+3. compiler-rt builtins (wasi-sdk 34, LLVM 23.1.0)
+--------------------------------------------------
+
+Apache License 2.0 WITH LLVM-exception, Copyright the LLVM Project
+contributors (https://llvm.org/LICENSE.txt). Under the LLVM exception, the
+portions of compiler-rt embedded in this object code may be redistributed
+without complying with Sections 4(a), 4(b) and 4(d) of the Apache License.

@@ -1,0 +1,52 @@
+{
+  "engine": "sketch-engine-v1",
+  "sources": {
+    "quickjs": {
+      "name": "QuickJS-ng 0.17.0 amalgamated source",
+      "url": "https://github.com/quickjs-ng/quickjs/releases/download/v0.17.0/quickjs-amalgam.zip",
+      "file": "quickjs-amalgam-0.17.0.zip",
+      "sha256": "a0955463c74809173a253ff87365095e6972e8b171cfb6aa8a1e781adf35cfeb",
+      "license": "MIT"
+    },
+    "sysroot": {
+      "name": "wasi-sdk 34 sysroot (wasi-libc 2e6fb9d8ee0c)",
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sysroot-34.0.tar.gz",
+      "file": "wasi-sysroot-34.0.tar.gz",
+      "sha256": "9d813544eeebe38b7b8f2244ed591de46b6db812c6dd1a257ff9f0d2a905a2be",
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT (wasi-libc; musl: MIT)"
+    },
+    "libclang_rt": {
+      "name": "wasi-sdk 34 compiler-rt builtins",
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/libclang_rt-34.0.tar.gz",
+      "file": "libclang_rt-34.0.tar.gz",
+      "sha256": "eee3e634dcf71aa22b1333391623cf5c9965a637dc428a27b1a858c026c587f1",
+      "license": "Apache-2.0 WITH LLVM-exception"
+    }
+  },
+  "toolchain": {
+    "clang_major": 23,
+    "note": "system clang and wasm-ld; built on carson with clang 23.1.1 (the sysroot is LLVM 23.1.0)"
+  },
+  "flags": {
+    "cflags": [
+      "-O2",
+      "-DNDEBUG",
+      "-w",
+      "-fno-ident"
+    ],
+    "ldflags": [
+      "--no-entry",
+      "--export=_initialize",
+      "--strip-all",
+      "--stack-first",
+      "-z",
+      "stack-size=1048576",
+      "--max-memory=100663296"
+    ]
+  },
+  "output": {
+    "path": "src/screens/reader/figures/sketch/sketch-engine.wasm",
+    "sha256": "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe",
+    "bytes": 869392
+  }
+}

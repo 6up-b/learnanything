@@ -350,6 +350,7 @@ def build_reader_report(
     figures_enabled: bool = False,
     figure_offers_enabled: bool = False,
     figure_show_me_enabled: bool = False,
+    figure_sketch_enabled: bool = False,
     skipped_section_los: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
@@ -369,6 +370,11 @@ def build_reader_report(
     goal by origin and anchoring, the grounding mix, abstentions ("not from
     your books"), unsupported kinds and the "not right?" rate of show-me
     figures (counts only, never the words); off, the block is RW5b's.
+    ``figure_sketch_enabled`` (RW5d P2, ``figures.sketch_enabled``) adds
+    ``tiers``: figures by tier and verification, the author's tier verdicts
+    (the ``figure_tier`` receipts), its ``why_not_spec`` reasons counted (so
+    grammar erosion is visible, R3), and sketch pauses and errors in the
+    desktop; off, the block is P1's.
 
     ``skipped_section_los`` (RW7b, §15's reading-path row): the vault's map
     of skipped sections to their LOs (the CLI passes
@@ -453,6 +459,20 @@ def build_reader_report(
                 "ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_figures else []
+        # RW5d P2: the tier mix, the author's tier verdicts and its reasons.
+        tier_rows = [
+            {"tier": row["tier"], "verification": shown_verification(row["verification"])}
+            for row in connection.execute(
+                "SELECT tier, verification, created_at FROM interactive_figures ORDER BY created_at, id")
+            if in_window(row["created_at"])
+        ] if has_figures and figure_sketch_enabled else []
+        tier_verdicts = [
+            {"verdict": row["verdict"], "rationale": " ".join(str(row["rationale"] or "").split())[:160]}
+            for row in connection.execute(
+                "SELECT verdict, rationale, created_at FROM judgment_ledger WHERE task = 'figure_tier' "
+                "ORDER BY created_at, id")
+            if in_window(row["created_at"])
+        ] if has_figures and figure_sketch_enabled else []
         # RW5d P1: what "show me" asked (migration 224) and what it built.
         has_requests = has_figures and figure_show_me_enabled and connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'").fetchone() is not None
@@ -874,6 +894,18 @@ def build_reader_report(
             "not_right": sum(1 for row in show_me_figures if row["revision"]),
             "not_right_rate": (round(sum(1 for row in show_me_figures if row["revision"]) / len(built), 4)
                                if built else None),
+        }
+    if figures_enabled and figure_sketch_enabled:
+        sketch_events = Counter({name: len(actions(name)) for name in ("sketch_paused", "sketch_error")})
+        report["figures"]["tiers"] = {
+            "built": {tier: dict(Counter(row["verification"] for row in tier_rows if row["tier"] == tier))
+                      for tier in sorted({row["tier"] for row in tier_rows})},
+            "verdicts": dict(Counter(row["verdict"] for row in tier_verdicts)),
+            "why_not_spec": [{"reason": reason, "n": n} for reason, n in Counter(
+                row["rationale"] for row in tier_verdicts if row["verdict"] == "sketch" and row["rationale"]
+            ).most_common(20)],
+            "sketch_paused": sketch_events.get("sketch_paused", 0),
+            "sketch_errors": sketch_events.get("sketch_error", 0),
         }
     return report
 

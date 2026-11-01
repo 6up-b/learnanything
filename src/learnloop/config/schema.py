@@ -2590,6 +2590,22 @@ class FiguresConfig(BaseModel):
     labelled "not from your books". Off: figures are exactly RW5a/b's, and
     the tutor's prompt and output are RW5b's.
 
+    RW5d P2: ``sketch_enabled``: the sketch tier. When the declarative grammar
+    cannot express an idea (a random process, a simulation with state, a
+    geometric construction, a discrete structure), the author may write a
+    small program instead (``SketchProgramV1``), which runs in a sealed
+    interpreter (QuickJS compiled to WebAssembly: no files, network, clock or
+    app access) in the desktop and, for verification, in the sidecar; it
+    returns a display list the Reader draws and declared probes that code
+    checks against the claims it states. Labelled an AI-written simulation,
+    never "checked against the book". Off: the author's contract is RW5b's
+    byte for byte, and stored sketches list as "can't draw this yet".
+    Default **off** at landing (orchestrator decision 2026-10-31): it ships
+    off until the spec's merge gate G-SM14 (an IPC probe from inside the
+    sketch Worker in the real Tauri webview) passes; the owner turns it on
+    with ``figures.sketch_enabled = true`` after running the probe (recipe in
+    docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2605,6 +2621,7 @@ class FiguresConfig(BaseModel):
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
     show_me_enabled: bool = True
+    sketch_enabled: bool = False
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 

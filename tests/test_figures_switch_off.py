@@ -21,10 +21,12 @@ GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off.json"
 WRITE = os.environ.get("RW5A_WRITE_GOLDEN") == "1"
 
 
-def _record(tmp_path: Path, *, enabled: bool | None) -> dict:
+def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None) -> dict:
     paths, _repository, _spans = build_library_vault(tmp_path / "vault")
     if enabled is not None:
         set_config(paths, "figures", enabled=enabled)
+    if sketch is not None:
+        set_config(paths, "figures", sketch_enabled=sketch)
     ctx = context(paths.root)
     contract = call(ctx, "reader.prompt_contract", {})
     return {"contract": contract if WRITE else _without_later_stages(contract)}
@@ -71,6 +73,8 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
     recorded = _record(tmp_path, enabled=True)["contract"]
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))["contract"]
     # RW5b adds offers (figures.offers_enabled, on by default); RW5d P1 show_me.
+    # RW5d P2's sketch (figures.sketch_enabled) ships OFF until G-SM14 passes
+    # (landing decision), so the shipped contract has no "sketch" key: main's byte for byte.
     assert recorded.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
                                        "showMe": True}
     added = []
@@ -80,6 +84,19 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
         group["actions"] = kept
     assert added == ["make_explorable"]
     assert recorded == golden
+
+
+def test_sketch_on_adds_only_its_flag(tmp_path):
+    """RW5d P2 turned on (the owner's switch after G-SM14; the engine is ready
+    here): the contract gains figures.sketch and nothing else."""
+
+    if WRITE:
+        pytest.skip("the golden is written by the switch-off case")
+    off = _record(tmp_path / "off", enabled=True)["contract"]
+    on = _record(tmp_path / "on", enabled=True, sketch=True)["contract"]
+    assert "sketch" not in off["figures"]
+    assert on["figures"].pop("sketch") is True
+    assert on == off
 
 
 # ---------------------------------------------------------------------------

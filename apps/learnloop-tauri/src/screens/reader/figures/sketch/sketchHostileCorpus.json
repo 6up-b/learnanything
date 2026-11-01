@@ -1,0 +1,1045 @@
+{
+ "about": "RW5d P2 hostile-sketch corpus (G-SM11): the same programs in the sidecar (tests/test_sketch_hostile.py, tests/test_sketch_sandbox_review.py) and the desktop (sketchParity.test.ts, sketchSandboxReview.test.ts). cases: one program in the pinned engine (call: one read after init, or calls: a sequence; expect is the last read's); verify_cases: whole programs and the verifier's outcome (the sidecar runs them); worker_messages: requests the desktop's Worker must accept or refuse (the desktop runs them).",
+ "cases": [
+  {
+   "name": "every reach name is undefined",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ var out = {}; [\"fetch\", \"XMLHttpRequest\", \"WebSocket\", \"EventSource\", \"importScripts\", \"postMessage\", \"self\", \"window\", \"document\", \"navigator\", \"location\", \"indexedDB\", \"caches\", \"localStorage\", \"require\", \"process\", \"Deno\", \"Bun\", \"__TAURI__\", \"__TAURI_INTERNALS__\", \"__TAURI_IPC__\", \"ipc\", \"webkit\", \"chrome\", \"WebAssembly\", \"SharedArrayBuffer\", \"Atomics\", \"setTimeout\", \"setInterval\", \"queueMicrotask\", \"Promise\", \"Proxy\", \"RegExp\", \"Date\", \"performance\", \"crypto\", \"console\", \"print\", \"std\", \"os\", \"scriptArgs\", \"gc\"].forEach(function (n) { out[n] = typeof globalThis[n]; }); out.mathRandom = typeof Math.random; return out; }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "fetch": "undefined",
+     "XMLHttpRequest": "undefined",
+     "WebSocket": "undefined",
+     "EventSource": "undefined",
+     "importScripts": "undefined",
+     "postMessage": "undefined",
+     "self": "undefined",
+     "window": "undefined",
+     "document": "undefined",
+     "navigator": "undefined",
+     "location": "undefined",
+     "indexedDB": "undefined",
+     "caches": "undefined",
+     "localStorage": "undefined",
+     "require": "undefined",
+     "process": "undefined",
+     "Deno": "undefined",
+     "Bun": "undefined",
+     "__TAURI__": "undefined",
+     "__TAURI_INTERNALS__": "undefined",
+     "__TAURI_IPC__": "undefined",
+     "ipc": "undefined",
+     "webkit": "undefined",
+     "chrome": "undefined",
+     "WebAssembly": "undefined",
+     "SharedArrayBuffer": "undefined",
+     "Atomics": "undefined",
+     "setTimeout": "undefined",
+     "setInterval": "undefined",
+     "queueMicrotask": "undefined",
+     "Promise": "undefined",
+     "Proxy": "undefined",
+     "RegExp": "undefined",
+     "Date": "undefined",
+     "performance": "undefined",
+     "crypto": "undefined",
+     "console": "undefined",
+     "print": "undefined",
+     "std": "undefined",
+     "os": "undefined",
+     "scriptArgs": "undefined",
+     "gc": "undefined",
+     "mathRandom": "undefined"
+    }
+   }
+  },
+  {
+   "name": "the global object holds only the program",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ return {keys: Object.getOwnPropertyNames(globalThis).filter(function (k) { return ['init','view','probes','rand'].indexOf(k) >= 0; })}; }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "keys": [
+      "rand",
+      "init",
+      "view",
+      "probes"
+     ]
+    }
+   }
+  },
+  {
+   "name": "an endless loop in view",
+   "code": "function init(){return 1} function probes(){return {}}\nfunction view(){ for (;;) {} }",
+   "call": "view",
+   "expect": {
+    "status": "work_cap"
+   }
+  },
+  {
+   "name": "an endless loop that catches",
+   "code": "function init(){return 1} function probes(){return {}}\nfunction view(){ for (;;) { try { for (;;) {} } catch (e) {} } }",
+   "call": "view",
+   "expect": {
+    "status": "work_cap"
+   }
+  },
+  {
+   "name": "deep recursion",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ function f(n) { return f(n + 1) + 1; } return f(0); }",
+   "call": "probes",
+   "expect": {
+    "status": "stack"
+   }
+  },
+  {
+   "name": "a memory bomb",
+   "code": "function init(){return 1} function probes(){return {}}\nfunction view(){ var a = []; for (;;) a.push(new Float64Array(65536)); }",
+   "call": "view",
+   "expect": {
+    "status": "memory_cap"
+   }
+  },
+  {
+   "name": "NaN and Infinity everywhere",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ return {a: 0/0, b: 1/0, c: -1/0, d: [0/0, 1], e: [[1/0, 2]]}; }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "a": "NaN",
+     "b": "Infinity",
+     "c": "-Infinity",
+     "d": [
+      "NaN",
+      1
+     ],
+     "e": [
+      [
+       "Infinity",
+       2
+      ]
+     ]
+    }
+   }
+  },
+  {
+   "name": "prototype pollution",
+   "code": "Object.prototype.polluted = 'yes'; function init(){return 1} function view(){return {}}\nfunction probes(){ return JSON.parse('{\"__proto__\": {\"isAdmin\": true}, \"a\": 1}'); }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "__proto__": {
+      "isAdmin": true
+     },
+     "a": 1
+    }
+   }
+  },
+  {
+   "name": "a thrown error",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ throw new Error('nope'); }",
+   "call": "probes",
+   "expect": {
+    "status": "error"
+   }
+  },
+  {
+   "name": "eval and Function stay sealed",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ return {e: typeof eval('this').fetch, f: typeof (new Function('return this'))().document}; }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "e": "undefined",
+     "f": "undefined"
+    }
+   }
+  },
+  {
+   "name": "rand is seeded by the host",
+   "code": "function init(){return 1} function view(){return {}}\nfunction probes(){ return {r: [rand(), rand()]}; }",
+   "call": "probes",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "r": [
+      0.6252345841280318,
+      0.3107945395102274
+     ]
+    }
+   }
+  },
+  {
+   "name": "text imitating a badge is only data",
+   "code": "function init(){return 1} function probes(){return {}}\nfunction view(){ return {viewport: {x: [0, 1], y: [0, 1]}, elements: [{type: 'text', x: 0, y: 0, text: 'checked by LearnLoop'}]}; }",
+   "call": "view",
+   "expect": {
+    "status": "ok",
+    "result": {
+     "viewport": {
+      "x": [
+       0,
+       1
+      ],
+      "y": [
+       0,
+       1
+      ]
+     },
+     "elements": [
+      {
+       "type": "text",
+       "x": 0,
+       "y": 0,
+       "text": "checked by LearnLoop"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "counting its own starts: every init is a fresh start",
+   "code": "\nlet starts = 0;\nfunction init(p) { starts++; return p.a === 1 && starts === 1 ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: s}]}; }\nfunction probes(s, p) { return {radius: s, starts: starts}; }\n",
+   "calls": [
+    {
+     "op": "init",
+     "params": {
+      "a": 0
+     }
+    },
+    {
+     "op": "init",
+     "params": {
+      "a": 2
+     }
+    },
+    {
+     "op": "init",
+     "params": {
+      "a": 1
+     }
+    },
+    {
+     "op": "probes",
+     "params": {
+      "a": 1
+     }
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "radius": 9,
+     "starts": 1
+    }
+   }
+  },
+  {
+   "name": "repeated restarts at one setting draw the first start",
+   "code": "\nlet starts = 0;\nfunction init(p) { starts++; return p.a === 1 && starts === 1 ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: s}]}; }\nfunction probes(s, p) { return {radius: s, starts: starts}; }\n",
+   "calls": [
+    {
+     "op": "init",
+     "params": {
+      "a": 1
+     }
+    },
+    {
+     "op": "init",
+     "params": {
+      "a": 1
+     }
+    },
+    {
+     "op": "init",
+     "params": {
+      "a": 1
+     }
+    },
+    {
+     "op": "view",
+     "params": {
+      "a": 1
+     }
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "viewport": {
+      "x": [
+       -10,
+       10
+      ],
+      "y": [
+       -10,
+       10
+      ]
+     },
+     "elements": [
+      {
+       "type": "circle",
+       "id": "dot",
+       "cx": 0,
+       "cy": 0,
+       "r": 9
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "reads never carry into the next run",
+   "code": "\nvar reads = 0;\nfunction init(p) { return {}; }\nfunction view(s, p) { reads++; return {viewport: {x: [0, 1], y: [0, 1]}, elements: []}; }\nfunction probes(s, p) { reads++; return {reads: reads}; }\n",
+   "calls": [
+    {
+     "op": "init",
+     "params": {}
+    },
+    {
+     "op": "view",
+     "params": {}
+    },
+    {
+     "op": "view",
+     "params": {}
+    },
+    {
+     "op": "init",
+     "params": {}
+    },
+    {
+     "op": "probes",
+     "params": {}
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "reads": 1
+    }
+   }
+  },
+  {
+   "name": "a state marked when read keeps the mark within its run",
+   "code": "\nfunction init(p) { return {n: 0, x: 0, mark: false}; }\nfunction step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }\nfunction view(s, p) {\n  if (s.n === 13) s.mark = true;\n  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: \"segment\", id: \"bar\", x1: 0, y1: 0, x2: s.n, y2: s.x}]};\n}\nfunction probes(s, p) { return {x: s.x}; }\n",
+   "calls": [
+    {
+     "op": "init",
+     "params": {}
+    },
+    {
+     "op": "step",
+     "params": {},
+     "dt": 1,
+     "index": 0,
+     "count": 13
+    },
+    {
+     "op": "view",
+     "params": {},
+     "index": 13
+    },
+    {
+     "op": "step",
+     "params": {},
+     "dt": 1,
+     "index": 13,
+     "count": 1
+    },
+    {
+     "op": "probes",
+     "params": {},
+     "index": 14
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "x": 23
+    }
+   }
+  },
+  {
+   "name": "a state marked when read is forgotten by the next run",
+   "code": "\nfunction init(p) { return {n: 0, x: 0, mark: false}; }\nfunction step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }\nfunction view(s, p) {\n  if (s.n === 13) s.mark = true;\n  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: \"segment\", id: \"bar\", x1: 0, y1: 0, x2: s.n, y2: s.x}]};\n}\nfunction probes(s, p) { return {x: s.x}; }\n",
+   "calls": [
+    {
+     "op": "init",
+     "params": {}
+    },
+    {
+     "op": "step",
+     "params": {},
+     "dt": 1,
+     "index": 0,
+     "count": 13
+    },
+    {
+     "op": "view",
+     "params": {},
+     "index": 13
+    },
+    {
+     "op": "init",
+     "params": {}
+    },
+    {
+     "op": "step",
+     "params": {},
+     "dt": 1,
+     "index": 0,
+     "count": 14
+    },
+    {
+     "op": "probes",
+     "params": {},
+     "index": 14
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "x": 14
+    }
+   }
+  },
+  {
+   "name": "a negative zero parameter arrives as zero",
+   "code": "function init(p){return 0} function view(){return {viewport:{x:[0,1],y:[0,1]},elements:[]}} function probes(s,p){return {negzero: Object.is(p.a, -0)}}",
+   "calls": [
+    {
+     "op": "init",
+     "params": {
+      "a": -0.0
+     }
+    },
+    {
+     "op": "probes",
+     "params": {
+      "a": -0.0
+     }
+    }
+   ],
+   "expect": {
+    "status": "ok",
+    "result": {
+     "negzero": false
+    }
+   }
+  }
+ ],
+ "verify_cases": [
+  {
+   "name": "counting its own starts",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a dot of radius one",
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "default": 1
+     }
+    ],
+    "code": "\nlet starts = 0;\nfunction init(p) { starts++; return p.a === 1 && starts === 1 ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: s}]}; }\nfunction probes(s, p) { return {radius: s}; }\n",
+    "probes": [
+     {
+      "name": "radius",
+      "label": "radius",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "equals",
+      "probe": "radius",
+      "expr": "1"
+     }
+    ],
+    "bindings": [
+     {
+      "element_id": "dot",
+      "probe": "radius"
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "failed",
+    "failed_step": "claims"
+   }
+  },
+  {
+   "name": "marks its state when read",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a total that grows faster once it has been looked at",
+    "parameters": [],
+    "clock": {
+     "dt": 1,
+     "t_max": 100
+    },
+    "code": "\nfunction init(p) { return {n: 0, x: 0, mark: false}; }\nfunction step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }\nfunction view(s, p) {\n  if (s.n === 13) s.mark = true;\n  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: \"segment\", id: \"bar\", x1: 0, y1: 0, x2: s.n, y2: s.x}]};\n}\nfunction probes(s, p) { return {x: s.x}; }\n",
+    "probes": [
+     {
+      "name": "x",
+      "label": "the total",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "invariant",
+      "probe": "x",
+      "property": "finite"
+     }
+    ],
+    "predictions": [
+     {
+      "prompt": "Run to n = 50. Does the total rise?",
+      "change": {
+       "run_to": 50
+      },
+      "observe": {
+       "kind": "direction",
+       "probe": "x"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "illustrative"
+   }
+  },
+  {
+   "name": "every read flips its state",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a total that grows faster once it has been looked at",
+    "parameters": [],
+    "clock": {
+     "dt": 1,
+     "t_max": 100
+    },
+    "code": "\nfunction init(p) { return {n: 0, x: 0, mark: false}; }\nfunction step(s, p, dt) { return {n: s.n + 1, x: s.x + (s.mark ? 10 : 1), mark: s.mark}; }\nfunction view(s, p) {\n  s.mark = !s.mark;\n  return {viewport: {x: [0, 100], y: [0, 1000]}, elements: [{type: \"segment\", id: \"bar\", x1: 0, y1: 0, x2: s.n, y2: s.x}]};\n}\nfunction probes(s, p) { return {x: s.x}; }\n",
+    "probes": [
+     {
+      "name": "x",
+      "label": "the total",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "invariant",
+      "probe": "x",
+      "property": "finite"
+     }
+    ],
+    "predictions": [
+     {
+      "prompt": "Run to n = 50. Does the total rise?",
+      "change": {
+       "run_to": 50
+      },
+      "observe": {
+       "kind": "direction",
+       "probe": "x"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "failed",
+    "failed_step": "deterministic"
+   }
+  },
+  {
+   "name": "signed zero parameters",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a dot of radius one",
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": -0.0,
+      "max": 1,
+      "step": 1,
+      "default": -0.0
+     }
+    ],
+    "clock": {
+     "dt": 1,
+     "t_max": 100
+    },
+    "code": "\nfunction init(p) { return {n: 0}; }\nfunction step(s, p, dt) { return {n: s.n + 1}; }\nfunction radius(s, p) { return s.n === 1 && !Object.is(p.a, -0) ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: radius(s, p)}]}; }\nfunction probes(s, p) { return {radius: radius(s, p)}; }\n",
+    "probes": [
+     {
+      "name": "radius",
+      "label": "radius",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "equals",
+      "probe": "radius",
+      "expr": "1"
+     }
+    ],
+    "bindings": [
+     {
+      "element_id": "dot",
+      "probe": "radius"
+     }
+    ],
+    "predictions": [
+     {
+      "prompt": "Run to t = 1. Does the radius change?",
+      "change": {
+       "run_to": 1
+      },
+      "observe": {
+       "kind": "direction",
+       "probe": "radius"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "failed",
+    "failed_step": "claims"
+   }
+  },
+  {
+   "name": "signed zero parameters, a claim true at the graded step",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a dot of radius one",
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": -0.0,
+      "max": 1,
+      "step": 1,
+      "default": -0.0
+     }
+    ],
+    "clock": {
+     "dt": 1,
+     "t_max": 100
+    },
+    "code": "\nfunction init(p) { return {n: 0}; }\nfunction step(s, p, dt) { return {n: s.n + 1}; }\nfunction radius(s, p) { return s.n === 1 && !Object.is(p.a, -0) ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: radius(s, p)}]}; }\nfunction probes(s, p) { return {radius: radius(s, p)}; }\n",
+    "probes": [
+     {
+      "name": "radius",
+      "label": "radius",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "invariant",
+      "probe": "radius",
+      "property": "bounded",
+      "bound": 10
+     }
+    ],
+    "bindings": [
+     {
+      "element_id": "dot",
+      "probe": "radius"
+     }
+    ],
+    "predictions": [
+     {
+      "prompt": "Run to t = 1. Does the radius change?",
+      "change": {
+       "run_to": 1
+      },
+      "observe": {
+       "kind": "direction",
+       "probe": "radius"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "illustrative"
+   }
+  },
+  {
+   "name": "off-step prediction change",
+   "program": {
+    "program_version": "sketch-v1",
+    "demonstrates": "a dot of radius one",
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "default": 0
+     }
+    ],
+    "code": "\nlet starts = 0;\nfunction init(p) { starts++; return p.a === 1 && starts === 1 ? 9 : 1; }\nfunction view(s, p) { return {viewport: {x: [-10, 10], y: [-10, 10]}, elements: [{type: \"circle\", id: \"dot\", cx: 0, cy: 0, r: s}]}; }\nfunction probes(s, p) { return {radius: s}; }\n",
+    "probes": [
+     {
+      "name": "radius",
+      "label": "radius",
+      "shape": "scalar"
+     }
+    ],
+    "claims": [
+     {
+      "kind": "equals",
+      "probe": "radius",
+      "expr": "1"
+     }
+    ],
+    "bindings": [
+     {
+      "element_id": "dot",
+      "probe": "radius"
+     }
+    ],
+    "predictions": [
+     {
+      "prompt": "?",
+      "change": {
+       "a": 0.4
+      },
+      "observe": {
+       "kind": "direction",
+       "probe": "radius"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "outcome": "refused",
+    "reason": "is not a value its control can be set to"
+   }
+  }
+ ],
+ "worker_messages": [
+  {
+   "name": "a read",
+   "message": {
+    "id": 1,
+    "op": "read",
+    "args": [
+     {
+      "a": 1
+     },
+     0
+    ]
+   },
+   "expect": "accepted"
+  },
+  {
+   "name": "a step",
+   "message": {
+    "id": 2,
+    "op": "step",
+    "args": [
+     {
+      "a": 1
+     },
+     0.1,
+     0,
+     10
+    ]
+   },
+   "expect": "accepted"
+  },
+  {
+   "name": "an init at the largest seed",
+   "message": {
+    "id": 3,
+    "op": "init",
+    "args": [
+     {},
+     4294967295
+    ]
+   },
+   "expect": "accepted"
+  },
+  {
+   "name": "a load",
+   "message": {
+    "id": 4,
+    "op": "load",
+    "args": [
+     "function init(p) { return 1; }"
+    ]
+   },
+   "expect": "accepted"
+  },
+  {
+   "name": "an unknown operation",
+   "message": {
+    "id": 5,
+    "op": "eval",
+    "args": [
+     "1"
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "no operation",
+   "message": {
+    "id": 6,
+    "args": [
+     {},
+     0
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "an id that is text",
+   "message": {
+    "id": "7",
+    "op": "read",
+    "args": [
+     {},
+     0
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a negative id",
+   "message": {
+    "id": -1,
+    "op": "read",
+    "args": [
+     {},
+     0
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "args that are not a list",
+   "message": {
+    "id": 8,
+    "op": "read",
+    "args": {
+     "0": {},
+     "1": 0
+    }
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "an extra argument",
+   "message": {
+    "id": 9,
+    "op": "read",
+    "args": [
+     {},
+     0,
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a program that is not text",
+   "message": {
+    "id": 10,
+    "op": "load",
+    "args": [
+     42
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a parameter that is text",
+   "message": {
+    "id": 11,
+    "op": "init",
+    "args": [
+     {
+      "a": "NaN"
+     },
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a parameter that is an object",
+   "message": {
+    "id": 12,
+    "op": "init",
+    "args": [
+     {
+      "a": {
+       "valueOf": 1
+      }
+     },
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a __proto__ parameter",
+   "message": {
+    "id": 13,
+    "op": "init",
+    "args": [
+     {
+      "__proto__": 1
+     },
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "five parameters",
+   "message": {
+    "id": 14,
+    "op": "init",
+    "args": [
+     {
+      "a": 1,
+      "b": 1,
+      "c": 1,
+      "d": 1,
+      "e": 1
+     },
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a fractional seed",
+   "message": {
+    "id": 15,
+    "op": "init",
+    "args": [
+     {},
+     1.5
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a seed past 32 bits",
+   "message": {
+    "id": 16,
+    "op": "init",
+    "args": [
+     {},
+     4294967296
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "zero steps",
+   "message": {
+    "id": 17,
+    "op": "step",
+    "args": [
+     {},
+     1,
+     0,
+     0
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a billion steps",
+   "message": {
+    "id": 18,
+    "op": "step",
+    "args": [
+     {},
+     1,
+     0,
+     1000000000
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a negative step index",
+   "message": {
+    "id": 19,
+    "op": "step",
+    "args": [
+     {},
+     1,
+     -1,
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a step past the clock's cap",
+   "message": {
+    "id": 20,
+    "op": "step",
+    "args": [
+     {},
+     1,
+     1999,
+     2
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a zero dt",
+   "message": {
+    "id": 21,
+    "op": "step",
+    "args": [
+     {},
+     0,
+     0,
+     1
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "a fractional read index",
+   "message": {
+    "id": 22,
+    "op": "read",
+    "args": [
+     {},
+     0.5
+    ]
+   },
+   "expect": "refused"
+  },
+  {
+   "name": "not an object at all",
+   "message": "read",
+   "expect": "refused"
+  }
+ ]
+}

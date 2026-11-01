@@ -60,6 +60,8 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     # deferred events): a corresponding section peeked, or opened (go there).
     "corresponding_section_peeked",
     "corresponding_section_opened",
+    "sketch_paused",      # RW5d P2: the Worker watchdog paused a slow sketch (spec §6.6, §13.4)
+    "sketch_error",       # RW5d P2: a sketch call failed at the learner's settings (the kind, never the text)
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -138,6 +140,8 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     # Reader CA5: the section a correspondence act starts from and the one it
     # reaches (ids), and whether that one is judged or an unchecked search hit.
     "section_id", "target_source_id", "target_extraction_id", "target_section_id", "by",
+    # RW5d P2: a sketch error's kind (work_cap, memory_cap, error, scene, ...).
+    "error_kind",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

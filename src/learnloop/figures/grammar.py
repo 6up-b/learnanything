@@ -35,6 +35,12 @@ computed one sums to NaN); an integral evaluates its body at most
 two evaluators agree on every value, finite or not (G22). A value that is not
 finite is a value, not an error: the verifier's structural step refuses a
 figure whose values are not finite on its parameter grid.
+
+**Metered evaluation** (RW5d P2, Codex review F2 round 3): :func:`evaluate`
+takes an optional :class:`Meter` that is charged one step at every node it
+evaluates (including each comparison node of a condition, every term of a sum
+and every integrand evaluation), at the point of evaluation, so a caller's
+work cap bounds what actually runs rather than an estimate of it.
 """
 
 from __future__ import annotations
@@ -639,13 +645,56 @@ def exact_sum(function: Any, a: float, b: float) -> float:
     return total
 
 
-def _truth(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node]) -> bool:
+class WorkExhausted(Exception):
+    """A :class:`Meter`'s limit was passed (raised from inside evaluation)."""
+
+    def __init__(self, used: int, limit: int) -> None:
+        super().__init__(f"more than {limit:,} expression steps")
+        self.used = used
+        self.limit = limit
+
+
+class Meter:
+    """A work counter :func:`evaluate` charges one step per node evaluated.
+
+    ``used`` is the steps charged so far. When it passes ``limit``,
+    :meth:`exhausted` is called (by default it raises :class:`WorkExhausted`)
+    before the next node is evaluated; every ``every`` steps :meth:`checkpoint`
+    is called (by default nothing), which a caller overrides to look at a
+    clock. Either may raise to stop the evaluation where it is: nothing in the
+    evaluator catches an exception."""
+
+    def __init__(self, limit: int, every: int) -> None:
+        self.used = 0
+        self.limit = limit
+        self.every = max(1, every)
+        #: The ``used`` count at which :meth:`crossed` next runs (the hot path compares only this).
+        self.due = min(limit + 1, self.every)
+
+    def crossed(self) -> None:
+        if self.used > self.limit:
+            self.exhausted()
+        self.checkpoint()
+        self.due = min(self.limit + 1, self.used + self.every)
+
+    def exhausted(self) -> None:
+        raise WorkExhausted(self.used, self.limit)
+
+    def checkpoint(self) -> None:
+        return None
+
+
+def _truth(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node], meter: Meter | None) -> bool:
+    if meter is not None:
+        meter.used += 1
+        if meter.used >= meter.due:
+            meter.crossed()
     if node.kind == "and":
-        return all(_truth(child, env, definitions) for child in node.args)
+        return all(_truth(child, env, definitions, meter) for child in node.args)
     if node.kind == "or":
-        return any(_truth(child, env, definitions) for child in node.args)
-    left = evaluate(node.args[0], env, definitions)
-    right = evaluate(node.args[1], env, definitions)
+        return any(_truth(child, env, definitions, meter) for child in node.args)
+    left = evaluate(node.args[0], env, definitions, meter)
+    right = evaluate(node.args[1], env, definitions, meter)
     if math.isnan(left) or math.isnan(right):
         return node.op == "!="
     return {"<": left < right, "<=": left <= right, ">": left > right, ">=": left >= right,
@@ -660,15 +709,24 @@ def canonical(value: float) -> float:
     return 0.0 if value == 0 else value
 
 
-def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None = None) -> float:
+def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None = None,
+             meter: Meter | None = None) -> float:
     """The value of ``node`` with ``env`` (variables and parameters) and
     ``definitions`` (named expressions, evaluated where they are used). An
     unbound name is NaN. Every node's value is :func:`canonical` (no -0).
+
+    With a ``meter``, each node is charged one step before it is evaluated
+    (a definition's expansion, a sum's terms and an integral's integrand
+    evaluations included); the meter may stop the evaluation by raising.
 
     One Python frame per level of the expanded expression (fix round 4): the
     compiler caps that depth (:data:`MAX_EXPANDED_DEPTH`), so evaluation never
     reaches the interpreter's recursion limit."""
 
+    if meter is not None:
+        meter.used += 1
+        if meter.used >= meter.due:
+            meter.crossed()
     defs = definitions or {}
     kind = node.kind
     if kind == "num":
@@ -678,16 +736,16 @@ def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Nod
         if name in env:
             value = float(env[name])
         elif name in defs:
-            value = evaluate(defs[name], env, defs)
+            value = evaluate(defs[name], env, defs, meter)
         elif name in CONSTANTS:
             value = CONSTANTS[name]
         else:
             value = NAN
     elif kind == "neg":
-        value = -evaluate(node.args[0], env, defs)
+        value = -evaluate(node.args[0], env, defs, meter)
     elif kind == "bin":
-        a = evaluate(node.args[0], env, defs)
-        b = evaluate(node.args[1], env, defs)
+        a = evaluate(node.args[0], env, defs, meter)
+        b = evaluate(node.args[1], env, defs, meter)
         op = node.op
         if op == "+":
             value = a + b
@@ -700,7 +758,7 @@ def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Nod
         else:
             value = _pow(a, b)
     elif kind == "call":
-        values = [evaluate(child, env, defs) for child in node.args]
+        values = [evaluate(child, env, defs, meter) for child in node.args]
         if node.text == "min":
             value = _extreme(values, min)
         elif node.text == "max":
@@ -711,20 +769,20 @@ def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Nod
         args = node.args
         chosen = args[-1]
         for index in range(0, len(args) - 1, 2):
-            if _truth(args[index], env, defs):
+            if _truth(args[index], env, defs, meter):
                 chosen = args[index + 1]
                 break
-        value = evaluate(chosen, env, defs)
+        value = evaluate(chosen, env, defs, meter)
     elif kind in ("integral", "sum"):
         body, lower, upper = node.args
-        a = evaluate(lower, env, defs)
-        b = evaluate(upper, env, defs)
+        a = evaluate(lower, env, defs, meter)
+        b = evaluate(upper, env, defs, meter)
         variable = node.text
         scope = dict(env)
 
         def at(t: float) -> float:
             scope[variable] = t
-            return evaluate(body, scope, defs)
+            return evaluate(body, scope, defs, meter)
 
         value = adaptive_simpson(at, a, b) if kind == "integral" else exact_sum(at, a, b)
     else:
@@ -743,8 +801,10 @@ __all__ = [
     "MAX_SAFE_INTEGER",
     "MAX_SUM_TERMS",
     "PROTOTYPE_NAMES",
+    "Meter",
     "Node",
     "RESERVED",
+    "WorkExhausted",
     "adaptive_simpson",
     "canonical",
     "check_names",
