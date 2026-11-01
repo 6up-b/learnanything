@@ -265,6 +265,10 @@ def test_f2_the_deadline_is_armed_on_the_sdks_own_http_client(monkeypatch):
     assert client._enforce_deadline
     pool = client._client._client._transport._pool
     assert isinstance(pool._network_backend, OC._DeadlineNetworkBackend)
+    # Codex re-review F2: the plain stream whose partial sends the deadline bounds one by one.
+    import httpcore._backends.sync as sync_backend
+
+    assert OC._SYNC_STREAM is sync_backend.SyncStream
 
 
 def test_rw6b2_f3_the_bound_is_the_attempts_timeout_with_its_floor():
@@ -317,3 +321,136 @@ def test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publis
     for sock, started in zip(server.sockets, server.started):
         # Each physical request was cancelled at the route's timeout (the enforced bound), inside the lease.
         assert sock.closed_at - started < bound + SLACK < lease
+
+
+# -- Codex re-review F2: partial socket sends inside one httpcore write ------------------------------
+
+
+class PartialSendSocket:
+    """A socket under httpcore's real ``SyncStream``: each ``send`` accepts a
+    few bytes and takes most of its timeout (as a slow peer's window does), so
+    one ``SyncStream.write`` loops over many partial sends. ``settimeout`` is
+    honoured like a socket's: a send slower than it waits it, then raises."""
+
+    def __init__(self, response: bytes, *, per_send: int, send_delay: float) -> None:
+        self.response = response
+        self.per_send = per_send
+        self.send_delay = send_delay
+        self.timeout: float | None = None
+        self.sends: list[float] = []
+        self.received = b""
+        self.position = 0
+        self.closed_at: float | None = None
+        self.lock = threading.Lock()
+        self.in_flight = 0
+
+    def settimeout(self, timeout: float | None) -> None:
+        self.timeout = timeout
+
+    def send(self, data: bytes) -> int:
+        import socket
+
+        with self.lock:
+            self.in_flight += 1
+        try:
+            self.sends.append(time.monotonic())
+            if self.timeout is not None and self.send_delay > self.timeout:
+                time.sleep(max(0.0, self.timeout))
+                raise socket.timeout("timed out")
+            time.sleep(self.send_delay)
+            chunk = data[:self.per_send]
+            self.received += chunk
+            return len(chunk)
+        finally:
+            with self.lock:
+                self.in_flight -= 1
+
+    def recv(self, max_bytes: int) -> bytes:
+        chunk = self.response[self.position:self.position + max_bytes]
+        self.position += len(chunk)
+        return chunk
+
+    def close(self) -> None:
+        if self.closed_at is None:
+            self.closed_at = time.monotonic()
+
+    def fileno(self) -> int:
+        return -1  # no descriptor: httpcore's readability probe treats the connection as at its end
+
+    def getsockname(self) -> tuple[str, int]:  # pragma: no cover - not asked for plain http
+        return ("127.0.0.1", 0)
+
+    def getpeername(self) -> tuple[str, int]:  # pragma: no cover
+        return ("127.0.0.1", 9)
+
+
+def _sync_stream_backend(sock: PartialSendSocket) -> Any:
+    """httpcore's real ``SyncStream`` over the fake socket, as the default backend."""
+
+    import httpcore._backends.sync as sync_backend
+
+    class Backend(httpcore.NetworkBackend):
+        def connect_tcp(self, host: str, port: int, timeout: float | None = None,
+                        local_address: str | None = None, socket_options: Any = None) -> httpcore.NetworkStream:
+            return sync_backend.SyncStream(sock)
+
+        def connect_unix_socket(self, path: str, timeout: float | None = None,
+                                socket_options: Any = None) -> httpcore.NetworkStream:  # pragma: no cover
+            raise httpcore.ConnectError("no unix sockets here")
+
+        def sleep(self, seconds: float) -> None:  # pragma: no cover
+            time.sleep(seconds)
+
+    return Backend
+
+
+def test_f2_rereview_a_prompt_upload_in_partial_sends_completes_unchanged(monkeypatch):
+    """The deadline stream's own send loop delivers the whole request, a few
+    bytes per send, and the answer comes back as before."""
+
+    import httpcore._sync.connection_pool as pool_module
+
+    body = _completion(Answer(text="ok").model_dump_json())
+    head, _ = _http_response(body)
+    sock = PartialSendSocket(head + body, per_send=7, send_delay=0.0)
+    monkeypatch.setattr(pool_module, "SyncBackend", _sync_stream_backend(sock))
+    client = _client(monkeypatch, timeout=5.0)
+    answer = client.complete(StructuredRequest(purpose="deadline_probe", prompt="q" * 500, result_model=Answer,
+                                               timeout_seconds=5.0))
+    assert answer.text == "ok"
+    assert sock.received.startswith(b"POST /v1/chat/completions") and b"q" * 500 in sock.received
+    assert len(sock.sends) > 50  # many partial sends, all delivered
+
+
+def test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline(monkeypatch):
+    """Codex re-review F2: the deadline bounded a whole ``SyncStream.write``
+    once, and httpcore set that same timeout before every partial send inside
+    it, so a slow peer kept the upload going past the deadline (1 s deadline
+    returned after 2.21 s, 16 sends after expiry). Every partial send is now
+    bounded by the deadline's remaining time: none starts after it."""
+
+    import httpcore._sync.connection_pool as pool_module
+
+    body = _completion(Answer(text="ok").model_dump_json())
+    head, _ = _http_response(body)
+    # Sends of 8 bytes, each 0.06 s (well inside the per-operation timeout): the request's
+    # headers alone (one httpcore write) take ~4 s, its body (a second write) longer still.
+    sock = PartialSendSocket(head + body, per_send=8, send_delay=0.06)
+
+    monkeypatch.setattr(pool_module, "SyncBackend", _sync_stream_backend(sock))
+    client = _client(monkeypatch, timeout=1.0)
+    started = time.monotonic()
+    with pytest.raises(CodexUnavailable):
+        client.complete(StructuredRequest(purpose="deadline_probe", prompt="p" * 2000, result_model=Answer,
+                                          timeout_seconds=1.0))
+    returned = time.monotonic()
+
+    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    # The deadline is armed after ``started``: no partial send began past it.
+    late = [at for at in sock.sends if at > started + OC.enforced_total_seconds(1.0)]
+    assert late == [], f"{len(late)} partial sends started after the deadline"
+    assert len(sock.received) < len(b"p" * 2000)  # the upload was cut off, not completed
+    assert sock.in_flight == 0 and sock.closed_at is not None and sock.closed_at <= returned
+    sent = len(sock.sends)
+    time.sleep(0.3)
+    assert len(sock.sends) == sent, "the upload kept running after the adapter returned"

@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import random
+import socket
 import time
 from contextvars import ContextVar
 from typing import Any
@@ -132,6 +133,18 @@ def _bounded(timeout: float | None, error: type[Exception]) -> float | None:
     return remaining if timeout is None else min(float(timeout), remaining)
 
 
+#: httpcore's plain socket stream (TCP, or TLS directly on it), whose write the
+#: deadline stream runs itself. Exact type only: its TLS-in-TLS sibling's
+#: socket carries the outer TLS and must not be written raw.
+try:
+    from httpcore._backends.sync import SyncStream as _SYNC_STREAM
+except ImportError:  # pragma: no cover - a test pins the location; every stream then writes in pieces
+    _SYNC_STREAM = None
+#: A TLS record's maximum plaintext (RFC 8449): the piece size for a stream
+#: whose send loop is opaque. keep: a structural bound, not a tuned value.
+_WRITE_PIECE_BYTES = 16384
+
+
 class _DeadlineNetworkStream(httpcore.NetworkStream):
     """A connection whose every operation is bounded by the deadline of the
     request using it (read at the operation: a pooled connection serves
@@ -144,7 +157,36 @@ class _DeadlineNetworkStream(httpcore.NetworkStream):
         return self._inner.read(max_bytes, _bounded(timeout, httpcore.ReadTimeout))
 
     def write(self, buffer: bytes, timeout: float | None = None) -> None:
-        self._inner.write(buffer, _bounded(timeout, httpcore.WriteTimeout))
+        # One httpcore write loops over partial sends and gives each the same
+        # timeout, so bounding the write once let a slow peer stretch it far
+        # past the deadline (Codex re-review F2). The deadline's remaining
+        # time is recomputed before every partial send instead.
+        if _active_deadline.get() is None:
+            self._inner.write(buffer, timeout)
+            return
+        sock = self._inner.get_extra_info("socket") if type(self._inner) is _SYNC_STREAM else None
+        if sock is None:
+            # Another stream (TLS-in-TLS through a proxy, a test double): its
+            # own send loop is opaque, so it gets the buffer a TLS record at a
+            # time, each piece bounded afresh.
+            view = memoryview(buffer)
+            for start in range(0, len(view), _WRITE_PIECE_BYTES):
+                self._inner.write(bytes(view[start:start + _WRITE_PIECE_BYTES]),
+                                  _bounded(timeout, httpcore.WriteTimeout))
+            return
+        # httpcore's plain stream: its socket (TCP, or TLS on it) sends here,
+        # httpcore's own loop with the bound recomputed per send.
+        view = memoryview(buffer)
+        while view:
+            bound = _bounded(timeout, httpcore.WriteTimeout)
+            try:
+                sock.settimeout(bound)
+                sent = sock.send(view)
+            except socket.timeout as exc:
+                raise httpcore.WriteTimeout(exc) from exc
+            except OSError as exc:
+                raise httpcore.WriteError(exc) from exc
+            view = view[sent:]
 
     def close(self) -> None:
         self._inner.close()
