@@ -388,3 +388,153 @@ the CLI help snapshot, the spec's as-built note and this record.
 4. A path goes stale whenever the learner starts a new book (C0b's key names books read); the daily refresh or a
    Guide open re-judges it. Should "books read" leave the key (a C0b change) so C1 follows longer between days?
 5. A CLI-built plan never starts the refresh (decision 7). Acceptable?
+
+## Landing onto main
+
+Prepared on branch `curriculum/c1-plan-follows-path` (worktree `learnanything-ad1`); the orchestrator does the
+fast-forward and the push. No git ran in the main checkout. Every model is a fake; no live or paid call was made.
+
+### Merges
+
+- Fix round 5 ends at `ee6f8930f6` (its fixes are in `45d4970865`; see the review record's "Fix round 5").
+- `3ab6638afe` merges main `2b8b530279` (Reader RW6b part 1 = mvp-0.39 + migration 227, CA6, follow-ups Oct 31).
+  This is a merge, not a rebase. Conflicts:
+  - `algorithm_versions.py`: RW6b's `READER_FOLLOWUPS_ALGORITHM_VERSION` keeps mvp-0.39, C1's
+    `DELIVERABLE_PLAN_ALGORITHM_VERSION` becomes mvp-0.40, and the chain is linear (`… mvp-0.38, mvp-0.39, mvp-0.40`).
+  - The CLI's `upgrade --to` list, branch and docstring now include both.
+  - The runtime and sidecar completion is C1's (the chain's latest).
+  - The activation journal docstring, the frozen-source-modules list and the parameter registry keep both sides.
+  - `config/template.py`: both sides' notes are kept in every snapshot comment, and the new `mvp-0.40` entry was
+    added. All 31 fingerprints were recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`.
+  - The test pin files were taken from main and moved to the new latest in the next commit.
+  - The generated references were taken from main and regenerated in the next commit.
+
+### Renumber (`739a2362d6`)
+
+- C1 is **mvp-0.40 after mvp-0.39**. `deliverable_plan_upgrade.PREDECESSOR` is `READER_FOLLOWUPS_ALGORITHM_VERSION`,
+  the chained step is `upgrade_to_reader_followups`, and the hand-down completion is
+  `reader_followups_upgrade.complete_interrupted_activation`.
+- `upgrade --to mvp-0.40` is the bare upgrade's target. The registry note and the reference script's description say
+  mvp-0.40.
+- Chain pins in 30 test files moved to the new latest: `== "mvp-0.40"`, the version sets gaining `"mvp-0.39"`, and
+  the relative slices and indexes shifted by one.
+- C1's own chain and activation tests now run mvp-0.39 → mvp-0.40, and their upgrade parametrisation gains
+  `mvp-0.39`.
+- RW6b's successor test now has C1 as the latest. Its bare-upgrade test goes through to mvp-0.40, and a second vault
+  checks the refusal on mvp-0.39.
+- `test_recurrence_commands.py` names both.
+- The CLI help snapshot was regenerated in the pytest environment (only `upgrade` changed).
+- The spec's as-built note now says mvp-0.40.
+- DB/config reference: `db_generate_reference.py` gives **1086 effective leaves in 76 sections** (main's 1085 plus
+  `curriculum.plan_uses_path`). The prose counts in `Configuration.md` and `Database.md` were moved from 1085 to 1086.
+  `db_validate_reference.py` reports **errors []**, and `validate_vault.py` passes (1360 notes, 1358/1358 reachable).
+
+### Interactions with Reader RW6b part 1 (`tests/test_curriculum_c1_landing.py`, 8 tests)
+
+- **(i) Follow-ups in the maintain lane next to C1's reading block.**
+  - A `reader_followup` Check once that RW6b's gate passes is a planned check (`split.checks`), while the reading
+    block is C1's step (`ch_det`, `chosen_by = deliverable`).
+  - The reading and its v2 receipt equal the plan's without the follow-up. Turning C1 off moves the reading to RW7b's
+    choice and never changes the checks.
+  - A follow-up that RW6b's own gate holds (no digest: `licensing_unreadable`, fail closed) is recorded in
+    `checks_unplanned`, and the reading is unchanged. `followups.enabled = false` leaves C1's reading and receipt
+    identical.
+  - The two never share state: C1's fresh choice reads no commitment except DL2's intent, which the follow-ups do not
+    change. RW6b's valuation reads no plan reading.
+- **(ii) The activation chain.**
+  - A bare upgrade from mvp-0.38 activates mvp-0.39 and then mvp-0.40, printing `mvp-0.38 -> mvp-0.40`, with no
+    journal left.
+  - An interrupted mvp-0.40 activation (journal mvp-0.39 → mvp-0.40) is completed by the next CLI command, by
+    `upgrade_to_deliverable_plan` and by the desktop completion. An opener without the completion refuses it.
+  - An interrupted mvp-0.39 activation is handed down by C1's completion, and then upgrades to mvp-0.40.
+  - RW6b's own interrupted mvp-0.38 → mvp-0.39 coverage (`test_reader_rw6b_landing.py`,
+    `test_reader_followups_successor.py`) stays green with C1 as the latest.
+
+### Gate (tree `d2e32298a8`)
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…` | **23005 passed, 89 skipped, 47 xfailed, 0 failed** in 36 min 58 s |
+| Durability: `pytest -m durability -n 6` (5G scope, under the flock) | **177 passed, 1 skipped** |
+| Owner lane: `LEARNLOOP_OWNER_VAULTS=fixtures-local/landing-c1/owner-lane` (fresh backup-API copies of `fixtures-local/owner-copies-mvp035/*` via `learnloop.db.copies.copy_tree_with_databases`), `pytest -m owner_vaults -n 6` | **83 passed, 2 failed, 4 skipped**, as expected. The 2 failures are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies[arxiv_v2]`), each rerun alone 3 times: fails every time, deterministically, as on main |
+| Frontend | not touched (no `apps/` change): not run |
+
+Before the full suite, a pin pass over the 67 files that name the chain, C1 or RW6b gave 1236 passed, 12 skipped,
+6 xfailed.
+
+### Parity on fresh copies (`fixtures-local/landing-c1/`, drivers `scripts/c1_{a,b,c,d}.sh`)
+
+**Setup.**
+- Fresh backup-API copies of the three mvp035 owner copies, neutralized (`neutralize3.py`: every route at the
+  `127.0.0.1:9` blackhole, keys unset; rewrite, rerank, dense and embeddings off).
+- Main's code is `git archive 2b8b530279`; the branch's is `git archive d2e32298a8`.
+- Everything ran under `env -i` with empty `HOME`, `CODEX_HOME` and config dir. Audit hooks logged every process
+  start and refused non-loopback sockets. **The audit log stayed empty.**
+
+**Results.**
+- **(a) `upgrade --to mvp-0.39`, main's code vs the branch's.**
+  - Each side ran the upgrade, a primary sidecar load and `rebuild-derived-state`.
+  - The branch-vs-main row comparison equals the main-vs-main noise floor on all three copies: no `only_*` tables,
+    no added columns, no `sql_diffs`. fk 0, integrity ok.
+  - Shadow is **0/0/0** on both sides, and `doctor` is identical (57/1, 102/48, 76/47 issues/errors).
+- **(b) `upgrade --to mvp-0.40` from those mvp-0.39 copies, and a bare upgrade from mvp-0.35.**
+  - The upgrades print `mvp-0.39 -> mvp-0.40` and `mvp-0.35 -> mvp-0.40`, with no journal left.
+  - 0 LOs moved and 0 schedules moved. Every predecessor row is preserved; the activation rewrites the derived facet
+    tables with equal counts and adds a rebuild receipt and a manifest.
+  - **Today is identical** after the version stamp (525,266, 740,827 and 344,204 bytes).
+  - The daily plan is identical apart from the router card's version-bearing hashes (`content_hash`, `card_hash`,
+    `snapshot_hash`), checked mechanically.
+  - The copies have no deliverable, so C1 chose RW7b's or the order's reading exactly: 0 v2 receipts.
+  - Right after the upgrade, the shadow differs only in `algorithm_version` stamps (21/18/34 LOs). After
+    `rebuild-derived-state`, the shadow is **0/0/0** for the direct and the chained upgrade.
+- **(c) `curriculum.plan_uses_path = false` at mvp-0.40 vs mvp-0.39.** Today is identical after the stamp, and the
+  daily plan is identical apart from the router card's version-bearing hashes, on all three copies.
+- **(d) An interrupted mvp-0.40 activation** (death right after the config publication).
+  - `upgrade --to mvp-0.40` completes it ("completed the interrupted activation of mvp-0.40"), and a second run is
+    refused ("vault is already mvp-0.40").
+  - The desktop start completes it.
+  - After completion: 0 normalized row differences vs the clean upgrade and 0 LOs moved.
+  - The attaches that may not complete it refuse with the journal message: `Repository`, `open_vault_repository`, the
+    secondary attach, and the remote `check_schema` (`SchemaMismatch`).
+  - `doctor` refuses too; this is main's behaviour, as at RW6b's landing.
+- **0 new `model_call_receipts`** across all 54 databases: probability's 56 historical rows are unchanged in each
+  copy, and the other copies have none.
+
+### Orchestrator rulings
+
+- Round 4 (recorded verbatim in the review record): after round 4, findings confined to the memo's invalidation or
+  to judgment coalescing are ruled Low and left open, unless they cause metered spend, evidence or persisted-meaning
+  changes, a broken kill switch, or a moved reading that had history.
+- "Round-5 verify (20261101-034720-G33NFM), both ruled Low by the orchestrator under the proportionate bar:
+(1) The subscription precheck resolves the route separately from judge()'s own ChatRoute. A metered call would need the owner to add a priced metered LEARNLOOP_AI_PROVIDER and a sidecar reload to land inside one refresh call's window. Even then it is an owner-configured provider, within its price and daily budget. Follow-up: pass the precheck's resolved route into judge() so the automatic refresh sends on exactly the route it checked.
+(2) The gate check is not bound to the protection admission's generation. A reload that disables C1 within the same few milliseconds can persist one judgment row. It changes no plan while C1 is off, and it is a cache entry the Guide would reuse. Follow-up: evaluate the gate inside the same snapshot validation."
+
+### Owner notes
+
+- Upgrade with `learnloop upgrade` (bare: mvp-0.40). From mvp-0.35 to mvp-0.38 it chains through mvp-0.39. Then run
+  **`learnloop rebuild-derived-state`**, which the upgrade itself prints, so the derived rows carry the new stamp
+  (shadow 0/0/0 afterwards).
+- C1 acts only with a deliverable that has a depth and a judged path. Your vaults have none today, so the plan is
+  RW7b's exactly until you create one in the Guide.
+- The daily automatic refresh asks only the ChatGPT-plan route. With the plan down or signed out it sends nothing,
+  and the plan keeps RW7b's reading, saying `stale`.
+- Kill switch: `[curriculum] plan_uses_path = false` (or `curriculum.enabled = false`) restores RW7b's plans with no
+  downgrade.
+
+### Open items
+
+- **Owner-default rulings (taken as the defaults here; the owner may revisit):**
+  - keep refresh adoption, which is now the invariant (open question 3);
+  - any book on the path, not only as-you-read books (question 2);
+  - CLI plans stay RW7b's, since the CLI never starts the refresh (question 5);
+  - C1 stays nested in RW7b's gate (question 1);
+  - "books read" stays in C0b's key, queued as a C0b change (question 4).
+- **Follow-ups from the round-5 ruling:**
+  - pass the precheck's resolved route into `judge()`, so the automatic refresh sends on exactly the route it
+    checked;
+  - evaluate the C1 gate inside the protection admission's snapshot validation.
+- Rulings from round 4 stand: any later memo-invalidation or coalescing finding of that class is Low and open.
+- `doctor` refuses an interrupted activation (main's behaviour, unchanged here).
+- The module catalog validator (`module_validate.py`) reports main's pre-existing gaps (1179 missing notes). It is
+  not a gate and is unchanged by this landing.
