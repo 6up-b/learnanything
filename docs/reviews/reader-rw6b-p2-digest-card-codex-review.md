@@ -549,3 +549,73 @@ Not run, and why:
 3. **F3's lease length:** a dead narrator's session is retried after the route's request timeout plus 120 s (300 s at
    the defaults), not 120 s. This is the price of never paying twice. A narration is background work, so the delay
    is invisible.
+
+## Fix round 4
+
+The round-3 verify is Sol job `20261101-033001-qdrYbI`. It reported two findings, quoted below as the orchestrator
+relayed them. **Spend: $0.** Fakes only. No migration, no successor and no new config key.
+
+### Findings (as relayed)
+
+> 1. High, F3 reopened: the lease does not bound the actual transport request. The OpenAI SDK applies the timeout per network operation, not as a total deadline. If heartbeats stop renewing, a slowly arriving response can outlive the lease and let a successor send before the predecessor finishes. Their reproduction completed a 180 s timeout request at simulated 404 s, while B got epoch 2 at 303 s.
+> 2. Medium (useReaderRecap.ts:256): if the sidecar fails, the narrative stays "writing" forever. Polling discards every rejection through Promise.allSettled and keeps the pending payload, so the W14 offline state never appears. Fix: classify polling failures and render ModelActionState's offline state, keeping the recap content and allowing recovery.
+
+### Orchestrator ruling R3 on F3 (verbatim)
+
+> ruled Low.
+> - While the holder process is alive, its heartbeat renews the lease, so no successor can take over. Round 3 proved that, and the renew-before-send fence means a lost claim never sends or publishes.
+> - A takeover therefore needs the holder's heartbeat to have stopped, which in practice means the process died or froze. Its request can then never publish (fenced), and the worst case is one duplicate narrative charge on a metered route. That is bounded by digest.max_daily_cost_usd and occurs only on a crash during a slow request. The default plan route is unmetered.
+> - An abortable total transport deadline is an open item for the AI transport layer, not this stage.
+> Add one sentence to the comment at the claim saying this.
+
+### Closures
+
+| # | severity | verdict | commit | test or change |
+|---|---|---|---|---|
+| 1 (F3) | Low (R3) | **ruled; comment added** | `2f5139cd81` | At the claim in `reader_digest.narrate_digest`, one sentence states the R3 case: the timeout is per network operation, a frozen or dead holder can be taken over while its response is still arriving, it can never publish, and the worst case is one duplicate metered charge within `digest.max_daily_cost_usd`; an abortable total deadline is open for the AI transport layer. Round 3's wording that overclaimed ("no takeover ever sends while the predecessor's request may still be outstanding", "outlives the longest request") is corrected there and in `narration_lease_seconds` to the R3 statement: while the holder lives, no takeover sends. No code change |
+| 2 | Medium | **fixed** | `2f5139cd81` | `narrativeLanding.test.tsx`: `a failed re-read shows the offline state, keeps the recap and recovers when a read succeeds`, `try again re-reads at once, and a failed Wrap up re-read shows offline there too` |
+
+#### Finding 2: a failed re-read is classified, never discarded
+
+In `useReaderRecap`, each re-read of a pending narrative now settles itself. `Promise.allSettled`, which discarded
+every rejection, is gone.
+
+- **A rejection is classified** with `ModelActionState.phaseForError`. The sidecar down (`sidecar_unavailable`,
+  `sidecar_timeout`, `sidecar_protocol_error`) is `offline`. Anything else is `failed`.
+- **The classification is kept per surface**, for the card and for an open Wrap up. The surface itself is untouched:
+  the recap and Wrap up stay exactly as they were.
+- **The hook returns the surface with its pending narrative marked.** It adds two client-side fields, `pollFailure`
+  and `onRetry`. `DigestNarrative` takes the new `NarrativeView` type (the DTO plus those two fields). `RecapCard`
+  and `WrapUpPanel` pass it through unchanged, and the sidecar DTO is unchanged.
+- **What the learner sees:** while a narrative is pending and its last re-read failed, `DigestNarrative` renders
+  `ModelActionState` in place of "writing", with "try again":
+  - offline: "LearnLoop's background service isn't responding. The source still reads."
+  - failed: "Couldn't check on the summary. The lists above are complete without it."
+- **Recovery:** re-reads continue on the interval. "Try again" re-reads the waiting surfaces at once. A failure is
+  cleared by any new payload for its surface: a successful read, a reload, another source, or Wrap up closing.
+- Nothing takes focus or animates (W14).
+
+**Fail-first.** The two new tests failed before the change (`expected '◐ writing a summary of this session…' to
+contain 'background service isn't responding'`). They pass after it.
+
+### Fix round 4 gate
+
+Every npm/vitest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`, with
+`TMPDIR` outside the worktree.
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | ok (exit 0) |
+| `npx vitest run --maxWorkers=4` over `DigestNarrative.test.tsx`, `modelActionStates.test.tsx`, `narrativeLanding.test.tsx`, `RecapCard.test.tsx`, `recapReview.test.tsx`, `recapSwitchOff.test.tsx`, `WrapUp.test.tsx`, `ReaderScreen.recap.test.tsx`, `ReaderScreen.recapReview.test.tsx`, `ReaderScreen.parity.test.tsx` | **10 files, 55 passed** |
+| `npm run frontend:build` | built |
+| `pytest -n 6 tests/test_reader_digest_narrative.py` (the Python change is comments only) | 34 passed |
+
+Not run: lint-imports, the broader pytest set and cargo. The only Python change is comments, and nothing under
+`src-tauri` changed. The desktop catalog is regenerated at landing, as before. Main is not merged: C1 lands first.
+
+### Open items (fix round 4)
+
+1. **R3:** an abortable total transport deadline is an open item for the AI transport layer. Until then, a narrator
+   that freezes or dies mid-request on a metered route can cost one duplicate charge, within
+   `digest.max_daily_cost_usd`.
+2. Items 1 and 2 of fix round 3 (R1, R2) are unchanged.
