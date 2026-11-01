@@ -21,9 +21,19 @@
 // anything by itself, and a failure is quiet: the marks the plan has stay.
 //
 // Codex verify F16: every request names this open of the source, an id
-// minted once per open (a new source, the Reader mounted again, or the same
-// source opened again after its open ended, is a new open). The sidecar keeps one judge call budget per open, so a re-ask or a
-// new target mid-open draws on what the open's earlier jobs left.
+// minted once per open. The sidecar keeps one judge call budget per open, so a
+// re-ask or a new target mid-open draws on what the open's earlier jobs left.
+//
+// Reader CA6b (final verify F11, F12): the open's lifetime is tracked apart
+// from whether a reading is shown. A new open -- a new id, with nothing asked
+// yet and a fresh budget -- comes only when the open source's identity
+// changes (another source, including a direct replacement: A, then B, then A
+// is three opens) or the open ends (closed: the identity goes to null). A
+// reading that is briefly not there within the same open (side by side's
+// second pane loading another section of its book, by hand or by follow
+// along, or hidden by a comparison) pauses discovery: no new ask, but the
+// open id, what was asked and a job already running are kept, so a section
+// change never asks again for the same targets nor draws a new budget.
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderCueDiscoveryDto, ReaderCueDiscoveryJobDto } from "../../api/dto";
@@ -40,7 +50,13 @@ export const TARGETS_PENDING_POLL_MS = 4_000;
 export const TARGETS_PENDING_POLL_MAX_MS = 60_000;
 
 export interface CueDiscoveryInput {
+  /** The reading discovery runs on now; null while none is shown (a pause
+   *  while `openKey` still names an open, else no open). */
   extractionId: string | null;
+  /** Reader CA6b: the identity of the source open (side by side's second
+   *  pane: its book while side by side is open). A change, or null, ends the
+   *  open. Absent: `extractionId` (the main pane, whose reading is its open). */
+  openKey?: string | null;
   discovery: ReaderCueDiscoveryDto | null;
   offline: boolean;
   /** Re-read the plan (its cues) once the job found something. */
@@ -51,8 +67,8 @@ function foundSomething(job: ReaderCueDiscoveryJobDto): boolean {
   return Boolean(job.result && (job.result.links > 0 || job.result.calls > 0));
 }
 
-export function useCueDiscovery({ extractionId, discovery, offline, reloadGuidePlan }: CueDiscoveryInput): void {
-  // The targets each source was asked about (requested), per source.
+export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery, offline, reloadGuidePlan }: CueDiscoveryInput): void {
+  // The targets each source was asked about (requested), per source, this open.
   const askedRef = useRef<Map<string, string>>(new Map());
   // How often each (source, targets) was asked again because the answer was for others.
   const reasksRef = useRef<Map<string, number>>(new Map());
@@ -61,30 +77,47 @@ export function useCueDiscovery({ extractionId, discovery, offline, reloadGuideP
   reloadRef.current = reloadGuidePlan;
   const targetsKey = discovery?.targetsKey ?? null;
   const targetsPending = Boolean(discovery?.targetsPending);
-  // This open of the source (F16): minted when the source changes, kept for every ask while it stays open.
-  const openRef = useRef<{ extractionId: string; id: string } | null>(null);
-  if (!extractionId && openRef.current) {
-    // The open ended (no source, or side by side's second pane closed): the
-    // next open of any source -- the same one too -- is a new open, with its
-    // own id and budget, asked afresh even for targets an earlier open
-    // already asked about (Reader CA6b, Codex re-review F11).
-    openRef.current = null;
+  const openKey = openKeyInput === undefined ? extractionId : openKeyInput;
+  // This open of the source (F16; CA6b F11): a new one only when the open's
+  // identity changes or the open ends, never while a reading is briefly away.
+  const openRef = useRef<{ key: string; id: string } | null>(null);
+  if ((openRef.current?.key ?? null) !== openKey) {
+    openRef.current = openKey ? { key: openKey, id: `copen_${newActivityId()}` } : null;
     askedRef.current.clear();
     reasksRef.current.clear();
   }
-  if (extractionId && openRef.current?.extractionId !== extractionId) {
-    openRef.current = { extractionId, id: `copen_${newActivityId()}` };
-  }
+  const openId = openRef.current?.id ?? null;
+  // Paused (CA6b F12): the open goes on, but no reading is shown just now.
+  const paused = openId !== null && !extractionId;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  // The jobs being read, each with its cancel: a pause keeps them running;
+  // the open ending (or the Reader closing) stops them.
+  const runningRef = useRef<Set<() => void>>(new Set());
+  useEffect(() => {
+    const running = runningRef.current;
+    return () => {
+      for (const stop of [...running]) stop();
+      running.clear();
+    };
+  }, [openId]);
 
   useEffect(() => {
-    if (!extractionId || targetsKey === null || offline) return;
+    if (!extractionId || !openId || targetsKey === null || offline) return;
     if (askedRef.current.get(extractionId) === targetsKey) return;
     askedRef.current.set(extractionId, targetsKey);
     let cancelled = false;
     let done = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = () => {
+      cancelled = true;
+      if (timer !== null) clearTimeout(timer);
+      runningRef.current.delete(stop);
+    };
+    runningRef.current.add(stop);
     const finish = (job: ReaderCueDiscoveryJobDto) => {
       done = true;
+      runningRef.current.delete(stop);
       if (cancelled) return;
       if (foundSomething(job)) void reloadRef.current();
       // Answered for other targets (a joined job) or cancelled: not this ask's answer.
@@ -99,28 +132,33 @@ export function useCueDiscovery({ extractionId, discovery, offline, reloadGuideP
       }
     };
     const read = (jobId: string, reads: number) => {
-      if (cancelled || reads >= DISCOVERY_MAX_READS) return;
+      if (cancelled || reads >= DISCOVERY_MAX_READS) {
+        runningRef.current.delete(stop);
+        return;
+      }
       const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)];
       timer = setTimeout(() => {
         void api.readerCueDiscoveryJob({ jobId })
           .then((job) => (job.state === "done" ? finish(job) : read(jobId, reads + 1)))
-          .catch(() => undefined);
+          .catch(() => runningRef.current.delete(stop));
       }, pause);
     };
-    // Minted at render for this source: the same id for every ask of this open.
-    const sourceOpenId = openRef.current?.id ?? `copen_${newActivityId()}`;
-    void api.readerCueDiscovery({ extractionId, sourceOpenId })
+    // Minted at render for this open: the same id for every ask of it.
+    void api.readerCueDiscovery({ extractionId, sourceOpenId: openId })
       .then((job) => (job.state === "done" ? finish(job) : read(job.jobId, 0)))
       // Quiet: the plan's marks stay; the next change of targets asks again.
-      .catch(() => undefined);
+      .catch(() => runningRef.current.delete(stop));
     return () => {
-      cancelled = true;
-      if (timer !== null) clearTimeout(timer);
+      // A pause within the same open (CA6b F12): the job goes on being read
+      // and stays asked, so the reading coming back asks nothing again. The
+      // open ending stops it (the effect above).
+      if (pausedRef.current && openRef.current?.id === openId) return;
+      stop();
       // Left before the job was read to its end: the next mount asks again
       // (the sidecar answers with the job already running for this source).
       if (!done && askedRef.current.get(extractionId) === targetsKey) askedRef.current.delete(extractionId);
     };
-  }, [extractionId, targetsKey, offline, reask]);
+  }, [extractionId, openId, targetsKey, offline, reask]);
 
   // F8: background work can still name a target: re-read the plan until it cannot.
   useEffect(() => {

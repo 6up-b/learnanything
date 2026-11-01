@@ -986,7 +986,8 @@ it("F8 round 3: check me after the second pane moved to 7.B keeps 7.B as the way
   // And in the Reader the shell opens again after its practice screen: Alt+← reopens 7.B too.
   cleanup();
   render(<ReaderScreen initialSource={{ card, spanId, besideTrail: trail } as never} onError={vi.fn()} />);
-  await screen.findByText("Proof: by induction on the dimension.");
+  await screen.findAllByText("Proof: by induction on the dimension.");
+  expect(pane()).toBeNull();
   await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
   expect(within(pane()!).queryByText(SIDE_TEXT)).toBeNull();

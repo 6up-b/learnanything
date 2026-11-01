@@ -136,7 +136,7 @@ export function dropCurrent(stack: ReturnStack, id: string): ReturnStack {
  *  section opened beside the same passage replaces side by side's pair, so
  *  the crumb names what is open and closing it still takes it off). Not the
  *  current entry: the stack is unchanged. */
-export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide">>): ReturnStack {
+export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide" | "spanId">>): ReturnStack {
   const current = stack.entries[stack.cursor];
   if (!current || current.id !== id) return stack;
   const entries = stack.entries.slice();

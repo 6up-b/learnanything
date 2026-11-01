@@ -118,7 +118,7 @@ import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
-import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
+import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
 import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
 import type { AskAnchor } from "./reader/useReaderInquiry";
 import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
@@ -627,7 +627,7 @@ export function ReaderScreen({
     setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
+    resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -1501,7 +1501,19 @@ export function ReaderScreen({
   const besideSeq = useRef(0);
   const openBesideRef = useRef<(hit: { sourceId: string; extractionId: string; spanId: string }) => Promise<OpenOutcome>>(
     () => Promise.resolve("not_opened"));
+  // Final verify F8: the crumb keeps side by side as it is at the handoff --
+  // the second pane's section now (moved by hand or by follow along since it
+  // opened) at the handoff's passage, and the main pane's passage now -- so
+  // the way back, here or after the shell's practice and feedback screens
+  // (besideTrail is this stack), reopens that pair, not the one first opened.
+  const snapshotBesideRef = useRef<(spanId: string) => void>(() => undefined);
+  snapshotBesideRef.current = (spanId: string) => {
+    const shown = sbsRef.current.target;
+    if (!shown || !sbsRef.current.panes) return;
+    snapshotSideBySide(crumbLabel(shown), { ...shown, spanId });
+  };
   const takeBesideBook = useCallback((book: { sourceId: string; extractionId: string }, spanId: string, run: BesideRun) => {
+    snapshotBesideRef.current(spanId);
     const id = ++besideSeq.current;
     setBesideHandoff({ id, sourceId: book.sourceId, extractionId: book.extractionId, run });
     void openBesideRef.current({ sourceId: book.sourceId, extractionId: book.extractionId, spanId }).then((outcome) => {
@@ -1520,6 +1532,9 @@ export function ReaderScreen({
   const side = useSidePane({
     shown: sbsPanes,
     section: sbsSection,
+    // Final verify F11, F12: the second pane's book while side by side is
+    // open (a section loading or a comparison only pauses its discovery).
+    openBook: sbs.target?.extractionId ?? null,
     intentContract,
     muted,
     notes: Boolean(sbsSection && library?.find((card) => card.sourceId === sbsSection.sourceId)?.acquisitionKind === "textfile"),
@@ -1566,15 +1581,19 @@ export function ReaderScreen({
     if (sbsPanesRef.current) releaseSideKeys();
     setAskComposerAnchor(null);
   }, [selection, releaseSideKeys]);
-  // The composer the second pane opened goes back to the open book once that pane closes or its selection goes.
-  useEffect(() => {
-    if (!side.selection) setAskComposerAnchor(null);
-  }, [side.selection]);
   // A new composer (the second pane's, or back to the open book's): a failed
   // Ask is not its request, so ↵ there asks it afresh (Codex re-review F10).
-  useEffect(() => {
+  // It is a new composer generation at once, before anything is asked from
+  // it, so a request still pending from the old one cannot leave its retry
+  // here when it fails later (final verify F10).
+  const openComposer = useCallback((anchor: AskAnchor | null) => {
     forgetFailedAsk();
-  }, [askComposerAnchor, forgetFailedAsk]);
+    setAskComposerAnchor(anchor);
+  }, [forgetFailedAsk]);
+  // The composer the second pane opened goes back to the open book once that pane closes or its selection goes.
+  useEffect(() => {
+    if (!side.selection && askComposerAnchorRef.current) openComposer(null);
+  }, [side.selection, openComposer]);
   const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
   useEffect(() => {
     if (!sbsPanes) setSbsRailOverlay(false);
@@ -3050,14 +3069,14 @@ export function ReaderScreen({
           setSbsRailOverlay(true);
           setRailTab("ask");
           if (text) {
-            setAskComposerAnchor(null);
+            if (askComposerAnchorRef.current) openComposer(null);
             void submitAsk(text, null, { answerMode: "answerMode" in effect ? effect.answerMode : undefined, meta, anchor });
           } else {
             // An empty Enter: the composer, on the second pane's selection (no
             // model call), a new thread there: never a follow-up to the open
             // book's thread (Codex review F2).
             setParentExchange(null);
-            setAskComposerAnchor(anchor);
+            openComposer(anchor);
             logReaderAction("action_invoked", { ...visitPayload(), action_kind: "ask_opened", ...meta });
             window.requestAnimationFrame(() => askComposerRef.current?.focus({ preventScroll: true }));
           }
@@ -4170,7 +4189,7 @@ export function ReaderScreen({
             composerAbout={askComposerAnchor ? {
               label: askComposerAnchor.about.label,
               quote: askComposerAnchor.selectionQuote ?? "",
-              onClear: () => setAskComposerAnchor(null),
+              onClear: () => openComposer(null),
             } : null}
             visible={railTab === "ask"}
             enabled={enabled}

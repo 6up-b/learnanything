@@ -116,6 +116,10 @@ export interface ReaderCuesInput {
   /** Reader CA6b: re-read after a density or book-off change (one vault-wide
    *  setting: both panes' plans); absent: `reloadGuidePlan`. */
   reloadAfterPreference?: () => Promise<void>;
+  /** Reader CA6b (final verify F11, F12): the source open discovery belongs
+   *  to, when it outlives the reading shown (side by side's second pane: its
+   *  book, kept while a section loads); absent: the reading itself. */
+  discoveryOpenKey?: string | null;
 }
 
 export interface ReaderCues {
@@ -306,7 +310,10 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
 
   // RW3b: the background search for missing links, and the receipts.
   const discovery = cues?.discovery ?? null;
-  useCueDiscovery({ extractionId, discovery, offline, reloadGuidePlan });
+  useCueDiscovery({
+    extractionId, discovery, offline, reloadGuidePlan,
+    ...(input.discoveryOpenKey !== undefined ? { openKey: input.discoveryOpenKey } : {}),
+  });
   const funnelVisit = useCallback(() => (cueVisitId ? cueVisitId() : visitPayload().visit_id), [visitPayload, cueVisitId]);
   const impressions = useCueImpressions({
     extractionId, cues, placement, surface, bodyRef, visitId: funnelVisit,

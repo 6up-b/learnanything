@@ -246,6 +246,10 @@ export interface ReaderInquiry {
   /** Reader CA6: another section opened beside the same passage: the current
    *  crumb now names it (same entry id); false when it is not the current entry. */
   replaceSideBySide: (entryId: string, label: string, target: PaneTarget) => boolean;
+  /** Reader CA6b (final verify F8): side by side's crumb, while it is the
+   *  current entry, takes the pair as it is now (the second pane's section
+   *  and passage) and the main pane's passage now; false when it is not. */
+  snapshotSideBySide: (label: string, target: PaneTarget) => boolean;
   /** Reader CA6: the learner closed side by side; its crumb goes if it is the current entry (nothing moves). */
   dropDetour: (entryId: string) => void;
 }
@@ -312,10 +316,17 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // composer only (Codex re-review F10): a source reset or a new composer
   // forgets it.
   const failedAskRef = useRef<{ asked: string; parent: ReaderExchange | null; override?: AskOverride } | null>(null);
+  // The composer's generation (final verify F10): every new composer, source
+  // reset, selection or thread is a new one. A request remembers the
+  // generation it was asked from, and its failure may leave a retry only
+  // while that generation is still the current one, so a failure landing
+  // after a new composer opened never gives that composer its grounding.
+  const composerGenRef = useRef(0);
   const resetInquiryState = useCallback(() => {
     askEpoch.current += 1;
     askPending.current = false;
     failedAskRef.current = null;
+    composerGenRef.current += 1;
     setParentExchange(null);
     setQuestion("");
     setAskComposerVersion(0);
@@ -491,6 +502,22 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     return true;
   }, []);
 
+  /** Reader CA6b (final verify F8): the crumb as side by side is now, just
+   *  before a handoff leaves it (check me, work through). The pair in the
+   *  crumb was the one first opened or replaced: moving the second pane
+   *  (by hand or follow along) or reading on in the main pane did not change
+   *  it, so walking back would have reopened where side by side began. */
+  const snapshotSideBySide = useCallback((label: string, target: PaneTarget): boolean => {
+    const stack = returnStackRef.current;
+    const current = stack.entries[stack.cursor];
+    if (!current || current.kind !== "side_by_side") return false;
+    const next = replaceCurrent(stack, current.id, { label, sideBySide: target, spanId: readingSpan ?? activeSpan ?? current.spanId });
+    if (next === stack) return false;
+    returnStackRef.current = next;
+    setReturnStack(next);
+    return true;
+  }, [readingSpan, activeSpan]);
+
   /** Reader CA6b (Codex re-review F8): the trail back to side by side the
    *  Reader was handed when it opened again (besideTrail), as the stack. */
   const seedReturnStack = useCallback((stack: ReturnStack) => {
@@ -661,6 +688,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (!groundingSpan || !asked || !render || askPending.current) return;
     if (inquiry && offline) return;
     const epoch = askEpoch.current;
+    const composer = composerGenRef.current;
     askPending.current = true;
     failedAskRef.current = null;
     // The full capture selection widens the tutor's citable context to every
@@ -812,7 +840,9 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         // The learner's words stay in the composer for "try again", which
         // asks them with this request's grounding (Codex review F3).
         if (inquiry && asked !== question.trim()) setQuestion(asked);
-        failedAskRef.current = { asked, parent, ...(override ? { override } : {}) };
+        // Only while the composer it was asked from is still the one open
+        // (final verify F10): otherwise ↵ and "try again" ask afresh there.
+        if (composer === composerGenRef.current) failedAskRef.current = { asked, parent, ...(override ? { override } : {}) };
       }
     } finally {
       if (epoch === askEpoch.current) {
@@ -854,11 +884,13 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   /** A new composer (the second pane's, or back to the open book's): the failed request is not its own. */
   const forgetFailedAsk = useCallback(() => {
     failedAskRef.current = null;
+    composerGenRef.current += 1;
   }, []);
 
   // Another selection or thread: "try again" is no longer that request.
   useEffect(() => {
     failedAskRef.current = null;
+    composerGenRef.current += 1;
   }, [selection, parentExchange]);
 
   /** RW1c: "another way" under an answer -- a follow-up that retrieves with
@@ -1310,6 +1342,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     markBranchDone,
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,
-    noteSourceOpened, rememberLeftSource, resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
+    noteSourceOpened, rememberLeftSource, resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour,
   };
 }

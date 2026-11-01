@@ -59,6 +59,10 @@ export interface SidePaneInput {
   shown: boolean;
   /** The section the second pane shows (null while it loads). */
   section: SideBySideSectionDto | null;
+  /** The book open in the second pane while side by side is open (its
+   *  reading), kept while a section loads or the pane is hidden; null once
+   *  side by side closes. Cue discovery's open (final verify F11, F12). */
+  openBook: string | null;
   intentContract: ReaderIntentContractDto | null;
   /** Skim mode: the box opens only on `?` or Tab, and no marks are drawn (as in the main pane). */
   muted: boolean;
@@ -89,7 +93,7 @@ export interface SidePaneInput {
 const noop = () => undefined;
 
 export function useSidePane(input: SidePaneInput) {
-  const { shown, section, intentContract, muted, notes, hostRef, onRun, onCancelRun, onSelectedHere,
+  const { shown, section, openBook, intentContract, muted, notes, hostRef, onRun, onCancelRun, onSelectedHere,
     activeReadingOn, figuresContract, densityKey, reloadMainPlan, visitPayload, onError, offline, foldBlocks, onCheckMe,
     canWorkThrough } = input;
   const extractionId = shown && section ? section.extractionId : null;
@@ -175,7 +179,7 @@ export function useSidePane(input: SidePaneInput) {
   const marksChanged = useCallback(() => setMarksVersion((value) => value + 1), []);
 
   const cues = useSidePaneCues({
-    extractionId, sourceId, blocks: section?.blocks ?? null, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+    extractionId, sourceId, openBook, blocks: section?.blocks ?? null, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
     ...(onCheckMe ? { onCheckMe } : {}),
     // RW3b: "try this step first" is RW1b's next-step question at that line, in this pane.
     ...(activeReadingOn ? { onTryFirst: (spanId: string) => void active.start("next_step", [spanId], fold([spanId], foldBlocks)) } : {}),
@@ -201,11 +205,12 @@ export type SidePane = ReturnType<typeof useSidePane>;
  *  whenever the pane's size changes (the splitter, the window), never on
  *  scroll. */
 function useSidePaneCues({
-  extractionId, sourceId, blocks, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
+  extractionId, sourceId, openBook, blocks, muted, offline, densityKey, hostRef, reloadMainPlan, visitPayload, onError,
   onCheckMe, onTryFirst,
 }: {
   extractionId: string | null;
   sourceId: string | null;
+  openBook: string | null;
   blocks: SideBySideSectionDto["blocks"] | null;
   muted: boolean;
   offline: boolean;
@@ -293,6 +298,10 @@ function useSidePaneCues({
     bodyRef: hostRef, layoutKey: `${blocksKey}:${geometry}`, spanOrder, readingSpan: null,
     visitPayload: sideVisitPayload, jumpToSpan, notePlacement: noop, onError,
     spanAttribute: "data-sbs-span", ownsKey, cueVisitId: ownVisit,
+    // Final verify F11, F12: discovery's open is the book's, not the section's:
+    // moving among its sections (by hand or follow along) pauses discovery and
+    // keeps the open id, what was asked and its budget; closing ends it.
+    discoveryOpenKey: openBook,
     ...(onCheckMe ? { onCheckMe } : {}), ...(onTryFirst ? { onTryFirst } : {}),
   });
   return cueCtl;
