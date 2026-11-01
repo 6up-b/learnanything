@@ -13,6 +13,11 @@
 // * Skim is the mute button (UX §4.12; review F9): while muted the card is not
 //   presented (it waits folded, so "last time ▸" reopens it after skimming)
 //   and the rail's offer is withheld; `w` still opens Wrap up on request.
+// * RW6b part 2's narrative (Codex review F7): while the card or an open Wrap
+//   up shows it "writing", the surface showing it is re-read every
+//   NARRATIVE_POLL_MS until it lands or stops waiting (the background job
+//   writes it; nothing pushes). The timer is cleared when the source changes,
+//   the card is dismissed, Wrap up closes or the Reader unmounts.
 // Off (the sidecar sends no `recap` key) nothing here asks the sidecar
 // anything. Nothing takes focus, animates or opens a modal.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -60,6 +65,9 @@ export interface ReaderRecapCtl {
   closeWrapUp: () => void;
 }
 
+/** keep: a refresh interval for a pending narrative (a UI guardrail, not a judgment). */
+export const NARRATIVE_POLL_MS = 10_000;
+
 export function useReaderRecap({
   enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, suspended = false, muted = false,
   reveal, onError,
@@ -69,6 +77,7 @@ export function useReaderRecap({
   const [wrapUpAvailable, setWrapUpAvailable] = useState(false);
   const [wrapUpOpen, setWrapUpOpen] = useState<ReaderWrapUpDto | null>(null);
   const [reloads, setReloads] = useState(0);
+  const [narrativePolls, setNarrativePolls] = useState(0);
   const autoFoldedRef = useRef(false);
   const shownRef = useRef<string | null>(null);
   const extractionRef = useRef<string | null>(extractionId);
@@ -223,6 +232,36 @@ export function useReaderRecap({
     // Only on an explicit reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloads]);
+
+  // A narrative still being written lands where it is shown (Codex review
+  // F7): re-read only the surface(s) waiting for it, once per interval.
+  const recapWaiting = enabled && recap?.narrative?.state === "pending";
+  const wrapUpWaiting = wrapUpOpen?.narrative?.state === "pending";
+  useEffect(() => {
+    if (!extractionId || (!recapWaiting && !wrapUpWaiting)) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      const reads: Promise<unknown>[] = [];
+      if (recapWaiting) {
+        reads.push(Promise.resolve(api.readerRecap({ extractionId, visitId: visitIdRef.current() })).then((result) => {
+          if (!cancelled && extractionRef.current === extractionId) setRecap(result?.recap ?? null);
+        }));
+      }
+      if (wrapUpWaiting) {
+        reads.push(Promise.resolve(api.readerWrapUp({ extractionId, visitId: visitIdRef.current() })).then((result) => {
+          if (!cancelled && extractionRef.current === extractionId) setWrapUpOpen((current) => (current ? result : current));
+        }));
+      }
+      // The next interval, whether or not a read failed (it is a convenience).
+      void Promise.allSettled(reads).then(() => {
+        if (!cancelled) setNarrativePolls((count) => count + 1);
+      });
+    }, NARRATIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [extractionId, recapWaiting, wrapUpWaiting, narrativePolls]);
 
   return {
     recap, collapsed, expand, continueReading, dismiss, noteShown, reload,
