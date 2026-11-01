@@ -37,6 +37,7 @@ from tests.exam_scope_fixtures import (
     EXAM_EXTRACTIONS,
     NEVER_ON_A_PATH,
     PAPER,
+    PARTLY_PROTECTED,
     PAST_PAPER_LOS,
     SENTINEL_WORDS,
     SENTINELS,
@@ -114,6 +115,11 @@ def test_the_fixture_holds_every_kind_of_exam_material(tmp_path):
     assert exam.is_held_out("ext_pset", SPANS["pset_2"]) and not exam.covers("ext_pset", SPANS["pset_1"])
     assert exam.is_held_out("ext_lay", SPANS["lay_held"])
     assert not exam.covers("ext_syl") and not exam.covers("ext_syl", SPANS["syl_main"])  # a syllabus: not protected
+    # Rule 2 inside a book, the outline's exam pick outside every set, rule 4's unmarked alternate reading.
+    assert exam.covers("ext_mixed", SPANS["mixed_exam"]) and not exam.covers("ext_mixed", SPANS["mixed_theory"])
+    assert exam.covers("ext_outline", SPANS["outline_q1"])
+    assert not any(s.id for s in vault.source_sets for m in s.members if m.source_id == "src_outline")
+    assert EM.reading_held_back(vault, repository, "ext_lay_alt")
 
 
 def test_a_syllabus_never_teaches_and_is_never_a_coverage_candidate(tmp_path):
@@ -121,7 +127,9 @@ def test_a_syllabus_never_teaches_and_is_never_a_coverage_candidate(tmp_path):
     vault = load_vault(paths.root)
     assert "ext_syl" in teaching_exclusions(vault, repository).extractions
     library = SC.Library(vault, repository)
-    assert {"ext_syl", *EXAM_EXTRACTIONS} <= set(library.left_out)
+    # Left out, or (the unmarked alternate reading, not the one the Reader opens) never read at all.
+    assert not {"ext_syl", *EXAM_EXTRACTIONS} & set(library.extractions)
+    assert {"ext_syl", *EXAM_EXTRACTIONS} - {"ext_lay_alt"} <= set(library.left_out)
     judge = CoverageJudgeFake()
     for lo_id in ALL_LOS:
         SC.judge(vault, repository, lo_id, client=judge)
@@ -192,7 +200,8 @@ def test_gc2_a_syllabus_with_the_exam_role_is_refused_and_nothing_is_written(tmp
     # Every other kind of exam material is refused the same way.
     for extraction_id, span in (("ext_exam", "exam_q"), ("ext_paper", "paper_q1"), ("ext_paper", "paper_q2"),
                                 ("ext_paper", "paper_q3"), ("ext_lay", "lay_held"), ("ext_pset", "pset_1"),
-                                ("ext_pset", "pset_2")):
+                                ("ext_pset", "pset_2"), ("ext_mixed", "mixed_exam"), ("ext_outline", "outline_q1"),
+                                ("ext_lay_alt", "alt_eigen")):
         with pytest.raises(DL.DeliverableError) as caught:
             DL.add_input(vault, repository, goal_id, "passage", extraction_id=extraction_id, span_ids=[SPANS[span]])
         assert caught.value.code == "exam_material"
@@ -353,9 +362,10 @@ def test_gc1_no_request_correspondent_path_row_or_slice_names_exam_material(tmp_
     rows = _rows(repository, "SELECT extraction_id, section_id FROM deliverable_path_sections")
     assert rows and not {row[0] for row in rows} & set(NEVER_ON_A_PATH)
     library = SC.Library(vault, repository)
-    lay = library.reading("ext_lay")
-    assert lay is not None and lay.withheld  # the held-out unit's section
-    assert not {("ext_lay", section) for section in lay.withheld} & set(rows)
+    partly = {extraction_id: library.reading(extraction_id) for extraction_id in PARTLY_PROTECTED}
+    for extraction_id, reading in partly.items():
+        assert reading is not None and reading.withheld  # the held-out unit's section, the exam unit's
+        assert not {(extraction_id, section) for section in reading.withheld} & set(rows)
     outputs = [DP.path_view(vault, repository, goal_id), DP.readiness(vault, repository, goal_id)]
     outputs += [DP.guide_slice(vault, repository, extraction_id) for extraction_id in sorted(library.extractions)]
     for extraction_id in sorted(library.extractions):
@@ -368,7 +378,8 @@ def test_gc1_no_request_correspondent_path_row_or_slice_names_exam_material(tmp_
         assert SYLLABUS_MARKER not in text
         for extraction_id in NEVER_ON_A_PATH:
             assert extraction_id not in text
-        assert not _names_section(output, "ext_lay", lay.withheld)
+        for extraction_id, reading in partly.items():
+            assert not _names_section(output, extraction_id, reading.withheld)
 
 
 def test_gc3_readiness_checks_never_pick_exam_reserved_or_held_out_items(tmp_path):
