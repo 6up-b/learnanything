@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95"
-source_commit_timestamp: "2026-11-01T14:40:42-05:00"
+source_commit: "f76a8de7a6ccd870165fbdbded03dc74757b8a18"
+source_commit_timestamp: "2026-11-01T15:36:35-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -38,7 +38,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/Rust/commands|commands.rs]] | `ACTIVE` | Implements the native command boundary, adapting Tauri invocations to typed JSON-RPC calls on the Python sidecar. | 3 | 1 |
 | [[Reference/Desktop/Rust/errors|errors.rs]] | `ACTIVE` | Defines the serializable native command error contract and distinguishes retryable application failures from invalidated transports. | 0 | 4 |
-| [[Reference/Desktop/Rust/frame_guard|frame_guard.rs]] | `ACTIVE` | Provides `refusal`, `refusal_reason` within the desktop's Rust ownership area. | 0 | 1 |
+| [[Reference/Desktop/Rust/frame_guard|frame_guard.rs]] | `ACTIVE` | Provides `Platform`, `PLATFORM`, `refusal_on`, `refusal_reason` and related exports within the desktop's Rust ownership area. | 0 | 1 |
 | [[Reference/Desktop/Rust/main|main.rs]] | `ACTIVE` | Bootstraps the native Tauri runtime, registers protocols and commands, and composes the sidecar and vault watcher. | 5 | 0 |
 | [[Reference/Desktop/Rust/sidecar|sidecar.rs]] | `ACTIVE` | Owns the Python sidecar child process, vault selection, JSON-RPC request lifecycle, timeout, restart, and isolated long-running calls. | 1 | 3 |
 | [[Reference/Desktop/Rust/vault_watcher|vault_watcher.rs]] | `ACTIVE` | Coalesces native filesystem mutations and asks the Python authority to refresh the selected vault before notifying the renderer. | 2 | 2 |

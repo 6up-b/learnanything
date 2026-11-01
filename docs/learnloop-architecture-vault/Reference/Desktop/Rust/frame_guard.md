@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/frame_guard.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/frame_guard.rs"
-source_commit: "f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95"
-source_commit_timestamp: "2026-11-01T14:40:42-05:00"
+source_commit: "f76a8de7a6ccd870165fbdbded03dc74757b8a18"
+source_commit_timestamp: "2026-11-01T15:36:35-05:00"
 source_worktree_state: "staged-or-mixed"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/Rust/_area|Rust]] · Jump to [[#Public API|API]], [[#W
 
 ## Why this module exists
 
-Provides `refusal`, `refusal_reason` within the desktop's Rust ownership area.
+Provides `Platform`, `PLATFORM`, `refusal_on`, `refusal_reason` and related exports within the desktop's Rust ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/frame_guard.rs](../../../../../apps/learnloop-tauri/src-tauri/src/frame_guard.rs) |
-| Source lines | 254 |
+| Source lines | 437 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `staged-or-mixed` |
-| Source commit | `f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95` |
-| Commit timestamp | `2026-11-01T14:40:42-05:00` |
+| Source commit | `f76a8de7a6ccd870165fbdbded03dc74757b8a18` |
+| Commit timestamp | `2026-11-01T15:36:35-05:00` |
 
 ## Activation and status evidence
 
@@ -60,18 +60,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `pub fn refusal(origin: Option<&str>, referer: Option<&str>) -> Option<&'static str>` — fn, line 67
-- `pub fn refusal_reason(headers: &HeaderMap) -> Option<&'static str>` — fn, line 112
+- `pub enum Platform` — enum, line 73
+- `pub const PLATFORM: Platform = if cfg!(target_os = "linux")` — const, line 84
+- `pub fn refusal_on( platform: Platform, origin: Option<&str>, referer: Option<&str>, ) -> Option<&'static str>` — fn, line 102
+- `pub fn refusal_reason(headers: &HeaderMap) -> Option<&'static str>` — fn, line 168
+- `pub fn refusal_reason_on(platform: Platform, headers: &HeaderMap) -> Option<&'static str>` — fn, line 173
 
 ## Internal implementation anchors
 
-- `fn app_origin(url: &Url) -> Option<String>` — fn, line 39
-- `fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str>` — fn, line 105
-- `fn the_apps_own_document_passes()` — fn, line 127
-- `fn frames_and_workers_are_refused()` — fn, line 161
-- `fn omitted_headers_and_unexpected_origins_are_refused()` — fn, line 192
-- `fn a_replaced_same_origin_referrer_is_not_this_layers_to_catch()` — fn, line 222
-- `fn reads_the_request_headers()` — fn, line 239
+- `fn app_origin(url: &Url) -> Option<String>` — fn, line 49
+- `fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str>` — fn, line 159
+- `fn the_apps_own_document_passes()` — fn, line 194
+- `fn frames_and_workers_are_refused()` — fn, line 232
+- `fn omitted_headers_and_unexpected_origins_are_refused()` — fn, line 266
+- `fn a_replaced_same_origin_referrer_is_not_this_layers_to_catch()` — fn, line 299
+- `fn reads_the_request_headers()` — fn, line 320
+- `fn linux_refuses_absent_headers()` — fn, line 338
+- `fn with_the_fallback_registered_absent_headers_pass()` — fn, line 356
+- `fn with_the_fallback_registered_an_explicit_frame_or_foreign_origin_is_refused()` — fn, line 388
+- `fn this_build_uses_its_platforms_rules()` — fn, line 430
 
 ## Who imports or calls it
 

@@ -77,3 +77,44 @@ at a time. TMPDIR was outside the worktree.
   - frontend (npm, vitest, frontend build): no frontend file changed;
   - durability lane and DB reference scripts: no migration, DB or schema change;
   - full suite: owner rule, landing gate only.
+
+## Orchestrator scoped verify remainder, fixed
+
+Scoped verify: Codex (gpt-6.1-sol), job `20261101-153827-RFAdme`, on `b7530c0435`. It closed F1's omitted-Referer and
+unexpected-origin parts, found no false refusal on the normal Linux path, and found the guard's scope stated honestly.
+One conditional regression remained:
+
+> [P2] Legitimate Windows/macOS fallback invokes are rejected — frame_guard.rs:68. Tauri 2.11.2 switches to
+> window.ipc.postMessage when custom-protocol fetch fails; on that authenticated fallback Rust builds invoke headers
+> from options.headers, and LearnLoop's invoke(command, args) supplies none, so the guard rejects legitimate
+> top-document calls. The fallback stays registered on Windows/macOS (Linux unregisters it). Fix: make enforcement
+> transport-aware, or scope this header filter to Linux pending equivalent non-Linux handling; add a fallback
+> regression check.
+
+**Confirmed in the source.** Tauri 2.11.2 `ipc/protocol.rs` (`handle_ipc_message`) builds the fallback's
+`InvokeRequest.headers` from the message's `options.headers` alone, so the app's own fallback call reaches the
+guard with an empty header map, and the guard refused "no Origin".
+
+**Fixed (`frame_guard.rs`, `main.rs`).** The header rules now take a `Platform`:
+- `Platform::Linux` (the build's `PLATFORM` when `cfg!(target_os = "linux")`): unchanged. Linux unregisters the
+  script-message fallback, so every app invoke comes over the custom protocol with both headers; a missing Origin or
+  Referer is refused.
+- `Platform::FallbackRegistered` (Windows, macOS): an absent or empty Origin or Referer is never a reason. A header
+  that is present is still checked: an explicit Origin `null`, an Origin that isn't the app's, a Referer that isn't a
+  URL, is a `blob:`/`data:`/`about:`/`filesystem:`/`javascript:` URL, names a script asset or another HTML page (the
+  sketch frame), isn't on an app origin, or disagrees with the Origin, and a header that isn't text, are refused. On
+  the fallback those headers are whatever the message names, so this is a filter, not authentication; the invoke key
+  remains the document's authentication (R1).
+- The functions take the platform as a parameter (`refusal_on`, `refusal_reason_on`), so both branches run in the
+  Linux test build. The wrapper in `main.rs` also prints one stderr line per refusal
+  (`frame_guard: refused command=… reason=…`), so a refused app call is visible in a log.
+
+**Tests (Rust):** `linux_refuses_absent_headers`; `with_the_fallback_registered_absent_headers_pass` (including the
+fallback's request as Tauri builds it, an empty header map); `with_the_fallback_registered_an_explicit_frame_or_foreign_origin_is_refused`;
+`this_build_uses_its_platforms_rules` (the build's `PLATFORM` follows `target_os`). The earlier tests now name
+`Platform::Linux`.
+
+**Gate (this step):** `cargo test --offline`: **35 passed, 0 failed** (31 before, plus 4); `cargo check --offline`:
+clean, no warnings; `rustfmt --check` on `frame_guard.rs`: clean. Targeted pytest (`test_desktop_rpc_contract.py`,
+`test_codex_lockdown_round3.py`, `test_desktop_activation_audit.py`, `test_architecture.py`): **42 passed**.
+`desktop_generate.py` regenerated the `frame_guard` and `main` notes; `desktop_validate.py` passes.

@@ -722,11 +722,18 @@ fn main() {
             ];
             // RW5d P2 sketch compartment, defense in depth: a LearnLoop command
             // whose Origin and Referer aren't the app's own document's (an
-            // opaque-origin frame, a worker or frame URL, an omitted Referer, a
-            // foreign origin) is refused before it runs (frame_guard.rs says
-            // what this can't cover: a replaced same-origin Referer).
+            // opaque-origin frame, a worker or frame URL, a foreign origin and,
+            // on Linux only, an omitted header) is refused before it runs
+            // (frame_guard.rs says why absent headers pass where Tauri's
+            // script-message fallback is registered, and what this can't
+            // cover: a replaced same-origin Referer). Each refusal is one
+            // stderr line, so a refused app call is visible.
             move |invoke| {
                 if let Some(reason) = frame_guard::refusal_reason(invoke.message.headers()) {
+                    eprintln!(
+                        "frame_guard: refused command={} reason={reason}",
+                        invoke.message.command()
+                    );
                     invoke.resolver.reject(format!("refused: {reason}"));
                     return true;
                 }

@@ -28,6 +28,16 @@
 //!   document's URL, so no handler can tell a frame from the app. On Linux the
 //!   app sends every invoke over the `ipc:` custom protocol and uses that path
 //!   only as a fallback, so the shell unregisters it (main.rs).
+//! - The header refusals are transport-aware, by platform. Tauri falls back to
+//!   that script-message path when a custom-protocol fetch fails, and on the
+//!   fallback it builds the invoke's headers from the message's own
+//!   `options.headers`, which LearnLoop's `invoke(command, args)` leaves empty:
+//!   a legitimate top-document call arrives with no Origin and no Referer. On
+//!   Linux the fallback is unregistered, so every invoke the app makes comes over
+//!   the custom protocol with both headers, and a missing one is refused. On
+//!   Windows and macOS the fallback stays registered, so only a header that is
+//!   present and names a frame or a foreign origin is refused there; an absent
+//!   header passes (orchestrator scoped verify, Sol job 20261101-153827-RFAdme).
 
 use tauri::http::HeaderMap;
 use tauri::Url;
@@ -55,29 +65,68 @@ fn app_origin(url: &Url) -> Option<String> {
     })
 }
 
+/// Which header rules apply: whether Tauri's script-message IPC fallback can
+/// deliver a legitimate invoke without Origin and Referer (see the module
+/// comment). A parameter, not only a `cfg`, so both branches are tested on any
+/// machine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Platform {
+    /// The fallback is unregistered (main.rs): every app invoke carries both
+    /// headers, so a missing one is refused.
+    Linux,
+    /// Windows and macOS: the fallback stays registered and carries no headers
+    /// of its own, so an absent header passes and only a present one that
+    /// names a frame or a foreign origin is refused.
+    FallbackRegistered,
+}
+
+/// The platform this shell was built for.
+pub const PLATFORM: Platform = if cfg!(target_os = "linux") {
+    Platform::Linux
+} else {
+    Platform::FallbackRegistered
+};
+
 /// Why an invoke is refused, or None when its Origin is one of the app's and
-/// its Referer is the app's own top document on that origin.
+/// its Referer is the app's own top document on that origin. On
+/// `Platform::FallbackRegistered` an absent (or empty) Origin or Referer is not
+/// a reason: the script-message fallback sends neither for the app's own calls.
 ///
 /// This is a filter on what WebKit reports, not authentication: Fetch lets a
-/// context omit its Referer (`referrer: ""`, refused here because the app's
-/// document always sends one) or name any same-origin URL instead (which this
-/// layer can't tell from the document). What authenticates the document is
-/// Tauri's invoke key, held only in a closure of the main frame's init script;
-/// no Worker or frame has it (docs/reviews/reader-rw5d-g-sm14-probe.md).
-pub fn refusal(origin: Option<&str>, referer: Option<&str>) -> Option<&'static str> {
-    let Some(origin) = origin.map(str::trim) else {
-        return Some("the request has no Origin");
+/// context omit its Referer (`referrer: ""`, refused on Linux because the app's
+/// document always sends one there) or name any same-origin URL instead (which
+/// this layer can't tell from the document), and on the fallback the headers are
+/// whatever the message names. What authenticates the document is Tauri's
+/// invoke key, held only in a closure of the main frame's init script; no
+/// Worker or frame has it (docs/reviews/reader-rw5d-g-sm14-probe.md).
+pub fn refusal_on(
+    platform: Platform,
+    origin: Option<&str>,
+    referer: Option<&str>,
+) -> Option<&'static str> {
+    let strict = platform == Platform::Linux;
+    let origin = match origin.map(str::trim) {
+        None => None,
+        Some("") if !strict => None,
+        Some(value) => Some(value),
     };
-    // An opaque origin: a sandboxed frame (the sketch compartment) or a data: document.
-    if origin.eq_ignore_ascii_case("null") {
-        return Some("the request came from an opaque-origin frame");
-    }
-    let Some(origin) = Url::parse(origin).ok().as_ref().and_then(app_origin) else {
-        return Some("the request's Origin is not the app's");
+    let app = match origin {
+        None if strict => return Some("the request has no Origin"),
+        None => None,
+        // An opaque origin: a sandboxed frame (the sketch compartment) or a data: document.
+        Some(value) if value.eq_ignore_ascii_case("null") => {
+            return Some("the request came from an opaque-origin frame");
+        }
+        Some(value) => match Url::parse(value).ok().as_ref().and_then(app_origin) {
+            Some(app) => Some(app),
+            None => return Some("the request's Origin is not the app's"),
+        },
     };
-    // The app's document always sends one (every app call in both G-SM14 runs).
     let Some(referer) = referer.map(str::trim).filter(|value| !value.is_empty()) else {
-        return Some("the request has no Referer, which the app's document always sends");
+        // The app's document always sends one over the custom protocol (every
+        // app call in both G-SM14 runs); the fallback sends none.
+        return strict
+            .then_some("the request has no Referer, which the app's document always sends");
     };
     let Ok(url) = Url::parse(referer) else {
         return Some("the request's Referer is not a URL");
@@ -89,8 +138,13 @@ pub fn refusal(origin: Option<&str>, referer: Option<&str>) -> Option<&'static s
         }
         _ => {}
     }
-    if app_origin(&url).as_deref() != Some(origin.as_str()) {
-        return Some("the request's Referer is not on its Origin");
+    let referer_origin = app_origin(&url);
+    match &app {
+        Some(app) if referer_origin.as_deref() != Some(app.as_str()) => {
+            return Some("the request's Referer is not on its Origin");
+        }
+        None if referer_origin.is_none() => return Some("the request's Referer is not the app's"),
+        _ => {}
     }
     // The app's document is "/" or "/index.html" (and any extension-less route);
     // a URL-loaded Worker's script (`/assets/…js`) or another HTML page (the
@@ -106,16 +160,29 @@ fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers.get(name).and_then(|value| value.to_str().ok())
 }
 
-/// `refusal` for an invoke's request headers. Page script can't set Origin or
-/// Referer as headers, but Fetch lets it omit the Referer or replace it with a
-/// same-origin URL (see `refusal`).
+/// `refusal_on` for an invoke's request headers, on this build's platform.
+/// Page script can't set Origin or Referer as custom-protocol headers, but
+/// Fetch lets it omit the Referer or replace it with a same-origin URL, and on
+/// the script-message fallback the headers are the message's own (see
+/// `refusal_on`).
 pub fn refusal_reason(headers: &HeaderMap) -> Option<&'static str> {
-    if let Some(value) = headers.get("referer") {
-        if value.to_str().is_err() {
-            return Some("the request's Referer is not a URL");
+    refusal_reason_on(PLATFORM, headers)
+}
+
+/// `refusal_reason` with the platform as a parameter (tests run both).
+pub fn refusal_reason_on(platform: Platform, headers: &HeaderMap) -> Option<&'static str> {
+    for name in ["origin", "referer"] {
+        if let Some(value) = headers.get(name) {
+            if value.to_str().is_err() {
+                return Some("the request's Origin or Referer is not text");
+            }
         }
     }
-    refusal(header(headers, "origin"), header(headers, "referer"))
+    refusal_on(
+        platform,
+        header(headers, "origin"),
+        header(headers, "referer"),
+    )
 }
 
 #[cfg(test)]
@@ -153,7 +220,11 @@ mod tests {
                 Some("http://127.0.0.1:1420/"),
             ),
         ] {
-            assert_eq!(refusal(origin, referer), None, "{origin:?} {referer:?}");
+            assert_eq!(
+                refusal_on(Platform::Linux, origin, referer),
+                None,
+                "{origin:?} {referer:?}"
+            );
         }
     }
 
@@ -184,7 +255,10 @@ mod tests {
             (Some("tauri://localhost"), Some("data:text/html,x")),
             (Some("tauri://localhost"), Some("not a url")),
         ] {
-            assert!(refusal(origin, referer).is_some(), "{origin:?} {referer:?}");
+            assert!(
+                refusal_on(Platform::Linux, origin, referer).is_some(),
+                "{origin:?} {referer:?}"
+            );
         }
     }
 
@@ -214,7 +288,10 @@ mod tests {
                 Some("http://localhost:1421/"),
             ),
         ] {
-            assert!(refusal(origin, referer).is_some(), "{origin:?} {referer:?}");
+            assert!(
+                refusal_on(Platform::Linux, origin, referer).is_some(),
+                "{origin:?} {referer:?}"
+            );
         }
     }
 
@@ -230,25 +307,131 @@ mod tests {
         // document, which could run the command itself. Pinned so the gap stays
         // written down.
         assert_eq!(
-            refusal(Some("tauri://localhost"), Some("tauri://localhost/")),
+            refusal_on(
+                Platform::Linux,
+                Some("tauri://localhost"),
+                Some("tauri://localhost/")
+            ),
             None
         );
     }
 
     #[test]
     fn reads_the_request_headers() {
+        let linux = |headers: &HeaderMap| refusal_reason_on(Platform::Linux, headers);
         let mut headers = HeaderMap::new();
-        assert!(refusal_reason(&headers).is_some());
+        assert!(linux(&headers).is_some());
         headers.insert("origin", HeaderValue::from_static("tauri://localhost"));
         headers.insert("referer", HeaderValue::from_static("tauri://localhost"));
-        assert_eq!(refusal_reason(&headers), None);
+        assert_eq!(linux(&headers), None);
         headers.insert("origin", HeaderValue::from_static("null"));
-        assert!(refusal_reason(&headers).is_some());
+        assert!(linux(&headers).is_some());
         headers.insert("origin", HeaderValue::from_static("tauri://localhost"));
         headers.insert(
             "referer",
             HeaderValue::from_bytes(b"tauri://localhost/\xff").unwrap(),
         );
-        assert!(refusal_reason(&headers).is_some());
+        assert!(linux(&headers).is_some());
+    }
+
+    #[test]
+    fn linux_refuses_absent_headers() {
+        // Linux unregisters the script-message fallback (main.rs), so the app's
+        // every invoke comes over the custom protocol carrying both headers.
+        for (origin, referer) in [
+            (None, None),
+            (Some("tauri://localhost"), None),
+            (None, Some("tauri://localhost/")),
+            (Some(""), Some("")),
+        ] {
+            assert!(
+                refusal_on(Platform::Linux, origin, referer).is_some(),
+                "{origin:?} {referer:?}"
+            );
+        }
+        assert!(refusal_reason_on(Platform::Linux, &HeaderMap::new()).is_some());
+    }
+
+    #[test]
+    fn with_the_fallback_registered_absent_headers_pass() {
+        // Sol scoped verify (20261101-153827-RFAdme): on Windows and macOS
+        // Tauri 2.11.2 falls back to `window.ipc.postMessage` when the
+        // custom-protocol fetch fails and builds the invoke's headers from the
+        // message's `options.headers`; LearnLoop's `invoke(command, args)`
+        // supplies none, so a legitimate top-document call has neither header.
+        let other = Platform::FallbackRegistered;
+        for (origin, referer) in [
+            (None, None),
+            (Some(""), None),
+            (None, Some("")),
+            (Some(" "), Some(" ")),
+            // A present header that is the app's own still passes.
+            (Some("tauri://localhost"), None),
+            (None, Some("tauri://localhost/")),
+            (None, Some("http://tauri.localhost/index.html")),
+            (
+                Some("http://tauri.localhost"),
+                Some("http://tauri.localhost/"),
+            ),
+        ] {
+            assert_eq!(
+                refusal_on(other, origin, referer),
+                None,
+                "{origin:?} {referer:?}"
+            );
+        }
+        // The fallback's request, as Tauri builds it: an empty header map.
+        assert_eq!(refusal_reason_on(other, &HeaderMap::new()), None);
+    }
+
+    #[test]
+    fn with_the_fallback_registered_an_explicit_frame_or_foreign_origin_is_refused() {
+        let other = Platform::FallbackRegistered;
+        for (origin, referer) in [
+            // An explicit opaque origin, with or without a Referer.
+            (Some("null"), None),
+            (Some("NULL "), Some("tauri://localhost/")),
+            // A foreign origin.
+            (Some("https://example.com"), None),
+            (Some("https://example.com"), Some("https://example.com/")),
+            (Some("ipc://localhost"), None),
+            (Some("not a url"), None),
+            // A Referer, when present, that names a worker, a frame or a foreign page.
+            (
+                None,
+                Some("blob:tauri://localhost/475eccc0-0dbe-45be-8fd9-29b96144c0d1"),
+            ),
+            (None, Some("about:srcdoc")),
+            (None, Some("data:text/html,x")),
+            (None, Some("tauri://localhost/sketch-frame.html")),
+            (
+                None,
+                Some("tauri://localhost/assets/sketch.worker-DD4eymAa.js"),
+            ),
+            (None, Some("https://example.com/")),
+            (None, Some("not a url")),
+            // Both present and disagreeing.
+            (Some("tauri://localhost"), Some("http://tauri.localhost/")),
+        ] {
+            assert!(
+                refusal_on(other, origin, referer).is_some(),
+                "{origin:?} {referer:?}"
+            );
+        }
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", HeaderValue::from_static("null"));
+        assert!(refusal_reason_on(other, &headers).is_some());
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", HeaderValue::from_bytes(b"tauri://\xff").unwrap());
+        assert!(refusal_reason_on(other, &headers).is_some());
+    }
+
+    #[test]
+    fn this_build_uses_its_platforms_rules() {
+        assert_eq!(
+            PLATFORM == Platform::Linux,
+            cfg!(target_os = "linux"),
+            "the header rules follow the build target"
+        );
     }
 }
