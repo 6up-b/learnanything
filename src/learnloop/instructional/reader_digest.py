@@ -16,8 +16,8 @@ with its reasons; a kept one is recorded ``kept``).
 
 * **Once per session.** Before anything is asked, the session's durable
   claim is taken (``judgment_work_claims``, task :data:`CLAIM_TASK`; Codex
-  review F3), so two processes never pay for one narrative. The narrative is written to the digest row's
-  narrative columns (``narrative_md``, ``cited_event_ids_json``, ``model``,
+  review F3), so two processes never pay for one narrative. The narrative
+  is written to the digest row's narrative columns (``narrative_md``, ``cited_event_ids_json``, ``model``,
   ``prompt_version``) by :func:`learnloop.db.stores.reader_digests.set_narrative`;
   ``prompt_version`` marks the session as narrated whether the narrative was
   kept or dropped, so a dropped one is never paid for again. Conditions that

@@ -422,12 +422,14 @@ def _open_hypotheses(repository: Any, rows: Sequence[Mapping[str, Any]], lo_ids:
     gaps: dict[str, dict[str, Any]] = {}
     rivals: dict[str, dict[str, Any]] = {}
     ordered = sorted(rows, key=lambda r: (str(r.get("ended_at") or ""), str(r.get("id") or "")))
-    gap_ids = sorted({str(gap.get("gap_id")) for row in ordered for gap in (row.get("summary") or {}).get("gaps_named")
-                      or () if gap.get("gap_id")}
-                     | {str(ref.get("id")) for row in ordered for q in (row.get("valuation") or {}).get("questions") or ()
-                        for ref in (q.get("question") or {}).get("target_hypotheses") or ()
-                        if ref.get("kind") == "named_gap" and ref.get("id")})
-    reversed_gaps = _gap_reversals(repository, gap_ids, cutoff)
+    gap_ids: set[str] = set()
+    for row in ordered:
+        gap_ids.update(str(gap["gap_id"]) for gap in (row.get("summary") or {}).get("gaps_named") or ()
+                       if gap.get("gap_id"))
+        for question in (row.get("valuation") or {}).get("questions") or ():
+            gap_ids.update(str(ref["id"]) for ref in (question.get("question") or {}).get("target_hypotheses") or ()
+                           if ref.get("kind") == "named_gap" and ref.get("id"))
+    reversed_gaps = _gap_reversals(repository, sorted(gap_ids), cutoff)
     episodes: dict[str, bool] = {}
 
     def still_open(ref: Mapping[str, Any]) -> bool:

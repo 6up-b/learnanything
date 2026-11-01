@@ -380,8 +380,11 @@ def test_a_real_missed_prediction_reaches_the_section_through_its_figure(tmp_pat
 
     spans_asked = []
     monkeypatch.setattr(recap, "learning_objects_for_span", lambda *_a, **_k: [LO])
-    monkeypatch.setattr(progression, "learning_objects_for_span",
-                        lambda *_a, span_id=None, **_k: spans_asked.append(span_id) or ([LO] if span_id == "s1" else []))
+    def spans_to_los(*_a, span_id=None, **_k):
+        spans_asked.append(span_id)
+        return [LO] if span_id == "s1" else []
+
+    monkeypatch.setattr(progression, "learning_objects_for_span", spans_to_los)
     vault, repo, _session = _seeded(tmp_path)
     prediction_id = _missed_prediction(repo, 10)
     session = RS.sessions_for_source(repo, EXT)[0]

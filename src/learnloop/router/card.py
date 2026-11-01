@@ -319,7 +319,8 @@ def _reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[st
     for entry in reader.get("open_hypotheses") or ():
         if entry.get("kind") == "named_gap":
             lines.append(f"- open hypothesis: a named {entry.get('gap_kind') or 'gap'} "
-                         f"({entry.get('target_kind')} {entry.get('target_id')}) from question {entry.get('source_id')}")
+                         f"({entry.get('target_kind')} {entry.get('target_id')}) "
+                         f"from question {entry.get('source_id')}")
         else:
             targets = ", ".join(f"{t.get('kind')} {t.get('id')}" for t in entry.get("target_hypotheses") or ())
             lines.append(f"- rival explanations still open on {_topics(entry.get('learning_object_ids'), card)}: "

@@ -1,5 +1,9 @@
 # Reader RW6b part 2: the narrative and the router card (`reader/rw6b-p2-digest-card`, base `2b8b530279`)
 
+> **Codex review fix round:** see `reader-rw6b-p2-digest-card-codex-review.md`. It supersedes this record where they
+> differ. The card's Reader activity section is now rendered and hashed (F1). Narratives no longer need follow-ups
+> (F2). One durable claim is taken per narration (F3). Open questions 2–4 below are closed.
+
 Builds `spec_reader_workbench_v1` §9.2 (with §9.5, §9.6; UX §4.8, W14; G25) on top of part 1 (mvp-0.39,
 migration 227): the session narrative and reader activity for the router's learner-state card.
 
