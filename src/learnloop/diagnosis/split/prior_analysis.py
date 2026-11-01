@@ -13,7 +13,9 @@ default ``randomized`` assigns each diagnosed attempt to one arm by a seeded
 equipoise draw (:func:`assign`: a hash of the attempt id under
 :data:`DESIGN`, so a retry or a replay lands in the same arm) and records the
 arm, its assignment and propensity on the diagnosis's context receipt next to
-the context hash; ``learnloop diagnose m2-report`` reads E2's
+the context hash (an earlier analysis shown folds its own input record into
+the diagnosis's; an earlier workbench trace shown counts its item as a
+solution read and leaves the record incomplete, :data:`TRACE_UNRECORDED`); ``learnloop diagnose m2-report`` reads E2's
 ``anchoring_suspect`` rate per arm (``reports._e2_prior_analysis_arms``).
 ``on`` / ``off`` fix the arm (``assignment: config``).
 
@@ -43,6 +45,9 @@ EQUIPOISE = 0.5
 SUFFIX = "+prior-analysis-v1"
 #: ``keep``: a prompt-size bound on each earlier analysis (never a judgement).
 ANALYSIS_CHARS = 1_500
+#: Why a diagnosis's input record is incomplete when it showed an earlier
+#: workbench trace: its assists record no write-time provenance (Codex review F3).
+TRACE_UNRECORDED = "an earlier workbench trace's assists record no write-time provenance"
 NOTE = (
     "A prior attempt may carry `earlier_diagnosis`: what LearnLoop's diagnoser wrote about it at the time "
     "(possibly wrong, and written with less history than you have), and an earlier workbench attempt its "
@@ -176,6 +181,7 @@ __all__ = [
     "PriorAnalysis",
     "PriorReader",
     "SUFFIX",
+    "TRACE_UNRECORDED",
     "assign",
     "configured",
     "for_attempt",

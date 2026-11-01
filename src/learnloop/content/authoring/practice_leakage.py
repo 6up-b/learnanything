@@ -345,3 +345,39 @@ def build_cross_source_spans(
             )
         )
     return spans
+
+
+def teaching_link_refs(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[dict[str, Any]]:
+    """Every passage :func:`build_cross_source_spans` may draw from for this
+    learning object, unfiltered: the semantic links of the LO and its facets
+    whatever their status and whether or not they are exam material NOW.
+
+    A text written earlier from the LO's linked passages records no span
+    (the tutor's linked delivery), so a reader checking it against today's
+    protection checks the whole pool it was drawn from (learner-blindness
+    relax, Codex review F1): a passage marked held out since is in it.
+    Source refs (``extraction_id``, ``span_ids``, ``source_id``,
+    ``revision_id``) as ``learner_protection.PastWork.source_reason`` reads them."""
+
+    learning_object = vault.learning_objects.get(learning_object_id)
+    if learning_object is None:
+        return []
+    refs: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    links = [link for facet_id in _lo_facet_ids(vault, learning_object)
+             for link in repository.entity_source_links("facet", facet_id)]
+    links += list(repository.entity_source_links("learning_object", learning_object_id))
+    for link in links:
+        if link.get("relation") not in _SEMANTIC_RELATION_PRIORITY:
+            continue
+        extraction_id = link.get("extraction_id")
+        span_id = _span_id_from_locator(link.get("locator"))
+        if not extraction_id or not span_id:
+            continue  # the delivery never draws a link without a block
+        key = (str(extraction_id), str(span_id))
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append({"extraction_id": str(extraction_id), "span_ids": [str(span_id)],
+                     "source_id": link.get("source_id"), "revision_id": link.get("revision_id")})
+    return refs

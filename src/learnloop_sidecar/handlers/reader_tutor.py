@@ -64,7 +64,15 @@ def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderR
     ``learner_protection`` (``learnloop.reader_learner_state``). A question
     asked during a cold administration -- the client's flag or the server's
     own derivation -- carries none (recorded as omitted); a workbench-bound
-    one carries no earlier tutor answer. Whatever the RW1c switches."""
+    one carries no earlier tutor answer.
+
+    Codex review F2: with both RW1c switches off the restriction is the
+    base's (no server-derived cold status, no binding, no item guard and no
+    accounting), so a question naming a workbench session is resolved here
+    on the server: cold carries none, and a session bound to an item carries
+    none either (``OMITTED_UNGUARDED_BINDING``: nothing would guard it or
+    attach its help to the item); a session that cannot be resolved carries
+    none (fail closed)."""
 
     if not learner_state_enabled(vault):
         return None
@@ -75,6 +83,20 @@ def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderR
 
     if params.cold_active or restricted.cold:
         return RLS.omitted(RLS.OMITTED_COLD)
+    if not restricted.active and params.workbench_session_id:
+        from learnloop.source_retrieval.policy import derive_policy
+        from learnloop_sidecar.handlers.library_ask import reader_caller
+
+        try:
+            caller = reader_caller(vault, repository, extraction_id=params.extraction_id,
+                                   workbench_session_id=params.workbench_session_id)
+            policy = derive_policy(caller)[0]
+        except Exception:  # noqa: BLE001 - fail closed: an unresolved session carries nothing
+            return RLS.omitted(RLS.OMITTED_UNREADABLE)
+        if policy == "cold_attempt":
+            return RLS.omitted(RLS.OMITTED_COLD)
+        if caller.item_id:
+            return RLS.omitted(RLS.OMITTED_UNGUARDED_BINDING)
     span_ids = [params.span_id, *params.selection_span_ids]
     if params.parent_exchange_id and RD.inquiry_enabled(vault):
         history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True)

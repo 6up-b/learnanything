@@ -907,6 +907,22 @@ def assemble_diagnosis_context(
         )
         if shown_diagnoses:
             reads = reads.join(DiagnosisReads(records=shown_diagnoses))
+        # Codex review F3: an earlier workbench trace shows assists (hints,
+        # checks, discriminating questions) written with that attempt's item's
+        # rubric, reference solution and approach map, and from passages and
+        # hypotheses no ``help_assists`` row records. The item counts as a
+        # solution read, and the record is incomplete: what those writers read
+        # cannot be established, so nothing is released from it.
+        traced = [attempt for attempt in shown_attempts
+                  if (prior_by_id.get(attempt.attempt_id) or {}).get("workbench_trace")]
+        if traced:
+            from learnloop.diagnosis.split.prior_analysis import TRACE_UNRECORDED
+
+            reads = reads.join(DiagnosisReads(
+                solution_items=tuple(dict.fromkeys(str(attempt.practice_item_id) for attempt in traced
+                                                   if attempt.practice_item_id)),
+                unaccounted=tuple(f"{TRACE_UNRECORDED} ({attempt.attempt_id})" for attempt in traced),
+            ))
     return AssembledContext(
         mode=mode,
         blocks={key: built[key] for key in STABLE_BLOCKS if key in built},

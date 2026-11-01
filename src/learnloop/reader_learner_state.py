@@ -16,7 +16,11 @@ on, its context also carries, for the passage's learning objects:
 * **recent practice and feedback exchanges** on each topic: the learner's own
   question, and the answer they were shown only once that item can no longer
   be answered cold (``PastWork.solution_reason``: a feedback answer was
-  written with the rubric); inside a workbench session bound to an item no
+  written with the rubric) and every passage it may have been written from
+  is still unprotected (:func:`answer_source_refs`, ``PastWork.source_reason``:
+  a passage marked exam or held-out material since withholds it, and so do
+  passages that cannot be established; Codex review F1); inside a workbench
+  session bound to an item no
   earlier tutor answer is carried at all (the binding's guard plans every
   model-written text of the call, ``reader_modes.plan_bound_delivery``).
 
@@ -77,6 +81,9 @@ READINESS_INACTIVE = "not tracked (an inactive topic)"
 OMITTED_COLD = "cold_administration"
 OMITTED_NO_TOPICS = "no_learning_objects"
 OMITTED_UNREADABLE = "protection_unreadable"
+#: A workbench session bound to an item while both RW1c switches are off: no
+#: binding guards the call or attaches its help to the item (Codex review F2).
+OMITTED_UNGUARDED_BINDING = "unguarded_workbench_binding"
 
 _RESULT_WORDS = {
     "correct": "right",
@@ -86,6 +93,8 @@ _RESULT_WORDS = {
     "not_graded": "not graded",
 }
 _EXCHANGE_CONTEXTS = ("practice", "feedback")
+#: Why a stored answer is left out when the passages it was written from cannot be established.
+ANSWER_SOURCES_UNKNOWN = "the passages it was written from could not be established"
 
 
 def enabled(vault: Any) -> bool:
@@ -199,6 +208,15 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
     marks = ",".join("?" for _ in los)
     item_lo = {item_id: str(item.learning_object_id) for item_id, item in vault.practice_items.items()}
     item_ids = [item_id for item_id, lo in item_lo.items() if lo in los]
+    pools: dict[str, list[dict[str, Any]]] = {}
+
+    def link_refs(lo: str) -> list[dict[str, Any]]:
+        if lo not in pools:
+            from learnloop.content.authoring.practice_leakage import teaching_link_refs
+
+            pools[lo] = teaching_link_refs(vault, repository, lo)
+        return pools[lo]
+
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         past = protection.PastWork(connection, vault, repository, withheld=withheld)
         attempts = [dict(row) for row in connection.execute(
@@ -241,9 +259,14 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
                     "when": "during an attempt" if row.get("context") == "practice" else "after a graded attempt",
                     "learner_question": _excerpt(row.get("question_md")),
                 }
+                decoded = _decoded(row)
                 answer_reason = ("asked inside a bound workbench session" if bound_item_id is not None
                                  else past.solution_reason([item_id]))
-                answer = delivered_answer_md(_decoded(row))
+                if answer_reason is None:
+                    # Codex review F1: the answer's passages, against today's
+                    # protection (a passage marked held out since withholds it).
+                    answer_reason = _source_reason(past, decoded, link_refs(lo))
+                answer = delivered_answer_md(decoded)
                 if answer_reason is None and answer:
                     entry["answer_shown"] = _excerpt(answer)
                 elif answer:
@@ -268,6 +291,93 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
     return ReaderLearnerState(state=state, confidence=confidence, learning_object_ids=tuple(los), counts=counts)
 
 
+def _span_key(value: Any) -> tuple[str, str] | None:
+    """A recorded span key, ``extraction/span`` (retrieval) or ``extraction:span`` (pins)."""
+
+    text = str(value or "")
+    for separator in ("/", ":"):
+        extraction, found, span = text.partition(separator)
+        if found and extraction and span:
+            return extraction, span
+    return None
+
+
+def _reference_refs(value: Any) -> list[dict[str, Any]] | None:
+    """The blocks a delivery's followed references added (``References.describe``), or None when unreadable."""
+
+    if value is None:
+        return []
+    if not isinstance(value, Mapping):
+        return None
+    refs: list[dict[str, Any]] = []
+    for entry in value.get("resolved") or ():
+        if not isinstance(entry, Mapping) or not entry.get("extraction_id"):
+            return None
+        spans = [str(span) for span in [entry.get("span_id"), *(entry.get("spans") or ())] if span]
+        refs.append({"extraction_id": str(entry["extraction_id"]), "span_ids": spans})
+    return refs
+
+
+def answer_source_refs(source_context: Any, linked: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | None:
+    """Every passage a stored practice or feedback answer may have been written
+    from, or None when they cannot be established (Codex review F1).
+
+    The tutor's context for such an answer is the item's own text (checked by
+    the item's protection) plus passages: the provider's (``source_retrieval``:
+    its ``span_keys`` and the references it followed) or, without one, the
+    item's learning object's linked passages, which no row records, so their
+    whole pool (``linked``, ``practice_leakage.teaching_link_refs``) counts,
+    with the references the delivery followed (``delivery.references``) and
+    the citations kept. A retrieval that says it delivered passages without
+    naming them, or a record that cannot be read, establishes nothing."""
+
+    if source_context is None:
+        source_context = {}
+    if not isinstance(source_context, Mapping):
+        return None
+    refs = [dict(ref) for ref in linked]
+    retrieval = source_context.get("source_retrieval")
+    if retrieval is not None:
+        if not isinstance(retrieval, Mapping):
+            return None
+        keys = retrieval.get("span_keys")
+        if retrieval.get("basis") in ("retrieved_verified", "pinned") or keys is not None:
+            if not isinstance(keys, list):
+                return None
+            for key in keys:
+                parsed = _span_key(key)
+                if parsed is None:
+                    return None
+                refs.append({"extraction_id": parsed[0], "span_ids": [parsed[1]]})
+        followed = _reference_refs(retrieval.get("references"))
+        if followed is None:
+            return None
+        refs += followed
+    delivery = source_context.get("delivery")
+    if delivery is not None:
+        if not isinstance(delivery, Mapping):
+            return None
+        followed = _reference_refs(delivery.get("references"))
+        if followed is None:
+            return None
+        refs += followed
+    for citation in source_context.get("citations") or ():
+        if not isinstance(citation, Mapping) or not citation.get("extraction_id") or not citation.get("span_id"):
+            return None
+        refs.append({"extraction_id": str(citation["extraction_id"]), "span_ids": [str(citation["span_id"])]})
+    return refs
+
+
+def _source_reason(past: Any, decoded: Mapping[str, Any], linked: Sequence[Mapping[str, Any]]) -> str | None:
+    """Why a stored answer's passages withhold it now (exam or held-out material,
+    unreadable protection, or passages that cannot be established), or None."""
+
+    refs = answer_source_refs(decoded.get("source_context"), linked)
+    if refs is None:
+        return ANSWER_SOURCES_UNKNOWN
+    return past.source_reason(refs) if refs else None
+
+
 def _decoded(row: Mapping[str, Any]) -> dict[str, Any]:
     """A raw ``question_events`` row as ``delivered_answer_md`` reads it (its source context decoded)."""
 
@@ -283,17 +393,20 @@ def _decoded(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
+    "ANSWER_SOURCES_UNKNOWN",
     "ATTEMPT_LIMIT",
     "EXCHANGE_LIMIT",
     "NOTE",
     "OMITTED_COLD",
     "OMITTED_NO_TOPICS",
+    "OMITTED_UNGUARDED_BINDING",
     "OMITTED_UNREADABLE",
     "READINESS_WORDS",
     "ReaderLearnerState",
     "TEXT_LIMIT",
     "TOPIC_LIMIT",
     "VERSION",
+    "answer_source_refs",
     "build",
     "enabled",
     "omitted",
