@@ -534,3 +534,97 @@ def test_the_switch_is_in_the_build_and_rich_keys(tmp_path):
     on = FS.build_key(load_vault(paths.root))
     _switch_off(paths)
     assert FS.build_key(load_vault(paths.root)) != on
+
+
+# ---------------------------------------------------------------------------
+# Codex re-review F2: the stored rich figure keeps what its learner state was
+# read from; recovery, delivery and reuse check it again
+# ---------------------------------------------------------------------------
+
+def _rich_row(repository) -> dict:
+    from learnloop.db.stores import figures as store
+
+    (row,) = [found for found in rows(repository, "interactive_figures") if found["tier"] == "manim"]
+    with repository.connection() as connection:
+        return store.figure(connection, row["id"])
+
+
+def test_a_rich_figure_keeps_the_inputs_of_the_learner_state_it_was_written_from(tmp_path, monkeypatch):
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    inputs = rig.job()["payload"]["learner_state_inputs"]
+    rig.ingest.drain()
+    assert rig.job()["status"] == "completed", rig.job()
+    assert _rich_row(rig.repository)["verification_report"]["learner_state_inputs"] == inputs
+
+
+def test_a_recovered_rich_job_rechecks_its_stored_figures_learner_state(tmp_path, monkeypatch):
+    """Re-review F2: the figure committed, the job was not acknowledged, an
+    answer's item became exam material, the job resumed: before the fix the
+    stored figure was returned with no protection check."""
+
+    from learnloop.figures import rich as RICH
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    payload = dict(rig.job()["payload"])
+    rig.ingest.drain()
+    assert rig.rich_author.calls == 1
+    # Resumed with the protection unchanged: the stored figure is recovered.
+    recovered = RICH.run_rich_job(rig.vault, rig.repository, payload, client=rig.rich_author,
+                                  renderer=rig.renders, function_runner=rig.functions)
+    assert recovered["reused"] and recovered["figure_id"] == _rich_row(rig.repository)["id"]
+    _make_exam_material(rig)
+    with pytest.raises(RICH.RichJobStopped) as stopped:
+        RICH.run_rich_job(rig.vault, rig.repository, payload, client=rig.rich_author, renderer=rig.renders,
+                          function_runner=rig.functions)
+    assert stopped.value.code == "exam_material" and rig.rich_author.calls == 1
+
+
+def test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered(tmp_path, monkeypatch):
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.build()
+    rig.ingest.drain()
+    rich = _rich_row(rig.repository)
+    (line,) = rig.listed()
+    assert line["fuller"]["state"] == "ready" and line["fuller"]["figure"]["figure_id"] == rich["id"]
+    assert not FS.figure_withheld(rig.vault, rig.repository, rich["id"])
+    _make_exam_material(rig)
+    assert FS.figure_withheld(rig.vault, rig.repository, rich["id"])
+    assert FS.row_withheld(rig.vault, rig.repository, rich) is not None
+    (line,) = rig.listed()  # the quick figure stays; its fuller version is not delivered
+    assert not (line["fuller"] or {}).get("figure")
+
+
+def test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused(tmp_path, monkeypatch):
+    from learnloop.figures import rich as RICH
+    from tests import rich_fixtures as RF
+    from tests.test_figure_rich_job import WHY
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.author = AuthorFake([("rich", "manim", RF.brief(), WHY)])
+    outcome = rig.build()
+    assert outcome.view is None and outcome.rich["state"] == "pending"
+    rig.ingest.drain()
+    rich = _rich_row(rig.repository)
+    assert not rich["fuller_of_id"] and rich["verification_report"]["learner_state_inputs"]["answers"]
+    with rig.repository.connection() as connection:
+        assert FS._reusable(rig.vault, rig.repository, connection, rich["input_hash"], [])["id"] == rich["id"]
+    assert [view["figure_id"] for view in rig.listed()] == [rich["id"]]
+    _make_exam_material(rig)
+    with rig.repository.connection() as connection:
+        assert FS._reusable(rig.vault, rig.repository, connection, rich["input_hash"], []) is None
+    assert rig.listed() == []
+    assert RICH.stored_learner_state_withheld(rig.vault, rig.repository, rich) is not None
+
+
+def test_a_stored_rich_figure_without_learner_state_is_checked_as_before(tmp_path, monkeypatch):
+    from learnloop.figures import rich as RICH
+
+    row = {"verification_report": {"outcome": "illustrative"}}
+    assert RICH.stored_learner_state_withheld(None, None, row) is None
+    # A recorded learner state whose inputs record is missing fails closed.
+    paths, repository = _plain_vault(tmp_path)
+    vault = load_vault(paths.root)
+    assert RICH.stored_learner_state_withheld(vault, repository, {"verification_report": {
+        "learner_state_inputs": None}}) is not None

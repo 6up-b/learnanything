@@ -496,7 +496,10 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         if homes is None:
             return "That figure's place in the book is unreadable, so it isn't shown."
         message = keys_withheld(vault, repository, homes)
-    return message
+    # Learner data-relax 2 (Codex re-review F2): a rich figure whose author
+    # was sent the learner's state keeps what that state was read from; it
+    # goes out only while none of that is protected now.
+    return message or RICH.stored_learner_state_withheld(vault, repository, row)
 
 
 def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None:
@@ -1216,6 +1219,9 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = store.fuller_rows(connection, str(row["id"]))
+    # Codex re-review F2: a fuller version whose author's learner state was
+    # read from something protected now is not delivered (nor named failed).
+    rows = [found for found in rows if RICH.stored_learner_state_withheld(vault, repository, found) is None]
     shown = [found for found in rows if found["verification"] in store.SHOWN]
     if shown:
         rich = shown[-1]
@@ -1332,14 +1338,17 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     return content_key(key)
 
 
-def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Sequence[str]) -> dict[str, Any] | None:
+def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: str,
+              other_hash: str | Sequence[str]) -> dict[str, Any] | None:
     """The figure a build reuses: this input's under the current prompt
     version, else (Codex review F2) a SHOWN one of the same input under the
     other prompt version when it can be drawn now. RW5a's figures are drawable
     with the panels on, and a panels-era figure with none of the new kinds is
     drawable with them off; so switching the panels never pays again for a
     figure already on the page. Another version's "can't draw this yet" is
-    never reused: it was that prompt's verdict (the panels may draw it now)."""
+    never reused: it was that prompt's verdict (the panels may draw it now).
+    Nor is a rich figure whose author's learner state was read from something
+    protected now (Codex re-review F2)."""
 
     found = store.reusable(connection, input_hash, SPEC_VERSIONS)
     if found is not None:
@@ -1347,7 +1356,8 @@ def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Se
     # RW5d P2b: a rich figure built with no quick figure is this input's own
     # figure (its fuller version is reached through the quick one instead).
     rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
-    if rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only):
+    if (rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only)
+            and RICH.stored_learner_state_withheld(vault, repository, rich_only) is None):
         return rich_only
     # RW5d P2: the same input under the other settings of the panels and of
     # the sketch tier; only a shown figure that can be drawn now.
@@ -1621,7 +1631,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        reused = _reusable(vault, connection, input_hash, other_hash)
+        reused = _reusable(vault, repository, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
         return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
@@ -1646,7 +1656,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # Reread inside the lock (fix round 2, F7): a build that committed
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
-            reused = _reusable(vault, connection, input_hash, other_hash)
+            reused = _reusable(vault, repository, connection, input_hash, other_hash)
             latest = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
             # Codex review F7: a stored rich failure (a rich-only build that
             # used both attempts) starts the next generation too, so "try
