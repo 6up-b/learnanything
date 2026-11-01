@@ -457,3 +457,161 @@ one test run at a time, with TMPDIR outside the worktree.
   `App.today.test.tsx` StartScreen stub gained a *begin stub* button (the classic shell's Begin). `npm run
   frontend:build`: ok.
 - Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added.
+
+## Fix round 5 (structural)
+
+The Sol verify of round 4 (job `20261101-031642-6VAQ0f`, on `9dbc966d87`) returned NOT CLEAN with two Highs and one
+Medium. Wrong-book attribution had then produced Highs in four rounds. The orchestrator therefore directed a
+structural change, so that the class cannot happen rather than being patched case by case. It has four parts:
+(a) a fail-closed backend guard in one shared helper; (b) one client `SourceIdentity` type, required wherever a
+passage is persisted or handed on; (c) an honest UI state for the typed refusal; (d) active-reading state and drafts
+kept outside the conditionally mounted card.
+
+Commits:
+- `1b9868358f`: the backend guard and its pytests, plus the test fixtures it needed.
+- `9ed381bc37`: the client type, findings 1-3, (c) and the vitests.
+
+Each new vitest was run against the round-4 sources of `9dbc966d87` (the source files checked out from `HEAD`, the
+test files kept, then restored). The six new frontend tests and the new App assertion all failed there. The pytests are new and call the guard.
+No migration, no config key, no new parameter (nothing to classify in `parameter_registry.py`), and no schema change.
+No DB write path changed shape: the guard refuses before any write. No paid or live call, no vault opened and no GUI
+launched.
+
+### Verbatim findings
+
+> 1. High — useLibraryAsk.ts:903: "where else" drops the originating book. Compare from Axler's second pane beside Strang, then press "where else is this explained?" on an unfilled view. The new request keeps Axler's reading but drops `sourceId`, so later comparisons name Strang and a practice pick falls through to Strang's card and workbench. Reproduced the lost identity and `openSourceId: "src_strang"`. Fix: preserve the originating request's source identity when building the follow-on ask.
+> 2. High — ReaderScreen.tsx:1584: checks bypass the handoff's reading guard. If Axler's second pane shows reading A but opening its source resolves newer reading B, "check me" dispatches before the extraction check at line 1592. The shell drops the reading identity, and the workbench persists B with A's passage ids. An isolated reproduction emitted `extractionId: "ext_axler_NEW"` with `spanIds: ["ax7a_OLD"]`. Fix: validate the reading before dispatching checks and carry it through the shell, the session-start remount and the workbench request; refuse mismatches or open the original reading.
+> 3. Medium — useSidePane.ts:158: temporarily hiding the pane destroys learner input. Answer an active-reading question in the second pane, type an unfinished proof, then open the library comparison and return. The visibility change sets the hook's extraction to null, which clears the question, and unmounting `QuestionBody` destroys its draft. Reproduced: "My unfinished proof" became an empty answer when the same question reopened. Fix: keep active-reading state through pauses and store drafts outside the conditionally mounted card.
+
+### Closures
+
+| finding | severity | verdict | how | test (fails on `9dbc966d87`, passes after) |
+|---|---|---|---|---|
+| 1 | High | **fixed** (structurally) | `LibraryAskRequest.identity` and `CompareRequest.identity` are required. *where else* builds its request with `identity: current.request.identity`. TypeScript found this omission and every other construction. | `comparePointTableCodexReview.test.tsx` *CA6b round 5, finding 1: where else after a comparison begun on the second book keeps that book for every follow-on* (the state keeps Axler; *compare these books* leads with `src_axler` while Strang is open) |
+| 2 | High | **fixed** (structurally) | (i) The beside handoff checks the reading before it dispatches anything: a check whose book opened on another reading is not handed on, and the learner is told. (ii) Checks carry their reading (`CueCheckMeRequest.reading`, `ReaderWorkbenchCheck.reading`, required), and so do the shell's way back (`ReaderReturn.reading`) and the session-start remount (`reading`). (iii) The workbench refuses a check whose reading is not the one open and sends nothing. (iv) `workbench.open` refuses another reading's passage ids server-side. | `sideBySideIntent.test.tsx` *finding 2: a check whose book opens on another reading than the mark's is refused honestly, never handed on* and *finding 2: a check the mark hands on carries the mark's reading …*; `ReaderScreen.workbench.test.tsx` *CA6b round 5: a check whose reading is not the one open is refused honestly …*; `App.today.test.tsx` (classic Begin: the remount carries `data-reading="ext_prob"`); pytest `test_workbench_open` (B's reading with A's spans, an import of another reading, an import naming a source its reading is not of, a check at another reading's passage) |
+| 3 | Medium | **fixed** | `useActiveReading` takes an `openKey`; the second pane passes its book. The question, "another way" and their in-flight requests are reset only when the book changes, never on a pause. The learner's draft lives in the controller (`ActiveReadingState.draft`, `setDraft`), not in `QuestionBody`'s state. | *finding 3: an unfinished answer in the second pane's active reading survives a comparison hiding the pane* (same question, "My unfinished proof" kept, no second `reader.active_question`) |
+
+Rejected: none.
+
+### (a) The backend guard
+
+`learnloop.reader.source_identity` holds the rule:
+- `require_source_identity` checks span ids against the reading's blocks, and the reading against the named revision
+  and source;
+- `require_span_keys` checks library pins (`extraction:span` keys) key by key;
+- `require_exchange_in_extraction` checks an exchange against the reading it was asked in;
+- `selection_span_ids` and `subject_span_id` collect the span ids a request names.
+
+`learnloop_sidecar.source_identity.require_identity` is the one call every guarded handler makes, before it writes
+anything. A mismatch raises `SidecarError("span_extraction_mismatch", …, details={extraction_id, reason, span_ids})`,
+and nothing is written.
+
+Fail closed: if span ids name a reading that does not exist, the request is refused (`reason: "unknown_extraction"`).
+A request that names no passage is not checked. The guard is backward compatible: a valid call (its passages are its
+reading's own) is unchanged.
+
+Changes to existing tests:
+- Two workbench test fixtures (`test_reader_workbench_rw2a.py`, one test in `test_workbench_check.py`) used reading
+  ids with no reading behind them (`ext_wb`, `ext`). They now seed the reading their problems name.
+- `test_figures_rpc.py::test_validation_refusals` now expects the typed code (`span_extraction_mismatch`) for a span
+  the reading does not have, where it expected `validation_error`.
+
+Deliberately cross-reading flows do not go through the guard, and each names both readings explicitly:
+- `reader.reanchor` (an annotation moved to `new_extraction_id`);
+- `reader.saved_place` (`to_extraction_id`, a read);
+- library pins, whose keys each name their own reading (checked key by key, not against the ask's reading);
+- a source exercise in `workbench.open`, checked against its own reading, which may be another book than the
+  problem's.
+
+Not guarded, because they write nothing about passages or only read:
+- `reader.block_health`, `reader.span_learning_objects`, `reader.translate_selection`, `get_span_view`;
+- `reader.restore_source` and `reader.retrieval_open` (they log by receipt);
+- outside the Reader: `curriculum.set_scope`, `import_source_exercise`, `compare_sources`, `ask_tutor_question`.
+
+These are listed for a follow-up if wanted.
+
+### (b) The client type
+
+`SourceIdentity` (`api/dto.ts`) is `{ sourceId: string; revisionId: string | null; extractionId: string }`.
+- `revisionId` is null only where the client does not know it (a library hit, which has no revision). The sidecar
+  then checks the reading and the source.
+- There is no optional field and no fallback to the main render: each value comes from where the passage is (the
+  pane's section, the mark's render, the exchange's `about`, the import, the request).
+
+It is required in these places:
+- **Persisting requests:** `ReaderCaptureInput`, `ReaderInvokePresetInput` and `ReaderImportExerciseInput` all extend
+  it. The import's `sourceId` and `revisionId` are no longer optional. The server-built import requests already
+  carried both.
+- **Checks and handoffs:** `CueCheckMeRequest.reading`, `ReaderCheckMeRequest` (through it),
+  `ReaderWorkbenchCheck.reading`, `readerWorkbenchCheck`'s input, and the beside handoff (`{ book: SourceIdentity }`).
+- **Objects that outlive the moment:** `ExerciseImportState.identity`, `AskAbout extends SourceIdentity`,
+  `LibraryAskRequest.identity`, `CompareRequest.identity` (client-side only; `comparePayload` is unchanged).
+- **The shell:** `ReaderReturn.reading` and `ReaderWorkbenchOrigin.reading`. A workbench submit's comes from its
+  session. The session-start remount carries the check's reading. The `besideTrail` entries already carry
+  `sourceId`/`extractionId`.
+
+Wrappers whose wire format takes only a reading (`workbench.open`, figure requests, `reader.library_ask`, the
+inquiry RPCs) keep it. The sidecar derives the source and revision from the reading and checks the passages. Adding
+fields the backend models do not accept would have changed the wire format. On the client, their identity comes from
+the objects above.
+
+### (c) The typed refusal in the UI
+
+`errorMessage` turns `span_extraction_mismatch` into *That passage belongs to another reading; reopen it.*
+(`SPAN_MISMATCH_COPY`; `isSpanMismatch`). Every Reader failure path that reports through `onError(errorMessage(…))`
+says it in place of a raw message. A refused handoff or check says it directly. Test: *(c) a write the sidecar
+refuses as another reading's is said honestly* (a refused second-pane highlight).
+
+### The audit, round 5 (each row: the backend guard, and where its SourceIdentity comes from)
+
+| # | action | backend guard | SourceIdentity from | test |
+|---|---|---|---|---|
+| 1 | Ask (routed, the pane's composer) | `reader.ask`: span + selection spans in the reading | `AskAnchor.about` (the pane's section) | existing side Ask tests; pytest `test_ask_and_answer_mode` |
+| 2 | Follow-up, another way, that didn't help | `reader.ask`: also `parent_exchange_id` asked in the reading | the parent's `about` | round 4 reconnect test; pytest (parent of another reading) |
+| 3 | resolved / dismiss / reopen | `reader.set_inquiry_status`: exchange in the reading | `exchange.extractionId` | F1 tests; pytest `test_inquiry_status_reconnect_and_quick_check` |
+| 4 | revisit once / make it something I can do | `reader.invoke_preset`: selection + subject + source/revision | `exchange.about` | F1 test; pytest `test_invoke_preset_commitments_and_requests` |
+| 5 | Branch done | none (a question event id, no passage) | — | round 4 reconnect test |
+| 6 | Reconnect answers, quick check, its read-back | `reader.reconnect_answer`, `reader.inquiry_question`: exchange in the reading | `extractionOf(root)` | round 4 reconnect test; pytest |
+| 7 | Preset | `reader.invoke_preset` | the pane's capture target (`PaneCaptureTarget`, its section) | existing; pytest |
+| 8 | Highlight / note (box; CA6 bar) | `reader.capture` / `reader.create_annotation`: selection + source/revision | the pane's target / section | existing; *(c)*; pytest `test_capture_and_create_annotation` (+ matching case unchanged) |
+| 9 | Import exercise | `reader.import_exercise` (and the workbench's import): selection + source/revision | the pane's target | existing; pytest `test_import_exercise` |
+| 10 | Work through an imported exercise | `workbench.open`: spans in the reading | `ExerciseImportState.identity` (required) | round 4 *finding 1*; pytest `test_workbench_open` |
+| 11 | Work through this (box), the path's *try it* | `workbench.open`: spans, import selection, import reading = problem reading, import source/revision | the pane's target / the path exercise's import request | F7, F8 round 3; pytest |
+| 12 | Reading path depth / override | none (no passage ids) | `ReadingPathCard`'s reading prop | F7 |
+| 13 | Active reading, another way, try first | `reader.active_question`: spans in the reading | the pane's `useActiveReading` (kept through pauses, finding 3) | existing; *finding 3*; pytest `test_route_intent_and_active_question` |
+| 14 | The intent routing | `reader.route_intent`: spans in the reading | the pane's reading | existing; pytest |
+| 15 | Figures (box; show me) | `reader.figure_request` / `figure.request`: anchor spans + region, reading place | the pane's `useFigures` | existing; pytest `test_figure_requests` |
+| 16 | Cue marks: impressions, taps, fewer, discovery, preferences | none (cue ids and the reading; no passage ids written as identity) | the pane's render (`{sourceId, revisionId, extractionId}`) | F4, F5, F12 round 3 |
+| 17 | check me on a mark | handoff reading guard (client) + `workbench.open` (server) | `CueCheckMeRequest.reading` = the mark's render | F8 rounds; *finding 2* tests; pytest |
+| 18 | Library ask from the pane | `reader.library_ask`: anchor spans in the reading | `LibraryAskRequest.identity` (the pane's section) | existing; pytest `test_library_ask_compare_and_tutor_pins` |
+| 19 | That answer's comparisons; *where else* | `reader.library_compare`: anchor spans in the reading, the leading source the reading's, pins key by key | `LibraryAskRequest.identity` / `CompareRequest.identity` (kept by every follow-on) | round 4 audit test; *finding 1*; pytest |
+| 20 | That answer's practice pick | `workbench.open` via the shell's check | the request's identity → `checkBeside` | round 4 audit test |
+| 21 | how do my other books treat this? | `reader.library_compare` | `CompareRequest.identity` = the pane's section | existing; pytest |
+| 22 | Tutor offers: next step, show me, make explorable, compare, practice | `reader.active_question`, `figure.request`, `reader.figure_request`, `reader.library_compare`, `workbench.open` | `exchange.about` (`AskAbout extends SourceIdentity`) | round 4 audit tests |
+| 23 | show me ▸ from the Ask rail | `figure.request` (reading place in its reading) | the parent's `about` / the composer's anchor | round 4 audit test |
+| 24 | Library pins and the pinned tutor | `reader.library_compare`, `reader.library_ask_tutor`: each key's span in its reading | the keys themselves | pytest |
+| 25 | show passage, citations | none (navigation) | not offered for another book; citations open their own book | round 4 audit test |
+| 26 | The shell's way back, the session-start remount | — | `ReaderReturn.reading`, `ReaderOpenSource.reading` (the check's reading) | `App.today.test.tsx`; `readerWorkbench.test.ts` |
+
+### Gate (fix round 5)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G`; pytest also under `flock /tmp/learnloop-fullsuite.lock`. One test run at a time, with TMPDIR
+outside the worktree.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted pytest (`-n 6`): every test file that calls a guarded RPC or handler, plus `test_desktop_rpc_contract.py`,
+  `test_mobile_allowlist.py`, `test_architecture.py` and the new `test_reader_source_identity_guard.py`: 82 files,
+  **7235 passed**. A first run, before the two workbench fixtures seeded their reading, had 51 failures: 49 in
+  `test_reader_workbench_rw2a.py`, 1 in `test_workbench_check.py` and 1 in `test_figures_rpc.py`, all fixed as
+  described in (a).
+- No DB write path changed shape (the guard refuses before writing), so no durability run. No migration, so no DB
+  reference regeneration. `src-tauri` is unchanged, so no cargo check.
+- Frontend: `npm run typecheck` clean. Vitest (`--maxWorkers=4`), the same 122-file set (no new test file):
+  **1330 passed of 1331**. The one failure, `figures/sketch/SketchFigure.test.tsx` *draws a new sample with another
+  seed*, is the known timing flake of the QuickJS sketch sandbox under load: it passed alone (19/19), and it does not
+  touch any changed file. The set is 1325 + 6 new (4 in `sideBySideIntent.test.tsx`, 1 in
+  `comparePointTableCodexReview.test.tsx`, 1 in `ReaderScreen.workbench.test.tsx`; the App assertion was added to an
+  existing test). `npm run frontend:build`: ok.
+- Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added. Two Python modules were added:
+  `src/learnloop/reader/source_identity.py` and `src/learnloop_sidecar/source_identity.py`.
