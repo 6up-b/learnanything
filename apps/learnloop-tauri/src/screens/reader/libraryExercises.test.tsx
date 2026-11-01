@@ -70,7 +70,7 @@ function done<T>(result: T, kind = "exercise_candidates") {
 
 function ctl(practice: FindPracticeResultDto | null): LibraryAskController {
   const state: LibraryAskState = {
-    key: 1, request: { query: ASK.query, entry: "reader", extractionId: "ext_open", spanIds: [] }, personalized: true,
+    key: 1, request: { query: ASK.query, entry: "reader", extractionId: "ext_open", spanIds: [] }, intent: { kind: "ask" }, personalized: true,
     ask: { phase: "landed", value: ASK, failure: null }, notes: IDLE, pinned: [], compare: IDLE, tutor: IDLE,
     practice: practice ? { phase: "landed", value: practice, failure: null } : IDLE, peek: null,
   };

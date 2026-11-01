@@ -22,9 +22,9 @@ same rule (Codex verify of fix round 1, F4).
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
@@ -50,7 +50,7 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     if not (library or tutor):
         return {}
     return {"compare_keep": {"library": library, "tutor": tutor, "perspectives": library,
-                             "max_perspectives": KC.MAX_PERSPECTIVES}}
+                             "max_perspectives": KC.max_perspectives(vault)}}
 
 
 def _require(ctx: SidecarContext, *, tutor: bool = False):
@@ -125,7 +125,17 @@ def _cold_guard(vault: Any, repository: Any, ask_id: str) -> None:
 class TakeInput(ParamsModel):
     text: str = Field(min_length=1, max_length=KC.MAX_TAKE_CHARS)
     #: One passage key (a claim) or two (a pair), as the table's rows name them.
-    keys: list[str] = Field(min_length=1, max_length=2)
+    keys: list[str] = Field(default_factory=list, max_length=2)
+    #: Reader CA4 (a keep by point): the row the take is on, or the whole comparison.
+    point_id: str | None = Field(default=None, max_length=40)
+    about: Literal["comparison"] | None = None
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "TakeInput":
+        named = sum([bool(self.keys), self.point_id is not None, self.about is not None])
+        if named != 1:
+            raise ValueError("a take names its passages, its row or the whole comparison (exactly one)")
+        return self
 
 
 class KeepInput(ParamsModel):
@@ -138,6 +148,10 @@ class KeepInput(ParamsModel):
     #: a take on an older kept comparison stays on it. Omitted: the ask's latest.
     comparison_id: str | None = None
     takes: list[TakeInput] = Field(default_factory=list, max_length=KC.MAX_TAKES)
+    #: Reader CA4 (a comparison by point): the rows the learner hid. Before Keep
+    #: they are left out; after it a newly hidden row's proposals are superseded
+    #: and a row shown again is proposed again. Omitted: unchanged.
+    hidden_points: list[str] | None = Field(default=None, max_length=200)
 
 
 @method("reader.library_compare_keep", KeepInput)
@@ -148,6 +162,11 @@ def reader_library_compare_keep(ctx: SidecarContext, params: KeepInput) -> dict[
     if (params.ask_id is None) == (params.tool_call_id is None):
         raise SidecarError("validation_error", "Name the library question or the tutor's comparison to keep.")
     takes = [take.model_dump() for take in params.takes]
+    if params.hidden_points is not None or any(take["point_id"] or take["about"] for take in takes):
+        vault, _repository = ctx.require_vault()
+        if not KC.by_point_enabled(vault):
+            raise SidecarError("reader_compare_by_point_disabled",
+                               "The comparison by point is switched off (reader_compare.by_point is false).")
     if params.tool_call_id is not None:
         from learnloop.instructional.policy import cold_administration_open
 
@@ -170,7 +189,8 @@ def reader_library_compare_keep(ctx: SidecarContext, params: KeepInput) -> dict[
     vault, repository = _require_any(ctx)
     try:
         return versioned(KC.keep(vault, repository, str(params.ask_id), comparison_id=params.comparison_id,
-                                 takes=takes, guard=lambda row: _row_guard(vault, repository, row)))
+                                 takes=takes, guard=lambda row: _row_guard(vault, repository, row),
+                                 hidden_points=params.hidden_points))
     except LA.LibraryAskError as exc:
         raise _error(exc) from exc
 

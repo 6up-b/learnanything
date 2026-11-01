@@ -85,6 +85,8 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
     "retrieval_query_generator": "source_retrieval.llm_price_per_million",
     "reading_path_judge": "source_retrieval.llm_price_per_million",
     "section_coverage_judge": "source_retrieval.llm_price_per_million",
+    "deliverable_scope_resolver": "source_retrieval.llm_price_per_million",
+    "deliverable_path_judge": "source_retrieval.llm_price_per_million",
     "source_query_rewrite": "source_retrieval.llm_price_per_million",
     "source_rerank": "source_retrieval.llm_price_per_million",
     "practice_rerank": "practice_index.rerank_price_per_million",

@@ -61,7 +61,12 @@ delivery log), labelled *found by search, not checked*.
 **The learner's corrections** (§6.5): *not about this*, *also about…* (and
 ``none``, clearing one) are ``learner`` rows with a ``learner_card`` ledger
 verdict; the newest per (section, LO) stands over judge rows across
-re-judgments.
+re-judgments. Reader CA5a's *not about this* on an unchecked hit
+(:func:`dismiss`) is one operation in one transaction: a section-pair
+``learner_card`` verdict (task ``section_correspondence``) and those rows
+for the open section's LOs, idempotent by the client's operation id, with an
+undo of its own. CA5a's peek (:func:`peek`) reads a hit's first blocks under
+protection as it is then, the section's own blocks only.
 
 Never evidence, never a prerequisite edge, never provenance (§6.6): nothing
 in scoring, scheduling, projection, grading or serving reads this module's
@@ -75,6 +80,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import threading
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -128,6 +134,9 @@ LEDGER_RIGHT = "reader_section"
 PROMPT_VERSION = "section_coverage_judge.v1"
 CORRECTION_VERSION = "section_coverage_correction.v1"
 ENVELOPE = "curriculum.max_daily_cost_usd"
+#: The routes that one daily cap counts: this judge and C0b's scope resolver and path judge
+#: (``source_retrieval.deliverables``), so the curriculum spends at most one cap a day.
+CURRICULUM_OWNER_KINDS: tuple[str, ...] = (ROUTE_TASK, "deliverable_scope_resolver", "deliverable_path_judge")
 COVER_CAP_SETTING = "curriculum.cover_max_cost_usd"
 #: The retrieval consumers this module names to the space resolver.
 SEARCH_CONSUMER = "coverage"
@@ -784,7 +793,7 @@ STALE_MESSAGE = ("Your library changed while LearnLoop was checking (its protect
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
     return SharedDailyEnvelope(vault, repository, day=midnight(clock),
                                cap=float(vault.config.curriculum.max_daily_cost_usd), clock=clock, name=ENVELOPE,
-                               owner_kinds=(ROUTE_TASK,),
+                               owner_kinds=CURRICULUM_OWNER_KINDS,
                                price_per_million=vault.config.source_retrieval.llm_price_per_million)
 
 
@@ -1072,6 +1081,11 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None or learning_object.status != "active":
         raise CoverageError("validation_error", f"No active learning object {learning_object_id!r}.")
+    if not enabled(vault):
+        # The kill switch, for every caller (C0b Codex review F3): off, nothing is searched,
+        # called or written, whoever asks (a queued job included).
+        return JudgeResult("unavailable", learning_object_id, reason="curriculum_disabled",
+                           message="The deliverable curriculum is off (curriculum.enabled = false).")
     library = library or Library(vault, repository)
     with spend_envelopes(_daily_if_inactive(vault, repository, clock)):
         return _judge(vault, repository, learning_object, library=library, client=client, embedder=embedder,
@@ -1191,6 +1205,92 @@ def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str]
         if result.status in ("unavailable", "capped", "stale"):
             break
     return results
+
+
+# ---------------------------------------------------------------------------
+# C0b: curriculum.coverage_on_extract (spec §6.3)
+# ---------------------------------------------------------------------------
+
+#: The ingest job a completed extraction queues while both switches are on.
+ON_EXTRACT_JOB = "curriculum_coverage_on_extract"
+
+
+def on_extract_reason(config: Any) -> str | None:
+    """Why a completed extraction queues no coverage job (None: it does)."""
+
+    section = getattr(config, "curriculum", None)
+    if not bool(getattr(section, "enabled", False)):
+        return "curriculum.enabled is false"
+    if not bool(getattr(section, "coverage_on_extract", False)):
+        return "curriculum.coverage_on_extract is false"
+    return None
+
+
+def covered_learning_objects(repository: Repository) -> list[str]:
+    """Every LO some judgment has covered (the on-extract job's work list)."""
+
+    with repository.connection() as connection:
+        if not store.table_present(connection):
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT learning_object_id FROM section_coverage WHERE learner_override IS NULL "
+            "ORDER BY learning_object_id")]
+
+
+def rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None = None,
+                       embedder: Any | None = None, clock: Clock | None = None,
+                       cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+    """The on-extract job: judge every covered LO again, so the new (or re-read) reading's
+    candidate sections join its next judgment (§6.3). Coalesced per LO: each is judged at
+    most once, and a state already judged (nothing new among its candidates) is ``fresh``
+    and pays nothing. Quiet (``plan_fallback.quiet``): the plan only, no OpenRouter offer
+    and no grant honoured; when the plan cannot run, the job stops ``waiting`` and the
+    next extraction or a pressed check judges again.
+
+    **Both switches are read when the job runs and again before each LO** (Codex review
+    F3), from the vault's files (:func:`vault_on_disk`), as protection is: a learner who
+    turns ``curriculum.enabled`` or ``curriculum.coverage_on_extract`` off after the job
+    was queued stops it (``switched_off``), with nothing searched, called or written after."""
+
+    from learnloop.ai import plan_fallback
+
+    out: dict[str, Any] = {"job": ON_EXTRACT_JOB, "extraction_id": extraction_id, "status": "done",
+                           "learning_objects": [], "results": []}
+    reason = on_extract_reason(vault.config)
+    if reason is not None:
+        return {**out, "status": "switched_off", "reason": reason}
+    learning_objects = [lo for lo in covered_learning_objects(repository) if _active(vault, lo)]
+    out["learning_objects"] = learning_objects
+    if not learning_objects:
+        return out
+    with plan_fallback.quiet():
+        library: Library | None = None
+        for lo_id in learning_objects:
+            if cancelled():
+                out["status"] = "cancelled"
+                break
+            try:
+                current = vault_on_disk(vault.root)
+                reason = on_extract_reason(current.config)
+                if reason is not None:
+                    out.update(status="switched_off", reason=reason)
+                    break
+                protection = read_protection(current, repository)
+                library = (Library(current, repository, protection=protection) if library is None
+                           else library.refreshed(current, protection=protection))
+            except CoverageError as exc:
+                out.update(status="withheld", reason=str(exc))
+                break
+            if not _active(current, lo_id):
+                continue
+            result = judge(current, repository, lo_id, library=library, client=client, embedder=embedder,
+                           clock=clock)
+            out["results"].append(result.as_dict())
+            if result.status in STOPPING:
+                out.update(status="waiting" if result.status in ("unavailable", "capped") else result.status,
+                           reason=result.reason)
+                break
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1440,6 +1540,8 @@ class Standing:
     rank: int
     by: str
     learner_text: str | None = None
+    #: The LOs the judge read the section as taking for known (C0b's prerequisite choice reads them).
+    assumes: tuple[str, ...] = ()
 
     @property
     def about(self) -> bool:
@@ -1492,7 +1594,8 @@ def standing(vault: Any, repository: Repository, library: Library,
             entries[section.key] = Standing(
                 extraction_id=section.extraction_id, section_id=section.section_id, learning_object_id=lo_id,
                 treatment=str(row["treatment"]), roles=tuple(row.get("roles") or ()), notation=row.get("notation_md"),
-                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge")
+                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge",
+                assumes=tuple(str(lo) for lo in row.get("assumes") or ()))
         for (extraction_id, section_id, fix_lo), row in fixes.items():
             if fix_lo != lo_id or row["learner_override"] == "none":
                 continue
@@ -1509,7 +1612,8 @@ def standing(vault: Any, repository: Repository, library: Library,
                 roles=base.roles if base is not None else section.book_roles,
                 notation=base.notation if base is not None else None,
                 origin=base.origin if base is not None else "learner",
-                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"))
+                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"),
+                assumes=base.assumes if base is not None else ())
         out[lo_id] = entries
     return out
 
@@ -1552,26 +1656,208 @@ def correct(vault: Any, repository: Repository, extraction_id: str, section_id: 
     section = library.section(extraction_id, section_id)
     if section is None:
         raise CoverageError("validation_error", "That section is not in your library's readable sections.")
-    learning_object = vault.learning_objects[learning_object_id]
     now = utc_now_iso(clock)
     with repository.atomic():
-        connection = repository.connection()
-        ledger_id = append_judgment(
-            connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT, left_id=learning_object_id,
-            right_kind=LEDGER_RIGHT, right_id=f"{extraction_id}/{section_id}", judge="learner_card", verdict=choice,
-            input_hash=content_key({"choice": choice, "text": words, "section_hash": section.section_hash}),
-            rationale=json.dumps({"override": choice, "text": words}, sort_keys=True), created_at=now)
-        row = {
-            "id": "scv_" + new_ulid(), "extraction_id": extraction_id, "section_id": section_id,
-            "learning_object_id": learning_object_id, "treatment": None, "roles_json": "[]", "assumes_json": "[]",
-            "notation_md": None, "origin": "learner", "candidate_rank": None, "learner_override": choice,
-            "learner_text": words, "section_hash": section.section_hash, "lo_hash": lo_hash(learning_object),
-            "state_key": CORRECTION_VERSION, "ledger_id": ledger_id, "model": "learner",
-            "prompt_version": CORRECTION_VERSION, "created_at": now,
-        }
-        store.insert(connection, row)
+        row = _write_correction(repository.connection(), vault, section, learning_object_id, choice, words, now)
     return {key: row[key] for key in ("id", "extraction_id", "section_id", "learning_object_id", "learner_override",
                                       "learner_text", "ledger_id", "created_at")}
+
+
+def _write_correction(connection: sqlite3.Connection, vault: Any, section: Section, learning_object_id: str,
+                      choice: str, words: str | None, now: str, *, operation_id: str | None = None) -> dict[str, Any]:
+    """One learner correction in the caller's transaction: its ``learner_card``
+    verdict and its ``learner`` row (CA5a's dismissal names its operation)."""
+
+    learning_object = vault.learning_objects[learning_object_id]
+    rationale: dict[str, Any] = {"override": choice, "text": words}
+    if operation_id is not None:
+        rationale["operation_id"] = operation_id
+    ledger_id = append_judgment(
+        connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT, left_id=learning_object_id,
+        right_kind=LEDGER_RIGHT, right_id=f"{section.extraction_id}/{section.section_id}", judge="learner_card",
+        verdict=choice, input_hash=content_key({"choice": choice, "text": words, "section_hash": section.section_hash}),
+        rationale=json.dumps(rationale, sort_keys=True), created_at=now)
+    row = {
+        "id": "scv_" + new_ulid(), "extraction_id": section.extraction_id, "section_id": section.section_id,
+        "learning_object_id": learning_object_id, "treatment": None, "roles_json": "[]", "assumes_json": "[]",
+        "notation_md": None, "origin": "learner", "candidate_rank": None, "learner_override": choice,
+        "learner_text": words, "section_hash": section.section_hash, "lo_hash": lo_hash(learning_object),
+        "state_key": CORRECTION_VERSION, "ledger_id": ledger_id, "model": "learner",
+        "prompt_version": CORRECTION_VERSION, "created_at": now,
+    }
+    store.insert(connection, row)
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Reader CA5a: "not about this" on an unchecked hit, as one durable operation
+# ---------------------------------------------------------------------------
+#
+# The learner's *not about this* on a search hit of *find this section in my
+# other books* (ux_reader_compare_ask_v1 §6.2) is one operation, committed in
+# one transaction: a section-pair ``learner_card`` verdict (task
+# ``section_correspondence``: from the open section to the hit) that is the
+# operation's record, and, for each LO of the open section, C0a's learner row
+# and verdict. A section with no LO still gets the pair verdict, so the
+# correction works on every unchecked hit without inferring an LO from search
+# similarity (Codex review F6). The client names the operation
+# (``operation_id``): the same request again answers from its record and
+# writes nothing (a lost reply, a retry), and undo is an operation of its own
+# over the one it names (Codex review F3).
+
+PAIR_TASK = "section_correspondence"
+PAIR_KIND = "reader_section"
+PAIR_VERSION = "section_correspondence_dismissal.v1"
+_OPERATION_ID = re.compile(r"^[A-Za-z0-9_-]{8,80}$")
+
+
+def _pair_id(operation_id: str) -> str:
+    return f"scd_{operation_id}"
+
+
+def _section_ref(extraction_id: str, section_id: str) -> str:
+    return f"{extraction_id}/{section_id}"
+
+
+def _readable_section(library: Library, extraction_id: str, section_id: str) -> Section:
+    reading = library.reading(extraction_id)
+    if extraction_id in library.left_out or (reading is not None and section_id in reading.withheld):
+        raise CoverageError("withheld", "This section is protected material: it has no correspondents.")
+    section = library.section(extraction_id, section_id)
+    if section is None:
+        raise CoverageError("validation_error", "That section is not in your library's readable sections.")
+    return section
+
+
+def _operation_view(row: Mapping[str, Any], *, replayed: bool) -> dict[str, Any]:
+    try:
+        record = json.loads(row["rationale"] or "{}")
+    except (TypeError, ValueError):
+        record = {}
+    return {"operation_id": record.get("operation_id"), "choice": row["verdict"],
+            "learning_object_ids": list(record.get("learning_object_ids") or ()),
+            "undo_of": record.get("undo_of"), "replayed": replayed, "created_at": row["created_at"]}
+
+
+def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target: tuple[str, str], *,
+            operation_id: str, undo_of: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
+    """*Not about this* on an unchecked hit (``undo_of``: undo that operation), in one transaction.
+
+    ``origin`` is the open section, ``target`` the hit. Both are read under
+    protection as it is now. Not about this: the pair verdict ``not_about`` and,
+    per LO of the origin, a ``not_about`` learner row on the target. Undo: the
+    pair verdict ``none`` (superseding the one undone) and ``none`` on each of
+    that operation's LOs whose newest correction on the target is still
+    ``not_about``. Idempotent by ``operation_id``."""
+
+    if not _OPERATION_ID.match(operation_id or ""):
+        raise CoverageError("validation_error", "operation_id must be 8-80 letters, digits, '-' or '_'.")
+    if undo_of is not None and not _OPERATION_ID.match(undo_of):
+        raise CoverageError("validation_error", "undo_of must name an operation.")
+    library = Library(vault, repository)
+    origin_section = _readable_section(library, *origin)
+    target_section = _readable_section(library, *target)
+    if origin_section.source_id == target_section.source_id:
+        raise CoverageError("validation_error", "A section is never a correspondent within its own book.")
+    left_id, right_id = _section_ref(*origin_section.key), _section_ref(*target_section.key)
+    # The origin's LOs (provenance and coverage rows), read before the write.
+    learning_object_ids = section_learning_objects(vault, repository, library, *origin_section.key)
+    now = utc_now_iso(clock)
+
+    def same_question(row: Mapping[str, Any]) -> bool:
+        return (row["task"] == PAIR_TASK and row["left_kind"] == PAIR_KIND and row["left_id"] == left_id
+                and row["right_kind"] == PAIR_KIND and row["right_id"] == right_id)
+
+    with repository.atomic():
+        connection = repository.connection()
+        existing = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(operation_id),)).fetchone()
+        if existing is not None:
+            record = _operation_view(existing, replayed=True)
+            if not same_question(existing) or record["undo_of"] != undo_of:
+                raise CoverageError("validation_error", "That operation id was used for another correction.")
+            return record
+        supersedes: str | None = None
+        if undo_of is None:
+            choice, los = "not_about", list(learning_object_ids)
+            for lo_id in los:
+                _write_correction(connection, vault, target_section, lo_id, "not_about", None, now,
+                                  operation_id=operation_id)
+        else:
+            undone = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(undo_of),)).fetchone()
+            if undone is None or not same_question(undone) or undone["verdict"] != "not_about":
+                raise CoverageError("not_found", "There is no such correction to undo.")
+            choice, los = "none", [lo for lo in _operation_view(undone, replayed=False)["learning_object_ids"]
+                                   if _active(vault, lo)]
+            supersedes = undone["id"]
+            newest = store.corrections(connection, learning_object_ids=los, sections=[target_section.key]) if los else {}
+            for lo_id in los:
+                row = newest.get((*target_section.key, lo_id))
+                if row is not None and row["learner_override"] == "not_about":
+                    _write_correction(connection, vault, target_section, lo_id, "none", None, now,
+                                      operation_id=operation_id)
+        append_judgment(
+            connection, id=_pair_id(operation_id), task=PAIR_TASK, left_kind=PAIR_KIND, left_id=left_id,
+            right_kind=PAIR_KIND, right_id=right_id, judge="learner_card", verdict=choice,
+            prompt_version=PAIR_VERSION, supersedes_id=supersedes,
+            input_hash=content_key({"choice": choice, "origin_hash": origin_section.section_hash,
+                                    "target_hash": target_section.section_hash}),
+            rationale=json.dumps({"operation_id": operation_id, "learning_object_ids": los, "undo_of": undo_of},
+                                 sort_keys=True), created_at=now)
+        row = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(operation_id),)).fetchone()
+    return _operation_view(row, replayed=False)
+
+
+def _pair_dismissed(repository: Repository, origin: Section) -> set[str]:
+    """The hits the learner said are not about this section (the newest pair verdict per hit)."""
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT right_id, verdict FROM judgment_ledger WHERE task = ? AND left_kind = ? AND left_id = ? "
+            "AND judge = 'learner_card' ORDER BY created_at, rowid",
+            (PAIR_TASK, PAIR_KIND, _section_ref(*origin.key))).fetchall()
+    newest = {str(right): str(verdict) for right, verdict in rows}
+    return {right for right, verdict in newest.items() if verdict == "not_about"}
+
+
+# ---------------------------------------------------------------------------
+# Reader CA5a: peek at an unchecked hit (protection read now; its blocks only)
+# ---------------------------------------------------------------------------
+
+#: The blocks a peek shows (a display bound: "the first blocks", spec §6.3).
+PEEK_BLOCKS = 3
+
+
+def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]:
+    """A section's first blocks, from its jump locator, for CA5a's peek.
+
+    Protection is read now (a book marked exam material after the search is
+    refused: Codex review F1) and every block returned is the section's own,
+    so a peek never runs on into the next unit, protected or not. A pure read:
+    the caller records the exposure of exactly these blocks."""
+
+    library = Library(vault, repository)
+    section = _readable_section(library, extraction_id, section_id)
+    reading = library.reading(extraction_id)
+    ir = repository.load_document_ir(extraction_id)
+    if reading is None or ir is None:
+        raise CoverageError("validation_error", "That section is not in your library's readable sections.")
+    own = [span for span, owner in reading.all_spans.items() if owner == section_id]
+    if any(library.protection.span_out(extraction_id, span) for span in own):
+        raise CoverageError("withheld", "This section is protected material: it has no correspondents.")
+    start = own.index(section.start_span_id) if section.start_span_id in own else 0
+    blocks = []
+    for span in own[start:]:
+        block = ir.block_by_span(span)
+        text = str(getattr(block, "text", "") or "").strip() if block is not None else ""
+        if not text:
+            continue
+        blocks.append({"span_id": span, "block_type": str(getattr(block, "block_type", "") or ""),
+                       "page": getattr(block, "page", None), "text": text})
+        if len(blocks) >= PEEK_BLOCKS:
+            break
+    return {"extraction_id": extraction_id, "section_id": section_id, "source_id": section.source_id,
+            "source_title": section.source_title, "title": section.title, "jump_span_id": section.start_span_id,
+            "page": blocks[0]["page"] if blocks else None, "blocks": blocks}
 
 
 # ---------------------------------------------------------------------------
@@ -1744,12 +2030,15 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
     # A section the learner said is not about one of this section's LOs is not listed again.
     dismissed = {key for lo in learning_object_ids for key, entry in (rows.get(lo) or {}).items()
                  if entry.by == "learner" and entry.treatment == "not_about"}
+    # And a hit the learner said is not about this section (CA5a's pair verdict;
+    # the one correction a section with no LO can carry).
+    pairs = _pair_dismissed(repository, origin)
     sources = []
     for source_id in others:
         views = []
         for extraction_id, section_id, _hits in found.get(source_id, ()):
             section = library.section(extraction_id, section_id)
-            if section is None or section.key in dismissed:
+            if section is None or section.key in dismissed or _section_ref(*section.key) in pairs:
                 continue
             view = _section_view(section, read=progress.read(extraction_id, section_id))
             view.update({"treatment": None, "label": UNCHECKED_LABEL, "by": "search"})
@@ -1762,6 +2051,10 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
 
 
 __all__ = [
+    "ON_EXTRACT_JOB",
+    "covered_learning_objects",
+    "on_extract_reason",
+    "rejudge_on_extract",
     "ABOUT",
     "COVERAGE_TASK",
     "STALE_MESSAGE",
@@ -1770,6 +2063,8 @@ __all__ = [
     "MODELS_ENV",
     "ORIGINS",
     "OVERRIDES",
+    "PAIR_TASK",
+    "PEEK_BLOCKS",
     "PROMPT_VERSION",
     "ROUTE_TASK",
     "SECTIONS_PER_SOURCE",
@@ -1793,11 +2088,13 @@ __all__ = [
     "correspondents",
     "cover",
     "cover_source",
+    "dismiss",
     "enabled",
     "judge",
     "lo_hash",
     "lo_query",
     "models_off",
+    "peek",
     "query_embedding_plan",
     "read_protection",
     "search_sections",

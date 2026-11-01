@@ -37,6 +37,30 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Curriculum C0b (migration 228), branch `curriculum/c0b-scope-path`, 2026-10-31
+
+Renamed from `migration_head_226` on the C0b branch
+(`docs/reviews/curriculum-c0b-scope-path.md`). Rebuilt from main's tracked,
+sanitized `migration_head_226/state.sqlite` (main `5b3f66059`): a backup-API
+copy with only `228_deliverable_curriculum.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 228 adds exactly its objects: `deliverable_scope_inputs` (RAW_LEDGER),
+  `deliverable_scope_resolutions` and `deliverable_path_sections` (WORKFLOW),
+  their three autoindexes, five indexes and six append-only triggers, with no
+  row.
+
+No other object changed definition, and only `schema_migrations` gained a row
+(228); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's). Reader RW6b part 1
+holds 227 on its own branch: if it lands first, this head is rebuilt at the
+landing on main's 227 the same way (228 stays 228); if this lands first, 227
+is applied after it (the runner has no contiguity rule).
+
 ## Mobile PR-4 (migration 226), landing of stage `mobile-pr3-pr4`, 2026-10-27
 
 Renamed from `migration_head_225` at the landing of mobile PR-3/PR-4 onto

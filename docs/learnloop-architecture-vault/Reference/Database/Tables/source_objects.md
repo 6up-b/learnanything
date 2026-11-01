@@ -3,13 +3,13 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
   - "table source_objects"
-schema_head: 226
+schema_head: 228
 table_name: "source_objects"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `tests/test_compare_sources_keep.py`
 - `tests/test_find_sources_intents.py`
 - `tests/test_label_roles_cli.py`
+- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_reread_safety.py`

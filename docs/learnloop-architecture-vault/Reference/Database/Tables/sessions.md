@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 226
+schema_head: 228
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -128,11 +128,11 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/reentry_adapter.py`
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop/scheduling/session_minutes.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/daily_plan.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
-- `src/learnloop_sidecar/handlers/reader_tutor.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 226
+schema_head: 228
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_attempt_content_state_successor.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_constraint_engine.py`
+- `tests/test_deliverable_codex_review.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_grading_cli.py`
@@ -136,9 +137,8 @@ Indexes and uniqueness:
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_plan_follows_path.py`
 - `tests/test_reader_ca2_one_ask.py`
+- `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_rw2b_review.py`
-- `tests/test_reading_paths.py`
-- `tests/test_rebuild_equivalence_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

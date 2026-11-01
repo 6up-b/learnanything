@@ -1356,6 +1356,13 @@ class AIRoutingConfig(BaseModel):
     # empty = the code-default openrouter_decider profile, never a chat
     # fallback and never LEARNLOOP_AI_PROVIDER.
     reader_intent: str | None = None
+    # Reader CA3 (ux_reader_compare_ask_v1 §4.3, §12.2): the ask box's and the
+    # comparison's refine box's reading of the learner's words (is it a
+    # comparison? which of the library's books are named? the topic), one
+    # Decider request of typed questions over the book list. A decider-only
+    # route: empty = the code-default openrouter_decider profile, never a chat
+    # fallback and never LEARNLOOP_AI_PROVIDER.
+    compare_scope: str | None = None
     # Reader workbench RW4a (spec_reader_workbench_v1 §7.3, §7.6): the library
     # answer's organizer, one listwise call (a note per passage on what it
     # contributes). Empty = ai.active_provider; a metered route needs
@@ -1457,6 +1464,17 @@ class AIRoutingConfig(BaseModel):
     # curriculum.max_daily_cost_usd (and, in learnloop curriculum cover, to
     # curriculum.cover_max_cost_usd), checked before each call.
     section_coverage_judge: str | None = None
+    # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5.3, §7.2):
+    # the scope resolver (a pressed action: the learner's scope words, in
+    # order, and the vault's active LOs as compact records; never exam text)
+    # and the deliverable path judge (one call per deliverable and depth over
+    # the needed LOs' coverage across books and the learner's own reading
+    # context). Empty = ai.active_provider (the ChatGPT plan under T1;
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # curriculum.max_daily_cost_usd, checked before each call.
+    deliverable_scope_resolver: str | None = None
+    deliverable_path_judge: str | None = None
     # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
     # figures. figure_author writes the declarative figure spec (a chat route;
     # a region or figure block sends its crop as an image when the profile
@@ -2582,6 +2600,11 @@ class FiguresConfig(BaseModel):
     checks against the claims it states. Labelled an AI-written simulation,
     never "checked against the book". Off: the author's contract is RW5b's
     byte for byte, and stored sketches list as "can't draw this yet".
+    Default **off** at landing (orchestrator decision 2026-10-31): it ships
+    off until the spec's merge gate G-SM14 (an IPC probe from inside the
+    sketch Worker in the real Tauri webview) passes; the owner turns it on
+    with ``figures.sketch_enabled = true`` after running the probe (recipe in
+    docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
 
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
@@ -2598,7 +2621,7 @@ class FiguresConfig(BaseModel):
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
     show_me_enabled: bool = True
-    sketch_enabled: bool = True
+    sketch_enabled: bool = False
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 
@@ -2619,10 +2642,42 @@ class ReaderCompareConfig(BaseModel):
     the tutor's comparison). Proposals and display only: nothing becomes a
     concept edge, facet merge, prerequisite, LO change or evidence. Off, the
     compare display is RW4a's exactly and the keep RPCs refuse.
+
+    Reader CA3 (ux_reader_compare_ask_v1 §4, K12): ``scope_enabled`` is the
+    kill switch of comparing from anywhere: one comparison request for every
+    door (a selection's *how do my other books treat this?*, the ask box
+    reading named books, the tutor's offer, *compare these books* in a library
+    answer), an anchor without pins, named books that only narrow the scope,
+    and the refine box. The ask box's words are read by one Decider request
+    (``ai.routing.compare_scope``), time-boxed by ``scope_timeout_seconds`` and
+    capped at ``scope_max_calls_per_day`` requests a UTC day (counted from the
+    route's reservations, failed calls included); readings and the learner's
+    corrections are ``judgment_ledger`` rows (task ``compare_scope``), never
+    evidence. Comparisons stay display and retrieval: nothing in scoring,
+    scheduling, projection or serving reads any of it, so no successor. Off,
+    the RPC takes only today's pinned request and every door is RW4a's/RW4d's.
+
+    Reader CA4 (ux_reader_compare_ask_v1 §5, §12.2, K13): ``by_point`` is the
+    kill switch of the table by point: the Reader's comparison is asked under
+    ``source_compare.v2`` (the same route and one call: points, per source a
+    verified-quote cell or not addressed, per point its pairs' relations,
+    requested perspectives as points in the learner's words) and shown as a
+    grid (a row per point, a column per book, relation chips, the learner's
+    column, hide row, the keyboard map, narrow cards, *by book*); Keep maps a
+    kept row to proposals one claim per cell. Display and proposals only, no
+    successor. Off, the Reader requests v1 and renders by book exactly as
+    today. ``max_perspectives`` is the most views a comparison asks for and
+    keeps: a stored-size bound (a ``keep`` guardrail, §12.2), not a learned
+    constant.
     """
 
     enabled: bool = True
     keep_enabled: bool = True
+    scope_enabled: bool = True
+    scope_timeout_seconds: float = Field(default=4.0, gt=0.0, le=30.0)
+    scope_max_calls_per_day: int = Field(default=200, ge=0)
+    by_point: bool = True
+    max_perspectives: int = Field(default=4, ge=1, le=8)
 
 
 class AsPrintedConfig(BaseModel):
@@ -2769,12 +2824,57 @@ class CurriculumConfig(BaseModel):
     prompt (the passages share it equally). Display and retrieval context
     only: nothing in scoring, scheduling, projection or serving reads
     coverage, so no algorithm successor.
+
+    C0b adds the deliverable: scope from the learner's words resolved to LOs
+    (``ai.routing.deliverable_scope_resolver``), the goal's facet scope written
+    by ``curriculum.set_scope``, the curated path across every book
+    (``ai.routing.deliverable_path_judge``) with the learner's overrides,
+    the Guide's slice of it, and "Am I ready?" (Check once commitments the
+    learner presses for, served by DL2's unchanged rule). ``enabled`` off is
+    today's Guide and RW7a exactly. The three routes share
+    ``max_daily_cost_usd``. Display only: no successor.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
     cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
+    # C0b (spec §6.3, §12): a completed extraction (a book added or re-read)
+    # queues one background job that judges again the LOs already covered,
+    # so the new reading's sections join their coverage (quiet: plan only,
+    # never an OpenRouter offer; coalesced per LO, a fresh state pays
+    # nothing). Off: coverage changes only when pressed or owner-run.
+    coverage_on_extract: bool = True
+
+
+class ReaderCorrespondenceConfig(BaseModel):
+    """Reader CA5a: *find this section in my other books*
+    (ux_reader_compare_ask_v1 §6.2, §6.3; CA5's *also in your books* will
+    share the switch).
+
+    A pressed action in the Guide's footer reads ``reader.correspondents``
+    for the section in view and, while the section has no judged coverage,
+    lists the live search hits grouped by book, each labelled *found by
+    search, not checked* (no treatment words): peek, go there, and compare
+    through the library compare path. *Not about this* records a coverage
+    correction exactly as C0a's ``curriculum.coverage_correct`` does. The
+    action is hidden for a section that has judged coverage. No model call
+    and no write besides the correction. ``enabled`` is the kill switch: off
+    (or with ``curriculum.enabled`` off, which gates the data), the Reader's
+    prompt contract carries no ``correspondence`` key and the Guide is
+    exactly as before CA5a. Navigation and display only: no successor.
+    """
+
+    enabled: bool = True
+
+
+class ReaderConfig(BaseModel):
+    """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
+
+    ``correspondence``: CA5a's (and later CA5's) switch.
+    """
+
+    correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -4022,6 +4122,7 @@ class LearnLoopConfig(BaseModel):
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
+    reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

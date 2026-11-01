@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2c0b7e37edfb7cc303e8a6ae97cdcf99124ffd"
-source_commit_timestamp: "2026-10-27T18:06:05-04:00"
+source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
+source_commit_timestamp: "2026-10-31T17:40:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 226
+schema_head: 228
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,9 +22,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/curriculum.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/stores/section_coverage.py"
-  - "src/learnloop/source_retrieval/section_coverage.py"
-  - "src/learnloop_sidecar/handlers/correspondents.py"
+  - "src/learnloop/source_retrieval/deliverable_path.py"
+  - "src/learnloop/source_retrieval/deliverables.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -104,6 +105,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/section_coverage.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
+- `src/learnloop/source_retrieval/section_coverage.py`
 
 ### Direct SQL writers
 
@@ -118,7 +121,14 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/deliverable_fixtures.py`
 - `tests/test_architecture.py`
+- `tests/test_coverage_on_extract.py`
+- `tests/test_curriculum_c0b_landing.py`
+- `tests/test_deliverable_codex_review.py`
+- `tests/test_deliverable_rpcs.py`
+- `tests/test_deliverable_scope.py`
+- `tests/test_reader_ca5a_find_section.py`
 - `tests/test_section_coverage.py`
 - `tests/test_section_coverage_migration.py`
 - `tests/test_section_coverage_review.py`
