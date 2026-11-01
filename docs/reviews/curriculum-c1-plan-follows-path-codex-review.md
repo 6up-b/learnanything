@@ -291,3 +291,15 @@ is a fake; no live or paid calls. Not merged with main and not renumbered (the l
 
 Fail-first: against `718369de0d`'s sources all 8 new tests fail (behaviour tests at their target assertions; the
 token and placement-rule tests also on the functions being new).
+
+### Gate (fix round 4)
+
+Same rules as rounds 2 and 3 (5G scope, at most `-n 6`, `env -i` with empty `HOME`, `CODEX_HOME`,
+`LEARNLOOP_CONFIG_DIR`).
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted gate under `flock /tmp/learnloop-fullsuite.lock`: round 3's 121 files, plus the 31 files that name
+  `placement.state`, `load_miss_verdicts` or `DIAGNOSIS_WAIT_DAYS` (placement's rule was factored out this round),
+  plus `tests/test_curriculum_c1_fix_round4.py`: 139 files after de-duplication. Tree `3bf062c5a7`: **3210 passed,
+  21 skipped** (owner-vault lane and optional extras), 0 failed, in 20 min 9 s.
+- No migration, schema, config key, CLI, RPC signature, frontend or `src-tauri` change, and no new numeric constant.
