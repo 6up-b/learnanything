@@ -238,6 +238,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableScope|src/screens/reader/DeliverableScope.tsx]] — import-or-re-export: `COLOR`, `Card`, `FONT_MONO`, `Faint`; references `COLOR`, `Card`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`; references `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/screens/reader/DetourStrip|src/screens/reader/DetourStrip.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/DoseOffer|src/screens/reader/DoseOffer.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/ExerciseCandidates (tsx)|src/screens/reader/ExerciseCandidates.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`

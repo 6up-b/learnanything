@@ -48,9 +48,10 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     from learnloop.params.parameter_registry import classify_config_path
     from learnloop.reader_followups_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
-    assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG})
+    # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.40" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40"})
     assert FollowupsConfig().enabled is True
     rule = classify_config_path("followups.enabled")
     assert rule is not None and rule.kind == "structural" and "mvp-0.39" in rule.rationale
@@ -153,15 +154,19 @@ def test_upgrade_to_mvp039_works_from_supported_versions(tmp_path, _cli_process,
         assert _activated(paths, PREDECESSOR)
 
 
-def test_a_bare_upgrade_targets_mvp039_and_refuses_twice(tmp_path, _cli_process):
+def test_a_bare_upgrade_targets_the_latest_through_mvp039_and_mvp039_refuses_twice(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
 
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
-    again = upgrade_to_reader_followups(paths.root)
+    # The latest is curriculum C1's mvp-0.40, chained through this tag.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
+    other = _vault_at(tmp_path, "w", PREDECESSOR)
+    assert upgrade_to_reader_followups(other.root).upgraded and _version(other) == TAG
+    again = upgrade_to_reader_followups(other.root)
     assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
 

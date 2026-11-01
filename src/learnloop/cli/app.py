@@ -6,6 +6,7 @@ from learnloop.algorithm_versions import (
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
     CLAIM_FIXES_ALGORITHM_VERSION,
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
+    DELIVERABLE_PLAN_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
     READER_FOLLOWUPS_ALGORITHM_VERSION,
@@ -103,8 +104,9 @@ def upgrade(
                 f"{WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION}, {READING_PATH_PLAN_ALGORITHM_VERSION}, "
                 f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
                 f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, "
-                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION} or "
-                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}); default: the latest."
+                f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
+                f"{READER_FOLLOWUPS_ALGORITHM_VERSION} or "
+                f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -246,10 +248,15 @@ def upgrade(
     measured (once per repair), over an mvp-0.37 vault (or an mvp-0.9 to
     mvp-0.36 vault through the chain; kill switch:
     ``practice.reschedule_cold_after_assist = false``). ``--to mvp-0.39``
-    (default, the latest successor) schedules short checks on your own after
-    a reading session, each dated by what it is for and listed under "Coming
-    up" with undo, over an mvp-0.38 vault (or an mvp-0.9 to mvp-0.37 vault
-    through the chain; kill switch: ``followups.enabled = false``)."""
+    schedules short checks on your own after a reading session, each dated
+    by what it is for and listed under "Coming up" with undo, over an
+    mvp-0.38 vault (or an mvp-0.9 to mvp-0.37 vault through the chain; kill
+    switch: ``followups.enabled = false``). ``--to mvp-0.40`` (default, the
+    latest successor; curriculum C1) has the day's reading follow your
+    deliverable's path across your books: the next section on it you haven't
+    finished, in its order, in whichever book it is, over an mvp-0.39 vault
+    (or an mvp-0.9 to mvp-0.38 vault through the chain; kill switch:
+    ``curriculum.plan_uses_path = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -380,6 +387,10 @@ def upgrade(
         from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
 
         result = upgrade_to_reader_followups(_root(vault))
+    elif to == DELIVERABLE_PLAN_ALGORITHM_VERSION:
+        from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
+
+        result = upgrade_to_deliverable_plan(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -389,7 +400,8 @@ def upgrade(
             f"{READING_PATH_PLAN_ALGORITHM_VERSION}, {CLAIM_FIXES_ALGORITHM_VERSION}, "
             f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
             f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
-            f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION} or {READER_FOLLOWUPS_ALGORITHM_VERSION}."
+            f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION} or "
+            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

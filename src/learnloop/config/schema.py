@@ -2917,6 +2917,17 @@ class CurriculumConfig(BaseModel):
     learner presses for, served by DL2's unchanged rule). ``enabled`` off is
     today's Guide and RW7a exactly. The three routes share
     ``max_daily_cost_usd``. Display only: no successor.
+
+    C1 (spec §7.6, §8.1) adds ``plan_uses_path``, the kill switch of the
+    successor ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later,
+    with it, ``enabled`` and RW7b's gate on (``reading_paths.enabled`` and
+    ``reading_paths.plan_uses_path``: the plan never follows a path the
+    learner cannot see): the plan's reading block opens the next unfinished
+    core or prerequisite section in the nearest active deliverable's path
+    order, in whichever book it is, when that path is fresh; a stale path is
+    re-judged quietly once a day (plan only) and is not followed meanwhile.
+    Off, or below the tag: RW7b's plans byte for byte (gate G-C4). Replay
+    never reads it.
     """
 
     enabled: bool = True
@@ -2929,6 +2940,9 @@ class CurriculumConfig(BaseModel):
     # never an OpenRouter offer; coalesced per LO, a fresh state pays
     # nothing). Off: coverage changes only when pressed or owner-run.
     coverage_on_extract: bool = True
+    # C1 (spec §7.6): the plan's reading block follows the nearest active
+    # deliverable's fresh path across books (a successor; off: RW7b's plans).
+    plan_uses_path: bool = True
 
 
 class ReaderCorrespondenceConfig(BaseModel):

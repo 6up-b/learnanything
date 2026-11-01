@@ -3,8 +3,8 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "aa99e79156d9d52a4ea10e632297ab17ca3413af"
-source_commit_timestamp: "2026-11-01T02:10:37-05:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`
 - `tests/test_reader_active_reading.py`
+- `tests/test_reader_digest_narrative.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_reading_paths.py`
 - `tests/test_recurrence_merge_composition.py`

@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/RecapCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/RecapCard.tsx"
-source_commit: "e18e9fb8b5f903f06535b1d65a98ebad905273af"
-source_commit_timestamp: "2026-10-31T14:17:21-04:00"
+source_commit: "aca248456eeb018af0f9703f284541298697d35f"
+source_commit_timestamp: "2026-11-01T01:19:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/RecapCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/RecapCard.tsx) |
-| Source lines | 205 |
+| Source lines | 208 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `e18e9fb8b5f903f06535b1d65a98ebad905273af` |
-| Commit timestamp | `2026-10-31T14:17:21-04:00` |
+| Source commit | `aca248456eeb018af0f9703f284541298697d35f` |
+| Commit timestamp | `2026-11-01T01:19:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,23 +60,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface RecapCardProps` — interface, line 17
-- `export const recapLinkStyle: CSSProperties =` — const, line 40
-- `export function RecapLink(` — function, line 51
-- `export function Quoted(` — function, line 60
-- `export function RecapCard(` — function, line 77
+- `export interface RecapCardProps` — interface, line 18
+- `export const recapLinkStyle: CSSProperties =` — const, line 41
+- `export function RecapLink(` — function, line 52
+- `export function Quoted(` — function, line 61
+- `export function RecapCard(` — function, line 78
 
 ## Internal implementation anchors
 
-- `const headingStyle: CSSProperties =` — const, line 45
-- `const listStyle: CSSProperties =` — const, line 48
-- `const lineStyle: CSSProperties =` — const, line 49
-- `function Section(` — function, line 68
-- `const continueLabel = recap.continueAt?.label ? `continue at $` — const, line 83
-- `const minutes = aboutMinutes(recap.session.minutes)` — const, line 92
-- `const gains = sinceLastTime.demonstrated.length > 0 || sinceLastTime.checksRetired.length > 0` — const, line 94
-- `const isKept = kept.has(line.rootExchangeId)` — const, line 114
-- `const abandoned = line.status === "abandoned"` — const, line 140
+- `const headingStyle: CSSProperties =` — const, line 46
+- `const listStyle: CSSProperties =` — const, line 49
+- `const lineStyle: CSSProperties =` — const, line 50
+- `function Section(` — function, line 69
+- `const continueLabel = recap.continueAt?.label ? `continue at $` — const, line 84
+- `const minutes = aboutMinutes(recap.session.minutes)` — const, line 93
+- `const gains = sinceLastTime.demonstrated.length > 0 || sinceLastTime.checksRetired.length > 0` — const, line 95
+- `const isKept = kept.has(line.rootExchangeId)` — const, line 115
+- `const abandoned = line.status === "abandoned"` — const, line 141
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderRecapCardDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export; imports `ComingUp`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export; imports `DigestNarrative`
 - [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]] — import-or-re-export; imports `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `retiredCheckLine`, `shortDay`, `stepsLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
 
@@ -112,6 +113,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/reader/recapReview.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/recapReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/RecapCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/RecapCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/ComingUp.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ComingUp.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

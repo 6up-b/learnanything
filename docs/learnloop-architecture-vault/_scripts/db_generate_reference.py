@@ -1382,6 +1382,16 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
         "successor; replay never reads it (replay schedules nothing)."
     ),
+    "curriculum.plan_uses_path": (
+        "Kill switch for curriculum C1's successor (mvp-0.40; learnloop.deliverable_plan_upgrade; "
+        "spec_deliverable_curriculum_v1 §7.6). On (with curriculum.enabled and RW7b's reading_paths.enabled "
+        "and reading_paths.plan_uses_path), the plan's reading block opens the next unfinished core or "
+        "prerequisite section in the nearest active deliverable's fresh path order, in whichever book it is "
+        "(the front-matter rule, the exam filter and DL2's reading_allowed first; receipts "
+        "reading_path_plan_v2); a stale path is re-judged quietly once a day (plan only) and not followed "
+        "meanwhile. Off, every plan build is RW7b's (mvp-0.32 onwards) byte for byte. Dormant below the "
+        "successor; replay never reads it."
+    ),
     "replay.ledger_bounded": (
         "Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). "
         "On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt "

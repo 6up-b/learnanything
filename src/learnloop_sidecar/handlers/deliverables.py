@@ -41,6 +41,9 @@ from __future__ import annotations
 
 import logging
 import threading
+import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -110,8 +113,17 @@ class _Work:
         #: for it again. Keyed by the statement (``DP.coverage_key``): a changed LO is
         #: tried again (Codex review F5).
         self.attempted: dict[str, set[tuple[str, str | None]]] = {}
+        #: Path judgments per (goal, depth, path state key): ``running`` while one is in
+        #: flight, else the failure the Guide shows. The one coalescing set of the Guide's
+        #: judgments and C1's daily refresh (Codex review fix round 2, Medium 5): either
+        #: one finding the other's key running sends nothing. (The state key already
+        #: names the depth; the depth is kept for the Guide's offers, keyed alike.)
         self.judging: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.offers: dict[Any, dict[str, Any]] = {}
+        #: C1's daily quiet re-judgment: the local day it was last started for this vault,
+        #: and its last result (statuses only).
+        self.refresh_day: str | None = None
+        self.refresh: dict[str, Any] = {}
 
 
 _REGISTRY_LOCK = threading.Lock()
@@ -208,13 +220,37 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
     _spawn(ctx, f"deliverable-coverage-{goal_id}", run)
 
 
+@contextmanager
+def _claim_path(work: _Work, goal_id: str, depth: str, state_key: str) -> Iterator[bool]:
+    """C1's daily refresh entering the coalescing set (``_Work.judging``) for one
+    deliverable's path state: yields False while a judgment for it is running (the
+    Guide's: nothing is sent), else marks it running for the Guide to see (its open then
+    starts no second judgment) and clears the mark when the refresh is done. The refresh
+    is quiet, so it leaves no failure for the Guide to show (an open there judges again)."""
+
+    key = (goal_id, depth, state_key)
+    token = _token("plan_refresh")
+    with work.lock:
+        if (work.judging.get(key) or {}).get("state") == "running":
+            claimed = False
+        else:
+            work.judging[key] = {"state": "running", "by": token}
+            claimed = True
+    try:
+        yield claimed
+    finally:
+        if claimed:
+            _release(work, key, token)
+
+
 def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, depth: str, state_key: str) -> None:
     work = _work(ctx)
     key = (goal_id, depth, state_key)
     with work.lock:
         if (work.judging.get(key) or {}).get("state") == "running":
             return
-        work.judging[key] = {"state": "running"}
+        token = _token("guide")
+        work.judging[key] = {"state": "running", "by": token}
     grant, origin, stamp = _unit(vault, f"deliverable-path:{goal_id}:{depth}")
     client = getattr(ctx, "deliverable_path_client", None)
     sqlite_path = repository.sqlite_path
@@ -227,6 +263,7 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
         from learnloop.db.repositories import Repository
 
         outcome: dict[str, Any] | None
+        claimed = key
         with plan_fallback.unit(grant, origin, stamp) as offers:
             try:
                 # The vault as it is when the job runs, not when it was spawned (Codex
@@ -236,25 +273,147 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
                     outcome = {"state": "failed", "reason": "vault_switched", "message": SC.STALE_MESSAGE}
                 else:
                     worker = Repository.attach(sqlite_path)
-                    with record_model_calls(worker, owner_kind="sidecar_rpc",
-                                            owner_id=f"curriculum.path:{goal_id}:{depth}"):
-                        result = DP.judge(current, worker, goal_id, client=client, live_vault=live_vault)
-                    outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
-                        "state": "failed", "reason": result.reason, "message": result.message}
+                    # The inputs prepared here are the ones sent (fix round 3, Medium 3): the
+                    # claim moves to their key immediately before the call, and the judge
+                    # gathers nothing again. Another job holding that key sends it instead.
+                    inputs = DP.path_inputs(current, worker, goal_id)
+                    sent = (goal_id, inputs.depth, inputs.state_key()) if inputs is not None else key
+                    if not _move_claim(work, key, sent, token):
+                        outcome = None  # the same state is being judged by the other job
+                    else:
+                        claimed = sent
+                        with record_model_calls(worker, owner_kind="sidecar_rpc",
+                                                owner_id=f"curriculum.path:{goal_id}:{depth}"):
+                            result = DP.judge(current, worker, goal_id, client=client, live_vault=live_vault,
+                                              inputs=inputs)
+                        outcome = None if result.status in ("ready", "fresh", "no_sections", "no_scope") else {
+                            "state": "failed", "reason": result.reason, "message": result.message}
             except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
                 LOG.warning("deliverable path judgment failed: %s", type(exc).__name__, exc_info=exc)
                 outcome = {"state": "failed", "reason": "judge_failed",
                            "message": "Couldn't choose a path across your books just now. Try again ↵"}
         offer = offers.hint() if outcome is not None else None
         with work.lock:
+            # Only this job's own claim is released or replaced by its failure: a key it
+            # moved away from, or one another job holds now, is left alone (fix round 4).
+            mine = (work.judging.get(claimed) or {}).get("by") == token
             if outcome is None:
-                work.judging.pop(key, None)
-            else:
-                work.judging[key] = outcome
+                if mine:
+                    work.judging.pop(claimed, None)
+            elif mine or claimed not in work.judging:
+                work.judging[claimed] = outcome
             if offer is not None:
-                work.offers[key] = offer
+                work.offers[claimed] = offer
 
     _spawn(ctx, f"deliverable-path-{goal_id}-{depth}", run)
+
+
+def _token(kind: str) -> str:
+    """A claim's owner: unique per job (fix round 4), so a job transfers and releases only
+    its own claims, never another job's of the same kind."""
+
+    return f"{kind}:{uuid.uuid4().hex}"
+
+
+def _release(work: _Work, key: tuple[str, str, str], token: str) -> None:
+    """Drop ``key``'s claim if ``token`` still holds it."""
+
+    with work.lock:
+        if (work.judging.get(key) or {}).get("by") == token:
+            work.judging.pop(key, None)
+
+
+def _move_claim(work: _Work, held: tuple[str, str, str], wanted: tuple[str, str, str], token: str) -> bool:
+    """The Guide's job moving its claim from the key it was started for (``held``) to the
+    key of the inputs it prepared (``wanted``), immediately before its call: False when
+    another job (the daily refresh, or another Guide job) is running ``wanted``, so this
+    one sends nothing. Either way ``held`` is released if ``token`` still holds it; after
+    the move this job never touches ``held`` again (fix round 4)."""
+
+    if held == wanted:
+        return True
+    with work.lock:
+        if (work.judging.get(held) or {}).get("by") == token:
+            work.judging.pop(held, None)
+        if (work.judging.get(wanted) or {}).get("state") == "running":
+            return False
+        work.judging[wanted] = {"state": "running", "by": token}
+    return True
+
+
+def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
+    """Curriculum C1 (spec §7.6): start the daily quiet re-judgment of the nearest
+    deliverable's stale path before the plan is built (every plan RPC calls this first;
+    it starts at most once a local day per vault in this sidecar). It runs in the
+    background (the plan never waits on a model, and the sidecar answers one request at a
+    time): ``plan_fallback.quiet`` (the plan only, no OpenRouter offer, no grant). A plan
+    built meanwhile follows RW7b with a receipt that says ``stale``, and takes the
+    deliverable's step once the path is fresh while its reading has no reading history
+    (C1's invariant, ``engine._reading_follows_fresh_choice``). It shares the Guide's
+    coalescing set (:func:`_claim_path`): with the Guide's judgment for the same
+    deliverable and path state running, it sends nothing. With the plan down it ends
+    ``unavailable`` and nothing asks. Never raises into the plan."""
+
+    try:
+        from learnloop.daily_plan.engine import deliverable_plan_active, local_date
+
+        if not deliverable_plan_active(vault):
+            return
+        work = _work(ctx)
+        day = local_date()
+        with work.lock:
+            if work.refresh_day == day:
+                return
+        # Nothing to refresh without a deliverable (a cheap read on this thread): no
+        # thread, and the day stays unmarked so a deliverable made later today is seen.
+        if not DL.deliverable_goals(vault, repository):
+            return
+        with work.lock:
+            if work.refresh_day == day:
+                return
+            work.refresh_day = day
+            work.refresh = {"day": day, "status": "running"}
+        client = getattr(ctx, "deliverable_path_client", None)
+        sqlite_path = repository.sqlite_path
+        live_vault = ctx.loaded_vault
+        root = Path(vault.root).resolve()
+    except Exception:  # noqa: BLE001 - the plan never fails on its path's refresh
+        LOG.warning("the deliverable path's daily refresh was not started", exc_info=True)
+        return
+
+    def run() -> None:
+        from learnloop.ai.execution import record_model_calls
+        from learnloop.db.repositories import Repository
+
+        def gate_on() -> bool:
+            # C1's complete gate on the vault as it is now (fix round 5, Medium 2): asked
+            # before the job starts, before its claim, before each request and in the write.
+            from learnloop.daily_plan.engine import deliverable_plan_active
+
+            now_vault = live_vault()
+            return (now_vault is not None and Path(now_vault.root).resolve() == root
+                    and deliverable_plan_active(now_vault) and DP.plan_refresh_reason(now_vault) is None)
+
+        try:
+            current = live_vault()
+            if current is None or Path(current.root).resolve() != root:
+                result: dict[str, Any] = {"status": "vault_switched"}
+            elif not gate_on():
+                result = {"status": "switched_off", "reason": "gate_off"}
+            else:
+                worker = Repository.attach(sqlite_path)
+                with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id="curriculum.plan_refresh"):
+                    result = DP.refresh_for_plan(
+                        current, worker, client=client, live_vault=live_vault,
+                        in_flight=lambda goal_id, depth, state_key: _claim_path(work, goal_id, depth, state_key),
+                        still_wanted=gate_on)
+        except BaseException as exc:  # noqa: BLE001 - a failed refresh leaves RW7b's plan, never the loop
+            LOG.warning("the deliverable path's daily refresh failed: %s", type(exc).__name__, exc_info=exc)
+            result = {"status": "failed", "reason": type(exc).__name__}
+        with work.lock:
+            work.refresh = {"day": day, **{key: value for key, value in result.items() if key != "message"}}
+
+    _spawn(ctx, "deliverable-plan-refresh", run)
 
 
 def _relay(work: _Work, key: Any) -> None:

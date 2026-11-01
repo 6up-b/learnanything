@@ -39,7 +39,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
+from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
@@ -61,7 +61,12 @@ from learnloop.daily_plan.lanes import (
     reentry_order,
     scheduled_checks,
 )
-from learnloop.daily_plan.reading import as_you_read_extraction_ids, next_reading_target, section_start_span
+from learnloop.daily_plan.reading import (
+    as_you_read_extraction_ids,
+    next_listed_reading_target,
+    next_reading_target,
+    section_start_span,
+)
 from learnloop.daily_plan.records import (
     AD_INELIGIBLE,
     ORIGIN_CHOOSER,
@@ -71,6 +76,8 @@ from learnloop.daily_plan.records import (
     PlanRecord,
     PlannedBlock,
     PlannedItem,
+    DELIVERABLE_PATH_OFF,
+    DELIVERABLE_PATH_MOVED,
     READING_PATH_OFF,
     RECEIPT_OPEN_LIST_PICK,
     RECEIPT_STOP,
@@ -201,11 +208,297 @@ def reading_path_plan_active(vault: Any) -> bool:
     )
 
 
+def deliverable_plan_active(vault: Any) -> bool:
+    """Curriculum C1 (spec_deliverable_curriculum_v1 §7.6, §8.1): the plan's reading block
+    follows the nearest active deliverable's fresh path across books, at C1's tag
+    (``DELIVERABLE_PLAN_VERSIONS``), with its kill switch ``curriculum.plan_uses_path``
+    and ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
+    follows a path the learner cannot see) and RW7b's own gate on (C1 is RW7b's first
+    branch, :func:`_reading_on_path`; the slice lives in the Guide's path card, shown
+    only with ``reading_paths.enabled``). A successor: it changes what is served through
+    labels a model judged. Off, below the tag or with any of those off, every plan build
+    is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
+    while that reading is unstarted (:func:`_reading_path_switched_off`)."""
+
+    section = getattr(vault.config, "curriculum", None)
+    return (
+        reading_path_plan_active(vault)
+        and vault.config.algorithms.algorithm_version in DELIVERABLE_PLAN_VERSIONS
+        and bool(getattr(section, "enabled", False))
+        and bool(getattr(section, "plan_uses_path", False))
+    )
+
+
 #: The version of RW7b's receipt (``split_json["reading_path"]``).
 READING_PATH_RECEIPT_VERSION = "reading_path_plan_v1"
+#: C1's receipt (spec §7.6): v1's keys (``predecessor`` now RW7b's choice) plus
+#: ``deliverable`` and ``rw7b`` (what RW7b alone would have stored), and ``chosen_by``
+#: may be ``"deliverable"``. Written only where a deliverable path was in play.
+READING_PATH_RECEIPT_VERSION_V2 = "reading_path_plan_v2"
 
 
 def _reading_on_path(
+    env: Any, *, extraction_ids: list[str] | None, from_furthest: bool, exam: Any,
+    allowed: Callable[[str], bool] | None = None,
+) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
+    """The plan's reading step on a path: curriculum C1's first branch
+    (:func:`_reading_on_deliverable`, with :func:`deliverable_plan_active`), else RW7b's
+    per-book path (:func:`_reading_on_book_path`) unchanged. ``allowed`` is DL2's
+    ``reading_allowed`` for the learner's intent (None with no intent), which C1 applies
+    to each book its path names (``extraction_ids`` is RW7b's as-you-read list)."""
+
+    reading, receipt = _reading_on_book_path(
+        env, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam)
+    if not deliverable_plan_active(env.vault):
+        return reading, receipt
+    return _reading_on_deliverable(env, reading, receipt, from_furthest=from_furthest, exam=exam, allowed=allowed)
+
+
+def _same_section(left: Any, right: Any) -> bool:
+    def key(value: Any) -> tuple[str, str] | None:
+        if value is None:
+            return None
+        if isinstance(value, Mapping):
+            return (str(value.get("extraction_id")), str(value.get("section_id")))
+        return (value.extraction_id, value.section_id)
+
+    return key(left) == key(right)
+
+
+def _deliverable_choice(
+    env: Any, *, from_furthest: bool, exam: Any, allowed: Callable[[str], bool] | None
+) -> tuple[Any, list[Any], ReadingTarget | None, Any]:
+    """C1's choice (spec §7.6): the deliverable the plan follows (the nearest active goal
+    among goals with a fresh path, :func:`deliverable_path.plan_deliverable`), every
+    deliverable consulted, and the next unfinished core or prerequisite section in its
+    path's order, in whichever book (the exam filter, the front-matter rule and DL2's
+    ``reading_allowed`` run first on each candidate), with the path line it came from.
+    No model is called."""
+
+    from learnloop.source_retrieval import deliverable_path as DP
+
+    followed, consulted = DP.plan_deliverable(env.vault, env.repository, clock=getattr(env, "clock", None))
+    target: ReadingTarget | None = None
+    step = None
+    if followed is not None and followed.status == "path":
+        steps = followed.steps
+        found, index = next_listed_reading_target(
+            env.repository, [(entry.extraction_id, entry.section_id) for entry in steps],
+            from_furthest=from_furthest, exam=exam, allowed=allowed)
+        if found is not None and index is not None:
+            step = steps[index]
+            target = replace(found, path_label=step.label)
+    return followed, consulted, target, step
+
+
+def _deliverable_entry(followed: Any, consulted: Sequence[Any], step: Any) -> dict[str, Any] | None:
+    """The receipt's ``deliverable`` (spec §7.6): the deliverable followed (else the nearest
+    one in play: stale or unreadable), its path state key and the rows read, the line the
+    step came from, and every deliverable consulted on the way."""
+
+    in_play = [path for path in consulted if path.in_play]
+    entry = followed if followed is not None else (in_play[0] if in_play else None)
+    if entry is None:
+        return None
+    return {**entry.receipt(), "step": step.receipt() if step is not None else None,
+            "consulted": [{"goal_id": path.goal_id, "status": path.status, "depth": path.depth}
+                          for path in consulted]}
+
+
+def _reading_on_deliverable(
+    env: Any, rw7b_reading: ReadingTarget | None, rw7b_receipt: dict[str, Any] | None, *,
+    from_furthest: bool, exam: Any, allowed: Callable[[str], bool] | None,
+) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
+    """C1's reading step and its v2 receipt. With no deliverable path in play (none
+    resolved, chosen a depth for and judged), RW7b's step and receipt stand byte for
+    byte. A fresh path chooses (``chosen_by = "deliverable"``); a withheld one plans
+    nothing (fail closed); a stale or unreadable one, or a fresh one with nothing left to
+    plan (finished, or every candidate filtered), leaves RW7b's choice, and the receipt
+    says which. ``predecessor`` is RW7b's choice, ``rw7b`` its own receipt."""
+
+    followed, consulted, target, step = _deliverable_choice(
+        env, from_furthest=from_furthest, exam=exam, allowed=allowed)
+    entry = _deliverable_entry(followed, consulted, step)
+    if entry is None:
+        return rw7b_reading, rw7b_receipt
+    if followed is not None and followed.status == "withheld":
+        reading, chosen_by = None, None
+    elif target is not None:
+        reading, chosen_by = target, "deliverable"
+    else:
+        reading = rw7b_reading
+        chosen_by = (rw7b_receipt or {}).get("chosen_by") if rw7b_receipt is not None else "order"
+    receipt = {
+        "version": READING_PATH_RECEIPT_VERSION_V2,
+        # RW7b's choice: what the per-book path (or the order) would have opened (§7.6).
+        "predecessor": rw7b_reading.as_dict() if rw7b_reading is not None else None,
+        "chosen_by": chosen_by if reading is not None else None,
+        "label": reading.path_label if reading is not None else None,
+        "same_as_predecessor": _same_section(rw7b_reading, reading),
+        "paths": list((rw7b_receipt or {}).get("paths") or []),
+        "deliverable": entry,
+        # What RW7b alone would have stored (None: its plan carried no receipt), so the
+        # switch can put RW7b's (or the order's) reading back exactly.
+        "rw7b": rw7b_receipt,
+    }
+    return reading, receipt
+
+
+def _fresh_reading(env: Any, intent: Any) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
+    """The reading step a plan built now would take, with its path receipt: the build's own
+    selection once it considers a reading (:func:`_prepare_plan`). The one exam predicate
+    first (unreadable: no step, fail closed), DL2's intent on each reading (``intent``, None
+    when intent changes nothing), then C1's nearest fresh deliverable
+    (:func:`deliverable_plan_active`), else RW7b's per-book path
+    (:func:`reading_path_plan_active`), else the order. No model is called."""
+
+    reading, receipt, _readable = _fresh_reading_checked(env, intent)
+    return reading, receipt
+
+
+def _fresh_reading_checked(env: Any, intent: Any) -> tuple[ReadingTarget | None, dict[str, Any] | None, bool]:
+    """:func:`_fresh_reading` and whether its protection could be read (False: no step,
+    fail closed, and the memo never keeps it: the next read asks again)."""
+
+    from_furthest = reading_from_furthest_active(env.vault)
+    protected = reading_step_rule(env.vault) != READING_RULE_DL1
+    exam = _exam_material(env.vault, env.repository) if protected else None
+    if protected and exam is None:
+        return None, None, False
+    # DL2 (Codex review F7, §6.10): only a source under Learn or Master (or uncommitted)
+    # reads; with intent changing nothing the candidates are DL1's (None: the step reads
+    # them itself).
+    extraction_ids = None
+    if intent is not None:
+        extraction_ids = [
+            extraction_id
+            for extraction_id in as_you_read_extraction_ids(env.repository)
+            if reading_allowed(env, intent, extraction_id)
+        ]
+    if reading_path_plan_active(env.vault):
+        # RW7b (a successor): the reading path narrows the order; the receipt records what
+        # the order alone would choose. Curriculum C1 (its successor) is the first branch:
+        # the nearest deliverable's fresh path, across books.
+        reading, receipt = _reading_on_path(
+            env, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam,
+            allowed=(None if intent is None
+                     else (lambda extraction_id: reading_allowed(env, intent, extraction_id))),
+        )
+        return reading, receipt, not _read_failed(receipt)
+    return next_reading_target(
+        env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+    ), None, True
+
+
+def _read_failed(receipt: Mapping[str, Any] | None) -> bool:
+    """Whether a path the choice consulted could not be read (``unreadable``: a deliverable,
+    or one of RW7b's per-book paths). Such a choice stands for this read, but the memo
+    never keeps it: a passing failure is asked again on the next read."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    deliverable = receipt.get("deliverable") if isinstance(receipt.get("deliverable"), Mapping) else {}
+    statuses = [deliverable.get("status")] + [entry.get("status") for entry in deliverable.get("consulted") or ()
+                                              if isinstance(entry, Mapping)]
+    rw7b = receipt.get("rw7b") if receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2 else receipt
+    statuses += [entry.get("status") for entry in ((rw7b or {}).get("paths") or ()) if isinstance(entry, Mapping)]
+    return "unreadable" in statuses
+
+
+#: :func:`_remembered_fresh_reading` reads DL2's intent itself, and only on a memo miss.
+_INTENT_UNREAD = object()
+
+
+def _fresh_reading_fingerprint(env: Any) -> str | None:
+    """The fingerprint of :func:`_fresh_reading`'s inputs (``reading_choice.fingerprint``;
+    fix round 3): the vault database as a whole (any committed write invalidates), the
+    config (a hash of all of it: the switches every branch reads are in it), the vault's
+    goals (each dumped) with each goal's days left (in the deliverable path's key; whole
+    days from now, in UTC, as ``deliverable_path.learner_context`` counts them, which turn
+    at the due time of day, not at midnight), the local and UTC dates, and the diagnosis
+    waits run out by now, by placement's own rule (``placement.state.
+    diagnosis_waits_run_out``; a deadline crossed changes an LO's status with no write).
+    Read without a model call; None when it cannot be."""
+
+    from learnloop.daily_plan import reading_choice as RC
+    from learnloop.placement.state import diagnosis_waits_run_out
+
+    vault = env.vault
+    now_iso = env.now_iso()
+    now = parse_utc(now_iso)
+    goals = []
+    for goal in getattr(vault, "goals", ()) or ():
+        due = parse_utc(goal.due_at) if getattr(goal, "due_at", None) else None
+        days_left = max(0, (due - now).days) if due is not None and now is not None else None
+        dump = goal.model_dump_json() if hasattr(goal, "model_dump_json") else repr(goal)
+        goals.append([str(goal.id), dump, days_left])
+    with env.repository.connection() as connection:
+        waits_run_out = diagnosis_waits_run_out(connection, now_iso)
+    parts = {
+        "config": hashlib.sha256(vault.config.model_dump_json().encode("utf-8")).hexdigest(),
+        "goals": goals,
+        "dates": [env.today(), now_iso[:10]],
+        "diagnosis_waits_run_out": waits_run_out,
+    }
+    return RC.fingerprint(env.repository, parts)
+
+
+def _remembered_fresh_reading(
+    env: Any, intent: Any = _INTENT_UNREAD
+) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
+    """:func:`_fresh_reading`, memoized on :func:`_fresh_reading_fingerprint` (Codex review
+    fix round 2, Low 6): C1's invariant re-derives the choice on each read of a C1 plan, and
+    a plain read must not redo the library, coverage and learner-context reads when nothing
+    they depend on changed. The fingerprint is taken **before** any input is gathered, so a
+    write landing meanwhile changes the next one (F3's interleavings cannot hide behind the
+    memo). ``intent`` is the build's view; a reconcile leaves it to be read on a miss."""
+
+    from learnloop.daily_plan import reading_choice as RC
+
+    try:
+        fingerprint = _fresh_reading_fingerprint(env)
+    except Exception:  # noqa: BLE001 - no fingerprint: the choice is computed, never trusted from the memo
+        logging.getLogger(__name__).warning("could not fingerprint the plan's reading choice", exc_info=True)
+        fingerprint = None
+    if fingerprint is not None:
+        remembered = RC.recall(env.repository, env.vault, fingerprint)
+        if remembered is not None:
+            return remembered.reading, remembered.receipt
+    view = intent_view(env) if intent is _INTENT_UNREAD else intent
+    reading, receipt, readable = _fresh_reading_checked(env, view)
+    if fingerprint is not None and readable:
+        RC.remember(env.repository, env.vault, fingerprint, reading, receipt)
+    return reading, (json.loads(json.dumps(receipt)) if receipt is not None else None)
+
+
+def _section_progress(repository: Any, reading: Any) -> dict[str, Any] | None:
+    """The staged reading's section progress as it stands (C1's ``staged_progress``): the
+    snapshot :func:`_reading_has_history` compares with, so a section read through the
+    Library since it was staged is history (Codex review fix round 2, Medium 4). None with
+    no reading or no row yet."""
+
+    if not isinstance(reading, Mapping):
+        return None
+    with repository.connection() as connection:
+        row = connection.execute(
+            "SELECT spans_seen, completed_at FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
+            (str(reading.get("extraction_id") or ""), str(reading.get("section_id") or "")),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"spans_seen": int(row[0] or 0), "completed": row[1] is not None}
+
+
+def _with_staged_progress(repository: Any, reading: Any, receipt: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A C1 receipt with ``staged_progress`` for the reading it stages (v1 and None unchanged)."""
+
+    if not isinstance(receipt, Mapping) or receipt.get("version") != READING_PATH_RECEIPT_VERSION_V2:
+        return receipt
+    staged = reading.as_dict() if isinstance(reading, ReadingTarget) else reading
+    return {**receipt, "staged_progress": _section_progress(repository, staged)}
+
+
+def _reading_on_book_path(
     env: Any, *, extraction_ids: list[str] | None, from_furthest: bool, exam: Any
 ) -> tuple[ReadingTarget | None, dict[str, Any] | None]:
     """RW7b's reading step and its receipt. The step is the predecessor's
@@ -1342,36 +1635,19 @@ def _prepare_plan(
     reading_rule: str | None = None
     reading_path_receipt: dict[str, Any] | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
-        from_furthest = reading_from_furthest_active(env.vault)
+        # Which rule chose the reading step (identity review F6); the step itself is the
+        # fresh choice (:func:`_fresh_reading`: protection whatever the reading order, final
+        # verify F15; DL2's intent; RW7b's path and C1's deliverable where they act). With
+        # the serving rules' kill switch off, DL1's order is DL1's selection exactly.
         reading_rule = reading_step_rule(env.vault)
-        # Protection whatever the reading order (exam protection by extraction
-        # identity, final verify F15): the setting orders the step, the one
-        # exam predicate decides what may be one; unreadable, no step. With
-        # the serving rules' kill switch off, DL1's order is DL1's selection
-        # exactly, as before (identity review F6).
-        protected = reading_rule != READING_RULE_DL1
-        exam = _exam_material(env.vault, env.repository) if protected else None
-        if not (protected and exam is None):
-            # DL2 (Codex review F7, §6.10): only a source under Learn or
-            # Master (or uncommitted) reads; with intent changing nothing the
-            # candidates are DL1's (None: the step reads them itself).
-            extraction_ids = None
-            if built.intent is not None:
-                extraction_ids = [
-                    extraction_id
-                    for extraction_id in as_you_read_extraction_ids(env.repository)
-                    if reading_allowed(env, built.intent, extraction_id)
-                ]
-            if reading_path_plan_active(env.vault):
-                # RW7b (a successor): the reading path narrows the order;
-                # the receipt records what the order alone would choose.
-                reading, reading_path_receipt = _reading_on_path(
-                    env, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
-                )
-            else:
-                reading = next_reading_target(
-                    env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
-                )
+        if deliverable_plan_active(env.vault):
+            # Curriculum C1: the build's choice is the one its reconcile re-derives (the
+            # invariant, :func:`_reading_follows_fresh_choice`), so it is remembered; the
+            # receipt snapshots the staged section's progress (its reading history since).
+            reading, reading_path_receipt = _remembered_fresh_reading(env, built.intent)
+            reading_path_receipt = _with_staged_progress(env.repository, reading, reading_path_receipt)
+        else:
+            reading, reading_path_receipt = _fresh_reading(env, built.intent)
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -2821,27 +3097,32 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                         (item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": hold})
                     )
                     item.displaced_at = now
+    receipt = record.split.get("reading_path")
+    c1_plan = isinstance(receipt, Mapping) and receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2
     for block in record.blocks:
         if block.ended_at is None and not block.is_reading and block.items and all(item.resolved for item in block.items):
             writes.append((block.id, "block_ended", {"outcome": "completed", "minutes_counted": round(block.est_minutes(), 4)}))
             block.ended_at = now
-        elif block.ended_at is None and block.is_reading and block.started_at is None:
-            # DL2 (Codex review F7): a reading block not yet started whose
-            # source a later choice took out of reading (Pause, Reference,
-            # Let go, Keep, Light touch, "Check once") is ended unread; its
-            # minutes are not counted.
-            reading_intent = intent if intent is not None else intent_view(env)
-            extraction = str((block.reading or {}).get("extraction_id") or "")
-            if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
-                writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
-                block.ended_at = now
-    path_split = _reading_path_switched_off(env, record, now, writes)
+        elif not c1_plan:
+            # DL2's intent ending, in block order as before (v1 and no-receipt plans).
+            _end_reading_out_of_intent(env, block, intent, now, writes)
+    if c1_plan:
+        # Curriculum C1 (fix rounds 2 and 3): the plan's reading is the fresh choice while
+        # it has no reading history (one invariant for switches, refreshes and intent
+        # alike). It runs before DL2's intent ending: an unread reading on a source taken
+        # out of reading moves to the fresh choice (which honours ``reading_allowed``); a
+        # reading with history is left to DL2's ending below, as before.
+        path_split = _reading_follows_fresh_choice(env, record, now, writes)
+        for block in record.blocks:
+            _end_reading_out_of_intent(env, block, intent, now, writes)
+    else:
+        path_split = _reading_path_switched_off(env, record, now, writes)
     if writes or path_split is not None:
         with env.repository.atomic(), env.repository.connection() as connection:
             for block_id, kind, detail in writes:
                 _event(connection, block_id, kind, detail, now)
             if path_split is not None:
-                if path_split["reading_path"]["transition"].get("reopened") is not None:
+                if _path_split_reopens(path_split):
                     # Fix round 2: the plan closed only for want of the reading
                     # the path left out; it reopens with the predecessor's.
                     store.update_plan(connection, record.id, split_json=path_split, status="open",
@@ -2850,6 +3131,33 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                     store.update_plan(connection, record.id, split_json=path_split, updated_at=now)
         return _reload(env, record.id)
     return record
+
+
+def _end_reading_out_of_intent(
+    env: PlanEnv, block: PlannedBlock, intent: Any, now: str, writes: list[tuple[str, str, dict[str, Any]]]
+) -> None:
+    """DL2 (Codex review F7): a reading block not yet started whose source a later choice
+    took out of reading (Pause, Reference, Let go, Keep, Light touch, "Check once") is
+    ended unread; its minutes are not counted. ``intent`` is the reconcile's view when it
+    read one (else it is read here)."""
+
+    if block.ended_at is None and block.is_reading and block.started_at is None:
+        reading_intent = intent if intent is not None else intent_view(env)
+        extraction = str((block.reading or {}).get("extraction_id") or "")
+        if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
+            writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
+            block.ended_at = now
+
+
+def _path_split_reopens(split: Mapping[str, Any]) -> bool:
+    """Whether a path move reopens a plan that closed for want of its reading: RW7b's
+    ``transition.reopened``, or C1's latest move's."""
+
+    receipt = split.get("reading_path") or {}
+    if receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2:
+        moves = receipt.get("moves") or []
+        return bool(moves) and moves[-1].get("reopened") is not None
+    return (receipt.get("transition") or {}).get("reopened") is not None
 
 
 def _reading_path_switched_off(
@@ -2877,7 +3185,10 @@ def _reading_path_switched_off(
     predecessor's reading, and the transition's ``reopened`` records the
     status, stop reason and completion time it had. A plan the learner
     ended, or one the chooser stopped with work still feasible, stays as it
-    is."""
+    is.
+
+    RW7b's v1 receipt only: a plan whose receipt is curriculum C1's follows
+    :func:`_reading_follows_fresh_choice` instead."""
 
     reopen = not record.is_open
     if reopen and not _closed_for_want_of_path_reading(record):
@@ -2894,24 +3205,67 @@ def _reading_path_switched_off(
     pending = [block for block in reading_blocks if block.ended_at is None and block.started_at is None]
     if len(pending) != len(reading_blocks):
         return None  # a reading began or ended: kept as it is
-    for block in pending:
+    updated, change = _move_plan_reading(env, record, now, writes, to=predecessor, withdraw=pending)
+    updated["reading_path"] = {
+        **receipt,
+        "transition": {
+            "at": now,
+            "reason": READING_PATH_OFF,
+            "switch": {"plan_uses_path": bool(getattr(env.vault.config.reading_paths, "plan_uses_path", False)),
+                       "enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
+            **change,
+        },
+    }
+    if reopen:
+        updated["reading_path"]["transition"]["reopened"] = {
+            "status": record.status,
+            "stop_reason": record.row.get("stop_reason"),
+            "completed_at": record.row.get("completed_at"),
+        }
+    return updated
+
+
+def _live_reading_blocks(record: PlanRecord) -> list[PlannedBlock]:
+    """The plan's reading blocks that may hold history: every reading block except a path
+    reading taken back unread (:attr:`PlannedBlock.withdrawn_path_reading`: a switch, or C1's
+    fresh choice moving the reading, ended it before it started; C1 Codex review F1). Such a
+    block was never read, so it never stops a later move of the plan's reading."""
+
+    return [block for block in record.blocks if block.is_reading and not block.withdrawn_path_reading]
+
+
+def _move_plan_reading(
+    env: PlanEnv, record: PlanRecord, now: str, writes: list[tuple[str, str, dict[str, Any]]], *,
+    to: Any, withdraw: Sequence[PlannedBlock],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Give the plan the reading ``to`` (a stored reading or None): each block in
+    ``withdraw`` (unstarted, unended reading blocks; the caller decided there is no history)
+    is ended unread (:data:`READING_PATH_OFF`, no minutes counted; appended to ``writes``),
+    and the split's reading, its full minutes and the admitted new minutes are recomputed
+    (the lanes re-split from the build's loads when the minutes moved). Returns ``(the new
+    split, the change for the receipt)``."""
+
+    split = record.split
+    current = split.get("reading")
+    for block in withdraw:
         writes.append((block.id, "block_ended",
                        {"outcome": "displaced", "reason": READING_PATH_OFF, "minutes_counted": 0.0}))
         block.ended_at = now
+        block.outcome, block.ended_reason = "displaced", READING_PATH_OFF
     old_full = float(split.get("reading_full_minutes") or 0.0)
-    new_full = (_estimator(env).reading_minutes(int(predecessor.get("words_left") or 0))
-                if isinstance(predecessor, Mapping) else None)
+    new_full = (_estimator(env).reading_minutes(int(to.get("words_left") or 0))
+                if isinstance(to, Mapping) else None)
     old_admitted = float(split.get("admitted_new_minutes") or 0.0)
     admitted = max(old_admitted - old_full + (new_full or 0.0), 0.0)
     updated: dict[str, Any] = {
         **split,
-        "reading": dict(predecessor) if isinstance(predecessor, Mapping) else None,
+        "reading": dict(to) if isinstance(to, Mapping) else None,
         "reading_full_minutes": round(new_full, 4) if new_full is not None else None,
         "admitted_new_minutes": round(admitted, 4),
     }
     if abs(admitted - old_admitted) > _EPS:
-        # The minutes the predecessor's build would have split: the build's
-        # loads with the predecessor's reading in new (set_minutes' re-split).
+        # The minutes the new reading's build would have split: the build's
+        # loads with that reading in new (set_minutes' re-split).
         lanes = split.get("lanes") or {}
         loads = {lane: float((lanes.get(lane) or {}).get("load") or 0.0) for lane in LANES}
         loads["new"] = admitted
@@ -2930,28 +3284,143 @@ def _reading_path_switched_off(
         updated.update(resplit.as_dict())
         updated["epoch_ordinal"] = record.next_ordinal()
         updated["epoch_at"] = now
+    change = {
+        "from": current,
+        "to": updated["reading"],
+        "from_full_minutes": round(old_full, 4) if current is not None else None,
+        "to_full_minutes": updated["reading_full_minutes"],
+        "from_admitted_new_minutes": round(old_admitted, 4),
+        "to_admitted_new_minutes": updated["admitted_new_minutes"],
+        "displaced_block_ids": [block.id for block in withdraw],
+    }
+    return updated, change
+
+
+def _reading_has_history(env: PlanEnv, record: PlanRecord) -> bool:
+    """Whether the plan's reading has reading history (C1's invariant): a live reading block
+    (:func:`_live_reading_blocks`) that started, ended (completed, or ended any other way
+    but DL2's intent ending of an unread block: kept as it is, as RW7b keeps it) or took
+    reading progress (``note_reading_progress``,
+    a prefetched block read in the reader without being started; Codex review fix round 2,
+    Medium 4), or progress on the staged reading's section since it was staged (the Library
+    read it: its row now differs from the receipt's ``staged_progress`` snapshot; spans
+    only grow and a completion stamps once)."""
+
+    for block in _live_reading_blocks(record):
+        if block.started_at is not None or block.reading_progress is not None:
+            return True
+        if block.ended_at is not None and not (block.outcome == "displaced" and block.ended_reason == "intent"):
+            # DL2's intent ending of an unread block is no reading (fix round 3, Medium 1).
+            return True
+    staged = record.split.get("reading")
+    if not isinstance(staged, Mapping):
+        return False
+    now = _section_progress(env.repository, staged)
+    if now is None:
+        return False
+    then = (record.split.get("reading_path") or {}).get("staged_progress") or {}
+    return bool(now["completed"] and not then.get("completed")) or now["spans_seen"] > int(then.get("spans_seen") or 0)
+
+
+def _bounded_moves(receipt: Mapping[str, Any], move: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    """A C1 receipt's ``moves`` with ``move`` added, and ``move_count``: bounded by
+    structure, no constant: the first move (from what the build staged) and the latest
+    (where the reading is now); ``move_count`` counts every move."""
+
+    prior = [entry for entry in (receipt.get("moves") or []) if isinstance(entry, Mapping)]
+    count = int(receipt.get("move_count") or len(prior)) + 1
+    return ([dict(prior[0]), move] if prior else [move]), count
+
+
+def _choice_fields(reading: ReadingTarget | None, receipt: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The v2 receipt's keys for a fresh choice (spec §7.6): C1's own receipt's where a
+    deliverable path was in play; else RW7b's choice (its v1 receipt in ``rw7b``) or the
+    order's, with ``deliverable`` None. ``predecessor`` is RW7b's choice (the order's with
+    RW7b's path off)."""
+
+    keys = ("predecessor", "chosen_by", "label", "same_as_predecessor", "paths", "deliverable", "rw7b")
+    if isinstance(receipt, Mapping) and receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2:
+        return {key: receipt.get(key) for key in keys}
+    stored = reading.as_dict() if reading is not None else None
+    rw7b = dict(receipt) if isinstance(receipt, Mapping) else None
+    chosen_by = (rw7b or {}).get("chosen_by") if rw7b is not None else ("order" if reading is not None else None)
+    return {"predecessor": stored, "chosen_by": chosen_by if reading is not None else None,
+            "label": reading.path_label if reading is not None else None, "same_as_predecessor": True,
+            "paths": list((rw7b or {}).get("paths") or []), "deliverable": None, "rw7b": rw7b}
+
+
+def _reading_follows_fresh_choice(
+    env: PlanEnv, record: PlanRecord, now: str, writes: list[tuple[str, str, dict[str, Any]]]
+) -> dict[str, Any] | None:
+    """Curriculum C1's one invariant (spec §7.6; Codex review fix round 2): **while the
+    plan's reading block has no reading history, the plan's reading is whatever a fresh
+    build would choose right now.**
+
+    For a plan whose receipt is C1's (``reading_path_plan_v2``): with reading history
+    (:func:`_reading_has_history`) nothing moves, whatever changed (switches, refreshes,
+    nothing). Otherwise the fresh choice (:func:`_remembered_fresh_reading`: C1's nearest
+    fresh deliverable, else RW7b's path, else the order, under the switches and freshness
+    as they are now; memoized on a fingerprint of its inputs, so a plain read recomputes
+    only when an input changed) is compared with the staged reading: equal, nothing is
+    written. Different, the unstarted reading blocks are withdrawn (ended unread,
+    :data:`READING_PATH_OFF`, no minutes), the split takes the new reading and its minutes
+    (:func:`_move_plan_reading`), and the receipt records the latest choice (its v2 keys,
+    :func:`_choice_fields`, with a new ``staged_progress``) and one entry in ``moves``
+    (bounded: the first and the latest; ``move_count`` counts them). The entry's
+    ``reason``: ``deliverable_path_moved`` with C1 on (a path refreshed, a nearer
+    deliverable fresh, a switch back on), ``deliverable_path_off`` with C1 off and RW7b's
+    path on, ``reading_path_off`` with both off.
+
+    This replaces fix round 1's incremental bookkeeping (judgment-identity markers,
+    withdrawn-block exclusions in the switch's history, sequential transitions, the
+    consulted-stale scan): every ordering of switches and refreshes ends where a fresh
+    build would. A plan built with either switch off carries no v2 receipt (G-C4: RW7b's
+    or the order's plan byte for byte) and follows RW7b's own rule
+    (:func:`_reading_path_switched_off`).
+
+    A closed plan is left closed, except one that closed by itself only for want of a
+    reading (:func:`_closed_for_want_of_path_reading`, live blocks only: a withdrawn block
+    is no reading; F1): it reopens with the fresh choice when that is a reading, and the
+    move's ``reopened`` records what it had. A plan the learner ended stays as it is."""
+
+    reopen = not record.is_open
+    if reopen and not _closed_for_want_of_path_reading(record):
+        return None
+    if _reading_has_history(env, record):
+        return None  # the learner's reading is history: it never moves
+    split = record.split
+    receipt = split.get("reading_path") or {}
+    reading, fresh_receipt = _remembered_fresh_reading(env)
+    desired = reading.as_dict() if reading is not None else None
+    current = split.get("reading")
+    if current == desired:
+        return None
+    pending = [block for block in _live_reading_blocks(record) if block.ended_at is None and block.started_at is None]
+    updated, change = _move_plan_reading(env, record, now, writes, to=desired, withdraw=pending)
+    reading_paths = env.vault.config.reading_paths
+    curriculum = getattr(env.vault.config, "curriculum", None)
+    switch = {"plan_uses_path": bool(getattr(reading_paths, "plan_uses_path", False)),
+              "enabled": bool(getattr(reading_paths, "enabled", False)),
+              "curriculum": {"plan_uses_path": bool(getattr(curriculum, "plan_uses_path", False)),
+                             "enabled": bool(getattr(curriculum, "enabled", False))}}
+    if deliverable_plan_active(env.vault):
+        reason = DELIVERABLE_PATH_MOVED
+    elif reading_path_plan_active(env.vault):
+        reason = DELIVERABLE_PATH_OFF
+    else:
+        reason = READING_PATH_OFF
+    move: dict[str, Any] = {"at": now, "reason": reason, "switch": switch, **change}
+    if reopen:
+        move["reopened"] = {"status": record.status, "stop_reason": record.row.get("stop_reason"),
+                            "completed_at": record.row.get("completed_at")}
+    moves, count = _bounded_moves(receipt, move)
     updated["reading_path"] = {
         **receipt,
-        "transition": {
-            "at": now,
-            "reason": READING_PATH_OFF,
-            "switch": {"plan_uses_path": bool(getattr(env.vault.config.reading_paths, "plan_uses_path", False)),
-                       "enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
-            "from": current,
-            "to": updated["reading"],
-            "from_full_minutes": round(old_full, 4) if current is not None else None,
-            "to_full_minutes": updated["reading_full_minutes"],
-            "from_admitted_new_minutes": round(old_admitted, 4),
-            "to_admitted_new_minutes": updated["admitted_new_minutes"],
-            "displaced_block_ids": [block.id for block in pending],
-        },
+        **_choice_fields(reading, fresh_receipt),
+        "staged_progress": _section_progress(env.repository, desired),
+        "moves": moves,
+        "move_count": count,
     }
-    if reopen:
-        updated["reading_path"]["transition"]["reopened"] = {
-            "status": record.status,
-            "stop_reason": record.row.get("stop_reason"),
-            "completed_at": record.row.get("completed_at"),
-        }
     return updated
 
 
@@ -2962,12 +3431,14 @@ def _closed_for_want_of_path_reading(record: PlanRecord) -> bool:
     The plan completed (not the learner's "Done", ``stopped``) with no
     reading in its split, its newest stop was the boundary finding nothing
     feasible (not the chooser stopping with work left), and it never had a
-    reading block. The caller then checks the receipt (a predecessor reading
-    the path left out, no transition yet) and the switch."""
+    reading block that could hold history (a path reading withdrawn unread is
+    none: curriculum C1 Codex review fix round 2, Medium 1; for RW7b's v1
+    receipt such a block exists only after its one transition, which ends
+    its rule anyway). The caller then checks the receipt and the switches."""
 
     if record.status != "complete" or record.row.get("stop_reason") == "learner_stopped":
         return False
-    if record.split.get("reading") is not None or any(block.is_reading for block in record.blocks):
+    if record.split.get("reading") is not None or _live_reading_blocks(record):
         return False
     stops = record.stops()
     if not stops:
@@ -4572,4 +5043,5 @@ __all__ = [
     "staged_plans_deterministic",
     "stop_today",
     "unregister_plan_decision_logger",
+    "deliverable_plan_active",
 ]

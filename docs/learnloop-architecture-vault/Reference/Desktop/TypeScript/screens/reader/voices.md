@@ -99,6 +99,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `MeaningLabel`, `SpokenOnly`; references `MeaningLabel`, `SpokenOnly`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareScope|src/screens/reader/CompareScope.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`; references `MeaningLabel`, `ModelVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/ExerciseCandidates (tsx)|src/screens/reader/ExerciseCandidates.tsx]] — import-or-re-export: `MeaningLabel`, `SourceVoice`; references `MeaningLabel`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `MeaningLabel`, `SourceVoice`; references `MeaningLabel`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `LearnerVoice`, `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `LearnerVoice`, `MeaningLabel`, `ModelVoice`, `SourceVoice`

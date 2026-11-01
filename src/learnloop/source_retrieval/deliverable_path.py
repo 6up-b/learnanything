@@ -45,9 +45,14 @@ then picks, after its routine exclusions), dated by retrievability, never after 
 deadline. The answer per LO is *demonstrated*, *likely* (AD's labelled prediction) or
 *untested*, and the dated checks still to come; it never counts what was read.
 
-Display only: no plan, scheduling, projection, grading or serving path reads a
-deliverable path (C1 is the successor that makes the plan follow it). Kill switch
-``curriculum.enabled``.
+C0b is display only. **C1** (spec §7.6, §8.1; the successor
+``DELIVERABLE_PLAN_ALGORITHM_VERSION``) is the one serving reader: the daily plan's
+reading block follows the nearest active deliverable's fresh path
+(:func:`plan_deliverable`, :func:`deliverable_plan_path`: the same lines the Guide
+shows, read and never judged by the plan), and :func:`refresh_for_plan` is its daily
+quiet re-judgment of a stale path. No scheduling, projection, grading or replay path
+reads a deliverable path. Kill switches ``curriculum.enabled`` and (C1)
+``curriculum.plan_uses_path``.
 """
 
 from __future__ import annotations
@@ -56,7 +61,7 @@ import hashlib
 import json
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import closing
+from contextlib import AbstractContextManager, closing, nullcontext
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
@@ -726,7 +731,8 @@ TOO_LARGE_MESSAGE = ("This deliverable's path names more sections than LearnLoop
 
 def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | None = None,
           clock: Clock | None = None, inputs: PathInputs | None = None,
-          live_vault: Callable[[], Any] | None = None) -> JudgeResult:
+          live_vault: Callable[[], Any] | None = None,
+          still_wanted: Callable[[], bool] | None = None) -> JudgeResult:
     """Choose the deliverable's path at its depth: no call when the current state was
     judged; otherwise one call, the honest-label rules, the exercises, then the ledger
     verdicts and the rows in one transaction. Never raises for a model failure.
@@ -735,7 +741,9 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     it, nothing is sent: ``too_large``). Every section it names is checked against
     protection as it is then (C0a's :class:`SC.CoverageGuard`, ``live_vault``) before each
     attempt and physical request and again inside the write: a change keeps nothing
-    (``stale``, Codex review F1)."""
+    (``stale``, Codex review F1). ``still_wanted`` (C1's automatic refresh: its gate on the
+    vault as it is now; fix round 5) is asked before each attempt and physical request and
+    inside the write, like protection: false, nothing is sent or kept (``switched_off``)."""
 
     inputs = inputs or path_inputs(vault, repository, goal_id, clock=clock)
     if inputs is None:
@@ -759,11 +767,15 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     library = SC.Library(vault, repository)
     sent = sorted({(t.extraction_id, t.section_id) for entry in inputs.los for t in entry.treatments})
     guard = SC.CoverageGuard(library, sent, live_vault=live_vault)
+    if still_wanted is not None:
+        guard = _GatedGuard(guard, still_wanted)
     try:
         output = route.ask(prompt, DeliverablePathOutputV1, owner_id=f"{goal_id}:{inputs.depth}:{key[:16]}",
                            prompt_version=PROMPT_VERSION, guard=guard)
     except DL.RouteUnavailable as exc:
         return JudgeResult("unavailable", state_key=key, reason=exc.reason, message=exc.message)
+    except _GateOff:
+        return JudgeResult("switched_off", state_key=key, reason="gate_off")
     except SC.ProtectionChanged:
         return JudgeResult("stale", state_key=key, reason="protection_changed", message=SC.STALE_MESSAGE)
     lines = validate(output, inputs)
@@ -800,6 +812,8 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
                         **base, "id": "dps_" + new_ulid(), "extraction_id": treatment.extraction_id,
                         "section_id": treatment.section_id, "label": "alternate", "reason": difference,
                         "exercise_span_id": None})
+    except _GateOff:
+        return JudgeResult("switched_off", state_key=key, reason="gate_off")
     except SC.ProtectionChanged:
         return JudgeResult("stale", state_key=key, reason="protection_changed", message=SC.STALE_MESSAGE)
     except Exception as exc:  # noqa: BLE001 - a lost write race reads the winner's rows
@@ -809,6 +823,37 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
             return JudgeResult("fresh", state_key=key)
         raise
     return JudgeResult("ready", state_key=key)
+
+
+class _GateOff(SC.ProtectionChanged):
+    """C1's gate turned off while its automatic refresh ran (fix round 5): raised by the
+    guard's checks at request and write admission, so no layer retries or relabels it."""
+
+
+class _GatedGuard:
+    """A :class:`SC.CoverageGuard` that also asks the caller's ``still_wanted`` at every check
+    (each attempt, each physical request, inside the write)."""
+
+    def __init__(self, guard: Any, still_wanted: Callable[[], bool]) -> None:
+        self._guard = guard
+        self._still_wanted = still_wanted
+
+    def check(self, stage: str = "request") -> None:
+        if not self._still_wanted():
+            raise _GateOff(f"the plan's path switches turned off before {stage}")
+        self._guard.check(stage)
+
+    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+        # Each physical request: the gate first (nothing reserved yet), then protection.
+        if not self._still_wanted():
+            raise _GateOff(f"the plan's path switches turned off before {purpose}")
+        return self._guard.admit(client, purpose=purpose, prompt=prompt, budget=budget)
+
+    def settle(self, admission: Any, usage: dict[str, Any]) -> None:
+        self._guard.settle(admission, usage)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._guard, name)
 
 
 # ---------------------------------------------------------------------------
@@ -1569,10 +1614,318 @@ def time_row(vault: Any, repository: Repository, goal: Any) -> dict[str, Any] | 
             "label": TIME_LABEL}
 
 
+# ---------------------------------------------------------------------------
+# C1: the path the plan's reading block follows (spec §7.6, §8.1; pure reads,
+# plus the daily quiet re-judgment the sidecar starts)
+# ---------------------------------------------------------------------------
+
+#: The effective labels the plan's reading block may open (§7.6, RW7b's rule):
+#: alternates, already shown, assumed, a *skip it* and a pending *check me later*
+#: are never planned.
+PLANNED_LABELS: tuple[str, ...] = RP.PLANNED_LABELS
+#: A deliverable path's state for the plan (RW7b's vocabulary, :data:`RP.PLAN_PATH_STATUSES`,
+#: plus ``no_scope``). ``path``: a judgment for the learner's current state at the
+#: deliverable's depth (labels re-checked now, the learner's choices on top), followed;
+#: ``stale``: judged only for an older state, not followed (the plan calls no model; the
+#: daily job re-judges it quietly); ``no_scope`` / ``no_depth``: not resolved, or no depth
+#: chosen; ``not_judged``: nothing judged at the depth; ``withheld``: protection could not
+#: be read, so the path is followed and plans nothing (fail closed); ``unreadable``: the
+#: path could not be read (the plan keeps RW7b's choice, and says so).
+PLAN_PATH_STATUSES: tuple[str, ...] = ("path", "stale", "no_scope", "no_depth", "not_judged", "withheld",
+                                       "unreadable")
+#: Statuses that put a deliverable "in play" for the plan's receipt: a path that was not
+#: resolved, has no depth or was never judged leaves the plan RW7b's byte for byte.
+IN_PLAY_STATUSES: frozenset[str] = frozenset({"path", "stale", "withheld", "unreadable"})
+
+
+@dataclass(frozen=True)
+class PlanStep:
+    """One line of a fresh deliverable path as the plan read it, with the rows it came
+    from (RW7b's F3 rule): the judge's row and the learner's newest override row."""
+
+    learning_object_id: str
+    extraction_id: str
+    section_id: str
+    #: the effective label (core | prerequisite for a planned step; anything else is read
+    #: but never planned)
+    label: str
+    ordinal: int
+    judgment_row_id: str
+    override_row_id: str | None = None
+    override: str | None = None
+
+    @property
+    def planned(self) -> bool:
+        return self.label in PLANNED_LABELS
+
+    def receipt(self) -> dict[str, Any]:
+        return {"learning_object_id": self.learning_object_id, "extraction_id": self.extraction_id,
+                "section_id": self.section_id, "label": self.label, "ordinal": self.ordinal,
+                "judgment_row_id": self.judgment_row_id, "override_row_id": self.override_row_id,
+                "override": self.override}
+
+
+@dataclass(frozen=True)
+class DeliverablePlanPath:
+    """What C1's plan reads of one deliverable's path (RW7b's :class:`RP.PlanPath`'s sibling).
+    Only a ``path`` or a ``withheld`` path is followed."""
+
+    goal_id: str
+    status: str
+    depth: str | None = None
+    due_at: str | None = None
+    priority: int = 0
+    #: the key of the learner's state now (what a fresh judgment is keyed by)
+    state_key: str | None = None
+    fresh: bool = False
+    #: every line of the path, in the path's order (a ``path`` only)
+    lines: tuple[PlanStep, ...] = ()
+    #: the key of the judgment whose rows were consumed (a ``path`` only; from the rows)
+    judged_state_key: str | None = None
+    #: a ``stale`` path: the newest state judged at this depth (never read)
+    latest_judged_state_key: str | None = None
+    #: an ``unreadable`` path: the exception's type (never its text)
+    error: str | None = None
+
+    @property
+    def follows(self) -> bool:
+        return self.status in ("path", "withheld")
+
+    @property
+    def in_play(self) -> bool:
+        return self.status in IN_PLAY_STATUSES
+
+    @property
+    def steps(self) -> tuple[PlanStep, ...]:
+        """The lines the reading block may open, in the path's order (none when withheld)."""
+
+        return () if self.status != "path" else tuple(line for line in self.lines if line.planned)
+
+    def receipt(self) -> dict[str, Any]:
+        """The receipt's entry: the inputs' key and the consumed judgment's key apart, and
+        every judge and override row the labels came from, so neither a later judgment nor
+        a later override changes what the receipt says was read."""
+
+        out: dict[str, Any] = {"goal_id": self.goal_id, "status": self.status, "depth": self.depth,
+                               "input_state_key": self.state_key, "fresh": self.fresh}
+        if self.status == "path":
+            out["judgment"] = {"state_key": self.judged_state_key}
+            out["rows"] = [line.receipt() for line in self.lines]
+        elif self.status == "stale":
+            out["judgment"] = None
+            out["latest_judged_state_key"] = self.latest_judged_state_key
+        elif self.status == "unreadable":
+            out["error"] = self.error
+        return out
+
+
+def deliverable_plan_path(vault: Any, repository: Repository, goal: Any, *,
+                          clock: Clock | None = None) -> DeliverablePlanPath:
+    """The deliverable path C1's plan follows for one goal, read now and never judged here
+    (the plan calls no model). The lines are the Guide's (:func:`effective_lines`) from the
+    judge's rows **for the learner's current state**: the honest labels at today's
+    statuses, sections still readable (a section withheld since is never a line), the
+    learner's newest choice per LO on top. A path judged only for an older state is
+    ``stale`` and not followed; protection that cannot be read is ``withheld`` (followed:
+    it plans nothing). Raises nothing for a path that cannot be read: ``unreadable``."""
+
+    goal_id = str(goal.id)
+    base = {"goal_id": goal_id, "due_at": getattr(goal, "due_at", None),
+            "priority": int(getattr(goal, "priority", 0) or 0)}
+    try:
+        if DL.latest_resolution(repository, goal_id) is None:
+            return DeliverablePlanPath(status="no_scope", **base)
+        depth = DL.depth_of(repository, goal_id)
+        if depth is None:
+            return DeliverablePlanPath(status="no_depth", **base)
+        with repository.connection() as connection:
+            if not store.tables_present(connection) or not store.latest_judged(connection, goal_id, depth):
+                return DeliverablePlanPath(status="not_judged", depth=depth, **base)
+        try:
+            inputs = path_inputs(vault, repository, goal_id, clock=clock)
+        except SC.CoverageError as exc:
+            if exc.code != "withheld":
+                raise
+            return DeliverablePlanPath(status="withheld", depth=depth, **base)
+        if inputs is None:  # pragma: no cover - resolution and depth were read above
+            return DeliverablePlanPath(status="no_scope", depth=depth, **base)
+        key = inputs.state_key()
+        with repository.connection() as connection:
+            rows = store.judged(connection, goal_id, depth, key)
+            latest = [] if rows else store.latest_judged(connection, goal_id, depth)
+        if not rows:
+            return DeliverablePlanPath(status="stale", depth=depth, state_key=key,
+                                       latest_judged_state_key=str(latest[0]["state_key"]) if latest else None,
+                                       **base)
+        lines = effective_lines(vault, repository, inputs, rows)
+    except Exception as exc:  # noqa: BLE001 - the plan never fails on a path; RW7b decides
+        import logging
+
+        logging.getLogger(__name__).warning("could not read the deliverable path for the plan (%s)",
+                                            type(exc).__name__)
+        return DeliverablePlanPath(status="unreadable", error=type(exc).__name__, **base)
+    steps = tuple(PlanStep(
+        learning_object_id=line.learning_object_id, extraction_id=line.primary.extraction_id,
+        section_id=line.primary.section_id, label=line.effective, ordinal=line.ordinal,
+        judgment_row_id=line.judgment_row_id, override_row_id=line.override_row_id, override=line.override)
+        for line in lines)
+    return DeliverablePlanPath(status="path", depth=depth, state_key=key, fresh=True, lines=steps,
+                               judged_state_key=str(rows[0]["state_key"]), **base)
+
+
+def _nearest_key(goal: Any) -> tuple[Any, ...]:
+    """The existing nearest-goal rule (``learnloop_sidecar.handlers.goals._nearest_active_goal``):
+    the nearest due date first (no date last), ties to the higher priority; the id last,
+    so the order is total."""
+
+    from datetime import UTC, datetime
+
+    due = parse_utc(getattr(goal, "due_at", None)) if getattr(goal, "due_at", None) else None
+    return (due or datetime.max.replace(tzinfo=UTC), -int(getattr(goal, "priority", 0) or 0), str(goal.id))
+
+
+def nearest_deliverables(vault: Any, repository: Repository) -> list[Any]:
+    """The active deliverables (:func:`DL.deliverable_goals`), nearest first (§7.6, Q11)."""
+
+    return sorted(DL.deliverable_goals(vault, repository), key=_nearest_key)
+
+
+def plan_deliverable(vault: Any, repository: Repository, *,
+                     clock: Clock | None = None) -> tuple[DeliverablePlanPath | None, list[DeliverablePlanPath]]:
+    """Which deliverable the plan follows (§7.6): the nearest active goal among goals with
+    a fresh deliverable path (or a withheld one, which is followed and plans nothing).
+    Returns ``(followed, consulted)``: every deliverable read, nearest first, up to and
+    including the one followed. A deliverable whose path was not resolved, has no depth
+    or was never judged is passed over; a stale or unreadable one is passed over and
+    recorded."""
+
+    consulted: list[DeliverablePlanPath] = []
+    try:
+        goals = nearest_deliverables(vault, repository)
+    except Exception as exc:  # noqa: BLE001 - the plan never fails on a path; RW7b decides
+        import logging
+
+        logging.getLogger(__name__).warning("could not list the deliverables for the plan (%s)", type(exc).__name__)
+        return None, consulted
+    for goal in goals:
+        path = deliverable_plan_path(vault, repository, goal, clock=clock)
+        consulted.append(path)
+        if path.follows:
+            return path, consulted
+    return None, consulted
+
+
+#: The daily re-judgment's statuses: ``fresh`` (the nearest in-play path is current: no
+#: call), ``ready`` (judged now), ``unavailable`` (the plan is down, capped or unrouted:
+#: nothing asks, the plan falls back to RW7b and its receipt says ``stale``), ``none``
+#: (no deliverable path to refresh), ``switched_off``, ``coalesced`` (a judgment for the same
+#: deliverable and path state is already in flight, the Guide's: no second call), plus
+#: :class:`JudgeResult`'s others.
+REFRESH_STATUSES: tuple[str, ...] = ("fresh", "ready", "unavailable", "none", "switched_off", "coalesced",
+                                     "no_sections", "no_scope", "stale")
+
+
+def plan_refresh_reason(vault: Any) -> str | None:
+    """Why C1's daily re-judgment does not run (None: it does). The plan-side gate
+    (the tag, RW7b's switches) is the caller's; this reads the curriculum switches."""
+
+    section = getattr(vault.config, "curriculum", None)
+    if not bool(getattr(section, "enabled", False)):
+        return "curriculum.enabled is false"
+    if not bool(getattr(section, "plan_uses_path", False)):
+        return "curriculum.plan_uses_path is false"
+    return None
+
+
+def plan_refresh_route_problem(vault: Any, client: Any | None = None) -> str | None:
+    """Why C1's automatic refresh may not send its judgment on the route the path judge
+    resolves to (None: it may). "Plan route only" (§7.6; fix round 5, Medium 1): only the
+    subscription ChatGPT-plan route (``chatgpt_plan``) is ever asked automatically; any
+    other resolution (a metered provider, priced and budgeted or not) sends nothing. A
+    learner-initiated Guide judgment is not held to this."""
+
+    from learnloop.config.schema import CHATGPT_PLAN_PROFILE_TYPE
+    from learnloop.practice_index.paid import plan_route
+
+    route = plan_route(vault, DL.PATH_ROUTE, client)
+    if (route.profile_type or "").strip().lower() != CHATGPT_PLAN_PROFILE_TYPE:
+        return "not_plan_route"
+    return None
+
+
+def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
+                     live_vault: Callable[[], Any] | None = None,
+                     in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None = None,
+                     still_wanted: Callable[[], bool] | None = None,
+                     ) -> dict[str, Any]:
+    """C1's daily job (§7.6): the deliverable path's key includes learner state (the days
+    left among it), so a path the plan would follow goes stale; once a day, before the
+    plan is built, the nearest deliverable whose path is in play is judged again,
+    **quietly** (``plan_fallback.quiet``: the plan only, no OpenRouter offer, no grant
+    honoured). A fresh path pays nothing. With the plan down the job ends ``unavailable``
+    and nothing asks: the plan falls back to RW7b and its receipt says ``stale``. Counts
+    and statuses only, never text.
+
+    ``in_flight(goal_id, depth, state_key)`` (the sidecar's coalescing set, shared with the
+    Guide's judgments; Codex review fix round 2, Medium 5) is entered immediately around the
+    judgment, keyed by the inputs this job prepared and then sends (fix round 3, Medium 3),
+    and yields whether it claimed that deliverable's path state: unclaimed (the Guide's
+    judgment for the same state is running), nothing is sent (``coalesced``).
+
+    Fix round 5: the job asks the subscription plan route only
+    (:func:`plan_refresh_route_problem`; any other resolution is ``unavailable`` with no
+    call, and the plan's receipt stays ``stale``), and ``still_wanted`` (the sidecar's check
+    of C1's complete gate on the vault as it is now) is asked before the claim, before the
+    request and inside the write: false, nothing is sent or kept (``switched_off``)."""
+
+    from learnloop.ai import plan_fallback
+
+    reason = plan_refresh_reason(vault)
+    if reason is not None:
+        return {"status": "switched_off", "reason": reason}
+    route_problem = plan_refresh_route_problem(vault, client)
+    if route_problem is not None:
+        return {"status": "unavailable", "reason": route_problem}
+    with plan_fallback.quiet():
+        for goal in nearest_deliverables(vault, repository):
+            path = deliverable_plan_path(vault, repository, goal, clock=clock)
+            if path.status == "path":
+                return {"status": "fresh", "goal_id": path.goal_id, "depth": path.depth}
+            if path.status != "stale":
+                continue  # nothing judged, no depth, withheld or unreadable: nothing to refresh here
+            # The inputs sent are prepared here, once, and the claim is their key, taken
+            # immediately before the call (fix round 3, Medium 3): a state that moved since
+            # the stale read is the one claimed and sent, and the judge gathers nothing again.
+            try:
+                inputs = path_inputs(vault, repository, path.goal_id, clock=clock)
+            except SC.CoverageError:
+                continue  # protection unreadable now: nothing is sent
+            if inputs is None:
+                continue
+            key = inputs.state_key()
+            if still_wanted is not None and not still_wanted():
+                return {"status": "switched_off", "reason": "gate_off", "goal_id": path.goal_id}
+            claim = in_flight(path.goal_id, inputs.depth, key) if in_flight else nullcontext(True)
+            with claim as claimed:
+                if not claimed:
+                    return {"status": "coalesced", "goal_id": path.goal_id, "depth": inputs.depth, "state_key": key}
+                result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault,
+                               inputs=inputs, still_wanted=still_wanted)
+            return {"status": result.status, "goal_id": path.goal_id, "depth": inputs.depth,
+                    "reason": result.reason, "state_key": result.state_key}
+    return {"status": "none"}
+
+
 __all__ = [
     "CHIPS",
     "CLOSURE_DEPTH",
     "DeliverablePathOutputV1",
+    "DeliverablePlanPath",
+    "IN_PLAY_STATUSES",
+    "PLANNED_LABELS",
+    "PLAN_PATH_STATUSES",
+    "PlanStep",
+    "REFRESH_STATUSES",
     "EffectiveLine",
     "LABELS",
     "LEDGER_TASK",
@@ -1590,17 +1943,23 @@ __all__ = [
     "check_item",
     "coverage_key",
     "coverage_owed",
+    "deliverable_plan_path",
     "effective_lines",
     "guide_goal",
     "guide_slice",
     "honest_label",
     "judge",
+    "nearest_deliverables",
     "override",
     "path_inputs",
     "path_view",
+    "plan_deliverable",
+    "plan_refresh_reason",
+    "plan_refresh_route_problem",
     "prerequisite_closure",
     "readiness",
     "ready_checks",
+    "refresh_for_plan",
     "ready_parameters",
     "report",
     "time_row",
