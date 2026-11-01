@@ -3,13 +3,13 @@ title: "grading_clarifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cdf5499af9b7467a4cac47e8ab2f14ba4b898a8"
-source_commit_timestamp: "2026-11-01T15:25:51-05:00"
+source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
+source_commit_timestamp: "2026-11-01T16:50:10-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarifications"
   - "table grading_clarifications"
-schema_head: 229
+schema_head: 230
 table_name: "grading_clarifications"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -3,13 +3,13 @@ title: "misconception_disposition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cdf5499af9b7467a4cac47e8ab2f14ba4b898a8"
-source_commit_timestamp: "2026-11-01T15:25:51-05:00"
+source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
+source_commit_timestamp: "2026-11-01T16:50:10-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_disposition_events"
   - "table misconception_disposition_events"
-schema_head: 229
+schema_head: 230
 table_name: "misconception_disposition_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -128,11 +128,11 @@ Database triggers:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/figures/learner_state.py`
 - `src/learnloop/instructional/needs.py`
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/instructional/sources.py`
 - `src/learnloop/instructional/tools.py`
-- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

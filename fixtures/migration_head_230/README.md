@@ -37,6 +37,26 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Learner data-relax 2 (migration 230), branch `learner/data-relax-2`, 2026-11-01
+
+Renamed from `migration_head_229` on the data-relax-2 branch
+(`docs/reviews/learner-data-relax-2.md`). Rebuilt from main's tracked,
+sanitized `migration_head_229/state.sqlite` (main `7401484f91`): a backup-API
+copy under `fixtures-local/` with only `230_help_assist_work_md.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 230 alters exactly one object: `help_assists` gains the nullable
+  `work_md TEXT` (RAW_LEDGER; the learner's draft when help was asked for).
+  No row has one (this fixture holds no help_assists row with a draft).
+
+No other object changed definition, and only `schema_migrations` gained a row
+(230); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's).
+
 ## Curriculum C2 (migration 229), branch `curriculum/c2-notes-linked`, 2026-11-01
 
 Renamed from `migration_head_228` on the C2 branch

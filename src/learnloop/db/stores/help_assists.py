@@ -1,4 +1,4 @@
-"""Adaptive hints H0: ``help_assists`` (migration 210).
+"""Adaptive hints H0: ``help_assists`` (migration 210; ``work_md``: migration 230).
 
 Plain SQL over a caller's connection; the caller owns the transaction. The
 writers are :mod:`learnloop.hints.telemetry` (H0's authored reveals) and
@@ -32,8 +32,22 @@ COLUMNS: tuple[str, ...] = (
     "first_questionable_step_id", "error_kind_guess",
     "about_step_id", "continue_from_step_id", "rivals_json", "predicted_answers_json", "eig_nats",
     "feedback_step_id", "cited_span_ids_json", "retrieval_manifest_json", "alternatives_json",
+    # Learner data-relax 2 (migration 230): the draft when the help was asked for.
+    "work_md",
 )
 _COLUMN_SET = frozenset(COLUMNS)
+
+#: keep: storage bound (learner data-relax 2): the characters of the
+#: learner's draft a row keeps (``work_md``); a longer draft keeps its
+#: opening (its full length is still ``work_chars`` and its hash ``work_hash``).
+WORK_MD_CHARS = 20_000
+
+
+def kept_draft(work_md: str | None) -> str | None:
+    """The draft a row keeps (``work_md``): bounded by :data:`WORK_MD_CHARS`, None when empty."""
+
+    text = str(work_md or "")
+    return text[:WORK_MD_CHARS] if text.strip() else None
 
 
 def insert_assist(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
@@ -586,4 +600,5 @@ __all__ = [
     "PASSAGE_KINDS", "WorkbenchFold", "bind_workbench_rows", "compare_rows_for", "mark_bridge_shown", "settle_bridge",
     "settle_compare", "workbench_fold",
     "workbench_rows",
+    "WORK_MD_CHARS", "kept_draft",
 ]

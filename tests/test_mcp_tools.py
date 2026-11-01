@@ -132,7 +132,7 @@ def test_every_call_is_recorded_with_its_origin_and_is_never_evidence(world, ser
             reject_salience(event)
     # Same arguments, same hash; the policy version is the vault's algorithm version.
     assert events[0]["payload"]["arguments_hash"] == events[-1]["payload"]["arguments_hash"]
-    assert events[0]["policy_version"] and events[0]["payload_schema_version"] == "chat-tool-call-v1"
+    assert events[0]["policy_version"] and events[0]["payload_schema_version"] == "chat-tool-call-v2"
     context_event = events[4]["payload"]
     assert context_event["summary"]["misconceptions"] == 1 and "lo_matrices" in context_event["learning_object_ids"]
 

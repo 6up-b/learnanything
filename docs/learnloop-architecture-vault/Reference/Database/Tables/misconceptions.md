@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6cdf5499af9b7467a4cac47e8ab2f14ba4b898a8"
-source_commit_timestamp: "2026-11-01T15:25:51-05:00"
+source_commit: "32a29ab77536c3217559a2f4ca5d2f780719ba10"
+source_commit_timestamp: "2026-11-01T16:50:10-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 229
+schema_head: 230
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -145,10 +145,10 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/figures/learner_state.py`
 - `src/learnloop/instructional/needs.py`
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/instructional/sources.py`
-- `src/learnloop/instructional/tools.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -171,10 +171,10 @@ Indexes and uniqueness:
 - `tests/test_hypothesis_sets.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_km4_taxonomy.py`
+- `tests/test_learner_data_relax_2.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
 - `tests/test_mcp_c1a_narrow.py`
-- `tests/test_mcp_c1a_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -906,6 +906,8 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "body_md": None if served.kind == "authored" else served.text,
         "authored_index": served.authored_index,
         "work_hash": state.work_hash, "work_chars": len(state.work_md),
+        # Learner data-relax 2: the draft the hint answered, bounded (migration 230).
+        "work_md": store.kept_draft(state.work_md),
         "placement_json": _json(placement),
         "chooser": choice.chooser if choice is not None else "fallback",
         "options_json": _json(option_set.record()),
@@ -1170,7 +1172,7 @@ def record_discriminate_answer(
         "id": assist_id, "surface": surface, "assist_kind": "discriminate_answer", "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item), "practice_session_id": None if workbench else session_id,
         "submission_id": submission_id.strip(), "work_hash": question.get("work_hash"),
-        "work_chars": question.get("work_chars"),
+        "work_chars": question.get("work_chars"), "work_md": question.get("work_md"),
         "placement_json": _json({"question_assist_id": question_assist_id, "consistent_rivals": consistent,
                                  "settled": settled}),
         "chooser": "none", "feedback_text": answer_md, "rivals_json": question.get("rivals_json"),
