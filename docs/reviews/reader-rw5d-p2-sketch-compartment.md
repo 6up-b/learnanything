@@ -180,3 +180,150 @@ All in `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, one tes
 2. Dev mode (`npm run dev`): Vite serves `sketch-frame.html` itself and adds its HMR client script; the frame's meta CSP
    still blocks any connection. Not part of the gate (the gate is the shipped webview).
 3. `js_animation` stays behind its build flag; its `llfig://` frame and G-SM14 extension are P2b's JS half.
+
+## Landing onto main
+
+Prepared in `learnanything-astrafix` on `reader/rw5d-p2-sketch-compartment` (stage tip `b7530c0435`). The
+orchestrator fast-forwards main and pushes. No GUI was launched apart from the smoke window below, and no model,
+network or Codex call was made. Every pytest, vitest, npm and cargo run was in a `systemd-run --user --scope` (5G; the
+full suite 10G). Python outside pytest ran under `env -i` with empty, existing `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`, and `TMPDIR` was outside the worktree.
+
+### Step 0: the orchestrator's scoped verify remainder (`5c246bbc0b`)
+
+Sol's scoped verify (`20261101-153827-RFAdme`) found one conditional regression. On Windows and macOS, Tauri 2.11.2
+falls back to `window.ipc.postMessage` when a custom-protocol fetch fails, and builds that invoke's headers from the
+message's `options.headers`, which LearnLoop leaves empty. The guard therefore refused legitimate top-document calls
+there. The fix is in `frame_guard.rs`:
+- The header rules take a `Platform`. `Linux` (the build's `PLATFORM` under `cfg!(target_os = "linux")`, where
+  `main.rs` unregisters the fallback) still refuses an absent Origin or Referer.
+- `FallbackRegistered` (Windows, macOS) never refuses an absent or empty header. It still refuses a present one that
+  is an explicit `null` or foreign Origin, or a Referer naming a worker, frame or foreign page, or disagreeing with the
+  Origin.
+- `refusal_on` and `refusal_reason_on` take the platform as a parameter, so both branches are tested on Linux.
+- The `main.rs` wrapper prints one stderr line per refusal (`frame_guard: refused command=… reason=…`).
+
+Four new Rust tests: `linux_refuses_absent_headers`; `with_the_fallback_registered_absent_headers_pass` (including
+the fallback's empty header map); `with_the_fallback_registered_an_explicit_frame_or_foreign_origin_is_refused`;
+and `this_build_uses_its_platforms_rules`. Details are in the codex-review record, "Orchestrator scoped verify
+remainder, fixed".
+
+### Merges
+
+1. **`5fae2f76d6`, main `e9693b3700`** (curriculum C2, migration 229). Conflicts:
+   - `main.rs`: the frame-guard wrapper kept; C2's six `notes_*` commands added to its handler list.
+   - `desktop_validate.py`: counts combined (302 TypeScript/TSX, 6 Rust, 292 entry-build + 2 bundled-worker,
+     ACTIVE 308).
+   - `config/template.py`: snapshot notes and hashes only. Both sides' notes kept; all 31 fingerprints recomputed
+     with `defaults_fingerprint_for_version` after clearing `.pyc` (first pass 31 changed, second pass 0).
+   - Generated references (442 files): main's side taken, then regenerated.
+2. **`6ba2340e04`, main `ea1366fff5`** (Reader follow-ups Nov 1b and curriculum C3; head still 229).
+   - The only non-generated conflict was `config/template.py`, again snapshot notes and hashes only. C3's notes were
+     kept beside the sketch notes; recomputed, the second pass changed 0.
+   - The generated references (446 files) were taken from main and regenerated.
+   - The figures area (nov1b's `figures/labels.py`, the service's `worded_row`, `trust_env`) merged without a
+     conflict.
+
+**Parity at both merges:** setting `figures.sketch_enabled` back to false in every version's composed defaults
+reproduces main's fingerprint at all 31 versions, and `FiguresConfig().sketch_enabled` is `True`.
+
+**Regeneration at both merges:** `db_generate_reference.py` ran, `db_validate_reference.py` reported `errors: []`,
+and `validate_vault.py` passed (1,374 notes). `desktop_generate.py` ran and `desktop_validate.py` passed (302/302 +
+6/6, ACTIVE 308, byte-for-byte).
+
+### Gate
+
+| check | tree | result |
+|---|---|---|
+| `lint-imports --no-cache` | `5fae2f76d6`, `6ba2340e04` | 37 kept, 0 broken (both) |
+| full pytest (`-n 8 --dist worksteal`, 10G scope, the fullsuite lock) | `5fae2f76d6` | **23358 passed, 0 failed**, 90 skipped, 47 xfailed (42:33) |
+| durability lane (`-m durability -n 6`) | `5fae2f76d6` | 179 passed, 1 skipped |
+| owner lane (`-m owner_vaults -n 6`, `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-compartment/`) | `5fae2f76d6` | **83 passed, 2 failed, 4 skipped**: exactly the two known failures, `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]` |
+| targeted pytest after the second merge (`-n 6`, 90 files: every figure, figures, sketch and Manim test file, every test file main changed in `e9693b3700..ea1366fff5`, every file reading the defaults snapshot, and the contract tests) | `6ba2340e04` | **2167 passed, 0 failed**, 18 skipped, 3 xfailed |
+| frontend: `npm install`, `npm run typecheck` | both | clean |
+| whole vitest (`--maxWorkers=4`) | `5fae2f76d6` | 248 files, 2389 passed |
+| whole vitest (`--maxWorkers=4`) | `6ba2340e04` | 2396 passed, 1 failed: `FeedbackScreen.test.tsx` › "keeps the old Next where no live queue applies" (a keypress spy, under heavy machine load; this branch doesn't touch that screen). Rerun alone 3 times: 11/11 each time |
+| `npm run frontend:build` | both | clean |
+| `cargo check --offline`, `cargo test --offline` | both | clean; 35 passed |
+
+The full suite was not rerun after the second merge. Its only Python resolution was the snapshot data in
+`template.py`: notes kept from both sides and hashes recomputed by `defaults_fingerprint_for_version`. The targeted
+run covers every test that reads those snapshots.
+
+### GUI smoke (final tree `6ba2340e04`; one window, 2026-11-01 17:55:29–17:56:20 -05:00)
+
+Under the owner's 2026-11-01 permission for a real desktop window for this sandbox check, with the same conditions as
+the G-SM14 rerun:
+- **Build:** `npm run frontend:build`, then `cargo build --offline --features custom-protocol` (a debug binary with
+  embedded assets, served at `tauri://localhost`).
+- **Vault:** a throwaway synthetic one. It is the figure-test vault (`build_figure_vault(sketch=True)`) with one
+  stored, verified sketch, the random-walk program of the parity corpus, built through the fake author: its only
+  receipt is `fake_figures`, made at build time.
+- **Environment:** `env -i`, with `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR` and the XDG dirs at empty scratch
+  dirs (still empty afterwards); `LEARNLOOP_AI_PROVIDER=landing-none` (no such profile); `RUST_LOG=debug`; the
+  sidecar debug log on; and only the Wayland/X/DBus display variables.
+- **Driver:** the page was driven through WebKit's remote inspector, `WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:9228`,
+  loopback only. Its two loopback listeners (9228 and an internal port) were the process's only sockets. The
+  inspector was the one addition to the rerun's conditions. Through it the driver clicked Reader → "Introduction to
+  Probability" → "▸ interactive version" → skip (the prediction) → play.
+- **Close:** the app was closed by its own pid. No LearnLoop or sidecar process remained.
+
+What the logs and the page showed:
+- **The app starts:** the sidecar log shows `rpc.ping`, `initialize`, `load_vault` and the Today calls.
+- **The main window's ordinary invokes pass the guard:** 42 `rpc.request` and 42 `rpc.response` over 36 methods
+  (including `load_vault`, `get_today_queue`, `reader.render_view`, `reader.figures` and `reader.prompt_contract`).
+  There was no `rpc.error`, no warning or error line, and **0 `frame_guard` lines**.
+- **The sketch draws through the compartment:** the page has one `iframe` with `src="/sketch-frame.html"`,
+  `sandbox="allow-scripts"` and `referrerpolicy="no-referrer"`. The figure's SVG has 203 drawn shapes and the label
+  reads "checked by LearnLoop: 2 checks, listed inside". After play, the step counter went `t = 0 / 100` →
+  `t = 47 / 100` → `t = 100 / 100`, with no paused or failure wording.
+- **Receipts:** the vault's receipts are unchanged (the one fake build-time row).
+
+An earlier window on `5fae2f76d6` (15:57:46–15:59:57, the same method) showed the same: 44/44 RPCs, 0 `frame_guard`
+lines, and the walk played to 100/100.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-compartment-smoke/`, final: main `ea1366fff5` vs `6ba2340e04`)
+
+**Setup:**
+- **Copies:** fresh backup-API copies of the three mvp035 owner copies.
+- **Neutralized:** every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+  embeddings off.
+- **Code:** `git archive` of each side with `src/`, `migrations/` and `tests/`, plus the pinned
+  `sketch-engine.wasm`. The engine is needed because the contract offers the sketch only when it is ready; a first
+  run without it showed no difference at all and was discarded.
+- **Steps on each side:** a bare `upgrade` mvp-0.35 → mvp-0.40, the primary load, `migrate_vault` (head 229, 0
+  applied) and `rebuild-derived-state`.
+- **Run conditions:** under `env -i`, with an audit hook refusing non-loopback sockets and Codex starts.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today (3 queue variants, frozen clock) | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| daily plan dump | **identical** (84,723 bytes) | identical (124,048) | identical (32,460) |
+| `reader.figures` (3 / 2 / 4 real readings) + `reader.prompt_contract` | **1 difference: `prompt_contract.figures.sketch` absent → `true`**; every listing identical (no stored figures), reads write nothing | same | same |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0 | 0/0/0 |
+
+- **Receipts:** 12 databases compared with their base copies, **0 new `model_call_receipts`**. Probability's
+  historical 42 completed and 14 failed are unchanged in every copy.
+- **Sockets and processes:** the audit log stayed empty, so the hook saw no process start and **no socket connect of
+  any kind**; nothing was refused.
+- **Earlier run:** the same smoke against main `e9693b3700` with `5fae2f76d6` gave the same results.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "F1's replaced same-origin Referer half is rejected: Tauri's main-frame-only invoke key is the document-authenticated channel and G-SM14 showed no Worker or frame holds it; a second LearnLoop token adds nothing (proportionate bar). Accepted."
+- R2: "Linux runs without WebKit's postMessage IPC fallback (unregistered so frames cannot reach it). Accepted; if a future WebKitGTK breaks custom-protocol POSTs, invokes fail visibly rather than fall back. Owner note."
+- R3: "Loopback http origins (the dev server) stay allowed in every build; acceptable because a loopback page must already be running locally and still lacks the invoke key."
+
+### Open items
+
+1. **`js_animation`:** stays behind `JS_ANIMATION_BUILD_FLAG`. Its own G-SM14 extension (the `llfig://` frame) must
+   run when that tier is built.
+2. **Module catalog:** `module_validate.py` still reports the 1,291 missing-note issues that predate this stage. The
+   module catalog wasn't regenerated (no Python module was added or removed here).
+3. **The Windows/macOS header filter** is a filter, not authentication: on the postMessage fallback the headers are
+   whatever the message names. The invoke key stays the document's authentication (R1).
+4. **Owner note (R2):** with the fallback unregistered on Linux, a WebKitGTK that broke custom-protocol POSTs would
+   make invokes fail visibly.
+5. **Vitest flake:** `FeedbackScreen.test.tsx` › "keeps the old Next…" failed once under load and passed alone 3/3.
+   It is not this branch's.
+6. **Not merged:** the probe branches `probe/g-sm14` and `probe/g-sm14-compartment` (scratch, never landed).
