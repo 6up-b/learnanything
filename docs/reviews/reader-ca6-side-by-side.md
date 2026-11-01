@@ -152,3 +152,121 @@ Every pytest, vitest, npm and cargo command ran inside
 - No paid or live call was made. The ad hoc Python (snapshot recomputation, reference scripts) ran under
   `env -i` with empty, existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No vault was opened, and no GUI was
   launched.
+
+## Landing onto main
+
+Landed in `learnanything-merge2` on `reader/ca6-side-by-side` (stage tip `49496362e`, base `3a96d90b4`). Main moved
+twice during the landing, so there are three `--no-ff` merges and no rebase. No migration and no successor.
+
+### Merges and conflicts
+
+| Commit | What |
+|---|---|
+| `8a4f6ee5e` | Merge of main `2c3507003` (Reader CA5, RW5d P2 sketch tier, curriculum C0b migration 228). **Conflicts:** (1) `template.py`, every snapshot mvp-0.9 … mvp-0.38: CA6's note sits after C0b's, CA5's and RW5d's. All 29 fingerprints were recomputed with `defaults_fingerprint_for_version` after clearing the template `.pyc` (29 changed, then a recheck found 0). (2) `parameter_registry.py`: CA5's and C0b's rules plus CA6's. (3) `reader_inquiry.py`: **one** definition of `corresponding_section_peeked` / `corresponding_section_opened`, which CA5 and CA6 had both added. RW5d's `sketch_paused`/`sketch_error` and CA6's four session events sit beside them. In `ACTIVITY_FIELDS`, CA5's ids and RW5d's `error_kind` are joined by CA6's `leader`, `side_by_side_id` and `seconds_open`. (4) The `ReaderConfig` docstring. (5) `FindSection.tsx`: CA5's quiet read, `refreshKey`, `onPeekChange` and `closePeekToken` are kept beside CA6's `onSideBySide`. CA6's local `logHit` is dropped for CA5's `correspondenceEvents.ts`, which has the same payload keys. (6) `ReaderScreen.tsx`: the imports, and the reader-wide keys. With side by side open, `\` toggles the rail overlay and CA5's `x` opens the rail overlay (else uncollapses the rail). (7) `api/dto.ts` (CA5's `correspondence` fields and `CorrespondencePreferencesDto`, CA6's `sideBySide`, and the event union), `client.ts`, `commands.rs`, `main.rs`, `test_mobile_allowlist.py` (C0b's, CA5's and CA6's desktop-only RPCs) and the `test_reading_paths.py` contract pin. (8) 433 generated reference notes: main's copies were taken, then regenerated. `uv sync --extra dev --extra mobile` was rerun for RW5d's `wasmtime`. |
+| `952a54d9d` | The interactions (i)-(iv) below. |
+| `ec171598c` | DB/config reference regenerated: 1080 effective leaves (main's 1079 + `reader.side_by_side.enabled`). The prose counts in `Configuration.md` and `Database.md` moved to match. `db_validate_reference`: errors []. `validate_vault`: passes. |
+| `1bcb185da` | Merge of main `90346980c` (Reader RW6b part 1: successor mvp-0.39, migration 227, `migration_head_228`). **Conflicts:** `template.py` only, every snapshot mvp-0.9 … mvp-0.38. RW6b's `[followups]` note is kept beside CA6's, and mvp-0.39 gains CA6's "is in it too" line. All 30 fingerprints were recomputed the house way (30 changed, then a recheck found 0). The migration pins came from main as merged (227 included). 436 reference notes: main's side taken, then regenerated. |
+| `460f13280` | The RW6b interaction test (iii-b below). |
+| `de921d605` | DB/config reference regenerated: 1085 leaves in 76 sections (main's 1084 + CA6's 1), prose counts moved. `db_validate_reference`: errors []. `validate_vault`: passes. |
+| `28d2cd898` | Merge of main `e189ca7ae` (followups-oct31). **No conflicts.** Main changed `LibraryAnswer.tsx` and `useLibraryAsk.ts` (zero-hit comparison, pinned tutor), three vitest files, `test_codex_tool_lockdown.py`, the new `test_desktop_activation_audit.py`, the desktop catalog with `desktop_validate.py`'s counts, and review docs. |
+| `e15f2de9d` | Desktop catalog regenerated with `desktop_generate.py`. `SideBySidePane.tsx`, `sideBySide.ts` and `useSideBySide.ts` are classified ACTIVE as entry-reachable: `ReaderScreen` imports them, and `src/main.tsx` reaches `ReaderScreen`. `desktop_validate.py`'s hard-coded counts moved to 293 TypeScript/TSX files, 285 entry-build and ACTIVE 298. `desktop_validate` passes byte-for-byte, and so does `validate_vault` (1360 notes). |
+
+### Interactions
+
+- **(i) AlsoInBooks' `onSideBySide` seam is wired.** `s` on a line of CA5's expanded "also in your books" list, and
+  *side by side (s)* in its peek, open side by side with that section (`via: also_list`; `SideBySideVia` gains it),
+  the same way as CA5a's find list. With side by side off, `s` does nothing there and the key bar doesn't offer it.
+  Fail-first: before the wiring, the new vitest failed.
+- **(ii) Peek crumb vs side by side crumb.** This was broken on the merge. Opening side by side from a peek (either
+  list) left the peek open, so the detour strip showed both the stack's `side by side with …` and `› peek …`. Fix:
+  `FindSection` and `AlsoInBooks` close their peek, without refocusing, before calling `onSideBySide`, so side by
+  side's crumb replaces the peek's. Alt+← walks back to where the learner was (the pane closes, no peek comes back)
+  and Alt+→ forward again. A peek is never a stack entry. Esc closes only what is shown: Esc in a peek opened in the
+  rail overlay during side by side closes that peek and leaves the pane, and Esc in the pane then closes side by
+  side. In a narrow window, side by side from a peek is the sheet and no crumb of either kind is left. All in
+  `sideBySideCorrespondence.test.tsx`; the crumb case failed first.
+- **(iii) Switch matrix.** `test_the_switch_matrix_each_switch_controls_only_its_own_key` covers all 8 cells of
+  `reader.side_by_side.enabled` x `reader.correspondence.enabled` x `curriculum.enabled`. `sideBySide` is present
+  iff its switch and curriculum are on, and `correspondence` iff its switch and curriculum are on. The two Reader
+  switches move nothing else in the contract, and all off is the contract without either key (today). The
+  frontend half is in vitest: correspondence off with side by side on (Ctrl+\ still opens it), CA5's line off with
+  CA5a's find list on (`s` kept), and all off (no line, no action, no pane, no read).
+  **(iii-b) RW6b:** `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`. A follow-up whose
+  item's canonical exercise is a block the second pane showed is held by RW6b's serve-time gate as
+  `source_exposed`, citing the read's exposure ids. One on a block of a section that was not shown is not held.
+  Mutation-checked: dropping the exposure write fails it.
+- **(iv) One record per action.** The narrow window's sheet recorded its own `corresponding_section_peeked` payload.
+  It now goes through CA5's `logCorrespondentAct`, extended with an optional extra payload (the visit's ids and the
+  open book), so every record of the two events has the same keys. Vitest: peek → side by side records one
+  `corresponding_section_peeked` (exactly CA5's eight keys), one `side_by_side_opened` and no `opened`. The sheet
+  records one `corresponding_section_peeked` and no `side_by_side_opened`. Pytest:
+  `test_one_definition_of_each_correspondence_event_and_field` (`CLIENT_ACTION_EVENTS` has no duplicates, and each
+  of the two events appears once).
+
+### Regeneration
+
+DB/config reference: regenerated twice, as above (1085 leaves at the end). Desktop catalog: regenerated once
+(above). CLI help and the RPC/serializer pins needed no change (`test_cli_help_snapshot`,
+`test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot` and `test_mobile_allowlist` pass).
+`module_validate.py` reports 1265 missing module notes. That is the same on main (no stage regenerates the module
+catalog), so it was left alone.
+
+### Gate
+
+Every pytest, vitest, npm and cargo command ran in a `systemd-run --user --scope` with MemoryMax 5G (the full suite
+10G, under `flock /tmp/learnloop-fullsuite.lock`). Python outside pytest ran under `env -i` with empty, existing
+HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR (`fixtures-local/landing-ca6/envrun.sh`).
+
+| Run | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2`; `lint-imports --no-cache` | ok; **36 kept, 0 broken** (after each merge) |
+| pre-gate targeted, at `ec171598c` (42 files: contract pins, CA1-CA6, C0b, switch-off pins, CLI/RPC/mobile pins, public-tip guards) | 918 passed (2:02) |
+| **full suite at `ec171598c`** (`-n 8 --dist worksteal`; lock wait 22:23 → 23:28) | **22,769 passed, 89 skipped, 47 xfailed, rc 0, wall 2,109 s (35:09)** |
+| targeted after the RW6b merge, at `de921d605` (72 files: the above plus RW6b's `test_reader_followups*`/`test_reader_rw6b*`, every `test_mvp0*_upgrade`, migration/fixture/table-role/serializer/template/salience pins) | 6,752 passed (35:16) |
+| **full suite at `de921d605`** (lock 01:09) | **22,901 passed, 89 skipped, 47 xfailed, rc 0, wall 2,108 s (35:08)** |
+| durability (`-m durability`, `-n 6`) at `de921d605` | 177 passed, 1 skipped (0:57) |
+| owner lane at `de921d605` (`-m owner_vaults`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-ca6/`) | 83 passed, **2 failed**, 4 skipped (0:52). The failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy. |
+| after the followups-oct31 merge, at `e15f2de9d`: `test_desktop_activation_audit`, `test_codex_tool_lockdown`, `test_public_tip_guards` | 151 passed, 1 skipped |
+| frontend at `ec171598c`: typecheck; whole vitest (`--maxWorkers=4`); `frontend:build`; `cargo check` | clean; 2,244 passed, **1 failed** = the known main flake *never draws a superseded frame…* in `SketchFigure.test.tsx` (failed alone 3/3 too; nothing under `figures/` differs from main); ok; ok |
+| frontend at `de921d605` | clean; **242 files, 2,256 passed**; ok; ok |
+| frontend at `e15f2de9d` (final code) | clean; **242 files, 2,261 passed**; ok; ok |
+
+**Orchestrator ruling (recorded as given):** no further full pytest after the third merge (followups-oct31). The full
+suite on the 90346980c merge was green, and that merge had no conflicts and touched only frontend, two Python test
+files, the desktop catalog and review docs.
+
+### Smoke on owner copies
+
+Ran twice on fresh backup-API copies of the same three owner copies. The first run was at `ec171598c`, upgraded to
+mvp-0.38 (`fixtures-local/smoke-ca6/`). The second was at `de921d605`, upgraded to mvp-0.39 (`smoke-ca6b/`); its
+results were identical. Both used `env -i` with AI base URLs at `127.0.0.1:9`, `LEARNLOOP_COVERAGE_MODELS=off`, and
+the sidecar under the audit-hook guard (no non-loopback socket, no process start: 0 guard log lines). Counts only.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `upgrade --to mvp-0.39` (+ `rebuild-derived-state`) | mvp-0.35 → mvp-0.39, rc 0 | same | same |
+| contract `sideBySide` | `{enabled: true}` | same | same |
+| two correspondents (CA5a search hits in another book; no judged coverage on the copies) | 2 found | 2 | 2 |
+| `reader.side_by_side_section` blocks / all in that section / exposure rows / exposure ids | 222/yes/222/222; 145/yes/145/145 | 2/yes/2/2; 7/yes/7/7 | 193/yes/193/193; 423/yes/423/423 |
+| a withheld section | refused `withheld`, 0 rows | same | same |
+| switch off (`[reader.side_by_side] enabled = false`) | no contract key; refused `side_by_side_disabled`, 0 rows | same | same |
+| `rebuild --shadow` before / after | 0/0/0 / 0/0/0 | same | same |
+| model_call_receipts added | 0 | 0 | 0 |
+
+None of the copies' readings is an exam reading, so the exam refusal is vacuous here.
+`test_protected_sections_are_never_shown` covers it.
+
+### Owner notes
+
+- Kill switch: `reader.side_by_side.enabled` (default on). Side by side also needs `curriculum.enabled`: off, it is
+  absent and the section read refuses. The records (`side_by_side_*`, `follow_along_*`, and the correspondence events)
+  go through `reader.log_activity`, so they are written only while `reader_inquiry` is on. The crumb needs it too.
+- `s` now opens side by side from both lists in the Guide: CA5a's find list and CA5's "also in your books".
+
+### Open items
+
+1. **CA6b:** the second pane's intent box and density cues (Codex review F1, the remaining part).
+2. Ctrl+\ falls back to the first unchecked search hit when the section has no judged coverage (owner question;
+   deviation 2).
+3. No ✕ on the main pane (deviation 3).
+4. One section at a time in the second pane (deviation 1).
