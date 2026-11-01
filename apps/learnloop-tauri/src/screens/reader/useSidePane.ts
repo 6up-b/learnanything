@@ -229,10 +229,19 @@ function useSidePaneCues({
   // the density changes anywhere; a re-read of the same reading keeps the
   // marks drawn until it lands (no flicker) and skips the cache.
   const readFor = useRef<string | null>(null);
+  // Fix round 4 (verify finding 3): a re-read asked for while no reading is
+  // shown (a section loading, the pane hidden by a comparison) -- discovery
+  // finishing during the pause -- is kept and done, skipping the cache, when
+  // the reading comes back; otherwise the cached plan would come back without
+  // what was found, and discovery would not ask again for the same targets.
+  const reloadPending = useRef(false);
   const read = useCallback(async (force: boolean) => {
     generation.current += 1;
     const mine = generation.current;
-    if (!extractionId || !sourceId) return;
+    if (!extractionId || !sourceId) {
+      if (force) reloadPending.current = true;
+      return;
+    }
     try {
       const next = await readGuidePlan(sourceId, extractionId, force ? { force: true } : {});
       // Only this reading's own plan (a plan for another reading is not this pane's).
@@ -245,7 +254,9 @@ function useSidePaneCues({
     const again = readFor.current === extractionId && extractionId !== null;
     readFor.current = extractionId;
     if (!again) setPlan(null);
-    void Promise.resolve().then(() => read(again));
+    const pending = extractionId !== null && reloadPending.current;
+    if (extractionId !== null) reloadPending.current = false;
+    void Promise.resolve().then(() => read(again || pending));
   }, [extractionId, densityKey, read]);
   const reloadPlan = useCallback(() => read(true), [read]);
   // The density is one vault-wide setting (with a per-book off): a change

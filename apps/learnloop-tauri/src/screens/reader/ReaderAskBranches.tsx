@@ -150,7 +150,8 @@ export function ReaderAskBranches({
       onFollowUp(exchange);
     } else if (event.key === "p") {
       event.preventDefault();
-      onShowPassage(exchange.spanId);
+      // A thread about the book beside has no passage in this book (CA6b fix round 4), as its button says.
+      if (!exchange.about) onShowPassage(exchange.spanId);
     } else if (event.key === "r") {
       event.preventDefault();
       if (isRoot && onSetStatus && resolution === "open") onSetStatus(exchange, "resolved");

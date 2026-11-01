@@ -71,7 +71,7 @@ import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
 import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
-import { type ReaderExchange } from "./reader/ReaderAskBranches";
+import { type AskAbout, type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
 import { InquiryQuickCheck } from "./reader/InquiryQuickCheck";
 import { ReconnectLine } from "./reader/ReconnectLine";
@@ -99,7 +99,7 @@ import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHo
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { FiguresUnder } from "./reader/figures/FigureInline";
-import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
+import { useFigures, type FigureRequestOutcome, type FiguresCtl } from "./reader/figures/useFigures";
 import type { ShowMeLine } from "./reader/figures/showMe";
 import type { FigurePassageDto, FigureViewDto } from "../api/dto";
 import { SCOPE_COPY, useLibraryAsk, type CompareRequest } from "./reader/useLibraryAsk";
@@ -1494,11 +1494,24 @@ export function ReaderScreen({
   // its practice and feedback screens (besideTrail). Once that book is the
   // open one, the handoff runs (the effect below): the check goes to the shell
   // with that book's card, or the work through opens on its selection.
+  // Fix round 4 (the second book's identity audit): the same handoff takes
+  // that book to the main pane for everything else begun on it that needs
+  // the open book -- "work through this" on an exercise imported from it
+  // (item), and a tutor offer on an answer about it ("try the next step",
+  // "show me") when the second pane does not show that passage -- so nothing
+  // begun on the second book is opened or kept under the main one.
   type BesideRun =
     | { kind: "check"; request: CueCheckMeRequest }
-    | { kind: "work"; stemMd: string; spanIds: string[]; importRequest: Omit<ReaderImportExerciseInput, "renderViewId" | "clientIdempotencyKey"> };
+    | { kind: "work"; stemMd: string; spanIds: string[]; importRequest: Omit<ReaderImportExerciseInput, "renderViewId" | "clientIdempotencyKey"> }
+    | { kind: "item"; practiceItemId: string; stemMd: string; spanIds: string[] }
+    | { kind: "next_step"; spanId: string }
+    | { kind: "show_me"; goal: string; spanId: string; origin: "tutor" | "show_me"; offerRef: string | null; lineKey: string | null };
   const [besideHandoff, setBesideHandoff] = useState<{ id: number; sourceId: string; extractionId: string; run: BesideRun } | null>(null);
   const besideSeq = useRef(0);
+  // What runs once the book is open (set below, where the Reader's own
+  // controllers are), and what a handoff whose book did not open settles.
+  const besideRunRef = useRef<(run: BesideRun) => void>(() => undefined);
+  const besideDroppedRef = useRef<(run: BesideRun) => void>(() => undefined);
   const openBesideRef = useRef<(hit: { sourceId: string; extractionId: string; spanId: string }) => Promise<OpenOutcome>>(
     () => Promise.resolve("not_opened"));
   // Final verify F8: the crumb keeps side by side as it is at the handoff --
@@ -1517,7 +1530,10 @@ export function ReaderScreen({
     const id = ++besideSeq.current;
     setBesideHandoff({ id, sourceId: book.sourceId, extractionId: book.extractionId, run });
     void openBesideRef.current({ sourceId: book.sourceId, extractionId: book.extractionId, spanId }).then((outcome) => {
-      if (outcome !== "opened") setBesideHandoff((current) => (current?.id === id ? null : current));
+      if (outcome !== "opened") {
+        setBesideHandoff((current) => (current?.id === id ? null : current));
+        besideDroppedRef.current(run);
+      }
     });
   }, []);
   // "check me" on the second pane's marks: only while the pane still shows
@@ -1555,9 +1571,15 @@ export function ReaderScreen({
   });
   sideExtractionRef.current = side.extractionId;
   // The second book is the open one now: its handoff runs, once.
+  // Each handoff runs at most once (fix round 4): clearing it is a state
+  // update, which a render already under way (another update of a higher
+  // priority) may not see yet, so the effect can run again before it lands.
+  const besideRanRef = useRef(0);
   useEffect(() => {
     const handoff = besideHandoff;
     if (!handoff || !render || offline || render.sourceId !== handoff.sourceId) return;
+    if (besideRanRef.current === handoff.id) return;
+    besideRanRef.current = handoff.id;
     setBesideHandoff(null);
     if (handoff.run.kind === "check") {
       const card = openCardRef.current;
@@ -1566,8 +1588,16 @@ export function ReaderScreen({
       onCheckMe({ ...handoff.run.request, card, ...(trail ? { besideTrail: trail } : {}) });
       return;
     }
-    // A work through needs the reading its passages were selected on.
-    if (!wbCtl.enabled || render.extractionId !== handoff.extractionId) return;
+    // The rest needs the reading its passages were selected (or asked) on.
+    if (render.extractionId !== handoff.extractionId) {
+      besideDroppedRef.current(handoff.run);
+      return;
+    }
+    if (handoff.run.kind !== "work") {
+      besideRunRef.current(handoff.run);
+      return;
+    }
+    if (!wbCtl.enabled) return;
     const work = handoff.run;
     void wbCtl.openSelection({
       stemMd: work.stemMd, spanIds: work.spanIds,
@@ -1576,20 +1606,21 @@ export function ReaderScreen({
   }, [besideHandoff, render, offline, onCheckMe, wbCtl, returnStackRef]);
   // Selecting in the main pane: the second pane's box lets go of its keys (one box answers keys at a time).
   const { releaseKeys: releaseSideKeys } = side;
-  useEffect(() => {
-    if (!selection) return;
-    if (sbsPanesRef.current) releaseSideKeys();
-    setAskComposerAnchor(null);
-  }, [selection, releaseSideKeys]);
   // A new composer (the second pane's, or back to the open book's): a failed
   // Ask is not its request, so ↵ there asks it afresh (Codex re-review F10).
   // It is a new composer generation at once, before anything is asked from
   // it, so a request still pending from the old one cannot leave its retry
-  // here when it fails later (final verify F10).
+  // here when it fails later (final verify F10), nor take this composer's
+  // thread and draft when it lands (fix round 4, finding 4).
   const openComposer = useCallback((anchor: AskAnchor | null) => {
     forgetFailedAsk();
     setAskComposerAnchor(anchor);
   }, [forgetFailedAsk]);
+  useEffect(() => {
+    if (!selection) return;
+    if (sbsPanesRef.current) releaseSideKeys();
+    if (askComposerAnchorRef.current) openComposer(null);
+  }, [selection, releaseSideKeys, openComposer]);
   // The composer the second pane opened goes back to the open book once that pane closes or its selection goes.
   useEffect(() => {
     if (!side.selection && askComposerAnchorRef.current) openComposer(null);
@@ -1663,14 +1694,18 @@ export function ReaderScreen({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [sbs.enabled]);
-  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false, anchorExtractionId?: string) => {
+  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false,
+    anchor?: { sourceId: string; extractionId: string }) => {
     if (!render || offline) return;
     setLibraryCompose(null);
-    // Reader CA6b: a palette verb in side by side's second pane is anchored on that pane's reading.
-    const extractionId = anchorExtractionId ?? render.extractionId;
+    // Reader CA6b: a palette verb in side by side's second pane is anchored on
+    // that pane's reading; the ask keeps that book too (fix round 4), for its
+    // comparisons and its practice picks.
+    const extractionId = anchor?.extractionId ?? render.extractionId;
+    const request = { query, entry, extractionId, spanIds, ...(anchor ? { sourceId: anchor.sourceId } : {}) };
     // CA3: the ask box (Ctrl+Shift+F) reads named books first; a palette verb asks as before.
-    if (box) void libraryCtl.askBox({ query, entry, extractionId, spanIds });
-    else libraryCtl.ask({ query, entry, extractionId, spanIds });
+    if (box) void libraryCtl.askBox(request);
+    else libraryCtl.ask(request);
   }, [render, offline, libraryCtl]);
   const closeLibrary = useCallback(() => {
     setLibraryCompose(null);
@@ -2385,6 +2420,10 @@ export function ReaderScreen({
         result: null,
         error: null,
         spanIds: [...new Set(nodes.map((node) => node.spanId))],
+        // Fix round 4 (verify finding 1): the book the exercise is from, on
+        // the import itself, so its "work through this" opens there.
+        sourceId: target ? target.sourceId : render.sourceId,
+        extractionId: target ? target.extractionId : render.extractionId,
       });
       if (!target) setSelectionActions((prev) => [...prev, "exercise_import"]);
       logReaderAction("action_invoked", {
@@ -3145,7 +3184,8 @@ export function ReaderScreen({
         // RW4a: Orient's and Transfer's library asks, in the comparing posture
         // (the second pane's: anchored on its reading; side by side comes back when it closes).
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
-        askLibraryHere(text || pane.words, effect.entry, pane.spanIds, false, sideSection?.extractionId);
+        askLibraryHere(text || pane.words, effect.entry, pane.spanIds, false,
+          sideSection ? { sourceId: sideSection.sourceId, extractionId: sideSection.extractionId } : undefined);
         return;
       case "compare":
         // CA3: Transfer's "how do my other books treat this?": a comparison
@@ -3211,26 +3251,85 @@ export function ReaderScreen({
   };
   runIntentRef.current = (action, text, how) => runIntentIn(mainPane, action, text, how);
   runSideIntentRef.current = (action, text, how) => (sidePane ? runIntentIn(sidePane, action, text, how) : undefined);
+  // ── Fix round 4: the second book's identity audit ─────────────────────────
+  // Everything begun on side by side's second book -- in its pane, or on an
+  // object that came from it (an exercise imported from it, an answer about
+  // it) -- acts on that book: its identity comes from the pane or the object,
+  // never from the open book. What needs the open book takes that book to
+  // the main pane first (takeBesideBook); what the second pane can show runs
+  // there while it shows that passage.
+  /** The second pane shows this reading, with this passage in its section. */
+  const sideShows = (extractionId: string, spanId: string): boolean =>
+    side.extractionId === extractionId && Boolean(side.section?.blocks.some((block) => block.spanId === spanId));
+  /** A practice pick on the second book: its check opens in that book (as check me on its marks does). */
+  const checkBeside = (book: { sourceId: string; extractionId: string }, spanId: string, practiceItemId: string, proposalId: string | null) => {
+    if (!onCheckMe || !library?.some((entry) => entry.sourceId === book.sourceId)) return;
+    takeBesideBook(book, spanId, { kind: "check", request: { practiceItemId, proposalId, spanId } });
+  };
+  /** "work through this" on an imported exercise: in the book it was imported from (verify finding 1). */
+  const workThroughImported = (item: { practiceItemId: string; prompt: string }) => {
+    const imported = exerciseImport;
+    const spanIds = imported?.spanIds ?? (activeSpan ? [activeSpan] : []);
+    if (imported?.sourceId && imported.extractionId && render && imported.extractionId !== render.extractionId) {
+      takeBesideBook({ sourceId: imported.sourceId, extractionId: imported.extractionId }, spanIds[0] ?? "",
+        { kind: "item", practiceItemId: item.practiceItemId, stemMd: item.prompt, spanIds });
+      return;
+    }
+    void wbCtl.openItem({ practiceItemId: item.practiceItemId, stemMd: item.prompt, spanIds });
+  };
+  const settleShowMeLine = (key: string, patch: Partial<ShowMeLine>) =>
+    setShowMeLines((lines) => lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  /** A "show me" goal, on the figures of the book it is about. */
+  const requestShowMe = (ctl: FiguresCtl, run: Extract<BesideRun, { kind: "show_me" }>) => {
+    const key = run.lineKey;
+    void ctl.request({
+      spanIds: [], goalText: run.goal, origin: run.origin, readingAt: { spanId: run.spanId },
+      ...(run.offerRef ? { offerRef: run.offerRef } : {}),
+      ...(key ? { onLanded: (figure: FigureViewDto) => settleShowMeLine(key, { state: "landed", figure }) } : {}),
+    }).then((outcome) => {
+      if (!key || outcome === "shown") return;
+      setShowMeLines((lines) => lines.map((line) => (line.key === key && line.state === "pending"
+        ? { ...line, state: outcome === "cancelled" || outcome === "skipped" ? "cancelled" : "failed" } : line)));
+    });
+  };
+  /** The second book's "try the next step" / "show me": in its pane when it shows the passage, else in that book. */
+  const runOnBook = (about: AskAbout, run: Extract<BesideRun, { kind: "next_step" | "show_me" }>) => {
+    if (sideShows(about.extractionId, run.spanId)) {
+      if (run.kind === "next_step") void side.active.start("next_step", [run.spanId], side.fold([run.spanId], foldBlocks));
+      else requestShowMe(side.figures, run);
+      return;
+    }
+    takeBesideBook({ sourceId: about.sourceId, extractionId: about.extractionId }, run.spanId, run);
+  };
+  besideRunRef.current = (run) => {
+    if (run.kind === "item") {
+      if (wbCtl.enabled) void wbCtl.openItem({ practiceItemId: run.practiceItemId, stemMd: run.stemMd, spanIds: run.spanIds });
+    } else if (run.kind === "next_step") {
+      if (activeReadingOn) void activeCtl.start("next_step", [run.spanId], localFold([run.spanId]));
+    } else if (run.kind === "show_me") {
+      requestShowMe(figuresCtl, run);
+    }
+  };
+  besideDroppedRef.current = (run) => {
+    if (run.kind === "show_me" && run.lineKey) settleShowMeLine(run.lineKey, { state: "failed" });
+  };
   // RW5d P1: the Ask rail's "show me ▸": the box's words as a figure goal, landing
   // under the passage the learner was reading (the inquiry's, else the
   // selection's, else the reading position); the thread keeps one line for it.
+  // Fix round 4: a thread about the second book, or the composer the second
+  // pane opened, is that book's: the figure is built on it.
   const showMeFromAsk = () => {
     const goal = question.trim();
-    const home = parentExchange?.spanId ?? selectionSpanIds[selectionSpanIds.length - 1] ?? readingSpan ?? activeSpan;
+    const about = parentExchange ? parentExchange.about ?? null : askComposerAnchor?.about ?? null;
+    const home = parentExchange?.spanId ?? (about ? askComposerAnchor?.spanId : undefined)
+      ?? selectionSpanIds[selectionSpanIds.length - 1] ?? readingSpan ?? activeSpan;
     if (!goal || !home || !showMeOn) return;
     const key = `show_me:${newKey()}`;
     setShowMeLines((lines) => [...lines, { key, goal, state: "pending", figure: null }]);
     setQuestion("");
-    const settle = (patch: Partial<ShowMeLine>) =>
-      setShowMeLines((lines) => lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
-    void figuresCtl.request({
-      spanIds: [], goalText: goal, origin: "show_me", readingAt: { spanId: home },
-      onLanded: (figure) => settle({ state: "landed", figure }),
-    }).then((outcome) => {
-      if (outcome === "shown") return;
-      setShowMeLines((lines) => lines.map((line) => (line.key === key && line.state === "pending"
-        ? { ...line, state: outcome === "cancelled" || outcome === "skipped" ? "cancelled" : "failed" } : line)));
-    });
+    const run = { kind: "show_me" as const, goal, spanId: home, origin: "show_me" as const, offerRef: null, lineKey: key };
+    if (about) runOnBook(about, run);
+    else requestShowMe(figuresCtl, run);
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
   // still pending stops; an active-reading card or "another way" closes (its
@@ -3287,6 +3386,13 @@ export function ReaderScreen({
   const pickLibraryPractice = (item: ProposedItemDto, proposalId: string | null) => {
     const card = openCardRef.current;
     if (!card || !onCheckMe || !render) return;
+    // Fix round 4: an ask anchored in side by side's second pane is that
+    // book's; its pick opens there, at the passage asked on (as check me does).
+    const asked = libraryCtl.state?.request;
+    if (asked?.sourceId && asked.extractionId && asked.sourceId !== render.sourceId) {
+      checkBeside({ sourceId: asked.sourceId, extractionId: asked.extractionId }, asked.spanIds[0] ?? "", item.practiceItemId, proposalId);
+      return;
+    }
     onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: readingSpan ?? activeSpan ?? "", card });
   };
   const resumeMark = (spanId: string | null | undefined) => {
@@ -4129,11 +4235,7 @@ export function ReaderScreen({
             invokePreset={async (preset) => { await invokePreset(preset); }}
             importExercise={async () => { await importExercise(); }}
             onWorkThrough={wbCtl.enabled && selection ? workThroughSelection : undefined}
-            onWorkThroughItem={wbCtl.enabled ? (item) => void wbCtl.openItem({
-              practiceItemId: item.practiceItemId,
-              stemMd: item.prompt,
-              spanIds: exerciseImport?.spanIds ?? (activeSpan ? [activeSpan] : []),
-            }) : undefined}
+            onWorkThroughItem={wbCtl.enabled ? workThroughImported : undefined}
             exerciseImport={exerciseImport}
             setExerciseImport={setExerciseImport}
             exerciseImportActive={exerciseImportActive}
@@ -4235,6 +4337,11 @@ export function ReaderScreen({
               lines: showMeLines,
               onShowMe: () => showMeFromAsk(),
               onOpen: (figure: FigureViewDto) => {
+                // Fix round 4: a figure built on the second book opens in its pane.
+                if (render && figure.extractionId !== render.extractionId) {
+                  if (side.extractionId === figure.extractionId) side.figures.setExpanded(figure);
+                  return;
+                }
                 figuresCtl.setExpanded(figure);
                 // The learner pressed, so the jump is theirs, with a crumb
                 // ("back to where I was") when they had scrolled away (spec
@@ -4265,22 +4372,37 @@ export function ReaderScreen({
                 busy: busy || offline,
                 onAnotherWay: askAnotherWay,
                 onDidntHelp: askDidntHelp,
-                onPracticePick: onCheckMe ? (item, proposalId) => pickLibraryPractice(
-                  { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
+                // Fix round 4: an answer about the second book offers that
+                // book's practice, next step, figures and passages.
+                onPracticePick: onCheckMe ? (item, proposalId, exchange) => {
+                  if (exchange?.about) {
+                    checkBeside(exchange.about, exchange.spanId, item.practiceItemId, proposalId);
+                    return;
+                  }
+                  pickLibraryPractice({ practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId);
+                } : null,
                 onTryNextStep: readerTutor.tryNextStep && activeReadingOn
-                  ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  ? (spanId: string, exchange?: ReaderExchange) => {
+                    if (exchange?.about) runOnBook(exchange.about, { kind: "next_step", spanId });
+                    else void activeCtl.start("next_step", [spanId], localFold([spanId]));
+                  }
                   : null,
                 // RW5d P1: the tutor's figure goal, pressed: it lands under the
                 // passage the question was asked on (the server checks the goal).
                 onShowMe: showMeOn && figureOffersOn && render
-                  ? (goal: string, offerRef: string, exchange: { spanId: string }) => {
-                    void figuresCtl.request({ spanIds: [], goalText: goal, origin: "tutor", offerRef,
-                      readingAt: { spanId: exchange.spanId } });
+                  ? (goal: string, offerRef: string, exchange: ReaderExchange) => {
+                    const run = { kind: "show_me" as const, goal, spanId: exchange.spanId, origin: "tutor" as const, offerRef, lineKey: null };
+                    if (exchange.about) runOnBook(exchange.about, run);
+                    else requestShowMe(figuresCtl, run);
                   }
                   : null,
-                // RW5b: a cited equation or figure of this book the tutor judged explorable.
+                // RW5b: a cited equation or figure of this book the tutor judged explorable
+                // (of the second book, for an answer about it: built there).
                 onMakeExplorable: figureOffersOn && render
-                  ? (spanId: string, offerRef: string) => { void makeExplorable({ sourceId: render.sourceId, extractionId: render.extractionId, spanId }, "tutor", offerRef); }
+                  ? (spanId: string, offerRef: string, exchange?: ReaderExchange) => {
+                    const book = exchange?.about ?? render;
+                    void makeExplorable({ sourceId: book.sourceId, extractionId: book.extractionId, spanId }, "tutor", offerRef);
+                  }
                   : null,
                 // RW1c (Codex review F9): an excerpt or citation opens where
                 // it is (this book peeks; another opens as a detour).
@@ -4298,12 +4420,13 @@ export function ReaderScreen({
                 // the book, anchored on the passage the question was asked on (absent
                 // while compare from anywhere is off, or while working: today's inline table).
                 onCompare: libraryCtl.scopeOn && !offline && !working && render
-                  ? (request: { question: string; toolCallId: string | null }, exchange: { extractionId: string; spanId: string }) => {
+                  ? (request: { question: string; toolCallId: string | null }, exchange: ReaderExchange) => {
                     setLibraryCompose(null);
                     libraryCtl.compareFrom({
                       door: "tutor_offer", question: request.question, extractionId: exchange.extractionId,
                       anchorSpanIds: exchange.spanId ? [exchange.spanId] : [], toolCallId: request.toolCallId,
-                      openSourceId: render.sourceId,
+                      // Fix round 4: an answer about the second book leads with that book.
+                      openSourceId: exchange.about?.sourceId ?? render.sourceId,
                     });
                   }
                   : null,

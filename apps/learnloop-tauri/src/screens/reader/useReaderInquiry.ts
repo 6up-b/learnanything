@@ -317,16 +317,25 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // forgets it.
   const failedAskRef = useRef<{ asked: string; parent: ReaderExchange | null; override?: AskOverride } | null>(null);
   // The composer's generation (final verify F10): every new composer, source
-  // reset, selection or thread is a new one. A request remembers the
-  // generation it was asked from, and its failure may leave a retry only
-  // while that generation is still the current one, so a failure landing
-  // after a new composer opened never gives that composer its grounding.
+  // reset, selection or thread is a new retry generation. A request
+  // remembers the generation it was asked from, and its failure may leave a
+  // retry only while that generation is still the current one, so a failure
+  // landing after a new composer opened never gives that composer its
+  // grounding.
   const composerGenRef = useRef(0);
+  // Fix round 4 (verify finding 4): the composer itself -- a new composer (the
+  // second pane's, or back to the open book's) or a source reset, not a
+  // selection or thread change. A request's answer becomes the thread to
+  // follow up, and empties the box, only while the composer it was asked
+  // from is still the one open; a late answer after a new composer opened
+  // goes into history and leaves that composer's thread and draft alone.
+  const composerOpenRef = useRef(0);
   const resetInquiryState = useCallback(() => {
     askEpoch.current += 1;
     askPending.current = false;
     failedAskRef.current = null;
     composerGenRef.current += 1;
+    composerOpenRef.current += 1;
     setParentExchange(null);
     setQuestion("");
     setAskComposerVersion(0);
@@ -689,6 +698,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (inquiry && offline) return;
     const epoch = askEpoch.current;
     const composer = composerGenRef.current;
+    const composerOpen = composerOpenRef.current;
     askPending.current = true;
     failedAskRef.current = null;
     // The full capture selection widens the tutor's citable context to every
@@ -772,8 +782,10 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         } : {}),
         ...(about ? { about } : {}),
       };
+      // Fix round 4 (finding 4): still the composer it was asked from?
+      const ownComposer = composerOpen === composerOpenRef.current;
       if (inquiry) {
-        setParentExchange(exchange);
+        if (ownComposer) setParentExchange(exchange);
         setAskPhase("idle");
         if (railTab !== "ask") setAskTabMarked(true);
         // A thread about the book beside (CA6b) is no detour of the open book's.
@@ -799,6 +811,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         if (parent) next.delete(parent.id);
         return next;
       });
+      // A late answer (another composer open now): in history, and nothing else.
+      if (!ownComposer) return;
       setQuestion("");
       // WebKit can retain the submitted textarea's stale compositing layer when
       // the completed exchange mounts below it. Remounting gives the next Ask a
@@ -839,7 +853,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         if (!inquiry || phase === "failed") onError(errorMessage(error));
         // The learner's words stay in the composer for "try again", which
         // asks them with this request's grounding (Codex review F3).
-        if (inquiry && asked !== question.trim()) setQuestion(asked);
+        // Not into another composer opened meanwhile (fix round 4): its draft is its own.
+        if (inquiry && asked !== question.trim() && composerOpen === composerOpenRef.current) setQuestion(asked);
         // Only while the composer it was asked from is still the one open
         // (final verify F10): otherwise ↵ and "try again" ask afresh there.
         if (composer === composerGenRef.current) failedAskRef.current = { asked, parent, ...(override ? { override } : {}) };
@@ -885,6 +900,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   const forgetFailedAsk = useCallback(() => {
     failedAskRef.current = null;
     composerGenRef.current += 1;
+    composerOpenRef.current += 1;
   }, []);
 
   // Another selection or thread: "try again" is no longer that request.

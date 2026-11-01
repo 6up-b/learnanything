@@ -1356,3 +1356,16 @@ it("audit: a practice pick from a library answer asked in the second pane opens 
   expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" });
   expect(onCheckMe.mock.calls[0][0]).toMatchObject({ practiceItemId: "pi_lib", proposalId: "pp_side", spanId: "ax7a_1", card: AXLER });
 });
+
+it("audit: on a thread about the second book, `p` (show passage) opens nothing in the main book (its button is not offered either)", async () => {
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await screen.findByText("Side answer");
+  const before = strip().textContent;
+  const header = document.querySelector<HTMLElement>("[data-exchange-header]")!;
+  header.focus();
+  await act(async () => { fireEvent.keyDown(header, { key: "p" }); });
+  expect(strip().textContent).toBe(before);
+  expect(screen.queryByRole("button", { name: "show passage" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "show inherited passage" })).toBeNull();
+});

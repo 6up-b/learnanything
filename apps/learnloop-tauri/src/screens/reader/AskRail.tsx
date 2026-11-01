@@ -219,7 +219,7 @@ export function AskRail({
                 <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <Faint>FOLLOW-UP TO: {clip(parentExchange.question, 120)}</Faint>
                   <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
-                  <SecondaryButton onClick={() => peek(parentExchange.spanId)}>show inherited passage</SecondaryButton>
+                  {parentExchange.about ? null : <SecondaryButton onClick={() => peek(parentExchange.spanId)}>show inherited passage</SecondaryButton>}
                   <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
                 </Card>
               ) : composerAbout ? (

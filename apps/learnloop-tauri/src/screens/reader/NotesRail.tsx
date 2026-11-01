@@ -51,6 +51,11 @@ export interface ExerciseImportState {
   error: string | null;
   /** The passages the exercise was selected from (RW2a's workbench anchor). */
   spanIds?: string[];
+  /** Reader CA6b fix round 4: the book and reading the exercise was imported
+   *  from (side by side's second book, for one imported there): its "work
+   *  through this" opens in that book. */
+  sourceId?: string;
+  extractionId?: string;
 }
 
 export interface NotesRailProps {

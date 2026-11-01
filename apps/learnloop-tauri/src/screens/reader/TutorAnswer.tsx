@@ -56,10 +56,12 @@ export interface TutorRailProps {
   busy: boolean;
   onAnotherWay?: (exchange: ReaderExchange) => void;
   onDidntHelp?: (exchange: ReaderExchange, text: string) => void;
-  onPracticePick?: ((item: OfferItem, proposalId: string | null) => void) | null;
-  onTryNextStep?: ((spanId: string) => void) | null;
+  /** Each offer handler is told the exchange it is on (Reader CA6b fix round
+   *  4: an answer about side by side's second book acts on that book). */
+  onPracticePick?: ((item: OfferItem, proposalId: string | null, exchange: ReaderExchange) => void) | null;
+  onTryNextStep?: ((spanId: string, exchange: ReaderExchange) => void) | null;
   /** RW5b: "make this explorable" on a cited block the tutor judged explorable (absent: not offered). */
-  onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
+  onMakeExplorable?: ((spanId: string, offerRef: string, exchange: ReaderExchange) => void) | null;
   /** RW5d P1: "show me" the tutor's figure goal (absent: not offered). */
   onShowMe?: ((goal: string, offerRef: string, exchange: ReaderExchange) => void) | null;
   /** Reader CA3: "how do your books treat this?" opens the comparing posture's
@@ -169,9 +171,9 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           practiceRequest={exchange.offers.practiceRequest ?? null}
           toolRequests={exchange.offers.toolRequests ?? []}
           buttons={exchange.offers.buttons ?? []}
-          onPracticePick={tutor.onPracticePick ?? null}
-          onTryNextStep={tutor.onTryNextStep ?? null}
-          onMakeExplorable={tutor.onMakeExplorable ?? null}
+          onPracticePick={tutor.onPracticePick ? (item, proposalId) => tutor.onPracticePick?.(item, proposalId, exchange) : null}
+          onTryNextStep={tutor.onTryNextStep ? (spanId) => tutor.onTryNextStep?.(spanId, exchange) : null}
+          onMakeExplorable={tutor.onMakeExplorable ? (spanId, offerRef) => tutor.onMakeExplorable?.(spanId, offerRef, exchange) : null}
           onShowMe={tutor.onShowMe ? (goal, offerRef) => tutor.onShowMe?.(goal, offerRef, exchange) : null}
           {...(tutor.onCompare ? { onCompare: (request: { question: string; toolCallId: string | null }) => tutor.onCompare?.(request, exchange) } : {})}
           offerRef={exchange.questionEventId ?? null}

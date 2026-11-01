@@ -980,8 +980,11 @@ export function App() {
         // Reader CA6b (Codex review F8): a check from side by side's second
         // pane is that book's; the Reader opens it there (at the mark's
         // passage, the way back), as the Reader alone on that book would.
+        // Fix round 4 (verify finding 2): the Reader opened again here keeps
+        // the way back to side by side (besideTrail), as the practice
+        // screen's back does: Alt+← reopens side by side after the session starts.
         if (options.fromStart || (readerSource !== null && readerSource.card.sourceId !== request.card.sourceId)) {
-          setReaderSource({ card: request.card, spanId: request.spanId });
+          setReaderSource({ card: request.card, spanId: request.spanId, ...(request.besideTrail ? { besideTrail: request.besideTrail } : {}) });
           setReaderOpenSeq((seq) => seq + 1);
           setTab("reader");
         }
