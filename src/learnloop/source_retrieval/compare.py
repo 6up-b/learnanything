@@ -657,6 +657,13 @@ def _compare_sources(
                                        if perspective in requested_perspectives]
     model = calls.last_resolved_model or route.model
     comparison_id = "scmp_" + new_ulid()
+    # Reader follow-ups Nov 1b (open item 3): the fresh path writes the pins
+    # it dropped as the reuse path does (Codex review F1): a pin naming no
+    # passage contributed nothing and is not written, since RW4d's rule
+    # could never resolve it and would withhold the shared comparison from
+    # every later reader. This call still carries it (result.dropped_pins),
+    # so it fails closed on it.
+    stored_pins = [pin for pin in result.dropped_pins if pin.get("reason") != NO_SUCH_PASSAGE]
     with repository.connection() as connection:
         insert_comparison(
             connection, id=comparison_id, created_at=utc_now_iso(clock), query_hash=query_hash, query_md=query,
@@ -664,7 +671,7 @@ def _compare_sources(
             comparison={"sources": result.sources, "relations": result.relations,
                         "missing_perspectives": result.missing_perspectives,
                         **({"contract": COMPARE_PROMPT_VERSION_V2, "points": result.points} if by_point else {})},
-            dropped_lines=result.dropped_lines, dropped_pins=result.dropped_pins,
+            dropped_lines=result.dropped_lines, dropped_pins=stored_pins,
             unverified_sources=result.unverified_sources, policy=derived, caller_context=caller.as_dict(),
             model=model, prompt_version=prompt_version, ledger_ids=ledger_ids, caller=caller.kind,
             caller_ref=caller.ref,

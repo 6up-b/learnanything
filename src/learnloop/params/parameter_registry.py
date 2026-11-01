@@ -224,6 +224,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # guardrail (no learner-model weight, margin or threshold).
     "figure_rich": "src/learnloop/figures/rich.py",
     "figure_manim": "src/learnloop/figures/manim_figure.py",
+    # Reader follow-ups Nov 1b (spec §9b.4, P2b ruling R2): the free-text
+    # label rule's one structural bound (a `keep` wording guardrail).
+    "figure_labels": "src/learnloop/figures/labels.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
@@ -465,6 +468,11 @@ _reg_const("figure_manim:FUNCTION_CHECK_SECONDS", "operational", kind="structura
            rationale="keep (machine safety): the declared-function check's sandbox CPU and wall clock.")
 _reg_const("figure_manim:FUNCTION_CHECK_MEMORY_MB", "operational", kind="structural", owner="figure_manim",
            rationale="keep (machine safety): the declared-function check's address-space cap in the sandbox.")
+_reg_const("figure_labels:MIN_SEGMENT_WORDS", "constraint", kind="structural", owner="figure_labels",
+           rationale="keep (wording rule, spec §9b.4): the shortest segment of a code-owned label matched on its "
+                     "own. Two words ('not checked') are ordinary prose; three name a label's claim ('not checked "
+                     "against the book'). A structural bound on what reads as a label, never a learner-model "
+                     "weight, margin or threshold.")
 _reg_const("concept_animation:_STDERR_TAIL_CHARS", "operational", kind="structural", owner="concept_animation",
            rationale="keep (operational): how much of a failed render's stderr is kept for the repair round-trip "
                      "and the failure view.")

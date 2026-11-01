@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.figures import grammar as G
+from learnloop.figures import labels as L
 from learnloop.figures.sketch import CLAIM_REL_TOL, SKETCH_MAX_CLAIM_WORK, expression_steps, impersonates
 
 MANIM_FIG_VERSION = "manim-fig-v1"
@@ -260,6 +261,12 @@ def parse_figure(output: Any) -> ManimFigure:
     narration = str(getattr(output, "narration_md", "") or "").strip()[:MAX_NARRATION]
     functions, claims, plotted, declared_problems = parse_declared(getattr(output, "declared_json", ""))
     problems += declared_problems
+    # The free-text label rule (spec §9b.4, P2b ruling R2): a title or
+    # narration that reads like a check label is a problem in code's words
+    # (the repair call's); one that still does is refused as any invalid
+    # answer is (the transcript is the video's text alternative, so it is not
+    # shown cut).
+    problems += L.label_problems([("title", title), ("narration_md", narration)])
     if problems:
         raise ManimFigureError(problems)
     return ManimFigure(code, scene_class, title, narration, functions, claims, plotted)

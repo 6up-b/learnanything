@@ -299,10 +299,24 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         # (its defaults), with its connection pools behind the deadline
         # backend. Without the real SDK (an offline stand-in module) the
         # deadline is not armed.
+        #
+        # No environment proxy (Reader follow-ups Nov 1b, ruling R1): the
+        # client does not trust the environment (``trust_env=False``), so
+        # HTTPS_PROXY, HTTP_PROXY, ALL_PROXY and .netrc never route or
+        # authenticate a metered call. Through an HTTPS proxy a request's TLS
+        # runs inside the proxy's TLS, where httpcore loops ``recv`` under one
+        # timeout and the total deadline could overshoot (2.0 s for a 1 s
+        # deadline). LearnLoop has no proxy setting of its own, so nothing
+        # configured is lost; if one is ever added, it must be passed here
+        # explicitly and nested TLS reads bounded per ``recv`` first. The
+        # certificate store stays the environment's (SSL_CERT_FILE or
+        # SSL_CERT_DIR, else certifi, as before): only the proxy is dropped.
         http_client_factory = getattr(openai, "DefaultHttpxClient", None)
         self._enforce_deadline = False
         if http_client_factory is not None:
-            http_client = http_client_factory()
+            import httpx
+
+            http_client = http_client_factory(trust_env=False, verify=httpx.create_ssl_context(trust_env=True))
             self._enforce_deadline = _arm_http_client(http_client)
             if not self._enforce_deadline:
                 logger.warning("AI provider %s: the total transport deadline could not be armed on this httpx "

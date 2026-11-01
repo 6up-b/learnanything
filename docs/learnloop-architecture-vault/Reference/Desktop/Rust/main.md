@@ -10,9 +10,9 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/main.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/main.rs"
-source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
-source_commit_timestamp: "2026-11-01T09:50:06-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
+source_commit_timestamp: "2026-11-01T12:20:35-05:00"
+source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
-| Commit timestamp | `2026-11-01T09:50:06-05:00` |
+| Worktree state | `clean` |
+| Source commit | `57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16` |
+| Commit timestamp | `2026-11-01T12:20:35-05:00` |
 
 ## Activation and status evidence
 
