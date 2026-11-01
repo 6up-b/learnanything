@@ -154,7 +154,9 @@ class PlannedBlock:
 
     @property
     def withdrawn_path_reading(self) -> bool:
-        """A path reading the RW7b switch took back unread (F1)."""
+        """A path reading taken back unread (RW7b F1): a path switch turned off, or
+        curriculum C1's refresh adoption moved the plan's reading, before it started. It
+        counts no minutes and holds no history (C1 Codex review F1)."""
 
         return self.is_reading and self.outcome == "displaced" and self.ended_reason == READING_PATH_OFF
 

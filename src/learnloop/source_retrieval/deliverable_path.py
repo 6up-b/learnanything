@@ -1644,6 +1644,10 @@ class DeliverablePlanPath:
     judged_state_key: str | None = None
     #: a ``stale`` path: the newest state judged at this depth (never read)
     latest_judged_state_key: str | None = None
+    #: a ``stale`` path: the ledger id of the newest judgment at this depth when the path
+    #: was read (:func:`store.latest_judgment_id`), read before the cache lookup so a
+    #: judgment recorded after it changes it (:func:`judged_since_read`)
+    latest_judgment_id: str | None = None
     #: an ``unreadable`` path: the exception's type (never its text)
     error: str | None = None
 
@@ -1674,6 +1678,7 @@ class DeliverablePlanPath:
         elif self.status == "stale":
             out["judgment"] = None
             out["latest_judged_state_key"] = self.latest_judged_state_key
+            out["latest_judgment_id"] = self.latest_judgment_id
         elif self.status == "unreadable":
             out["error"] = self.error
         return out
@@ -1711,12 +1716,15 @@ def deliverable_plan_path(vault: Any, repository: Repository, goal: Any, *,
             return DeliverablePlanPath(status="no_scope", depth=depth, **base)
         key = inputs.state_key()
         with repository.connection() as connection:
+            # The newest judgment's identity first (Codex review F3): a judgment recorded
+            # after this read, even in the same second, changes it.
+            mark = store.latest_judgment_id(connection, goal_id, depth)
             rows = store.judged(connection, goal_id, depth, key)
             latest = [] if rows else store.latest_judged(connection, goal_id, depth)
         if not rows:
             return DeliverablePlanPath(status="stale", depth=depth, state_key=key,
                                        latest_judged_state_key=str(latest[0]["state_key"]) if latest else None,
-                                       **base)
+                                       latest_judgment_id=mark, **base)
         lines = effective_lines(vault, repository, inputs, rows)
     except Exception as exc:  # noqa: BLE001 - the plan never fails on a path; RW7b decides
         import logging
@@ -1775,20 +1783,21 @@ def plan_deliverable(vault: Any, repository: Repository, *,
     return None, consulted
 
 
-def judged_since(repository: Repository, goal_id: str, depth: str | None, since: str) -> bool:
-    """Whether a judgment of the goal's path at ``depth`` was recorded after ``since`` (an
-    ISO timestamp): the cheap check a plan built on a stale path runs on each read before
-    it reads the path again (C1's refresh adoption)."""
+def judged_since_read(repository: Repository, goal_id: str, depth: str | None, read_mark: str | None) -> bool:
+    """Whether the goal's path at ``depth`` was judged since a read that found it stale:
+    the newest judgment's identity (:func:`store.latest_judgment_id`) is no longer the
+    ``read_mark`` that read recorded. The cheap check a plan built on a stale path runs on
+    each read before it reads the paths again (C1's refresh adoption). Identity, not the
+    clock (Codex review F3): a judgment in the plan's own second, or one recorded between
+    the build's read and the plan's creation stamp, is seen."""
 
     if not depth:
         return False
     with repository.connection() as connection:
         if not store.tables_present(connection):
             return False
-        row = connection.execute(
-            "SELECT 1 FROM deliverable_path_sections WHERE goal_id = ? AND depth = ? AND learner_override IS NULL "
-            "AND created_at > ? LIMIT 1", (goal_id, depth, since)).fetchone()
-    return row is not None
+        mark = store.latest_judgment_id(connection, goal_id, depth)
+    return mark is not None and mark != read_mark
 
 
 #: The daily re-judgment's statuses: ``fresh`` (the nearest in-play path is current: no
@@ -1872,7 +1881,7 @@ __all__ = [
     "guide_slice",
     "honest_label",
     "judge",
-    "judged_since",
+    "judged_since_read",
     "nearest_deliverables",
     "override",
     "path_inputs",

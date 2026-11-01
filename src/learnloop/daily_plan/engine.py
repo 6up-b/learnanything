@@ -301,8 +301,19 @@ def _deliverable_entry(followed: Any, consulted: Sequence[Any], step: Any) -> di
     if entry is None:
         return None
     return {**entry.receipt(), "step": step.receipt() if step is not None else None,
-            "consulted": [{"goal_id": path.goal_id, "status": path.status, "depth": path.depth}
-                          for path in consulted]}
+            "consulted": [_consulted_entry(path) for path in consulted]}
+
+
+def _consulted_entry(path: Any) -> dict[str, Any]:
+    """One deliverable consulted on the way (the receipt's ``consulted``). A stale one also
+    carries the identity of the newest judgment the build saw (``latest_judgment_id``), so
+    refresh adoption sees a later judgment by identity, never by the clock (Codex review
+    F3), whichever deliverable the build followed (F4)."""
+
+    out = {"goal_id": path.goal_id, "status": path.status, "depth": path.depth}
+    if path.status == "stale":
+        out["latest_judgment_id"] = path.latest_judgment_id
+    return out
 
 
 def _reading_on_deliverable(
@@ -3032,18 +3043,29 @@ def _reading_path_switched_off(
     RW7b's choice (the receipt's ``predecessor``; transition reason
     ``deliverable_path_off``); with RW7b's path off too, to the order's choice
     (RW7b's own receipt's ``predecessor``, or the plan's ``predecessor`` when
-    RW7b carried none; ``reading_path_off``)."""
+    RW7b carried none; ``reading_path_off``). The two switches may reach the
+    plan in separate reads (Codex review F2): after a ``deliverable_path_off``
+    transition, RW7b's switch turned off too moves the reading on to the
+    order's choice while unstarted; ``transition`` is then the latest and
+    ``transitions`` keeps both, in order. Nothing else follows a transition
+    (switching C1 back on does not undo it)."""
     reopen = not record.is_open
     if reopen and not _closed_for_want_of_path_reading(record):
         return None
     split = record.split
     receipt = split.get("reading_path")
-    if not isinstance(receipt, Mapping) or receipt.get("transition") is not None:
+    if not isinstance(receipt, Mapping):
+        return None
+    prior = receipt.get("transition")
+    if prior is not None and not (receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2
+                                  and isinstance(prior, Mapping) and prior.get("reason") == DELIVERABLE_PATH_OFF):
         return None
     switched = _path_switch_target(env, receipt)
     if switched is None:
         return None
     target, reason, switch = switched
+    if prior is not None and reason != READING_PATH_OFF:
+        return None  # already on RW7b's reading, and RW7b's path stays on
     current = split.get("reading")
     if current == target:
         return None
@@ -3058,6 +3080,8 @@ def _reading_path_switched_off(
             "stop_reason": record.row.get("stop_reason"),
             "completed_at": record.row.get("completed_at"),
         }
+    if prior is not None:
+        updated["reading_path"]["transitions"] = [dict(prior), updated["reading_path"]["transition"]]
     return updated
 
 
@@ -3085,6 +3109,15 @@ def _path_switch_target(env: PlanEnv, receipt: Mapping[str, Any]) -> tuple[Any, 
     return order, READING_PATH_OFF, switch
 
 
+def _live_reading_blocks(record: PlanRecord) -> list[PlannedBlock]:
+    """The plan's reading blocks that may hold history: every reading block except a path
+    reading taken back unread (:attr:`PlannedBlock.withdrawn_path_reading`: a switch, or
+    C1's refresh adoption, ended it before it started; Codex review F1). Such a block was
+    never read, so it never stops a later move of the plan's reading."""
+
+    return [block for block in record.blocks if block.is_reading and not block.withdrawn_path_reading]
+
+
 def _move_plan_reading(
     env: PlanEnv, record: PlanRecord, now: str, writes: list[tuple[str, str, dict[str, Any]]], *,
     to: Any,
@@ -3098,7 +3131,7 @@ def _move_plan_reading(
 
     split = record.split
     current = split.get("reading")
-    reading_blocks = [block for block in record.blocks if block.is_reading]
+    reading_blocks = _live_reading_blocks(record)
     pending = [block for block in reading_blocks if block.ended_at is None and block.started_at is None]
     if len(pending) != len(reading_blocks):
         return None  # a reading began or ended: kept as it is
@@ -3106,6 +3139,7 @@ def _move_plan_reading(
         writes.append((block.id, "block_ended",
                        {"outcome": "displaced", "reason": READING_PATH_OFF, "minutes_counted": 0.0}))
         block.ended_at = now
+        block.outcome, block.ended_reason = "displaced", READING_PATH_OFF
     old_full = float(split.get("reading_full_minutes") or 0.0)
     new_full = (_estimator(env).reading_minutes(int(to.get("words_left") or 0))
                 if isinstance(to, Mapping) else None)
@@ -3154,16 +3188,22 @@ def _deliverable_path_refreshed(
     env: PlanEnv, record: PlanRecord, now: str, writes: list[tuple[str, str, dict[str, Any]]]
 ) -> dict[str, Any] | None:
     """Curriculum C1 (spec §7.6): the daily re-judgment runs in the background, so the
-    day's plan may be built while the deliverable path is still stale (the build never
-    waits and calls no model: RW7b's choice stands, the receipt says ``stale``). Once a
-    judgment of a deliverable the build found stale is recorded after the build (the
-    daily job's, or a Guide open's), the next read of the open plan reads the paths
-    again and, if one is now fresh, takes C1's step while no reading of the plan has
-    started or ended: the unstarted reading block is ended unread, the split's reading
-    and minutes move (:func:`_move_plan_reading`), and the receipt gains ``refreshed``
-    (recorded once, also when the step is the same or the path has nothing left to
-    plan). The switch reaching the plan afterwards is :func:`_reading_path_switched_off`.
-    A closed plan, a plan whose reading began, or a path still stale is left as it is."""
+    day's plan may be built while a deliverable path is still stale (the build never
+    waits and calls no model: the build passes the stale path over and the receipt's
+    ``consulted`` says ``stale``). Once a deliverable the build found stale has been
+    judged since the build read it (the daily job's judgment, or a Guide open's: the
+    newest judgment's identity is no longer the one the build recorded,
+    :func:`deliverable_path.judged_since_read`; never the clock, Codex review F3), the
+    next read of the open plan reads the paths again and, if the nearest fresh path is
+    now another deliverable's than the build followed (the build fell back on RW7b, or
+    followed a farther fresh path past the stale nearer one, F4), takes C1's choice
+    while no reading of the plan has started or ended: C1's step, or RW7b's choice when
+    that path has nothing left to plan (what a build now would give). The unstarted
+    reading block is ended unread, the split's reading and minutes move
+    (:func:`_move_plan_reading`), and the receipt gains ``refreshed`` (recorded once,
+    also when the reading stays). The switch reaching the plan afterwards is
+    :func:`_reading_path_switched_off`. A closed plan, a plan whose reading began, a
+    path still stale or the same deliverable as the build's is left as it is."""
 
     if not record.is_open:
         return None
@@ -3173,19 +3213,19 @@ def _deliverable_path_refreshed(
             or receipt.get("transition") is not None or receipt.get("refreshed") is not None):
         return None
     entry = receipt.get("deliverable")
-    if not isinstance(entry, Mapping) or entry.get("status") != "stale":
+    if not isinstance(entry, Mapping):
         return None
-    if not deliverable_plan_active(env.vault):
+    # Every deliverable the build found stale: the one it fell back on, or a nearer one it
+    # passed over on the way to a farther fresh path (F4).
+    stale = [c for c in entry.get("consulted") or () if isinstance(c, Mapping) and c.get("status") == "stale"]
+    if not stale or not deliverable_plan_active(env.vault):
         return None
-    built_at = str(record.row.get("created_at") or "")
     from learnloop.source_retrieval import deliverable_path as DP
 
-    stale = [(str(c.get("goal_id")), c.get("depth")) for c in entry.get("consulted") or ()
-             if isinstance(c, Mapping) and c.get("status") == "stale"]
-    if not any(DP.judged_since(env.repository, goal_id, depth, built_at) for goal_id, depth in stale):
+    if not any(DP.judged_since_read(env.repository, str(c.get("goal_id")), c.get("depth"),
+                                    c.get("latest_judgment_id")) for c in stale):
         return None
-    reading_blocks = [block for block in record.blocks if block.is_reading]
-    if any(block.started_at is not None or block.ended_at is not None for block in reading_blocks):
+    if any(block.started_at is not None or block.ended_at is not None for block in _live_reading_blocks(record)):
         return None  # a reading began or ended: kept as it is
     reading_rule = reading_step_rule(env.vault)
     protected = reading_rule != READING_RULE_DL1
@@ -3198,21 +3238,27 @@ def _deliverable_path_refreshed(
         allowed=None if intent is None else (lambda extraction_id: reading_allowed(env, intent, extraction_id)))
     if followed is None or followed.status != "path":
         return None  # still not fresh (or withheld): the build's choice stands
+    if entry.get("status") == "path" and followed.goal_id == entry.get("goal_id"):
+        return None  # the nearer deliverable is still stale: the build's deliverable stands
     current = split.get("reading")
-    if target is None or _same_section(current, target):
+    # C1's step, else RW7b's choice (a fresh path with nothing left to plan), as a build would.
+    desired = target.as_dict() if target is not None else receipt.get("predecessor")
+    if current == desired:
         updated: dict[str, Any] = dict(split)
         change: dict[str, Any] = {"from": current, "to": current, "displaced_block_ids": []}
     else:
-        moved = _move_plan_reading(env, record, now, writes, to=target.as_dict())
+        moved = _move_plan_reading(env, record, now, writes, to=desired)
         if moved is None:  # pragma: no cover - the reading blocks were checked above
             return None
         updated, change = moved
     reading = updated.get("reading")
-    chosen = target is not None and _same_section(reading, target)
+    chosen = target is not None and reading is not None and _same_section(reading, target)
+    rw7b = receipt.get("rw7b")
+    fallback = rw7b.get("chosen_by") if isinstance(rw7b, Mapping) else "order"
     updated["reading_path"] = {
         **receipt,
-        "chosen_by": "deliverable" if chosen else receipt.get("chosen_by"),
-        "label": (target.path_label if chosen and target is not None else receipt.get("label")),
+        "chosen_by": "deliverable" if chosen else (fallback if reading is not None else None),
+        "label": reading.get("path_label") if isinstance(reading, Mapping) else None,
         "same_as_predecessor": _same_section(receipt.get("predecessor"), reading),
         "deliverable": _deliverable_entry(followed, consulted, step if chosen else None),
         "refreshed": {"at": now, "reason": DELIVERABLE_PATH_REFRESHED, "was": dict(entry), **change},

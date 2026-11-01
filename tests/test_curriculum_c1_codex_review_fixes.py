@@ -173,16 +173,19 @@ def test_f3_a_judgment_between_the_stale_read_and_the_plans_stamp_is_adopted(tmp
     ctx = context(c1.paths.root)
     call(ctx, "get_daily_plan", {})
     assert landed
-    built = _split(c1.repository)
-    assert built["reading_path"]["deliverable"]["status"] == "stale"
     with c1.repository.connection() as connection:
         judged_at = connection.execute(
             "SELECT MAX(created_at) FROM deliverable_path_sections WHERE learner_override IS NULL").fetchone()[0]
         created_at = connection.execute("SELECT created_at FROM daily_plans").fetchone()[0]
     assert judged_at < created_at  # the judgment predates the plan's stamp
-    call(ctx, "get_daily_plan", {})
+    # The build read the path stale; the plan's first reconcile (in the same call) sees the
+    # newer judgment by identity and takes the fresh step.
     split = _split(c1.repository)
     assert _at(split["reading"]) == ("ext_book", "ch_det") and split["reading_path"]["chosen_by"] == "deliverable"
+    refreshed = split["reading_path"]["refreshed"]
+    assert refreshed["was"]["status"] == "stale" and _at(refreshed["from"]) == ("ext_book", "ch_eigen")
+    call(ctx, "get_daily_plan", {})
+    assert _split(c1.repository)["reading_path"]["refreshed"] == refreshed
 
 
 def test_f3_without_a_new_judgment_the_stale_plan_stays_and_reads_no_path(tmp_path, monkeypatch):
