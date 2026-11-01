@@ -251,3 +251,120 @@ MemorySwapMax=1G -- ...`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one run 
 - Codex review fixes: `docs/reviews/reader-rw5d-p2b-manim-codex-review.md`.
 - The `SketchFigure.test.tsx` "draws a new sample with another seed" test timed out once (2,021 ms) when the whole
   figures folder ran in parallel with 4 workers; it passes alone (19/19). Pre-existing timing sensitivity, not touched.
+
+## Landing onto main
+
+The branch `reader/rw5d-p2b-manim` (worktree `learnanything-merge2`; stage, Codex review round 1 and the re-review
+fixes, stage tip `82224fa284`) is merged with main `0708e12a18` (substrate facet write-on-change). The orchestrator
+fast-forwards main and pushes.
+
+### Codex state (job `20261101-104837-N0cgtR`)
+
+F1, F2, F3 (High), F12 and F13 CONFIRMED-FIXED; F4-F11 fixed in round 1. F14 REOPENED only for the case where a failed
+animation correction ages out of the newest-500 rich jobs window (ruled Low, R1 below).
+
+### Merges and regeneration
+
+| commit | what |
+|---|---|
+| `06439a8a28` | Merge of main `0708e12a18` (four commits of the substrate facet write-on-change stage: `db/repositories.py`, a new test file, two review records). **No conflicts.** Main touched no config, template, parameter registry, schema, frontend or `src-tauri` file, so no fingerprint was recomputed and no snapshot note merged. |
+| `0ed3be17c7` | References and the desktop catalog regenerated on the merged tree. `db_generate_reference.py` (358 table notes, 359 notes restamped to the merge; main's `repositories.py` change moves 4 "None found by exact static reference scan" lines and one source path), `db_validate_reference.py` errors `[]`, `validate_vault.py` passes (1365 notes, 1363/1363 reachable). `desktop_generate.py` (297 TS/TSX + 5 Rust notes): the re-review's `tests/test_figure_rich_rereview_fixes.py` now appears among `figureSpec.ts`'s cross-boundary contracts (the stage's catalog predated that file). `desktop_validate.py` passes byte for byte (297/297 TS + 5/5 Rust, ACTIVE 302 = 289 entry-build + 2 compiler-implicit + 6 vitest-support + 5 native-entry). |
+
+Main's tip was still `0708e12a18` just after the gate (re-read after the owner lane), so no second merge was needed and
+nothing was rerun for one.
+
+### Gate (at `0ed3be17c7`)
+
+Every Python run under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR` outside the
+worktree, `LEARNLOOP_AD_MODELS=off`; every pytest under `flock /tmp/learnloop-fullsuite.lock` inside `systemd-run
+--user --scope` (full suite 10G, the rest 5G); vitest, npm and cargo in a 5G scope. No live model call, no Manim render.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Full pytest** (`-n 8 --dist worksteal`, 10G): **23234 passed, 90 skipped, 47 xfailed, 0 failed** (36:44). The only
+  new skip is `test_manim_sandbox_hostile.py::test_the_real_capped_scope_launches_the_sandbox_without_the_session_bus`
+  ("no user systemd scope can start here": `env -i` drops the session bus).
+- **Real scope and bubblewrap, with the session bus:** `tests/test_manim_sandbox_hostile.py`, `tests/test_pf_sandbox.py`,
+  `tests/test_concept_animation_service.py`, `tests/test_sidecar_animation.py` once more with `DBUS_SESSION_BUS_ADDRESS`
+  and `XDG_RUNTIME_DIR` passed through (`-n 6`): **53 passed, 0 skipped** (the real capped scope + bwrap launch ran;
+  the shared hardened profile, R5, under the PF sandbox and the inspector's service).
+- **Durability lane** (`-m durability`, `-n 6`): **178 passed, 1 skipped**.
+- **Owner lane** (`-m owner_vaults`, `-n 6`, fresh backup-API copies, `learnloop.db.copies.copy_tree_with_databases`,
+  of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in the gitignored
+  `fixtures-local/landing-p2b/`): **83 passed, 2 failed, 4 skipped**, the expected counts. The failures are exactly the
+  two known ones, `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and
+  `test_placement_fixture_copies::…[arxiv_v2]`; the skips are the retired vaults with no copy.
+- **Frontend** (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck` clean; the whole vitest
+  (`--maxWorkers=4`): **246 files, 2353 passed** (the `SketchFigure.test.tsx` timing note above did not recur);
+  `npm run frontend:build` ok.
+- `cargo check --manifest-path src-tauri/Cargo.toml`: finished.
+
+No unexpected failure, so nothing was rerun alone.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-p2b-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). Main's code is `git archive 0708e12a18` and the branch's `git archive 0ed3be17c7`, both with `src/`
+and `migrations/`. Each copy, under its own side's code: a bare `upgrade` (**mvp-0.35 → mvp-0.40**, head 228), the
+desktop start (`SidecarContext.load`, primary), `migrate_vault` (0 applied), `rebuild-derived-state`. Then, each on
+a further copy: the Today queue (3 variants, frozen clock), the daily plan dump (frozen clock, deterministic ids) and
+`figures_smoke.py` (reads only: `reader.prompt_contract`, `reader.figures` on every reading with a ready render view
+of a reader-enabled source, and the author's menu `tiers_allowed`; table counts before and after). Every process ran
+under `env -i` with empty `HOME`, `CODEX_HOME` and config dir and an audit hook that logs every process start and
+refuses non-loopback sockets and Codex process starts. Nothing was requested, built or rendered.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| upgrade, desktop start, rebuild-derived-state (main and branch) | mvp-0.35 → mvp-0.40, ok (70 attempts replayed) | same (3) | same (3) |
+| Today, branch vs main | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| daily plan dump, branch vs main | **identical** (84,699 bytes) | identical (124,024) | identical (32,436) |
+| readings listed by `reader.figures` | 3 | 2 | 4 |
+| `figures` arrays, branch vs main | identical (each empty: the copies hold no stored figure and no figure request) | same | same |
+| `richPending`, branch | `[]` on every reading (absent on main) | same | same |
+| author's menu (branch) | `grammar` (+ `sketch` with the sketch tier): **no `manim`, no `js_animation`** | same | same |
+| `figure_rich` jobs; tables changed by the reads | 0; none (main and branch) | same | same |
+| prompt contract `figures`, branch vs main | branch adds only `rich: {manimOptIn: "ask"}` | same | same |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+- **The prompt contract's Manim entry:** it appears because the Manim tier concerns this machine (Linux, `bwrap` on
+  PATH; Manim is a core dependency), with the opt-in never asked (`ask`). It is the stage's designed state for a fresh
+  or upgraded vault here: the desktop would show *allow · not now* once on a press. With no opt-in, Manim is on no
+  menu (row above), so nothing a learner sees changes until *allow*; where Manim can't run the key is absent (stage
+  record). The check reads `manim_runtime_state(probe=False)`: no Manim probe process ran.
+- **Model call receipts:** across the 12 smoke databases compared with their base copies, **0 new**. probability's 56
+  historical rows (42 completed, 14 failed) are unchanged in each copy.
+- **Audit:** the audit log was never written, so there was no process start (no Manim, bwrap, systemd-run or Codex
+  process) and no socket connect of any kind.
+- No Manim render ran and nothing was rendered on owner data.
+
+### Orchestrator rulings (verbatim)
+
+- R1 (F14 remainder): "Ruled Low under the proportionate protection bar: it needs 500 newer rich (Manim) jobs after an unresolved failed correction, which are opt-in, minutes-long builds; the earlier animation stays shown. Queued follow-up: discover unresolved correction failures from durable figure/request rows instead of the job window."
+- R2: "The §9b.4 rule that model-written free text (narration, title, what it shows, assumptions) must not read like a check label is not built in this stage. Queued as a follow-up to land before the owner gives the Manim opt-in; owner note. The sketch tier's impersonates check keeps covering names and ids."
+- R3: "figure.rich_retry on a build with no stored figure requeues the same job and generation (a paid answer is recovered, not re-asked); 'try again' after a stored failed figure starts a new generation. Accepted."
+- R4: "figures.rich_tiers_enabled defaults on (Q18) but Manim stays off every menu until the standing opt-in, so a fresh or upgraded vault changes nothing. Accepted. js_animation stays absent behind JS_ANIMATION_BUILD_FLAG until G-SM14 (owner permission)."
+- R5: "The shared bwrap profile hardening (--unshare-user --disable-userns --cap-drop ALL) now also applies to the PF sandbox and the concept inspector. Accepted; the full gate covers them."
+
+### Owner items
+
+1. **The three-real-requests checkpoint:** three real figure requests built on the plan (the spec asks for three
+   `js_animation` and two `manim`; with the JS half off, the Manim ones), their measured latencies and the owner's yes
+   or no on the feel, with the rich-tier report. It needs `figures.manim_opt_in = "standing"` on a `fixtures-local`
+   copy, so it waits for item 2.
+2. **The Manim opt-in, after R2's follow-up:** the §9b.4 label-wording rule over a Manim figure's model-written free
+   text lands first; only then should *allow* be given (in the Reader, or `figures.manim_opt_in = "standing"`).
+3. **G-SM14 for `js_animation`:** the real Linux webview check (owner permission); until then
+   `JS_ANIMATION_BUILD_FLAG = False` and the JS half (stage record, open points) is not built.
+
+### Open items
+
+1. **R1's follow-up (queued):** find unresolved failed animation corrections from the durable figure and request rows,
+   not the newest-500 rich jobs window.
+2. **R2's follow-up (queued, before the opt-in):** the §9b.4 label-wording rule over narration, title, what it shows
+   and assumptions.
+3. From the stage record, unchanged: *usually about N min* on the pending lines (the report has the p50; the desktop
+   does not read it yet); the concept inspector keeps its per-run consent click (deviation 7); the adversarial review
+   of the Manim hardening against the hostile corpus (spec §9b.5); the default rich author route `chatgpt_medium`
+   (deviation 4), to revisit at the owner checkpoint.
+4. Pre-existing on main, not part of this landing: the Python module catalog (`module_generate.py` /
+   `module_validate.py`) is stale (end-of-queue docs workflow).
