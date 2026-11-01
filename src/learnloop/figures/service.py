@@ -2392,7 +2392,10 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
     stays the chain's shown version), so it stays as a ``failed`` line with
     the stored reason (``figure.rich_retry`` asks again,
     :func:`rich_revision_retry`), until a later correction of the same
-    figure replaces it."""
+    figure replaces it. Reader follow-ups Nov 1b (P2b ruling R1): such a
+    failure is found from the durable rows (the stored failure, its request,
+    and that request's job over the whole queue), not only among the jobs
+    the queue's recent window returns."""
 
     if not enabled(vault) or not rich_enabled(vault):
         return []
@@ -2409,7 +2412,22 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
                     if store.has_tables(connection) else []
         return stored
 
-    for job in RICH.rich_jobs(repository):
+    def failed_corrections() -> list[dict[str, Any]]:
+        # P2b ruling R1: the stored failures of animation corrections, newest
+        # first, each with its job (by its request, over the whole queue).
+        found = []
+        for row in reversed(stored_rows()):
+            if row.get("verification") != "failed" or row.get("spec_version") not in RICH_SPEC_VERSIONS \
+                    or not row.get("supersedes_id") or not row.get("request_id"):
+                continue
+            job = RICH.rich_job_for_request(repository, str(row["request_id"]))
+            if job is not None and (job.get("payload") or {}).get("supersedes_id") == row["supersedes_id"]:
+                found.append(job)
+        return found
+
+    jobs = RICH.rich_jobs(repository)
+    windowed = {str(job.get("id")) for job in jobs}
+    for job in [*jobs, *(job for job in failed_corrections() if str(job.get("id")) not in windowed)]:
         payload = job.get("payload") or {}
         base = payload.get("base") or {}
         if payload.get("fast_figure_id") or str(base.get("extraction_id") or "") != str(extraction_id):

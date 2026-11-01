@@ -791,6 +791,18 @@ def rich_job_for_quick(repository: Repository, fast_figure_id: str) -> dict[str,
     return dict(job) if job is not None else None
 
 
+def rich_job_for_request(repository: Repository, request_id: str) -> dict[str, Any] | None:
+    """The newest rich job of this figure request, in any state, looked up by
+    its payload over the whole queue (Reader follow-ups Nov 1b, RW5d P2b
+    ruling R1: a stored failure's job, however many rich jobs ran since)."""
+
+    try:
+        job = repository.newest_ingest_job_by_payload(RICH_JOB_TYPE, "request_id", request_id)
+    except sqlite3.Error:
+        return None
+    return dict(job) if job is not None else None
+
+
 def rich_job_id_for_quick(repository: Repository, fast_figure_id: str) -> str | None:
     job = rich_job_for_quick(repository, fast_figure_id)
     return str(job["id"]) if job is not None else None
@@ -849,6 +861,7 @@ __all__ = [
     "rich_context",
     "rich_job_for",
     "rich_job_for_quick",
+    "rich_job_for_request",
     "rich_job_id_for_quick",
     "rich_jobs",
     "rich_on_menu",
