@@ -177,3 +177,81 @@ Test files run: test_agent_run_tokens.py, test_ai_config.py, test_ai_runtime.py,
 2. **First-attempt figure lost.** A label hit on the first attempt spends the one repair call on the wording. If that repair then fails for another reason (numerics, a schema error), the first attempt's figure is not kept as a fallback, the same as for any other first-attempt problem. Keeping a stripped first attempt as a fallback (as the Manim pacing repair does) would be a small follow-up if it matters in practice.
 3. ~~**"matches the book" is not matched.**~~ Superseded by the Codex review (F1): N-a's source-verification claim is matched on its own (`SOURCE_CLAIM_VERBS`, `SOURCE_NOUNS`).
 4. **The JS half.** `js_animation`'s `html`/`js` string literals (§9b.4) wait for the JS half (G-SM14).
+
+## Landing onto main
+
+Branch `reader/followups-nov1b` in worktree `learnanything-merge2`, landed onto main `e9693b3700` (curriculum C2 notes, migration 229, head fixture `migration_head_229`). The orchestrator fast-forwards and pushes. No migration, no config key, no successor. No paid or live model call. Cost: $0.
+
+### Step 0: the orchestrator's scoped verify remainder (F1), fixed
+
+The scoped Sol verify (job `20261101-151747-gKdoDv`) found F2 and F4 closed, and F3's presentation coverage closed. It left one remainder of F1: `This curve matches **the book**.` was not matched, because the Markdown-normalized lines ran only the badge forms and not the source claim. `label_like` now also reads the text as its Markdown renders, and runs the label phrases and the source claim on it:
+
+- emphasis, code spans, and link or image targets are dropped;
+- the lines are joined without their leads.
+
+So a claim inside formatting, or one split over a line break, is matched. 23 tests were written fail-first: before the fix, 9 failed and 14 passed (the 8 ordinary-prose negatives, plus 6 cases the plain fold already caught). After it, the wording file has 87 passed and the figure set has 850 passed. Commit `ad0b2759a6`. The full account is in the Codex review record, "Orchestrator scoped verify remainder, fixed".
+
+### Merges
+
+- **`6cdf5499af`: merge of main `e9693b3700`** (a merge, not a rebase).
+  - Conflicts: only the generated references (358 DB table notes, 77 config field notes, the field catalog, the DB index). Main's side was taken for each, then regenerated.
+  - `params/parameter_registry.py` auto-merged and keeps both sides' entries: C2's `notes.*` rules and this branch's `figure_labels:MIN_SEGMENT_WORDS`.
+  - `config/template.py` did not conflict. The branch does not touch it, so no fingerprint changed.
+- **`de84c79024`: regenerated after the merge**, with `.pyc` cleared first:
+  - `db_generate_reference.py` wrote 360 table notes; `db_validate_reference.py` errors `[]`;
+  - `desktop_generate.py` and `desktop_validate.py`: passed, 299/299 TS/TSX and 5/5 Rust, byte for byte;
+  - `module_validate.py`: links all resolved;
+  - `validate_vault.py`: passed, 1370 notes, 1368/1368 reachable.
+- **After the gate**, main was still `e9693b3700`, so no second merge was needed.
+
+### Gate (tree `de84c79024`)
+
+The doc scripts and every Python run ran under `env -i` with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and with `TMPDIR` outside the worktree.
+
+- **`lint-imports --no-cache`:** 37 kept, 0 broken.
+- **Full pytest** (`flock /tmp/learnloop-fullsuite.lock`, 10G scope, `-n 8 --dist worksteal`): **23453 passed, 0 failed**, 90 skipped, 47 xfailed (38:47). Nothing needed a rerun.
+- **Durability lane** (`-m durability`, 5G, `-n 6`): **179 passed**, 1 skipped.
+- **Owner lane** (`-m owner_vaults`, 5G, `-n 6`): `LEARNLOOP_OWNER_VAULTS` named fresh backup-API copies (`copy_tree_with_databases`) of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}`, in the gitignored `fixtures-local/landing-nov1b/`.
+  - **83 passed, 2 failed, 4 skipped**, as expected.
+  - The 2 failures are the known pre-existing owner-data ones: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]`.
+- **Frontend** (this branch has no frontend change; main's merge brought 12 `apps/` files): `npm install` ok, `typecheck` ok, whole vitest (`--maxWorkers=4`, 5G) **247 files, 2367 tests passed**, `frontend:build` ok.
+- **cargo:** not run. `src-tauri` is identical to main.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-nov1b-smoke/`)
+
+**Setup:**
+
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset.
+- `env -i` with an empty `HOME`, `CODEX_HOME` and config directory.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects and Codex process starts.
+- Main's code (`e9693b3700`) against the branch's (`de84c79024`), each a `git archive` with `migrations/`.
+- On each copy: `upgrade` mvp-0.35 → mvp-0.40 (head 229), a primary load, `rebuild-derived-state`.
+- Nothing was requested, rendered or built. No Manim or bwrap ran.
+
+**Results:**
+
+- **Today and the daily plan** are byte-identical, main against branch:
+  - linear_algebra: 525266 B and 84705 B;
+  - probability: 740827 B and 124030 B;
+  - arxiv_v2: 344204 B and 32442 B.
+- **`reader.figures`** listings and `reader.prompt_contract` show 0 differences on 9 real readings (3 + 2 + 4). These copies hold no stored figure, so every listing was empty on both sides. The stored-figure presentation path is covered by the F3 and remainder tests.
+- **Proxy probe.** The real `OpenAIChatProviderClient` made one metered call attempt to `http://127.0.0.1:9/v1`, with `HTTPS_PROXY`, `HTTP_PROXY` and `ALL_PROXY` (both cases) set to `http://proxy.invalid:3128`.
+  - Branch code: it connected only to `('127.0.0.1', 9)`, three attempts (the call and its retries). No lookup or connect touched `proxy.invalid`.
+  - Main's code, as a control: it looked up `proxy.invalid` and made no connect, so the probe can tell the two apart.
+  - Both ended with `CodexUnavailable: Connection error.`
+- **`rebuild --shadow`** on the branch's copies: facet, mastery and schedule are 0/0/0 on all three, and the live database is unchanged.
+- **Receipts:** 0 new `model_call_receipts` across the 12 databases compared with base.
+- **Audit log:** 5 lines (two `uname -p` starts, three `127.0.0.1:9` connects), 0 refused, no non-loopback socket.
+
+### Rulings (orchestrator)
+
+- R1: "F3's request for a version/successor is rejected: the rule changes which figure text is shown, not evidence (spec §15); the figure tiers' existing switches cover it. Accepted."
+- R2: "Stored Manim videos are shown with label-like transcript lines replaced in LearnLoop's own words rather than withheld (proportionate bar); flagged to the owner."
+- R3: "With the §9b.4 label rule landed, the standing Manim opt-in is the owner's to give."
+
+### Open items
+
+1. **Owner:** the standing Manim opt-in is now the owner's to give (R3). R2 (stored Manim transcripts shown with label-like lines replaced, not withheld) is flagged to the owner.
+2. **Keeping a stripped first attempt as a fallback.** A label hit on the first attempt spends the one repair call. If that repair then fails for another reason, the first attempt's figure is not kept (open item 2 above). This is a small follow-up if it matters in practice.
+3. **`js_animation` literals.** The `html`/`js` string literals (§9b.4) wait for the JS half (G-SM14, which failed its probe; the sketch tier stays off).
