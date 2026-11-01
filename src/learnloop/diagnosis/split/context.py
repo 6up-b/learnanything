@@ -427,6 +427,7 @@ def _render_attempt(
     neighborhood: Neighborhood,
     *,
     with_answer: bool,
+    prior: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     score = (
         f"{attempt.score:g}/{attempt.max_points:g}"
@@ -460,6 +461,15 @@ def _render_attempt(
     if with_answer:
         row["item_prompt"] = attempt.item_prompt
         row["learner_answer_md"] = attempt.learner_answer_md
+    if prior:
+        # Learner-blindness relax, the prior-analysis arm's ``on`` arm only
+        # (``prior_analysis``): what the diagnoser wrote about this attempt
+        # then, and an earlier workbench attempt's step trace.
+        earlier = prior.get("earlier_diagnosis")
+        if earlier:
+            row["earlier_diagnosis"] = {"written": earlier.get("written"), "analysis_md": earlier.get("analysis_md")}
+        if prior.get("workbench_trace"):
+            row["workbench_trace"] = dict(prior["workbench_trace"])
     return row
 
 
@@ -650,11 +660,19 @@ def assemble_diagnosis_context(
     snapshot_manifest: Mapping[str, Any] | None = None,
     token_budget: int | None = None,
     registry_retriever: RegistryRetriever | None = None,
+    prior_analysis: Any = None,
 ) -> AssembledContext:
     """Assemble one context deterministically. ``mode`` overrides the setting.
 
     ``registry_retriever`` (S1.4a) adds the whole-vault registry shortlist;
     without one the registry block is exactly the neighbourhood set.
+
+    ``prior_analysis`` (learner-blindness relax: a
+    :class:`~learnloop.diagnosis.split.prior_analysis.PriorAnalysis`): its
+    arm is recorded on the receipt (``prior_analysis``); in the ``on`` arm
+    each shown prior attempt also carries its earlier diagnosis and workbench
+    trace, the disclosures say so, and the earlier diagnoses are recorded as
+    read. None, or the ``off`` arm, renders and hashes exactly as before.
     """
 
     mode = mode or settings.history_mode
@@ -756,6 +774,14 @@ def assemble_diagnosis_context(
 
     hypothesis_rows = list(hypotheses)
     registry_rows = list(registry)
+    prior_by_id: Mapping[str, Mapping[str, Any]] = {}
+    if prior_analysis is not None:
+        receipt["prior_analysis"] = prior_analysis.arm.receipt()
+        if prior_analysis.arm.on:
+            from learnloop.diagnosis.split.prior_analysis import NOTE as PRIOR_ANALYSIS_NOTE
+
+            prior_by_id = dict(prior_analysis.read([attempt.attempt_id for attempt in prior], before.completed_at))
+            disclosures["prior_analysis"] = PRIOR_ANALYSIS_NOTE
     if current.workbench_trace:
         # RW2b fix round 15: the FINAL prompt-construction boundary, after
         # every blocking step (the registry's embeddings above): the trace
@@ -774,15 +800,18 @@ def assemble_diagnosis_context(
         built["repair_history"] = [_render_repair(record) for record in repairs]
         if mode == "full":
             built["history"] = [
-                _render_attempt(attempt, neighborhood, with_answer=attempt.non_pass)
+                _render_attempt(attempt, neighborhood, with_answer=attempt.non_pass,
+                                prior=prior_by_id.get(attempt.attempt_id))
                 for attempt in history_rows
             ]
         else:
             built["success_history"] = [
-                _render_attempt(attempt, neighborhood, with_answer=False) for attempt in success_rows
+                _render_attempt(attempt, neighborhood, with_answer=False, prior=prior_by_id.get(attempt.attempt_id))
+                for attempt in success_rows
             ]
             built["failure_history"] = [
-                _render_attempt(attempt, neighborhood, with_answer=False) for attempt in failure_rows
+                _render_attempt(attempt, neighborhood, with_answer=False, prior=prior_by_id.get(attempt.attempt_id))
+                for attempt in failure_rows
             ]
         built["disclosures"] = dict(disclosures)
         return built, render_context(built, current.render())
@@ -866,6 +895,18 @@ def assemble_diagnosis_context(
         # The neighbourhood block names each topic by its title (codex review F2).
         titles=shown_titles(vault, [entry["learning_object_id"] for entry in neighborhood_block["learning_objects"]]),
     )
+    if prior_by_id:
+        # The prior-analysis arm: each earlier diagnosis shown is a derived
+        # text read (its own record folds in, diagnosis input provenance).
+        from learnloop.diagnosis.split.provenance import DiagnosisReads
+
+        shown_diagnoses = tuple(
+            ("diagnosis", str(earlier["diagnosis_id"]), str(earlier.get("full_text") or "") or None)
+            for attempt in shown_attempts
+            if (earlier := (prior_by_id.get(attempt.attempt_id) or {}).get("earlier_diagnosis"))
+        )
+        if shown_diagnoses:
+            reads = reads.join(DiagnosisReads(records=shown_diagnoses))
     return AssembledContext(
         mode=mode,
         blocks={key: built[key] for key in STABLE_BLOCKS if key in built},
