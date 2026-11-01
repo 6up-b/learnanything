@@ -224,6 +224,51 @@ def require_span_keys(repository: Any, keys: Iterable[str]) -> None:
         require_source_identity(repository, extraction_id=reading, span_ids=spans)
 
 
+def require_reading_span_keys(repository: Any, *, extraction_id: str, span_keys: Iterable[str] | None,
+                              span_ids: Iterable[str | None] = ()) -> None:
+    """Reader follow-ups Nov 1 (CA6b open item 1): the reading-only RPCs'
+    passages, extraction-qualified. Where the request's reading id was the only
+    provenance on the wire, a span id another book also has (extractors number
+    every book ``s1``, ``s2``, ...) passed the membership check. The Reader now
+    sends each passage as ``extraction:span``, formed where the passage was
+    taken, so the guard can tell. With keys sent (``span_keys`` not None):
+
+    * each key names its reading: one naming another reading than the
+      request's is a mismatch (``span_key_reading``), so another book's
+      colliding span id cannot be attributed to this one;
+    * every bare span id the request also names must be among the keys
+      (``span_key_missing``): the keys are the passages, never a decoration;
+    * each keyed span must be a block of the reading (``span``).
+
+    ``None``: the request sent no keys (a caller that predates them); its bare
+    ids are checked by membership alone, as before."""
+
+    if span_keys is None:
+        return
+    keyed: list[str] = []
+    for key in span_keys:
+        reading, sep, span = str(key).rpartition(":")
+        if not sep or not reading or not span:
+            raise SpanExtractionMismatch(
+                f"The passage key {key!r} does not name its reading.",
+                extraction_id=extraction_id, reason="span_key", span_ids=[],
+            )
+        if reading != extraction_id:
+            raise SpanExtractionMismatch(
+                f"The passage {span!r} named here is a passage of {reading!r}, not of the reading {extraction_id!r}.",
+                extraction_id=extraction_id, reason="span_key_reading", span_ids=[span],
+            )
+        keyed.append(span)
+    named = set(keyed)
+    unkeyed = [span for span in dict.fromkeys(str(value) for value in span_ids if value) if span not in named]
+    if unkeyed:
+        raise SpanExtractionMismatch(
+            f"The passage(s) {', '.join(unkeyed)} are named without their reading.",
+            extraction_id=extraction_id, reason="span_key_missing", span_ids=unkeyed,
+        )
+    require_source_identity(repository, extraction_id=extraction_id, span_ids=keyed)
+
+
 def require_exchange_in_extraction(repository: Any, *, extraction_id: str, exchange_id: str | None) -> None:
     """A Reader exchange named with a reading must have been asked in it. An
     exchange of another reading is a mismatch. One that does not exist at all
@@ -254,6 +299,7 @@ __all__ = [
     "selection_readings",
     "SpanExtractionMismatch",
     "require_exchange_in_extraction",
+    "require_reading_span_keys",
     "require_source_identity",
     "require_span_keys",
     "selection_span_ids",

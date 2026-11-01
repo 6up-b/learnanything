@@ -116,6 +116,9 @@ class ReaderAskInput(ParamsModel):
     retrieval_intent: Literal["explain", "alternative", "remediate"] = "explain"
     personalized: bool | None = None
     workbench_session_id: str | None = None
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=200)
 
 
 def _reader_answer_mode(vault: Any, requested: str | None) -> str:
@@ -137,7 +140,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id,
-                     span_ids=[params.span_id, *(params.selection_span_ids or [])], exchange_id=params.parent_exchange_id)
+                     span_ids=[params.span_id, *(params.selection_span_ids or [])], exchange_id=params.parent_exchange_id,
+                     reading_span_keys=params.span_keys)
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
@@ -294,13 +298,17 @@ class ReaderSetAnswerModeInput(ParamsModel):
     extraction_id: str
     span_id: str
     answer_mode: str
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=8)
 
 
 @method("reader.set_answer_mode", ReaderSetAnswerModeInput)
 def reader_set_answer_mode(ctx: SidecarContext, params: ReaderSetAnswerModeInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
-    require_identity(repository, extraction_id=params.extraction_id, span_ids=[params.span_id])
+    require_identity(repository, extraction_id=params.extraction_id, span_ids=[params.span_id],
+                     reading_span_keys=params.span_keys)
     try:
         event_id = RD.set_answer_mode(
             repository,
@@ -1163,6 +1171,9 @@ class ReaderEnqueueRequestInput(ParamsModel):
     annotation_id: str | None = None
     commitment_id: str | None = None
     client_idempotency_key: str | None = None
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=8)
 
 
 @method("reader.enqueue_request", ReaderEnqueueRequestInput)
@@ -1170,7 +1181,7 @@ def reader_enqueue_request(ctx: SidecarContext, params: ReaderEnqueueRequestInpu
     _vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id, span_ids=[params.span_id],
-                     source_id=params.source_id, revision_id=params.revision_id)
+                     source_id=params.source_id, revision_id=params.revision_id, reading_span_keys=params.span_keys)
     try:
         result = RR.enqueue_request(
             repository, source_id=params.source_id, revision_id=params.revision_id,

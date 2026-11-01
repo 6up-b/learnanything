@@ -434,6 +434,9 @@ class LibraryAskInput(ParamsModel):
     personalized: bool | None = None
     expand: list[str] | None = None
     workbench_session_id: str | None = None
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=40)
 
 
 def _resolved_or_none(repository: Any, extraction_id: str | None) -> str | None:
@@ -461,7 +464,8 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
         if extraction_id is None:
             raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
         # Reader CA6b fix round 5: the anchor's passages are this reading's (fail closed).
-        require_identity(repository, extraction_id=extraction_id, span_ids=params.span_ids)
+        require_identity(repository, extraction_id=extraction_id, span_ids=params.span_ids,
+                         reading_span_keys=params.span_keys)
     caller = reader_caller(vault, repository, extraction_id=extraction_id,
                            workbench_session_id=params.workbench_session_id)
     record = _caller_record(caller, workbench_session_id=params.workbench_session_id)

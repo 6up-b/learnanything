@@ -41,6 +41,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import Field
+
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.reader import active_reading as AR
@@ -285,6 +287,9 @@ class ReaderRouteIntentInput(ParamsModel):
     speculative: bool = False
     # The learner's own notes: the Decider is offered the anchor-free actions only.
     notes: bool = False
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=200)
 
 
 @method("reader.route_intent", ReaderRouteIntentInput)
@@ -297,7 +302,7 @@ def reader_route_intent(ctx: SidecarContext, params: ReaderRouteIntentInput) -> 
     if not spans:
         raise SidecarError("validation_error", "A routing needs the selection's passages.")
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
-    require_identity(repository, extraction_id=extraction_id, span_ids=spans)
+    require_identity(repository, extraction_id=extraction_id, span_ids=spans, reading_span_keys=params.span_keys)
     _refuse_held_out(vault, repository, extraction_id, spans)
     text = params.text.strip()
     if not text:
@@ -445,6 +450,9 @@ class ReaderActiveQuestionInput(ParamsModel):
     extraction_id: str
     span_ids: list[str]
     style: str
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=200)
 
 
 @method("reader.active_question", ReaderActiveQuestionInput)
@@ -461,7 +469,7 @@ def reader_active_question(ctx: SidecarContext, params: ReaderActiveQuestionInpu
     extraction_id = _extraction(repository, params.extraction_id)
     spans = [str(span) for span in params.span_ids if span]
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
-    require_identity(repository, extraction_id=extraction_id, span_ids=spans)
+    require_identity(repository, extraction_id=extraction_id, span_ids=spans, reading_span_keys=params.span_keys)
     try:
         view = RQC.selection_view(repository, extraction_id=extraction_id, anchor_span_ids=spans, style=params.style)
     except RQC.ReaderQuickCheckError as exc:

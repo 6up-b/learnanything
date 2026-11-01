@@ -181,6 +181,9 @@ class FigureRequestInput(ParamsModel):
     #: or the tutor answer's question event).
     origin: Literal["selection", "library", "tutor"] = "selection"
     offer_ref: str | None = Field(default=None, max_length=200)
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=41)
 
 
 def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | None) -> set[tuple[str, str]]:
@@ -300,7 +303,8 @@ def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str
 
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
                     region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
-                    offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool) -> dict[str, Any]:
+                    offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool,
+                    span_keys: list[str] | None = None) -> dict[str, Any]:
     """One figure request, from either RPC: validated, its caller derived and
     its held-out material refused here, on the request path, before any job or
     model call; then a build job."""
@@ -313,7 +317,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     # their readings' own (fail closed, before any job).
     if extraction_id:
         require_identity(repository, extraction_id=extraction_id,
-                         span_ids=[*span_ids, (region or {}).get("span_id")])
+                         span_ids=[*span_ids, (region or {}).get("span_id")], reading_span_keys=span_keys)
     if reading_at and reading_at.get("extraction_id"):
         require_identity(repository, extraction_id=str(reading_at["extraction_id"]), span_ids=[reading_at.get("span_id")])
     if origin in FS.RESERVED_ORIGINS:
@@ -399,13 +403,16 @@ def reader_figure_request(ctx: SidecarContext, params: FigureRequestInput) -> di
     region = {"span_id": params.region.span_id, "bbox": list(params.region.bbox)} if params.region else None
     return _request_figure(ctx, origin=params.origin, extraction_id=params.extraction_id,
                            span_ids=list(params.span_ids), region=region, goal_text=None, reading_at=None,
-                           offer_ref=params.offer_ref, host_ref={}, cold_active=False)
+                           offer_ref=params.offer_ref, host_ref={}, cold_active=False, span_keys=params.span_keys)
 
 
 class AnchorInput(ParamsModel):
     extraction_id: str
     span_ids: list[str] = Field(default_factory=list, max_length=40)
     region: RegionInput | None = None
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=41)
 
 
 class ReadingAtInput(ParamsModel):
@@ -454,7 +461,8 @@ def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[st
     return _request_figure(ctx, origin=params.origin, extraction_id=anchor.extraction_id if anchor else None,
                            span_ids=list(anchor.span_ids) if anchor else [], region=region,
                            goal_text=params.goal_text, reading_at=reading_at, offer_ref=params.offer_ref,
-                           host_ref=host_ref, cold_active=params.cold_active)
+                           host_ref=host_ref, cold_active=params.cold_active,
+                           span_keys=anchor.span_keys if anchor else None)
 
 
 class FigureReviseInput(ParamsModel):
