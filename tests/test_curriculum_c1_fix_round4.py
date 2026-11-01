@@ -50,20 +50,20 @@ def _job(c1, job_id, at, payload='{"mode": "live"}', attempt="att_x"):
 
 
 def test_m1_the_deadline_input_moves_strictly_after_the_deadline(tmp_path, monkeypatch):
-    from learnloop.placement.state import diagnosis_waits_run_out
-
     c1 = _c1(tmp_path, monkeypatch)  # undated: no days left move within the day
     env = _env(c1)
     _job(c1, "job_1", _queued(env, timedelta(seconds=5)))
     before = E._fresh_reading_fingerprint(env)
     c1.clock.advance(seconds=5)  # exactly at the deadline: placement still waits
+    assert E._fresh_reading_fingerprint(env) == before
+    from learnloop.placement.state import diagnosis_waits_run_out
+
     with c1.repository.connection() as connection:
         assert diagnosis_waits_run_out(connection, env.now_iso()) == 0
-    assert E._fresh_reading_fingerprint(env) == before
     c1.clock.advance(seconds=1)  # after it: placement decides the miss
+    assert E._fresh_reading_fingerprint(env) != before
     with c1.repository.connection() as connection:
         assert diagnosis_waits_run_out(connection, env.now_iso()) == 1
-    assert E._fresh_reading_fingerprint(env) != before
 
 
 def test_m2_a_shadow_job_before_the_live_one_never_stands_for_its_deadline(tmp_path, monkeypatch):

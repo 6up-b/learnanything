@@ -263,3 +263,31 @@ Same rules as round 2 (5G scope, at most `-n 6`, `env -i` with empty `HOME`, `CO
   and optional extras), 0 failed, in 31 min 9 s.
 - No migration, schema, config key, CLI, RPC signature, frontend or `src-tauri` change; no new numeric constant
   (the diagnosis wait is placement's `DIAGNOSIS_WAIT_DAYS`).
+
+## Fix round 4
+
+Scoped verify of fix round 3: Codex job `20261101-020943-Fu1ywd` (gpt-6.1-sol), tip `718369de0d`: **NOT CLEAN**,
+four Medium findings. This is the last fix round. Fixed per the orchestrator's directions. Every model in the tests
+is a fake; no live or paid calls. Not merged with main and not renumbered (the landing does both).
+
+### Ruling (orchestrator, recorded verbatim)
+
+> RULING that goes with this round (record it verbatim in the review record): after round 4, any further finding confined to the memo's invalidation or to judgment coalescing is ruled Low and left as an open item. Such a finding means a reading choice stays stale until the next write, or one duplicate judgment call on the plan route. It is not ruled Low if it causes metered spend, evidence or persisted-meaning changes, a broken kill switch, or a moved reading that had history.
+
+### Verbatim findings
+
+> 1. Medium — reading_choice.py:112: deadline invalidation happens one second too early. The counter uses `first <= cutoff`, while placement applies the timeout only when `now_iso > deadline` (placement/state.py:853). A read exactly at the deadline can recompute and cache the still-pending choice under the already-incremented counter. Subsequent reads retain it after placement changes, until another fingerprint input changes. Fix: match placement's strict boundary and cover reads before, exactly at, and after the deadline.
+> 2. Medium — reading_choice.py:111: shadow jobs can hide the real diagnosis deadline. The query takes the earliest diagnosis job across all modes; placement first filters to live jobs (placement/state.py:793). An earlier shadow job followed by a live job (for example after regrading a sampled correct answer) makes the counter change at the shadow deadline. Crossing the later live deadline changes placement without changing the fingerprint, leaving the old reading cached. Fix: filter to live jobs, including placement's missing-mode default, before taking each attempt's minimum.
+> 3. Medium — reading_choice.py:93: replacing the database leaves the watcher observing the old file. Reuse checks only the resolved pathname, and context shutdown or switching never calls `forget()`. Close a context, restore a database at the same path, then reload within the same process: the watcher can remain attached to the previous file. The new vault object initially misses the memo, but later choices are fingerprinted against the old database, so new progress or judgment commits can leave them cached. Fix: validate file identity before reuse, recreate the watcher and clear the entry on replacement or disappearance, and close it at lifecycle boundaries.
+> 4. Medium — deliverables.py:296: a finishing Guide worker can erase another worker's claim. Worker A moves its claim from K0 to K1, releasing K0. The learner switches depth back, so worker B claims K0 and starts judging. When A finishes, these lines delete B's K0 claim, because both owners are labelled only `guide`. A daily refresh can then claim K0 and send a duplicate judgment while B runs. Fix: give each job a unique ownership token; transfer and release only that token's claims, and stop cleaning the old key after transferring it.
+
+### How each is closed
+
+| # | change | tests (`tests/test_curriculum_c1_fix_round4.py`) |
+|---|---|---|
+| 1, 2 | The memo no longer has its own deadline query. Placement's rule is factored out of `load_miss_verdicts` into `placement/state.py`: `_live_diagnose_job` (live jobs only, a payload naming no mode being live), `_diagnosis_wait_deadline` (`DIAGNOSIS_WAIT_DAYS` after the first live job) and `_wait_over` (strictly after the deadline). `load_miss_verdicts` now calls these same three, and the new `diagnosis_waits_run_out(connection, now_iso)` counts with them. The engine puts that count in the fingerprint's parts, so the two cannot drift | `test_m1_the_deadline_input_moves_strictly_after_the_deadline` (unchanged before and exactly at, changed one second after; failed before at "exactly at"), `test_m2_a_shadow_job_before_the_live_one_never_stands_for_its_deadline` (the shadow deadline moves nothing, the later live one, with no mode named, does; failed before), `test_m2_the_count_is_placements_rule_for_the_same_rows` |
+| 3 | `reading_choice.fingerprint` reads the database file's identity (`st_dev`, `st_ino`) on every call. If it vanished, the watcher closes and the fingerprint is None (never trusted). If it changed (a restore at the same path), the watcher is recreated and the entry dropped, and the identity is part of the fingerprint. A replacement during the read is never trusted either. `SidecarContext.load`, `load_secondary` and `close` call `reading_choice.forget()` | `test_m3_a_database_restored_at_the_same_path_is_watched_as_the_new_file` (a commit to the restored file invalidates; failed before), `test_m3_a_vanished_database_is_never_trusted`, `test_m3_a_closing_context_drops_the_memo_and_its_watcher` (close and load; failed before) |
+| 4 | Each job's claim carries a unique token (`_token`: kind plus a uuid4). The Guide worker and the daily refresh transfer and release only their own token's claims (`_move_claim`, `_release`). After a transfer the worker never touches the old key again, and a finishing worker writes its failure over a key only while its token holds it, or the key is free | `test_m4_a_finishing_guide_job_keeps_another_jobs_claim_and_the_refresh_sends_nothing` (A's one call; B's K0 claim survives A finishing; the refresh cannot claim K0; failed before), `test_m4_claims_carry_a_token_per_job` |
+
+Fail-first: against `718369de0d`'s sources all 8 new tests fail (behaviour tests at their target assertions; the
+token and placement-rule tests also on the functions being new).
