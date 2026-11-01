@@ -382,3 +382,31 @@ above.
 4. **Owner note (R4):** a reuse call's resolvable dropped pins, unverified sources and tutor question are now added to
    the shared comparison row (`dropped_pins_json`, `unverified_sources_json`,
    `caller_context_json.reuse_question_event_ids`). This is a write-on-change, with no schema change.
+
+### Second merge (main moved to `82ba4c8dce`, Reader RW5d P2b Manim)
+
+Main moved after the gate above, so the branch was merged with it again (a merge, not a rebase):
+
+- **`178337e59f`** merges main `82ba4c8dce`.
+  - The source files both sides touched merged without conflict: `handlers/figures.py`, `api/client.ts`, `api/dto.ts`
+    and `figures/useFigures.ts`. Both figure requests keep this branch's `span_keys`. P2b's new figure RPCs
+    (`figure.rich_cancel`, `figure.rich_retry`, `figure.manim_opt_in`) take no passages.
+  - The only conflicts were 10 generated desktop catalog notes. They were taken from main, then regenerated.
+  - `config/template.py` did not conflict, so the defaults fingerprints were not recomputed.
+- **`6b0cbdce63`**: the desktop catalog, regenerated on the committed merge (validation passed: 297/297 TS/TSX + 5/5
+  Rust, ACTIVE=302, reproducible).
+- **`1b7aae36de`**: the DB/config reference, regenerated on the committed tree. The changes are line citations and
+  source/test links that this branch moved; `db_validate_reference.py` reports `errors: []`. `module_generate.py` and
+  `module_validate.py` fail as on main (the Modules reference has been stale for many stages, with 1,291 issues).
+  Neither writes anything.
+- **Reruns:**
+  - `lint-imports`: 36 kept, 0 broken.
+  - Targeted pytest (`-n 6`, 5G scope): **3217 passed, 19 skipped, 3 xfailed, 0 failed** (31:21). The 157 files are
+    every test file P2b added or changed, every test file this branch added or changed, and every test file naming
+    the figure requests, span keys, `require_identity`, the desktop catalog scripts, the parameter registry or the
+    template.
+  - `npm install` ok; `typecheck` clean.
+  - Whole vitest: **246 files, 2353 passed, 0 failed**.
+  - `frontend:build` ok.
+- The full pytest suite was **not** rerun: the merge needed no manual resolution in Python, and the only manual
+  resolutions were in generated docs. The owner-copy smoke above was run on the first merge and was not repeated.
