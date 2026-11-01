@@ -104,6 +104,16 @@ class PlannedItem:
 #: was turned off after the build. It counts no minutes and is no reading of
 #: the day (the plan's reading goes back to the predecessor's).
 READING_PATH_OFF = "reading_path_off"
+#: Curriculum C1: the receipt transition's reason when ``curriculum.plan_uses_path``
+#: (or ``curriculum.enabled``) was turned off after the build while RW7b's path stays
+#: on: the plan's reading goes back to RW7b's choice. The withdrawn block's own
+#: ``block_ended`` reason is :data:`READING_PATH_OFF` (a path reading taken back
+#: unread, whichever path chose it).
+DELIVERABLE_PATH_OFF = "deliverable_path_off"
+#: Curriculum C1: a plan built on a stale deliverable path whose reading is
+#: unstarted takes the refreshed path's step once the daily re-judgment (or a Guide
+#: open) made it fresh; recorded once, in the receipt's ``refreshed``.
+DELIVERABLE_PATH_REFRESHED = "deliverable_path_refreshed"
 
 
 @dataclass
@@ -490,6 +500,8 @@ __all__ = [
     "ORIGIN_LEARNER_PICK",
     "ORIGIN_REQUESTED",
     "PlanRecord",
+    "DELIVERABLE_PATH_OFF",
+    "DELIVERABLE_PATH_REFRESHED",
     "READING_PATH_OFF",
     "RECEIPT_OPEN_LIST_PICK",
     "RECEIPT_STOP",

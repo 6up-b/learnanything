@@ -112,6 +112,10 @@ class _Work:
         self.attempted: dict[str, set[tuple[str, str | None]]] = {}
         self.judging: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.offers: dict[Any, dict[str, Any]] = {}
+        #: C1's daily quiet re-judgment: the local day it was last started for this vault,
+        #: and its last result (statuses only).
+        self.refresh_day: str | None = None
+        self.refresh: dict[str, Any] = {}
 
 
 _REGISTRY_LOCK = threading.Lock()
@@ -255,6 +259,58 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
                 work.offers[key] = offer
 
     _spawn(ctx, f"deliverable-path-{goal_id}-{depth}", run)
+
+
+def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
+    """Curriculum C1 (spec §7.6): start the daily quiet re-judgment of the nearest
+    deliverable's stale path before the plan is built (every plan RPC calls this first;
+    it starts at most once a local day per vault in this sidecar). It runs in the
+    background (the plan never waits on a model, and the sidecar answers one request at a
+    time): ``plan_fallback.quiet`` (the plan only, no OpenRouter offer, no grant). A plan
+    built meanwhile follows RW7b with a receipt that says ``stale``, and takes the
+    deliverable's step once the path is fresh while its reading is unstarted
+    (``engine._deliverable_path_refreshed``). With the plan down it ends ``unavailable``
+    and nothing asks. Never raises into the plan."""
+
+    try:
+        from learnloop.daily_plan.engine import deliverable_plan_active, local_date
+
+        if not deliverable_plan_active(vault):
+            return
+        work = _work(ctx)
+        day = local_date()
+        with work.lock:
+            if work.refresh_day == day:
+                return
+            work.refresh_day = day
+            work.refresh = {"day": day, "status": "running"}
+        client = getattr(ctx, "deliverable_path_client", None)
+        sqlite_path = repository.sqlite_path
+        live_vault = ctx.loaded_vault
+        root = Path(vault.root).resolve()
+    except Exception:  # noqa: BLE001 - the plan never fails on its path's refresh
+        LOG.warning("the deliverable path's daily refresh was not started", exc_info=True)
+        return
+
+    def run() -> None:
+        from learnloop.ai.execution import record_model_calls
+        from learnloop.db.repositories import Repository
+
+        try:
+            current = live_vault()
+            if current is None or Path(current.root).resolve() != root:
+                result: dict[str, Any] = {"status": "vault_switched"}
+            else:
+                worker = Repository.attach(sqlite_path)
+                with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id="curriculum.plan_refresh"):
+                    result = DP.refresh_for_plan(current, worker, client=client, live_vault=live_vault)
+        except BaseException as exc:  # noqa: BLE001 - a failed refresh leaves RW7b's plan, never the loop
+            LOG.warning("the deliverable path's daily refresh failed: %s", type(exc).__name__, exc_info=exc)
+            result = {"status": "failed", "reason": type(exc).__name__}
+        with work.lock:
+            work.refresh = {"day": day, **{key: value for key, value in result.items() if key != "message"}}
+
+    _spawn(ctx, "deliverable-plan-refresh", run)
 
 
 def _relay(work: _Work, key: Any) -> None:

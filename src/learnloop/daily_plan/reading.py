@@ -26,12 +26,18 @@ exam filter above; ``None`` for a reading keeps that order's own choice. The
 engine passes it only at RW7b's tag with ``reading_paths.plan_uses_path`` on
 (``engine.reading_path_plan_active``); without it this module is DL1's and
 U4's exactly.
+
+Curriculum C1 (spec_deliverable_curriculum_v1 §7.6, a successor):
+:func:`next_listed_reading_target` walks the nearest deliverable's path in its
+own order, across books, with the exam filter, the front-matter rule and DL2's
+``reading_allowed`` run first on each candidate. The engine calls it only at
+C1's tag with its switches on (``engine.deliverable_plan_active``).
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from learnloop.content.sources.front_matter import is_front_matter_label
@@ -178,27 +184,103 @@ def _first_unfinished(
         # counts every section read into, skipped enrichment included.
         ordered = [section for section in ordered if plannable(str(section["id"]))]
     for section in ordered:
-        row = progress.get(str(section["id"]))
-        if row is not None and row.get("completed_at"):
-            continue
-        words = _section_words(ir, list(section["span_ids"]))
-        if words <= 0:
-            continue
-        seen = int((row or {}).get("spans_seen") or 0)
-        count = int((row or {}).get("span_count") or 0)
-        fraction_left = 1.0 - (min(seen, count) / count if count > 0 else 0.0)
-        words_left = int(round(words * fraction_left))
-        if words_left <= 0:
-            continue
-        return ReadingTarget(
-            source_id=source_id,
-            extraction_id=extraction_id,
-            section_id=str(section["id"]),
-            section_title=str(section.get("label") or "this section"),
-            words_left=words_left,
-            partial=False,
-        )
+        target = _unfinished_target(ir, source_id, extraction_id, section, progress.get(str(section["id"])))
+        if target is not None:
+            return target
     return None
+
+
+def _unfinished_target(
+    ir: Any, source_id: str, extraction_id: str, section: dict[str, Any], row: dict[str, Any] | None
+) -> ReadingTarget | None:
+    """The section as a reading step, or None when it is finished (completed, no words, or
+    nothing left to read): DL1's rule, shared by every order."""
+
+    if row is not None and row.get("completed_at"):
+        return None
+    words = _section_words(ir, list(section["span_ids"]))
+    if words <= 0:
+        return None
+    seen = int((row or {}).get("spans_seen") or 0)
+    count = int((row or {}).get("span_count") or 0)
+    fraction_left = 1.0 - (min(seen, count) / count if count > 0 else 0.0)
+    words_left = int(round(words * fraction_left))
+    if words_left <= 0:
+        return None
+    return ReadingTarget(
+        source_id=source_id,
+        extraction_id=extraction_id,
+        section_id=str(section["id"]),
+        section_title=str(section.get("label") or "this section"),
+        words_left=words_left,
+        partial=False,
+    )
+
+
+def next_listed_reading_target(
+    repository: Any, steps: Sequence[tuple[str, str]], *, from_furthest: bool = True, exam: Any = None,
+    allowed: Callable[[str], bool] | None = None,
+) -> tuple[ReadingTarget | None, int | None]:
+    """Curriculum C1 (spec_deliverable_curriculum_v1 §7.6): the first unfinished section of
+    ``steps`` (``(extraction_id, section_id)`` in the deliverable path's order, across
+    books), with the predecessor's rules run first on each candidate:
+
+    * ``exam`` (the one exam predicate, as :func:`next_reading_target` reads it): an exam
+      extraction offers nothing and a section with an exam span is never the step;
+    * ``from_furthest`` (U4's order on): a front-matter section (contents, preface, index)
+      is never the step while its book has a chapter left, exactly as the predecessor's
+      order treats it;
+    * ``allowed`` (DL2's ``reading_allowed`` for the learner's intent; None with no intent):
+      a book the learner took out of reading offers nothing.
+
+    A section no longer in its book's sections (re-extracted since) is passed over.
+    Returns the step and its index in ``steps``, or ``(None, None)``."""
+
+    cache: dict[str, tuple[Any, str, dict[str, dict[str, Any]], dict[str, dict[str, Any]]] | None] = {}
+    for index, (extraction_id, section_id) in enumerate(steps):
+        if exam is not None and extraction_id in exam.extractions:
+            continue
+        if allowed is not None and not allowed(extraction_id):
+            continue
+        if extraction_id not in cache:
+            cache[extraction_id] = _listed_book(repository, extraction_id, from_furthest=from_furthest, exam=exam)
+        book = cache[extraction_id]
+        if book is None:
+            continue
+        ir, source_id, candidates, progress = book
+        section = candidates.get(section_id)
+        if section is None:
+            continue
+        target = _unfinished_target(ir, source_id, extraction_id, section, progress.get(section_id))
+        if target is not None:
+            return target, index
+    return None, None
+
+
+def _listed_book(
+    repository: Any, extraction_id: str, *, from_furthest: bool, exam: Any
+) -> tuple[Any, str, dict[str, dict[str, Any]], dict[str, dict[str, Any]]] | None:
+    """One book's readable sections for :func:`next_listed_reading_target`, by id, after the
+    exam filter and (U4's order on) the front-matter rule, with its progress rows."""
+
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return None
+    run = repository.get_extraction_run(extraction_id) or {}
+    revision = repository.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
+    source_id = str((revision or {}).get("source_id") or "")
+    sections, _block_by_span, _span_to_section = extraction_sections(ir)
+    if exam is not None and exam.spans:
+        sections = [
+            section for section in sections
+            if not any((extraction_id, str(span_id)) in exam.spans for span_id in section["span_ids"])
+        ]
+    candidates = sections
+    if from_furthest:
+        readable = [section for section in sections if not is_front_matter_label(section.get("label"))]
+        candidates = readable or sections
+    progress = {str(row["section_id"]): row for row in repository.reader_section_progress_for(extraction_id)}
+    return ir, source_id, {str(section["id"]): section for section in candidates}, progress
 
 
 def _has_progress(row: dict[str, Any] | None) -> bool:
@@ -219,6 +301,7 @@ def section_start_span(repository: Any, extraction_id: str, section_id: str) -> 
 __all__ = [
     "SectionFilter",
     "as_you_read_extraction_ids",
+    "next_listed_reading_target",
     "next_reading_target",
     "section_start_span",
 ]
