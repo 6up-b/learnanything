@@ -38,6 +38,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("deliverable_scope_resolver", "llm", "curriculum_scope"),
     ("deliverable_path_judge", "llm", "curriculum_path"),
     ("figure_author", "llm", "figures"),
+    ("figure_rich_author", "llm", "figures_rich"),
     ("reader_digest", "llm", "reader_digest"),
     ("note_link_judge", "llm", "notes"),
 )
@@ -205,6 +206,14 @@ _WHEN = {
         "figures.show_me_enabled, \"show me\" sends your request in your words (or the goal LearnLoop's tutor "
         "wrote, when you press it) and, when you select no passage, the passages LearnLoop finds in your books for "
         "it (or none) -- never to grade you. Nothing else about you, and never material held out for an exam."
+    ),
+    "figures_rich": (
+        "While figures.rich_tiers_enabled is on and a richer kind of figure (a narrated Manim animation, after "
+        "you allow it once) was chosen for a request you pressed: what the figure author received (the passage "
+        "and the paragraphs around it, or the passages found in your books, and your request in your words or "
+        "the goal LearnLoop's tutor wrote) and the author's plan for the animation, so LearnLoop's model can "
+        "write it; when an attempt fails, what went wrong in code's words (never anything about you). Nothing "
+        "else about you, and never material held out for an exam. It never grades you."
     ),
     "reader_digest": (
         "While digest.enabled and digest.narrative_enabled are on, once per reader session, in the background "

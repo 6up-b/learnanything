@@ -269,6 +269,25 @@ def tutor_figure_goal_offered(repository: Any, question_event_id: str, text: Any
         and row.get("right_id") == figure_goal_digest(text, span_keys)
 
 
+def rich_tiers_enabled(vault: Any) -> bool:
+    """Reader RW5d P2b: ``figures.rich_tiers_enabled`` under ``figures.enabled``:
+    the rich tiers (a narrated Manim figure; JS behind its build flag). The
+    switch only; whether this machine can offer a rich tier is the figure
+    package's (:func:`learnloop.figures.rich.tiers_allowed`)."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "rich_tiers_enabled", False))
+
+
+def manim_opt_in(vault: Any) -> str | None:
+    """Reader RW5d P2b: the learner's standing opt-in for Manim figures
+    (``"standing"``), their "not now" (``"declined"``), or None (not asked)."""
+
+    config = getattr(vault, "config", vault)
+    value = getattr(getattr(config, "figures", None), "manim_opt_in", None)
+    return value if value in ("standing", "declined") else None
+
+
 def text_key(vault: Any) -> Hashable:
     """What a figure prediction's learner-text reading depends on: the vault
     and the switch (its money cap is ``learner_text_gaps``'s, as on main)."""
@@ -367,10 +386,12 @@ __all__ = [
     "figure_goal_digest",
     "figure_home_keys",
     "figures_enabled",
+    "manim_opt_in",
     "offer_kind",
     "offerable",
     "offerable_blocks",
     "offers_enabled",
+    "rich_tiers_enabled",
     "text_key",
     "tutor_explorable_judgment_id",
     "tutor_explorable_yes",

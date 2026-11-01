@@ -1483,6 +1483,14 @@ class AIRoutingConfig(BaseModel):
     # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_author: str | None = None
+    # Reader RW5d P2b (spec_reader_show_me_figures_v1 §8.6, §12.1): the rich
+    # figure author writes a Manim scene from the figure author's brief (and
+    # its repair), in a durable job spawned by a pressed request. An isolated,
+    # tool-free turn (a provider that cannot isolate it is refused). Empty =
+    # the plan's medium tier (the concept animation route's tier: the same
+    # Manim writing). Metered calls are held to figures.max_daily_cost_usd at
+    # figures.price_per_million (unset: refused before sending).
+    figure_rich_author: str | None = None
     # Reader workbench RW6b part 2 (spec_reader_workbench_v1 §9.2): the
     # session narrative, one call per reader session in the background from
     # the session's typed summary only (ids, kinds, verdicts and the titles
@@ -1686,6 +1694,8 @@ DEFAULT_SERVING_TASK_ROUTES = {
     "ad_relatedness": CHATGPT_MEDIUM_PROVIDER,
     # Local retrieval P2 (Q8): GPT-6 Luna on the plan, owner-run under ``plan_fallback.quiet()``.
     "retrieval_query_generator": CHATGPT_LUNA_PROVIDER,
+    # Reader RW5d P2b: the rich figure author writes Manim scenes, the concept animation route's work.
+    "figure_rich_author": CHATGPT_MEDIUM_PROVIDER,
 }
 #: The pre-T1 table: the routes of a vault whose active provider is Codex
 #: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
@@ -1704,6 +1714,7 @@ LEGACY_CODEX_TASK_ROUTES = {
     "ad_feature_audit": CODEX_LOW_PROVIDER,
     "ad_relatedness": CODEX_MEDIUM_PROVIDER,
     "retrieval_query_generator": CODEX_LUNA_PROVIDER,
+    "figure_rich_author": CODEX_MEDIUM_PROVIDER,
 }
 #: `learnloop doctor --fix`: the plan profile that replaces each code-default
 #: Codex profile (no silent aliasing at load: receipts key on provider+model).
@@ -2699,6 +2710,25 @@ class FiguresConfig(BaseModel):
     with ``figures.sketch_enabled = true`` after running the probe (recipe in
     docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
 
+    RW5d P2b (spec_reader_show_me_figures_v1 §8.4, §8.6, §9b): ``rich_tiers_enabled``:
+    the rich tiers. When a rich tier is available on this machine the
+    author's menu widens to it (``FigureAuthorOutputV3``: the tier chosen by
+    what best explains the idea, with ``why_this_tier``, and an optional fast
+    spec or sketch shown at once), and a second route ``figure_rich_author``
+    writes the program in a durable job; the fuller version arrives under the
+    quick one with one quiet line. Only the ``manim`` tier is built: a
+    narrated video rendered by the concept animation pipeline (its validator,
+    pacing lint, renderer and store, called as a library) under bubblewrap
+    with the hardened profile and a memory- and CPU-capped scope, Linux with
+    ``bwrap`` and Manim installed only, and only after the standing opt-in
+    ``manim_opt_in = "standing"`` (asked once, inline, on a press; "not now"
+    writes ``"declined"``; ``manim_opt_in_at`` records the date). The
+    ``js_animation`` tier stays absent from every menu behind its build flag
+    until G-SM14 passes in the real webview. Off: the author's contract is
+    V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
+    list as "can't show this kind here". Nothing in scoring, scheduling,
+    projection or serving reads these keys.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2715,6 +2745,9 @@ class FiguresConfig(BaseModel):
     offers_enabled: bool = True
     show_me_enabled: bool = True
     sketch_enabled: bool = False
+    rich_tiers_enabled: bool = True
+    manim_opt_in: Literal["standing", "declined"] | None = None
+    manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 

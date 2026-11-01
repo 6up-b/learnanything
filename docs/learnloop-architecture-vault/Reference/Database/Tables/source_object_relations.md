@@ -3,13 +3,13 @@ title: "source_object_relations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "698ea6525e5a8ffda1ceb9be27c484136e70dd3b"
-source_commit_timestamp: "2026-11-01T10:28:56-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_relations"
   - "table source_object_relations"
-schema_head: 229
+schema_head: 228
 table_name: "source_object_relations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/learner_notes.py"
   - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
@@ -90,7 +89,6 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/db/stores/learner_notes.py`
 
 ### Direct SQL writers
 

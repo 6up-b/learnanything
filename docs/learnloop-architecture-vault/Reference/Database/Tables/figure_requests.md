@@ -3,13 +3,13 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "698ea6525e5a8ffda1ceb9be27c484136e70dd3b"
-source_commit_timestamp: "2026-11-01T10:28:56-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
   - "table figure_requests"
-schema_head: 229
+schema_head: 228
 table_name: "figure_requests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -118,6 +118,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_figure_requests_migration.py`
+- `tests/test_figure_rich_contract.py`
+- `tests/test_figure_rich_job.py`
+- `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_sketch_service.py`

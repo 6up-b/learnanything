@@ -7,8 +7,8 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5"
-source_commit_timestamp: "2026-11-01T09:39:06-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -48,7 +48,7 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/_area|TypeScript]] | 5 | The React renderer entry point and cross-cutting frontend modules. |
 | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] | 6 | Typed DTOs and the renderer-to-Tauri invocation facade. |
 | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] | 24 | Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state. |
-| [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] | 76 | Reusable learner-facing controls and composite interaction surfaces. |
+| [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] | 77 | Reusable learner-facing controls and composite interaction surfaces. |
 | [[Reference/Desktop/TypeScript/components/goldenpath/_area|TypeScript/components/goldenpath]] | 3 | Golden-path setup and triage components used by the staged learning journey. |
 | [[Reference/Desktop/TypeScript/components/graphedit/_area|TypeScript/components/graphedit]] | 5 | Study-map editing widgets, pending edits, and geometry previews. |
 | [[Reference/Desktop/TypeScript/components/pdfSelection/_area|TypeScript/components/pdfSelection]] | 6 | The PDF text-layer selection model: tokens, geometry, highlights, and the selection layer over a rendered page. |
@@ -61,8 +61,8 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] | 28 | Top-level routed workflow screens in the desktop shell. |
 | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] | 3 | The post-answer feedback surface: answer exposure, method comparison, and its exposure contract. |
 | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] | 7 | Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen. |
-| [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 81 | Reader request-state coordination extracted from the main reader screen. |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] | 7 | Reader "show me" figures: the figure grammar and spec, inline figures, panels, predictions, and their state. |
+| [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 79 | Reader request-state coordination extracted from the main reader screen. |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] | 8 | Reader "show me" figures: the figure grammar and spec, inline figures, panels, predictions, and their state. |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] | 10 | The sandboxed sketch tier: the pinned engine host, its Worker protocol and runner, and the scene renderer. |
 | [[Reference/Desktop/TypeScript/screens/startBackdrops/_area|TypeScript/screens/startBackdrops]] | 8 | Canvas/SVG simulations and workers used as the start-screen visual backdrop. |
 | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] | 3 | The Today place: the daily plan view and re-entry after time away. |

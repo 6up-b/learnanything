@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5"
-source_commit_timestamp: "2026-11-01T09:39:06-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -40,11 +40,11 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|AlsoInBooks.tsx]] | `ACTIVE` | Implements the `AlsoInBooks` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/AskRail|AskRail.tsx]] | `ACTIVE` | Implements the `AskRail` routed desktop screen and coordinates its learner-facing workflow state. | 11 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ComingUp|ComingUp.tsx]] | `ACTIVE` | Implements the `ComingUp` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|CompareKeep.tsx]] | `ACTIVE` | Implements the `CompareKeep` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 5 |
-| [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|ComparePointTable.tsx]] | `ACTIVE` | Implements the `ComparePointTable` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
+| [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|CompareKeep.tsx]] | `ACTIVE` | Implements the `CompareKeep` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 5 |
+| [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|ComparePointTable.tsx]] | `ACTIVE` | Implements the `ComparePointTable` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/CompareScope|CompareScope.tsx]] | `ACTIVE` | Implements the `CompareScope` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/DeliverableScope|DeliverableScope.tsx]] | `ACTIVE` | Implements the `DeliverableScope` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|DeliverableSliceCard.tsx]] | `ACTIVE` | Implements the `DeliverableSliceCard` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|DeliverableSliceCard.tsx]] | `ACTIVE` | Implements the `DeliverableSliceCard` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/DetourStrip|DetourStrip.tsx]] | `ACTIVE` | Implements the `DetourStrip` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|DigestNarrative.tsx]] | `ACTIVE` | Implements the `DigestNarrative` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/DoseOffer|DoseOffer.tsx]] | `ACTIVE` | Implements the `DoseOffer` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
@@ -64,7 +64,6 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|ReaderAskBranches.tsx]] | `ACTIVE` | Implements the `ReaderAskBranches` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderCorrespondenceSettings|ReaderCorrespondenceSettings.tsx]] | `ACTIVE` | Implements the `ReaderCorrespondenceSettings` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderCueSettings|ReaderCueSettings.tsx]] | `ACTIVE` | Implements the `ReaderCueSettings` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|ReaderNotes.tsx]] | `ACTIVE` | Implements the `ReaderNotes` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|ReaderWorkingPosture.tsx]] | `ACTIVE` | Implements the `ReaderWorkingPosture` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|ReadingPathCard.tsx]] | `ACTIVE` | Implements the `ReadingPathCard` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/RecapCard|RecapCard.tsx]] | `ACTIVE` | Implements the `RecapCard` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 2 |
@@ -88,7 +87,6 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|exerciseCandidates.ts]] | `ACTIVE` | Provides `EXERCISE_COPY`, `ExerciseCandidate`, `ReaderWorkbenchExercise`, `proposalKeys` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 7 |
 | [[Reference/Desktop/TypeScript/screens/reader/guidePlan|guidePlan.ts]] | `ACTIVE` | Provides `GUIDE_DIAGNOSIS_POLL_MS`, `GUIDE_DIAGNOSIS_POLL_MAX_MS`, `guidePlanKey`, `pendingDiagnoses` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/intentPalette|intentPalette.ts]] | `ACTIVE` | Provides `INTENT_COPY`, `visiblePalette`, `paletteActions`, `SHOW_ME_LABEL` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/notesContext|notesContext.ts]] | `ACTIVE` | Provides `HiddenNote`, `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/observerGeneration|observerGeneration.ts]] | `ACTIVE` | Provides `ObserverGeneration`, `observerGeneration` within the desktop's TypeScript/screens/reader ownership area. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerCache|readerCache.ts]] | `ACTIVE` | Provides `READER_CACHE_MS`, `SourceReadOptions`, `cachedSourceRead` within the desktop's TypeScript/screens/reader ownership area. | 2 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerKeys|readerKeys.ts]] | `ACTIVE` | Provides `ReaderKey`, `readerKeyBarKeys` within the desktop's TypeScript/screens/reader ownership area. | 0 | 1 |

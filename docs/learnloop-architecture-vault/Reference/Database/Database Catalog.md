@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "698ea6525e5a8ffda1ceb9be27c484136e70dd3b"
-source_commit_timestamp: "2026-11-01T10:28:56-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 229
-table_count: 360
+schema_head: 228
+table_count: 358
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_229/state.sqlite"
+  - "fixtures/migration_head_228/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-229"
+  - "learnloop/database/schema-head-228"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 360 user tables at migration head 229. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 358 user tables at migration head 228. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,7 +38,7 @@ This is the exhaustive map of the 360 user tables at migration head 229. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 155 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 153 |
 | [[Table Roles#Derived|`derived`]] | 23 |
 | [[Table Roles#Receipt|`receipt`]] | 77 |
 | [[Table Roles#Workflow|`workflow`]] | 95 |
@@ -48,7 +48,7 @@ This is the exhaustive map of the 360 user tables at migration head 229. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 347 |
+| `active` | 345 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -150,8 +150,6 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/learner_claims|learner_claims]] — `raw_ledger` · `active` · Stores learner-supplied prior claims, including the optional initialization-wizard claim. It supplies replay-stable input rather than a disposable cache. Rows bind `scope_id`, `claim_type`, `scope_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_gap_check_advances|learner_gap_check_advances]] — `receipt` · `active` · Gives learner gap check advance a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `gap_id`, `learning_object_id`, `assumption_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_gap_commitments|learner_gap_commitments]] — `receipt` · `active` · Gives learner gap commitment a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `gap_id`, `learning_object_id`, `practice_item_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/learner_note_links|learner_note_links]] — `raw_ledger` · `active` · Preserves explicit relationship edges for learner note so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `note_id`, `learning_object_id`, `extraction_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/learner_notes|learner_notes]] — `raw_ledger` · `active` · Gives learner note a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `note_key`, `path`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]] — `compat` · `legacy-preserved` · Gives learner state belief a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `scope_id`, `scope_type`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_text_gap_jobs|learner_text_gap_jobs]] — `workflow` · `active` · Coordinates leased, retryable work for learner text gap so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `source_kind`, `state`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_text_gap_reversals|learner_text_gap_reversals]] — `raw_ledger` · `active` · Gives learner text gap reversal a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `gap_id`, `reversal`, `actor`, making the operational relationship explicit.

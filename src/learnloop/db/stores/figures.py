@@ -25,7 +25,9 @@ FIGURE_COLUMNS = ("id", "extraction_id", "span_ids_json", "region_json", "asset_
                   "request_id", "goal_text", "grounding", "input_span_keys_json", "tier",
                   # RW5d P2: a sketch's program version, the engine it was
                   # verified under and the check lines code ran.
-                  "program_version", "engine_sha256", "runtime_digest", "checks_json")
+                  "program_version", "engine_sha256", "runtime_digest", "checks_json",
+                  # RW5d P2b: a rich figure's video and the quick figure it follows.
+                  "media_file_name", "fuller_of_id")
 REQUEST_COLUMNS = ("id", "origin", "goal_text", "goal_author", "anchor_json", "reading_at_json", "host_ref_json",
                    "policy", "caller_kind", "policy_derived_from", "grounding", "grounding_manifest_json",
                    "build_mode", "tiers_allowed_json", "prefetch_decision_id", "figure_id", "created_at")
@@ -195,6 +197,15 @@ def builds_for_input(connection: sqlite3.Connection, input_hash: str, spec_versi
     return int(connection.execute(
         f"SELECT COUNT(*) FROM interactive_figures WHERE input_hash = ? AND spec_version IN ({marks})",
         (input_hash, *versions)).fetchone()[0])
+
+
+def fuller_rows(connection: sqlite3.Connection, figure_id: str) -> list[dict[str, Any]]:
+    """RW5d P2b: the rich figures stored as the fuller version of ``figure_id``, oldest first."""
+
+    rows = connection.execute(
+        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE fuller_of_id = ? "
+        "ORDER BY created_at, id", (figure_id,)).fetchall()
+    return [found for found in (_figure(row) for row in rows) if found is not None]
 
 
 def superseding(connection: sqlite3.Connection, figure_id: str) -> list[dict[str, Any]]:

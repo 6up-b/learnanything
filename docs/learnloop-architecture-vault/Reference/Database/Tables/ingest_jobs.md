@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "698ea6525e5a8ffda1ceb9be27c484136e70dd3b"
-source_commit_timestamp: "2026-11-01T10:28:56-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 229
+schema_head: 228
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -122,6 +122,9 @@ None found by exact static reference scan.
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_figure_rich_job.py`
+- `tests/test_figure_rich_review_fixes.py`
+- `tests/test_figure_rich_rpc.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_latency_journey.py`
@@ -132,9 +135,6 @@ None found by exact static reference scan.
 - `tests/test_plan_first_transport_offer_grants.py`
 - `tests/test_plan_first_transport_offer_grants_r5.py`
 - `tests/test_reader_active_reading.py`
-- `tests/test_reader_reconstruct.py`
-- `tests/test_reading_hardening_2_fixes.py`
-- `tests/test_reading_hardening_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

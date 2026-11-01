@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
-source_commit: "2c68e7375760f005bdfa58f82ce0603ab8459d40"
-source_commit_timestamp: "2026-10-31T19:32:36-04:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx) |
-| Source lines | 550 |
+| Source lines | 582 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2c68e7375760f005bdfa58f82ce0603ab8459d40` |
-| Commit timestamp | `2026-10-31T19:32:36-04:00` |
+| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
+| Commit timestamp | `2026-11-01T09:50:06-05:00` |
 
 ## Activation and status evidence
 
@@ -66,58 +66,66 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function FigureGoal(` — function, line 59
 - `export function FigurePassages(` — function, line 73
 - `export function frameChecks(keys: readonly string[] | null | undefined): string[]` — function, line 89
-- `export const FIGURE_COPY =` — const, line 99
-- `export const linkStyle: CSSProperties =` — const, line 131
-- `export function prefersReducedMotion(): boolean` — function, line 143
-- `export function FigurePendingLine(` — function, line 162
-- `export function PredictionBlock(` — function, line 180
-- `export function PredictionResult(` — function, line 236
-- `export function FigureInline(` — function, line 470
-- `export function FiguresUnder(` — function, line 540
+- `export const FIGURE_COPY =` — const, line 100
+- `export const linkStyle: CSSProperties =` — const, line 132
+- `export function prefersReducedMotion(): boolean` — function, line 144
+- `export function FigurePendingLine(` — function, line 163
+- `export function PredictionBlock(` — function, line 181
+- `export function PredictionResult(` — function, line 237
+- `export function FigureInline(` — function, line 471
+- `export function FiguresUnder(` — function, line 569
 
 ## Internal implementation anchors
 
 - `const goal = figure.goalText?.trim()` — const, line 60
-- `const PLAY_STEPS = 40` — const, line 127
-- `const PLAY_MS = 150` — const, line 128
-- `const REDUCED_STEPS = 20` — const, line 129
-- `function defaultsOf(compiled: CompiledFigure): Record<string, number>` — function, line 152
-- `function clamp(parameter: FigureParameter, value: number): number` — function, line 156
-- `const group = `prediction-$` — const, line 199
-- `const submit = async ()` — const, line 200
-- `const answered = prediction.answered` — const, line 237
-- `const choiceLabel = (value: string | null)` — const, line 241
-- `function ParameterControl(` — function, line 281
-- `const step = (parameter.max - parameter.min) / REDUCED_STEPS` — const, line 298
-- `function FigureBody(` — function, line 325
-- `const reduced = useMemo(prefersReducedMotion, [])` — const, line 332
-- `const timer = useRef<ReturnType<typeof setInterval> | null>(null)` — const, line 333
-- `const data = useMemo(()` — const, line 335
-- `const answeredPrediction = figure.predictions.find((prediction)` — const, line 337
-- `const openPrediction = ctl.contract?.predictions && !skipped && !answeredPrediction ? figure.predictions[0] ?? null : null` — const, line 338
-- `const readoutFormat = (data.panels.find((panel)` — const, line 339
-- `const setParam = (name: string, raw: number)` — const, line 345
-- `const parameter = compiled.parameters.find((item)` — const, line 346
-- `const stopPlay = ()` — const, line 351
-- `const play = (parameter: FigureParameter)` — const, line 357
-- `let index = 0` — let, line 364
-- `const value = parameter.min + ((parameter.max - parameter.min) * index) / PLAY_STEPS` — const, line 367
-- `const applyPrediction = (prediction: FigurePredictionDto)` — const, line 374
-- `const change = compiled.spec.predictions?.[prediction.index]?.change ??` — const, line 375
-- `const next =` — const, line 377
-- `const parameter = compiled.parameters.find((item)` — const, line 379
-- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 386
-- `const target = event.target as HTMLElement` — const, line 387
-- `const assumptions = figure.assumptions ?? []` — const, line 395
-- `const controlsLocked = openPrediction !== null` — const, line 396
-- `const shown = figure.verification === "verified" || figure.verification === "illustrative"` — const, line 471
-- `const expanded = shown && ctl.expandedKey === figurePlacementKey(figure)` — const, line 472
-- `const isSketch = figure.tier === "sketch"` — const, line 474
-- `const compiled = useMemo(()` — const, line 475
-- `const program = useMemo(()` — const, line 483
-- `const withdrawn = useChecksWithdrawn(figure.figureId)` — const, line 485
-- `const checks = isSketch ? (figure.sketch && checksStand(figure.sketch, withdrawn) ? [`$` — const, line 508
-- `const toggle = ()` — const, line 511
+- `const PLAY_STEPS = 40` — const, line 128
+- `const PLAY_MS = 150` — const, line 129
+- `const REDUCED_STEPS = 20` — const, line 130
+- `function defaultsOf(compiled: CompiledFigure): Record<string, number>` — function, line 153
+- `function clamp(parameter: FigureParameter, value: number): number` — function, line 157
+- `const group = `prediction-$` — const, line 200
+- `const submit = async ()` — const, line 201
+- `const answered = prediction.answered` — const, line 238
+- `const choiceLabel = (value: string | null)` — const, line 242
+- `function ParameterControl(` — function, line 282
+- `const step = (parameter.max - parameter.min) / REDUCED_STEPS` — const, line 299
+- `function FigureBody(` — function, line 326
+- `const reduced = useMemo(prefersReducedMotion, [])` — const, line 333
+- `const timer = useRef<ReturnType<typeof setInterval> | null>(null)` — const, line 334
+- `const data = useMemo(()` — const, line 336
+- `const answeredPrediction = figure.predictions.find((prediction)` — const, line 338
+- `const openPrediction = ctl.contract?.predictions && !skipped && !answeredPrediction ? figure.predictions[0] ?? null : null` — const, line 339
+- `const readoutFormat = (data.panels.find((panel)` — const, line 340
+- `const setParam = (name: string, raw: number)` — const, line 346
+- `const parameter = compiled.parameters.find((item)` — const, line 347
+- `const stopPlay = ()` — const, line 352
+- `const play = (parameter: FigureParameter)` — const, line 358
+- `let index = 0` — let, line 365
+- `const value = parameter.min + ((parameter.max - parameter.min) * index) / PLAY_STEPS` — const, line 368
+- `const applyPrediction = (prediction: FigurePredictionDto)` — const, line 375
+- `const change = compiled.spec.predictions?.[prediction.index]?.change ??` — const, line 376
+- `const next =` — const, line 378
+- `const parameter = compiled.parameters.find((item)` — const, line 380
+- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 387
+- `const target = event.target as HTMLElement` — const, line 388
+- `const assumptions = figure.assumptions ?? []` — const, line 396
+- `const controlsLocked = openPrediction !== null` — const, line 397
+- `const shown = figure.verification === "verified" || figure.verification === "illustrative"` — const, line 472
+- `const expanded = shown && ctl.expandedKey === figurePlacementKey(figure)` — const, line 473
+- `const isSketch = figure.tier === "sketch"` — const, line 475
+- `const isManim = figure.tier === "manim"` — const, line 478
+- `const fuller = figure.fuller ?? null` — const, line 480
+- `const fullerReady = fuller?.state === "ready" && fuller.figure ? fuller.figure : null` — const, line 481
+- `const compiled = useMemo(()` — const, line 482
+- `const program = useMemo(()` — const, line 490
+- `const withdrawn = useChecksWithdrawn(figure.figureId)` — const, line 492
+- `const checks = isManim ? (figure.manim?.checks.length ? [`$` — const, line 515
+- `const toggle = ()` — const, line 520
+- `const openFuller = ()` — const, line 524
+- `const openQuick = ()` — const, line 529
+- `const notRightOn = (target: FigureViewDto)` — const, line 534
+- `const body = showingFuller && fullerReady ? <ManimFigureBody figure=` — const, line 536
+- `const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask"` — const, line 572
 
 ## Who imports or calls it
 
@@ -126,6 +134,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `FiguresUnder`; references `FiguresUnder`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `frameBadge`; references `frameBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export: `FIGURE_FRAME`, `linkStyle`; references `FIGURE_FRAME`, `linkStyle`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `PredictionBlock`, `PredictionResult`, `linkStyle`, `prefersReducedMotion`; references `PredictionBlock`, `PredictionResult`, `linkStyle`, `prefersReducedMotion`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export: `frameBadge`; references `frameBadge`
 
@@ -138,6 +147,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|src/screens/reader/figures/FigurePanels.tsx]] — import-or-re-export; imports `FigurePanel`, `formatValue`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export; imports `FullerLine`, `ManimFigureBody`, `ManimNotRight`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|src/screens/reader/figures/figureSpec.ts]] — import-or-re-export; imports `CompiledFigure`, `FigureParameter`, `compileSpec`, `evaluateFigure`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export; imports `SKETCH_FRAME`, `SketchFigure`, `checksStand`, `sketchBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/checksWithdrawn|src/screens/reader/figures/sketch/checksWithdrawn.ts]] — import-or-re-export; imports `useChecksWithdrawn`
@@ -163,6 +173,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchSandboxReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_figures_final_round.py](../../../../../../../../tests/test_figures_final_round.py) — cross-boundary name contract: references uniquely owned exported name `FigureInline`; it does **not** directly execute this source module.

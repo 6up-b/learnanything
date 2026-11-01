@@ -122,6 +122,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|src/screens/reader/WrapUpPanel.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `LearnerQuote`, `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `LearnerQuote`, `MeaningLabel`, `ModelVoice`, `SourceVoice`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`; references `MeaningLabel`, `ModelVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/workbench/HelpLadder|src/screens/workbench/HelpLadder.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`

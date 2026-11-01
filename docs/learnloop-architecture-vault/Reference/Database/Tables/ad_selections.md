@@ -3,13 +3,13 @@ title: "ad_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "698ea6525e5a8ffda1ceb9be27c484136e70dd3b"
-source_commit_timestamp: "2026-11-01T10:28:56-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_selections"
   - "table ad_selections"
-schema_head: 229
+schema_head: 228
 table_name: "ad_selections"
 table_role: "raw_ledger"
 functionality_status: "active"

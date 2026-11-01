@@ -7320,6 +7320,9 @@ export interface ReaderActivityEvent {
     /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */
     | "sketch_paused"
     | "sketch_error"
+    /** RW5d P2b: the fuller (rich) version opened from its quick figure, and back. */
+    | "fuller_version_opened"
+    | "quick_version_opened"
     /** Reader CA6: side by side sessions and follow along. */
     | "side_by_side_opened"
     | "side_by_side_closed"
@@ -9715,10 +9718,70 @@ export interface FigureViewDto {
   grounding?: FigureGrounding;
   /** The passages found in the learner's books it was built from (grounding "retrieved"). */
   passages?: FigurePassageDto[];
-  /** RW5d P2 (present only while figures.sketch_enabled is on): a declarative figure or a sketch. */
-  tier?: "grammar" | "sketch";
+  /** RW5d P2 (present only while figures.sketch_enabled is on): a declarative figure or a sketch.
+   *  RW5d P2b (present while figures.rich_tiers_enabled is on): or a Manim figure. */
+  tier?: "grammar" | "sketch" | "manim";
   /** A shown sketch's code-owned check lines and the engine it was verified under (specJson is its SketchProgramV1). */
   sketch?: FigureSketchDto | null;
+  /** RW5d P2b: a shown Manim figure's video, transcript and code-owned check lines. */
+  manim?: FigureManimDto | null;
+  /** RW5d P2b: a quick figure's fuller version (one figure line, two versions); null when it has none. */
+  fuller?: FigureFullerDto | null;
+}
+
+/** RW5d P2b: one check code ran on a Manim figure's declared function (spec §9b.4). */
+export interface FigureManimCheckDto {
+  kind: "equals" | "invariant";
+  /** The declared function (an identifier the model wrote; never check words). */
+  function: string;
+  /** The stated expression (equals), as the grammar parsed it. */
+  expr?: string;
+  property?: "finite" | "nonnegative" | "bounded";
+  bound?: number;
+  settings: number;
+  /** The scene draws its curve from this function (AST-checked). */
+  plotted: boolean;
+}
+
+export interface FigureManimDto {
+  /** The content-addressed mp4 in the llmedia:// store. */
+  mediaFileName: string | null;
+  title: string;
+  /** The narration: the video's transcript. */
+  narrationMd: string;
+  durationSeconds: number | null;
+  checks: FigureManimCheckDto[];
+  /** Declared functions LearnLoop could not check (their claims dropped, never failed). */
+  notCheckable: Array<{ function: string; reason: string }>;
+  notCovered: string[];
+}
+
+/** RW5d P2b: the state of a quick figure's fuller version, or of a rich-only build (spec §6.8). */
+export type FigureRichState = "pending" | "ready" | "failed" | "waiting_for_plan" | "cancelled";
+
+export interface FigureFullerDto {
+  state: FigureRichState;
+  tier: "manim";
+  /** The job's phase while pending ("writing" | "checking" | "rendering"). */
+  phase: string | null;
+  /** Code's reason when it failed. */
+  reason: string | null;
+  richJobId: string | null;
+  /** The fuller figure once ready. */
+  figure: FigureViewDto | null;
+}
+
+/** RW5d P2b: a rich build with no quick figure: its pending line under the passage. */
+export interface FigureRichPendingDto {
+  requestId: string | null;
+  extractionId: string | null;
+  anchorSpanId: string | null;
+  tier: "manim";
+  goalText: string | null;
+  state: FigureRichState;
+  phase: string | null;
+  reason: string | null;
+  richJobId: string | null;
 }
 
 /** RW5d P2: one check code ran on a sketch (spec §9.5); the Reader words it from these closed fields. */
@@ -9780,12 +9843,16 @@ export interface FigureBuildResultDto {
   reused: boolean;
   /** The passage became held out while it was being built: nothing is shown. */
   withheld?: boolean;
+  /** RW5d P2b: only a rich figure is being built (no quick one): its pending line. */
+  rich?: FigureRichPendingDto | null;
 }
 
 export interface FiguresDto {
   version?: number;
   extractionId: string;
   figures: FigureViewDto[];
+  /** RW5d P2b (present while the rich tiers are on): rich builds with no quick figure. */
+  richPending?: FigureRichPendingDto[];
 }
 
 /** A library request running off the request path (reader.library_job). */

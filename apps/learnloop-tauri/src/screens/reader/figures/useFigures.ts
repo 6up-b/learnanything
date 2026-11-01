@@ -9,12 +9,15 @@
 // no RPC is ever called and nothing renders (U13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../api/client";
-import type { FigureBuildResultDto, FigurePredictionResultDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
+import type { FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
 import { frameBadge } from "./FigureInline";
 
 /** How often a running build is read (a background job: no hurry). */
 export const FIGURE_POLL_MS = 1500;
+/** RW5d P2b: how often the source's figures are read again while a rich build
+ *  runs (minutes long; the fuller line and the pending line follow it). */
+export const RICH_POLL_MS = 5000;
 
 export interface FigureRequestInput {
   spanIds: string[];
@@ -62,6 +65,9 @@ export interface FiguresContract {
   showMe?: boolean;
   /** RW5d P2: the sketch tier. */
   sketch?: boolean;
+  /** RW5d P2b: the rich tiers (present only while figures.rich_tiers_enabled is on), with the
+   *  Manim opt-in's state ("ask": ready here and never asked; shown once after a press). */
+  rich?: { manimOptIn: "ask" | "standing" | "declined" | "unavailable" };
 }
 
 export interface FiguresCtl {
@@ -75,11 +81,25 @@ export interface FiguresCtl {
   setExpanded: (figure: FigureViewDto | null) => void;
   /** Resolves once the build has ended (never rejects). */
   request: (input: FigureRequestInput) => Promise<FigureRequestOutcome>;
-  revise: (figure: FigureViewDto, note: string) => void;
+  /** "Not right?". RW5d P2b: on an animation, ``differentKind`` re-runs the tier choice
+   * with the note instead of sending it and the earlier program to the rich author. */
+  revise: (figure: FigureViewDto, note: string, differentKind?: boolean) => void;
   predict: (figure: FigureViewDto, index: number, answer: string) => Promise<FigurePredictionResultDto | null>;
   explain: (figure: FigureViewDto, predictionId: string, text: string) => Promise<FigurePredictionResultDto | null>;
-  /** The figures and pending lines under one passage. */
-  under: (spanId: string | null | undefined) => { figures: FigureViewDto[]; pending: FigurePending[] };
+  /** The figures and pending lines under one passage (RW5d P2b: and its rich builds with no quick figure). */
+  under: (spanId: string | null | undefined) => {
+    figures: FigureViewDto[]; pending: FigurePending[]; richPending: FigureRichPendingDto[];
+  };
+  /** RW5d P2b: rich builds with no quick figure (pending lines). */
+  richPending: FigureRichPendingDto[];
+  /** RW5d P2b: cancel a rich build (only it: a quick figure stays). */
+  cancelRich: (richJobId: string) => void;
+  /** RW5d P2b (Codex review F9): try a rich build again that ended with no row. */
+  retryRich: (richJobId: string) => void;
+  /** RW5d P2b: the Manim opt-in's state, and the passage its one inline ask sits under (after a press). */
+  manimOptIn: "ask" | "standing" | "declined" | "unavailable" | null;
+  optInSpanId: string | null;
+  answerManimOptIn: (choice: "allow" | "decline") => void;
 }
 
 /** One placement of a figure: the figure and the paragraph it is listed under
@@ -105,6 +125,10 @@ export function useFigures({
   const [figures, setFigures] = useState<FigureViewDto[]>([]);
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
+  const [manimOptIn, setManimOptIn] = useState<FiguresCtl["manimOptIn"]>(contract?.rich?.manimOptIn ?? null);
+  const [optInSpanId, setOptInSpanId] = useState<string | null>(null);
+  useEffect(() => { setManimOptIn(contract?.rich?.manimOptIn ?? null); }, [contract?.rich?.manimOptIn]);
   const setExpanded = useCallback((figure: FigureViewDto | null) => setExpandedKey(figure ? figurePlacementKey(figure) : null), []);
   // A build that lands after the source changed never shows on the new one.
   const generation = useRef(0);
@@ -116,15 +140,41 @@ export function useFigures({
     generation.current += 1;
     setFigures([]);
     setPending([]);
+    setRichPending([]);
     setExpandedKey(null);
     if (!enabled || !extractionId) return;
     const mine = generation.current;
     void Promise.resolve(api.readerFigures({ extractionId }))
       .then((found) => {
-        if (generation.current === mine && found) setFigures(found.figures ?? []);
+        if (generation.current === mine && found) {
+          setFigures(found.figures ?? []);
+          setRichPending(found.richPending ?? []);
+        }
       })
       .catch(() => undefined);
   }, [enabled, extractionId]);
+
+  // RW5d P2b: while a rich build runs (a fuller line pending or waiting, or a
+  // rich-only pending line), the source's figures are read again, paced; the
+  // lines change in place under their passage, nothing else moves.
+  const richRunning = (
+    richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
+    || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
+  useEffect(() => {
+    if (!enabled || !extractionId || !richRunning) return;
+    const mine = generation.current;
+    const timer = setTimeout(() => {
+      void Promise.resolve(api.readerFigures({ extractionId }))
+        .then((found) => {
+          if (generation.current === mine && found) {
+            setFigures(found.figures ?? []);
+            setRichPending(found.richPending ?? []);
+          }
+        })
+        .catch(() => undefined);
+    }, RICH_POLL_MS);
+    return () => clearTimeout(timer);
+  }, [enabled, extractionId, richRunning, figures, richPending]);
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")
@@ -177,6 +227,12 @@ export function useFigures({
           }
           if (!live()) return "cancelled";
           setPending((list) => list.filter((item) => item.key !== key));
+          const rich = job.state === "done" ? job.result?.rich ?? null : null;
+          if (rich && !job.result?.figure) {
+            // RW5d P2b: only a rich figure is being built: its pending line under the passage.
+            setRichPending((list) => [...list.filter((line) => line.richJobId !== rich.richJobId), rich]);
+            return "shown";
+          }
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
           const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
           if (figure && figure.supersedesId && !shown) {
@@ -206,6 +262,8 @@ export function useFigures({
       if (!enabled || !extractionId) return Promise.resolve("skipped");
       const spanIds = [...new Set(input.spanIds)];
       const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? "";
+      // RW5d P2b: the Manim opt-in is asked once, inline, under the first press's passage.
+      if (manimOptIn === "ask" && anchor) setOptInSpanId((current) => current ?? anchor);
       const region = input.region && contract?.region ? input.region : null;
       const goal = input.goalText?.trim() ? input.goalText.trim() : null;
       const key = `req:${anchor}:${spanIds.join(",")}:${region ? region.bbox.join(",") : ""}${goal ? `:goal:${goal}` : ""}`;
@@ -233,13 +291,46 @@ export function useFigures({
       }
       return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }), input.onLanded);
     },
-    [enabled, extractionId, contract, run],
+    [enabled, extractionId, contract, run, manimOptIn],
   );
 
+  const refresh = useCallback(() => {
+    if (!enabled || !extractionId) return;
+    const mine = generation.current;
+    void Promise.resolve(api.readerFigures({ extractionId }))
+      .then((found) => {
+        if (generation.current === mine && found) {
+          setFigures(found.figures ?? []);
+          setRichPending(found.richPending ?? []);
+        }
+      })
+      .catch(() => undefined);
+  }, [enabled, extractionId]);
+
+  const cancelRich = useCallback((richJobId: string) => {
+    setRichPending((list) => list.filter((line) => line.richJobId !== richJobId));
+    void Promise.resolve(api.figureRichCancel({ richJobId })).then(refresh, refresh);
+  }, [refresh]);
+
+  const retryRich = useCallback((richJobId: string) => {
+    setRichPending((list) => list.map((line) => line.richJobId !== richJobId ? line
+      : { ...line, state: "pending", phase: "writing", reason: null }));
+    void Promise.resolve(api.figureRichRetry({ richJobId })).then(refresh, refresh);
+  }, [refresh]);
+
+  const answerManimOptIn = useCallback((choice: "allow" | "decline") => {
+    setOptInSpanId(null);
+    setManimOptIn(choice === "allow" ? "standing" : "declined");
+    void Promise.resolve(api.figureManimOptIn({ choice }))
+      .then((found) => { if (found?.manimOptIn) setManimOptIn(found.manimOptIn); })
+      .catch(() => setManimOptIn("ask"));
+  }, []);
+
   const revise = useCallback(
-    (figure: FigureViewDto, note: string) => {
+    (figure: FigureViewDto, note: string, differentKind?: boolean) => {
       if (!enabled || !contract?.revisions) return;
-      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise({ figureId: figure.figureId, note }));
+      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise(differentKind
+        ? { figureId: figure.figureId, note, differentKind: true } : { figureId: figure.figureId, note }));
     },
     [enabled, contract, run],
   );
@@ -274,13 +365,14 @@ export function useFigures({
 
   const under = useCallback(
     (spanId: string | null | undefined) => {
-      if (!spanId) return { figures: [], pending: [] };
+      if (!spanId) return { figures: [], pending: [], richPending: [] };
       return {
         figures: figures.filter((figure) => figure.anchorSpanId === spanId),
         pending: pending.filter((item) => item.anchorSpanId === spanId),
+        richPending: richPending.filter((line) => line.anchorSpanId === spanId),
       };
     },
-    [figures, pending],
+    [figures, pending, richPending],
   );
 
   return useMemo(
@@ -296,7 +388,14 @@ export function useFigures({
       predict,
       explain,
       under,
+      richPending,
+      cancelRich,
+      retryRich,
+      manimOptIn,
+      optInSpanId,
+      answerManimOptIn,
     }),
-    [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under],
+    [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under,
+     richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
   );
 }
