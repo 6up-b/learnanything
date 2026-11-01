@@ -142,7 +142,7 @@ def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
-    # The latest successor (curriculum C1's mvp-0.39, after the cold-retry reschedule's mvp-0.38) keeps AD's switches.
+    # The latest successor (curriculum C1's mvp-0.40, after Reader RW6b's mvp-0.39) keeps AD's switches.
     assert fresh.config.algorithms.algorithm_version == "mvp-0.39"
     assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES if name != "learned_coupling")
     assert not SC.switch_on(fresh.config, "learned_coupling") and SC.dose_offers_on(fresh.config)

@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useCloseWithFlush.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useCloseWithFlush.ts"
-source_commit: "e0fb451c54d1be78ab582aa67c4ce648ce8394ff"
-source_commit_timestamp: "2026-09-23T12:05:52-04:00"
+source_commit: "10b5f8cf9e1f392c5ffd54751f2d6b6e1b03a143"
+source_commit_timestamp: "2026-10-17T07:28:11-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `useCloseWithFlush` within the desktop's TypeScript/app ownership area.
+Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useCloseWithFlush.ts](../../../../../../apps/learnloop-tauri/src/app/useCloseWithFlush.ts) |
-| Source lines | 35 |
+| Source lines | 81 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `e0fb451c54d1be78ab582aa67c4ce648ce8394ff` |
-| Commit timestamp | `2026-09-23T12:05:52-04:00` |
+| Source commit | `10b5f8cf9e1f392c5ffd54751f2d6b6e1b03a143` |
+| Commit timestamp | `2026-10-17T07:28:11-04:00` |
 
 ## Activation and status evidence
 
@@ -60,14 +60,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function useCloseWithFlush(flushDraft: ()` — function, line 6
+- `export const CLOSE_HELD_NOTE = "The window stayed open so nothing is lost. Close it again to close anyway."` — const, line 15
+- `export function useCloseWithFlush( flushDraft: ()` — function, line 20
 
 ## Internal implementation anchors
 
-- `const appWindow = getCurrentWindow()` — const, line 8
-- `let disposed = false` — let, line 9
-- `let unlisten: (()` — let, line 10
-- `let closing = false` — let, line 11
+- `const pendingCloseSaves = new Set<Promise<boolean>>()` — const, line 9
+- `let closeHeld = false` — let, line 12
+- `let appWindow: ReturnType<typeof getCurrentWindow>` — let, line 26
+- `let disposed = false` — let, line 33
+- `let unlisten: (()` — let, line 34
+- `let closing = false` — let, line 35
+- `const closeAnyway = closeHeld` — const, line 45
+- `let ownFailure: string | null = null` — let, line 46
+- `const save = (async ()` — const, line 47
+- `let landed = false` — let, line 57
 
 ## Who imports or calls it
 
@@ -75,6 +82,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `useCloseWithFlush`; references `useCloseWithFlush`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `useCloseWithFlush`; references `useCloseWithFlush`
 
 ## Dependencies
 

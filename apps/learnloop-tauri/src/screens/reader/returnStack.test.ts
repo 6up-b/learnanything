@@ -5,6 +5,7 @@ import {
   back,
   canGoBack,
   canGoForward,
+  dropCurrent,
   EMPTY_STACK,
   forward,
   goTo,
@@ -12,6 +13,7 @@ import {
   markReturned,
   openDetours,
   pushDetour,
+  replaceCurrent,
   stackInquiryExchange,
   unreturnedDetours,
   type ReturnEntry,
@@ -84,4 +86,33 @@ it("a detour is returned once: walking forward and back again finds nothing new 
   stack = pushDetour(stack, origin, entry("c"));
   expect(stack.entries.map((e) => e.id)).toEqual(["origin", "a", "c"]);
   expect(unreturnedDetours(stack).map((e) => e.id)).toEqual(["c"]);
+});
+
+it("Reader CA6: closing side by side drops its crumb only while it is current, moving nothing", () => {
+  const side = entry("sbs", { kind: "side_by_side", spanId: "origin", label: "side by side with Axler §5.A" });
+  const one = pushDetour(EMPTY_STACK, origin, side);
+  expect(dropCurrent(one, "sbs")).toBe(EMPTY_STACK);
+  const two = pushDetour(pushDetour(EMPTY_STACK, origin, entry("p1")), origin, side);
+  expect(dropCurrent(two, "sbs")).toEqual({ ...two, entries: two.entries.slice(0, 2), cursor: 1 });
+  // Walked off it already (or another id): unchanged.
+  const walked = back(two).stack;
+  expect(dropCurrent(walked, "sbs")).toBe(walked);
+  expect(dropCurrent(two, "p1")).toBe(two);
+});
+
+it("Reader CA6 (Codex review F6): side by side with another section is another detour; replaceCurrent keeps the id", () => {
+  const axler = { sourceId: "src_axler", sourceTitle: "Axler", extractionId: "ext_axler", sectionId: "ax5a", title: "5.A", spanId: "a1", by: "judged" as const };
+  const lay = { ...axler, sourceId: "src_lay", sourceTitle: "Lay", extractionId: "ext_lay", sectionId: "lay52", title: "5.2" };
+  const side = entry("sbs", { kind: "side_by_side", spanId: "origin", sideBySide: axler });
+  const one = pushDetour(EMPTY_STACK, origin, side);
+  // The same passage, another pair: not deduplicated away.
+  const other = pushDetour(one, origin, entry("sbs2", { kind: "side_by_side", spanId: "origin", sideBySide: lay }));
+  expect(other.entries.map((e) => e.id)).toEqual(["origin", "sbs", "sbs2"]);
+  // The same pair again: a no-op, as before.
+  expect(pushDetour(one, origin, entry("sbs3", { kind: "side_by_side", spanId: "origin", sideBySide: axler }))).toBe(one);
+  // Replacing the current pair keeps its entry id; another entry is unchanged.
+  const replaced = replaceCurrent(one, "sbs", { label: "side by side with Lay §5.2", sideBySide: lay });
+  expect(replaced.entries[1]).toMatchObject({ id: "sbs", label: "side by side with Lay §5.2", sideBySide: lay });
+  expect(replaced.cursor).toBe(1);
+  expect(replaceCurrent(one, "origin", { label: "x" })).toBe(one);
 });

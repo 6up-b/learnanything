@@ -14,11 +14,12 @@
 // reviewed TaskBlueprint placements appear as optional real-source quick checks;
 // the hard-coded demo question remains confined to the offline fixture.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
+import { setQueryData } from "../api/queryCache";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
@@ -114,6 +115,10 @@ import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExerci
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
+import { SideBySidePane } from "./reader/SideBySidePane";
+import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
+import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
+import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -582,7 +587,7 @@ export function ReaderScreen({
     markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState,
+    resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -640,6 +645,26 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // Reader CA5: "also in your books" (the contract names it only while
+  // reader.correspondence.enabled and curriculum.enabled are on). Shown in skim
+  // mode (a table of contents), never in the working posture or offline.
+  const alsoOn = Boolean(contract?.correspondence?.alsoInBooks) && !offline;
+  // The learner's hide preferences: the contract's, or what was just set here
+  // (until the contract itself changes, e.g. Settings brought the line back).
+  const [alsoPrefs, setAlsoPrefs] = useState<{ everywhere: boolean; sources: string[] } | null>(null);
+  useEffect(() => setAlsoPrefs(null), [contract]);
+  const alsoHidden = alsoPrefs
+    ? alsoPrefs.everywhere || Boolean(render && alsoPrefs.sources.includes(render.sourceId))
+    : Boolean(contract?.correspondence?.hiddenEverywhere)
+      || Boolean(render && (contract?.correspondence?.hiddenSources ?? []).includes(render.sourceId));
+  const [alsoAvailable, setAlsoAvailable] = useState(false);
+  const [alsoExpandToken, setAlsoExpandToken] = useState(0);
+  const [alsoClosePeekToken, setAlsoClosePeekToken] = useState(0);
+  const [alsoPeek, setAlsoPeek] = useState<AlsoPeekCrumb | null>(null);
+  // CA5a's pressed list peeks too (Codex review F4): one display-only crumb for either list.
+  const [findPeek, setFindPeek] = useState<AlsoPeekCrumb | null>(null);
+  const peekCrumbShown = alsoPeek ?? findPeek;
+  const [coverageRefresh, setCoverageRefresh] = useState(0);
   // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
   // re-reads on, a landed progress save included.
   // The Guide being shown again, the plan re-read (a diagnosis landed), a
@@ -1353,6 +1378,111 @@ export function ReaderScreen({
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   // Reader CA4: below the breakpoint the comparing posture stacks (off: RW4a's split).
   const comparingStacked = useComparingStacked(comparing && libraryCtl.byPoint);
+  // Reader CA6: side by side (off: no `sideBySide` in the contract, nothing renders and no key does anything new).
+  const sbs = useSideBySide({
+    enabled: Boolean(contract?.sideBySide?.enabled) && Boolean(render) && !offline && !working,
+    main: render ? { sourceId: render.sourceId, sourceTitle: sourceTitle ?? "", extractionId: render.extractionId, sectionId: currentGuideSection?.id ?? null } : null,
+    // Follow along moves the main pane once, with no animation (K14): the jump,
+    // then the passage put at the top at once (the PDF surface places its page itself).
+    jumpMain: (spanId: string) => {
+      jumpToSpan(spanId, "start");
+      if (pdfSurfaceActive) return;
+      const node = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
+      if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+    },
+    pushCrumb: pushSideBySide,
+    replaceCrumb: replaceSideBySide,
+    dropCrumb: dropDetour,
+    currentEntry: returnStack.entries[returnStack.cursor] ?? null,
+    visitPayload,
+    onError,
+  });
+  // The second pane shows while side by side is open in a wide window; a
+  // comparison the learner starts takes the right side meanwhile (both are
+  // the comparing posture), and side by side comes back when it closes.
+  const sbsPanes = sbs.panes && !comparing;
+  const sbsPanesRef = useRef(false);
+  sbsPanesRef.current = sbsPanes;
+  // What the learner sees of side by side now (a comparison hides it): Esc,
+  // F6 and Ctrl+Shift+L act only on what is shown, so Esc in a comparison
+  // closes the comparison and side by side comes back.
+  const sbsShownRef = useRef(false);
+  sbsShownRef.current = sbsPanes || (sbs.sheet && !comparing);
+  const sbsRef = useRef(sbs);
+  sbsRef.current = sbs;
+  // Esc never closes the second pane while it is clearing something of the main pane's (a selection, a menu).
+  const sbsEscBusyRef = useRef(false);
+  sbsEscBusyRef.current = Boolean(selection) || Boolean(tagMenu);
+  const sbsPaneRef = useRef<HTMLDivElement | null>(null);
+  const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
+  useEffect(() => {
+    if (!sbsPanes) setSbsRailOverlay(false);
+  }, [sbsPanes]);
+  const [sbsSplit, setSbsSplit] = useState(readSplit);
+  const sbsRowRef = useRef<HTMLDivElement | null>(null);
+  const startSbsResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const row = sbsRowRef.current;
+    if (!row) return;
+    event.preventDefault();
+    const rect = row.getBoundingClientRect();
+    const move = (moved: PointerEvent) => {
+      if (rect.width > 0) setSbsSplit(clampSplit((moved.clientX - rect.left) / rect.width));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setSbsSplit((value) => {
+        writeSplit(value);
+        return value;
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  // The main pane leads once the learner's hand is on it (scroll, click, select).
+  const touchMain = () => {
+    if (sbsRef.current.panes) sbsRef.current.touch("main");
+  };
+  // Side by side's keys (§6.4): Ctrl+\ opens the first correspondent of the
+  // section in view (or closes the second pane), Ctrl+Shift+L turns follow
+  // along on or off, F6 moves focus between the panes, Esc in a pane closes
+  // the second one. Outside text fields; nothing while off.
+  useEffect(() => {
+    if (!sbs.enabled) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      const ctl = sbsRef.current;
+      const open = ctl.panes || ctl.sheet;
+      const shown = sbsShownRef.current;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && !event.altKey && !event.shiftKey && event.key === "\\") {
+        event.preventDefault();
+        if (open) ctl.close();
+        else void ctl.openFirst();
+      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes && shown) {
+        event.preventDefault();
+        ctl.toggleFollow();
+      } else if (event.key === "F6" && !mod && !event.altKey && ctl.panes && shown) {
+        event.preventDefault();
+        const side = sbsPaneRef.current;
+        const inSide = target instanceof Element && Boolean(target.closest("[data-side-by-side-pane]"));
+        if (inSide) bodyRef.current?.focus({ preventScroll: true });
+        else side?.focus({ preventScroll: true });
+      } else if (event.key === "Escape" && !mod && !event.altKey && shown && !event.defaultPrevented && !sbsEscBusyRef.current) {
+        // Esc closes the second pane when it is aimed at either pane (never a
+        // field, a menu or the rail's own Esc).
+        const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target));
+        if (target === document.body || inMain) {
+          event.preventDefault();
+          ctl.close();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sbs.enabled]);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
     if (!render || offline) return;
     setLibraryCompose(null);
@@ -1757,8 +1887,13 @@ export function ReaderScreen({
   );
 
 
+  // Reader CA5's `x`: only while its line is there to open.
+  const alsoKeyRef = useRef<() => boolean>(() => false);
+  // Not while comparing either (Codex review F5): the comparing posture hides the Guide's rail.
+  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !comparing && !intentBox.open;
   // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
-  // tabs; \ collapses or expands the rail (remembered on this device).
+  // tabs; \ collapses or expands the rail (remembered on this device); x opens
+  // "also in your books" (CA5).
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -1772,7 +1907,18 @@ export function ReaderScreen({
         setRailTab((tab) => tabs[(tabs.indexOf(tab) + (event.key === "]" ? 1 : tabs.length - 1)) % tabs.length]);
       } else if (event.key === "\\") {
         event.preventDefault();
-        setRailCollapsed((collapsed) => !collapsed);
+        // Reader CA6: in side by side the rail stays folded to its gutter; \\ opens it as an overlay.
+        if (sbsPanesRef.current) setSbsRailOverlay((open) => !open);
+        else setRailCollapsed((collapsed) => !collapsed);
+      } else if ((event.key === "x" || event.key === "X") && alsoKeyRef.current()) {
+        // Reader CA5: open "also in your books" at its first line (off while the
+        // intent box shows, in the working posture, or with no line to open).
+        event.preventDefault();
+        // In side by side (CA6) the rail is an overlay over the gutter: open that.
+        if (sbsPanesRef.current) setSbsRailOverlay(true);
+        else setRailCollapsed(false);
+        setRailTab("guide");
+        setAlsoExpandToken((token) => token + 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -2258,6 +2404,33 @@ export function ReaderScreen({
       [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],
     );
   };
+  // Reader CA5: "hide for this book" / "hide everywhere" on the line, kept in
+  // the vault's config (Settings brings it back). The cached contract follows
+  // at once, and settles on the sidecar's answer (or goes back on a failure).
+  const hideAlsoInBooks = (scope: "book" | "everywhere") => {
+    if (!render || !contract?.correspondence) return;
+    const before = alsoPrefs ?? {
+      everywhere: Boolean(contract.correspondence.hiddenEverywhere), sources: contract.correspondence.hiddenSources ?? [],
+    };
+    setAlsoPrefs(scope === "book"
+      ? { everywhere: before.everywhere, sources: [...new Set([...before.sources, render.sourceId])] }
+      : { everywhere: true, sources: before.sources });
+    setAlsoPeek(null);
+    const base = contract;
+    Promise.resolve()
+      .then(() => api.readerSetCorrespondencePreferences(scope === "book" ? { sourceId: render.sourceId, hideSource: true } : { hideEverywhere: true }))
+      .then((prefs) => {
+        // Every Reader reads it from the contract from now on.
+        setQueryData(["reader_prompt_contract"], {
+          ...base, correspondence: { ...base.correspondence!, hiddenEverywhere: prefs.hideEverywhere,
+            hiddenSources: prefs.hiddenSources.map((entry) => entry.sourceId) },
+        }, [TAG.reader, TAG.settings]);
+      })
+      .catch((error) => {
+        setAlsoPrefs(before);
+        onError(errorMessage(error));
+      });
+  };
   // RW5b: an offered figure's press (see offeredFigure above). It resolves to
   // how the press ended: built, or why nothing was (fix round 2, F9).
   const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome> => {
@@ -2656,6 +2829,8 @@ export function ReaderScreen({
             door: "selection", question: text || (selection ? (selection.editedText ?? selection.quote) : ""),
             extractionId: render.extractionId, anchorSpanIds: selectionSpanIds, openSourceId: render.sourceId,
             workbenchSessionId: bound,
+            // Reader CA6: in side by side the source is the other pane's book (§4.1).
+            ...(sbsPanes && sbs.target ? { sourceIds: [sbs.target.sourceId] } : {}),
           };
           if (working) {
             // Started once the learner leaves, under the policy then in force.
@@ -2847,21 +3022,53 @@ export function ReaderScreen({
             const { stack, target } = stackGoTo(returnStackRef.current, index);
             if (target) void restoreEntry(stack, target, index === 0 ? "crumb_origin" : "crumb");
           }}
+          // Reader CA5: a peek at another book's section from the Guide is a crumb
+          // only (never a return-stack entry, so Alt+→ never opens that book).
+          peek={peekCrumbShown ? {
+            label: peekCrumbShown.label,
+            origin: currentGuideSection?.label ?? sourceTitle ?? "where I was",
+            onClose: () => setAlsoClosePeekToken((token) => token + 1),
+          } : null}
         />
       ) : null}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}) }}>
+      {sbs.notice ? (
+        // Reader CA6: Ctrl+\\ found nothing to open (dim, outside the text column; goes on the next touch).
+        <div data-sbs-notice="" style={{ flexShrink: 0, padding: "4px 32px", borderBottom: `1px solid ${COLOR.border}` }}>
+          <Faint style={{ fontSize: 11 }}>{sbs.notice}</Faint>
+        </div>
+      ) : null}
+      <div ref={sbsRowRef} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}), ...(sbs.panes || sbs.sheet ? { position: "relative" as const } : {}) }}>
         <div
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
           aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
           {...(working && wbBookHidden ? { "aria-hidden": true } : {})}
+          {...(sbsPanes ? { tabIndex: -1, "data-sbs-main": "" } : {})}
           onMouseDown={(event) => {
             noteUserScroll();
+            touchMain();
+            if (sbs.notice) sbs.clearNotice();
             onBodyMouseDown(event);
           }}
-          onMouseUp={onMouseUp}
-          onWheel={noteUserScroll}
-          onTouchMove={noteUserScroll}
+          onMouseUp={() => {
+            if (sbsPanes && !window.getSelection()?.isCollapsed) touchMain();
+            onMouseUp();
+          }}
+          onKeyDown={(event) => {
+            // Reader CA6: scrolling the main pane with the keyboard is the learner's hand on it (it leads).
+            if (!sbsPanes || event.ctrlKey || event.metaKey || event.altKey || !SIDE_BY_SIDE_SCROLL_KEYS.has(event.key)) return;
+            const target = event.target;
+            if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, button"))) return;
+            touchMain();
+          }}
+          onWheel={() => {
+            noteUserScroll();
+            touchMain();
+          }}
+          onTouchMove={() => {
+            noteUserScroll();
+            touchMain();
+          }}
           onScroll={onBodyScroll}
           className="ll-scroll"
           style={{
@@ -2876,8 +3083,19 @@ export function ReaderScreen({
             ...(wbStacked ? { order: 1, flex: wbSourceShown ? "0 0 50%" : undefined, display: wbSourceShown ? "flex" : "none", borderTop: `1px solid ${COLOR.border}` } : {}),
             // Reader CA4: the comparing posture stacked, the book below the comparison.
             ...(comparingStacked ? { order: 1, flex: "0 0 50%" } : {}),
+            // Reader CA6: the two panes share the source area (the split is the learner's, per device).
+            ...(sbsPanes ? { flex: `${sbsSplit} 1 0`, minWidth: 0, outline: "none" } : {}),
           }}
         >
+          {sbsPanes ? (
+            <div data-sbs-main-header="" style={{ position: "sticky", top: -18, zIndex: 9, margin: "-18px -32px 0", padding: "6px 32px", background: COLOR.bg, borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "baseline", gap: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+              <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                § {sourceTitle ?? "this book"}{currentGuideSection ? ` · ${currentGuideSection.label}` : ""}
+              </span>
+              {sbs.leader === "main" ? <span data-sbs-lead="" style={{ color: COLOR.amber }}>{SIDE_BY_SIDE_COPY.lead}</span> : null}
+              {sbs.staysPut === "main" ? <Faint style={{ fontSize: 10 }}>{SIDE_BY_SIDE_COPY.staysPut}</Faint> : null}
+            </div>
+          ) : null}
           <IntentBox box={intentBox} />
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
@@ -3113,6 +3331,40 @@ export function ReaderScreen({
           })}
         </div>
 
+        {sbsPanes ? (
+          <>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="resize side by side"
+              onPointerDown={startSbsResize}
+              style={{ width: 5, flexShrink: 0, cursor: "col-resize", background: COLOR.border }}
+            />
+            <SideBySidePane
+              ref={sbsPaneRef}
+              ctl={sbs}
+              otherTitle={sourceTitle ?? "this book"}
+              grow={1 - sbsSplit}
+              // Highlights and notes in the second pane go to its own book (§6.4).
+              onCaptured={(kind) => logReaderAction("action_invoked", { ...visitPayload(), action_kind: kind === "annotate" ? "note" : "highlight", entry: "side_by_side" })}
+              onError={onError}
+              onCompareSelection={libraryCtl.scopeOn && render ? (picked) => {
+                // CA3's selection verb in the second pane: anchored there, the source the main pane's book.
+                if (!sbs.section) return;
+                logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", entry: "side_by_side" });
+                setLibraryCompose(null);
+                libraryCtl.compareFrom({
+                  door: "selection", question: picked.quote, extractionId: sbs.section.extractionId,
+                  anchorSpanIds: picked.spanIds, openSourceId: sbs.section.sourceId, sourceIds: [render.sourceId],
+                  workbenchSessionId: null,
+                });
+              } : null}
+            />
+          </>
+        ) : null}
+        {sbs.sheet && !comparing ? (
+          <SideBySidePane ctl={sbs} otherTitle={sourceTitle ?? "this book"} onCompareSelection={null} />
+        ) : null}
         {working && wbActive ? (
           <ReaderWorkingPosture
             wbCtl={wbCtl}
@@ -3145,10 +3397,10 @@ export function ReaderScreen({
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {inquiry && railCollapsed && !working && !comparing ? (
+        {((inquiry && railCollapsed) || sbsPanes) && !working && !comparing && !sbsRailOverlay ? (
           <button
             type="button"
-            onClick={() => setRailCollapsed(false)}
+            onClick={() => (sbsPanes ? setSbsRailOverlay(true) : setRailCollapsed(false))}
             aria-label={"expand the rail (\\)"}
             title={"expand the rail (\\)"}
             style={{ width: 28, flexShrink: 0, border: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
@@ -3171,7 +3423,11 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
-            display: (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
+            // Reader CA6: side by side folds the rail to its gutter; \\ reopens it as an overlay at the right.
+            display: sbsPanes ? (sbsRailOverlay ? undefined : "none") : (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
+            ...(sbsPanes && sbsRailOverlay
+              ? { position: "absolute" as const, right: 0, top: 0, bottom: 0, zIndex: 25, background: COLOR.bg, boxShadow: "-6px 0 18px rgba(0,0,0,0.18)" }
+              : {}),
           }}
           className="ll-scroll"
         >
@@ -3323,6 +3579,11 @@ export function ReaderScreen({
                     wrapUp={recapCtl.wrapUpOpen}
                     where="reader"
                     onClose={recapCtl.closeWrapUp}
+                    followups={{
+                      onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
+                      onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
+                      onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
+                    }}
                     isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
                     onAction={async (line, action) => {
                       const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
@@ -3349,6 +3610,11 @@ export function ReaderScreen({
                     onRevisit={(rootId) => void recapRevisit(rootId)}
                     revisited={recapRevisited}
                     onResume={(sessionId) => void wbCtl.resume(sessionId)}
+                    // RW6b: the card keeps the undone line ("undone · keep it
+                    // after all") until it is next read, so an undo can be taken back.
+                    onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
+                    onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
+                    onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
                   />
                 ) : null}
               </>
@@ -3361,7 +3627,31 @@ export function ReaderScreen({
                   : null}
                 onGoThere={(target) => void openLibraryHit(target)}
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
                 onError={onError}
+                refreshKey={coverageRefresh}
+                onPeekChange={setFindPeek}
+                closePeekToken={alsoClosePeekToken}
+              />
+            ) : undefined}
+            alsoInBooks={alsoOn && !working ? (
+              <AlsoInBooks
+                extractionId={render.extractionId}
+                section={currentGuideSection
+                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+                  : null}
+                hidden={alsoHidden}
+                onHide={hideAlsoInBooks}
+                onGoThere={(target) => void openLibraryHit(target)}
+                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                // `s` side by side (CA6): the same entry as CA5a's find list's.
+                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
+                onPeekChange={setAlsoPeek}
+                onAvailableChange={setAlsoAvailable}
+                onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
+                onError={onError}
+                expandToken={alsoExpandToken}
+                closePeekToken={alsoClosePeekToken}
               />
             ) : undefined}
             footer={cueCtl.cues ? (
@@ -3662,6 +3952,8 @@ export function ReaderScreen({
           ...(cueCtl.placement.shown.length > 0 ? [{ key: "alt+↓", label: "next mark" }] : []),
           // RW6a: once the session has something to wrap up (UX W1).
           ...(recapCtl.wrapUpOffered && !working ? [{ key: "w", label: "wrap up" }] : []),
+          // Reader CA5: while the Guide has its "also in your books" line.
+          ...(inquiry && alsoOn && alsoAvailable && !alsoHidden && !working && !comparing ? [{ key: "x", label: "also in your books" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />

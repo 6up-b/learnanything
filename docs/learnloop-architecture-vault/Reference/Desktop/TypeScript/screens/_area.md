@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens"
-source_commit: "c369ee23244d6f87e7bc33ef2c6a9bba55aeb982"
-source_commit_timestamp: "2026-09-23T15:38:43-04:00"
+source_commit: "0d3a5b4235a2cdca57d50efb1e15faa754f9cb2f"
+source_commit_timestamp: "2026-11-01T00:12:47-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -30,36 +30,44 @@ Top-level routed workflow screens in the desktop shell.
 
 ## Child areas
 
+- [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] — The post-answer feedback surface: answer exposure, method comparison, and its exposure contract.
+- [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] — Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen.
 - [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] — Reader request-state coordination extracted from the main reader screen.
 - [[Reference/Desktop/TypeScript/screens/startBackdrops/_area|TypeScript/screens/startBackdrops]] — Canvas/SVG simulations and workers used as the start-screen visual backdrop.
+- [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] — The Today place: the daily plan view and re-entry after time away.
+- [[Reference/Desktop/TypeScript/screens/underhood/_area|TypeScript/screens/underhood]] — Under the hood's thin tool entry points (SQLite browser, inspector, calibration, mistake history, AI routes).
+- [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] — The Reader workbench: steps, Check my work, the help ladder, step hints, and the session state behind them.
 
 ## Direct modules
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/CalibrationScreen|CalibrationScreen.tsx]] | `ACTIVE` | Implements the `CalibrationScreen` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|DiagnosticReviewScreen.tsx]] | `ACTIVE` | Implements the `DiagnosticReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/ExamScreen|ExamScreen.tsx]] | `ACTIVE` | Implements the `ExamScreen` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
-| [[Reference/Desktop/TypeScript/screens/FeedbackScreen|FeedbackScreen.tsx]] | `ACTIVE` | Implements the `FeedbackScreen` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|GoldenPathScreen.tsx]] | `ACTIVE` | Implements the `GoldenPathScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
-| [[Reference/Desktop/TypeScript/screens/GraphScreen|GraphScreen.tsx]] | `ACTIVE` | Implements the `GraphScreen` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/IngestScreen|IngestScreen.tsx]] | `ACTIVE` | Implements the `IngestScreen` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|KnowledgeMapScreen.tsx]] | `ACTIVE` | Implements the `KnowledgeMapScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 1 |
+| [[Reference/Desktop/TypeScript/screens/CalibrationScreen|CalibrationScreen.tsx]] | `ACTIVE` | Implements the `CalibrationScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|DiagnosticReviewScreen.tsx]] | `ACTIVE` | Implements the `DiagnosticReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
+| [[Reference/Desktop/TypeScript/screens/ExamScreen|ExamScreen.tsx]] | `ACTIVE` | Implements the `ExamScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
+| [[Reference/Desktop/TypeScript/screens/FeedbackScreen|FeedbackScreen.tsx]] | `ACTIVE` | Implements the `FeedbackScreen` routed desktop screen and coordinates its learner-facing workflow state. | 24 | 1 |
+| [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|GoldenPathScreen.tsx]] | `ACTIVE` | Implements the `GoldenPathScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
+| [[Reference/Desktop/TypeScript/screens/GraphScreen|GraphScreen.tsx]] | `ACTIVE` | Implements the `GraphScreen` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 1 |
+| [[Reference/Desktop/TypeScript/screens/IngestScreen|IngestScreen.tsx]] | `ACTIVE` | Implements the `IngestScreen` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 1 |
+| [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|KnowledgeMapScreen.tsx]] | `ACTIVE` | Implements the `KnowledgeMapScreen` routed desktop screen and coordinates its learner-facing workflow state. | 15 | 2 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|KnowledgeStrataView.tsx]] | `ACTIVE` | Implements the `KnowledgeStrataView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|KnowledgeTerrainView.tsx]] | `ACTIVE` | Implements the `KnowledgeTerrainView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|KnowledgeWellView.tsx]] | `ACTIVE` | Implements the `KnowledgeWellView` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
-| [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
-| [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/ProposalsScreen|ProposalsScreen.tsx]] | `ACTIVE` | Implements the `ProposalsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 2 |
-| [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|RegistryReviewScreen.tsx]] | `ACTIVE` | Implements the `RegistryReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
-| [[Reference/Desktop/TypeScript/screens/RepairScreen|RepairScreen.tsx]] | `ACTIVE` | Implements the `RepairScreen` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/ReviewScreen|ReviewScreen.tsx]] | `ACTIVE` | Implements the `ReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
-| [[Reference/Desktop/TypeScript/screens/SettingsScreen|SettingsScreen.tsx]] | `ACTIVE` | Implements the `SettingsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
-| [[Reference/Desktop/TypeScript/screens/SqliteBrowser|SqliteBrowser.tsx]] | `ACTIVE` | Implements the `SqliteBrowser` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/StartScreen|StartScreen.tsx]] | `ACTIVE` | Implements the `StartScreen` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/TodayScreen|TodayScreen.tsx]] | `ACTIVE` | Implements the `TodayScreen` routed desktop screen and coordinates its learner-facing workflow state. | 17 | 1 |
+| [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|KnowledgeWellView.tsx]] | `ACTIVE` | Implements the `KnowledgeWellView` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
+| [[Reference/Desktop/TypeScript/screens/LibraryPlace|LibraryPlace.tsx]] | `ACTIVE` | Implements the `LibraryPlace` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
+| [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 2 |
+| [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 29 | 1 |
+| [[Reference/Desktop/TypeScript/screens/ProposalsScreen|ProposalsScreen.tsx]] | `ACTIVE` | Implements the `ProposalsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
+| [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 75 | 1 |
+| [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|RegistryReviewScreen.tsx]] | `ACTIVE` | Implements the `RegistryReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/RepairScreen|RepairScreen.tsx]] | `ACTIVE` | Implements the `RepairScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/screens/ReviewScreen|ReviewScreen.tsx]] | `ACTIVE` | Implements the `ReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/SettingsScreen|SettingsScreen.tsx]] | `ACTIVE` | Implements the `SettingsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 1 |
+| [[Reference/Desktop/TypeScript/screens/SqliteBrowser|SqliteBrowser.tsx]] | `ACTIVE` | Implements the `SqliteBrowser` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 2 |
+| [[Reference/Desktop/TypeScript/screens/StartScreen|StartScreen.tsx]] | `ACTIVE` | Implements the `StartScreen` routed desktop screen and coordinates its learner-facing workflow state. | 17 | 1 |
+| [[Reference/Desktop/TypeScript/screens/TodayScreen|TodayScreen.tsx]] | `ACTIVE` | Implements the `TodayScreen` routed desktop screen and coordinates its learner-facing workflow state. | 24 | 1 |
+| [[Reference/Desktop/TypeScript/screens/UnderTheHoodScreen|UnderTheHoodScreen.tsx]] | `ACTIVE` | Implements the `UnderTheHoodScreen` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/screens/knowledgeNeighbors|knowledgeNeighbors.ts]] | `ACTIVE` | Provides `neighborCaption` within the desktop's TypeScript/screens ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/scrollZoom|scrollZoom.ts]] | `ACTIVE` | Provides `SCROLL_ZOOM`, `ScrollZoomOptions`, `ScrollZoom`, `useScrollZoom` within the desktop's TypeScript/screens ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/wire3d|wire3d.ts]] | `ACTIVE` | Provides `Cam`, `Viewport`, `Projected`, `project` and related exports within the desktop's TypeScript/screens ownership area. | 0 | 3 |
 

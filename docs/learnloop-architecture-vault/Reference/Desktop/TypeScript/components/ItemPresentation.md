@@ -56,7 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] → [[Reference/Desktop/TypeScript/components/ItemPresentation|src/components/ItemPresentation.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] → [[Reference/Desktop/TypeScript/components/ItemPresentation|src/components/ItemPresentation.tsx]]
 
 ## Public API
 
@@ -72,9 +72,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
 - [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
 - [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
+- [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
+- [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `ItemPresentation`; references `ItemPresentation`
 
 ## Dependencies
 
@@ -96,6 +100,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/ItemPresentation.test.tsx](../../../../../../apps/learnloop-tauri/src/components/ItemPresentation.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — cross-boundary name contract: references uniquely owned exported name `ItemPresentation`; it does **not** directly execute this source module.
 - [tests/test_instrument_serving.py](../../../../../../tests/test_instrument_serving.py) — cross-boundary name contract: references uniquely owned exported name `ItemPresentation`; it does **not** directly execute this source module.
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

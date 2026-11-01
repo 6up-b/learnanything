@@ -590,13 +590,30 @@ ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 # the predecessor).
 COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 
-# mvp-0.39 (curriculum C1, the plan follows the deliverable;
+# mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
+# spec_reader_workbench_v1 §9.3 "Why no successor", whose fallback the Codex
+# review of docs/reviews/reader-rw6b-p1-followups.md invoked, F4), on top of
+# mvp-0.38 (the cold-retry reschedule; the chain stays linear: mvp-0.39 means
+# everything mvp-0.38 means PLUS this). From the tag on, with
+# ``followups.enabled`` on, an ended reader session's open questions are
+# valued (``value_candidates``) and each check that clears the stop becomes an
+# automatic ``test_me_later`` commitment dated by purpose, re-valued before
+# each day's plan; DL2 serves it as a "Check once", gated at serve by the full
+# exposure rule and repair ownership (``scheduling.intent.followup_gate``).
+# That changes which dated requests the maintain lane holds and serves, never
+# evidence, FSRS, the projection or replay (replay passes no vault and plans
+# nothing; ``reader_session_digests`` is workflow state), so it is a
+# successor by the 2026-10-17 eligibility rule. Kill switch:
+# ``followups.enabled`` (off, or below the tag: nothing is planned or
+# re-valued, exactly the predecessor's plan).
+READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
+# mvp-0.40 (curriculum C1, the plan follows the deliverable;
 # docs/specs/spec_deliverable_curriculum_v1.md §7.6, §8.1;
-# docs/reviews/curriculum-c1-plan-follows-path.md), on top of mvp-0.38 (the
-# cold-retry reschedule; the chain stays linear: mvp-0.39 means everything
-# mvp-0.38 means PLUS this). Built on main at mvp-0.38 while RW6b part 1
-# (mvp-0.39, migration 227) was in fix rounds: whichever lands second
-# renumbers (ONE constant). Below the tag, the plan's reading block is RW7b's
+# docs/reviews/curriculum-c1-plan-follows-path.md), on top of mvp-0.39 (Reader
+# RW6b part 1's cold follow-ups; the chain stays linear: mvp-0.40 means
+# everything mvp-0.39 means PLUS this). Built as mvp-0.39 on mvp-0.38 while
+# RW6b part 1 was in fix rounds and renumbered at its landing after RW6b
+# took mvp-0.39 (ONE constant). Below the tag, the plan's reading block is RW7b's
 # (the per-book reading path narrowing the predecessor's order). From the tag
 # on, with the nearest active deliverable's path fresh (judged for the
 # learner's current state), the reading block opens the next unfinished core
@@ -608,7 +625,7 @@ COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 # is a successor by the 2026-10-17 eligibility rule. Kill switches:
 # ``curriculum.plan_uses_path`` and ``curriculum.enabled`` (off, or below the
 # tag: RW7b's plans byte for byte, gate G-C4).
-DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.39"
+DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -647,6 +664,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
+    READER_FOLLOWUPS_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
 )
 
@@ -821,6 +839,10 @@ ATTEMPT_CONTENT_STATE_VERSIONS: frozenset[str] = successors_from(ATTEMPT_CONTENT
 # Every later successor keeps it; gates must use this set, never equality.
 COLD_RETRY_RESCHEDULE_VERSIONS: frozenset[str] = successors_from(COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION)
 
+# Versions whose ended reader sessions plan automatic cold follow-ups (behind
+# ``followups.enabled``). Every later successor keeps them; gates must use
+# this set, never equality.
+READER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(READER_FOLLOWUPS_ALGORITHM_VERSION)
 # Versions whose plan reading block follows the nearest deliverable's path
 # (curriculum C1, behind ``curriculum.plan_uses_path`` and ``curriculum.enabled``).
 # Every later successor keeps it; gates must use this set, never equality.

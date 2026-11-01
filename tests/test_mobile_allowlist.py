@@ -262,6 +262,25 @@ READER_RW6A_RPCS = (
 )
 
 
+# Reader workbench RW6b part 1 (cold follow-ups) adds five RPCs -- "Coming up"
+# (a pure read), undo with its optional reason, undo all, restore (undo a
+# retirement) and planning the ended sessions now. Desktop only (spec D20);
+# a follow-up itself reaches the phone as an ordinary "Check once" item.
+READER_RW6B_RPCS = (
+    "reader.followups",
+    "reader.followup_undo",
+    "reader.followup_undo_all",
+    "reader.followup_restore",
+    "reader.followups_plan",
+)
+
+
+def test_the_pinned_rw6b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.reader_followups import READER_RW6B_RPCS as REGISTERED
+
+    assert set(REGISTERED) == set(READER_RW6B_RPCS)
+
+
 # Reader workbench RW1b (the intent box and active reading) adds eight RPCs --
 # the intent box's routing start, read and outcome (used, discarded, changed),
 # and active reading's question request, status read and actions, and
@@ -424,6 +443,20 @@ def test_the_pinned_ca5a_rpcs_are_all_of_them():
     assert set(READER_CA5A_RPCS) == set(FIND_SECTION_RPCS)
 
 
+# Reader CA5 (ux_reader_compare_ask_v1 §6.2): the Guide's also in your books
+# line's hide preferences (hide for this book / everywhere; Settings). Desktop only.
+READER_CA5_RPCS = (
+    "reader.correspondence_preferences",
+    "reader.set_correspondence_preferences",
+)
+
+
+def test_the_pinned_ca5_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.correspondents import ALSO_IN_BOOKS_RPCS
+
+    assert set(READER_CA5_RPCS) == set(ALSO_IN_BOOKS_RPCS)
+
+
 # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5, §7, §8.5): the
 # deliverable's scope, its path across books, the Guide's slice, the learner's
 # overrides, "Am I ready?" and "also about…". Desktop only.
@@ -447,6 +480,19 @@ def test_the_pinned_c0b_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.deliverables import DELIVERABLE_RPCS
 
     assert set(CURRICULUM_C0B_RPCS) == set(DELIVERABLE_RPCS)
+
+
+# Reader CA6 (ux_reader_compare_ask_v1 §6.4): one section of the other book
+# for side by side's second pane. Desktop only.
+READER_CA6_RPCS = (
+    "reader.side_by_side_section",
+)
+
+
+def test_the_pinned_ca6_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.side_by_side import SIDE_BY_SIDE_RPCS
+
+    assert set(READER_CA6_RPCS) == set(SIDE_BY_SIDE_RPCS)
 
 
 # Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
@@ -758,13 +804,13 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS + READER_RW3B_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + READER_RW4D_RPCS + READER_RW7A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW6B_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + READER_RW4D_RPCS + READER_RW7A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + READER_CA5A_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

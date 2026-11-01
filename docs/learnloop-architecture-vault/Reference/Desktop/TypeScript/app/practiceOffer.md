@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/practiceOffer.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/practiceOffer.ts"
-source_commit: "c6b42d30ce74596d2623fb91e1672350915d70fc"
-source_commit_timestamp: "2026-09-23T12:06:06-04:00"
+source_commit: "aa5907086aa2d6ed4acb3840e7b00cb1080c832b"
+source_commit_timestamp: "2026-10-13T22:36:38-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `PracticeOffer`, `schedulerCandidateForServe` within the desktop's TypeScript/app ownership area.
+Provides `ProposalOrigin`, `PracticeOffer`, `schedulerCandidateForServe`, `planPresentationForServe` and related exports within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/practiceOffer.ts](../../../../../../apps/learnloop-tauri/src/app/practiceOffer.ts) |
-| Source lines | 30 |
+| Source lines | 89 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c6b42d30ce74596d2623fb91e1672350915d70fc` |
-| Commit timestamp | `2026-09-23T12:06:06-04:00` |
+| Source commit | `aa5907086aa2d6ed4acb3840e7b00cb1080c832b` |
+| Commit timestamp | `2026-10-13T22:36:38-04:00` |
 
 ## Activation and status evidence
 
@@ -60,8 +60,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type PracticeOffer =` — type, line 2
-- `export function schedulerCandidateForServe(` — function, line 13
+- `export type ProposalOrigin =` — type, line 7
+- `export type PracticeOffer =` — type, line 11
+- `export function schedulerCandidateForServe(` — function, line 27
+- `export function planPresentationForServe(` — function, line 54
+- `export function proposalOriginForServe(` — function, line 73
 
 ## Internal implementation anchors
 
@@ -72,7 +75,9 @@ No non-exported declaration anchor was detected by the static extractor.
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `PracticeOffer`, `schedulerCandidateForServe`; references `PracticeOffer`, `schedulerCandidateForServe`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `PracticeOffer`, `ProposalOrigin`, `planPresentationForServe`, `proposalOriginForServe`, `schedulerCandidateForServe`; references `PracticeOffer`, `ProposalOrigin`, `planPresentationForServe`, `proposalOriginForServe`, `schedulerCandidateForServe`
+- [[Reference/Desktop/TypeScript/app/readerCheck|src/app/readerCheck.ts]] — import-or-re-export: `PracticeOffer`; references `PracticeOffer`
+- [[Reference/Desktop/TypeScript/app/readerWorkbench|src/app/readerWorkbench.ts]] — import-or-re-export: `PracticeOffer`; references `PracticeOffer`
 
 ## Dependencies
 
@@ -94,6 +99,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/app/readerCheck.test.ts](../../../../../../apps/learnloop-tauri/src/app/readerCheck.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/practiceOffer.test.ts](../../../../../../apps/learnloop-tauri/src/app/practiceOffer.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

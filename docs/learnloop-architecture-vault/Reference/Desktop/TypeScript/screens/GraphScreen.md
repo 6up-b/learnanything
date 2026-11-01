@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/GraphScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/GraphScreen.tsx"
-source_commit: "8afe46254010114346f91d8643dc3ff29d8d8fe2"
-source_commit_timestamp: "2026-09-03T10:56:04-07:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/GraphScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/GraphScreen.tsx) |
-| Source lines | 1118 |
+| Source lines | 1121 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8afe46254010114346f91d8643dc3ff29d8d8fe2` |
-| Commit timestamp | `2026-09-03T10:56:04-07:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,139 +60,139 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function GraphScreen(` — function, line 157
+- `export function GraphScreen(` — function, line 158
 
 ## Internal implementation anchors
 
 - `type PendingEdit } from "../components/graphedit/pending"` — type, line 26
-- `const NODE_W = 200` — const, line 33
-- `const NODE_H = 36` — const, line 34
-- `const COL_GAP = 80` — const, line 35
-- `const ROW_GAP = 24` — const, line 36
-- `const PAD = 24` — const, line 37
-- `type Relation = "prerequisite" | "confusable_with" | "related" | "part_of"` — type, line 39
-- `const RELATION_STYLE: Record<Relation,` — const, line 41
-- `function relationStyle(relation: string)` — function, line 48
-- `function conceptPillColor(type: string): PillColor` — function, line 52
-- `function masteryColor(mastery: number): string` — function, line 56
-- `type Position =` — type, line 60
-- `function layoutConcepts(concepts: ConceptGraphNode[], edges: ConceptGraphEdge[]):` — function, line 64
-- `const depth: Record<string, number> =` — const, line 69
-- `const prereq = edges.filter((edge)` — const, line 73
-- `let changed = false` — let, line 75
-- `const byColumn = new Map<number, ConceptGraphNode[]>()` — const, line 85
-- `const col = depth[concept.id] ?? 0` — const, line 87
-- `const bucket = byColumn.get(col) ?? []` — const, line 88
-- `const positions: Record<string, Position> =` — const, line 93
-- `const placed = Object.values(positions)` — const, line 110
-- `const minX = Math.min(...placed.map((p)` — const, line 114
-- `const minY = Math.min(...placed.map((p)` — const, line 115
-- `let maxX = 0` — let, line 116
-- `let maxY = 0` — let, line 117
-- `const x = positions[id].x - minX + PAD` — const, line 119
-- `const y = positions[id].y - minY + PAD` — const, line 120
-- `function edgePath(source: Position, target: Position): string` — function, line 131
-- `const sy = source.y + NODE_H / 2` — const, line 132
-- `const ty = target.y + NODE_H / 2` — const, line 133
-- `const sx = source.x` — const, line 135
-- `const tx = target.x + NODE_W` — const, line 136
-- `const mid = (sx + tx) / 2` — const, line 137
-- `const sx = source.x + NODE_W` — const, line 140
-- `const tx = target.x` — const, line 141
-- `const mid = (sx + tx) / 2` — const, line 142
-- `function edgeMidpoint(source: Position, target: Position): Position` — function, line 148
-- `type GraphView = "map" | "knowledge"` — type, line 155
-- `const graphQuery = useCachedQuery(["get_concept_graph"], ()` — const, line 163
-- `const snapshot: ConceptGraphSnapshot | null = graphQuery.data ?? null` — const, line 167
-- `const cancelGesture = ()` — const, line 199
-- `const stageEdit = (edit: PendingEdit)` — const, line 207
-- `const filtered = prev.filter((p)` — const, line 211
-- `const removePending = (pid: string)` — const, line 216
-- `const clearPending = ()` — const, line 217
-- `let cancelled = false` — let, line 227
-- `const active = snap.goals.find((g)` — const, line 233
-- `const order = useMemo(()` — const, line 260
-- `const layout = useMemo( ()` — const, line 261
-- `const resolved = useMemo(()` — const, line 268
-- `const syllabusOrder = useMemo(()` — const, line 269
-- `const conceptTitle = useMemo(()` — const, line 274
-- `const map = new Map((snapshot?.concepts ?? []).map((c)` — const, line 275
-- `const fileEdits = ()` — const, line 282
-- `const batch = [...pending]` — const, line 287
-- `const invalid = result.items.filter((item)` — const, line 291
-- `const map = new Map<string, string[]>()` — const, line 293
-- `const pid = batch[index]?.pid` — const, line 295
-- `const runGeometryPreview = ()` — const, line 312
-- `const handleReorderDrop = (movedId: string, fromIndex: number, toIndex: number)` — const, line 324
-- `const confirmReorder = ()` — const, line 337
-- `const goalScope = useMemo(()` — const, line 349
-- `const scopeConcepts = new Set(goal.facetScope.concepts)` — const, line 351
-- `const atRiskLos = new Set( (goalReport?.report.atRisk ?? []).filter((f)` — const, line 352
-- `const status = new Map<string, "atRisk" | "onTrack">()` — const, line 355
-- `let atRiskCount = 0` — let, line 356
-- `const risky = concept.learningObjects.some((lo)` — const, line 358
-- `const inScope = scopeConcepts.has(concept.id) || risky` — const, line 359
-- `const onKey = (event: KeyboardEvent)` — const, line 369
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 370
-- `const index = selected ? order.indexOf(selected) : -1` — const, line 374
-- `const next = event.shiftKey ? (index - 1 + order.length) % order.length : (index + 1) % order.length` — const, line 375
-- `const onEsc = (event: KeyboardEvent)` — const, line 385
-- `const viewToggle = ( <div style=` — const, line 396
-- `const conceptById = new Map(snapshot.concepts.map((concept)` — const, line 472
-- `const selectedConcept = selected ? conceptById.get(selected) ?? null : null` — const, line 473
-- `const fill = id === "arrow-red" ? COLOR.red : id === "arrow-cyan" ? COLOR.cyan : id === "arrow-green" ? COLOR.green : COLOR.amber` — const, line 584
-- `const source = layout.positions[edge.source]` — const, line 594
-- `const target = layout.positions[edge.target]` — const, line 595
-- `const style = relationStyle(edge.relationType)` — const, line 597
-- `const incidentHover = hovered != null && (edge.source === hovered || edge.target === hovered)` — const, line 598
-- `const incidentSelected = selected != null && (edge.source === selected || edge.target === selected)` — const, line 599
-- `const incident = incidentHover || incidentSelected` — const, line 600
-- `const isRetired = resolved.deletedById.has(edge.id)` — const, line 603
-- `const isUpdated = resolved.updatedById.has(edge.id)` — const, line 604
-- `const touched = isRetired || isUpdated` — const, line 605
-- `const source = layout.positions[edge.source]` — const, line 627
-- `const target = layout.positions[edge.target]` — const, line 628
-- `const mid = edgeMidpoint(source, target)` — const, line 630
-- `const source = layout.positions[up.source]` — const, line 651
-- `const target = layout.positions[up.target]` — const, line 652
-- `const style = relationStyle(up.relationType)` — const, line 654
-- `const source = layout.positions[create.source]` — const, line 672
-- `const target = layout.positions[create.target]` — const, line 673
-- `const style = relationStyle(create.relationType)` — const, line 675
-- `const source = layout.positions[edge.source]` — const, line 695
-- `const target = layout.positions[edge.target]` — const, line 696
-- `const mid = edgeMidpoint(source, target)` — const, line 708
-- `const pos = layout.positions[concept.id]` — const, line 719
-- `const isMisc = concept.type === "misconception"` — const, line 721
-- `const isSelected = selected === concept.id` — const, line 722
-- `const isHovered = hovered === concept.id` — const, line 723
-- `const hoverAccent = isMisc ? "rgba(224,126,126,0.6)" : "rgba(255, 161, 67, 0.6)"` — const, line 724
-- `const gstat = goalScope?.status.get(concept.id) ?? null` — const, line 727
-- `const dimmed = goalScope != null && gstat == null` — const, line 728
-- `const isArmed = armedSource === concept.id` — const, line 729
-- `const goalRing = gstat === "atRisk" ? `0 0 0 2px $` — const, line 730
-- `const armedRing = isArmed ? `0 0 0 2px $` — const, line 734
-- `const boxShadow = [isSelected ? `0 0 0 1px $` — const, line 739
-- `const onNodeClick = ()` — const, line 741
-- `const edge = edgePopover.edge` — const, line 828
-- `const edge = edgePopover.edge` — const, line 841
-- `const edge = edgePopover.edge` — const, line 854
-- `function Legend(` — function, line 939
-- `const style = RELATION_STYLE[relation]` — const, line 956
-- `const DETAIL_WIDTH_KEY = "ll.graph.detailWidth"` — const, line 974
-- `const DETAIL_WIDTH_MIN = 240` — const, line 975
-- `const DETAIL_WIDTH_MAX = 720` — const, line 976
-- `function ConceptDetail(` — function, line 978
-- `const saved = Number(window.localStorage.getItem(DETAIL_WIDTH_KEY))` — const, line 988
-- `const dragStart = useRef<` — const, line 991
-- `const onHandlePointerDown = useCallback( (event: ReactPointerEvent<HTMLDivElement>)` — const, line 993
-- `const onHandlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>)` — const, line 1001
-- `const start = dragStart.current` — const, line 1002
-- `const next = Math.min(DETAIL_WIDTH_MAX, Math.max(DETAIL_WIDTH_MIN, start.width + (start.x - event.clientX)))` — const, line 1004
-- `const onHandlePointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>)` — const, line 1007
-- `const resizeHandle = ( <div onPointerDown=` — const, line 1017
-- `const incoming = edges.filter((edge)` — const, line 1042
-- `const outgoing = edges.filter((edge)` — const, line 1043
+- `const NODE_W = 200` — const, line 34
+- `const NODE_H = 36` — const, line 35
+- `const COL_GAP = 80` — const, line 36
+- `const ROW_GAP = 24` — const, line 37
+- `const PAD = 24` — const, line 38
+- `type Relation = "prerequisite" | "confusable_with" | "related" | "part_of"` — type, line 40
+- `const RELATION_STYLE: Record<Relation,` — const, line 42
+- `function relationStyle(relation: string)` — function, line 49
+- `function conceptPillColor(type: string): PillColor` — function, line 53
+- `function masteryColor(mastery: number): string` — function, line 57
+- `type Position =` — type, line 61
+- `function layoutConcepts(concepts: ConceptGraphNode[], edges: ConceptGraphEdge[]):` — function, line 65
+- `const depth: Record<string, number> =` — const, line 70
+- `const prereq = edges.filter((edge)` — const, line 74
+- `let changed = false` — let, line 76
+- `const byColumn = new Map<number, ConceptGraphNode[]>()` — const, line 86
+- `const col = depth[concept.id] ?? 0` — const, line 88
+- `const bucket = byColumn.get(col) ?? []` — const, line 89
+- `const positions: Record<string, Position> =` — const, line 94
+- `const placed = Object.values(positions)` — const, line 111
+- `const minX = Math.min(...placed.map((p)` — const, line 115
+- `const minY = Math.min(...placed.map((p)` — const, line 116
+- `let maxX = 0` — let, line 117
+- `let maxY = 0` — let, line 118
+- `const x = positions[id].x - minX + PAD` — const, line 120
+- `const y = positions[id].y - minY + PAD` — const, line 121
+- `function edgePath(source: Position, target: Position): string` — function, line 132
+- `const sy = source.y + NODE_H / 2` — const, line 133
+- `const ty = target.y + NODE_H / 2` — const, line 134
+- `const sx = source.x` — const, line 136
+- `const tx = target.x + NODE_W` — const, line 137
+- `const mid = (sx + tx) / 2` — const, line 138
+- `const sx = source.x + NODE_W` — const, line 141
+- `const tx = target.x` — const, line 142
+- `const mid = (sx + tx) / 2` — const, line 143
+- `function edgeMidpoint(source: Position, target: Position): Position` — function, line 149
+- `type GraphView = "map" | "knowledge"` — type, line 156
+- `const graphQuery = useCachedQuery(["get_concept_graph"], ()` — const, line 164
+- `const snapshot: ConceptGraphSnapshot | null = graphQuery.data ?? null` — const, line 168
+- `const cancelGesture = ()` — const, line 200
+- `const stageEdit = (edit: PendingEdit)` — const, line 208
+- `const filtered = prev.filter((p)` — const, line 212
+- `const removePending = (pid: string)` — const, line 217
+- `const clearPending = ()` — const, line 218
+- `let cancelled = false` — let, line 228
+- `const active = snap.goals.find((g)` — const, line 234
+- `const order = useMemo(()` — const, line 261
+- `const layout = useMemo( ()` — const, line 262
+- `const resolved = useMemo(()` — const, line 269
+- `const syllabusOrder = useMemo(()` — const, line 270
+- `const conceptTitle = useMemo(()` — const, line 275
+- `const map = new Map((snapshot?.concepts ?? []).map((c)` — const, line 276
+- `const fileEdits = ()` — const, line 283
+- `const batch = [...pending]` — const, line 288
+- `const invalid = result.items.filter((item)` — const, line 292
+- `const map = new Map<string, string[]>()` — const, line 294
+- `const pid = batch[index]?.pid` — const, line 296
+- `const runGeometryPreview = ()` — const, line 313
+- `const handleReorderDrop = (movedId: string, fromIndex: number, toIndex: number)` — const, line 325
+- `const confirmReorder = ()` — const, line 338
+- `const goalScope = useMemo(()` — const, line 350
+- `const scopeConcepts = new Set(goal.facetScope.concepts)` — const, line 352
+- `const atRiskLos = new Set( (goalReport?.report.atRisk ?? []).filter((f)` — const, line 353
+- `const status = new Map<string, "atRisk" | "onTrack">()` — const, line 356
+- `let atRiskCount = 0` — let, line 357
+- `const risky = concept.learningObjects.some((lo)` — const, line 359
+- `const inScope = scopeConcepts.has(concept.id) || risky` — const, line 360
+- `const onKey = (event: KeyboardEvent)` — const, line 370
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 372
+- `const index = selected ? order.indexOf(selected) : -1` — const, line 376
+- `const next = event.shiftKey ? (index - 1 + order.length) % order.length : (index + 1) % order.length` — const, line 377
+- `const onEsc = (event: KeyboardEvent)` — const, line 387
+- `const viewToggle = ( <div style=` — const, line 399
+- `const conceptById = new Map(snapshot.concepts.map((concept)` — const, line 475
+- `const selectedConcept = selected ? conceptById.get(selected) ?? null : null` — const, line 476
+- `const fill = id === "arrow-red" ? COLOR.red : id === "arrow-cyan" ? COLOR.cyan : id === "arrow-green" ? COLOR.green : COLOR.amber` — const, line 587
+- `const source = layout.positions[edge.source]` — const, line 597
+- `const target = layout.positions[edge.target]` — const, line 598
+- `const style = relationStyle(edge.relationType)` — const, line 600
+- `const incidentHover = hovered != null && (edge.source === hovered || edge.target === hovered)` — const, line 601
+- `const incidentSelected = selected != null && (edge.source === selected || edge.target === selected)` — const, line 602
+- `const incident = incidentHover || incidentSelected` — const, line 603
+- `const isRetired = resolved.deletedById.has(edge.id)` — const, line 606
+- `const isUpdated = resolved.updatedById.has(edge.id)` — const, line 607
+- `const touched = isRetired || isUpdated` — const, line 608
+- `const source = layout.positions[edge.source]` — const, line 630
+- `const target = layout.positions[edge.target]` — const, line 631
+- `const mid = edgeMidpoint(source, target)` — const, line 633
+- `const source = layout.positions[up.source]` — const, line 654
+- `const target = layout.positions[up.target]` — const, line 655
+- `const style = relationStyle(up.relationType)` — const, line 657
+- `const source = layout.positions[create.source]` — const, line 675
+- `const target = layout.positions[create.target]` — const, line 676
+- `const style = relationStyle(create.relationType)` — const, line 678
+- `const source = layout.positions[edge.source]` — const, line 698
+- `const target = layout.positions[edge.target]` — const, line 699
+- `const mid = edgeMidpoint(source, target)` — const, line 711
+- `const pos = layout.positions[concept.id]` — const, line 722
+- `const isMisc = concept.type === "misconception"` — const, line 724
+- `const isSelected = selected === concept.id` — const, line 725
+- `const isHovered = hovered === concept.id` — const, line 726
+- `const hoverAccent = isMisc ? "rgba(224,126,126,0.6)" : "rgba(255, 161, 67, 0.6)"` — const, line 727
+- `const gstat = goalScope?.status.get(concept.id) ?? null` — const, line 730
+- `const dimmed = goalScope != null && gstat == null` — const, line 731
+- `const isArmed = armedSource === concept.id` — const, line 732
+- `const goalRing = gstat === "atRisk" ? `0 0 0 2px $` — const, line 733
+- `const armedRing = isArmed ? `0 0 0 2px $` — const, line 737
+- `const boxShadow = [isSelected ? `0 0 0 1px $` — const, line 742
+- `const onNodeClick = ()` — const, line 744
+- `const edge = edgePopover.edge` — const, line 831
+- `const edge = edgePopover.edge` — const, line 844
+- `const edge = edgePopover.edge` — const, line 857
+- `function Legend(` — function, line 942
+- `const style = RELATION_STYLE[relation]` — const, line 959
+- `const DETAIL_WIDTH_KEY = "ll.graph.detailWidth"` — const, line 977
+- `const DETAIL_WIDTH_MIN = 240` — const, line 978
+- `const DETAIL_WIDTH_MAX = 720` — const, line 979
+- `function ConceptDetail(` — function, line 981
+- `const saved = Number(window.localStorage.getItem(DETAIL_WIDTH_KEY))` — const, line 991
+- `const dragStart = useRef<` — const, line 994
+- `const onHandlePointerDown = useCallback( (event: ReactPointerEvent<HTMLDivElement>)` — const, line 996
+- `const onHandlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>)` — const, line 1004
+- `const start = dragStart.current` — const, line 1005
+- `const next = Math.min(DETAIL_WIDTH_MAX, Math.max(DETAIL_WIDTH_MIN, start.width + (start.x - event.clientX)))` — const, line 1007
+- `const onHandlePointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>)` — const, line 1010
+- `const resizeHandle = ( <div onPointerDown=` — const, line 1020
+- `const incoming = edges.filter((edge)` — const, line 1045
+- `const outgoing = edges.filter((edge)` — const, line 1046
 
 ## Who imports or calls it
 
@@ -210,6 +210,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `masteryTone`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/graphedit/EditPopovers|src/components/graphedit/EditPopovers.tsx]] — import-or-re-export; imports `EdgePopover`, `RelationPicker`
 - [[Reference/Desktop/TypeScript/components/graphedit/GeometryPreview|src/components/graphedit/GeometryPreview.tsx]] — import-or-re-export; imports `GeometryPreview`
 - [[Reference/Desktop/TypeScript/components/graphedit/PendingStrip|src/components/graphedit/PendingStrip.tsx]] — import-or-re-export; imports `PendingStrip`

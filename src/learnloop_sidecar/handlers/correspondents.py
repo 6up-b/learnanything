@@ -22,7 +22,17 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   protection read now and restricted to the hit's own section, with one
   ``source_exposure`` event per block shown.
 * ``reader.correspondent_dismiss`` (CA5a): *not about this* on an unchecked
-  hit (or its undo) as one idempotent operation in one transaction.
+  hit (or its undo) as one idempotent operation in one transaction; on a
+  judged line (CA5) it names the LOs the line is listed under.
+* ``reader.correspondence_preferences`` / ``reader.set_correspondence_preferences``
+  (CA5): *hide for this book* / *hide everywhere* on the Guide's *also in
+  your books*, kept in the vault's ``[reader.correspondence]`` config (as the
+  margin marks' per-book switch is), and Settings bringing it back.
+
+``reader.correspondents`` and the peek read through one library per vault
+(``SC.LibraryCache``, CA5): crossing sections reuses the parsed readings
+while the vault, protection and readings are unchanged; protection is read
+again on every call.
 
 Kill switch ``curriculum.enabled``: off, every RPC here refuses and no call
 is made. Reader CA5a's ``reader.correspondence.enabled`` (respecting it) is
@@ -63,6 +73,11 @@ FIND_SECTION_RPCS: tuple[str, ...] = (
     "reader.correspondent_peek",
     "reader.correspondent_dismiss",
 )
+#: Reader CA5's own RPCs (the line's hide preferences; desktop only).
+ALSO_IN_BOOKS_RPCS: tuple[str, ...] = (
+    "reader.correspondence_preferences",
+    "reader.set_correspondence_preferences",
+)
 COVER_ORIGIN = "curriculum.cover"
 
 
@@ -75,15 +90,39 @@ def find_section_enabled(vault: Any) -> bool:
     return bool(getattr(correspondence, "enabled", False)) and SC.enabled(vault) and RD.reader_enabled(vault)
 
 
+def hidden_everywhere(vault: Any) -> bool:
+    return bool(getattr(vault.config.reader.correspondence, "hide_everywhere", False))
+
+
+def hidden_sources(vault: Any) -> list[str]:
+    return [str(source) for source in getattr(vault.config.reader.correspondence, "hidden_sources", ()) or ()]
+
+
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
-    """What the Reader's prompt contract adds for CA5a (absent while off, so
-    the Guide is exactly as before): the pressed *find this section in my
-    other books*. CA5's one-line entry is not built: the Reader hides the
-    action for a section whose quiet read finds judged coverage."""
+    """What the Reader's prompt contract adds for CA5a and CA5 (absent while
+    off, so the Guide is exactly as before): the pressed *find this section
+    in my other books* (CA5a, for a section with no judged coverage) and the
+    one-line *also in your books* (CA5, for a section with judged coverage),
+    with the learner's hide preferences for that line."""
 
     if not find_section_enabled(vault):
         return {}
-    return {"correspondence": {"enabled": True, "find_section": True}}
+    return {"correspondence": {"enabled": True, "find_section": True, "also_in_books": True,
+                               "hidden_everywhere": hidden_everywhere(vault),
+                               "hidden_sources": hidden_sources(vault)}}
+
+
+def _library_cache(ctx: SidecarContext) -> SC.LibraryCache:
+    """The open vault's library cache (one per database, as the jobs are)."""
+
+    repository = getattr(ctx, "repository", None)
+    database = str(Path(repository.sqlite_path).resolve()) if repository is not None else ""
+    with _REGISTRY_LOCK:
+        caches = getattr(ctx, "correspondent_libraries", None)
+        if not isinstance(caches, dict):
+            caches = {}
+            ctx.correspondent_libraries = caches  # type: ignore[attr-defined]
+        return caches.setdefault(database, SC.LibraryCache())
 
 
 def _require(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]:
@@ -128,7 +167,7 @@ def reader_correspondents(ctx: SidecarContext, params: CorrespondentsInput) -> d
     try:
         view = SC.correspondents(vault, repository, resolved, params.section_id,
                                  search_fallback=params.search_fallback,
-                                 embedder=getattr(ctx, "coverage_embedder", None))
+                                 embedder=getattr(ctx, "coverage_embedder", None), cache=_library_cache(ctx))
     except SC.CoverageError as exc:
         raise _sidecar_error(exc) from exc
     view["job"] = _job_for(ctx, resolved, params.section_id)
@@ -387,7 +426,7 @@ def reader_correspondent_peek(ctx: SidecarContext, params: CorrespondentPeekInpu
 
     vault, repository, resolved = _require_find_section(ctx, params.extraction_id)
     try:
-        view = SC.peek(vault, repository, resolved, params.section_id)
+        view = SC.peek(vault, repository, resolved, params.section_id, cache=_library_cache(ctx))
     except SC.CoverageError as exc:
         raise _sidecar_error(exc) from exc
     # Every block shown is a delivered passage, recorded before it is returned.
@@ -410,6 +449,9 @@ class CorrespondentDismissInput(ParamsModel):
     operation_id: str
     #: Undo the operation it names instead.
     undo_of: str | None = None
+    #: Reader CA5 (a judged line): the shared LOs the line is listed under;
+    #: absent, every LO of the open section (CA5a's unchecked hit).
+    learning_object_ids: list[str] | None = None
 
 
 @method("reader.correspondent_dismiss", CorrespondentDismissInput)
@@ -424,10 +466,120 @@ def reader_correspondent_dismiss(ctx: SidecarContext, params: CorrespondentDismi
         raise SidecarError("extraction_not_found", f"No extraction resolves for {params.target_extraction_id!r}.")
     try:
         record = SC.dismiss(vault, repository, (origin, params.section_id), (target, params.target_section_id),
-                            operation_id=params.operation_id, undo_of=params.undo_of)
+                            operation_id=params.operation_id, undo_of=params.undo_of,
+                            learning_object_ids=params.learning_object_ids)
     except SC.CoverageError as exc:
         raise _sidecar_error(exc) from exc
     return versioned({"operation": record})
 
 
-__all__ = ["CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "find_section_enabled", "prompt_contract_fields"]
+# -- Reader CA5: the line's hide preferences --------------------------------------------------------
+
+
+def _preferences(vault: Any, repository: Any) -> dict[str, Any]:
+    """What the Reader and Settings show: the switch, and what the learner hid (books by name)."""
+
+    if not find_section_enabled(vault):
+        return {"enabled": False, "hide_everywhere": False, "hidden_sources": []}
+    from learnloop.source_retrieval.corpus import library_scope
+
+    titles: dict[str, str] = {}
+    try:
+        for extraction in library_scope(repository).extractions.values():
+            titles.setdefault(extraction.source_id, extraction.title)
+    except Exception:  # noqa: BLE001 - a title is a label; the preference stands without it
+        titles = {}
+    return {"enabled": True, "hide_everywhere": hidden_everywhere(vault),
+            "hidden_sources": [{"source_id": source_id, "title": titles.get(source_id) or source_id}
+                               for source_id in hidden_sources(vault)]}
+
+
+@method("reader.correspondence_preferences", ParamsModel)
+def reader_correspondence_preferences(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]:
+    """The line's hide preferences (Settings); reports the switch, like the prompt contract."""
+
+    vault, repository = ctx.require_vault()
+    return versioned(_preferences(vault, repository))
+
+
+class SetCorrespondencePreferencesInput(ParamsModel):
+    #: The book the line was hidden (or shown again) for.
+    source_id: str | None = None
+    hide_source: bool | None = None
+    hide_everywhere: bool | None = None
+
+
+@method("reader.set_correspondence_preferences", SetCorrespondencePreferencesInput)
+def reader_set_correspondence_preferences(ctx: SidecarContext,
+                                          params: SetCorrespondencePreferencesInput) -> dict[str, Any]:
+    """*Hide for this book* / *hide everywhere* (or Settings bringing it back).
+
+    Remembered in the vault's ``[reader.correspondence]`` config, so it holds
+    across devices, as the margin marks' per-book switch is. It hides the
+    Guide's line only: the data and CA5a's pressed action are unchanged. No
+    change, no write."""
+
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+    from learnloop.vault_lock import VaultLockError, vault_mutation_lock
+
+    vault, repository = ctx.require_vault()
+    if not find_section_enabled(vault):
+        raise SidecarError("correspondence_disabled",
+                           "Also in your books is off (reader.correspondence.enabled = false).")
+    source_id = str(params.source_id or "").strip()
+    if params.hide_source is not None and not source_id:
+        raise SidecarError("validation_error", "Hiding the line for a book names the book.")
+    config_path = vault.root / "learnloop.toml"
+    try:
+        # The change applies to the config as it is on disk now, under the
+        # vault's mutation lock (Codex review F2): another sidecar, a CLI or
+        # Settings may have hidden or shown a book since this context loaded,
+        # and a stale in-memory list must never overwrite it.
+        with vault_mutation_lock(vault.root, purpose="reader_correspondence_preferences"):
+            current, everywhere = _on_disk_preferences(config_path)
+            updates: dict[tuple[str, ...], Any] = {}
+            if params.hide_source is not None:
+                if params.hide_source and source_id not in current:
+                    updates[("reader", "correspondence", "hidden_sources")] = [*current, source_id]
+                elif not params.hide_source and source_id in current:
+                    updates[("reader", "correspondence", "hidden_sources")] = [
+                        entry for entry in current if entry != source_id]
+            if params.hide_everywhere is not None and bool(params.hide_everywhere) != everywhere:
+                updates[("reader", "correspondence", "hide_everywhere")] = bool(params.hide_everywhere)
+            if updates:
+                apply_config_updates(config_path, updates)
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    except VaultLockError as exc:
+        raise SidecarError("vault_busy", f"The vault is busy; try again ({exc}).") from exc
+    # Reloaded whenever the file may differ from this context's copy (another
+    # writer's change shows here too), not only after this call's own write.
+    if updates or current != hidden_sources(vault) or everywhere != hidden_everywhere(vault):
+        ctx.reload(maintenance=False)
+        vault, repository = ctx.require_vault()
+    return versioned(_preferences(vault, repository))
+
+
+def _on_disk_preferences(config_path: Any) -> tuple[list[str], bool]:
+    """``[reader.correspondence]``'s hide keys as the file holds them now (absent: the defaults)."""
+
+    import tomllib
+
+    from learnloop.ops.settings_store import SettingsStoreError
+
+    try:
+        document = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SettingsStoreError("config_missing", f"{config_path} does not exist") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise SettingsStoreError("config_unreadable", f"{config_path} is not valid TOML: {exc}") from exc
+    reader = document.get("reader")
+    section = reader.get("correspondence") if isinstance(reader, dict) else None
+    section = section if isinstance(section, dict) else {}
+    sources = section.get("hidden_sources") or []
+    listed = [str(entry) for entry in sources] if isinstance(sources, list) else []
+    return list(dict.fromkeys(listed)), bool(section.get("hide_everywhere", False))
+
+
+__all__ = ["ALSO_IN_BOOKS_RPCS", "CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "find_section_enabled",
+           "prompt_contract_fields"]

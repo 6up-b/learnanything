@@ -35,6 +35,7 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
+from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_228" / "state.sqlite"
@@ -75,9 +76,9 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 (its own two tables, altering nothing) lands with 217 on the way to head.
-    assert [migration.version for migration in applied] == [216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 228]  # and T1's 218, RW2d's 219, local retrieval P1's 220
+    assert [migration.version for migration in applied] == [216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228]  # and T1's 218, RW2d's 219, local retrieval P1's 220
     after = _schema(database)
-    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - C0B_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES) == set(), "217 alters nothing"
     return database
 

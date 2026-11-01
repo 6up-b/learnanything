@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from learnloop.content.sources.source_outline import resolve_extraction_id
+from learnloop.instructional import reader_followups as RF
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import recap as RC
 from learnloop_sidecar.context import SidecarContext
@@ -73,9 +74,20 @@ def reader_recap(ctx: SidecarContext, params: ReaderRecapInput) -> dict[str, Any
 
     vault, repository = _require(ctx, wrap_up=False)
     extraction_id = _extraction(repository, params.extraction_id)
-    return versioned(RC.build_recap(
-        vault, repository, extraction_id=extraction_id, current_visit_id=params.visit_id, now=_now(),
-    ))
+    now = _now()
+    result = RC.build_recap(vault, repository, extraction_id=extraction_id, current_visit_id=params.visit_id, now=now)
+    if result.get("recap") is not None:
+        result["recap"]["coming_up"] = _coming_up(vault, repository, extraction_id, now)
+    return versioned(result)
+
+
+def _coming_up(vault, repository, extraction_id: str, now: datetime) -> dict[str, Any]:
+    """RW6b's "Coming up" (spec §9.1, §9.3; UX S15, D36): the source's
+    scheduled checks as a dated timeline. Retirements are read by the card's
+    "Since last time" (``checks_retired``), so only the pending ones here."""
+
+    timeline = RF.coming_up(vault, repository, extraction_id=extraction_id, now=now)
+    return {key: timeline[key] for key in ("next", "later", "undo_all", "scale", "enabled")}
 
 
 class ReaderRecapEventInput(ParamsModel):
@@ -115,9 +127,12 @@ def reader_wrap_up(ctx: SidecarContext, params: ReaderWrapUpInput) -> dict[str, 
 
     vault, repository = _require(ctx, wrap_up=True)
     extraction_id = _extraction(repository, params.extraction_id)
-    return versioned(RC.build_wrap_up(
-        vault, repository, extraction_id=extraction_id, current_visit_id=params.visit_id, now=_now(),
-    ))
+    now = _now()
+    result = RC.build_wrap_up(vault, repository, extraction_id=extraction_id, current_visit_id=params.visit_id,
+                              now=now)
+    # Worth reinforcing, after RW6b: the checks coming up with their dates.
+    result["coming_up"] = _coming_up(vault, repository, extraction_id, now)
+    return versioned(result)
 
 
 class ReaderWrapUpOfferInput(ParamsModel):

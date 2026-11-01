@@ -3,15 +3,15 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "88e11824ce548f64fffa1a9417ae3a0df6f81e45"
-source_commit_timestamp: "2026-10-31T21:42:24-04:00"
+source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
+source_commit_timestamp: "2026-11-01T00:06:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
 schema_head: 228
-table_count: 357
+table_count: 358
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -27,7 +27,7 @@ tags:
 
 # Database Catalog
 
-This is the exhaustive map of the 357 user tables at migration head 228. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 358 user tables at migration head 228. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 357 user tables at migration head 228. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 153 |
 | [[Table Roles#Derived|`derived`]] | 23 |
 | [[Table Roles#Receipt|`receipt`]] | 77 |
-| [[Table Roles#Workflow|`workflow`]] | 94 |
+| [[Table Roles#Workflow|`workflow`]] | 95 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 344 |
+| `active` | 345 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -345,6 +345,7 @@ Reader rendering, annotations, capture, progress, and source-object interaction.
 - [[Reference/Database/Tables/reader_path_depths|reader_path_depths]] — `workflow` · `active` · Gives reader path depth a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `depth`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_path_sections|reader_path_sections]] — `workflow` · `active` · Gives reader path section a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `exercise_span_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_section_progress|reader_section_progress]] — `workflow` · `active` · Gives reader section progress a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `generation_batch_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_session_digests|reader_session_digests]] — `workflow` · `active` · Gives reader session digest a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `prompt_version`, `session_key`, making the operational relationship explicit.
 
 ## Tutor And Remediation
 

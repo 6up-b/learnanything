@@ -22,6 +22,7 @@ from learnloop.db.stores.source_service import VERIFIED_STATUSES, effective_key_
 from learnloop.instructional.exposure import apply_dominance, independent_check_eligibility
 from learnloop.instructional.screen import screen_exercises
 from learnloop.instructional.valuation import (
+    discount_members,
     exercise_input,
     item_input,
     open_hypotheses,
@@ -47,11 +48,13 @@ def make_valuer(*, estimator: Callable[..., Any] | None = None, screen_client: A
     def valuer(vault: LoadedVault, repository: Repository, constraints: Any, *, items: Sequence[str],
                exercises: Sequence[Mapping[str, Any]], caller_kind: str = "learner",
                system_initiated: bool = False, picked_proposal_id: str | None = None,
-               pending_decision: Mapping[str, Any] | None = None) -> dict[str, Any]:
+               pending_decision: Mapping[str, Any] | None = None, familiarity: bool = False,
+               already_chosen: Sequence[str] = ()) -> dict[str, Any]:
         return value_request(vault, repository, constraints, items=items, exercises=exercises,
                              caller_kind=caller_kind, system_initiated=system_initiated, estimator=estimator,
                              screen_client=screen_client, judge_client=judge_client,
-                             channel_resolver=channel_resolver, pending_decision=pending_decision)
+                             channel_resolver=channel_resolver, pending_decision=pending_decision,
+                             familiarity=familiarity, already_chosen=already_chosen)
 
     valuer.estimator = estimator  # type: ignore[attr-defined]
     return valuer
@@ -62,8 +65,31 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                   system_initiated: bool = False, estimator: Callable[..., Any] | None = None,
                   screen_client: Any | None = None, judge_client: Any | None = None,
                   channel_resolver: Callable[..., Any] | None = None,
-                  pending_decision: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                  pending_decision: Mapping[str, Any] | None = None, familiarity: bool = False,
+                  eligibility: Callable[..., dict[str, Any]] | None = None,
+                  already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+    """One request's valuation receipt.
+
+    ``familiarity`` (Reader RW6b, spec_reader_workbench_v1 §9.3 item 3, G35;
+    Codex review F12): each item's information is discounted by its
+    attempt-familiarity discount (``recall_coverage.familiarity_discount``,
+    composed by :func:`valuation.discount_members`) and the discount is on
+    the receipt. ``eligibility`` replaces the exposure rule's
+    ``independent_check_eligibility`` (whose worked-example judge is a model
+    call) for a caller that applied the rule itself with no model call (RW6b's
+    daily re-valuation, Codex review F5).
+
+    ``already_chosen`` (RW6b, Codex re-review round 3): the caller's live
+    checks for this question. Each is valued with the request's items (the
+    exposure rule applied to it again: one no longer independent is not
+    conditioned on) and the greedy selection starts from those kept
+    (:func:`valuation.value_problem`). Empty (the default): unchanged."""
+
     intent = constraints.intent
+    if already_chosen:
+        items = [*items, *(ref for ref in dict.fromkeys(str(r) for r in already_chosen)
+                           if ref not in set(items) and ref in vault.practice_items)]
+    check = eligibility or (lambda *a, **k: independent_check_eligibility(*a, **k))
     repair = dict((pending_decision or {}).get("action_by_slot") or {}) or None
     problems, unavailable = open_hypotheses(
         vault, repository, facet_ids=list(constraints.facet_ids),
@@ -75,8 +101,8 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
         kept_items, kept_exercises = [], []
         key_status = _key_statuses(vault, repository, items)
         for item_id in items:
-            verdict = independent_check_eligibility(vault, repository, {"practice_item_id": item_id},
-                                                    intent=intent, judge_client=judge_client)
+            verdict = check(vault, repository, {"practice_item_id": item_id}, intent=intent,
+                            judge_client=judge_client)
             status = key_status.get(item_id, "not_applicable")
             if status != "not_applicable":
                 verdict["key_status"] = status
@@ -90,13 +116,13 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
             if verdict["eligible"]:
                 kept_items.append(item_id)
         for exercise in exercises:
-            verdict = independent_check_eligibility(vault, repository, exercise, intent=intent,
-                                                    judge_client=judge_client)
+            verdict = check(vault, repository, exercise, intent=intent, judge_client=judge_client)
             eligibility[str(exercise["key"])] = verdict
             if verdict["eligible"]:
                 kept_exercises.append(exercise)
     inputs: dict[str, list[Any]] = {}
     screens: dict[str, Any] = {}
+    familiar: dict[str, Any] = {}
     for problem in problems:
         channel = None
         if problem.space_kind == "retention" and channel_resolver is not None:
@@ -106,6 +132,9 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                 problem.context["channel_error"] = type(exc).__name__
         entries = [item_input(vault, repository, problem, vault.practice_items[item_id], estimator=estimator,
                               channel=channel) for item_id in kept_items if item_id in vault.practice_items]
+        if familiarity:
+            for entry in entries:
+                _discount_familiar(vault, repository, problem, entry, familiar)
         if kept_exercises:
             if intent == "discriminate" and problem.space_kind in ("hypothesis_set", "facet_marginal", "episode",
                                                                    "causal_factor"):
@@ -120,8 +149,10 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                     entry.missing = ["not_imported: valued once imported (its rubric and profiles are authored then)"]
                     entries.append(entry)
         inputs[problem.key] = entries
+    chosen_kept = [ref for ref in dict.fromkeys(str(r) for r in already_chosen) if ref in set(kept_items)]
     receipt = value_candidates(problems, inputs, caller_kind=caller_kind, system_initiated=system_initiated,
-                               unavailable=unavailable)
+                               unavailable=unavailable,
+                               **({"already_chosen": chosen_kept} if already_chosen else {}))
     receipt["intent"] = intent
     receipt["eligibility"] = eligibility
     # Hard exclusions, kept apart from the unvalued: final assembly never
@@ -135,6 +166,28 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
     if not problems:
         receipt["verdict"] = "no_open_hypotheses"
     return receipt
+
+
+def _discount_familiar(vault: LoadedVault, repository: Repository, problem: Any, entry: Any,
+                       cache: dict[str, Any]) -> None:
+    """Compose the item's attempt-familiarity discount into its members (G35)."""
+
+    from learnloop.learner.recall_coverage import familiarity_discount
+
+    item = vault.practice_items.get(entry.ref)
+    if item is None:
+        return
+    found = cache.get(item.id)
+    if found is None:
+        facets = {vault.canonical_facet_id(str(f)): 1.0 for f in item.evidence_facets}
+        result = familiarity_discount(repository, item, learning_object_id=item.learning_object_id,
+                                      covered_facets=facets, config=vault.config)
+        found = cache[item.id] = {"independent_evidence_discount": round(float(result.independent_evidence_discount), 6),
+                                  "trace": {k: round(float(v), 6) for k, v in result.trace.items()}}
+    entry.familiarity = dict(found)
+    discount = float(found["independent_evidence_discount"])
+    if entry.members and discount < 1.0:
+        entry.members = discount_members(entry.members, problem.prior, discount)
 
 
 def _key_statuses(vault: LoadedVault, repository: Repository, item_ids: Sequence[str]) -> dict[str, str]:

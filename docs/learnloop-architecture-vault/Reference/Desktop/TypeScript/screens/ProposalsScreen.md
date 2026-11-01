@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ProposalsScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ProposalsScreen.tsx"
-source_commit: "7f37f7bef54c4dc6170182720840faf546d9f51b"
-source_commit_timestamp: "2026-09-03T10:56:04-07:00"
+source_commit: "3ff403d6b8e867037e05fc2ef5dc0fcfa5141492"
+source_commit_timestamp: "2026-10-21T13:01:47-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ProposalsScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ProposalsScreen.tsx) |
-| Source lines | 873 |
+| Source lines | 946 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `7f37f7bef54c4dc6170182720840faf546d9f51b` |
-| Commit timestamp | `2026-09-03T10:56:04-07:00` |
+| Source commit | `3ff403d6b8e867037e05fc2ef5dc0fcfa5141492` |
+| Commit timestamp | `2026-10-21T13:01:47-04:00` |
 
 ## Activation and status evidence
 
@@ -60,66 +60,73 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ProposalsScreen(` — function, line 564
+- `export interface ProposalRepeat` — interface, line 276
+- `export function repeatedPendingProposals(batches: ProposalBatchDto[]): Map<string, ProposalRepeat>` — function, line 285
+- `export function ProposalsScreen(` — function, line 619
 
 ## Internal implementation anchors
 
-- `type PillColor } from "../components/term"` — type, line 23
-- `function RoutePill(` — function, line 27
-- `function DecisionPill(` — function, line 33
-- `const ITEM_TYPE_COLOR: Record<string, PillColor> =` — const, line 40
-- `function ItemTypePill(` — function, line 49
-- `function SourceRefPill(` — function, line 53
-- `const color: PillColor = source.kind === "note" ? "cyan" : source.kind === "canonical_source" ? "amber" : source.kind === "existing_entity" ? "green" : source.kind === "session" ? "purple" : "slate"` — const, line 54
-- `const targetId = source.refId` — const, line 67
-- `function ProposalsHero(` — function, line 92
-- `const resolved = totals.accepted + totals.rejected` — const, line 107
-- `const stats = [` — const, line 108
-- `const Stat = (` — const, line 114
-- `const sep = <span style=` — const, line 120
-- `function BatchHeader(` — function, line 216
-- `const run = batch.agentRun` — const, line 226
-- `const lineage = [batch.id, batch.purpose, run.durationS != null ? `$` — const, line 227
-- `function ProposalItemRow(` — function, line 262
-- `function PayloadPreview(` — function, line 321
-- `function ActionButton(` — function, line 348
-- `function ProposalDetail(` — function, line 386
-- `const run = batch.agentRun` — const, line 410
-- `const isPending = item.decision === "pending"` — const, line 411
-- `const isAccepted = item.decision === "accepted"` — const, line 412
-- `const canAccept = item.validationStatus !== "invalid"` — const, line 413
-- `const canUndo = item.decision === "rejected" && !item.applied` — const, line 414
-- `const canRefreshValidation = isPending && item.validationStatus === "invalid"` — const, line 415
-- `const proposalsQuery = useCachedQuery(["get_proposals"], ()` — const, line 587
-- `const snapshot: ProposalsSnapshot | null = proposalsQuery.data ?? null` — const, line 588
-- `const all = snapshot.batches.flatMap((batch)` — const, line 598
-- `const batch = snapshot.batches.find((candidate)` — const, line 610
-- `const next = new Set(current)` — const, line 614
-- `const first = batch.items.find((item)` — const, line 618
-- `const items = snapshot?.batches.flatMap((batch)` — const, line 628
-- `const inspectIds = uniqueIds( items.flatMap((item)` — const, line 629
-- `const practiceItemIds = uniqueIds( items .filter((item)` — const, line 636
-- `const visibleItems = useMemo(()` — const, line 646
-- `const focusedItem = useMemo( ()` — const, line 651
-- `const focusedBatch = useMemo( ()` — const, line 655
-- `const runMutation = useCallback( async (action: ()` — const, line 660
-- `const accept = useCallback(()` — const, line 677
-- `const reject = useCallback(()` — const, line 682
-- `const undo = useCallback(()` — const, line 687
-- `const refreshValidation = useCallback(()` — const, line 692
-- `const bulkAcceptAutoApply = useCallback(()` — const, line 698
-- `const byBatch = snapshot.batches .map((batch)` — const, line 700
-- `let latest = snapshot` — let, line 710
-- `const onKey = (event: KeyboardEvent)` — const, line 719
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 720
-- `const index = focusedItemId ? visibleItems.findIndex((item)` — const, line 722
-- `const next = visibleItems[Math.min(visibleItems.length - 1, index + 1)]` — const, line 724
-- `const prev = visibleItems[Math.max(0, index - 1)]` — const, line 728
-- `function toggleBatch(id: string)` — function, line 749
-- `const next = new Set(current)` — const, line 751
-- `const codexRevision = useMemo(()` — const, line 758
-- `const expanded = !collapsed.has(batch.id)` — const, line 793
-- `function uniqueIds(values: Array<string | null | undefined>): string[]` — function, line 871
+- `type PillColor } from "../components/term"` — type, line 26
+- `function RoutePill(` — function, line 30
+- `function DecisionPill(` — function, line 36
+- `const ITEM_TYPE_COLOR: Record<string, PillColor> =` — const, line 43
+- `function ItemTypePill(` — function, line 52
+- `function SourceRefPill(` — function, line 56
+- `const color: PillColor = source.kind === "note" ? "cyan" : source.kind === "canonical_source" ? "amber" : source.kind === "existing_entity" ? "green" : source.kind === "session" ? "purple" : "slate"` — const, line 57
+- `const targetId = source.refId` — const, line 70
+- `function ProposalsHero(` — function, line 95
+- `const resolved = totals.accepted + totals.rejected` — const, line 110
+- `const stats = [` — const, line 111
+- `const Stat = (` — const, line 117
+- `const sep = <span style=` — const, line 123
+- `function BatchHeader(` — function, line 219
+- `const run = batch.agentRun` — const, line 229
+- `const lineage = [batch.id, batch.purpose, run.durationS != null ? `$` — const, line 230
+- `const groups = new Map<string, string[]>()` — const, line 286
+- `const key = `$` — const, line 290
+- `const repeats = new Map<string, ProposalRepeat>()` — const, line 294
+- `function RepeatPill(` — function, line 302
+- `function ProposalItemRow(` — function, line 311
+- `function PayloadPreview(` — function, line 376
+- `function ActionButton(` — function, line 403
+- `function ProposalDetail(` — function, line 441
+- `const run = batch.agentRun` — const, line 465
+- `const isPending = item.decision === "pending"` — const, line 466
+- `const isAccepted = item.decision === "accepted"` — const, line 467
+- `const canAccept = item.validationStatus !== "invalid"` — const, line 468
+- `const canUndo = item.decision === "rejected" && !item.applied` — const, line 469
+- `const canRefreshValidation = isPending && item.validationStatus === "invalid"` — const, line 470
+- `const proposalsQuery = useCachedQuery(["get_proposals"], ()` — const, line 642
+- `const snapshot: ProposalsSnapshot | null = proposalsQuery.data ?? null` — const, line 643
+- `const all = snapshot.batches.flatMap((batch)` — const, line 653
+- `const batch = snapshot.batches.find((candidate)` — const, line 665
+- `const next = new Set(current)` — const, line 669
+- `const first = batch.items.find((item)` — const, line 673
+- `const items = snapshot?.batches.flatMap((batch)` — const, line 683
+- `const inspectIds = uniqueIds( items.flatMap((item)` — const, line 684
+- `const practiceItemIds = uniqueIds( items .filter((item)` — const, line 691
+- `const visibleItems = useMemo(()` — const, line 701
+- `const repeats = useMemo( ()` — const, line 707
+- `const focusedItem = useMemo( ()` — const, line 712
+- `const focusedBatch = useMemo( ()` — const, line 716
+- `const runMutation = useCallback( async (action: ()` — const, line 721
+- `const accept = useCallback(()` — const, line 738
+- `const reject = useCallback(()` — const, line 743
+- `const undo = useCallback(()` — const, line 748
+- `const refreshValidation = useCallback(()` — const, line 753
+- `const bulkAcceptAutoApply = useCallback(()` — const, line 759
+- `const byBatch = snapshot.batches .map((batch)` — const, line 761
+- `let latest = snapshot` — let, line 771
+- `const onKey = (event: KeyboardEvent)` — const, line 780
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 783
+- `const index = focusedItemId ? visibleItems.findIndex((item)` — const, line 785
+- `const next = visibleItems[Math.min(visibleItems.length - 1, index + 1)]` — const, line 787
+- `const prev = visibleItems[Math.max(0, index - 1)]` — const, line 791
+- `function toggleBatch(id: string)` — function, line 812
+- `const next = new Set(current)` — const, line 814
+- `const codexRevision = useMemo(()` — const, line 821
+- `const expanded = !collapsed.has(batch.id)` — const, line 865
+- `function uniqueIds(values: Array<string | null | undefined>): string[]` — function, line 944
 
 ## Who imports or calls it
 
@@ -136,6 +143,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ProposalBatchDto`, `ProposalItemDto`, `ProposalReviewRoute`, `ProposalSourceRefDto`, `ProposalsSnapshot`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
+- [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export; imports `simpleShell`
+- [[Reference/Desktop/TypeScript/components/RewordConfirms|src/components/RewordConfirms.tsx]] — import-or-re-export; imports `RewordConfirmList`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `PillColor`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `EntityLink`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export; imports `notifyQueueChanged`
@@ -152,7 +162,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/ProposalsScreen.repeats.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/ProposalsScreen.repeats.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

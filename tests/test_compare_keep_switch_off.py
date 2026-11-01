@@ -72,6 +72,8 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         set_config(paths, "reader_compare", by_point=False)
         # Reader CA5a (after this golden too): off, so its contract key is absent.
         set_config(paths, "reader.correspondence", enabled=False)
+        # Reader CA6 (after this golden too): off, so its contract key is absent.
+        set_config(paths, "reader.side_by_side", enabled=False)
     ctx = context(paths.root)
     real = service.propose_comparison
     llm = FakeServiceLLM()

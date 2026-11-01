@@ -2403,6 +2403,48 @@ class RecapConfig(BaseModel):
     wrap_up_enabled: bool = True
 
 
+class FollowupsConfig(BaseModel):
+    """Reader workbench RW6b part 1: cold follow-ups, the owner's "short
+    unfamiliar problem" (spec_reader_workbench_v1 §9.3-§9.6; UX §4.8-§4.9).
+
+    After a reader session with activity, the session's open questions (claims
+    that need a check on your own, rival explanations still open, and, with
+    ``formative_questions_enabled``, the questions its formative records
+    raise) go to ``find_practice`` with the exact filters (never attempted,
+    no family whose answer the session revealed) and the sources spec's
+    valuation (relevance is its one model call; value of information, the
+    stop rule and greedy conditional selection are the existing machinery).
+    Whatever clears the stop becomes a ``test_me_later`` commitment dated by
+    purpose, served by DL2's "Check once"; there is no count cap. Before each
+    day's plan the pending ones are re-valued and those whose question was
+    answered since are retired with their reason. Automatic dated requests
+    change what the maintain lane holds and serves, so they are the successor
+    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39; Codex review F4): below
+    the tag the section is inert. Never evidence; replay never reads it.
+
+    * ``enabled``: the kill switch. Off, or below the tag, no follow-up is
+      created and no re-valuation runs (the predecessor's plan); existing
+      ones stay the learner's commitments and can be undone.
+    * ``formative_questions_enabled``: formative records (a missed
+      prediction, a "still unclear", ...) add questions; they never change a
+      prior's number.
+    * ``generate_when_nothing_fits``: queue a source-anchored generation
+      request when no unfamiliar problem fits. Default off: PF has no request
+      API yet, so ``no_item`` stands (as the spec's off state).
+    * ``max_wait_days`` (keep): a time cap; no claim waits longer for its check.
+    * ``max_daily_cost_usd`` (keep): the metered spend a UTC day of the
+      relevance and exposure calls made for follow-ups (they also count
+      against ``source_service.max_daily_cost_usd``; the first reached stops
+      them). Subscription calls are ``estimated_only``.
+    """
+
+    enabled: bool = True
+    formative_questions_enabled: bool = True
+    generate_when_nothing_fits: bool = False
+    max_wait_days: int = Field(default=14, ge=1, le=365)
+    max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
+
+
 class ReaderIntentConfig(BaseModel):
     """Reader workbench RW1b: the intent box (spec_reader_workbench_v1 §4.2, §4.4).
 
@@ -2877,6 +2919,39 @@ class ReaderCorrespondenceConfig(BaseModel):
     (or with ``curriculum.enabled`` off, which gates the data), the Reader's
     prompt contract carries no ``correspondence`` key and the Guide is
     exactly as before CA5a. Navigation and display only: no successor.
+
+    Reader CA5 (*also in your books*, §6.2–§6.3) shares the switch: one dim
+    line under the Guide's section progress naming the other books' sections
+    whose judged coverage shares this section's LOs, expanded into a list by
+    LO (peek, go there, compare, *not about this*, *also about…*). It never
+    shows unchecked search hits. ``hide_everywhere`` and ``hidden_sources``
+    are the learner's own off switch on the line (*hide everywhere* / *hide
+    for this book*, by source id); Settings brings it back. They hide that
+    line only, never the data or CA5a's pressed action.
+    """
+
+    enabled: bool = True
+    hide_everywhere: bool = False
+    hidden_sources: list[str] = Field(default_factory=list)
+
+
+class ReaderSideBySideConfig(BaseModel):
+    """Reader CA6: *side by side* (ux_reader_compare_ask_v1 §6.4, X9, K14, C5).
+
+    Two books in two panes: entered from ``s`` on a section in the find-section
+    list, ``Ctrl+\\`` from reading (the first correspondent in
+    ``reader.correspondents``' order) or *read side by side* in a peek. The
+    second pane reads one section of the other book at a time
+    (``reader.side_by_side_section``: protection read now, exam and held-out
+    sections refused, one ``source_exposure`` row per block shown). *Follow
+    along* (on by default, §15 Q14) moves the following pane to its first
+    judged correspondent once, only when the leading pane (the one the learner
+    last scrolled, clicked or selected in) crosses into a new section. No model
+    call; the only writes are the exposure rows and salience-only
+    ``reader_action_invoked`` events. ``enabled`` is the kill switch: off (or
+    with ``curriculum.enabled`` off, which gates the data), the Reader's prompt
+    contract carries no ``side_by_side`` key and the Reader is exactly as
+    before CA6. Navigation and display only: no successor.
     """
 
     enabled: bool = True
@@ -2885,10 +2960,12 @@ class ReaderCorrespondenceConfig(BaseModel):
 class ReaderConfig(BaseModel):
     """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
 
-    ``correspondence``: CA5a's (and later CA5's) switch.
+    ``correspondence``: CA5a's and CA5's switch, and CA5's hide preferences.
+    ``side_by_side``: CA6's switch.
     """
 
     correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
+    side_by_side: ReaderSideBySideConfig = Field(default_factory=ReaderSideBySideConfig)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -4125,6 +4202,7 @@ class LearnLoopConfig(BaseModel):
     cues: CuesConfig = Field(default_factory=CuesConfig)
     workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
     recap: RecapConfig = Field(default_factory=RecapConfig)
+    followups: FollowupsConfig = Field(default_factory=FollowupsConfig)
     reader_intent: ReaderIntentConfig = Field(default_factory=ReaderIntentConfig)
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)

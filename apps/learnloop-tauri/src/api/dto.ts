@@ -6773,7 +6773,31 @@ export interface ReaderPromptContractDto {
   readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
   /** Reader CA5a: "find this section in my other books" in the Guide's footer
    *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
-  correspondence?: { enabled: boolean; findSection: boolean };
+  correspondence?: {
+    enabled: boolean;
+    findSection: boolean;
+    /** Reader CA5: the Guide's one-line "also in your books" over judged coverage, and the
+     *  learner's hide preferences for it (absent on an older sidecar: the line is off). */
+    alsoInBooks?: boolean;
+    hiddenEverywhere?: boolean;
+    hiddenSources?: string[];
+  };
+  /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
+  sideBySide?: { enabled: boolean };
+}
+
+/** Reader CA5: the line's hide preferences (Settings brings it back). */
+export interface CorrespondencePreferencesDto {
+  enabled: boolean;
+  hideEverywhere: boolean;
+  hiddenSources: Array<{ sourceId: string; title: string }>;
+}
+
+/** What the learner kept comparing two sections (RW4d): when, and the kept relations' fine labels. */
+export interface CorrespondentKeptDto {
+  askId: string | null;
+  keptAt: string | null;
+  relations: string[];
 }
 
 // ── Reader CA5a: find this section in my other books ───────────────────────
@@ -6796,6 +6820,15 @@ export interface CorrespondentSectionDto {
   /** "found by search, not checked" on a search hit. */
   label?: string;
   by: "search" | "judge" | "learner";
+  /** Judged lines (CA5): the treatment in the learner's words, the coverage judge's
+   *  notation line (LearnLoop's voice), what the learner kept, and the other shared LOs. */
+  treatmentWords?: string | null;
+  roles?: string[];
+  notation?: string | null;
+  notationLabel?: string | null;
+  linkedByYou?: boolean;
+  kept?: CorrespondentKeptDto[];
+  alsoLearningObjectIds?: string[];
 }
 
 export interface CorrespondentSourceDto {
@@ -6829,6 +6862,25 @@ export interface CorrespondentPeekDto {
   page: number | null;
   blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
   exposureEventIds: string[];
+}
+
+/** Reader CA6: one section of the other book for side by side's second pane
+ *  (the whole section from its jump locator, never the next unit's; each block shown recorded). */
+export interface SideBySideSectionDto {
+  extractionId: string;
+  sectionId: string;
+  sourceId: string;
+  sourceTitle: string;
+  title: string;
+  jumpSpanId: string;
+  page: number | null;
+  blocks: Array<{ spanId: string; blockType: string; page: number | null; text: string }>;
+  /** The book's neighbouring readable sections (protected ones skipped). */
+  previous: { sectionId: string; title: string } | null;
+  next: { sectionId: string; title: string } | null;
+  exposureEventIds: string[];
+  /** The reading's revision (a highlight or note made in the pane goes to its own book). */
+  revisionId?: string | null;
 }
 
 /** CA5a's "not about this" (or its undo), one durable operation. */
@@ -7186,9 +7238,16 @@ export interface ReaderActivityEvent {
     | "tutor_offer_pressed"
     | "figure_opened"
     | "figure_animated"
+    | "corresponding_section_peeked"
+    | "corresponding_section_opened"
     /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */
     | "sketch_paused"
-    | "sketch_error";
+    | "sketch_error"
+    /** Reader CA6: side by side sessions and follow along. */
+    | "side_by_side_opened"
+    | "side_by_side_closed"
+    | "follow_along_moved"
+    | "follow_along_undone";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -8884,6 +8943,46 @@ export interface ReaderRecapDemonstratedDto {
   attemptId: string | null;
 }
 
+// ── Reader workbench RW6b part 1: cold follow-ups ("Coming up") ───────────
+// spec_reader_workbench_v1 §9.3; UX §4.8-4.9, S15, D36. A dated timeline,
+// never a count; each line has its purpose, "why" (LearnLoop's estimate) and undo.
+
+export type ReaderFollowupPurpose = "discriminating" | "retention";
+
+export interface ReaderFollowupLineDto {
+  commitmentId: string;
+  digestId: string;
+  extractionId: string;
+  purpose: ReaderFollowupPurpose;
+  novelty: string | null;
+  noveltyLabel: string | null;
+  purposeText: string;
+  expectedMinutes: number | null;
+  why: string;
+  /** YYYY-MM-DD, the plan's local day (pending lines). */
+  date?: string | null;
+  actions: string[];
+  /** Retired lines (good news). */
+  retiredAt?: string | null;
+  reason?: string | null;
+  solvedAt?: string | null;
+  text?: string;
+}
+
+export interface ReaderComingUpDto {
+  next: ReaderFollowupLineDto[];
+  later: ReaderFollowupLineDto[];
+  undoAll: Array<{ digestId: string }>;
+  scale: string;
+  enabled: boolean;
+}
+
+export interface ReaderFollowupsDto extends ReaderComingUpDto {
+  version: number;
+  followupsVersion: string;
+  retired: ReaderFollowupLineDto[];
+}
+
 export interface ReaderRecapCardDto {
   recapVersion: string;
   extractionId: string;
@@ -8894,8 +8993,18 @@ export interface ReaderRecapCardDto {
   worthASecondLook: ReaderRecapSecondLookDto[];
   sinceLastTime: {
     demonstrated: ReaderRecapDemonstratedDto[];
-    checksRetired: Array<{ commitmentId: string; retiredAt: string; solvedAttemptId?: string | null }>;
+    /** RW6b: checks retired as no longer needed; ``answeredBy`` says how
+     *  ("solved_on_your_own" on ``solvedAt``, or "rivals_resolved"). */
+    checksRetired: Array<{
+      commitmentId: string;
+      retiredAt: string;
+      answeredBy?: string | null;
+      solvedAttemptId?: string | null;
+      solvedAt?: string | null;
+    }>;
   };
+  /** RW6b: the source's scheduled checks (absent before RW6b's sidecar). */
+  comingUp?: ReaderComingUpDto;
 }
 
 export interface ReaderRecapDto {
@@ -8945,6 +9054,8 @@ export interface ReaderWrapUpDto {
   resolved: ReaderWrapUpInquiryLineDto[];
   stillOpen: ReaderWrapUpInquiryLineDto[];
   worthReinforcing: ReaderWrapUpReinforceLineDto[];
+  /** RW6b: worth reinforcing also lists the checks coming up with their dates. */
+  comingUp?: ReaderComingUpDto;
 }
 
 export interface ReaderWrapUpOfferDto {

@@ -38,7 +38,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/components/goldenpath/GoldenPathSetup|GoldenPathSetup.tsx]] | `ACTIVE` | Provides the reusable `GoldenPathSetup` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/goldenpath/TriageDecisionAid|TriageDecisionAid.tsx]] | `ACTIVE` | Provides the reusable `TriageDecisionAid` interaction surface used by one or more desktop workflows. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 6 |
+| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 12 |
 
 ## Modification guidance
 

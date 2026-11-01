@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/algoConfig.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/algoConfig.ts"
-source_commit: "b48c1ee9be4bc2a4ff5612870d8bf38391e7061b"
-source_commit_timestamp: "2026-07-05T20:51:45-04:00"
+source_commit: "9a3dbdeba182f91164b72d74f67bb3624218c94b"
+source_commit_timestamp: "2026-10-26T19:46:22-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/algoConfig.ts](../../../../../../apps/learnloop-tauri/src/app/algoConfig.ts) |
-| Source lines | 59 |
+| Source lines | 237 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `b48c1ee9be4bc2a4ff5612870d8bf38391e7061b` |
-| Commit timestamp | `2026-07-05T20:51:45-04:00` |
+| Source commit | `9a3dbdeba182f91164b72d74f67bb3624218c94b` |
+| Commit timestamp | `2026-10-26T19:46:22-04:00` |
 
 ## Activation and status evidence
 
@@ -60,35 +60,65 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface AlgoDisplayConfig` — interface, line 6
-- `export function setAlgoConfig(config: unknown): void` — function, line 26
-- `export function algoConfig(): AlgoDisplayConfig` — function, line 39
-- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 43
-- `export function masteryBand(mastery: number): MasteryBand` — function, line 45
-- `export function masteryTone<T>(mastery: number, palette:` — function, line 52
+- `export interface AlgoDisplayConfig` — interface, line 7
+- `export interface AskPanelConfig` — interface, line 60
+- `export interface WorkbenchHelpConfig` — interface, line 69
+- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 80
+- `export interface AdaptiveHintsConfig` — interface, line 82
+- `export function setAlgoConfig(config: unknown): void` — function, line 111
+- `export function subscribeAlgoConfig(listener: ()` — function, line 164
+- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 176
+- `export function storedHelpStyle(): HelpStyleValue` — function, line 185
+- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 191
+- `export function algoConfig(): AlgoDisplayConfig` — function, line 193
+- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 197
+- `export function masteryBand(mastery: number): MasteryBand` — function, line 199
+- `export function masteryTone<T>(mastery: number, palette:` — function, line 206
+- `export function useSymbolicChecksLive(): boolean` — function, line 218
+- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 230
+- `export function activeShell(): "simple" | "classic"` — function, line 235
 
 ## Internal implementation anchors
 
-- `const DEFAULTS: AlgoDisplayConfig =` — const, line 17
-- `let current: AlgoDisplayConfig =` — let, line 24
-- `const root = (config ??` — const, line 27
-- `const band = masteryBand(mastery)` — const, line 53
-- `function asNumber(value: unknown, fallback: number): number` — function, line 57
+- `const DEFAULTS: AlgoDisplayConfig =` — const, line 89
+- `let current: AlgoDisplayConfig =` — let, line 107
+- `let renderedShell: "simple" | "classic" | null = null` — let, line 109
+- `const root = (config ??` — const, line 112
+- `const listeners = new Set<()` — const, line 160
+- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 171
+- `const band = masteryBand(mastery)` — const, line 207
+- `function asNumber(value: unknown, fallback: number): number` — function, line 211
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `setAlgoConfig`; references `setAlgoConfig`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `algoConfig`, `setAlgoConfig`, `setRenderedShell`; references `algoConfig`, `setAlgoConfig`, `setRenderedShell`
+- [[Reference/Desktop/TypeScript/app/keyScope|src/app/keyScope.ts]] — import-or-re-export: `activeShell`; references `activeShell`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export: `activeShell`; references `activeShell`
+- [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `STUCK_PROMPT_TEXT`, `algoConfig`; references `STUCK_PROMPT_TEXT`, `algoConfig`
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
+- [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`; references `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`
 - [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `algoConfig`, `masteryTone`; references `algoConfig`, `masteryTone`
+- [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|src/screens/KnowledgeStrataView.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
-- [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
+- [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `STUCK_PROMPT_TEXT`, `algoConfig`, `masteryTone`, `setAdaptiveHelpStyle`; references `STUCK_PROMPT_TEXT`, `algoConfig`, `masteryTone`, `setAdaptiveHelpStyle`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
+- [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|src/screens/practice/HelpStyleSettings.tsx]] — import-or-re-export: `algoConfig`, `setAdaptiveHelpStyle`; references `algoConfig`, `setAdaptiveHelpStyle`
+- [[Reference/Desktop/TypeScript/screens/practice/HintPanel|src/screens/practice/HintPanel.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `useSymbolicChecksLive`; references `useSymbolicChecksLive`
+- [[Reference/Desktop/TypeScript/screens/workbench/StepHints|src/screens/workbench/StepHints.tsx]] — import-or-re-export: `useSymbolicChecksLive`; references `useSymbolicChecksLive`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 
 ## Dependencies
 
@@ -98,7 +128,7 @@ No local TypeScript/TSX or Rust module dependency was detected.
 
 ### Assets, platform, and third-party dependencies
 
-No explicit asset, standard-library, package, or crate dependency was detected.
+- Imported packages/crates: `react`
 
 ## Larger desktop and workflow participation
 
@@ -109,7 +139,14 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/workbench/symbolicOff.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/symbolicOff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/switchOff.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/switchOff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/rw2cFixRound2.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/rw2cFixRound2.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/reviewFixes.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/reviewFixes.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/RouteExample.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/RouteExample.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

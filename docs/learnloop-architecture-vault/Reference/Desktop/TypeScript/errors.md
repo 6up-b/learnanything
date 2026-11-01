@@ -10,8 +10,8 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/errors.ts"
 source_paths:
   - "apps/learnloop-tauri/src/errors.ts"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "719233b9e6a9f5c689fc3466bf87c6e4521b93bb"
+source_commit_timestamp: "2026-10-21T13:40:43-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/errors.ts](../../../../../apps/learnloop-tauri/src/errors.ts) |
-| Source lines | 34 |
+| Source lines | 76 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `719233b9e6a9f5c689fc3466bf87c6e4521b93bb` |
+| Commit timestamp | `2026-10-21T13:40:43-04:00` |
 
 ## Activation and status evidence
 
@@ -60,15 +60,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function getCommandError(error: unknown): CommandError | null` — function, line 11
-- `export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string` — function, line 24
+- `export type MessageKind = "error" | "notice"` — type, line 8
+- `export interface RetryRan` — interface, line 27
+- `export const RETRY_RAN: RetryRan = Object.freeze(` — const, line 32
+- `export type NoticeRetry = ()` — type, line 34
+- `export function retryRan(value: unknown): value is RetryRan` — function, line 36
+- `export type ErrorReport = |` — type, line 40
+- `export type ReportError = (message: string, report?: ErrorReport)` — type, line 45
+- `export function getCommandError(error: unknown): CommandError | null` — function, line 53
+- `export function errorMessage(error: unknown, fallback = DEFAULT_ERROR_MESSAGE): string` — function, line 66
 
 ## Internal implementation anchors
 
 - `const DEFAULT_ERROR_MESSAGE = "Something went wrong. Please try again."` — const, line 3
-- `const candidate = error as Partial<CommandError>` — const, line 13
-- `const command = getCommandError(error)` — const, line 25
-- `const message = (error as` — const, line 30
+- `const candidate = error as Partial<CommandError>` — const, line 55
+- `const command = getCommandError(error)` — const, line 67
+- `const message = (error as` — const, line 72
 
 ## Who imports or calls it
 
@@ -76,21 +83,63 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export: `ErrorReport`, `NoticeRetry`, `RETRY_RAN`; references `ErrorReport`, `NoticeRetry`, `RETRY_RAN`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `ErrorReport`, `NoticeRetry`, `RETRY_RAN`, `errorMessage`, `getCommandError`; references `ErrorReport`, `NoticeRetry`, `RETRY_RAN`, `errorMessage`, `getCommandError`
 - [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|src/app/ScreenErrorBoundary.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/app/notices|src/app/notices.ts]] — import-or-re-export: `MessageKind`, `NoticeRetry`, `errorMessage`, `getCommandError`, `retryRan`; references `MessageKind`, `NoticeRetry`, `errorMessage`, `getCommandError`, `retryRan`
 - [[Reference/Desktop/TypeScript/app/useCloseWithFlush|src/app/useCloseWithFlush.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/AdjudicationOverlay|src/components/AdjudicationOverlay.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/components/AsPrinted|src/components/AsPrinted.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/components/CapturePhoto|src/components/CapturePhoto.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/components/ChatGPTPlanSettings|src/components/ChatGPTPlanSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/components/InboxStrip|src/components/InboxStrip.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/NativeMediaSettings|src/components/NativeMediaSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/NewVaultWizard|src/components/NewVaultWizard.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/QuickAddDialog|src/components/QuickAddDialog.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/goldenpath/GoldenPathSetup|src/components/goldenpath/GoldenPathSetup.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/fixtures/retryRequests|src/fixtures/retryRequests.ts]] — import-or-re-export: `RETRY_RAN`; references `RETRY_RAN`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
 - [[Reference/Desktop/TypeScript/screens/IngestScreen|src/screens/IngestScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `ReportError`; references `ReportError`
+- [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `ReportError`; references `ReportError`
 - [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|src/screens/MaintenanceScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/feedback/CompareMethods|src/screens/feedback/CompareMethods.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|src/screens/practice/HelpStyleSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/practice/useAdaptiveHints|src/screens/practice/useAdaptiveHints.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|src/screens/reader/AlsoInBooks.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|src/screens/reader/CompareKeep.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/DeliverableScope|src/screens/reader/DeliverableScope.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export: `getCommandError`; references `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderCorrespondenceSettings|src/screens/reader/ReaderCorrespondenceSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderCueSettings|src/screens/reader/ReaderCueSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/useActiveReading|src/screens/reader/useActiveReading.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|src/screens/reader/useReaderCues.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|src/screens/reader/useReaderRecap.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderRequests|src/screens/reader/useReaderRequests.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `ErrorReport`, `errorMessage`; references `ErrorReport`, `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/underhood/tools|src/screens/underhood/tools.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/workbench/RouteExample|src/screens/workbench/RouteExample.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchHelp|src/screens/workbench/useWorkbenchHelp.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
 
 ## Dependencies
 
@@ -110,7 +159,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/components/NoticeHost.test.tsx](../../../../../apps/learnloop-tauri/src/components/NoticeHost.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/notices.shell.test.ts](../../../../../apps/learnloop-tauri/src/app/notices.shell.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

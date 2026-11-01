@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ExamScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ExamScreen.tsx"
-source_commit: "513080252d4f7da7b6ddc69e4848ecb9f0014685"
-source_commit_timestamp: "2026-07-27T14:08:25-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ExamScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ExamScreen.tsx) |
-| Source lines | 603 |
+| Source lines | 609 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `513080252d4f7da7b6ddc69e4848ecb9f0014685` |
-| Commit timestamp | `2026-07-27T14:08:25-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,42 +60,42 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ExamScreen(` — function, line 26
+- `export function ExamScreen(` — function, line 27
 
 ## Internal implementation anchors
 
-- `type Phase = "loading" | "error" | "exam" | "finishing" | "report"` — type, line 19
-- `const startedRef = useRef(false)` — const, line 44
-- `const items = session?.items ?? []` — const, line 46
-- `const currentIndex = useMemo( ()` — const, line 48
-- `const current = currentIndex >= 0 ? items[currentIndex] : null` — const, line 52
-- `const finish = useCallback( (sessionId: string)` — const, line 54
-- `const command = error as CommandError` — const, line 64
-- `const allAnswered = snap.items.every((it)` — const, line 87
-- `const command = error as CommandError` — const, line 95
-- `const submit = useCallback(async ()` — const, line 108
-- `const trimmed = answer.trim()` — const, line 110
-- `const nextAnswered = new Set(answered)` — const, line 119
-- `const done = session.items.every((it)` — const, line 123
-- `const onKey = (event: KeyboardEvent)` — const, line 139
-- `const ctrl = event.ctrlKey || event.metaKey` — const, line 140
-- `const answeredCount = answered.size` — const, line 189
-- `function pct(value: number | null): string` — function, line 269
-- `function ItemReview(` — function, line 278
-- `const repair = outcome.repairSuggestions[0] ?? null` — const, line 289
-- `const scoreLine = outcome.rubricScore != null && outcome.maxPoints != null ? `$` — const, line 290
-- `function ExamReport(` — function, line 389
-- `const itemsById = useMemo(()` — const, line 399
-- `const map = new Map<string, ExamItemDto>()` — const, line 400
-- `const predicted = report.predictedScoreFraction` — const, line 404
-- `const scored = report.scoreFraction` — const, line 405
-- `const facets = useMemo(()` — const, line 407
-- `const sortKey = (f: ExamFacetOutcomeDto)` — const, line 408
-- `const tone = f.observedCorrectness != null ? masteryTone(f.observedCorrectness, COLOR) : COLOR.textFaint` — const, line 463
-- `const pred = it.predictedCorrectness` — const, line 496
-- `const obs = it.observedCorrectness` — const, line 497
-- `const obsTone = obs != null ? masteryTone(obs, COLOR) : COLOR.textFaint` — const, line 498
-- `const open = openIndex === i` — const, line 499
+- `type Phase = "loading" | "error" | "exam" | "finishing" | "report"` — type, line 20
+- `const startedRef = useRef(false)` — const, line 45
+- `const items = session?.items ?? []` — const, line 47
+- `const currentIndex = useMemo( ()` — const, line 49
+- `const current = currentIndex >= 0 ? items[currentIndex] : null` — const, line 53
+- `const finish = useCallback( (sessionId: string)` — const, line 55
+- `const command = error as CommandError` — const, line 65
+- `const allAnswered = snap.items.every((it)` — const, line 88
+- `const command = error as CommandError` — const, line 96
+- `const submit = useCallback(async ()` — const, line 109
+- `const trimmed = answer.trim()` — const, line 111
+- `const nextAnswered = new Set(answered)` — const, line 120
+- `const done = session.items.every((it)` — const, line 124
+- `const onKey = (event: KeyboardEvent)` — const, line 140
+- `const ctrl = event.ctrlKey || event.metaKey` — const, line 142
+- `const answeredCount = answered.size` — const, line 191
+- `function pct(value: number | null): string` — function, line 271
+- `function ItemReview(` — function, line 280
+- `const repair = outcome.repairSuggestions[0] ?? null` — const, line 291
+- `const scoreLine = outcome.rubricScore != null && outcome.maxPoints != null ? `$` — const, line 292
+- `function ExamReport(` — function, line 395
+- `const itemsById = useMemo(()` — const, line 405
+- `const map = new Map<string, ExamItemDto>()` — const, line 406
+- `const predicted = report.predictedScoreFraction` — const, line 410
+- `const scored = report.scoreFraction` — const, line 411
+- `const facets = useMemo(()` — const, line 413
+- `const sortKey = (f: ExamFacetOutcomeDto)` — const, line 414
+- `const tone = f.observedCorrectness != null ? masteryTone(f.observedCorrectness, COLOR) : COLOR.textFaint` — const, line 469
+- `const pred = it.predictedCorrectness` — const, line 502
+- `const obs = it.observedCorrectness` — const, line 503
+- `const obsTone = obs != null ? masteryTone(obs, COLOR) : COLOR.textFaint` — const, line 504
+- `const open = openIndex === i` — const, line 505
 
 ## Who imports or calls it
 
@@ -111,6 +111,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `ExamFacetOutcomeDto`, `ExamItemDto`, `ExamItemOutcomeDto`, `ExamReportSnapshot`, `ExamSessionSnapshot`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `masteryTone`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/ItemPresentation|src/components/ItemPresentation.tsx]] — import-or-re-export; imports `ItemPresentation`
 - [[Reference/Desktop/TypeScript/components/RepairTrace|src/components/RepairTrace.tsx]] — import-or-re-export; imports `RepairTraceBlocks`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `KeyBar`

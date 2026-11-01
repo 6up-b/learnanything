@@ -49,13 +49,16 @@ import { cachedSourceRead } from "./readerCache";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
+import type { PaneTarget } from "./sideBySide";
 import { screenLeavesKey } from "../../app/keymap";
 import {
   back as stackBack,
+  dropCurrent,
   EMPTY_STACK,
   forward as stackForward,
   hasDetour,
   markReturned,
+  replaceCurrent,
   pushDetour,
   stackInquiryExchange,
   unreturnedDetours,
@@ -211,6 +214,14 @@ export interface ReaderInquiry {
   rememberLeftSource: (entry: ReturnEntry) => void;
   /** Per-source reset (the return stack itself survives a detour into another source). */
   resetInquiryState: () => void;
+  /** Reader CA6: push side by side's crumb from the reading position, carrying
+   *  its second pane; its entry id (null: no return stack). */
+  pushSideBySide: (label: string, target: PaneTarget) => string | null;
+  /** Reader CA6: another section opened beside the same passage: the current
+   *  crumb now names it (same entry id); false when it is not the current entry. */
+  replaceSideBySide: (entryId: string, label: string, target: PaneTarget) => boolean;
+  /** Reader CA6: the learner closed side by side; its crumb goes if it is the current entry (nothing moves). */
+  dropDetour: (entryId: string) => void;
 }
 
 export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
@@ -420,6 +431,33 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     setReturnStack(next);
     settleScrollRef.current = null;
   }, [inquiry, offline, positionEntry, visitPayload]);
+
+  const pushSideBySide = useCallback((label: string, target: PaneTarget): string | null => {
+    if (!inquiry || offline || !render) return null;
+    const entry: ReturnEntry = {
+      id: newActivityId(), kind: "side_by_side", sourceId: render.sourceId, sourceTitle,
+      extractionId: render.extractionId, spanId: readingSpan ?? activeSpan, selection: null, railTab,
+      exchangeId: null, label, openedAt: Date.now(), sideBySide: target,
+    };
+    const before = returnStackRef.current;
+    pushDetours([entry]);
+    return returnStackRef.current !== before ? entry.id : null;
+  }, [inquiry, offline, render, sourceTitle, readingSpan, activeSpan, railTab, pushDetours]);
+
+  const replaceSideBySide = useCallback((entryId: string, label: string, target: PaneTarget): boolean => {
+    const next = replaceCurrent(returnStackRef.current, entryId, { label, sideBySide: target });
+    if (next === returnStackRef.current) return false;
+    returnStackRef.current = next;
+    setReturnStack(next);
+    return true;
+  }, []);
+
+  const dropDetour = useCallback((entryId: string) => {
+    const next = dropCurrent(returnStackRef.current, entryId);
+    if (next === returnStackRef.current) return;
+    returnStackRef.current = next;
+    setReturnStack(next);
+  }, []);
 
   const peekPassage = useCallback((spanId: string) => {
     const here = readingSpan ?? activeSpan;
@@ -1167,6 +1205,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     markBranchDone,
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,
-    noteSourceOpened, rememberLeftSource, resetInquiryState,
+    noteSourceOpened, rememberLeftSource, resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
   };
 }

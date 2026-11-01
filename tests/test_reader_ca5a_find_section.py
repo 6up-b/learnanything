@@ -37,7 +37,8 @@ def test_the_switch_is_on_by_default():
 def test_the_prompt_contract_carries_the_action_only_while_both_switches_are_on(tmp_path):
     paths, _repository = build_coverage_vault(tmp_path / "on")
     contract = call(_ctx(paths), "reader.prompt_contract", {})
-    assert contract["correspondence"] == {"enabled": True, "findSection": True}
+    # Reader CA5 shares the key: its one-line entry and the line's hide preferences.
+    assert contract["correspondence"] == {"enabled": True, "findSection": True, "alsoInBooks": True, "hiddenEverywhere": False, "hiddenSources": []}
 
     for name, config in (("reader_off", "[reader.correspondence]\nenabled = false"),
                          ("curriculum_off", "[curriculum]\nenabled = false")):

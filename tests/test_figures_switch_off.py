@@ -39,8 +39,9 @@ def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None)
 #: ``reading_paths`` in the report. These pins are about RW5a's switch, so
 #: everything else stays byte for byte. Reader CA5a's ``correspondence``
 #: (find this section in my other books) is pinned by
-#: tests/test_reader_ca5a_find_section.py.
-LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence")
+#: tests/test_reader_ca5a_find_section.py; Reader CA6's ``sideBySide`` by
+#: tests/test_reader_ca6_side_by_side.py.
+LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence", "sideBySide")
 LATER_REPORT_KEYS = ("comparisons", "roles", "reading_paths")
 
 

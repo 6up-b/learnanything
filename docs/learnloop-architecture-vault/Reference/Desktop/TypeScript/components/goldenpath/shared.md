@@ -104,7 +104,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/goldenpath/GoldenPathSetup|src/components/goldenpath/GoldenPathSetup.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/components/goldenpath/TriageDecisionAid|src/components/goldenpath/TriageDecisionAid.tsx]] — import-or-re-export: `CalibrationBadge`, `SecondaryButton`; references `CalibrationBadge`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/screens/GoldenPathScreen|src/screens/GoldenPathScreen.tsx]] — import-or-re-export: `AffectTap`, `BoundaryView`, `CalibrationBadge`, `Checkpoint`, `CheckpointLadder`, `ClaimBadge`, `DepthEnvelopeCard`, `IntervalBar`, `PrimaryButton`, `SecondaryButton`; references `AffectTap`, `BoundaryView`, `CalibrationBadge`, `Checkpoint`, `CheckpointLadder`, `ClaimBadge`, `DepthEnvelopeCard`, `IntervalBar`, `PrimaryButton`, `SecondaryButton`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AffectTap`, `DispositionPicker`, `PrimaryButton`, `SecondaryButton`; references `AffectTap`, `DispositionPicker`, `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `SecondaryButton`; references `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/ActiveReadingCard|src/screens/reader/ActiveReadingCard.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `AffectTap`, `PrimaryButton`, `SecondaryButton`; references `AffectTap`, `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `DispositionPicker`, `PrimaryButton`, `SecondaryButton`; references `DispositionPicker`, `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/InquiryQuickCheck|src/screens/reader/InquiryQuickCheck.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export: `SecondaryButton`; references `SecondaryButton`
 
 ## Dependencies
 

@@ -18,10 +18,10 @@ predecessor means PLUS this:
   ``chosen_by = "deliverable"`` and a ``deliverable`` entry (goal id, path
   state key, the row ids read).
 
-The tag is ONE constant (``DELIVERABLE_PLAN_ALGORITHM_VERSION``, ``mvp-0.39``)
-after the cold-retry reschedule's ``mvp-0.38``. Built while RW6b part 1
-(``mvp-0.39``, migration 227) was in fix rounds: whichever lands second
-renumbers.
+The tag is ONE constant (``DELIVERABLE_PLAN_ALGORITHM_VERSION``, ``mvp-0.40``)
+after Reader RW6b part 1's ``mvp-0.39`` (``learnloop.reader_followups_upgrade``).
+Built as ``mvp-0.39`` on the cold-retry reschedule's ``mvp-0.38`` while RW6b
+part 1 was in fix rounds, and renumbered at its landing.
 
 The upgrade:
 
@@ -63,8 +63,8 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
-    COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
+    READER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
@@ -72,8 +72,8 @@ from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.cold_retry_reschedule_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.cold_retry_reschedule_upgrade import upgrade_to_cold_retry_reschedule
+from learnloop.reader_followups_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.reader_followups_upgrade import upgrade_to_reader_followups
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -81,8 +81,8 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_cold_retry_reschedule
+PREDECESSOR = READER_FOLLOWUPS_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_reader_followups
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

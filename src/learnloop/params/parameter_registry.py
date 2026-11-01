@@ -1384,6 +1384,28 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the library answer's organizer's metered spend a UTC day; a money bound, no measurement "
         "authority (its notes are display only)."),
+    # Reader workbench RW6b part 1 (cold follow-ups, spec §9.3): two keep
+    # guardrails. The valuation's own parameters (lambda, the burden, the
+    # nat-to-minutes scale) are robust_composition's, read from there, and the
+    # retention date is FSRS's (the practiced item's effective due, else the
+    # scheduler's own first interval for that attempt's rating), so the
+    # spec's followups.fallback_days is not a key at all.
+    _ConfigRule(_exact(
+        "followups.max_wait_days",
+        "followups.max_daily_cost_usd",
+    ), "structural", "operational",
+        "keep: the anti-nag time cap (no claim waits longer than this for its check on your own; a "
+        "ceiling on the date the existing machinery derives, never the date itself) / the metered spend a "
+        "UTC day of the relevance and exposure calls made for follow-ups (the owner's spending authority; "
+        "subscription calls are estimated_only); no measurement, scheduling or serving authority."),
+    _ConfigRule(_exact(
+        "followups.enabled",
+        "followups.formative_questions_enabled",
+        "followups.generate_when_nothing_fits",
+    ), "structural", "operational",
+        "kill switches for cold follow-ups (followups.enabled is the kill switch of the successor mvp-0.39; "
+        "off, or below the tag, the predecessor's plan) / formative records adding questions / background "
+        "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
     # Reader workbench RW1c: the Reader tutor's kill switches (booleans, so
     # Inventory A's numeric walk never reaches them; classified here so every
     # new key has a rule). Retrieval is context and display, the offers are
@@ -1539,6 +1561,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
         "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
         "no measurement, scheduling or serving authority (no algorithm successor)."),
+    # Reader CA5 (ux_reader_compare_ask_v1 §6.2): the learner's off switch on
+    # the Guide's "also in your books" line (hide everywhere, hide for these
+    # books). A boolean and a list of source ids (classified so every new key
+    # has a rule): preferences, with no weight, margin or threshold.
+    _ConfigRule(_exact(
+        "reader.correspondence.hide_everywhere",
+        "reader.correspondence.hidden_sources",
+    ), "structural", "operational",
+        "the learner's own hide preferences for Reader CA5's also in your books line (everywhere / for these "
+        "books); display only, no measurement, scheduling or serving authority (no algorithm successor)."),
     # Deliverable curriculum C0b: the on-extract coverage job's switch (a
     # boolean, classified so every new key has a rule). The scope resolver
     # and the path judge add no number: they share the C0a caps above.
@@ -1548,7 +1580,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the background job a completed extraction queues to judge the already-covered LOs "
         "again (quiet: plan only); display and retrieval context only, no measurement, scheduling or serving "
         "authority (no algorithm successor)."),
-    # Deliverable curriculum C1 (mvp-0.39; spec §7.6): the kill switch of the
+    # Reader CA6 (ux_reader_compare_ask_v1 §6.4, §13): side by side. A boolean
+    # (classified so every new key has a rule): two panes, follow along at
+    # section crossings to the first judged correspondent in the API's order;
+    # no weight, margin or threshold (the narrow-window breakpoint is the
+    # spec's layout bound in the frontend, not a parameter of any decision).
+    _ConfigRule(_exact(
+        "reader.side_by_side.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA6's side by side (two source panes, follow along at section crossings, "
+        "exposure rows for the second pane's text); navigation and display, no measurement, scheduling or "
+        "serving authority (no algorithm successor)."),
+    # Deliverable curriculum C1 (mvp-0.40; spec §7.6): the kill switch of the
     # successor whose plan reading block follows the nearest deliverable's
     # path. A boolean (classified so every new key has a rule); which section
     # is read is the path judge's order and the existing filters, so no

@@ -426,3 +426,21 @@ it("the Guide draws it in its footer slot, and draws nothing there without it", 
   rerender(<GuideRail {...props} footer={<div data-testid="footer" />} />);
   expect(screen.queryByTestId("find")).toBeNull();
 });
+
+// Reader CA5 fix round (Codex review F4): a peek from this list puts the same
+// display-only crumb in the detour strip, and the strip's close closes it.
+it("a peek reports its crumb, and the strip's close token closes it", async () => {
+  api.readerCorrespondents.mockResolvedValueOnce(QUIET_NONE);
+  const onPeekChange = vi.fn();
+  const { rerender, ...handlers } = await mount({ onPeekChange });
+  await pressFind();
+  api.readerCorrespondentPeek.mockResolvedValueOnce(peekOf(LAY_51, ["An eigenvector…"]));
+  fireEvent.click(screen.getByRole("button", { name: "peek at Lay 5.1 Eigenvectors and eigenvalues" }));
+  await flush();
+  expect(document.querySelector("[data-find-peek]")).toBeTruthy();
+  expect(onPeekChange).toHaveBeenLastCalledWith({ label: "peek Lay §5.1" });
+  rerender(<FindSection extractionId="ext_strang" section={SECTION} {...handlers} onPeekChange={onPeekChange} closePeekToken={1} />);
+  await flush();
+  expect(document.querySelector("[data-find-peek]")).toBeNull();
+  expect(onPeekChange).toHaveBeenLastCalledWith(null);
+});

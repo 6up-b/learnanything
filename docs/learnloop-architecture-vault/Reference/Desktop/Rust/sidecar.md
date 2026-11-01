@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/sidecar.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/sidecar.rs"
-source_commit: "c308660e82bfb461f8b7d295f89d797613e32aff"
-source_commit_timestamp: "2026-09-23T12:09:28-04:00"
+source_commit: "fb4337393ff38b41267a7ff67cd34b72dcfdfdc0"
+source_commit_timestamp: "2026-10-13T00:58:26-04:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/sidecar.rs](../../../../../apps/learnloop-tauri/src-tauri/src/sidecar.rs) |
-| Source lines | 947 |
+| Source lines | 1019 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `c308660e82bfb461f8b7d295f89d797613e32aff` |
-| Commit timestamp | `2026-09-23T12:09:28-04:00` |
+| Source commit | `fb4337393ff38b41267a7ff67cd34b72dcfdfdc0` |
+| Commit timestamp | `2026-10-13T00:58:26-04:00` |
 
 ## Activation and status evidence
 
@@ -63,10 +63,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `pub struct SidecarManager` — struct, line 42
 - `pub fn new() -> Self` — fn, line 77
 - `pub fn initialize(&self, vault_path: Option<String>) -> Result<Value, CommandError>` — fn, line 88
-- `pub fn resolved_vault_path(&self) -> PathBuf` — fn, line 165
-- `pub fn select_vault(&self, vault_path: Option<String>) -> Result<Value, CommandError>` — fn, line 186
-- `pub fn call(&self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 201
-- `pub fn call_isolated(&self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 268
+- `pub fn resolved_vault_path(&self) -> PathBuf` — fn, line 174
+- `pub fn select_vault(&self, vault_path: Option<String>) -> Result<Value, CommandError>` — fn, line 195
+- `pub fn call(&self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 210
+- `pub fn call_isolated(&self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 277
 
 ## Internal implementation anchors
 
@@ -80,48 +80,55 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `struct SidecarState` — struct, line 54
 - `struct SidecarClient` — struct, line 60
 - `struct SidecarCommandSpec` — struct, line 70
-- `fn lock_selection(&self) -> MutexGuard<'_, VaultSelection>` — fn, line 171
-- `fn vault_snapshot(&self) -> (PathBuf, u64)` — fn, line 175
-- `fn selected_generation(&self) -> Option<u64>` — fn, line 181
-- `fn call_issued_in( &self, method: &str, params: Value, issued_in: Option<u64>, ) -> Result<Value, CommandError>` — fn, line 210
-- `fn restore_grading_override( candidate: &mut SidecarClient, provider: &str, ) -> Result<Option<CommandError>, CommandError>` — fn, line 300
-- `fn stop_client(client: &mut SidecarClient, graceful: bool)` — fn, line 311
-- `fn spawn() -> Result<Self, CommandError>` — fn, line 326
-- `fn launch(repo_root: &Path, spec: SidecarCommandSpec) -> Result<Self, String>` — fn, line 359
-- `fn call(&mut self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 399
-- `fn call_with_timeout( &mut self, method: &str, params: Value, timeout: Duration, ) -> Result<Value, CommandError>` — fn, line 403
-- `fn terminate(&mut self)` — fn, line 465
-- `fn drop(&mut self)` — fn, line 472
-- `fn parse_response( line: &str, expected_id: u64, method: &str, launcher: &str, ) -> Result<Value, CommandError>` — fn, line 477
-- `fn spawn_reader(stdout: ChildStdout) -> Receiver<std::io::Result<String>>` — fn, line 511
-- `fn sidecar_command_specs(repo_root: &Path) -> Vec<SidecarCommandSpec>` — fn, line 534
-- `fn python_spec(program: OsString, label: &str) -> SidecarCommandSpec` — fn, line 576
-- `fn uv_spec() -> SidecarCommandSpec` — fn, line 584
-- `fn venv_python(repo_root: &Path) -> Option<PathBuf>` — fn, line 597
-- `fn active_env_python() -> Option<PathBuf>` — fn, line 610
-- `fn repo_root() -> PathBuf` — fn, line 631
-- `fn is_vault(path: &Path) -> bool` — fn, line 638
-- `fn config_dir() -> Option<PathBuf>` — fn, line 645
-- `fn last_vault_file() -> Option<PathBuf>` — fn, line 657
-- `fn remembered_vault_from(file: &Path) -> Option<PathBuf>` — fn, line 662
-- `fn remember_vault(vault: &Path)` — fn, line 672
-- `fn local_dev_vault_in(root: &Path) -> Option<PathBuf>` — fn, line 685
-- `fn default_vault_path() -> PathBuf` — fn, line 696
-- `fn resolve_vault_path(requested: Option<PathBuf>, selected: Option<PathBuf>) -> PathBuf` — fn, line 713
-- `fn python_path(repo_root: &Path) -> String` — fn, line 721
-- `fn native_vault_lookup_does_not_wait_for_an_rpc()` — fn, line 738
-- `fn scratch_dir(label: &str) -> PathBuf` — fn, line 754
-- `fn make_vault(path: &Path)` — fn, line 765
-- `static FAKE_SIDECAR_ENV: Mutex<()> = Mutex::new(())` — static, line 772
-- `fn install_fake_sidecar(dir: &Path) -> PathBuf` — fn, line 778
-- `fn logged_methods(log: &Path) -> Vec<String>` — fn, line 804
-- `fn reconnecting_manager(vault: &Path, grading_override: Option<&str>) -> SidecarManager` — fn, line 814
-- `fn reconnect_drops_a_grading_provider_the_sidecar_refuses()` — fn, line 831
-- `fn a_command_issued_before_a_vault_switch_is_not_run_against_the_new_vault()` — fn, line 862
-- `fn remembered_vault_must_still_be_a_vault()` — fn, line 879
-- `fn local_dev_vault_is_the_first_sorted_vault_under_fixtures_local()` — fn, line 895
-- `fn reconnect_keeps_the_selected_vault()` — fn, line 908
-- `fn response_parser_requires_a_complete_matching_envelope()` — fn, line 922
+- `fn lock_selection(&self) -> MutexGuard<'_, VaultSelection>` — fn, line 180
+- `fn vault_snapshot(&self) -> (PathBuf, u64)` — fn, line 184
+- `fn selected_generation(&self) -> Option<u64>` — fn, line 190
+- `fn call_issued_in( &self, method: &str, params: Value, issued_in: Option<u64>, ) -> Result<Value, CommandError>` — fn, line 219
+- `fn restore_grading_override( candidate: &mut SidecarClient, provider: &str, ) -> Result<Option<CommandError>, CommandError>` — fn, line 309
+- `fn stop_client(client: &mut SidecarClient, graceful: bool)` — fn, line 320
+- `fn spawn() -> Result<Self, CommandError>` — fn, line 335
+- `fn launch(repo_root: &Path, spec: SidecarCommandSpec) -> Result<Self, String>` — fn, line 368
+- `fn call(&mut self, method: &str, params: Value) -> Result<Value, CommandError>` — fn, line 408
+- `fn call_with_timeout( &mut self, method: &str, params: Value, timeout: Duration, ) -> Result<Value, CommandError>` — fn, line 412
+- `fn terminate(&mut self)` — fn, line 474
+- `fn drop(&mut self)` — fn, line 481
+- `fn parse_response( line: &str, expected_id: u64, method: &str, launcher: &str, ) -> Result<Value, CommandError>` — fn, line 486
+- `fn spawn_reader(stdout: ChildStdout) -> Receiver<std::io::Result<String>>` — fn, line 520
+- `fn sidecar_command_specs(repo_root: &Path) -> Vec<SidecarCommandSpec>` — fn, line 543
+- `fn python_spec(program: OsString, label: &str) -> SidecarCommandSpec` — fn, line 585
+- `fn uv_spec() -> SidecarCommandSpec` — fn, line 593
+- `fn venv_python(repo_root: &Path) -> Option<PathBuf>` — fn, line 606
+- `fn active_env_python() -> Option<PathBuf>` — fn, line 619
+- `fn repo_root() -> PathBuf` — fn, line 640
+- `fn is_vault(path: &Path) -> bool` — fn, line 647
+- `fn config_dir() -> Option<PathBuf>` — fn, line 654
+- `fn last_vault_file() -> Option<PathBuf>` — fn, line 666
+- `fn remembered_vault_from(file: &Path) -> Option<PathBuf>` — fn, line 671
+- `fn remember_vault(vault: &Path)` — fn, line 681
+- `fn local_dev_vault_in(root: &Path) -> Option<PathBuf>` — fn, line 694
+- `struct ResolvedVault` — struct, line 707
+- `fn existing(path: PathBuf) -> Self` — fn, line 715
+- `fn home_dir() -> Option<PathBuf>` — fn, line 723
+- `fn default_vault_in(root: &Path, home: Option<PathBuf>) -> ResolvedVault` — fn, line 735
+- `fn resolve_vault(requested: Option<PathBuf>, selected: Option<PathBuf>) -> ResolvedVault` — fn, line 748
+- `fn resolve_vault_path(requested: Option<PathBuf>, selected: Option<PathBuf>) -> PathBuf` — fn, line 757
+- `fn python_path(repo_root: &Path) -> String` — fn, line 761
+- `fn native_vault_lookup_does_not_wait_for_an_rpc()` — fn, line 778
+- `fn scratch_dir(label: &str) -> PathBuf` — fn, line 794
+- `fn make_vault(path: &Path)` — fn, line 805
+- `static FAKE_SIDECAR_ENV: Mutex<()> = Mutex::new(())` — static, line 812
+- `fn install_fake_sidecar(dir: &Path) -> PathBuf` — fn, line 818
+- `fn logged_methods(log: &Path) -> Vec<String>` — fn, line 844
+- `fn reconnecting_manager(vault: &Path, grading_override: Option<&str>) -> SidecarManager` — fn, line 854
+- `fn reconnect_drops_a_grading_provider_the_sidecar_refuses()` — fn, line 871
+- `fn a_command_issued_before_a_vault_switch_is_not_run_against_the_new_vault()` — fn, line 902
+- `fn remembered_vault_must_still_be_a_vault()` — fn, line 919
+- `fn local_dev_vault_is_the_first_sorted_vault_under_fixtures_local()` — fn, line 935
+- `fn with_nothing_remembered_the_default_is_a_new_library_in_home()` — fn, line 948
+- `fn a_fixtures_local_vault_still_wins_over_the_default_library()` — fn, line 961
+- `fn only_the_default_library_is_ever_created()` — fn, line 971
+- `fn reconnect_keeps_the_selected_vault()` — fn, line 980
+- `fn response_parser_requires_a_complete_matching_envelope()` — fn, line 994
 
 ## Who imports or calls it
 
@@ -152,6 +159,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [tests/test_codex_lockdown_round3.py](../../../../../tests/test_codex_lockdown_round3.py) — direct source contract: references the exact source path.
 - [apps/learnloop-tauri/src-tauri/src/sidecar.rs](../../../../../apps/learnloop-tauri/src-tauri/src/sidecar.rs) — inline Rust unit-test module; run with `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - [tests/test_desktop_rpc_contract.py](../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

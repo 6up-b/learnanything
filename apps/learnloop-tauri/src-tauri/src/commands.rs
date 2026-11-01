@@ -1375,6 +1375,11 @@ sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");
 sidecar_passthrough!(reader_wrap_up, "reader.wrap_up");
 sidecar_passthrough!(reader_wrap_up_offer, "reader.wrap_up_offer");
+// Reader workbench RW6b part 1 (cold follow-ups: "Coming up", undo, undo all, restore): desktop only.
+sidecar_passthrough!(reader_followups, "reader.followups");
+sidecar_passthrough!(reader_followup_undo, "reader.followup_undo");
+sidecar_passthrough!(reader_followup_undo_all, "reader.followup_undo_all");
+sidecar_passthrough!(reader_followup_restore, "reader.followup_restore");
 // Reader workbench RW1b (the intent box and active reading): desktop only.
 sidecar_passthrough!(reader_route_intent, "reader.route_intent");
 sidecar_passthrough!(reader_intent_routing, "reader.intent_routing");
@@ -1412,6 +1417,9 @@ sidecar_passthrough!(reader_correspondents, "reader.correspondents");
 sidecar_passthrough!(curriculum_coverage_correct, "curriculum.coverage_correct");
 sidecar_passthrough!(reader_correspondent_peek, "reader.correspondent_peek");
 sidecar_passthrough!(reader_correspondent_dismiss, "reader.correspondent_dismiss");
+// Reader CA5: also in your books (the line's hide preferences; Settings brings it back).
+sidecar_passthrough!(reader_correspondence_preferences, "reader.correspondence_preferences");
+sidecar_passthrough!(reader_set_correspondence_preferences, "reader.set_correspondence_preferences");
 // Deliverable curriculum C0b (the deliverable's scope, its path across books, the
 // Guide's slice, overrides, "Am I ready?", "also about"): desktop only.
 sidecar_passthrough!(curriculum_deliverables, "curriculum.deliverables");
@@ -1426,6 +1434,8 @@ sidecar_passthrough!(curriculum_path_override, "curriculum.path_override");
 sidecar_passthrough!(curriculum_ready, "curriculum.ready");
 sidecar_passthrough!(curriculum_ready_check, "curriculum.ready_check");
 sidecar_passthrough!(curriculum_also_about, "curriculum.also_about");
+// Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
+sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
 // figures, predictions and "what changed?"): desktop only.
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");

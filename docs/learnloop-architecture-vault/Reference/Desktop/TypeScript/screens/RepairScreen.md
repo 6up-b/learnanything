@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/RepairScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/RepairScreen.tsx"
-source_commit: "d7f5830f824d7636193af334e950c1d2ffc477c4"
-source_commit_timestamp: "2026-07-28T01:49:31-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/RepairScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairScreen.tsx) |
-| Source lines | 454 |
+| Source lines | 676 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d7f5830f824d7636193af334e950c1d2ffc477c4` |
-| Commit timestamp | `2026-07-28T01:49:31-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,36 +60,46 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function RepairScreen(` — function, line 111
+- `export function RepairScreen(` — function, line 114
 
 ## Internal implementation anchors
 
-- `const shortFacet = (facetId: string): string` — const, line 35
-- `function fmtDate(iso: string | null): string` — function, line 37
-- `const d = new Date(iso)` — const, line 39
-- `const btn: CSSProperties =` — const, line 44
-- `const btnDim: CSSProperties =` — const, line 55
-- `const stageBox: CSSProperties =` — const, line 61
-- `function PassageCard(` — function, line 69
-- `const sv = passage.spanView` — const, line 76
-- `const heading = sv.sectionPath.length > 0 ? sv.sectionPath.join(" › ") : sv.blockType` — const, line 77
-- `const report = useCallback( (e: unknown)` — const, line 142
-- `const handler = (e: KeyboardEvent)` — const, line 148
-- `let alive = true` — let, line 156
-- `const episodeId = remediation?.episode?.id ?? null` — const, line 198
-- `const prescribe = async ()` — const, line 200
-- `const r = await api.prescribeRemediation(episodeId)` — const, line 204
-- `const treat = async ()` — const, line 214
-- `const r = await api.startRemediationTreatment(episodeId)` — const, line 218
-- `const kase = remediation?.case ?? null` — const, line 228
-- `const passages = remediation?.episode?.passagesShown ?? []` — const, line 229
-- `const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null` — const, line 230
-- `const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null` — const, line 231
-- `const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null` — const, line 232
-- `const returned = kase?.history.some((h)` — const, line 233
-- `const backdrop: CSSProperties =` — const, line 423
-- `const panel: CSSProperties =` — const, line 435
-- `const header: CSSProperties =` — const, line 447
+- `const shortFacet = (facetId: string): string` — const, line 38
+- `function fmtDate(iso: string | null): string` — function, line 40
+- `const d = new Date(iso)` — const, line 42
+- `const btn: CSSProperties =` — const, line 47
+- `const btnDim: CSSProperties =` — const, line 58
+- `const stageBox: CSSProperties =` — const, line 64
+- `function PassageCard(` — function, line 72
+- `const sv = passage.spanView` — const, line 79
+- `const heading = sv.sectionPath.length > 0 ? sv.sectionPath.join(" › ") : sv.blockType` — const, line 80
+- `const simple = simplePracticeFeedback()` — const, line 146
+- `const report = useCallback( (e: unknown)` — const, line 150
+- `const handler = (e: KeyboardEvent)` — const, line 158
+- `let alive = true` — let, line 170
+- `const episodeId = remediation?.episode?.id ?? null` — const, line 212
+- `const prescribe = async ()` — const, line 214
+- `const r = await api.prescribeRemediation(episodeId)` — const, line 218
+- `const treat = async (): Promise<StartRemediationDto | null>` — const, line 228
+- `const r = await api.startRemediationTreatment(episodeId)` — const, line 232
+- `const tryOne = async ()` — const, line 246
+- `const r = await treat()` — const, line 247
+- `const itemId = r.primedItemId ?? r.episode?.primedItemId ?? null` — const, line 249
+- `const kase = remediation?.case ?? null` — const, line 254
+- `const passages = remediation?.episode?.passagesShown ?? []` — const, line 255
+- `const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null` — const, line 256
+- `const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null` — const, line 257
+- `const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null` — const, line 258
+- `const returned = kase?.history.some((h)` — const, line 259
+- `const primary = !episodeId || nothingToTry ? null : !prescribed ?` — const, line 263
+- `function plainSectionPath(sectionPath: string[]): string` — function, line 515
+- `const titles = sectionPath.filter((part)` — const, line 516
+- `function SimpleRepairStep(` — function, line 521
+- `const handler = (event: KeyboardEvent)` — const, line 557
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 560
+- `const backdrop: CSSProperties =` — const, line 645
+- `const panel: CSSProperties =` — const, line 657
+- `const header: CSSProperties =` — const, line 669
 
 ## Who imports or calls it
 
@@ -104,8 +114,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CausalRepairStatusDto`, `SpanViewDto`, `StartRemediationDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
+- [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/components/CausalAttribution|src/components/CausalAttribution.tsx]] — import-or-re-export; imports `CausalRepairStatusPanel`, `useCausalRepairActions`
 - [[Reference/Desktop/TypeScript/components/OpenInSource|src/components/OpenInSource.tsx]] — import-or-re-export; imports `OpenInSource`
+- [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `DetailsToggle`, `PrimaryAction`, `quietLine`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Divider`, `FONT_MONO`, `Faint`, `Pill`
 
 ### Assets, platform, and third-party dependencies
@@ -123,6 +136,9 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/RepairScreen.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairScreen.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — cross-boundary name contract: references uniquely owned exported name `RepairScreen`; it does **not** directly execute this source module.
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

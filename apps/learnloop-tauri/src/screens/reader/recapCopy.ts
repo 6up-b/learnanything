@@ -71,3 +71,46 @@ export function observationLine(kind: ReaderObservationKind | string, quoted?: s
 export function stepsLabel(count: number): string {
   return `${count} step${count === 1 ? "" : "s"}`;
 }
+
+// RW6b's "Coming up" (spec §9.3; UX §4.8-4.9, S15, D36): a dated timeline,
+// never a count; retirements read as good news; never "overdue" or "due".
+export const COMING_UP_COPY = {
+  title: "Coming up · checks on your own",
+  why: "why",
+  undo: "undo",
+  undoAll: "undo all",
+  keep: "keep it",
+  undone: "undone",
+  restore: "keep it after all",
+  later: "later ▸",
+  reasonLabel: "why undo this check? (optional)",
+  reasonPlaceholder: "why? (optional)",
+  settled: "No longer needed: the explanations it was to tell apart are settled",
+} as const;
+
+/** The good news for a check retired as no longer needed: how its question
+ *  was answered, on the solve's own day (never the retirement's). */
+export function retiredCheckLine(
+  line: { retiredAt: string; answeredBy?: string | null; solvedAt?: string | null },
+  now: Date = new Date(),
+): string {
+  if (line.answeredBy === "rivals_resolved") return COMING_UP_COPY.settled;
+  return `No longer needed: you solved one like it on ${shortDay(line.solvedAt ?? line.retiredAt, now)}`;
+}
+
+/** A plan day ("YYYY-MM-DD", local): "Wed" within the coming six days, else "9 Nov". */
+export function upcomingDay(day: string, now: Date = new Date()): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) return "";
+  const when = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((when.getTime() - today.getTime()) / 86_400_000);
+  if (days >= 0 && days < 7) return DAYS[when.getDay()];
+  return `${when.getDate()} ${MONTHS[when.getMonth()]}`;
+}
+
+/** "about 6 min" for a check; nothing when unknown. */
+export function aboutCheckMinutes(minutes: number | null | undefined): string | null {
+  if (minutes == null || !Number.isFinite(minutes)) return null;
+  return `about ${Math.max(1, Math.round(minutes))} min`;
+}

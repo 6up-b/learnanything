@@ -3,8 +3,8 @@ title: "source_annotations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "88e11824ce548f64fffa1a9417ae3a0df6f81e45"
-source_commit_timestamp: "2026-10-31T21:42:24-04:00"
+source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
+source_commit_timestamp: "2026-11-01T00:06:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotations"
@@ -106,6 +106,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_mobile_allowlist.py`
+- `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_pdf_selection.py`
 - `tests/test_reader_rw1b_review.py`

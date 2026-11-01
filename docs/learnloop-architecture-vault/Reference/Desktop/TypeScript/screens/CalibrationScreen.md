@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/CalibrationScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/CalibrationScreen.tsx"
-source_commit: "a6c3391bee0c4732249b52d238aa1660b1a3042e"
-source_commit_timestamp: "2026-07-28T01:49:30-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/CalibrationScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/CalibrationScreen.tsx) |
-| Source lines | 300 |
+| Source lines | 454 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a6c3391bee0c4732249b52d238aa1660b1a3042e` |
-| Commit timestamp | `2026-07-28T01:49:30-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,20 +60,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function CalibrationScreen(` — function, line 34
+- `export function CalibrationScreen(` — function, line 42
 
 ## Internal implementation anchors
 
-- `const SESSION_TONE: Record<string, string> =` — const, line 16
-- `const EPISODE_TONE: Record<string, string> =` — const, line 23
-- `function minutes(value: number): string` — function, line 30
-- `const refresh = useCallback(()` — const, line 57
-- `const onFocus = ()` — const, line 71
-- `const nextTarget = progress?.status === "active" ? progress.nextTarget : null` — const, line 76
-- `const stop = useCallback(async ()` — const, line 78
-- `const onKey = (event: KeyboardEvent)` — const, line 92
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 93
-- `const budgetFraction = progress.timeBudgetMinutes > 0 ? Math.min(progress.elapsedMinutes / progress.timeBudgetMinutes, 1) : 0` — const, line 168
+- `const SESSION_TONE: Record<string, string> =` — const, line 24
+- `const EPISODE_TONE: Record<string, string> =` — const, line 31
+- `function minutes(value: number): string` — function, line 38
+- `const refresh = useCallback(()` — const, line 68
+- `const onFocus = ()` — const, line 82
+- `const nextTarget = progress?.status === "active" ? progress.nextTarget : null` — const, line 87
+- `const stop = useCallback(async ()` — const, line 89
+- `const quickCheck = progress?.quickCheck ?? null` — const, line 101
+- `const onKey = (event: KeyboardEvent)` — const, line 105
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 107
+- `const budgetFraction = progress.timeBudgetMinutes > 0 ? Math.min(progress.elapsedMinutes / progress.timeBudgetMinutes, 1) : 0` — const, line 182
+- `const VERDICT: Record<QuickCheckResultDto["verdict"],` — const, line 331
+- `function QuickCheckView(` — function, line 344
+- `const nextTarget = progress.status === "active" ? progress.nextTarget : null` — const, line 363
+- `const verdict = VERDICT[result.verdict]` — const, line 405
 
 ## Who imports or calls it
 
@@ -87,8 +92,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CalibrationSessionProgressDto`, `CommandError`, `GuidedRedoDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CalibrationSessionProgressDto`, `CommandError`, `GuidedRedoDto`, `QuickCheckProgressDto`, `QuickCheckResultDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export; imports `DialogueProbePanel`
+- [[Reference/Desktop/TypeScript/components/PlacementControls|src/components/PlacementControls.tsx]] — import-or-re-export; imports `ASSUMED_LABEL`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `BlockBar`, `COLOR`, `FONT_MONO`, `Faint`, `KeyBar`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `Card`, `Pill`, `SectionHeader`
 
@@ -106,6 +113,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/CalibrationScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/CalibrationScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_exam_calibration.py](../../../../../../tests/test_exam_calibration.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

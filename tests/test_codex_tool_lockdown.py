@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import threading
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -880,6 +881,45 @@ def _project_layer(workspace: Path, *servers: str) -> None:
         "".join(f'[mcp_servers.{name}]\ncommand = "/bin/true"\n\n' for name in servers), encoding="utf-8")
 
 
+def _carries_project_layer(override: str, workspace: Path, servers: tuple[str, ...]) -> bool:
+    """Whether a launch override carries the workspace's own project layer: a config key naming
+    one of its servers, the workspace (or its `.codex/`) anywhere in a value, or a server name as
+    a TOML token in a value (an inline table). Precise, so a path that merely contains a server's
+    name (a TMPDIR under `learnanything-docs`, say) is not mistaken for the layer."""
+
+    key, _, value = override.partition("=")
+    if {part.strip().strip('"') for part in key.split(".")} & set(servers):
+        return True
+    if any(root in value for root in {str(workspace), str(workspace.resolve())}):
+        return True
+    return any(re.search(rf"(?<![\w/.\-]){re.escape(name)}(?![\w/.\-])", value) for name in servers)
+
+
+def test_the_project_layer_check_tells_the_layer_from_a_path_that_names_it(tmp_path):
+    """Fail-first for the check below (follow-ups Oct 31): it rejected any override containing
+    the substring 'docs', so a worktree or TMPDIR named '...-docs' failed it. It still catches
+    the layer in every shape it could reach a launch in."""
+
+    workspace = tmp_path / "learnanything-docs" / "trusted-workspace"
+    servers = ("docs", "shell_bridge")
+    carried = [
+        'mcp_servers.docs.command="/bin/true"',
+        'mcp_servers."shell_bridge".enabled=true',
+        'mcp_servers={docs={command="/bin/true"}}',
+        'mcp_servers={"shell_bridge"={command="/bin/true"}}',
+        f'permissions.p.filesystem={{":minimal"="read", "{workspace}"="read"}}',
+        f'model_instructions_file="{workspace / ".codex" / "config.toml"}"',
+    ]
+    clean = [
+        f'permissions.p.filesystem={{":minimal"="read", "{tmp_path / "learnanything-docs" / "learnloop-isolated-turn-x"}"="read"}}',
+        f'model_catalog_json="{tmp_path / "learnanything-docs" / "learnloop-codex-catalog-1" / "bundled.json"}"',
+        "project_doc_max_bytes=0",
+        'web_search="disabled"',
+    ]
+    assert [override for override in carried if not _carries_project_layer(override, workspace, servers)] == []
+    assert [override for override in clean if _carries_project_layer(override, workspace, servers)] == []
+
+
 def test_a_workspaces_own_project_layer_never_reaches_the_turn(tmp_path, monkeypatch):
     """Round 3 supersedes F2 (a workspace-local MCP server and a cached check):
     the workspace is inlined, the turn runs in a fresh scratch directory, so the
@@ -892,13 +932,14 @@ def test_a_workspaces_own_project_layer_never_reaches_the_turn(tmp_path, monkeyp
     captured = install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
     client = _check_client(tmp_path, program)
     workspace = tmp_path / "trusted-workspace"
-    _project_layer(workspace, "docs", "shell_bridge")
+    servers = ("docs", "shell_bridge")
+    _project_layer(workspace, *servers)
     (workspace / "INDEX.md").write_text("# history\n", encoding="utf-8")
     _workspace_turn(client, workspace)
     root = Path(captured["app_config"]["cwd"])
     assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
     assert json.loads(captured["spawned"]["stdout"])["servers_on"] == []
-    assert not [override for override in _launched(log)[-1] if "docs" in override or "shell_bridge" in override]
+    assert not [override for override in _launched(log)[-1] if _carries_project_layer(override, workspace, servers)]
     assert '<workspace_file path="INDEX.md">' in captured["turns"][0]["prompt"]
 
 
