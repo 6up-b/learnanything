@@ -3,13 +3,13 @@ title: "certification_cold_probe_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
-source_commit_timestamp: "2026-11-01T12:28:24-05:00"
+source_commit: "63224444311cdddfd02843e2a455d24ce18ac540"
+source_commit_timestamp: "2026-11-01T13:41:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite certification_cold_probe_outcomes"
   - "table certification_cold_probe_outcomes"
-schema_head: 228
+schema_head: 229
 table_name: "certification_cold_probe_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"

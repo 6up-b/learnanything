@@ -895,3 +895,36 @@ def test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing(tm
     with repository.connection() as connection:
         stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
     assert not any("Version B" in text for text in stored)  # the obsolete read stored nothing
+
+
+# -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------
+
+def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path, monkeypatch):
+    """Main's C1 ``gate`` and C2's ``also`` on one CoverageGuard, both judged on the same
+    published snapshot: open gate and no refusal admit; a closed gate raises GateClosed; a
+    refusing ``also`` raises its own refusal (judged first, so it wins over a closed gate)."""
+
+    from learnloop.source_retrieval import section_coverage as SC
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    vault, target = _target(paths, repository, goal_id)
+    library = SC.Library(vault, repository)
+    keys = [(target.extraction_id, target.section_id)]
+    provider = _Published(vault)
+
+    def guard(gate, also):
+        return SC.CoverageGuard(library, keys, live_vault=provider, gate=lambda _vault: gate,
+                                also=lambda _vault: also, also_refusal=NL.NotesSwitchedOff)
+
+    guard(True, None).check("request")  # admitted
+    with pytest.raises(SC.GateClosed):
+        guard(False, None).check("request")
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard(True, "notes switched off").check("request")
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard(False, "notes switched off").check("request")
+    closed = guard(False, None)
+    with pytest.raises(SC.GateClosed):
+        closed.admit(notes, purpose="request", prompt="p", budget=None)
+    with pytest.raises(SC.GateClosed):  # the first refusal stands for the rest of the judgment
+        closed.check("record")

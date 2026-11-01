@@ -3,13 +3,13 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
-source_commit_timestamp: "2026-11-01T12:28:24-05:00"
+source_commit: "63224444311cdddfd02843e2a455d24ce18ac540"
+source_commit_timestamp: "2026-11-01T13:41:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
   - "table source_block_fts"
-schema_head: 228
+schema_head: 229
 table_name: "source_block_fts"
 table_role: "derived"
 functionality_status: "active"
