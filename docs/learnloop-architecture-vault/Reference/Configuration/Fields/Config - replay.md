@@ -3,8 +3,8 @@ title: "Config - replay"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7c433f99ddc15041ff815ae9b6a0a967e39e781f"
-source_commit_timestamp: "2026-11-01T06:46:54-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml replay"
@@ -42,7 +42,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `replay.ledger_bounded` | `true` | boolean | modeled default or validator seed | Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt windows (familiarity, event severity, item quality) and the canonical facet cache stop at the replayed attempt's position, so a rebuild reproduces live mastery, surprise, item quality and schedules. Off, replay reads the whole ledger exactly as mvp-0.31 did. Dormant below the successor; a live write never reads it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4024`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop/attempts/attempts.py:1374` |
+| `replay.ledger_bounded` | `true` | boolean | modeled default or validator seed | Kill switch for the rebuild-equivalence successor (mvp-0.34; learnloop.replay_ledger_upgrade). On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt windows (familiarity, event severity, item quality) and the canonical facet cache stop at the replayed attempt's position, so a rebuild reproduces live mastery, surprise, item quality and schedules. Off, replay reads the whole ledger exactly as mvp-0.31 did. Dormant below the successor; a live write never reads it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4057`; `src/learnloop/ai/plan_fallback.py:129`; `src/learnloop/attempts/attempts.py:1374` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

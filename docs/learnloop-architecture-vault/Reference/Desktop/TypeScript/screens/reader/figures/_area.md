@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures"
-source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
-source_commit_timestamp: "2026-11-01T08:39:53-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -37,12 +37,13 @@ Reader "show me" figures: the figure grammar and spec, inline figures, panels, p
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|AdvancedPanels.tsx]] | `ACTIVE` | Implements the `AdvancedPanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 11 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 5 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|FigurePanels.tsx]] | `ACTIVE` | Implements the `FigurePanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|RichFigure.tsx]] | `ACTIVE` | Implements the `RichFigure` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureGrammar|figureGrammar.ts]] | `ACTIVE` | Provides `MAX_EXPR_CHARS`, `MAX_NODES`, `MAX_DEPTH`, `MAX_EXPANDED_NODES` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|showMe.ts]] | `ACTIVE` | Provides `SHOW_ME_COPY`, `ShowMeLine`, `passageChip`, `showMeSourceLine` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome`, `FigurePending` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 4 | 4 |
 
 ## Modification guidance
 

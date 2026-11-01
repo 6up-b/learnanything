@@ -3,8 +3,8 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7c433f99ddc15041ff815ae9b6a0a967e39e781f"
-source_commit_timestamp: "2026-11-01T06:46:54-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
@@ -100,7 +100,6 @@ Indexes and uniqueness:
 - `Repository.canonical_facet_recall_states()`
 - `Repository.facet_independence_evidence()`
 - `Repository.facet_recall_state()`
-- `Repository.replace_canonical_facet_state()`
 
 ### Direct SQL readers
 
@@ -108,7 +107,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
@@ -121,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/recall_coverage.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/sim/metrics.py`
-- `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop_sidecar/handlers/facet_detail.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 
@@ -139,6 +137,7 @@ Indexes and uniqueness:
 - `tests/test_deferred_regrade.py`
 - `tests/test_doctor.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_facet_state_write_on_change.py`
 - `tests/test_km2_canonical.py`
 - `tests/test_migrations.py`
 - `tests/test_post_attempt_worker.py`
@@ -149,7 +148,6 @@ Indexes and uniqueness:
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`
 - `tests/test_shadow_rebuild.py`
-- `tests/test_workbench_discriminate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -351,6 +351,7 @@ def build_reader_report(
     figure_offers_enabled: bool = False,
     figure_show_me_enabled: bool = False,
     figure_sketch_enabled: bool = False,
+    figure_rich_enabled: bool = False,
     skipped_section_los: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
@@ -374,7 +375,12 @@ def build_reader_report(
     ``tiers``: figures by tier and verification, the author's tier verdicts
     (the ``figure_tier`` receipts), its ``why_not_spec`` reasons counted (so
     grammar erosion is visible, R3), and sketch pauses and errors in the
-    desktop; off, the block is P1's.
+    desktop; off, the block is P1's. ``figure_rich_enabled`` (RW5d P2b,
+    ``figures.rich_tiers_enabled``) adds ``tiers`` too, with ``rich``: rich
+    figures by tier and verification, how many followed a quick figure,
+    the median build latency per rich tier (request to stored row), the
+    author's ``why_this_tier`` reasons by verdict, fuller and quick versions
+    opened and rich builds cancelled; off, the block is P2's.
 
     ``skipped_section_los`` (RW7b, §15's reading-path row): the vault's map
     of skipped sections to their LOs (the CLI passes
@@ -465,14 +471,26 @@ def build_reader_report(
             for row in connection.execute(
                 "SELECT tier, verification, created_at FROM interactive_figures ORDER BY created_at, id")
             if in_window(row["created_at"])
-        ] if has_figures and figure_sketch_enabled else []
+        ] if has_figures and (figure_sketch_enabled or figure_rich_enabled) else []
         tier_verdicts = [
             {"verdict": row["verdict"], "rationale": " ".join(str(row["rationale"] or "").split())[:160]}
             for row in connection.execute(
                 "SELECT verdict, rationale, created_at FROM judgment_ledger WHERE task = 'figure_tier' "
                 "ORDER BY created_at, id")
             if in_window(row["created_at"])
-        ] if has_figures and figure_sketch_enabled else []
+        ] if has_figures and (figure_sketch_enabled or figure_rich_enabled) else []
+        # RW5d P2b: rich figures, the quick figure each followed, and their build latency.
+        rich_rows = [
+            {"tier": row["tier"], "verification": shown_verification(row["verification"]),
+             "followed": row["fuller_of_id"] is not None, "requested_at": row["requested_at"],
+             "created_at": row["created_at"]}
+            for row in connection.execute(
+                "SELECT f.tier, f.verification, f.fuller_of_id, f.created_at, r.created_at AS requested_at "
+                "FROM interactive_figures f LEFT JOIN figure_requests r ON r.id = f.request_id "
+                "WHERE f.tier IN ('js_animation', 'manim') ORDER BY f.created_at, f.id")
+            if in_window(row["created_at"])
+        ] if has_figures and figure_rich_enabled and connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'").fetchone() else []
         # RW5d P1: what "show me" asked (migration 224) and what it built.
         has_requests = has_figures and figure_show_me_enabled and connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'").fetchone() is not None
@@ -895,7 +913,7 @@ def build_reader_report(
             "not_right_rate": (round(sum(1 for row in show_me_figures if row["revision"]) / len(built), 4)
                                if built else None),
         }
-    if figures_enabled and figure_sketch_enabled:
+    if figures_enabled and (figure_sketch_enabled or figure_rich_enabled):
         sketch_events = Counter({name: len(actions(name)) for name in ("sketch_paused", "sketch_error")})
         report["figures"]["tiers"] = {
             "built": {tier: dict(Counter(row["verification"] for row in tier_rows if row["tier"] == tier))
@@ -907,7 +925,45 @@ def build_reader_report(
             "sketch_paused": sketch_events.get("sketch_paused", 0),
             "sketch_errors": sketch_events.get("sketch_error", 0),
         }
+        if figure_rich_enabled:
+            report["figures"]["tiers"]["rich"] = _rich_tier_rows(rich_rows, tier_verdicts, actions)
     return report
+
+
+def _rich_tier_rows(rich_rows: Sequence[Mapping[str, Any]], tier_verdicts: Sequence[Mapping[str, Any]],
+                    actions: Any) -> dict[str, Any]:
+    """RW5d P2b's report rows (spec §8.4: the tier mix, failures, build latency
+    and ``why_this_tier`` by kind, so a tier doing worse is visible)."""
+
+    from statistics import median
+
+    def seconds(row: Mapping[str, Any]) -> float | None:
+        try:
+            start = datetime.fromisoformat(str(row["requested_at"]).replace("Z", "+00:00"))
+            end = datetime.fromisoformat(str(row["created_at"]).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+        return max(0.0, (end - start).total_seconds())
+
+    tiers = sorted({str(row["tier"]) for row in rich_rows})
+    latency = {}
+    for tier in tiers:
+        found = [value for row in rich_rows if row["tier"] == tier and row["verification"] in ("illustrative",)
+                 and (value := seconds(row)) is not None]
+        latency[tier] = round(median(found), 1) if found else None
+    return {
+        "built": {tier: dict(Counter(row["verification"] for row in rich_rows if row["tier"] == tier))
+                  for tier in tiers},
+        "followed_a_quick_figure": sum(1 for row in rich_rows if row["followed"]),
+        "build_seconds_p50": latency,
+        "why_this_tier": {verdict: [{"reason": reason, "n": n} for reason, n in Counter(
+            row["rationale"] for row in tier_verdicts if row["verdict"] == verdict and row["rationale"]
+        ).most_common(20)] for verdict in sorted({row["verdict"] for row in tier_verdicts if row["verdict"] in
+                                                  ("spec", "sketch", "js_animation", "manim")})},
+        "fuller_opened": len(actions("fuller_version_opened")),
+        "quick_opened": len(actions("quick_version_opened")),
+        "cancelled": len(actions("rich_build_cancelled")),
+    }
 
 
 __all__ = ["REPORT_VERSION", "build_reader_report"]

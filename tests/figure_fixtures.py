@@ -79,13 +79,16 @@ def seed_probability_book(repository: Any) -> None:
     _persist(repository, ir, revision_id="rev_prob", extraction_id=EXTRACTION)
 
 
-def build_figure_vault(root: Path, *, sketch: bool = False) -> tuple[Any, Any]:
+def build_figure_vault(root: Path, *, sketch: bool = False, rich: bool = False) -> tuple[Any, Any]:
     """RW5a/b's and P1's figure tests run with RW5d P2's sketch tier off (the
     author's contract is then RW5b's byte for byte, which they pin); the
-    sketch tests pass ``sketch=True`` (the stage default; it ships off until G-SM14)."""
+    sketch tests pass ``sketch=True`` (the stage default; it ships off until G-SM14).
+    Likewise RW5d P2b's rich tiers (default on in the product): the earlier
+    tests pin views and contracts without the rich keys, so they run with
+    them off; the rich tests pass ``rich=True``."""
 
     paths, repository, _spans = build_textbook_vault(root)
-    set_config(paths, "figures", sketch_enabled=sketch)
+    set_config(paths, "figures", sketch_enabled=sketch, rich_tiers_enabled=rich)
     seed_probability_book(repository)
     upsert_source_set(paths.root, {
         "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
@@ -184,6 +187,13 @@ class AuthorFake(_Recording):
         if isinstance(answer, tuple) and answer[0] == "unsupported":
             payload = {"status": "unsupported", "spec_json": "", "unsupported_kind": answer[1],
                        "unsupported_reason": f"the figure language has no {answer[1]}"}
+        elif isinstance(answer, tuple) and answer[0] == "rich":
+            # RW5d P2b: ("rich", status, brief, why_this_tier, quick spec or None).
+            _tag, status, brief, why, quick = (*answer, None, None, None)[:5]
+            payload = {"status": status, "why_this_tier": why or "a narrated video shows the change over time",
+                       "spec_json": json.dumps(quick) if isinstance(quick, dict) else (quick or ""),
+                       "sketch_json": "", "rich_json": brief if isinstance(brief, str) else json.dumps(brief),
+                       "unsupported_kind": "", "unsupported_reason": ""}
         elif isinstance(answer, tuple) and answer[0] == "sketch":
             # RW5d P2: ("sketch", program, why_not_spec?).
             program = answer[1] if isinstance(answer[1], str) else json.dumps(answer[1])
@@ -193,9 +203,16 @@ class AuthorFake(_Recording):
         else:
             text = answer if isinstance(answer, str) else json.dumps(answer)
             payload = {"status": "spec", "spec_json": text, "unsupported_kind": "", "unsupported_reason": ""}
-        # The V2 contract (sketch tier on) has two more fields; V1 none.
+        # The V2 contract (sketch tier on) has two more fields; V1 none; V3
+        # (RW5d P2b, a rich tier on the menu) has why_this_tier and rich_json.
         fields = getattr(request.result_model, "model_fields", {})
-        if "sketch_json" in fields:
+        if "rich_json" in fields:
+            payload.setdefault("sketch_json", "")
+            payload.pop("why_not_spec", None)
+            payload.setdefault("rich_json", "")
+            payload.setdefault("why_this_tier", "" if payload["status"] == "unsupported"
+                               else "a declarative figure shows this exactly")
+        elif "sketch_json" in fields:
             payload.setdefault("sketch_json", "")
             payload.setdefault("why_not_spec", "")
         else:

@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
-source_commit_timestamp: "2026-11-01T08:39:53-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -90,7 +90,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/observerGeneration|observerGeneration.ts]] | `ACTIVE` | Provides `ObserverGeneration`, `observerGeneration` within the desktop's TypeScript/screens/reader ownership area. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerCache|readerCache.ts]] | `ACTIVE` | Provides `READER_CACHE_MS`, `SourceReadOptions`, `cachedSourceRead` within the desktop's TypeScript/screens/reader ownership area. | 2 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerKeys|readerKeys.ts]] | `ACTIVE` | Provides `ReaderKey`, `readerKeyBarKeys` within the desktop's TypeScript/screens/reader ownership area. | 0 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/readerShared|readerShared.ts]] | `ACTIVE` | Provides `ANSWER_MODE_OPTIONS`, `answerModeLabel`, `clip`, `SelectionNode` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 18 |
+| [[Reference/Desktop/TypeScript/screens/reader/readerShared|readerShared.ts]] | `ACTIVE` | Provides `ANSWER_MODE_OPTIONS`, `answerModeLabel`, `clip`, `SelectionNode` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 12 |
 | [[Reference/Desktop/TypeScript/screens/reader/readingPath|readingPath.ts]] | `ACTIVE` | Provides `READING_PATH_COPY`, `READING_PATH_POLL_MS`, `shouldPoll`, `pathHeading` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/readingPosition|readingPosition.ts]] | `ACTIVE` | Provides `ReadingPosition`, `readingPositionIn`, `spanAtPosition`, `pagePositionAt` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/recapCopy|recapCopy.ts]] | `ACTIVE` | Provides `RECAP_COPY`, `fullDay`, `shortDay`, `aboutMinutes` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 5 |
@@ -98,23 +98,23 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/roleLabel|roleLabel.ts]] | `ACTIVE` | Provides `MODEL_LABEL`, `hitRoleLabel` within the desktop's TypeScript/screens/reader ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/searchBasis|searchBasis.ts]] | `ACTIVE` | Provides `searchBasisLabel` within the desktop's TypeScript/screens/reader ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/sideBySide|sideBySide.ts]] | `ACTIVE` | Provides `SIDE_BY_SIDE_MIN_WIDTH`, `Pane`, `PaneTarget`, `targetOf` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 4 |
-| [[Reference/Desktop/TypeScript/screens/reader/useActiveReading|useActiveReading.ts]] | `ACTIVE` | Provides `AnotherWayHit`, `ActiveReadingState`, `AnotherWayState`, `UNDONE_EARLIER` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/useActiveReading|useActiveReading.ts]] | `ACTIVE` | Provides `AnotherWayHit`, `ActiveReadingState`, `AnotherWayState`, `UNDONE_EARLIER` and related exports within the desktop's TypeScript/screens/reader ownership area. | 4 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/useCueDiscovery|useCueDiscovery.ts]] | `ACTIVE` | Provides `DISCOVERY_POLL_MS`, `DISCOVERY_MAX_READS`, `DISCOVERY_MAX_REASKS`, `TARGETS_PENDING_POLL_MS` and related exports within the desktop's TypeScript/screens/reader ownership area. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/useCueImpressions|useCueImpressions.ts]] | `ACTIVE` | Provides `IMPRESSION_FLUSH_MS`, `IMPRESSION_RETRY_MS`, `CUE_REFLOW_SETTLE_MS`, `passageThresholds` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|useIntentBox.ts]] | `ACTIVE` | Provides `SHOW_AFTER_MS`, `IntentRunHow`, `IntentRunHandle`, `IntentCancel` and related exports within the desktop's TypeScript/screens/reader ownership area. | 6 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|useIntentBox.ts]] | `ACTIVE` | Provides `SHOW_AFTER_MS`, `IntentRunHow`, `IntentRunHandle`, `IntentCancel` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|useKeptComparisons.ts]] | `ACTIVE` | Provides `useKeptComparisons` within the desktop's TypeScript/screens/reader ownership area. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|useLibraryAsk.ts]] | `ACTIVE` | Provides `LIBRARY_COPY`, `SCOPE_COPY`, `CompareRequest`, `comparePayload` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 5 |
+| [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|useLibraryAsk.ts]] | `ACTIVE` | Provides `LIBRARY_COPY`, `SCOPE_COPY`, `CompareRequest`, `comparePayload` and related exports within the desktop's TypeScript/screens/reader ownership area. | 4 | 5 |
 | [[Reference/Desktop/TypeScript/screens/reader/useLibraryExercises|useLibraryExercises.ts]] | `ACTIVE` | Provides `LibraryExercisesSettings`, `LibraryExercisesState`, `useLibraryExercises` within the desktop's TypeScript/screens/reader ownership area. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|useReaderCues.ts]] | `ACTIVE` | Provides `CueCheckMeRequest`, `CueRequestOrigin`, `CueSurface`, `ReaderCuesInput` and related exports within the desktop's TypeScript/screens/reader ownership area. | 9 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|useReaderInquiry.ts]] | `ACTIVE` | Provides `INQUIRY_CHECK_POLL_MS`, `INQUIRY_CHECK_MAX_POLLS`, `AskAnchor`, `AskOverride` and related exports within the desktop's TypeScript/screens/reader ownership area. | 16 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|useReaderRecap.ts]] | `ACTIVE` | Provides `ReaderRecapInput`, `ReaderRecapCtl`, `NARRATIVE_POLL_MS`, `useReaderRecap` within the desktop's TypeScript/screens/reader ownership area. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReaderRequests|useReaderRequests.ts]] | `ACTIVE` | Provides `BackgroundRequest`, `SynthesizedObject`, `useReaderRequests`, `parseRequestResult` and related exports within the desktop's TypeScript/screens/reader ownership area. | 2 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|useReaderVisit.ts]] | `ACTIVE` | Provides `VISIT_IDLE_MS`, `ReaderVisitInput`, `ReaderVisit`, `useReaderVisit` within the desktop's TypeScript/screens/reader ownership area. | 2 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|useReaderWorkbench.ts]] | `ACTIVE` | Provides `ReaderWorkbenchCheck`, `ReaderWorkbenchProps`, `ReaderWorkbenchResume`, `ActiveWorkbench` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|useReaderWorkbench.ts]] | `ACTIVE` | Provides `ReaderWorkbenchCheck`, `ReaderWorkbenchProps`, `ReaderWorkbenchResume`, `ActiveWorkbench` and related exports within the desktop's TypeScript/screens/reader ownership area. | 6 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|useReadingProgress.ts]] | `ACTIVE` | Provides `SEEN_SETTLE_MS`, `SEEN_REPORT_MS`, `READING_MARKER`, `readingPositionKey` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|useSideBySide.ts]] | `ACTIVE` | Provides `SidePaneDraft`, `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `MainPane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/useSidePane|useSidePane.ts]] | `ACTIVE` | Provides `PaneCaptureTarget`, `SidePaneInput`, `useSidePane`, `SidePane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 37 |
+| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 38 |
 
 ## Modification guidance
 

@@ -3818,6 +3818,34 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
     }
 
 
+def handle_figure_rich(ctx: JobContext) -> dict[str, Any]:
+    """figure_rich (Reader RW5d P2b): write, check, render and store one rich
+    figure (a Manim animation) from the figure author's brief.
+
+    Payload: the rich job's (``learnloop.figures.rich``): the request, the
+    quick figure it follows (or none), the input hash, the brief, what the
+    author was sent and the input's spans. The figure service owns the row;
+    a job that ends with no row (the switches or the opt-in changed, held-out
+    material, the plan down) fails with its code, ``waiting_for_plan``
+    retryable on a later read. Cancelled at the next ``report()``."""
+
+    from learnloop.figures.rich import RichJobStopped, run_rich_job
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    factory = ctx.services.figure_rich_client_factory
+    client = factory(ctx) if factory is not None else None
+    ctx.report("writing", message="writing an animation for this passage")
+    try:
+        return run_rich_job(
+            vault, ctx.repo, ctx.payload, client=client,
+            report=lambda phase, message: ctx.report(phase, message=message),
+            renderer=ctx.services.figure_rich_renderer, function_runner=ctx.services.figure_function_runner,
+            cancellation=(JobCancelled,), clock=ctx.clock)
+    except RichJobStopped as exc:
+        raise IngestRunnerError(exc.message, code=exc.code, retryable=exc.retryable) from exc
+
+
 def handle_auto_study_map(ctx: JobContext) -> dict[str, Any]:
     """auto_study_map: plan the automatic question build after an Add (UX Phase 1).
 
@@ -3848,6 +3876,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "question_promotion": handle_question_promotion,
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,
+    "figure_rich": handle_figure_rich,
     "source_embedding_backfill": handle_source_embedding_backfill,
     "curriculum_coverage_on_extract": handle_curriculum_coverage_on_extract,
     "local_source_index": handle_local_source_index,
@@ -4964,6 +4993,39 @@ class DurableIngestJobs:
         )
         self._ensure_worker()
         return batch_id
+
+    def enqueue_figure_rich(self, *, payload: Mapping[str, Any], grant: Any = None,
+                            origin: str | None = None) -> str:
+        """Enqueue one rich figure build (Reader RW5d P2b; interactive band:
+        the learner pressed "show me" and the quick figure, if any, is on the
+        page). ``grant``/``origin``: the press's, only when its action is
+        granted (else the job belongs to no action: no offer, no grant).
+        Returns the job's id (the figure line reads it back by payload)."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "figure_rich",
+            [JobSpec("figure_rich", dict(payload))],
+            priority=QUICK_ADD_PRIORITY,
+            grant=grant,
+            origin=origin if grant is not None else None,
+        )
+        job_id = runner.repo.ingest_jobs_for_batch(batch_id)[0]["id"]
+        self._ensure_worker()
+        return job_id
+
+    def retry_figure_rich(self, job_id: str, *, error_code: str) -> bool:
+        """Requeue a rich figure job that failed with ``error_code`` (the plan
+        wait), unless it was cancelled (Reader RW5d P2b)."""
+
+        runner = self._require_runner()
+        job = runner.repo.get_ingest_job(job_id)
+        if job is None or job.get("job_type") != "figure_rich":
+            return False
+        if runner.requeue_failed_unless_cancelled(job["batch_id"], error_code=error_code):
+            self._ensure_worker()
+            return True
+        return False
 
     def enqueue_inventory(
         self,

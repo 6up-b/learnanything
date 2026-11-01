@@ -64,6 +64,10 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "corresponding_section_opened",
     "sketch_paused",      # RW5d P2: the Worker watchdog paused a slow sketch (spec §6.6, §13.4)
     "sketch_error",       # RW5d P2: a sketch call failed at the learner's settings (the kind, never the text)
+    # RW5d P2b (spec §13.4; salience only): the fuller version opened from its
+    # quick figure's line, and the quick version opened back.
+    "fuller_version_opened",
+    "quick_version_opened",
     # Reader CA6 (ux_reader_compare_ask_v1 §6.5 Records; salience only): side
     # by side opened and closed (a session: its id and how long it was open,
     # for §14's side-by-side minutes), follow along moving the following pane
@@ -116,6 +120,8 @@ RW5A_SERVER_EVENTS: tuple[str, ...] = (
 # who wrote the goal; never the words themselves).
 RW5D_SERVER_EVENTS: tuple[str, ...] = (
     "show_me_requested",
+    # RW5d P2b: a rich build cancelled (``figure.rich_cancel``; its tier, never words).
+    "rich_build_cancelled",
 )
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 

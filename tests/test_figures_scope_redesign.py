@@ -158,7 +158,8 @@ def test_no_code_path_can_store_or_render_verified_or_checked():
         if path.name == "figures.py" and path.parent.name == "stores":
             continue  # SHOWN and VERIFIED_RW5C: the stored value migration 216 keeps for RW5c
         assert literals == [], path
-    assert not hasattr(R, "VERIFIER_TASK") and R.OWNER_KINDS == (R.AUTHOR_TASK,)
+    # RW5d P2b: the rich author shares the figure envelope; still no verifier route.
+    assert not hasattr(R, "VERIFIER_TASK") and R.OWNER_KINDS == (R.AUTHOR_TASK, "figure_rich_author")
     assert "figure_verifier" not in AIRoutingConfig.model_fields
     assert "figure_verifier" not in Path(routing.__file__).read_text(encoding="utf-8")
 

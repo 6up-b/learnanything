@@ -487,7 +487,19 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/cli/ai_compare.py", "tracked_database_reason", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "manim_runtime", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "provision_animation_venv", "subprocess.run"),
-    ("src/learnloop/content/authoring/concept_animation.py", "render_scene", "subprocess.run"),
+    # Reader RW5d P2b: the one-time probe that a user systemd scope can start
+    # (`systemd-run --user --scope --quiet -- true`, a fixed argv, no shell, no model call).
+    ("src/learnloop/content/authoring/concept_animation.py", "_systemd_scope_works", "subprocess.run"),
+    # Reader RW5d P2b, Codex review F3: the render's launcher (render_scene's default `run`): the
+    # same argv render_scene built (the capped scope, bubblewrap, manim), no shell, its output drained
+    # with bounded tails and its process group killed past the budget or the timeout.
+    ("src/learnloop/content/authoring/concept_animation.py", "bounded_run", "subprocess.Popen"),
+    # Codex re-review F12: the render's process-group flags (Windows: a new group, no console window;
+    # getattr on subprocess's creation-flag constants, x2), and Windows' tree kill on a timeout or past
+    # the output budget: `taskkill /F /T /PID <the render's pid>`, a fixed argv, no shell, no model call.
+    ("src/learnloop/content/authoring/concept_animation.py", "_session_kwargs", "getattr(subprocess)"),
+    ("src/learnloop/content/authoring/concept_animation.py", "_kill_windows_tree", "getattr(subprocess)"),
+    ("src/learnloop/content/authoring/concept_animation.py", "_kill_windows_tree", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "check_generator_answers", "subprocess.run"),
     # E1's harness (experiments, owner-run): the metered worker under its scope,
     # nvidia-smi probes, the env's version listing. Fixed argv lists, no shell.
@@ -529,6 +541,7 @@ APPROVED_LAUNCH_SITES = {
 #: launch added inside an approved function changes its count and fails.
 APPROVED_LAUNCH_COUNTS: dict[tuple[str, str, str], int] = {
     ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"): 2,
+    ("src/learnloop/content/authoring/concept_animation.py", "_session_kwargs", "getattr(subprocess)"): 2,
 }
 
 

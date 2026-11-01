@@ -142,6 +142,8 @@ AITask = Literal[
     "deliverable_path_judge",
     # Reader workbench RW5a: the figure author (the declarative spec).
     "figure_author",
+    # Reader RW5d P2b: the rich figure author (a Manim scene from the author's brief).
+    "figure_rich_author",
     # Reader workbench RW6b part 2: the session narrative (background, once per session).
     "reader_digest",
 ]
@@ -277,6 +279,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",
+    # Reader RW5d P2b: one rich figure program written (a rich job's attempt or its repair).
+    "figure_rich_author": "figure_rich_author",
     # Reader workbench RW6b part 2: one session narrative from the typed
     # summary (background, once per reader session; salience only).
     "reader_digest": "reader_digest",
