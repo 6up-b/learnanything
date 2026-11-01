@@ -141,6 +141,10 @@ class CandidateInput:
     #: An unimported exercise's persisted screen (its ``judgment_ledger`` row),
     #: which becomes its profiles and rubric links if it is imported (§8.4).
     screen_judgment_id: str | None = None
+    #: The attempt-familiarity discount composed into ``members``
+    #: (:func:`discount_members`; spec_reader_workbench_v1 §9.3 item 3, G35):
+    #: ``{"independent_evidence_discount", "trace"}``, or None when not applied.
+    familiarity: dict[str, Any] | None = None
 
     @property
     def evaluable(self) -> bool:
@@ -301,17 +305,55 @@ def recent_assisted_success(vault: LoadedVault, repository: Repository, lo_id: s
     return None
 
 
+def formative_anchor(vault: LoadedVault, repository: Repository, lo_id: str,
+                     facet_id: str | None = None) -> dict[str, Any] | None:
+    """The item a formative-only retention question's prior is read on
+    (spec_reader_workbench_v1 §9.3 item 1, restored RS3; Codex review F9):
+    the LO's (facet's) most recently attempted item, else its first active
+    item carrying the facet, by id. ``basis`` says which."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    facet = vault.canonical_facet_id(facet_id) if facet_id else None
+    items = sorted(item.id for item in vault.practice_items.values()
+                   if item.learning_object_id == lo_id and getattr(item, "status", "active") == "active"
+                   and (facet is None or facet in {vault.canonical_facet_id(str(f)) for f in item.evidence_facets}))
+    if not items:
+        return None
+    marks = ",".join("?" for _ in items)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = connection.execute(
+            f"SELECT practice_item_id FROM practice_attempts WHERE practice_item_id IN ({marks}) "
+            "ORDER BY created_at DESC, id DESC LIMIT 1", items).fetchone()
+    if row is not None:
+        return {"practice_item_id": str(row[0]), "basis": "latest_attempt"}
+    return {"practice_item_id": items[0], "basis": "lo_item"}
+
+
 def retention_problem(vault: LoadedVault, repository: Repository, lo_id: str, facet_id: str | None = None,
-                      *, predictor: Any | None = None) -> tuple[ValuationProblem | None, list[dict[str, Any]]]:
+                      *, predictor: Any | None = None,
+                      formative: bool = False) -> tuple[ValuationProblem | None, list[dict[str, Any]]]:
     """Does a recently assisted success hold unaided? Two slots, posed only when
     the LO's (facet's) most recent success was assisted only (§8.3.2). The
     prior is the active predictor's P(success) on the item of that success,
-    with the predictor's name and version as its basis."""
+    with the predictor's name and version as its basis.
+
+    ``formative`` (a question a formative record raised, named explicitly by
+    a ``retention`` ref; Codex review F9): with no assisted success, the same
+    two slots are posed with the active predictor's P(success) on the
+    :func:`formative_anchor` item. The record changes which question is asked,
+    never the prior's number (W1, tier 2)."""
 
     ref = {"kind": "retention", "id": facet_id or lo_id}
     success = recent_assisted_success(vault, repository, lo_id, facet_id)
+    anchor = None
     if success is None:
-        return None, [{"ref": ref, "reason": "no_recent_assisted_success"}]
+        anchor = formative_anchor(vault, repository, lo_id, facet_id) if formative else None
+        if anchor is None:
+            return None, [{"ref": ref, "reason": "no_recent_assisted_success"}]
+        success = {"id": None, "practice_item_id": anchor["practice_item_id"]}
     if predictor is None:
         from learnloop.clock import utc_now_iso
         from learnloop.placement.predictor import PredictorNotActivatable, active_predictor
@@ -333,11 +375,13 @@ def retention_problem(vault: LoadedVault, repository: Repository, lo_id: str, fa
     return ValuationProblem(
         key=f"retention:{lo_id}:{facet_id or '*'}", space_kind="retention", slots=("holds_unaided", "not_unaided"),
         prior=prior, prior_basis=f"predictor:{name}",
-        state_hash=_hash({"retention": lo_id, "p": p, "attempt": success["id"], "predictor": version}),
+        state_hash=_hash({"retention": lo_id, "p": p, "attempt": success["id"], "predictor": version,
+                          **({"anchor": anchor} if anchor is not None else {})}),
         refs=[HypothesisRef("retention", facet_id or lo_id)],
         context={"learning_object_id": lo_id, "facet_id": facet_id, "assisted_success_attempt_id": success["id"],
                  "predictor": {"name": name, "version": version,
-                               "practice_item_id": str(success["practice_item_id"])}}), []
+                               "practice_item_id": str(success["practice_item_id"])},
+                 **({"formative_anchor": anchor} if anchor is not None else {})}), []
 
 
 NAMED_GAPS_MODULE = "learnloop.diagnosis.text_gaps.pipeline"
@@ -455,9 +499,14 @@ def open_hypotheses(vault: LoadedVault, repository: Repository, *, facet_ids: Se
                 problems[problem.key] = problem
 
     if intent == "retention":
+        # A ``retention`` ref names the question explicitly (a formative
+        # record raised it, Codex review F9): it is posed on an item anchor
+        # when no assisted success exists.
+        formative = any(ref.kind == "retention" for ref in parsed)
         los = list(learning_object_ids) or sorted({lo for facet in facet_ids for lo in _facet_los(vault, facet)})
         for lo_id in los:
-            add(retention_problem(vault, repository, lo_id, facet_ids[0] if facet_ids else None))
+            add(retention_problem(vault, repository, lo_id, facet_ids[0] if facet_ids else None,
+                                  formative=formative))
         return list(problems.values()), unavailable
     by_lo: dict[str, list[HypothesisRef]] = {}
     for ref in parsed:
@@ -734,6 +783,29 @@ def retention_members(channel: Any, ref: str) -> tuple[tuple[dict[str, dict[str,
     return tuple(normalized), _hash({"channel": channel.model_hash, "ref": ref, "splits": incorrect})
 
 
+def discount_members(members: Sequence[Mapping[str, Mapping[str, float]]], prior: Mapping[str, float],
+                     discount: float) -> tuple[dict[str, dict[str, float]], ...]:
+    """Each member's ``P(E|H)`` with an observation worth ``discount`` of an
+    independent one: ``d * P(E|H) + (1 - d) * P(E)``, where ``P(E)`` is the
+    member's prior predictive (the same for every hypothesis, so that share
+    carries no information). ``d`` is ``familiarity_discount``'s
+    independent-evidence discount (``learner/recall_coverage.py``), the factor
+    the scheduler applies to a familiar probe's information; ``d = 1`` leaves
+    the member unchanged. Rows stay normalized; no new number is introduced."""
+
+    d = min(max(float(discount), 0.0), 1.0)
+    out: list[dict[str, dict[str, float]]] = []
+    for member in members:
+        emissions = sorted({e for row in member.values() for e in row})
+        marginal = {e: sum(float(prior.get(h, 0.0)) * float(member[h].get(e, 0.0)) for h in member)
+                    for e in emissions}
+        total = sum(marginal.values()) or 1.0
+        marginal = {e: value / total for e, value in marginal.items()}
+        out.append({h: {e: d * float(row.get(e, 0.0)) + (1.0 - d) * marginal[e] for e in emissions}
+                    for h, row in member.items()})
+    return tuple(out)
+
+
 def exercise_input(problem: ValuationProblem, exercise: Mapping[str, Any], screen: Mapping[str, Any] | None, *,
                    estimator: Callable[..., Any] | None = None) -> CandidateInput:
     """An unimported exercise: a complete screen is a noiseless partition (a bound);
@@ -802,8 +874,17 @@ def _conditional_series(candidate: CandidateInput, branches: Sequence[tuple[floa
 
 
 def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *, caller_kind: str = "learner",
-                  system_initiated: bool = False) -> dict[str, Any]:
-    """Groups, verdicts and stops for one hypothesis space."""
+                  system_initiated: bool = False, already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+    """Groups, verdicts and stops for one hypothesis space.
+
+    ``already_chosen`` (Reader RW6b, Codex re-review round 3): refs of checks
+    the caller already has live for this question. Checks are added greedily,
+    each valued conditionally on those already chosen (spec_reader_workbench_v1
+    §9.3 item 3), so the greedy selection starts from these: a candidate is
+    added only if it still clears the stop given them, and they are never
+    listed among the new ``checks``. Only refs among this problem's competing
+    candidates can be conditioned on (the others are listed as not valued).
+    Empty (the default): the selection exactly as before."""
 
     report: dict[str, Any] = {"problem": problem.describe(), "valuation_version": VALUATION_VERSION,
                               "scale": SCALE_LABEL, "constants": {
@@ -818,6 +899,8 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
                  "minutes_provenance": candidate.minutes_provenance, "members": len(candidate.members)}
         if candidate.screen_judgment_id:
             entry["screen_judgment_id"] = candidate.screen_judgment_id
+        if candidate.familiarity is not None:
+            entry["familiarity"] = dict(candidate.familiarity)
         if not candidate.evaluable:
             entry["label"] = "LearnLoop can't estimate how much this would tell you"
             groups["unvalued"].append(entry)
@@ -842,7 +925,8 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
                                              entry["ref"]))
     report["groups"] = groups
     if problem.decision is not None:
-        return _decision_mode(problem, inputs, report, by_ref, system_initiated=system_initiated)
+        return _decision_mode(problem, inputs, report, by_ref, system_initiated=system_initiated,
+                              already_chosen=already_chosen)
     report["mode"] = "information"
     # Bounds (arm B) are compared only with the stop, to license a skip.
     for entry in groups["bounded"]:
@@ -869,6 +953,16 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
     picks: list[CandidateInput] = []
     remaining = list(competing)
     verdict, reason, selector = "stop", "no_candidate", None
+    if already_chosen:
+        competing_refs = {candidate.ref for candidate in competing}
+        wanted = list(dict.fromkeys(str(ref) for ref in already_chosen))
+        picks = [by_ref[ref] for ref in wanted if ref in competing_refs]
+        remaining = [candidate for candidate in competing if candidate.ref not in {pick.ref for pick in picks}]
+        report["already_chosen"] = {"conditioned_on": [pick.ref for pick in picks],
+                                    "not_valued": [ref for ref in wanted if ref not in competing_refs]}
+        if picks:
+            reason, selector = "already_chosen_suffice", "evaluate_series_selection"
+    seeded = len(picks)
     while remaining:
         if not picks:
             sizes = {len(candidate.members) for candidate in remaining}
@@ -891,8 +985,10 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             verdict = "stop" if decision.verdict == "stop" else "abstain"
             reason = ("lcb_value_below_minutes_cost" if decision.verdict == "stop"
                       else "couldnt_reliably_distinguish")
-            if picks:
-                verdict, reason = "act", f"stopped_after_{len(picks)}"
+            if len(picks) > seeded:
+                verdict, reason = "act", f"stopped_after_{len(picks) - seeded}"
+            elif seeded:
+                verdict, reason = "stop", "already_chosen_suffice"
             report["stop_at"] = {"candidate": decision.chosen_slot, "verdict": decision.verdict,
                                  "robust_eig_per_second": round(decision.robust_eig_per_second, 8),
                                  "action_agreement": round(decision.action_agreement_fraction, 4)}
@@ -911,6 +1007,7 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             "licenses_system_check": chosen.regime in LICENSES_SYSTEM_CHECK,
             "predicted_outcomes": _predicted(chosen, problem.prior if len(picks) == 1 else None),
             "likelihood": _member0(chosen),
+            **({"familiarity": dict(chosen.familiarity)} if chosen.familiarity is not None else {}),
         })
         verdict, reason = "act", "positive_robust_net_value"
     report.update(verdict=verdict, reason=reason, checks=checks, selector=selector)
@@ -962,7 +1059,8 @@ def rank_listener(listener: Callable[..., Any]) -> Iterator[None]:
 
 
 def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], report: dict[str, Any],
-                   by_ref: Mapping[str, CandidateInput], *, system_initiated: bool) -> dict[str, Any]:
+                   by_ref: Mapping[str, CandidateInput], *, system_initiated: bool,
+                   already_chosen: Sequence[str] = ()) -> dict[str, Any]:
     report["mode"] = "decision"
     decision = problem.decision
     assert decision is not None
@@ -971,6 +1069,17 @@ def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], 
         report.update(verdict="abstain", reason=reason, checks=[], selector="rank_feasible")
         return report
     pool = [c for c in inputs if c.evaluable and (not system_initiated or c.regime in LICENSES_SYSTEM_CHECK)]
+    if already_chosen:
+        # A decision is settled by one measurement (``rank_feasible`` picks at
+        # most one): a live check already chosen in this space is that one.
+        wanted = list(dict.fromkeys(str(ref) for ref in already_chosen))
+        pool_refs = {c.ref for c in pool}
+        conditioned = [ref for ref in wanted if ref in pool_refs]
+        report["already_chosen"] = {"conditioned_on": conditioned,
+                                    "not_valued": [ref for ref in wanted if ref not in pool_refs]}
+        if conditioned:
+            report.update(verdict="stop", reason="already_chosen_suffice", checks=[], selector="rank_feasible")
+            return report
     candidates = [EV.DiagnosticCandidate(ref=c.ref, members=tuple(c.members), prior=problem.prior,
                                          expected_minutes=c.expected_minutes, burden_minutes=c.burden_minutes,
                                          prior_basis=problem.prior_basis) for c in pool]
@@ -1028,11 +1137,17 @@ def _evpi(problem: ValuationProblem, loss_table: Any) -> float:
 
 def value_candidates(problems: Sequence[ValuationProblem], inputs_by_problem: Mapping[str, Sequence[CandidateInput]],
                      *, caller_kind: str = "learner", system_initiated: bool = False,
-                     unavailable: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
-    """The valuation receipt: one section per problem, nothing summed across them."""
+                     unavailable: Sequence[Mapping[str, Any]] = (),
+                     already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+    """The valuation receipt: one section per problem, nothing summed across them.
 
+    ``already_chosen``: the caller's live checks for this question, which
+    each problem's greedy selection starts from (:func:`value_problem`).
+    Empty (the default), the receipt is exactly as before."""
+
+    extra = {"already_chosen": list(already_chosen)} if already_chosen else {}
     sections = [value_problem(problem, inputs_by_problem.get(problem.key, ()), caller_kind=caller_kind,
-                              system_initiated=system_initiated) for problem in problems]
+                              system_initiated=system_initiated, **extra) for problem in problems]
     listed: dict[str, list[dict[str, Any]]] = {}
     for section in sections:
         for group, entries in section["groups"].items():
@@ -1067,11 +1182,13 @@ __all__ = [
     "ValuationProblem",
     "causal_problem",
     "check_tables",
+    "discount_members",
     "entropy_nats",
     "episode_instruments",
     "episode_problem",
     "exercise_input",
     "facet_problem",
+    "formative_anchor",
     "item_input",
     "lo_problem",
     "named_gap_target",

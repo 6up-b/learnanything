@@ -53,6 +53,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     queue,
     reader,
     reader_cue_discovery,
+    reader_followups,
     reader_intent,
     reading_paths,
     recap,

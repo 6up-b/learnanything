@@ -578,12 +578,18 @@ def since_last_time(vault: Any, repository: Any, *, extraction_id: str, after: s
 def retired_checks(repository: Any, *, extraction_id: str, after: str) -> list[dict[str, Any]]:
     """Checks retired since as no longer needed (RW6b's re-valuation writes
     them: a ``retired`` commitment event whose detail names the reason
-    ``no_longer_needed`` and this source). Nothing on ``main`` writes one yet."""
+    ``no_longer_needed`` and this source), with how the question was answered
+    (``answered_by``: a solve on ``solved_at``, or the rivals settled). A
+    retirement the learner has since undone (a later ``disposition_changed``)
+    is not listed, so a reload never offers its undo again."""
 
     with repository.connection() as connection:
         rows = connection.execute(
-            "SELECT commitment_id, detail_json, created_at FROM commitment_events "
-            "WHERE kind = 'retired' AND created_at > ? ORDER BY created_at, id",
+            "SELECT e.commitment_id, e.detail_json, e.created_at FROM commitment_events e "
+            "WHERE e.kind = 'retired' AND e.created_at > ? AND NOT EXISTS ("
+            "  SELECT 1 FROM commitment_events later WHERE later.commitment_id = e.commitment_id "
+            "  AND later.kind = 'disposition_changed' AND later.created_at >= e.created_at) "
+            "ORDER BY e.created_at, e.id",
             (after,),
         ).fetchall()
     out = []
@@ -591,7 +597,9 @@ def retired_checks(repository: Any, *, extraction_id: str, after: str) -> list[d
         detail = _payload(row["detail_json"])
         if detail.get("reason") == "no_longer_needed" and detail.get("extraction_id") == extraction_id:
             out.append({"commitment_id": row["commitment_id"], "retired_at": row["created_at"],
-                        "solved_attempt_id": detail.get("solved_attempt_id")})
+                        "answered_by": detail.get("answered_by"),
+                        "solved_attempt_id": detail.get("solved_attempt_id"),
+                        "solved_at": detail.get("solved_at")})
     return out
 
 

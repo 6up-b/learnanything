@@ -3,8 +3,8 @@ title: "commitment_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "201517ccdce390dbe54db9b238126190c5352489"
-source_commit_timestamp: "2026-10-31T19:55:13-04:00"
+source_commit: "75044d17e2317bd008923da79bf1eb41ae17654d"
+source_commit_timestamp: "2026-10-31T22:08:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_versions"
@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/intent/checks.py"
+  - "src/learnloop/instructional/reader_followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/checks.py`
 - `src/learnloop/scheduling/scheduler.py`
 
@@ -136,12 +137,15 @@ Indexes and uniqueness:
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_checks.py`
 - `tests/test_reader_reconstruct.py`
+- `tests/test_reader_rw6b_landing.py`
 - `tests/test_reading_paths.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_intent_codex_review.py`
 - `tests/test_question_promotions.py`
+- `tests/test_reader_followups.py`
+- `tests/test_reader_followups_review.py`
 - `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

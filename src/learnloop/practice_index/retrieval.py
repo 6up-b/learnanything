@@ -1179,6 +1179,7 @@ def find_practice(
     system_initiated: bool = False,
     pending_decision: Mapping[str, Any] | None = None,
     deadline: float | None = None,
+    already_chosen: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Propose practice items for a natural-language request. Never serves.
 
@@ -1196,6 +1197,11 @@ def find_practice(
     ``deadline`` (``time.monotonic``) stops it, or no unjudged candidate can
     clear the stop (§8.3.4); a stop before exhaustion returns a cursor that
     resumes it, carrying the relevant candidates found so far.
+
+    ``already_chosen`` (a caller's live checks for the same question; RW6b)
+    is passed to the valuer only when given, which starts its greedy
+    conditional selection from them; it is not a filter and not part of the
+    continuation binding.
     """
     config = vault.config.practice_index
     if not config.enabled:
@@ -1357,7 +1363,8 @@ def find_practice(
                                items=[key for key in relevant_order if key in vault.practice_items],
                                exercises=[by_key[key] for key in relevant_order if key in by_key],
                                caller_kind=(caller or {}).get("kind") or origin, system_initiated=system_initiated,
-                               pending_decision=pending_decision)
+                               pending_decision=pending_decision,
+                               **({"already_chosen": list(already_chosen)} if already_chosen else {}))
         pending_exercises = set(page_keys) - judged_exercises
         paging = _paging(constraints, ranked=ranked_order, judged_items=judged_items,
                          judged_exercises=judged_exercises, pending_exercises=pending_exercises,

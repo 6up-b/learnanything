@@ -48,6 +48,7 @@ import type {
   ReaderRecapEvent,
   ReaderWrapUpDto,
   ReaderWrapUpOfferDto,
+  ReaderFollowupsDto,
   ReaderActivityEvent,
   CueDensity,
   ReaderCueAction,
@@ -1847,6 +1848,19 @@ export const api = {
   readerWrapUp: (input: { extractionId: string; visitId?: string | null }) =>
     call<ReaderWrapUpDto>("reader_wrap_up", { input }),
   readerWrapUpOffer: () => call<ReaderWrapUpOfferDto>("reader_wrap_up_offer", { input: {} }),
+  // Reader workbench RW6b part 1: cold follow-ups ("Coming up"), undo with an
+  // optional reason, undo all, restore (undo a retirement). Desktop only.
+  readerFollowups: (input: { extractionId?: string | null; retiredAfter?: string | null }) =>
+    call<ReaderFollowupsDto>("reader_followups", { input }),
+  readerFollowupUndo: (input: { commitmentId: string; reason?: string | null }) =>
+    mutatingReader(call<{ version: number; commitmentId: string; disposition: string }>("reader_followup_undo", { input }),
+      [TAG.queue]),
+  readerFollowupUndoAll: (input: { digestId: string; reason?: string | null }) =>
+    mutatingReader(call<{ version: number; digestId: string; undone: unknown[] }>("reader_followup_undo_all", { input }),
+      [TAG.queue]),
+  readerFollowupRestore: (input: { commitmentId: string }) =>
+    mutatingReader(call<{ version: number; commitmentId: string; disposition: string }>("reader_followup_restore", { input }),
+      [TAG.queue]),
   readerImportExercise: (input: ReaderImportExerciseInput) =>
     mutatingReader(call<ReaderExerciseImportReceiptDto>("reader_import_exercise", { input }), [TAG.queue, TAG.proposals]),
   readerExerciseImportStatus: (input: { batchId: string }) =>

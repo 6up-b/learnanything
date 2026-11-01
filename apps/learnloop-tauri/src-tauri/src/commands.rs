@@ -1375,6 +1375,11 @@ sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");
 sidecar_passthrough!(reader_wrap_up, "reader.wrap_up");
 sidecar_passthrough!(reader_wrap_up_offer, "reader.wrap_up_offer");
+// Reader workbench RW6b part 1 (cold follow-ups: "Coming up", undo, undo all, restore): desktop only.
+sidecar_passthrough!(reader_followups, "reader.followups");
+sidecar_passthrough!(reader_followup_undo, "reader.followup_undo");
+sidecar_passthrough!(reader_followup_undo_all, "reader.followup_undo_all");
+sidecar_passthrough!(reader_followup_restore, "reader.followup_restore");
 // Reader workbench RW1b (the intent box and active reading): desktop only.
 sidecar_passthrough!(reader_route_intent, "reader.route_intent");
 sidecar_passthrough!(reader_intent_routing, "reader.intent_routing");

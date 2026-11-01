@@ -8,7 +8,8 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderRecapCardDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
-import { RECAP_COPY, aboutMinutes, fullDay, observationLine, shortDay, stepsLabel } from "./recapCopy";
+import { ComingUp } from "./ComingUp";
+import { RECAP_COPY, aboutMinutes, fullDay, observationLine, retiredCheckLine, shortDay, stepsLabel } from "./recapCopy";
 import { MeaningLabel } from "./voices";
 
 export { shortDay } from "./recapCopy";
@@ -29,6 +30,11 @@ export interface RecapCardProps {
   /** The inquiry already has its revisit (the Ask chip's state, shared). */
   revisited?: (rootExchangeId: string) => boolean;
   onResume: (sessionId: string) => void;
+  /** RW6b: undo a scheduled check (with the learner's optional reason). */
+  onUndoFollowup?: (commitmentId: string, reason: string | null) => Promise<unknown> | void;
+  onUndoAllFollowups?: (digestId: string, reason: string | null) => Promise<unknown> | void;
+  /** RW6b: undo a retirement ("No longer needed … · undo"), or an undo. */
+  onRestoreFollowup?: (commitmentId: string) => Promise<unknown> | void;
 }
 
 export const recapLinkStyle: CSSProperties = {
@@ -70,7 +76,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function RecapCard({
   recap, collapsed, now, onExpand, onContinue, onDismiss, onOpenInquiry, onSetStatus, onRevisit, revisited, onResume,
+  onUndoFollowup, onUndoAllFollowups, onRestoreFollowup,
 }: RecapCardProps) {
+  const [restored, setRestored] = useState<Set<string>>(new Set());
   const [kept, setKept] = useState<Set<string>>(new Set());
   const continueLabel = recap.continueAt?.label ? `continue at ${recap.continueAt.label}` : "continue where you left off";
   if (collapsed) {
@@ -162,10 +170,35 @@ export function RecapCard({
           ))}
           {sinceLastTime.checksRetired.map((line) => (
             <li key={line.commitmentId} style={lineStyle}>
-              <span>No longer needed: you solved one like it on {shortDay(line.retiredAt, now)}</span>
+              <span>{retiredCheckLine(line, now)}</span>
+              {onRestoreFollowup ? (
+                restored.has(line.commitmentId) ? <span style={{ color: COLOR.textDim }}> · kept</span> : (
+                  <>
+                    {" · "}
+                    <RecapLink
+                      label="undo: keep this check"
+                      onClick={() => {
+                        setRestored((current) => new Set(current).add(line.commitmentId));
+                        void onRestoreFollowup(line.commitmentId);
+                      }}
+                    >
+                      undo
+                    </RecapLink>
+                  </>
+                )
+              ) : null}
             </li>
           ))}
         </Section>
+      ) : null}
+      {recap.comingUp && onUndoFollowup && onUndoAllFollowups ? (
+        <ComingUp
+          comingUp={recap.comingUp}
+          now={now}
+          onUndo={onUndoFollowup}
+          onUndoAll={onUndoAllFollowups}
+          onRestore={onRestoreFollowup}
+        />
       ) : null}
     </section>
   );

@@ -262,6 +262,25 @@ READER_RW6A_RPCS = (
 )
 
 
+# Reader workbench RW6b part 1 (cold follow-ups) adds five RPCs -- "Coming up"
+# (a pure read), undo with its optional reason, undo all, restore (undo a
+# retirement) and planning the ended sessions now. Desktop only (spec D20);
+# a follow-up itself reaches the phone as an ordinary "Check once" item.
+READER_RW6B_RPCS = (
+    "reader.followups",
+    "reader.followup_undo",
+    "reader.followup_undo_all",
+    "reader.followup_restore",
+    "reader.followups_plan",
+)
+
+
+def test_the_pinned_rw6b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.reader_followups import READER_RW6B_RPCS as REGISTERED
+
+    assert set(REGISTERED) == set(READER_RW6B_RPCS)
+
+
 # Reader workbench RW1b (the intent box and active reading) adds eight RPCs --
 # the intent box's routing start, read and outcome (used, discarded, changed),
 # and active reading's question request, status read and actions, and
@@ -772,7 +791,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS + READER_RW3B_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + READER_RW4D_RPCS + READER_RW7A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW6B_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + READER_RW4D_RPCS + READER_RW7A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS

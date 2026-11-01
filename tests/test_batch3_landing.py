@@ -92,12 +92,12 @@ def test_mvp035_is_one_constant_after_mvp034_and_the_latest():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.one_ask_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37 and the cold-retry reschedule's mvp-0.38 (the
+    # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37 and the cold-retry reschedule's mvp-0.38 and Reader RW6b's mvp-0.39 (the
     # latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-6:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38")
-    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-4] and LATEST_ALGORITHM_VERSION == "mvp-0.38"
+    assert SUCCESSOR_CHAIN[-7:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39")
+    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-5] and LATEST_ALGORITHM_VERSION == "mvp-0.39"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38"})
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
 

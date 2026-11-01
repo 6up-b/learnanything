@@ -705,11 +705,21 @@ def resume(repository: Repository, *, commitment_id: str, clock: Clock | None = 
     return resolve_disposition(repository, commitment_id)
 
 
-def retire(repository: Repository, *, commitment_id: str, clock: Clock | None = None) -> str:
+def retire(
+    repository: Repository,
+    *,
+    commitment_id: str,
+    detail: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> str:
+    """Append a ``retired`` event. ``detail`` (optional) says why: Reader RW6b's
+    re-valuation and undo write ``{"reason": ..., ...}`` there (spec §9.3
+    items 7 and "undo"); a retirement without one is unchanged."""
+
     _require_head(repository, commitment_id)
     repository.append_commitment_event(
         commitment_id=commitment_id, commitment_version_id=None, kind="retired",
-        detail_json=None, clock=clock,
+        detail_json=canonical_json(dict(detail)) if detail else None, clock=clock,
     )
     return resolve_disposition(repository, commitment_id)
 

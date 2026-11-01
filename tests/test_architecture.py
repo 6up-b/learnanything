@@ -136,6 +136,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Reader workbench RW3b: passage_links and reader_cue_impressions
         # (migration 215), the cue judge's links and the cue receipts.
         "src/learnloop/db/stores/reader_cue_links.py",
+        # Reader workbench RW6b: reader_session_digests (migration 227), one
+        # row per planned session (summary, follow-up ids, valuation receipt).
+        "src/learnloop/db/stores/reader_digests.py",
         # Reader workbench RW7a: reader_path_sections and reader_path_depths
         # (migration 217), the path judge's labels and the learner's choices.
         "src/learnloop/db/stores/reading_paths.py",
