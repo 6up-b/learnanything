@@ -918,3 +918,183 @@ it("F11: closing the second pane and opening the same book again is a fresh disc
   expect(second.sourceOpenId).toMatch(/^copen_/);
   expect(second.sourceOpenId).not.toBe(first.sourceOpenId);
 });
+
+// ── Fix round 3 (final verify: F8, F10, F11, F12) ──────────────────────────
+
+const SIDE_TEXT_B = "The spectral theorem says a self-adjoint operator has an orthonormal eigenbasis.";
+const SECTION_A_NEXT: SideBySideSectionDto = { ...SECTION, next: { sectionId: "ax7b", title: "7.B The spectral theorem" } };
+const SECTION_B: SideBySideSectionDto = {
+  ...SECTION, sectionId: "ax7b", title: "7.B The spectral theorem", jumpSpanId: "ax7b_1", page: 210,
+  blocks: [
+    { spanId: "ax7b_1", blockType: "Text", page: 210, text: SIDE_TEXT_B },
+    { spanId: "ax7b_2", blockType: "Text", page: 210, text: "Proof: by induction on the dimension." },
+  ],
+  previous: { sectionId: "ax7a", title: "7.A Self-adjoint operators" }, next: null,
+};
+/** The second pane reads 7.A (with a way on to 7.B) and 7.B. */
+function twoSections(): void {
+  api.readerSideBySideSection.mockImplementation(async (input: { sectionId: string }) => ({
+    section: input.sectionId === "ax7b" ? SECTION_B : SECTION_A_NEXT,
+  }));
+}
+/** The learner moves the second pane on to 7.B by hand. */
+async function sideToB(): Promise<void> {
+  fireEvent.click(within(pane()!).getByRole("button", { name: "next section: 7.B The spectral theorem" }));
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
+}
+/** Axler in the main pane: both sections' passages. */
+const AXLER_VIEW_AB = {
+  ...AXLER_VIEW,
+  blocks: [...SECTION.blocks, ...SECTION_B.blocks].map((block) => ({
+    ...view.blocks[1], displayNodeId: `node-${block.spanId}`, spanId: block.spanId, markdown: block.text,
+  })),
+};
+function axlerOpensAB(): void {
+  api.readerRenderView.mockImplementation(async (input: { extractionId: string }) => (input.extractionId === "src_axler" ? AXLER_VIEW_AB : view));
+}
+
+it("F8 round 3: check me after the second pane moved to 7.B keeps 7.B as the way back (before the check: 7.B; after it: 7.B)", async () => {
+  axlerOpensAB();
+  twoSections();
+  plans.side = { ...plans.side, cues: cues([cue("ax7b_2", 0, { cueId: "cue_b" })]) };
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_b", proposalId: null } : null,
+  }));
+  const onCheckMe = vi.fn();
+  await openSideBySide({ onCheckMe });
+  await sideToB();
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_b']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  // The way back the shell keeps names the pair as it was at the check: 7.B, at the mark's passage.
+  const { besideTrail: trail, card, spanId } = onCheckMe.mock.calls[0][0] as {
+    besideTrail: { entries: Array<{ kind: string; sideBySide?: { sectionId: string; spanId: string | null } }>; cursor: number };
+    card: SourceLibraryCard; spanId: string;
+  };
+  const crumb = trail.entries[trail.cursor - 1];
+  expect(crumb.kind).toBe("side_by_side");
+  expect(crumb.sideBySide).toMatchObject({ sectionId: "ax7b", spanId: "ax7b_2" });
+  // In this Reader: Alt+← reopens side by side on 7.B.
+  await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
+  // And in the Reader the shell opens again after its practice screen: Alt+← reopens 7.B too.
+  cleanup();
+  render(<ReaderScreen initialSource={{ card, spanId, besideTrail: trail } as never} onError={vi.fn()} />);
+  await screen.findByText("Proof: by induction on the dimension.");
+  await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
+  expect(within(pane()!).queryByText(SIDE_TEXT)).toBeNull();
+});
+
+it("F8 round 3: work through this after the second pane moved to 7.B keeps 7.B as the way back (before: 7.B; after: 7.B)", async () => {
+  workbenchOn();
+  axlerOpensAB();
+  twoSections();
+  await openSideBySide();
+  await sideToB();
+  select(sideBlock("ax7b_1"));
+  const box = (await within(pane()!).findByRole("textbox", { name: BOX })) as HTMLInputElement;
+  api.readerRouteIntent.mockResolvedValue(routed("work_through"));
+  fireEvent.change(box, { target: { value: "go through it" } });
+  await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7b_1"] });
+  expect(pane()).toBeNull();
+  await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
+  expect(within(pane()!).queryByText(SIDE_TEXT)).toBeNull();
+});
+
+it("F10 round 3: a failure that lands after a new composer opened leaves no retry: that composer's question is asked once with its own grounding, the failed one never again", async () => {
+  let rejectFirst: (error: Error) => void = () => undefined;
+  api.readerAsk.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  // While it is pending, the learner opens a new composer on another passage of the pane (an empty Enter).
+  select(sideBlock("ax7a_2"));
+  const box = (await within(pane()!).findByRole("textbox", { name: BOX })) as HTMLInputElement;
+  fireEvent.change(box, { target: { value: "" } });
+  await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+  await screen.findByText(/ASKING ABOUT YOUR SELECTION IN Axler/);
+  // The old request fails now.
+  await act(async () => { rejectFirst(new Error("boom")); await Promise.resolve(); });
+  await screen.findByRole("button", { name: /try again/ });
+  const composer = screen.getByPlaceholderText("ask about this passage…");
+  fireEvent.change(composer, { target: { value: "why is this true?" } });
+  fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  const [first, second] = api.readerAsk.mock.calls.map((call) => call[0] as Record<string, unknown>);
+  expect(first).toMatchObject({ spanId: "ax7a_1", answerMode: "help_me_reason" });
+  expect(second).toMatchObject({ extractionId: "ext_axler", spanId: "ax7a_2", selectionSpanIds: ["ax7a_2"], question: "why is this true?" });
+  expect(second.answerMode).not.toBe("help_me_reason");
+  await act(async () => { await Promise.resolve(); });
+  expect(api.readerAsk).toHaveBeenCalledTimes(2);
+});
+
+it("F11 round 3: back on the main book after a source detour (A, then B, then A) is a fresh discovery for A, under a new open", async () => {
+  axlerOpens();
+  plans.main = { ...plans.main, cues: discoveredCues([], { planId: "cplan_main" }) };
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockImplementation(async (input: { extractionId: string }) => ({
+    jobId: `cjob_${input.extractionId}`, extractionId: input.extractionId, state: "done",
+    result: { status: "done", targetsKey: "tk_side", calls: 0, links: 0 },
+  }));
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_side", proposalId: null } : null,
+  }));
+  const mainAsks = () => api.readerCueDiscovery.mock.calls.map((call) => call[0] as { extractionId: string; sourceOpenId: string })
+    .filter((ask) => ask.extractionId === view.extractionId);
+  const onCheckMe = vi.fn();
+  await openSideBySide({ onCheckMe });
+  await waitFor(() => expect(mainAsks()).toHaveLength(1));
+  // The second book goes to the main pane (the check's source detour), replacing A directly.
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_side']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  // Back to A (Alt+←): its targets are unchanged, and it is asked again, as a new open.
+  await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
+  await waitFor(() => expect(mainAsks()).toHaveLength(2));
+  const [first, second] = mainAsks();
+  expect(second.sourceOpenId).toMatch(/^copen_/);
+  expect(second.sourceOpenId).not.toBe(first.sourceOpenId);
+});
+
+it("F12 round 3: moving the second pane among its book's sections keeps its open: nothing asked again for unchanged targets, and a new target names the same open", async () => {
+  twoSections();
+  plans.side = { ...plans.side, cues: discoveredCues([]) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockImplementation(async (input: { extractionId: string }) => ({
+    jobId: "cjob_side", extractionId: input.extractionId, state: "done",
+    result: { status: "done", targetsKey: (plans.side.cues as ReaderCuesDto).discovery!.targetsKey, calls: 0, links: 0 },
+  }));
+  const sideAsks = () => api.readerCueDiscovery.mock.calls.map((call) => call[0] as { extractionId: string; sourceOpenId: string })
+    .filter((ask) => ask.extractionId === "ext_axler");
+  await openSideBySide();
+  await waitFor(() => expect(sideAsks()).toHaveLength(1));
+  // By hand to 7.B (its section loads in between): the same targets, nothing asked.
+  await sideToB();
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(sideAsks()).toHaveLength(1);
+  // Back to 7.A, where the book's plan now has a new target: asked within the same open (its one budget).
+  plans.side = { ...plans.side, cues: cues([], { discovery: { ...(plans.side.cues as ReaderCuesDto).discovery!, targetsKey: "tk_side_2" } }) };
+  fireEvent.click(within(pane()!).getByRole("button", { name: "previous section: 7.A Self-adjoint operators" }));
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
+  await waitFor(() => expect(sideAsks()).toHaveLength(2));
+  const [first, second] = sideAsks();
+  expect(second.sourceOpenId).toBe(first.sourceOpenId);
+});

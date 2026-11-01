@@ -377,3 +377,40 @@ it("round 4 F8: in the Reader, Leave freezes the steps while it is under way, so
   await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
   expect(onError).not.toHaveBeenCalled();
 });
+
+// Reader CA6b fix round 3: the Reader's submit wrapper. A Reader opened with
+// a way back to side by side (the shell handed it the trail) hands that trail
+// on with a submit, so the feedback screen's back keeps it; without one, the
+// submit is handed on exactly as before (the test above).
+it("CA6b: a submit made on a Reader opened with the way back to side by side hands that way back to the shell", async () => {
+  const bound = wbSession({ practiceItemId: "pi_514", importStatus: "bound",
+    steps: [{ stepId: "s1", chainId: "s1", ordinal: 1, kind: "step", bodyMd: "A = U Sigma V^T", deleted: false, createdAt: "x", editedAt: "x", versions: [] }] });
+  api.workbenchOpen.mockResolvedValue({ session: bound, resumed: false });
+  const result = { version: 1, attempt: { attemptId: "att_1" }, session: { ...bound, status: "submitted", attemptId: "att_1" }, practiceSession: { sessionId: "ps_new" } };
+  api.workbenchSubmit.mockResolvedValue(result);
+  const onSubmitted = vi.fn();
+  const entry = (kind: string, sourceId: string, extra: Record<string, unknown> = {}) => ({
+    id: `e_${kind}`, kind, sourceId, sourceTitle: null, extractionId: sourceId === view.sourceId ? view.extractionId : "ext_strang",
+    spanId: null, selection: null, railTab: "guide", exchangeId: null, label: kind, openedAt: 1, ...extra,
+  });
+  const trail = {
+    entries: [
+      entry("origin", "src_strang"),
+      entry("side_by_side", "src_strang", { sideBySide: { sourceId: view.sourceId, sourceTitle: "Matrices", extractionId: view.extractionId,
+        sectionId: "u1", title: "6.1", spanId: "span_symmetric_prose", by: "judged" } }),
+      entry("source", view.sourceId),
+    ],
+    cursor: 2,
+  };
+  render(<ReaderScreen initialSource={{ ...source, besideTrail: trail } as never} onError={vi.fn()} workbench={{ practiceSessionId: "ps_app", onSubmitted }} />);
+  await selectProse();
+  fireEvent.click(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(await screen.findByRole("button", { name: /work through this/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /^submit/ }));
+  await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+  const [handed, at] = onSubmitted.mock.calls[0] as [unknown, { card: SourceLibraryCard; spanId: string; besideTrail?: typeof trail }];
+  expect(handed).toBe(result);
+  expect(at).toMatchObject({ card: source.card, spanId: "span_symmetric_prose" });
+  expect(at.besideTrail?.cursor).toBe(2);
+  expect(at.besideTrail?.entries.map((item) => item.kind)).toEqual(["origin", "side_by_side", "source"]);
+});

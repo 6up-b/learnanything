@@ -837,3 +837,89 @@ for (const funnels of [[null, "F"], ["F", null], [null, "F", null]] as const) {
       ]);
   });
 }
+
+// -- Reader CA6b fix round 3 (final verify F11, F12): the source-open lifetime -------------------
+
+it("CA6b F11: A, then B, then A again (a source detour and back, no close between) is three opens, each asked afresh for unchanged targets", async () => {
+  api.readerCueDiscovery.mockImplementation(({ extractionId }: { extractionId: string }) => Promise.resolve({
+    jobId: `j_${extractionId}`, extractionId, state: "done", result: { status: "done", targetsKey: "K1", calls: 0, links: 0 } }));
+  const reload = vi.fn().mockResolvedValue(undefined);
+  const { rerender } = renderHook(({ extraction, key }: { extraction: string; key: string | null }) => useCueDiscovery({
+    extractionId: extraction, discovery: key ? cues([], [], key).discovery ?? null : null, offline: false, reloadGuidePlan: reload,
+  }), { initialProps: { extraction: "A", key: "K1" as string | null } });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  // B replaces A directly (openSource): its plan loads, then carries the same targets key.
+  rerender({ extraction: "B", key: null });
+  rerender({ extraction: "B", key: "K1" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  // Back to A, again directly, again through its plan loading.
+  rerender({ extraction: "A", key: null });
+  rerender({ extraction: "A", key: "K1" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  const asks = api.readerCueDiscovery.mock.calls.map((call) => call[0] as { extractionId: string; sourceOpenId: string });
+  expect(asks.map((ask) => ask.extractionId)).toEqual(["A", "B", "A"]);
+  expect(new Set(asks.map((ask) => ask.sourceOpenId)).size).toBe(3);
+});
+
+it("CA6b F12: a section loading within one open (no reading for a moment) pauses discovery: the same open id, nothing asked again, and a job still running is read to its end", async () => {
+  vi.useFakeTimers();
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "pending", result: null });
+  api.readerCueDiscoveryJob.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "done",
+    result: { status: "done", targetsKey: "K1", calls: 1, links: 1 } });
+  const reload = vi.fn().mockResolvedValue(undefined);
+  const { rerender } = renderHook(({ extraction, key, open }: { extraction: string | null; key: string | null; open: string | null }) => useCueDiscovery({
+    extractionId: extraction, openKey: open, discovery: key ? cues([], [], key).discovery ?? null : null, offline: false,
+    reloadGuidePlan: reload,
+  }), { initialProps: { extraction: "A" as string | null, key: "K1" as string | null, open: "A" as string | null } });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+  // The pane moves to another section of the same book: no reading, no plan, for a moment.
+  rerender({ extraction: null, key: null, open: "A" });
+  rerender({ extraction: "A", key: "K1", open: "A" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+  // The job asked before the move is still read, to its end: what it found re-reads the plan.
+  await act(async () => { vi.advanceTimersByTime(DISCOVERY_POLL_MS[0] + 10); });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscoveryJob).toHaveBeenCalledTimes(1);
+  expect(reload).toHaveBeenCalled();
+  // Done: another move asks nothing; a new target in the same open names the same open (one budget).
+  rerender({ extraction: null, key: null, open: "A" });
+  rerender({ extraction: "A", key: "K1", open: "A" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "j2", extractionId: "A", state: "done",
+    result: { status: "done", targetsKey: "K2", calls: 0, links: 0 } });
+  rerender({ extraction: "A", key: "K2", open: "A" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  const asks = api.readerCueDiscovery.mock.calls.map((call) => call[0] as { sourceOpenId: string });
+  expect(asks).toHaveLength(2);
+  expect(asks[1].sourceOpenId).toBe(asks[0].sourceOpenId);
+  // An explicit close, then the same book: a new open, asked afresh.
+  rerender({ extraction: null, key: null, open: null });
+  rerender({ extraction: "A", key: "K2", open: "A" });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  const after = api.readerCueDiscovery.mock.calls.map((call) => call[0] as { sourceOpenId: string });
+  expect(after).toHaveLength(3);
+  expect(after[2].sourceOpenId).not.toBe(after[0].sourceOpenId);
+});
+
+it("CA6b F12: a job left running when the open ends is not read on (a pause keeps it, a close does not)", async () => {
+  vi.useFakeTimers();
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "pending", result: null });
+  api.readerCueDiscoveryJob.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "done",
+    result: { status: "done", targetsKey: "K1", calls: 1, links: 1 } });
+  const reload = vi.fn().mockResolvedValue(undefined);
+  const { rerender, unmount } = renderHook(({ extraction, key, open }: { extraction: string | null; key: string | null; open: string | null }) => useCueDiscovery({
+    extractionId: extraction, openKey: open, discovery: key ? cues([], [], key).discovery ?? null : null, offline: false,
+    reloadGuidePlan: reload,
+  }), { initialProps: { extraction: "A" as string | null, key: "K1" as string | null, open: "A" as string | null } });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  rerender({ extraction: null, key: null, open: "A" });
+  rerender({ extraction: null, key: null, open: null });
+  await act(async () => { vi.advanceTimersByTime(DISCOVERY_POLL_MS[0] + 10); });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscoveryJob).not.toHaveBeenCalled();
+  expect(reload).not.toHaveBeenCalled();
+  unmount();
+});
