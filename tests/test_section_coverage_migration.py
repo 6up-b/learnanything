@@ -17,7 +17,7 @@ from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
 #: Every schema object 222 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 C0A_ADDED_OBJECTS = frozenset({
     "section_coverage", "sqlite_autoindex_section_coverage_1", "idx_section_coverage_judged",

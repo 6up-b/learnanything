@@ -231,7 +231,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         # A problem from before 223 reads as no opening carried.
         assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
     assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 229
     assert 223 in applied_versions(head)
     assert head.read_bytes()[18:20] == b"\x01\x01"

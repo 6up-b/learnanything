@@ -37,6 +37,28 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Teacher TE1 (migration 230), branch `teacher/te1-first-lesson`, 2026-11-01
+
+Renamed from `migration_head_229` on the TE1 branch
+(`docs/reviews/teacher-te1-first-lesson.md`). Rebuilt from main's tracked,
+sanitized `migration_head_229/state.sqlite` (main `02614cfddd`): a backup-API
+copy under `fixtures-local/` with only `230_teacher_lessons.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 230 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
+  (RAW_LEDGER), `lesson_turn_payloads` (WORKFLOW), `lesson_checks` and
+  `lesson_receipts` (RECEIPT), `lesson_weight_state`, `lesson_weight_trace` and
+  `confidence_calibration_state` (DERIVED, one replayer), their autoindexes,
+  indexes and the ledger triggers, with no row (no lesson is in this fixture).
+
+No other object changed definition, and only `schema_migrations` gained a row
+(230); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's).
+
 ## Curriculum C2 (migration 229), branch `curriculum/c2-notes-linked`, 2026-11-01
 
 Renamed from `migration_head_228` on the C2 branch

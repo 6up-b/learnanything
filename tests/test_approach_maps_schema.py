@@ -35,7 +35,7 @@ from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
 #: §9's columns, plus the revision keys and the trigger H1 adds.
 SPEC_COLUMNS = {"id", "practice_item_id", "practice_item_hash", "family_id", "version", "map_json", "seeds_json",

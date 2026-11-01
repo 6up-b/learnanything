@@ -34,7 +34,7 @@ from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
 NEW_TABLES = {"embedding_spaces", "retrieval_feedback", "retrieval_fusion_posteriors"}
 #: Every schema object 220 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 P1_ADDED_OBJECTS = frozenset({

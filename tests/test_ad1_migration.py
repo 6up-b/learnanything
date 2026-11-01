@@ -40,7 +40,7 @@ from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_229" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
 #: test_help_assists_schema.py, test_library_asks_migration.py).

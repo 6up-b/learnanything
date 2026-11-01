@@ -65,6 +65,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("commitment_target_versions", DENIED),
     ("commitment_versions", DENIED),
     ("commitments", DENIED),
+    # Teacher TE1 (migration 230): the tap/hedge recalibration, derived from every tapped answer (AD
+    # reads none of it).
+    ("confidence_calibration_state", DENIED),
     ("composed_selector_telemetry_horizons", DENIED),
     ("controller_ownership", DENIED),
     ("daily_plans", NEUTRAL),
@@ -121,6 +124,18 @@ _ROLES: tuple[tuple[str, str], ...] = (
     # Curriculum C2 (migration 229): the learner's linked notes and their links (AD reads neither).
     ("learner_note_links", PROTECTED),
     ("learner_notes", PROTECTED),
+    # Teacher TE1 (migration 230): the lesson ledger, its receipts and the learned lesson-check weight
+    # are the incumbent's state derived from answers (a check's grade, its mass, the forecasts); AD
+    # reads none of them (spec_teacher_v1 §14.2: AD never reads a lesson check), and teacher code never
+    # runs inside an AD operation (§5.7).
+    ("lesson_checks", DENIED),
+    ("lesson_plans", DENIED),
+    ("lesson_receipts", DENIED),
+    ("lesson_turn_payloads", DENIED),
+    ("lesson_turns", DENIED),
+    ("lesson_weight_state", DENIED),
+    ("lesson_weight_trace", DENIED),
+    ("lessons", DENIED),
     ("learner_text_gap_reversals", DENIED),
     ("learning_object_mastery", DENIED),
     ("lo_probe_state", DENIED),
