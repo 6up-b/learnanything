@@ -142,6 +142,7 @@ class SidecarContext:
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
+        _forget_reading_choice()
         # An explicit load is the primary path, whatever this context was before.
         self.secondary = False
         self.content_fingerprint = None
@@ -261,6 +262,7 @@ class SidecarContext:
         mode). Neither exists yet, so True is refused rather than binding
         the full runner.
         """
+        _forget_reading_choice()
 
         if bind_ingest:
             raise SidecarError(
@@ -435,6 +437,7 @@ class SidecarContext:
         self.post_attempt_worker.shutdown()
         self.close_background_builds()
         self.background_jobs.close()
+        _forget_reading_choice()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
@@ -699,8 +702,18 @@ class SidecarContext:
         )
 
 
+def _forget_reading_choice() -> None:
+    """Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its
+    database watcher when a context loads, attaches, switches or closes, so a database
+    restored at the same path is never watched through the old file."""
+
+    from learnloop.daily_plan import reading_choice
+
+    reading_choice.forget()
+
+
 def _complete_interrupted_activation(vault_root: Path) -> None:
-    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.39 too).
+    """Complete an activation a dead upgrade left journalled (LP-min (a) re-review F2; mvp-0.34 to mvp-0.40 too).
 
     Installed for the desktop sidecar (``learnloop.activation_journal``): the
     opener in :meth:`SidecarContext.load` completes it before anything serves
@@ -710,8 +723,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
     # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
     # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38; Reader
-    # RW6b's mvp-0.39).
-    from learnloop.reader_followups_upgrade import complete_interrupted_activation
+    # RW6b's mvp-0.39; curriculum C1's mvp-0.40).
+    from learnloop.deliverable_plan_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

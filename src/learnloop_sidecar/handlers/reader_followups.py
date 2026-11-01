@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from learnloop.content.sources.source_outline import resolve_extraction_id
+from learnloop.instructional import reader_digest as RN
 from learnloop.instructional import reader_followups as RF
 from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
@@ -70,25 +71,46 @@ def _valuer(vault: Any, repository: Any) -> Any:
 def prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None:
     """Before the day's plan: re-value the pending follow-ups (once a local
     day, no model call) and start planning any ended session in the
-    background. Never raises into the queue build."""
+    background. RW6b part 2: the same job then writes the narrative of each
+    ended session that has none yet (``digest.narrative_enabled``; off, this
+    is part 1's work exactly). Never raises into the queue build."""
 
-    if not RF.followups_enabled(vault):
+    live = RF.followups_enabled(vault)
+    narrate = RN.narrative_enabled(vault)
+    if not (live or narrate):
         return
     now = _now()
-    try:
-        RF.revalue_pending(vault, repository, now=now, valuer=_valuer(vault, repository))
-    except Exception:  # noqa: BLE001 - re-valuation never blocks the plan
-        logging.getLogger(__name__).warning("reader follow-up re-valuation failed", exc_info=True)
-    try:
-        waiting = RF.sessions_to_plan(vault, repository, now=now)
-        refresh = RF.exposure_refresh_waiting(repository)
-    except Exception:  # noqa: BLE001
-        logging.getLogger(__name__).warning("reader follow-up session scan failed", exc_info=True)
-        return
+    waiting: list[Any] = []
+    refresh = False
+    if live:
+        try:
+            RF.revalue_pending(vault, repository, now=now, valuer=_valuer(vault, repository))
+        except Exception:  # noqa: BLE001 - re-valuation never blocks the plan
+            logging.getLogger(__name__).warning("reader follow-up re-valuation failed", exc_info=True)
+        try:
+            waiting = RF.sessions_to_plan(vault, repository, now=now)
+            refresh = RF.exposure_refresh_waiting(repository)
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).warning("reader follow-up session scan failed", exc_info=True)
+            return
+    client = getattr(ctx, "reader_digest_client", None)
+    narrations = False
+    if narrate:
+        try:
+            # A session waiting for its narrative starts the job; sessions
+            # planned in this job (or, with follow-ups not live, summarized
+            # for their narrative: Codex review F2) are narrated right after
+            # (only when a narration could run now: no idle job otherwise).
+            narrations = bool(RN.digests_waiting(vault, repository, now=now, client=client)) or (
+                bool(waiting or RN.sessions_to_summarize(vault, repository, now=now))
+                and RN.admission_problem(vault, repository, client=client) is None)
+        except Exception:  # noqa: BLE001 - a narrative never blocks the plan
+            logging.getLogger(__name__).warning("reader narrative scan failed", exc_info=True)
+            narrations = False
     # The lock only keeps this process from starting two jobs; two sidecars
     # are safe because each publication re-reads the digest in its own
-    # transaction (Codex review F3).
-    if not (waiting or refresh) or not _PLANNING.acquire(blocking=False):
+    # transaction (Codex review F3), and a narrative is written only once.
+    if not (waiting or refresh or narrations) or not _PLANNING.acquire(blocking=False):
         return
 
     def run() -> None:
@@ -101,6 +123,15 @@ def prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None:
                 RF.plan_ended_sessions(vault, repository, search=_search(vault, repository), now=_now())
         except Exception:  # noqa: BLE001 - a failed plan is retried at the next build
             logging.getLogger(__name__).warning("reader follow-up planning failed", exc_info=True)
+        try:
+            if narrations:
+                if not live:
+                    # Follow-ups off (or below their successor): the session's
+                    # summary is persisted for its narrative alone (F2).
+                    RN.summarize_ended_sessions(vault, repository, now=_now())
+                RN.narrate_waiting(vault, repository, now=_now(), client=client)
+        except Exception:  # noqa: BLE001 - a failed narrative is retried at the next build
+            logging.getLogger(__name__).warning("reader narrative failed", exc_info=True)
         finally:
             _PLANNING.release()
 

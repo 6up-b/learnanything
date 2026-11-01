@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "2f5139cd8106474d0cb1397d0f2c8e2f867f2ae4"
+source_commit_timestamp: "2026-11-01T03:36:36-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `ReaderRecapInput`, `ReaderRecapCtl`, `useReaderRecap` within the desktop's TypeScript/screens/reader ownership area.
+Provides `ReaderRecapInput`, `ReaderRecapCtl`, `NARRATIVE_POLL_MS`, `useReaderRecap` within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts) |
-| Source lines | 231 |
+| Source lines | 327 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `2f5139cd8106474d0cb1397d0f2c8e2f867f2ae4` |
+| Commit timestamp | `2026-11-01T03:36:36-05:00` |
 
 ## Activation and status evidence
 
@@ -60,35 +60,51 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderRecapInput` — interface, line 24
-- `export interface ReaderRecapCtl` — interface, line 45
-- `export function useReaderRecap(` — function, line 63
+- `export interface ReaderRecapInput` — interface, line 36
+- `export interface ReaderRecapCtl` — interface, line 57
+- `export const NARRATIVE_POLL_MS = 10_000` — const, line 76
+- `export function useReaderRecap(` — function, line 94
 
 ## Internal implementation anchors
 
-- `const autoFoldedRef = useRef(false)` — const, line 72
-- `const shownRef = useRef<string | null>(null)` — const, line 73
-- `const extractionRef = useRef<string | null>(extractionId)` — const, line 74
-- `const visitIdRef = useRef(visitId)` — const, line 76
-- `const revealRef = useRef(reveal)` — const, line 78
-- `const record = useCallback((event: ReaderRecapEvent)` — const, line 81
-- `const extraction = extractionRef.current` — const, line 82
-- `let cancelled = false` — let, line 94
-- `let cancelled = false` — let, line 137
-- `const noteShown = useCallback(()` — const, line 151
-- `const extraction = extractionRef.current` — const, line 152
-- `const key = `$` — const, line 154
-- `const expand = useCallback(()` — const, line 160
-- `const continueReading = useCallback(()` — const, line 161
-- `const dismiss = useCallback(async ()` — const, line 165
-- `const reload = useCallback(()` — const, line 173
-- `const openWrapUp = useCallback(async ()` — const, line 175
-- `const extraction = extractionRef.current` — const, line 176
-- `let result: ReaderWrapUpDto` — let, line 180
-- `const closeWrapUp = useCallback(()` — const, line 193
-- `const onKey = (event: KeyboardEvent)` — const, line 199
-- `const target = event.target` — const, line 202
-- `let cancelled = false` — let, line 214
+- `type NarrativeSurface = "recap" | "wrapUp"` — type, line 78
+- `type NarrativePollFailures = Partial<Record<NarrativeSurface, NarrativePollFailure>>` — type, line 79
+- `function pollFailureFor(error: unknown): NarrativePollFailure` — function, line 82
+- `function withPollFailure<T extends` — function, line 87
+- `const autoFoldedRef = useRef(false)` — const, line 105
+- `const shownRef = useRef<string | null>(null)` — const, line 106
+- `const extractionRef = useRef<string | null>(extractionId)` — const, line 107
+- `const visitIdRef = useRef(visitId)` — const, line 109
+- `const revealRef = useRef(reveal)` — const, line 111
+- `const record = useCallback((event: ReaderRecapEvent)` — const, line 114
+- `const extraction = extractionRef.current` — const, line 115
+- `let cancelled = false` — let, line 127
+- `let cancelled = false` — let, line 170
+- `const noteShown = useCallback(()` — const, line 184
+- `const extraction = extractionRef.current` — const, line 185
+- `const key = `$` — const, line 187
+- `const expand = useCallback(()` — const, line 193
+- `const continueReading = useCallback(()` — const, line 194
+- `const dismiss = useCallback(async ()` — const, line 198
+- `const reload = useCallback(()` — const, line 206
+- `const openWrapUp = useCallback(async ()` — const, line 208
+- `const extraction = extractionRef.current` — const, line 209
+- `let result: ReaderWrapUpDto` — let, line 213
+- `const closeWrapUp = useCallback(()` — const, line 226
+- `const onKey = (event: KeyboardEvent)` — const, line 232
+- `const target = event.target` — const, line 235
+- `let cancelled = false` — let, line 247
+- `const recapWaiting = enabled && recap?.narrative?.state === "pending"` — const, line 262
+- `const wrapUpWaiting = wrapUpOpen?.narrative?.state === "pending"` — const, line 263
+- `const noteRead = useCallback((surface: NarrativeSurface, failure: NarrativePollFailure | undefined)` — const, line 264
+- `const readNarratives = useCallback((surfaces:` — const, line 267
+- `const stale = ()` — const, line 269
+- `const reads: Promise<unknown>[] = []` — const, line 270
+- `let cancelled = false` — let, line 294
+- `const timer = window.setTimeout(()` — const, line 295
+- `const retryNarrative = useCallback(()` — const, line 315
+- `const recapShown = useMemo(()` — const, line 318
+- `const wrapUpShown = useMemo(()` — const, line 320
 
 ## Who imports or calls it
 
@@ -105,6 +121,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderRecapCardDto`, `ReaderRecapEvent`, `ReaderWrapUpDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export; imports `NarrativePollFailure`, `NarrativeView`
+- [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `phaseForError`
 
 ### Assets, platform, and third-party dependencies
 
@@ -121,6 +139,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/recapReview.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/recapReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/narrativeLanding.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/narrativeLanding.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/RecapCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/RecapCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

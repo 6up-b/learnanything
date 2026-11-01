@@ -1087,7 +1087,9 @@ def _publish(vault: Any, repository: Repository, *, digest_id: str, existing: Ma
         # re-valuation) supersedes this one; the digest stays incomplete
         # or planned as the other writer left it.
         superseded = (current is not None and (
-            existing is None or current["status"] == "planned" or current != existing))
+            existing is None or current["status"] == "planned"
+            # RW6b part 2: a narrative written meanwhile never supersedes a plan.
+            or RDG.without_narrative(current) != RDG.without_narrative(existing)))
         if not superseded:
             # The learner's intent as it stands now, inside the publication.
             committed = committed_items(vault, connection, own=commitment_ids)
@@ -1364,7 +1366,8 @@ def _commit_revaluation(repository: Repository, snapshot: Mapping[str, Any], lin
     with repository.atomic():
         connection = repository.connection()
         fresh = RDG.digest(connection, snapshot["id"])
-        if fresh != snapshot:
+        # RW6b part 2: a narrative written meanwhile never supersedes a re-valuation.
+        if RDG.without_narrative(fresh) != RDG.without_narrative(snapshot):
             return None
         requery: list[str] = []
         reask_reason: dict[str, str] = {}

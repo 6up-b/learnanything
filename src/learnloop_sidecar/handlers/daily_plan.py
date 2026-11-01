@@ -150,6 +150,12 @@ def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False
     vault, repository = ctx.require_vault()
     if not plan_active(vault):
         return None
+    # Curriculum C1 (spec §7.6): the daily quiet re-judgment of the nearest
+    # deliverable's stale path starts before the plan is built (background,
+    # once a day; nothing here waits on it).
+    from learnloop_sidecar.handlers.deliverables import refresh_for_plan
+
+    refresh_for_plan(ctx, vault, repository)
     prepare_queue_build(ctx, vault, repository, session_id)
     return vault, repository, _env(ctx, vault, repository, session_id, serve=serve)
 

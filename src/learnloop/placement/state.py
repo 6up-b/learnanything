@@ -715,6 +715,42 @@ def _wait_deadline(first_job_at: str | None) -> str | None:
     return utc_now_iso(FrozenClock(started + timedelta(days=DIAGNOSIS_WAIT_DAYS)))
 
 
+def _live_diagnose_job(row: Mapping[str, Any]) -> bool:
+    """A diagnose job of the live diagnosis (a payload naming no mode is live)."""
+
+    return str((_json(row["payload_json"], {}) or {}).get("mode") or "live") == "live"
+
+
+def _diagnosis_wait_deadline(live_jobs: Iterable[Mapping[str, Any]]) -> str | None:
+    """A miss's wait deadline: ``DIAGNOSIS_WAIT_DAYS`` after its first live diagnose job."""
+
+    return _wait_deadline(min((str(job["created_at"]) for job in live_jobs), default=None))
+
+
+def _wait_over(deadline: str | None, now_iso: str) -> bool:
+    """Whether a miss's diagnosis wait has run out at ``now_iso`` (strictly after it)."""
+
+    return deadline is not None and now_iso > deadline
+
+
+def diagnosis_waits_run_out(connection: Any, now_iso: str) -> int:
+    """How many misses' diagnosis waits have run out at ``now_iso``, by the rule
+    :func:`load_miss_verdicts` applies (live diagnose jobs only, a payload naming no mode
+    being live; the deadline ``DIAGNOSIS_WAIT_DAYS`` after the first; run out strictly
+    after it). Curriculum C1's memo fingerprints it (``daily_plan.reading_choice``): the
+    deadline decides a waiting miss with no write, so the count moves exactly when
+    placement's answer can. Counts every attempt with live diagnose jobs, decided or not."""
+
+    if not _table_present(connection, "post_attempt_jobs"):
+        return 0
+    jobs: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in _rows(connection, "SELECT attempt_id, payload_json, created_at FROM post_attempt_jobs "
+                                 "WHERE kind = 'diagnose'"):
+        if _live_diagnose_job(row):
+            jobs[str(row["attempt_id"])].append(row)
+    return sum(1 for rows in jobs.values() if _wait_over(_diagnosis_wait_deadline(rows), now_iso))
+
+
 def load_miss_verdicts(
     connection: Any,
     answers: Iterable[AnswerFacts],
@@ -790,7 +826,7 @@ def load_miss_verdicts(
             f"WHERE kind = 'diagnose' AND attempt_id IN ({marks}) ORDER BY attempt_id, created_at, id",
             chunk,
         ):
-            if str((_json(row["payload_json"], {}) or {}).get("mode") or "live") == "live":
+            if _live_diagnose_job(row):
                 jobs[str(row["attempt_id"])].append(row)
 
     def grade_at(rows: Sequence[Mapping[str, Any]], order: tuple[str, str]) -> Mapping[str, Any] | None:
@@ -819,7 +855,7 @@ def load_miss_verdicts(
         if latest_record is None:
             verdicts[attempt_id] = fallback(FALLBACK_NOT_BLIND_GRADED)
             continue
-        deadline = _wait_deadline(min((str(job["created_at"]) for job in attempt_jobs), default=None))
+        deadline = _diagnosis_wait_deadline(attempt_jobs)
         deciding: Mapping[str, Any] | None = None
         deciding_record: Mapping[str, Any] | None = None
         for row in diagnoses.get(attempt_id, []):
@@ -850,7 +886,7 @@ def load_miss_verdicts(
             events.append((_order(deciding["created_at"], deciding["id"]), "diagnosis"))
         if held is not None:
             events.append((held, "held"))
-        if deadline is not None and (now_iso > deadline or any(order > (deadline, "") for order, _kind in events)):
+        if deadline is not None and (_wait_over(deadline, now_iso) or any(order > (deadline, "") for order, _kind in events)):
             events.append(((deadline, ""), "deadline"))
         first = min(events)[1] if events else None
         if first == "deadline":

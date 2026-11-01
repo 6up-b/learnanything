@@ -81,6 +81,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/ActiveReadingCard|src/screens/reader/ActiveReadingCard.tsx]] — import-or-re-export: `ModelActionState`; references `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `ModelActionPhase`, `ModelActionState`; references `ModelActionPhase`, `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareScope|src/screens/reader/CompareScope.tsx]] — import-or-re-export: `ModelActionState`; references `ModelActionState`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export: `ModelActionPhase`, `ModelActionState`; references `ModelActionPhase`, `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/InquiryQuickCheck|src/screens/reader/InquiryQuickCheck.tsx]] — import-or-re-export: `ModelActionPhase`, `ModelActionState`; references `ModelActionPhase`, `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] — import-or-re-export: `ModelActionState`; references `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `ModelActionState`; references `ModelActionState`
@@ -90,6 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export: `ModelActionPhase`, `phaseForError`; references `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryExercises|src/screens/reader/useLibraryExercises.ts]] — import-or-re-export: `ModelActionPhase`, `phaseForError`; references `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `ModelActionPhase`, `phaseForError`; references `ModelActionPhase`, `phaseForError`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|src/screens/reader/useReaderRecap.ts]] — import-or-re-export: `phaseForError`; references `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `phaseForError`; references `phaseForError`
 
 ## Dependencies

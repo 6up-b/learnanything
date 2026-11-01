@@ -104,6 +104,17 @@ class PlannedItem:
 #: was turned off after the build. It counts no minutes and is no reading of
 #: the day (the plan's reading goes back to the predecessor's).
 READING_PATH_OFF = "reading_path_off"
+#: Curriculum C1: a move's reason (the v2 receipt's ``moves``) when the plan's reading,
+#: without reading history, moved to the fresh choice with ``curriculum.plan_uses_path``
+#: (or ``curriculum.enabled``) off and RW7b's path on: RW7b's choice. With RW7b's path off
+#: too the reason is :data:`READING_PATH_OFF` (the order's choice). The withdrawn block's
+#: own ``block_ended`` reason is :data:`READING_PATH_OFF` (a path reading taken back
+#: unread, whichever path chose it).
+DELIVERABLE_PATH_OFF = "deliverable_path_off"
+#: Curriculum C1: a move's reason with C1 on: a fresh build now chooses another reading
+#: (a stale path refreshed, a nearer deliverable fresh, a switch turned back on, the
+#: learner's progress elsewhere), and the plan's reading had no reading history.
+DELIVERABLE_PATH_MOVED = "deliverable_path_moved"
 
 
 @dataclass
@@ -144,7 +155,9 @@ class PlannedBlock:
 
     @property
     def withdrawn_path_reading(self) -> bool:
-        """A path reading the RW7b switch took back unread (F1)."""
+        """A path reading taken back unread (RW7b F1): a path switch turned off, or
+        curriculum C1's fresh choice moved the plan's reading, before it was read. It
+        counts no minutes and holds no history (C1 Codex review F1)."""
 
         return self.is_reading and self.outcome == "displaced" and self.ended_reason == READING_PATH_OFF
 
@@ -490,6 +503,8 @@ __all__ = [
     "ORIGIN_LEARNER_PICK",
     "ORIGIN_REQUESTED",
     "PlanRecord",
+    "DELIVERABLE_PATH_OFF",
+    "DELIVERABLE_PATH_MOVED",
     "READING_PATH_OFF",
     "RECEIPT_OPEN_LIST_PICK",
     "RECEIPT_STOP",

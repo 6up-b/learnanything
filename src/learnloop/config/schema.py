@@ -1483,6 +1483,14 @@ class AIRoutingConfig(BaseModel):
     # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_author: str | None = None
+    # Reader workbench RW6b part 2 (spec_reader_workbench_v1 §9.2): the
+    # session narrative, one call per reader session in the background from
+    # the session's typed summary only (ids, kinds, verdicts and the titles
+    # they name; never the learner's words). Empty = ai.active_provider (the
+    # ChatGPT plan under T1; estimated_only). Metered calls are held to
+    # digest.max_daily_cost_usd at digest.price_per_million (unset: refused
+    # before sending).
+    reader_digest: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2445,6 +2453,40 @@ class FollowupsConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
 
 
+class DigestConfig(BaseModel):
+    """Reader workbench RW6b part 2: the session narrative and the router
+    card's reader section (spec_reader_workbench_v1 §9.2, §9.6; UX §4.8).
+
+    * ``narrative_enabled``: after a reader session RW6b planned (its digest
+      row; with follow-ups not live, a summary-only row written for the
+      narrative), one background call (route ``reader_digest``) writes at most 120
+      words from the session's typed summary only, citing the summary's event
+      ids. Code validates the citations and the word bound: an invalid
+      narrative is dropped and why is recorded (``judgment_ledger``, task
+      ``reader_digest_narrative``). Written once per session, stored on the
+      digest row, shown collapsed in "Last time here" and Wrap up, labelled
+      "summary written by LearnLoop's model". Tier 1 (salience only): never a
+      source of a filled mark and never evidence. Off: no route call and no
+      narrative anywhere (RW6b part 1 exactly).
+    * ``enabled``: RW6b part 2 as a whole: the narrative and the "Reader
+      activity" section of the router's learner-state card
+      (``reader_activity_for_card``; router R2), which the router models read
+      (routing only, never evidence). Off: neither, and the card is the
+      predecessor's byte for byte.
+    * ``price_per_million``: the owner's price for a metered narrative route
+      (unset: a metered route is refused before sending). The ChatGPT plan
+      needs none (estimated_only).
+    * ``max_daily_cost_usd`` (keep): the metered spend a UTC day of the
+      narrative calls (the owner's spending authority); subscription calls
+      are estimated_only and uncapped (Slice A §5 rule 6).
+    """
+
+    enabled: bool = True
+    narrative_enabled: bool = True
+    price_per_million: float | None = Field(default=None, gt=0)
+    max_daily_cost_usd: float = Field(default=0.25, ge=0.0)
+
+
 class ReaderIntentConfig(BaseModel):
     """Reader workbench RW1b: the intent box (spec_reader_workbench_v1 §4.2, §4.4).
 
@@ -2875,6 +2917,17 @@ class CurriculumConfig(BaseModel):
     learner presses for, served by DL2's unchanged rule). ``enabled`` off is
     today's Guide and RW7a exactly. The three routes share
     ``max_daily_cost_usd``. Display only: no successor.
+
+    C1 (spec §7.6, §8.1) adds ``plan_uses_path``, the kill switch of the
+    successor ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later,
+    with it, ``enabled`` and RW7b's gate on (``reading_paths.enabled`` and
+    ``reading_paths.plan_uses_path``: the plan never follows a path the
+    learner cannot see): the plan's reading block opens the next unfinished
+    core or prerequisite section in the nearest active deliverable's path
+    order, in whichever book it is, when that path is fresh; a stale path is
+    re-judged quietly once a day (plan only) and is not followed meanwhile.
+    Off, or below the tag: RW7b's plans byte for byte (gate G-C4). Replay
+    never reads it.
     """
 
     enabled: bool = True
@@ -2887,6 +2940,9 @@ class CurriculumConfig(BaseModel):
     # never an OpenRouter offer; coalesced per LO, a fresh state pays
     # nothing). Off: coverage changes only when pressed or owner-run.
     coverage_on_extract: bool = True
+    # C1 (spec §7.6): the plan's reading block follows the nearest active
+    # deliverable's fresh path across books (a successor; off: RW7b's plans).
+    plan_uses_path: bool = True
 
 
 class ReaderCorrespondenceConfig(BaseModel):
@@ -4189,6 +4245,7 @@ class LearnLoopConfig(BaseModel):
     workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
     recap: RecapConfig = Field(default_factory=RecapConfig)
     followups: FollowupsConfig = Field(default_factory=FollowupsConfig)
+    digest: DigestConfig = Field(default_factory=DigestConfig)
     reader_intent: ReaderIntentConfig = Field(default_factory=ReaderIntentConfig)
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)

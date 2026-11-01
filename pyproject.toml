@@ -467,6 +467,7 @@ source_modules = [
     "learnloop.claim_fixes_upgrade",
     "learnloop.cold_retry_reschedule_upgrade",
     "learnloop.reader_followups_upgrade",
+    "learnloop.deliverable_plan_upgrade",
     "learnloop.clock",
     "learnloop.confidence_events",
     "learnloop.config",
@@ -721,7 +722,7 @@ allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "evidence-never-reads-reader-observations"
-name = "Nothing that writes evidence reads the reader session summary or ReaderObservationV1 (RW6a: W1, G50)"
+name = "Nothing that writes evidence reads the reader session summary, ReaderObservationV1, the narrative or the card's reader activity (RW6a/RW6b: W1, G50)"
 type = "forbidden"
 source_modules = [
     "learnloop.substrate",
@@ -738,6 +739,10 @@ forbidden_modules = [
     "learnloop.reader.reader_observations",
     "learnloop.reader.reader_sessions",
     "learnloop.reader.recap",
+    # RW6b part 2: the session narrative (tier 1, salience only) and the
+    # router card's reader activity (routing only) are never evidence inputs.
+    "learnloop.instructional.reader_digest",
+    "learnloop.daily_plan.router_reader",
 ]
 allow_indirect_imports = false
 

@@ -26,7 +26,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock
+from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.substrate.activities import canonical_hash, canonical_json
 
@@ -816,10 +816,13 @@ def detach_family(
 # Projections
 # ---------------------------------------------------------------------------
 
-def resolve_disposition(repository: Repository, commitment_id: str) -> str:
+def resolve_disposition(repository: Repository, commitment_id: str, *, before: str | None = None) -> str:
     """Fold ``commitment_events`` to one disposition (§3.1). ``test_me_later`` starts
     ``one_check_pending``; other actions start ``active``. Family/card retirement is
-    recorded separately and never changes commitment disposition implicitly."""
+    recorded separately and never changes commitment disposition implicitly.
+
+    ``before`` (an ISO time): the disposition as it stood then, from the events
+    strictly before it (RW6b part 2's router card reads a past ``as_of``)."""
 
     commitment = repository.commitment(commitment_id)
     if commitment is None:
@@ -827,7 +830,12 @@ def resolve_disposition(repository: Repository, commitment_id: str) -> str:
     disposition = (
         "one_check_pending" if commitment["created_action"] == "test_me_later" else "active"
     )
+    cutoff = parse_utc(before) if before else None
     for event in repository.commitment_events_for(commitment_id):
+        if cutoff is not None:
+            when = parse_utc(str(event.get("created_at") or "")) if event.get("created_at") else None
+            if when is None or when >= cutoff:
+                continue
         kind = event["kind"]
         if kind == "disposition_changed":
             detail = _loads(event["detail_json"])

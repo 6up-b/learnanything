@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx"
-source_commit: "7d758bada6a6c22ef6150798a279d918f4049bd1"
-source_commit_timestamp: "2026-10-27T20:48:01-04:00"
+source_commit: "aca248456eeb018af0f9703f284541298697d35f"
+source_commit_timestamp: "2026-11-01T01:19:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx) |
-| Source lines | 122 |
+| Source lines | 125 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `7d758bada6a6c22ef6150798a279d918f4049bd1` |
-| Commit timestamp | `2026-10-27T20:48:01-04:00` |
+| Source commit | `aca248456eeb018af0f9703f284541298697d35f` |
+| Commit timestamp | `2026-11-01T01:19:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,22 +60,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface WrapUpPanelProps` — interface, line 16
-- `export function WrapUpPanel(` — function, line 46
+- `export interface WrapUpPanelProps` — interface, line 17
+- `export function WrapUpPanel(` — function, line 47
 
 ## Internal implementation anchors
 
-- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 29
-- `const headingStyle: CSSProperties =` — const, line 36
-- `const listStyle: CSSProperties =` — const, line 37
-- `const lineStyle: CSSProperties =` — const, line 38
-- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 40
-- `const onKey = (event: KeyboardEvent)` — const, line 49
-- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 57
-- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 60
-- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 61
-- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 62
-- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 64
+- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 30
+- `const headingStyle: CSSProperties =` — const, line 37
+- `const listStyle: CSSProperties =` — const, line 38
+- `const lineStyle: CSSProperties =` — const, line 39
+- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 41
+- `const onKey = (event: KeyboardEvent)` — const, line 50
+- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 58
+- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 61
+- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 62
+- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 63
+- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 65
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export; imports `ComingUp`, `ComingUpProps`
+- [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export; imports `DigestNarrative`
 - [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export; imports `Quoted`, `RecapLink`
 - [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]] — import-or-re-export; imports `RECAP_COPY`, `observationLine`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
@@ -112,6 +113,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

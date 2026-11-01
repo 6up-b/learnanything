@@ -555,6 +555,10 @@ class _Claim:
     lost: threading.Event = field(default_factory=threading.Event, compare=False, repr=False)
     #: The background build's ticket (M4); None for inline, CLI and merge work.
     fence: "BuildFence | None" = field(default=None, compare=False, repr=False)
+    #: The lease this claim is taken and renewed with. A caller whose work
+    #: holds a provider request open passes one that outlives that request
+    #: (reader RW6b part 2, final verify F3); the default is the map's.
+    lease_seconds: int = field(default=CLAIM_LEASE_SECONDS, compare=False)
 
 
 class _LeaseLost(Exception):
@@ -579,6 +583,24 @@ def _alive(repository: Repository, claim: _Claim) -> bool:
 def _require_live(repository: Repository, claim: _Claim) -> None:
     if not _alive(repository, claim):
         raise _LeaseLost("the build's lease or vault was lost; nothing more is paid for")
+
+
+def _renew_live(repository: Repository, claim: _Claim) -> None:
+    """Renew the claim's full lease now, while it is still this worker's and
+    unexpired, or raise ``_LeaseLost`` (reader RW6b part 2, final verify F3).
+    Called just before a provider request: the lease then runs at least
+    ``claim.lease_seconds`` past the send, so a caller whose lease outlives
+    its request can never be taken over while that request is outstanding,
+    even if every later heartbeat fails."""
+
+    if claim.lost.is_set() or (claim.fence is not None and not claim.fence.live()):
+        raise _LeaseLost("the build's lease or vault was lost; nothing more is paid for")
+    with _fenced_txn(repository, claim) as connection:
+        renewed = renew_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                              now=_lease_now(), lease_seconds=claim.lease_seconds)
+    if not renewed:
+        claim.lost.set()
+        raise _LeaseLost("the build's lease could not be renewed before the request; nothing is sent")
 
 
 @contextmanager
@@ -679,24 +701,25 @@ def claim_key(practice_item_id: str) -> str:
 
 
 def _try_claim(repository: Repository, item_id: str, fence: "BuildFence | None" = None, *,
-               key: str | None = None, task: str = CLAIM_TASK, producer: str = OWNER_KIND) -> _Claim | None:
+               key: str | None = None, task: str = CLAIM_TASK, producer: str = OWNER_KIND,
+               lease_seconds: int = CLAIM_LEASE_SECONDS) -> _Claim | None:
     owner = f"{PROCESS_TOKEN}:{new_ulid()}"
     key = key or claim_key(item_id)
     try:
         with _fenced_txn(repository, None, fence=fence, lease=False) as connection:
             status, epoch = claim_work(
                 connection, claim_key=key, task=task, producer=producer,
-                prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+                prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=lease_seconds)
     except _LeaseLost:
         return None
     if status == CLAIMED and epoch is not None:
-        return _Claim(key, owner, int(epoch), fence=fence)
+        return _Claim(key, owner, int(epoch), fence=fence, lease_seconds=int(lease_seconds))
     return None
 
 
 def _claim(repository: Repository, item_id: str, until: float | None,
            fence: "BuildFence | None" = None, *, key: str | None = None, task: str = CLAIM_TASK,
-           producer: str = OWNER_KIND) -> _Claim | None:
+           producer: str = OWNER_KIND, lease_seconds: int = CLAIM_LEASE_SECONDS) -> _Claim | None:
     """Claim the item's builds across processes, waiting until ``until``
     (``time.monotonic()``; None: until claimed; a dead holder's lease lapses
     within ``CLAIM_LEASE_SECONDS``). None: another process holds it."""
@@ -704,7 +727,8 @@ def _claim(repository: Repository, item_id: str, until: float | None,
     while True:
         if fence is not None and not fence.live():
             return None
-        claim = _try_claim(repository, item_id, fence, key=key, task=task, producer=producer)
+        claim = _try_claim(repository, item_id, fence, key=key, task=task, producer=producer,
+                           lease_seconds=lease_seconds)
         if claim is not None:
             return claim
         if until is not None and time.monotonic() >= until:
@@ -729,7 +753,7 @@ def _release(repository: Repository, claim: _Claim) -> None:
 @contextmanager
 def _claimed(repository: Repository, item_id: str, until: float | None, *,
              fence: "BuildFence | None" = None, key: str | None = None, task: str = CLAIM_TASK,
-             producer: str = OWNER_KIND) -> Iterator[_Claim | None]:
+             producer: str = OWNER_KIND, lease_seconds: int = CLAIM_LEASE_SECONDS) -> Iterator[_Claim | None]:
     """Hold the item's durable claim for the block, renewing its lease while
     the block runs; yields None (and holds nothing) when another process has
     it. The heartbeat sets ``claim.lost`` once the lease cannot be renewed
@@ -738,7 +762,10 @@ def _claimed(repository: Repository, item_id: str, until: float | None, *,
     # ``key``/``task``/``producer`` (H2b): another background job of the
     # hints package (outcome placement) takes its own durable claim through
     # the same lease, heartbeat and fence; the defaults are the map's.
-    claim = _claim(repository, item_id, until, fence, key=key, task=task, producer=producer)
+    # ``lease_seconds`` (reader RW6b part 2, final verify F3): the lease taken
+    # and renewed by every beat; the heartbeat interval stays the map's.
+    claim = _claim(repository, item_id, until, fence, key=key, task=task, producer=producer,
+                   lease_seconds=lease_seconds)
     if claim is None:
         yield None
         return
@@ -750,7 +777,7 @@ def _claimed(repository: Repository, item_id: str, until: float | None, *,
                 with _fenced_txn(repository, claim, lease=False) as connection:
                     held = not claim.lost.is_set() and renew_claim(
                         connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
-                        now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+                        now=_lease_now(), lease_seconds=claim.lease_seconds)
             except _LeaseLost:
                 held = False
             except Exception:  # noqa: BLE001 - the next beat retries; a lapsed lease fails the liveness check

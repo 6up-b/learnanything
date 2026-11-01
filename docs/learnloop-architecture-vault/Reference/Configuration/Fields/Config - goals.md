@@ -3,8 +3,8 @@ title: "Config - goals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml goals"
@@ -46,8 +46,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `goals.default_projection_horizon_days` | `30` | integer | modeled default or validator seed | Sets the default projection horizon duration in days for goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:109`; `src/learnloop/ai/plan_fallback.py:127`; `src/learnloop/goals/goal_projection.py:730` |
-| `goals.held_out_selection` | `true` | boolean | modeled default or validator seed | Turns held out selection behavior on or off within goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:122`; `src/learnloop/ai/plan_fallback.py:127` |
+| `goals.default_projection_horizon_days` | `30` | integer | modeled default or validator seed | Sets the default projection horizon duration in days for goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:109`; `src/learnloop/ai/plan_fallback.py:128`; `src/learnloop/goals/goal_projection.py:730` |
+| `goals.held_out_selection` | `true` | boolean | modeled default or validator seed | Turns held out selection behavior on or off within goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:122`; `src/learnloop/ai/plan_fallback.py:128` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

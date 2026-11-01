@@ -13,13 +13,25 @@
 // * Skim is the mute button (UX §4.12; review F9): while muted the card is not
 //   presented (it waits folded, so "last time ▸" reopens it after skimming)
 //   and the rail's offer is withheld; `w` still opens Wrap up on request.
+// * RW6b part 2's narrative (Codex review F7): while the card or an open Wrap
+//   up shows it "writing", the surface showing it is re-read every
+//   NARRATIVE_POLL_MS until it lands or stops waiting (the background job
+//   writes it; nothing pushes). The timer is cleared when the source changes,
+//   the card is dismissed, Wrap up closes or the Reader unmounts. A re-read
+//   that fails (fix round 4) is classified, never discarded: the sidecar down
+//   shows W14's offline state in place of "writing", any other failure says
+//   the summary could not be checked; both offer "try again". The recap and
+//   Wrap up stay as they were, re-reads continue, and the next read that
+//   succeeds clears it.
 // Off (the sidecar sends no `recap` key) nothing here asks the sidecar
 // anything. Nothing takes focus, animates or opens a modal.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderRecapCardDto, ReaderRecapEvent, ReaderWrapUpDto } from "../../api/dto";
 import { errorMessage } from "../../errors";
 import { screenLeavesKey } from "../../app/keymap";
+import type { NarrativePollFailure, NarrativeView } from "./DigestNarrative";
+import { phaseForError } from "./ModelActionState";
 
 export interface ReaderRecapInput {
   /** recap.enabled, with a real source open. */
@@ -60,6 +72,25 @@ export interface ReaderRecapCtl {
   closeWrapUp: () => void;
 }
 
+/** keep: a refresh interval for a pending narrative (a UI guardrail, not a judgment). */
+export const NARRATIVE_POLL_MS = 10_000;
+
+type NarrativeSurface = "recap" | "wrapUp";
+type NarrativePollFailures = Partial<Record<NarrativeSurface, NarrativePollFailure>>;
+
+/** A failed re-read, classified (W14): the sidecar down, or anything else. */
+function pollFailureFor(error: unknown): NarrativePollFailure {
+  return phaseForError(error) === "offline" ? "offline" : "failed";
+}
+
+/** The surface with its pending narrative marked by the last failed re-read. */
+function withPollFailure<T extends { narrative?: NarrativeView }>(
+  surface: T | null, failure: NarrativePollFailure | undefined, onRetry: () => void,
+): T | null {
+  if (!surface || !failure || surface.narrative?.state !== "pending") return surface;
+  return { ...surface, narrative: { ...surface.narrative, pollFailure: failure, onRetry } };
+}
+
 export function useReaderRecap({
   enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, suspended = false, muted = false,
   reveal, onError,
@@ -69,6 +100,8 @@ export function useReaderRecap({
   const [wrapUpAvailable, setWrapUpAvailable] = useState(false);
   const [wrapUpOpen, setWrapUpOpen] = useState<ReaderWrapUpDto | null>(null);
   const [reloads, setReloads] = useState(0);
+  const [narrativePolls, setNarrativePolls] = useState(0);
+  const [pollFailures, setPollFailures] = useState<NarrativePollFailures>({});
   const autoFoldedRef = useRef(false);
   const shownRef = useRef<string | null>(null);
   const extractionRef = useRef<string | null>(extractionId);
@@ -224,8 +257,71 @@ export function useReaderRecap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloads]);
 
+  // A narrative still being written lands where it is shown (Codex review
+  // F7): re-read only the surface(s) waiting for it, once per interval.
+  const recapWaiting = enabled && recap?.narrative?.state === "pending";
+  const wrapUpWaiting = wrapUpOpen?.narrative?.state === "pending";
+  const noteRead = useCallback((surface: NarrativeSurface, failure: NarrativePollFailure | undefined) => {
+    setPollFailures((current) => (current[surface] === failure ? current : { ...current, [surface]: failure }));
+  }, []);
+  const readNarratives = useCallback((surfaces: { recap: boolean; wrapUp: boolean }, isCancelled: () => boolean) => {
+    if (!extractionId) return Promise.resolve();
+    const stale = () => isCancelled() || extractionRef.current !== extractionId;
+    const reads: Promise<unknown>[] = [];
+    if (surfaces.recap) {
+      reads.push(Promise.resolve(api.readerRecap({ extractionId, visitId: visitIdRef.current() })).then((result) => {
+        if (stale()) return;
+        setRecap(result?.recap ?? null);
+        noteRead("recap", undefined);
+      }, (error: unknown) => {
+        // Classified, never discarded (fix round 4): the card stays as it is.
+        if (!stale()) noteRead("recap", pollFailureFor(error));
+      }));
+    }
+    if (surfaces.wrapUp) {
+      reads.push(Promise.resolve(api.readerWrapUp({ extractionId, visitId: visitIdRef.current() })).then((result) => {
+        if (stale()) return;
+        setWrapUpOpen((current) => (current ? result : current));
+        noteRead("wrapUp", undefined);
+      }, (error: unknown) => {
+        if (!stale()) noteRead("wrapUp", pollFailureFor(error));
+      }));
+    }
+    return Promise.all(reads).then(() => undefined);
+  }, [extractionId, noteRead]);
+  useEffect(() => {
+    if (!extractionId || (!recapWaiting && !wrapUpWaiting)) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      // The next interval, whether or not a read failed (each read settles itself).
+      void readNarratives({ recap: recapWaiting, wrapUp: wrapUpWaiting }, () => cancelled).then(() => {
+        if (!cancelled) setNarrativePolls((count) => count + 1);
+      });
+    }, NARRATIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [extractionId, recapWaiting, wrapUpWaiting, narrativePolls, readNarratives]);
+  // A failure belongs to the payload it was read for: any new card or Wrap up
+  // (a successful read, a reload, another source, Wrap up closed) clears it.
+  useEffect(() => {
+    setPollFailures((current) => (current.recap ? { ...current, recap: undefined } : current));
+  }, [recap]);
+  useEffect(() => {
+    setPollFailures((current) => (current.wrapUp ? { ...current, wrapUp: undefined } : current));
+  }, [wrapUpOpen]);
+  // "try again": re-read the waiting surfaces now (the interval keeps going).
+  const retryNarrative = useCallback(() => {
+    void readNarratives({ recap: recapWaiting, wrapUp: wrapUpWaiting }, () => false);
+  }, [readNarratives, recapWaiting, wrapUpWaiting]);
+  const recapShown = useMemo(() => withPollFailure(recap, pollFailures.recap, retryNarrative),
+    [recap, pollFailures.recap, retryNarrative]);
+  const wrapUpShown = useMemo(() => withPollFailure(wrapUpOpen, pollFailures.wrapUp, retryNarrative),
+    [wrapUpOpen, pollFailures.wrapUp, retryNarrative]);
+
   return {
-    recap, collapsed, expand, continueReading, dismiss, noteShown, reload,
-    wrapUpAvailable, wrapUpOffered: wrapUpAvailable && !muted, wrapUpOpen, openWrapUp, closeWrapUp,
+    recap: recapShown, collapsed, expand, continueReading, dismiss, noteShown, reload,
+    wrapUpAvailable, wrapUpOffered: wrapUpAvailable && !muted, wrapUpOpen: wrapUpShown, openWrapUp, closeWrapUp,
   };
 }

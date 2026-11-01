@@ -144,10 +144,10 @@ def test_mvp037_is_one_constant_after_mvp036():
     from learnloop.params.parameter_registry import classify_config_path
 
     # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
-    # The cold-retry reschedule's mvp-0.38 and Reader RW6b's mvp-0.39 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-5:-2] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.39" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG, "mvp-0.38", "mvp-0.39"})
+    # The cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
+    assert SUCCESSOR_CHAIN[-6:-3] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.40" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert ATTEMPT_CONTENT_STATE_VERSIONS == frozenset({TAG, "mvp-0.38", "mvp-0.39", "mvp-0.40"})
     assert PracticeConfig().attempt_keeps_content_state is True
     rule = classify_config_path("practice.attempt_keeps_content_state")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
@@ -223,7 +223,7 @@ def test_a_bare_upgrade_targets_the_latest_through_mvp037(tmp_path):
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The latest is Reader RW6b's mvp-0.39, chained through this tag.
+    # The latest is curriculum C1's mvp-0.40, chained through this tag.
     assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
     assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
 

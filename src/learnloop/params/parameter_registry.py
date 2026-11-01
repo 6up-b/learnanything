@@ -1406,6 +1406,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for cold follow-ups (followups.enabled is the kill switch of the successor mvp-0.39; "
         "off, or below the tag, the predecessor's plan) / formative records adding questions / background "
         "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
+    # Reader workbench RW6b part 2 (spec §9.2): the session narrative (one
+    # background call per reader session, salience only, never evidence) and
+    # the router card's "Reader activity" section (routing only, never
+    # evidence). The 120-word bound is the spec's structural bound in code
+    # (reader_digest.MAX_WORDS), not a key; the card's per-list bound
+    # (router_reader.CARD_LIST_LIMIT) is a prompt-size bound, keep, not a key.
+    _ConfigRule(_exact(
+        "digest.enabled",
+        "digest.narrative_enabled",
+    ), "structural", "operational",
+        "kill switches for RW6b part 2 as a whole (the narrative and the router card's Reader activity section) / "
+        "the narrative alone; display and routing data, never evidence, no measurement, scheduling or serving "
+        "authority (no successor)."),
+    _ConfigRule(_exact(
+        "digest.max_daily_cost_usd",
+        "digest.price_per_million",
+    ), "structural", "operational",
+        "keep: the narrative's metered spend a UTC day (the owner's spending authority; subscription calls are "
+        "estimated_only) / the owner's price for a metered narrative route; money bounds, no measurement "
+        "authority (a narrative never grades)."),
     # Reader workbench RW1c: the Reader tutor's kill switches (booleans, so
     # Inventory A's numeric walk never reaches them; classified here so every
     # new key has a rule). Retrieval is context and display, the offers are
@@ -1591,6 +1611,19 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for Reader CA6's side by side (two source panes, follow along at section crossings, "
         "exposure rows for the second pane's text); navigation and display, no measurement, scheduling or "
         "serving authority (no algorithm successor)."),
+    # Deliverable curriculum C1 (mvp-0.40; spec §7.6): the kill switch of the
+    # successor whose plan reading block follows the nearest deliverable's
+    # path. A boolean (classified so every new key has a rule); which section
+    # is read is the path judge's order and the existing filters, so no
+    # weight, margin or threshold is added. Off restores RW7b's plans exactly;
+    # replay never reads it.
+    _ConfigRule(_exact(
+        "curriculum.plan_uses_path",
+    ), "structural", "operational",
+        "kill switch for curriculum C1's successor: the plan's reading block opens the next unfinished core or "
+        "prerequisite section in the nearest active deliverable's fresh path order, in whichever book (the "
+        "front-matter rule, exam filter and DL2's reading_allowed first); off, RW7b's plans byte for byte. "
+        "Never read by replay."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

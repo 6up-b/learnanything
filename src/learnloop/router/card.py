@@ -18,7 +18,11 @@ and applies the leakage rules before anything reaches here:
 budget, older successes leave the recent-work section first, then older answer
 excerpts and stems, then older attempts; typed fields never drop (TE0's
 7-day confidence events go before all of these, oldest first, then the
-section's stated limit and its omission notice, TE0 fix round 2).
+section's stated limit and its omission notice, TE0 fix round 2). Before
+anything else, the Reader activity section's entries (RW6b part 2, Codex
+re-review F9: the narrative, then the longest list's oldest entry, each
+counted in the section's ``omitted``), then the section whole, so a card
+with it fits whenever the predecessor's card fits.
 **Hash**: the SHA-256 of the canonical JSON of the typed card and its text, on
 the decision row (``card_hash``) and with the stored payload.
 
@@ -266,6 +270,9 @@ def render_text(card: Mapping[str, Any]) -> str:
                 points = [str(point) for point in entry.get(key) or ()]
                 if points:
                     lines.append(f"  {label}: " + "; ".join(points))
+    reader = (card.get("evidence_sections") or {}).get("reader_activity")
+    if reader:
+        lines.extend(_reader_lines(reader, card))
     lines.append("# Recent graded work (newest first)")
     work = card.get("recent_work") or ()
     if not work:
@@ -279,6 +286,68 @@ def render_text(card: Mapping[str, Any]) -> str:
             "older attempts left out)"
         )
     return "\n".join(lines) + "\n"
+
+
+def _topics(ids: Any, card: Mapping[str, Any]) -> str:
+    titles = {lo_id: (row or {}).get("title") for lo_id, row in (card.get("learning_objects") or {}).items()}
+    return ", ".join(str(titles.get(str(lo)) or lo) for lo in ids or ()) or "-"
+
+
+def _reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]:
+    """Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader
+    activity" section, typed facts in plain words. Routing only, never
+    evidence: nothing here is a grade or a demonstration."""
+
+    lines = ["# Reader activity (from the Reader; routing only, never evidence)"]
+    for entry in reader.get("open_inquiries") or ():
+        words = entry.get("question_excerpt")
+        shown = f'"{words}"' if words else f"words withheld ({entry.get('withheld') or 'unavailable'})"
+        lines.append(f"- open question on {_topics(entry.get('learning_object_ids'), card)}, "
+                     f"{entry.get('age_days')} days old, depth {entry.get('depth')}, "
+                     f"{entry.get('exchanges')} exchanges: {shown}")
+    for entry in reader.get("assisted_only") or ():
+        help_level = entry.get("highest_help_level")
+        lines.append(f"- assisted-only work on facet {entry.get('facet_id')} ({entry.get('basis')}): "
+                     f"highest help level {help_level if help_level is not None else 'none'}, "
+                     f"{entry.get('hints', 0)} hints{', book open' if entry.get('book_counted') else ''}; "
+                     f"{str(entry.get('at') or '')[:10]}; needs an independent check")
+    for entry in reader.get("pending_followups") or ():
+        valuation = entry.get("valuation") or {}
+        lines.append(f"- reader check pending ({entry.get('purpose')}) on "
+                     f"{_topics(entry.get('learning_object_ids'), card)}, item {entry.get('item_id')}, "
+                     f"due {str(entry.get('due_hint') or '')[:10] or 'unset'}; value lower bound "
+                     f"{valuation.get('value_minutes_lcb')} min ({valuation.get('scale')})")
+    for entry in reader.get("missed_predictions") or ():
+        lines.append(f"- missed figure prediction {str(entry.get('observed_at') or '')[:10]} "
+                     f"({', '.join(str(e) for e in entry.get('source_event_ids') or ())})")
+    for entry in reader.get("open_hypotheses") or ():
+        if entry.get("kind") == "named_gap":
+            lines.append(f"- open hypothesis: a named {entry.get('gap_kind') or 'gap'} "
+                         f"({entry.get('target_kind')} {entry.get('target_id')}) "
+                         f"from question {entry.get('source_id')}")
+        else:
+            targets = ", ".join(f"{t.get('kind')} {t.get('id')}" for t in entry.get("target_hypotheses") or ())
+            lines.append(f"- rival explanations still open on {_topics(entry.get('learning_object_ids'), card)}: "
+                         f"{targets}")
+    for entry in reader.get("formative_records") or ():
+        facets = ", ".join(str(f) for f in entry.get("facet_candidates") or ()) or "-"
+        lines.append(f"- formative record {entry.get('kind')} {str(entry.get('observed_at') or '')[:10]}; "
+                     f"facets {facets}")
+    for entry in reader.get("kept_comparisons") or ():
+        lines.append(f"- kept comparison ({entry.get('caller')}) on {_topics(entry.get('learning_object_ids'), card)}, "
+                     f"kept {str(entry.get('kept_at') or '')[:10]}")
+    for entry in reader.get("candidate_actions") or ():
+        detail = entry.get("label") or entry.get("purpose") or entry.get("intent") or entry.get("item_id") or ""
+        lines.append(f"- possible next action (from {entry.get('from')}): {entry.get('kind')}"
+                     + (f", {detail}" if detail else ""))
+    narrative = reader.get("narrative")
+    if narrative:
+        lines.append(f"- {narrative.get('label')} ({str(narrative.get('ended_at') or '')[:10]}; cites "
+                     f"{len(narrative.get('cited_event_ids') or ())} events): {narrative.get('text')}")
+    omitted = sum(int(value) for value in (reader.get("omitted") or {}).values())
+    if omitted:
+        lines.append(f"({omitted} older reader entr{'ies' if omitted != 1 else 'y'} left out)")
+    return lines
 
 
 #: The card's version when it carries adaptive difficulty's fields (spec §10.1:
@@ -296,12 +365,54 @@ def _card_version(inputs: CardInputs) -> str:
 #: metadata (TE0 fix round 2). They are in ``LearnerStateCard.truncation``
 #: (the stored payload) only: the typed card the models read never spends
 #: tokens saying a line is missing that it had no room for.
-_METADATA_TRUNCATION_KEYS = frozenset({"dropped_confidence_limit", "dropped_confidence_notice"})
+_METADATA_TRUNCATION_KEYS = frozenset({"dropped_confidence_limit", "dropped_confidence_notice",
+                                       "dropped_reader_entries", "dropped_reader_section"})
+
+#: The card's "Reader activity" section (RW6b part 2; ``evidence_sections``
+#: key, ``daily_plan.router_reader.CARD_SECTION``; restated: this module is a
+#: leaf). Its list sections in the reader's order, and those listed oldest
+#: first (``router_reader._NEWEST_LAST``), whose oldest entries the budget
+#: drops first; the others drop from their end.
+READER_SECTION = "reader_activity"
+_READER_LISTS: tuple[str, ...] = (
+    "open_inquiries", "assisted_only", "pending_followups", "missed_predictions", "open_hypotheses",
+    "formative_records", "kept_comparisons", "candidate_actions",
+)
+_READER_OLDEST_FIRST = frozenset({"open_inquiries", "missed_predictions", "open_hypotheses", "formative_records",
+                                  "kept_comparisons"})
+
+
+def _drop_reader_entry(reader: dict[str, Any]) -> bool:
+    """Remove one entry of the reader section, deterministically, counting it
+    in the section's ``omitted`` (Codex re-review F9): the model-written
+    narrative first, then one entry of the longest list (ties: the later
+    list), its oldest end. False when no entry is left."""
+
+    omitted = dict(reader.get("omitted") or {})
+    if reader.get("narrative"):
+        reader.pop("narrative")
+        omitted["narrative"] = omitted.get("narrative", 0) + 1
+        reader["omitted"] = omitted
+        return True
+    lengths = [(len(reader.get(name) or ()), index, name) for index, name in enumerate(_READER_LISTS)]
+    count, _index, name = max(lengths)
+    if count == 0:
+        return False
+    entries = list(reader[name])
+    entries.pop(0 if name in _READER_OLDEST_FIRST else -1)
+    if entries:
+        reader[name] = entries
+    else:
+        reader.pop(name)
+    omitted[name] = omitted.get(name, 0) + 1
+    reader["omitted"] = omitted
+    return True
 
 
 def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any],
               confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
-              confidence_dropped: int = 0, *, limit: bool = True, notice: bool = True) -> dict[str, Any]:
+              confidence_dropped: int = 0, *, limit: bool = True, notice: bool = True,
+              evidence_sections: Mapping[str, Any] | None = None) -> dict[str, Any]:
     card = {
         "card_version": _card_version(inputs),
         "decision": dict(inputs.decision),
@@ -314,7 +425,7 @@ def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mappin
         "unknowns": list(inputs.unknowns),
         "self_reports": [dict(entry) for entry in inputs.self_reports],
         "recent_work": work,
-        "evidence_sections": dict(inputs.evidence_sections),
+        "evidence_sections": dict(inputs.evidence_sections if evidence_sections is None else evidence_sections),
         # With the omission notice dropped, its record of the dropped events goes too.
         "truncation": {key: value for key, value in truncation.items()
                        if key not in _METADATA_TRUNCATION_KEYS
@@ -361,10 +472,33 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
     confidence = {lo: [dict(event) for event in rows] for lo, rows in inputs.confidence_7d.items()}
     confidence_dropped = 0
     shown = {"limit": True, "notice": True}
+    sections = dict(inputs.evidence_sections)
+    reader = sections.get(READER_SECTION)
+    if isinstance(reader, Mapping):
+        sections[READER_SECTION] = reader = {key: (list(value) if isinstance(value, list) else
+                                                   dict(value) if isinstance(value, Mapping) else value)
+                                             for key, value in reader.items()}
 
     def size() -> int:
-        card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown)
+        card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown,
+                         evidence_sections=sections)
         return estimate_tokens(card) + estimate_tokens(render_text(card))
+
+    # RW6b part 2 (Codex re-review F9): the Reader activity section first,
+    # since it is routing salience the predecessor's card never had: its
+    # entries one at a time (the narrative, then the longest list's oldest),
+    # each counted in the section's own ``omitted``, then the section whole.
+    # With it gone the card is the predecessor's, so the card fits whenever
+    # the predecessor's would, and never trades the predecessor's content
+    # for reader entries.
+    if isinstance(reader, dict):
+        reader_dropped = 0
+        while size() > token_budget and _drop_reader_entry(reader):
+            reader_dropped += 1
+            dropped["dropped_reader_entries"] = reader_dropped
+        if size() > token_budget:
+            sections.pop(READER_SECTION)
+            dropped["dropped_reader_section"] = 1
 
     # TE0 (review F3): the 7-day confidence events first, oldest first; each
     # shown attempt's line keeps its own event, and the omission is stated.
@@ -403,7 +537,7 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
     while size() > token_budget and work:
         work.pop()
         dropped["dropped_attempts"] += 1
-    card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown)
+    card = _assemble(inputs, work, dropped, confidence, confidence_dropped, **shown, evidence_sections=sections)
     text = render_text(card)
     digest = hashlib.sha256(canonical_json({"json": card, "text": text}).encode("utf-8")).hexdigest()
     return LearnerStateCard(

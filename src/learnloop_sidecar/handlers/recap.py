@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from learnloop.content.sources.source_outline import resolve_extraction_id
+from learnloop.instructional import reader_digest as RN
 from learnloop.instructional import reader_followups as RF
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import recap as RC
@@ -78,7 +79,22 @@ def reader_recap(ctx: SidecarContext, params: ReaderRecapInput) -> dict[str, Any
     result = RC.build_recap(vault, repository, extraction_id=extraction_id, current_visit_id=params.visit_id, now=now)
     if result.get("recap") is not None:
         result["recap"]["coming_up"] = _coming_up(vault, repository, extraction_id, now)
+        narrative = _narrative(ctx, vault, repository, extraction_id, result["recap"].get("session"), now)
+        if narrative is not None:
+            result["recap"]["narrative"] = narrative
     return versioned(result)
+
+
+def _narrative(ctx: SidecarContext, vault, repository, extraction_id: str, session: Any, now: datetime):
+    """RW6b part 2's narrative for the session the card or Wrap up is about
+    (spec §9.2; W14's states), or None: absent with ``digest.narrative_enabled``
+    off (part 1's payload exactly), and for a session still running."""
+
+    if not RN.narrative_enabled(vault) or not isinstance(session, dict):
+        return None
+    return RN.narrative_view(vault, repository, extraction_id=extraction_id, session_key=session.get("session_id"),
+                             now=now,
+                             client=getattr(ctx, "reader_digest_client", None))
 
 
 def _coming_up(vault, repository, extraction_id: str, now: datetime) -> dict[str, Any]:
@@ -132,6 +148,10 @@ def reader_wrap_up(ctx: SidecarContext, params: ReaderWrapUpInput) -> dict[str, 
                               now=now)
     # Worth reinforcing, after RW6b: the checks coming up with their dates.
     result["coming_up"] = _coming_up(vault, repository, extraction_id, now)
+    # RW6b part 2: the narrative sits collapsed at the foot when the session has one.
+    narrative = _narrative(ctx, vault, repository, extraction_id, result.get("session"), now)
+    if narrative is not None:
+        result["narrative"] = narrative
     return versioned(result)
 
 

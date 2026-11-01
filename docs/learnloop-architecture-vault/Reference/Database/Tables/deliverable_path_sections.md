@@ -3,8 +3,8 @@ title: "deliverable_path_sections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_path_sections"
@@ -114,6 +114,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_curriculum_c0b_landing.py`
+- `tests/test_curriculum_c1_codex_review_fixes.py`
+- `tests/test_curriculum_c1_fix_round5.py`
+- `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_curriculum_migration.py`
 - `tests/test_deliverable_path.py`

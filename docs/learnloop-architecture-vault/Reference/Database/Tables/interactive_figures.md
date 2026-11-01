@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/216_interactive_figures.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figure_admission.py"
-  - "src/learnloop/figures/service.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
@@ -153,6 +154,7 @@ None found by exact static reference scan.
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_figures_switch_off.py`
+- `tests/test_router_reader_activity.py`
 - `tests/test_section_coverage_migration.py`
 - `tests/test_sketch_service.py`
 

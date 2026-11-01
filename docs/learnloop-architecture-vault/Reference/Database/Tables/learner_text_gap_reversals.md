@@ -3,8 +3,8 @@ title: "learner_text_gap_reversals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_reversals"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_card.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/field/signals.py"
   - "src/learnloop/learner_context.py"
@@ -92,6 +93,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/router_card.py`
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/field/signals.py`
 - `src/learnloop/learner_context.py`
@@ -113,6 +115,7 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_mvp016_upgrade.py`
+- `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

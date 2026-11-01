@@ -3,8 +3,8 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "460f13280d085e1b5f481583d91ba068380404ea"
-source_commit_timestamp: "2026-11-01T00:06:03-04:00"
+source_commit: "12270a744171db67901712c580a34fb2951e8f64"
+source_commit_timestamp: "2026-11-01T03:37:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
@@ -26,11 +26,10 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
   - "src/learnloop/curriculum/golden_path_run.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/daily_plan/staged_frame.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -134,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/depth_rungs.py`
+- `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
@@ -149,7 +149,6 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/instructional/tools.py`
 - `src/learnloop/instructional/valuation.py`
-- `src/learnloop/placement/state.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
