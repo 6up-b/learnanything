@@ -897,6 +897,102 @@ def test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing(tm
     assert not any("Version B" in text for text in stored)  # the obsolete read stored nothing
 
 
+# -- C2 ruling R6 (followups-nov1c A): monotonic read tokens, published by token order ------------
+
+def test_r6_two_concurrent_refreshes_resolve_to_the_newest_read(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's first ordering: two refreshes of the same hand-linked
+    note run concurrently; the older one (started first, it reads B) writes first and the
+    newer one (started after the note changed to C, it reads C) writes second. Before R6 the
+    newer refresh's compare-and-set failed and B stayed shown; each read now takes a
+    monotonic token when it starts and publishes by token order, so C (the newest read)
+    shows, whichever writes first."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    vault = load_vault(paths.root)
+    settings = NL.tend_settings(vault)
+    real_read = NT.read_sections
+    older_read, newer_read, older_done = threading.Event(), threading.Event(), threading.Event()
+
+    def read(settings_, hits):
+        result = real_read(settings_, hits)
+        if threading.current_thread().name == "r6-older":
+            older_read.set()
+            assert newer_read.wait(20)  # the newer refresh started (and read) before this one writes
+        elif threading.current_thread().name == "r6-newer":
+            newer_read.set()
+            assert older_done.wait(20)  # ... and writes only after this one wrote
+        return result
+
+    monkeypatch.setattr(NL.NT, "read_sections", read)
+    results: dict[str, int] = {}
+
+    def run(name: str) -> None:
+        try:
+            results[name] = NL.refresh_learner_links(vault, Repository.attach(repository.sqlite_path),
+                                                     settings=settings)
+        finally:
+            if name == "r6-older":
+                older_done.set()
+
+    older = threading.Thread(target=run, args=("r6-older",), name="r6-older")
+    older.start()
+    assert older_read.wait(20)
+    _set_note(fake_tend, entry, "# Eigen page\nVersion C of the page.\n", "h-c")
+    newer = threading.Thread(target=run, args=("r6-newer",), name="r6-newer")
+    newer.start()
+    older.join(30)
+    newer.join(30)
+    assert not older.is_alive() and not newer.is_alive()
+    monkeypatch.setattr(NL.NT, "read_sections", real_read)
+    assert results == {"r6-older": 1, "r6-newer": 1}  # both published, in token order
+    texts = _hand_texts(ctx)
+    assert texts and all("Version C" in text for text in texts)  # the newest read shows
+
+
+def test_r6_an_unchanged_read_fences_off_an_older_refresh_in_flight(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's second ordering: the note shows A; a refresh reads B
+    slowly; meanwhile the note changes back to A and a newer refresh reads A, unchanged.
+    Before R6 the unchanged read wrote nothing (the equality shortcut), so the older refresh
+    then published B over the note's real text. The unchanged read now advances the fence
+    (a marker naming the snapshot already shown), so the older refresh writes nothing and A
+    (the newest read) stays shown."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    text_a, hash_a = Path(entry["hit"]["path"]).read_text(encoding="utf-8"), entry["hit"]["hash"]
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    vault = load_vault(paths.root)
+    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
+    real_read = NT.read_sections
+    inner: list[int] = []
+
+    def slow_read(settings, hits):
+        result = real_read(settings, hits)  # B, read before the note changed back
+        monkeypatch.setattr(NL.NT, "read_sections", real_read)
+        _set_note(fake_tend, entry, text_a, hash_a)
+        inner.append(refresh())  # reads A: unchanged, nothing to refresh, but it fences
+        return result
+
+    monkeypatch.setattr(NL.NT, "read_sections", slow_read)
+    assert refresh() == 0 and inner == [0]
+    texts = _hand_texts(ctx)
+    assert texts and all("Worked the 2x2 eigen example" in text and "Version B" not in text for text in texts)
+    with repository.connection() as connection:
+        stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
+    assert not any("Version B" in text for text in stored)  # the older read stored nothing
+    assert _count(repository, "learner_note_links") == 1  # and no link row: refreshing is never an acceptance
+
+
 # -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------
 
 def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path, monkeypatch):
