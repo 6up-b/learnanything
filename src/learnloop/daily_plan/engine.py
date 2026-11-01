@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
-from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
     ReviewItem,
@@ -416,13 +416,12 @@ def _fresh_reading_fingerprint(env: Any) -> str | None:
     goals (each dumped) with each goal's days left (in the deliverable path's key; whole
     days from now, in UTC, as ``deliverable_path.learner_context`` counts them, which turn
     at the due time of day, not at midnight), the local and UTC dates, and the diagnosis
-    waits run out by now (placement's ``DIAGNOSIS_WAIT_DAYS``: a deadline crossed changes
-    an LO's status with no write). Read without a model call; None when it cannot be."""
-
-    from datetime import timedelta
+    waits run out by now, by placement's own rule (``placement.state.
+    diagnosis_waits_run_out``; a deadline crossed changes an LO's status with no write).
+    Read without a model call; None when it cannot be."""
 
     from learnloop.daily_plan import reading_choice as RC
-    from learnloop.placement.rules import DIAGNOSIS_WAIT_DAYS
+    from learnloop.placement.state import diagnosis_waits_run_out
 
     vault = env.vault
     now_iso = env.now_iso()
@@ -433,13 +432,15 @@ def _fresh_reading_fingerprint(env: Any) -> str | None:
         days_left = max(0, (due - now).days) if due is not None and now is not None else None
         dump = goal.model_dump_json() if hasattr(goal, "model_dump_json") else repr(goal)
         goals.append([str(goal.id), dump, days_left])
+    with env.repository.connection() as connection:
+        waits_run_out = diagnosis_waits_run_out(connection, now_iso)
     parts = {
         "config": hashlib.sha256(vault.config.model_dump_json().encode("utf-8")).hexdigest(),
         "goals": goals,
         "dates": [env.today(), now_iso[:10]],
+        "diagnosis_waits_run_out": waits_run_out,
     }
-    cutoff = utc_now_iso(FrozenClock(now - timedelta(days=DIAGNOSIS_WAIT_DAYS))) if now is not None else now_iso
-    return RC.fingerprint(env.repository, parts, diagnosis_cutoff=cutoff)
+    return RC.fingerprint(env.repository, parts)
 
 
 def _remembered_fresh_reading(

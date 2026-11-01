@@ -21,13 +21,18 @@ every call (Codex review fix round 2, Low 6): this module memoizes it on a cheap
   fingerprint and the choice is computed again; a stale memo entry can never outlive the
   write that made it stale.
 * **Time.** What changes the answer with no write is passed in by the engine (``parts``):
-  the local and UTC dates and each goal's days left; and here the number of diagnosis waits
-  whose deadline has passed (:func:`diagnosis_waits_crossed`), so crossing one recomputes.
+  the local and UTC dates, each goal's days left, and the number of diagnosis waits run out
+  by placement's own rule (``placement.state.diagnosis_waits_run_out``, fix round 4: the
+  live-job filter, the missing-mode default and the strict boundary are placement's code,
+  not a copy), so crossing one recomputes exactly when placement's answer can change.
 * **One vault object.** An entry also holds a weak reference to the loaded vault it was
   computed for (config, goals, learning objects and source sets are its files; the desktop
   sidecar replaces the object on every reload), so another object never hits.
-* **One database.** The memo and its watcher are for the latest database asked about; a
-  different database closes the old watcher and starts over (the sidecar serves one vault).
+* **One database, one file.** The memo and its watcher are for the latest database asked
+  about; a different database, or another file at the same path (a restore: checked by
+  device and inode on every fingerprint), closes the old watcher and starts over, and a
+  file that vanished closes it. The sidecar calls :func:`forget` when a context closes or
+  switches vault (fix round 4).
 
 No weight, margin or threshold: the memo changes when a choice is computed, never what it
 is (a hit returns exactly what the computation returned for the same inputs).
@@ -38,6 +43,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 import weakref
@@ -66,6 +72,7 @@ class _Entry:
 _LOCK = threading.Lock()
 #: The database the memo is for, its watcher connection and its one entry.
 _DATABASE: str | None = None
+_IDENTITY: tuple[int, int] | None = None
 _WATCHER: sqlite3.Connection | None = None
 _ENTRY: _Entry | None = None
 
@@ -76,65 +83,68 @@ def _key(repository: Any) -> str | None:
 
 
 def _close_locked() -> None:
-    global _DATABASE, _WATCHER, _ENTRY
+    global _DATABASE, _IDENTITY, _WATCHER, _ENTRY
     if _WATCHER is not None:
         try:
             _WATCHER.close()
         except sqlite3.Error:  # pragma: no cover - closing never fails a read
             pass
-    _DATABASE, _WATCHER, _ENTRY = None, None, None
+    _DATABASE, _IDENTITY, _WATCHER, _ENTRY = None, None, None, None
 
 
-def _watcher_locked(database: str) -> sqlite3.Connection:
-    """The watcher on ``database`` (opened read-only on first use; another database
-    closes the previous one and drops its entry)."""
+def _watcher_locked(database: str, identity: tuple[int, int]) -> sqlite3.Connection:
+    """The watcher on ``database`` (opened read-only on first use; another database, or
+    another file at its path, closes the previous one and drops its entry)."""
 
-    global _DATABASE, _WATCHER
-    if _DATABASE != database or _WATCHER is None:
+    global _DATABASE, _WATCHER, _IDENTITY
+    if _DATABASE != database or _WATCHER is None or _IDENTITY != identity:
         _close_locked()
         uri = Path(database).as_uri()
         _WATCHER = sqlite3.connect(f"{uri}?mode=ro", uri=True, check_same_thread=False)
-        _DATABASE = database
+        _DATABASE, _IDENTITY = database, identity
     return _WATCHER
 
 
-def diagnosis_waits_crossed(connection: sqlite3.Connection, cutoff: str) -> int | None:
-    """How many misses' diagnosis waits have run out by now: the misses whose first diagnose
-    job (``post_attempt_jobs``) was queued at or before ``cutoff`` (now minus placement's
-    ``DIAGNOSIS_WAIT_DAYS``). Placement decides a waiting miss at that deadline with no write
-    (``placement.state.load_miss_verdicts``), which can change an LO's status and so the
-    path's freshness; the count moves exactly when a deadline is crossed. Conservative: it
-    counts every attempt's first diagnose job, decided or not."""
+def _identity(database: str) -> tuple[int, int] | None:
+    """The database file's identity (device, inode); None when it is gone."""
 
     try:
-        row = connection.execute(
-            "SELECT COUNT(*) FROM (SELECT MIN(created_at) AS first FROM post_attempt_jobs "
-            "WHERE kind = 'diagnose' GROUP BY attempt_id) WHERE first <= ?", (cutoff,)).fetchone()
-    except sqlite3.Error:
-        return None  # no job table (an older schema): no wait to cross
-    return int(row[0])
+        status = os.stat(database)
+    except OSError:
+        return None
+    return (status.st_dev, status.st_ino)
 
 
-def fingerprint(repository: Any, parts: Mapping[str, Any], *, diagnosis_cutoff: str) -> str | None:
+def fingerprint(repository: Any, parts: Mapping[str, Any]) -> str | None:
     """The fingerprint of the choice's inputs: the database's commit version as the watcher
-    sees it, the watcher's own changes, the diagnosis waits crossed by ``diagnosis_cutoff``
-    and the caller's ``parts``. None (never trusted) when the database cannot be watched."""
+    sees it, the watcher's own changes and the caller's ``parts``. None (never trusted) when
+    the database cannot be watched. The watcher is checked against the file's identity on
+    every call (fix round 4): a database replaced at the same path (a restore) recreates it
+    and drops the entry; a file that vanished closes it."""
 
     database = _key(repository)
     if database is None:
         return None
     try:
         with _LOCK:
-            watcher = _watcher_locked(database)
+            identity = _identity(database)
+            if identity is None:
+                _close_locked()
+                return None
+            if _DATABASE == database and _IDENTITY != identity:
+                _close_locked()  # another file at the same path: start over
+            watcher = _watcher_locked(database, identity)
             version = int(watcher.execute("PRAGMA data_version").fetchone()[0])
             changes = int(watcher.total_changes)
-            crossed = diagnosis_waits_crossed(watcher, diagnosis_cutoff)
+            if _identity(database) != identity:  # replaced while it was read: never trusted
+                _close_locked()
+                return None
     except sqlite3.Error:
         with _LOCK:
             _close_locked()
         return None
-    payload = {"database": database, "data_version": version, "total_changes": changes,
-               "diagnosis_waits_crossed": crossed, "parts": parts}
+    payload = {"database": database, "identity": list(identity), "data_version": version,
+               "total_changes": changes, "parts": parts}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
 
@@ -177,4 +187,4 @@ def forget() -> None:
         _close_locked()
 
 
-__all__ = ["Remembered", "diagnosis_waits_crossed", "fingerprint", "forget", "recall", "remember"]
+__all__ = ["Remembered", "fingerprint", "forget", "recall", "remember"]

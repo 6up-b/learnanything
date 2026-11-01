@@ -142,6 +142,7 @@ class SidecarContext:
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
+        _forget_reading_choice()
         # An explicit load is the primary path, whatever this context was before.
         self.secondary = False
         self.content_fingerprint = None
@@ -261,6 +262,7 @@ class SidecarContext:
         mode). Neither exists yet, so True is refused rather than binding
         the full runner.
         """
+        _forget_reading_choice()
 
         if bind_ingest:
             raise SidecarError(
@@ -435,6 +437,7 @@ class SidecarContext:
         self.post_attempt_worker.shutdown()
         self.close_background_builds()
         self.background_jobs.close()
+        _forget_reading_choice()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
@@ -697,6 +700,16 @@ class SidecarContext:
                 "streak": repository.session_day_streak(),
             }
         )
+
+
+def _forget_reading_choice() -> None:
+    """Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its
+    database watcher when a context loads, attaches, switches or closes, so a database
+    restored at the same path is never watched through the old file."""
+
+    from learnloop.daily_plan import reading_choice
+
+    reading_choice.forget()
 
 
 def _complete_interrupted_activation(vault_root: Path) -> None:

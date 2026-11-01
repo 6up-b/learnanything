@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -228,19 +229,18 @@ def _claim_path(work: _Work, goal_id: str, depth: str, state_key: str) -> Iterat
     is quiet, so it leaves no failure for the Guide to show (an open there judges again)."""
 
     key = (goal_id, depth, state_key)
+    token = _token("plan_refresh")
     with work.lock:
         if (work.judging.get(key) or {}).get("state") == "running":
             claimed = False
         else:
-            work.judging[key] = {"state": "running", "by": "plan_refresh"}
+            work.judging[key] = {"state": "running", "by": token}
             claimed = True
     try:
         yield claimed
     finally:
         if claimed:
-            with work.lock:
-                if (work.judging.get(key) or {}).get("by") == "plan_refresh":
-                    work.judging.pop(key, None)
+            _release(work, key, token)
 
 
 def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, depth: str, state_key: str) -> None:
@@ -249,7 +249,8 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
     with work.lock:
         if (work.judging.get(key) or {}).get("state") == "running":
             return
-        work.judging[key] = {"state": "running", "by": "guide"}
+        token = _token("guide")
+        work.judging[key] = {"state": "running", "by": token}
     grant, origin, stamp = _unit(vault, f"deliverable-path:{goal_id}:{depth}")
     client = getattr(ctx, "deliverable_path_client", None)
     sqlite_path = repository.sqlite_path
@@ -277,7 +278,7 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
                     # gathers nothing again. Another job holding that key sends it instead.
                     inputs = DP.path_inputs(current, worker, goal_id)
                     sent = (goal_id, inputs.depth, inputs.state_key()) if inputs is not None else key
-                    if not _move_claim(work, key, sent):
+                    if not _move_claim(work, key, sent, token):
                         outcome = None  # the same state is being judged by the other job
                     else:
                         claimed = sent
@@ -293,12 +294,13 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
                            "message": "Couldn't choose a path across your books just now. Try again ↵"}
         offer = offers.hint() if outcome is not None else None
         with work.lock:
-            if claimed != key and (work.judging.get(key) or {}).get("by") == "guide":
-                work.judging.pop(key, None)
+            # Only this job's own claim is released or replaced by its failure: a key it
+            # moved away from, or one another job holds now, is left alone (fix round 4).
+            mine = (work.judging.get(claimed) or {}).get("by") == token
             if outcome is None:
-                if (work.judging.get(claimed) or {}).get("by") == "guide":
+                if mine:
                     work.judging.pop(claimed, None)
-            else:
+            elif mine or claimed not in work.judging:
                 work.judging[claimed] = outcome
             if offer is not None:
                 work.offers[claimed] = offer
@@ -306,22 +308,36 @@ def _judge_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, 
     _spawn(ctx, f"deliverable-path-{goal_id}-{depth}", run)
 
 
-def _move_claim(work: _Work, held: tuple[str, str, str], wanted: tuple[str, str, str]) -> bool:
+def _token(kind: str) -> str:
+    """A claim's owner: unique per job (fix round 4), so a job transfers and releases only
+    its own claims, never another job's of the same kind."""
+
+    return f"{kind}:{uuid.uuid4().hex}"
+
+
+def _release(work: _Work, key: tuple[str, str, str], token: str) -> None:
+    """Drop ``key``'s claim if ``token`` still holds it."""
+
+    with work.lock:
+        if (work.judging.get(key) or {}).get("by") == token:
+            work.judging.pop(key, None)
+
+
+def _move_claim(work: _Work, held: tuple[str, str, str], wanted: tuple[str, str, str], token: str) -> bool:
     """The Guide's job moving its claim from the key it was started for (``held``) to the
     key of the inputs it prepared (``wanted``), immediately before its call: False when
     another job (the daily refresh, or another Guide job) is running ``wanted``, so this
-    one sends nothing. The held key's mark is cleared once the claim moves."""
+    one sends nothing. Either way ``held`` is released if ``token`` still holds it; after
+    the move this job never touches ``held`` again (fix round 4)."""
 
     if held == wanted:
         return True
     with work.lock:
-        if (work.judging.get(wanted) or {}).get("state") == "running":
-            if (work.judging.get(held) or {}).get("by") == "guide":
-                work.judging.pop(held, None)
-            return False
-        work.judging[wanted] = {"state": "running", "by": "guide"}
-        if (work.judging.get(held) or {}).get("by") == "guide":
+        if (work.judging.get(held) or {}).get("by") == token:
             work.judging.pop(held, None)
+        if (work.judging.get(wanted) or {}).get("state") == "running":
+            return False
+        work.judging[wanted] = {"state": "running", "by": token}
     return True
 
 
