@@ -523,3 +523,79 @@ vitest were not run. **Spend: $0.** No model or paid calls, and no Python outsid
 
 Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity tests stay green. No frontend, `src-tauri`, migration or
 schema change.
+
+## Round 6 (simplified gate; Sol verify job `20261031-194450-KFaejV`)
+
+The verify of `bdcfbb55e` reopened two Mediums:
+
+- **F17 (reopened).** The activity check was not a sound over-approximation. A same-second insert, a late insert
+  stamped before the re-valuation, or a regrade of the earlier unaided success all change the answer state without a
+  later `created_at`.
+- **F18.** Normal re-planning drops an answered question from the receipt. A healthy shared check B that still
+  named that question as a licensing question was then held as `licensing_unreadable` and retired the next day.
+
+**Why the design changed instead of being patched.** This was the sixth round on the same class: cached answer and
+licensing state for shared checks, read by the serve-time gate. Each patch moved the inconsistency rather than
+removing it. Following the orchestrator's escalation rule, the gate was simplified so the class cannot recur.
+
+### What changed
+
+- **The gate never reads answered state.** `followup_gate` applies the strictest exposure rule over ALL the check's
+  licensing questions, answered or not: the reasons of every licensing intent together. A repair owns the check only
+  when it owns every licensing question.
+  - Over-holding is acceptable: a held check is re-valued and either kept or retired with a reason.
+  - Under-holding (an exposed check served cold) is not.
+  - `answered_for`, `revalued_at` and the activity read are gone from the gate.
+- **The gate is self-contained.** Each `chosen` line carries `licensing`: per question its key, intent, purpose,
+  learning objects, facets, target hypotheses, attempts and any pending decision (`licensing_entry`).
+  - It is written at publication. A question that starts licensing a shared check is appended in the publication
+    transaction. A question that stops licensing it is pruned by re-valuation in its transaction.
+  - The gate reads the check's line only, never the receipt's question entries, so receipt filtering cannot make a
+    healthy check unreadable.
+  - A line without the list (written before it existed) names its one question.
+- **`licensing_unreadable` only for real damage**: no digest row, no chosen line for the commitment, a line naming
+  another item, or a malformed list. The check is held. Re-valuation retires it and re-asks its own question.
+  A licensing question that is no longer in the receipt is not damage: re-valuation prunes it from the line's list.
+  If none is left, re-valuation decides on the check's own question with the existing reasons.
+- **Re-valuation decides retirement as before**: answered or below the stop only when that holds for every open
+  licensing question. Answered state lives only here.
+  - It calls the gate with the same input the serve path reads: all the line's licensing questions, pruned.
+  - A check the gate holds at serve is therefore retired as exposed or repair-owned at re-valuation, never kept held
+    forever.
+
+### Tests, fail-first on `bdcfbb55e`
+
+`tests/test_reader_followups_round6.py`:
+
+| test | before (`bdcfbb55e`) |
+|---|---|
+| `test_f17_no_answer_state_change_can_relax_the_gate_on_a_shared_check`: the same-second assisted insert, the earlier-stamped late insert, the regrade of the unaided success, and an answer that still stands. Each is held with `related_worked_example` after a related worked example, then retired as exposed. | fails at the first variant: A served cold (the finding) |
+| `test_f18_re_planning_that_drops_a_question_keeps_the_shared_check_live_and_served`: discrimination chooses B, retention shares it and is incomplete, then retention is no longer asked. B stays served; re-valuation prunes retention from B's list and keeps B. | fails: B held as `licensing_unreadable` (the finding) |
+| `test_the_gate_reads_no_receipt_entry_and_no_answered_state` | fails (`answered_for` in the gate) |
+| `test_a_malformed_licensing_list_is_held_as_unreadable` | fails (the base read no such list) |
+
+Earlier rounds' tests now assert the round-6 design:
+- Round 5's missing digest row and missing chosen line are still held, and re-valuation still retires a check with
+  no chosen line. Its "missing licensing entry" case is no longer damage; F18 covers it.
+- Round 5's "no activity since still relaxes" and round 4's "answered no longer tightens" are removed: the gate
+  never relaxes for answered questions.
+- Round 4's single-question test (a discriminating check: a label; a retention check: excluded) is unchanged and
+  passes.
+- Lines are checked through `licensing`, not `questions`.
+
+### Round 6 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repros serial). The full suite, the durability lane and
+vitest were not run. **Spend: $0.** No model or paid calls, and no Python outside pytest.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`bdcfbb55e`, a `git archive` copy with the worktree's venv): `pytest tests/test_reader_followups_round6.py` | 4 failed |
+| `pytest -n 6` over round 5's 60 files plus `test_reader_followups_round6.py` | 1414 passed, 3 skipped |
+
+Rebuild `--shadow` 0/0/0 (`test_rebuild_shadow_is_zero_with_follow_ups_present`) and the mvp-0.38 off-state parity
+and shadow tests (`test_reader_followups_successor.py`, `test_cold_retry_reschedule.py`) are in that run and green.
+No frontend, `src-tauri`, migration or schema change. `licensing` lives inside the digest's `valuation_json`, so
+nothing new is persisted.

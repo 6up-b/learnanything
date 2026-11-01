@@ -113,7 +113,7 @@ def test_f16_a_shared_check_is_held_and_retired_by_retentions_rule(tmp_path, mon
     row = _plan(vault, repo, session, search, minutes=NOW_MIN + 60)
     assert row["status"] == "planned" and row["followup_commitment_ids"] == [commitment_id]
     [line] = row["valuation"]["chosen"]
-    assert line["questions"] == [QD, QR]  # discrimination first: the provenance is its
+    assert [entry["question"] for entry in line["licensing"]] == [QD, QR]  # discrimination first: its provenance
     due, minutes_due = _due(row)
     assert A in _check(vault, repo, commitment_id, due).eligible  # cold before any exposure
     # (4) the learner studies a worked example judged related to A.
@@ -133,27 +133,6 @@ def test_f16_a_shared_check_is_held_and_retired_by_retentions_rule(tmp_path, mon
     entries = {entry["key"]: entry for entry in digest["valuation"]["questions"]}
     for key in (QD, QR):
         assert entries[key]["incomplete"] is True and entries[key]["reason"] == RF.RETIRE_EXPOSED
-
-
-def test_f16_a_question_found_answered_no_longer_tightens_the_gate(tmp_path, monkeypatch):
-    """Strictest across the OPEN licensing questions: once re-valuation finds
-    the retention question answered, the related example is a label again."""
-
-    vault, repo, session = _seeded(tmp_path)
-    _questions(monkeypatch)
-    search = _ByIntent({"retention": [[], [_candidate(A, 1.0, 0.0, 3.0)]],
-                        "discriminate": [[_candidate(A, 1.0, 0.0, 3.0)]]})
-    _plan(vault, repo, session, search)
-    row = _plan(vault, repo, session, search, minutes=NOW_MIN + 60)
-    [commitment_id] = row["followup_commitment_ids"]
-    due, minutes_due = _due(row)
-    _studied_related_example(repo, minutes_due - 60)
-    with repo.connection() as connection:
-        # Round 5 (F17): the answer stands only with nothing attempted since its re-valuation.
-        RDG.update_digest(connection, row["id"], revaluation_json={"revalued_at": iso(NOW_MIN + 90), "lines": [
-            {"commitment_id": commitment_id, "answered_for": [QR]}]})
-        connection.commit()
-    assert A in _check(vault, repo, commitment_id, due).eligible
 
 
 def test_f16_one_licensing_question_keeps_its_own_rule(tmp_path, monkeypatch):

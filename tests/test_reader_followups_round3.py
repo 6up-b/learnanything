@@ -291,7 +291,7 @@ def test_f15_resuming_one_question_never_abandons_the_check_another_question_sha
     assert _live(repo) == {shared} and again["followup_commitment_ids"] == [shared]
     _consistent(repo, again)
     [line] = again["valuation"]["chosen"]
-    assert line["ref"] == A and line["questions"] == [Q1, Q2]
+    assert line["ref"] == A and [entry["question"] for entry in line["licensing"]] == [Q1, Q2]
     entries = {entry["key"]: entry for entry in first["valuation"]["questions"]}
     assert entries[Q2]["shared"] == [{"ref": A, "commitment_id": None, "first_licensed_by": Q1}]
     resumed = [call for call in search.calls if call["constraints"]["facet_ids"] == ["recall"]][-1]

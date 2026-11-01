@@ -1,13 +1,13 @@
 """Reader RW6b part 1: Codex verify round 5 (F17), reproduced first
 (docs/reviews/reader-rw6b-p1-followups-codex-review.md, "Round 5 (F17)").
 
-* A stale ``answered_for`` no longer hides a reopened question: at serve, a
-  licensing question the last re-valuation found answered counts as open
-  again once anything was attempted on its learning objects since (an
-  assisted success reopens retention under ``answered_since``'s own rule).
-* The digest lookup fails closed: a reader follow-up whose digest row,
-  ``chosen`` line or licensing entry cannot be read is held, never served
-  cold, and re-valuation retires it and re-asks what it can name.
+* A stale ``answered_for`` no longer hides a reopened question (round 6
+  removed answered state from the gate altogether: every licensing question
+  counts, answered or not).
+* The digest lookup fails closed: a reader follow-up whose digest row or
+  ``chosen`` line cannot be read is held, never served cold, and re-valuation
+  retires it and re-asks what it can name. (A licensing question missing from
+  the receipt is not damage since round 6: see test_reader_followups_round6.py.)
 
 Fakes only; no model call anywhere.
 """
@@ -42,7 +42,7 @@ def _shared(tmp_path, monkeypatch):
     row = _plan(vault, repo, session, _ByIntent({"retention": [[_candidate(A, 1.0, 0.0, 3.0)]],
                                                  "discriminate": [[_candidate(A, 1.0, 0.0, 3.0)]]}))
     [commitment_id] = row["followup_commitment_ids"]
-    assert row["valuation"]["chosen"][0]["questions"] == [QR, QD]
+    assert [entry["question"] for entry in row["valuation"]["chosen"][0]["licensing"]] == [QR, QD]
     return vault, repo, row, commitment_id
 
 
@@ -71,18 +71,6 @@ def test_f17_a_retention_question_reopened_since_the_revaluation_still_tightens_
     assert dict(check.gated)[A]["reasons"] == ["related_worked_example"]
 
 
-def test_f17_an_answer_with_no_activity_since_still_relaxes_the_gate(tmp_path, monkeypatch):
-    """Without anything attempted since the re-valuation, its answer stands:
-    the related example is a label for the open discrimination question."""
-
-    vault, repo, row, commitment_id = _shared(tmp_path, monkeypatch)
-    _attempt(repo, "att_own", minutes=500, hints=0, item="pi_svd_define_003")
-    RF.revalue_pending(vault, repo, now=_now(600), valuer=_discrimination_still_needs_it, clock=at(600))
-    due, minutes_due = _due(row)
-    _studied_related_example(repo, minutes_due - 60)
-    assert A in _check(vault, repo, commitment_id, due).eligible
-
-
 def _rewrite(repo, row, *, chosen=None, questions=None, delete=False):
     with repo.connection() as connection:
         if delete:
@@ -100,11 +88,11 @@ def _rewrite(repo, row, *, chosen=None, questions=None, delete=False):
 def _cases(row):
     keep_primary = [entry for entry in row["valuation"]["questions"] if entry["key"] == QR]
     return {"no_digest_row": {"delete": True}, "no_chosen_line": {"chosen": []},
-            "no_licensing_entry": {"questions": keep_primary}}
+            "no_licensing_entry": {"questions": keep_primary}}  # round 6: not damage (pruned, still served)
 
 
 def test_f17_an_unreadable_digest_holds_the_check_in_each_missing_data_case(tmp_path, monkeypatch):
-    for name in ("no_digest_row", "no_chosen_line", "no_licensing_entry"):
+    for name in ("no_digest_row", "no_chosen_line"):
         vault, repo, row, commitment_id = _shared(tmp_path / name, monkeypatch)
         due, _minutes = _due(row)
         assert A in _check(vault, repo, commitment_id, due).eligible  # readable: served cold
@@ -115,7 +103,7 @@ def test_f17_an_unreadable_digest_holds_the_check_in_each_missing_data_case(tmp_
 
 
 def test_f17_revaluation_retires_an_unreadable_check_and_re_asks_what_it_can_name(tmp_path, monkeypatch):
-    for name in ("no_chosen_line", "no_licensing_entry"):
+    for name in ("no_chosen_line",):
         vault, repo, row, commitment_id = _shared(tmp_path / name, monkeypatch)
         _rewrite(repo, row, **_cases(row)[name])
         report = RF.revalue_pending(vault, repo, now=_now(600), valuer=_discrimination_still_needs_it,

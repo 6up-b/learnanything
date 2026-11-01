@@ -940,7 +940,7 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
             shared = chosen[live[ref]] if ref in live else planned_now.get(ref)
             if shared is not None:
                 if question.key not in _licensing(shared):
-                    shared["questions"] = [*_licensing(shared), question.key]
+                    shared["licensing"] = [*_licensing_entries(shared), licensing_entry(question)]
                     entry.setdefault("shared", []).append(
                         {"ref": ref, "commitment_id": shared.get("commitment_id"),
                          "first_licensed_by": shared.get("question")})
@@ -984,7 +984,8 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                         # a fresh generation never resolves to a retired check.
                         "idempotency_key": f"{VIA}:{digest_id}:{question.key}:{ref}:{generation}"}
             line = {
-                "ref": ref, "commitment_id": None, "question": question.key, "questions": [question.key],
+                "ref": ref, "commitment_id": None, "question": question.key,
+                "licensing": [licensing_entry(question)],
                 "generation": generation,
                 "problem": valuation_ref["problem"], "order": check.get("order"), "purpose": question.purpose,
                 "mode": mode, "novelty": novelty, "due_hint": dated["due_hint"], "date_basis": dated["basis"],
@@ -1007,11 +1008,31 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
                     intent_excluded=intent_excluded, now=now, clock=clock)
 
 
-def _licensing(line: Mapping[str, Any]) -> list[str]:
-    """The questions that license a chosen check (round 3; a line written
-    before ``questions`` existed names its one question)."""
+def licensing_entry(question: Question) -> dict[str, Any]:
+    """One licensing question as a chosen line carries it (round 6): the key
+    and everything the serve-time gate and re-valuation read, written at
+    publication, so neither looks into the receipt's question entries."""
 
-    return [str(key) for key in (line.get("questions") or [line.get("question")]) if key]
+    entry = {"question": question.key, "intent": question.intent, "purpose": question.purpose,
+             "learning_object_ids": list(question.learning_object_ids), "facet_ids": list(question.facet_ids),
+             "target_hypotheses": [dict(r) for r in question.target_hypotheses],
+             "attempt_ids": list(question.attempt_ids)}
+    if question.pending_decision:
+        entry["pending_decision"] = dict(question.pending_decision)
+    return entry
+
+
+def _licensing_entries(line: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return [dict(entry) for entry in line.get("licensing") or [] if isinstance(entry, Mapping)]
+
+
+def _licensing(line: Mapping[str, Any]) -> list[str]:
+    """The keys of the questions that license a chosen check (round 6: its
+    ``licensing`` list; a line without one names its one question)."""
+
+    if line.get("licensing") is not None:
+        return [str(entry.get("question")) for entry in _licensing_entries(line) if entry.get("question")]
+    return [str(key) for key in [line.get("question")] if key]
 
 
 def _live_lines(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> dict[str, int]:
@@ -1256,7 +1277,8 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
         stored = row.get("valuation") or {}
         line_by_commitment = {str(line["commitment_id"]): line for line in stored.get("chosen") or []
                               if line.get("commitment_id")}
-        entries = {str(entry.get("key")): entry for entry in stored.get("questions") or []}
+        receipt_keys = {str(entry.get("key")) for entry in stored.get("questions") or []}
+        pruned_by_commitment: dict[str, list[str]] = {}
         for commitment_id in row["followup_commitment_ids"]:
             try:
                 disposition = C.resolve_disposition(repository, commitment_id)
@@ -1270,11 +1292,15 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                             if t["target_kind"] == "legacy_practice_item"), None)
             if not question or item_id is None:
                 continue
-            unreadable = _unreadable_licensing(provenance, line_by_commitment.get(commitment_id), entries)
-            if unreadable is not None:
-                # F17: retired in the transaction below with its re-ask markers.
+            licensing, pruned, unreadable = _revaluation_licensing(
+                provenance, line_by_commitment.get(commitment_id), item_id, receipt_keys)
+            if pruned:
+                pruned_by_commitment[commitment_id] = pruned
+            if unreadable:
+                # Retired in the transaction below with its re-ask markers (fail closed).
+                own = _own_question(provenance)["key"]
                 line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
-                        "reason": RETIRE_UNREADABLE, "question_keys": unreadable,
+                        "reason": RETIRE_UNREADABLE, "question_keys": [own] if own else [],
                         "detail": {"reason": RETIRE_UNREADABLE, "extraction_id": row["extraction_id"],
                                    "followups_version": FOLLOWUPS_VERSION}}
             elif switched_off is not None:
@@ -1285,8 +1311,7 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
             else:
                 line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
                                          provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
-                                         others=_other_licensing(provenance, line_by_commitment.get(commitment_id),
-                                                                 entries),
+                                         licensing=licensing,
                                          now=now, clock=clock)
             lines.append(line)
         retired_here = False
@@ -1318,20 +1343,34 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
                 report["retired" if line["retired"] else "kept"].append(line)
                 retired_here = retired_here or bool(line["retired"])
             columns: dict[str, Any] = {}
-            if reopen:
-                # F1: the exposed check's question is asked again (a fresh
-                # search; the exposed item is out of its exact filters now).
+            if reopen or pruned_by_commitment:
                 # The valuation as it stands now, inside the transaction.
                 fresh = RDG.digest(connection, row["id"]) or row
                 valuation = dict(fresh.get("valuation") or {})
-                questions = []
-                for entry in valuation.get("questions") or []:
-                    if entry.get("key") in requery:
-                        entry = {**entry, "incomplete": True, "reason": reask_reason.get(entry.get("key"), RETIRE_EXPOSED)}
-                        entry.pop("continue_from", None)
-                    questions.append(entry)
-                valuation["questions"] = questions
-                columns.update(status="incomplete", valuation_json=valuation)
+                if pruned_by_commitment:
+                    # Round 6: a licensing question no longer in the receipt
+                    # stops licensing its check, in the line itself.
+                    chosen = []
+                    for line_ in valuation.get("chosen") or []:
+                        gone = pruned_by_commitment.get(str(line_.get("commitment_id") or ""))
+                        if gone and line_.get("licensing") is not None:
+                            line_ = {**line_, "licensing": [entry for entry in line_.get("licensing") or []
+                                                            if str(entry.get("question")) not in gone]}
+                        chosen.append(line_)
+                    valuation["chosen"] = chosen
+                    columns.update(valuation_json=valuation)
+                if reopen:
+                    # F1: the exposed check's questions are asked again (a fresh
+                    # search; the exposed item is out of its exact filters now).
+                    questions = []
+                    for entry in valuation.get("questions") or []:
+                        if entry.get("key") in requery:
+                            entry = {**entry, "incomplete": True,
+                                     "reason": reask_reason.get(entry.get("key"), RETIRE_EXPOSED)}
+                            entry.pop("continue_from", None)
+                        questions.append(entry)
+                    valuation["questions"] = questions
+                    columns.update(status="incomplete", valuation_json=valuation)
             RDG.update_digest(connection, row["id"], revaluation_json={
                 "revalued_at": _iso(now), "followups_version": FOLLOWUPS_VERSION, "lines": lines},
                 revalued_on=today, updated_at=utc_now_iso(clock), **columns)
@@ -1429,71 +1468,69 @@ def answered_since(vault: Any, repository: Repository, question: Mapping[str, An
     return None
 
 
-def _unreadable_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None,
-                          entries: Mapping[str, Mapping[str, Any]]) -> list[str] | None:
-    """None when the check's licensing questions read consistently from the
-    digest; otherwise the question keys that can still be named (to re-ask),
-    the provenance's first (round 5, F17)."""
+def _own_question(provenance: Mapping[str, Any]) -> dict[str, Any]:
+    """The check's own question, from its provenance, as re-valuation reads a licensing question."""
 
-    primary = str((provenance.get("valuation_ref") or {}).get("question") or "")
-    if line is None:
-        return [primary] if primary else []
-    keys = _licensing(line)
-    missing = [key for key in keys if key != primary and not (entries.get(key) or {}).get("question")]
-    if not missing:
-        return None
-    return list(dict.fromkeys([k for k in [primary, *keys] if k and k not in missing]))
+    return {"key": str((provenance.get("valuation_ref") or {}).get("question") or ""),
+            "question": dict(provenance.get("question") or {}), "purpose": provenance.get("purpose"),
+            "attempt_ids": list(provenance.get("attempt_ids") or [])}
 
 
-def _other_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None,
-                     entries: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """The other questions that license this check (round 3: a check one
-    question chose and another selected too), from the digest receipt, as
-    ``{"key", "question", "purpose", "attempt_ids"}``; the provenance's own
-    question is the first licensing question and is not repeated."""
+def _revaluation_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None, item_id: str,
+                           receipt_keys: set[str]) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """``(licensing, pruned, unreadable)`` for one check (round 6).
 
-    if not line:
-        return []
-    primary = str((provenance.get("valuation_ref") or {}).get("question") or line.get("question") or "")
-    out = []
-    for key in _licensing(line):
-        found = (entries.get(key) or {}).get("question") or {}
-        if key == primary or not found:
+    The licensing questions are the check's own ``chosen`` line's list (never
+    the receipt's entries). A question no longer in the receipt (normal
+    re-planning drops a question that stopped being asked) is not damage: it
+    is pruned from the list. With none left, the check's own question (its
+    provenance) is what re-valuation decides on. Unreadable only when the
+    line is missing, names another item, or its list is malformed."""
+
+    if line is None or str(line.get("ref") or "") != str(item_id):
+        return [], [], True
+    raw = line.get("licensing")
+    if raw is None:
+        return [_own_question(provenance)], [], False
+    if not isinstance(raw, list) or any(not isinstance(entry, Mapping) or not entry.get("question")
+                                        or not entry.get("intent") for entry in raw):
+        return [], [], True
+    pruned = [str(entry["question"]) for entry in raw if str(entry["question"]) not in receipt_keys]
+    kept = []
+    for entry in raw:
+        if str(entry["question"]) in pruned:
             continue
-        question = {"intent": found.get("intent") or INTENT_BY_PURPOSE.get(str(found.get("purpose")), "retention"),
-                    "learning_object_ids": list(found.get("learning_object_ids") or []),
-                    "facet_ids": list(found.get("facet_ids") or []),
-                    "target_hypotheses": [dict(r) for r in found.get("target_hypotheses") or []]}
-        if found.get("pending_decision"):
-            question["pending_decision"] = dict(found["pending_decision"])
-        out.append({"key": key, "question": question, "purpose": found.get("purpose"),
-                    "attempt_ids": list(found.get("attempt_ids") or [])})
-    return out
+        question = {"intent": entry.get("intent"), "learning_object_ids": list(entry.get("learning_object_ids") or []),
+                    "facet_ids": list(entry.get("facet_ids") or []),
+                    "target_hypotheses": [dict(r) for r in entry.get("target_hypotheses") or []]}
+        if entry.get("pending_decision"):
+            question["pending_decision"] = dict(entry["pending_decision"])
+        kept.append({"key": str(entry["question"]), "question": question, "purpose": entry.get("purpose"),
+                     "attempt_ids": list(entry.get("attempt_ids") or [])})
+    return kept or [_own_question(provenance)], pruned, False
 
 
 def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str, item_id: str,
                       provenance: Mapping[str, Any], valuer: Callable[..., Mapping[str, Any]],
                       extraction_id: str, now: datetime, clock: Clock | None,
-                      others: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+                      licensing: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """One pending check's re-valuation. A check several questions license
     (round 3) stays live while ANY of them still needs it: it is retired as
     answered only when every one is answered, as owned by a repair only when
     a repair owns every open one, and below the stop only when it is below
-    the stop for every open one. Exposure is judged by the strictest rule
-    across the open licensing questions, as the serve-time gate judges it
-    (round 4, F16): a ``related`` worked example excludes it when any open one
-    is a retention question. An exposure retires it, re-asking every
-    licensing question."""
+    the stop for every open one. Answered state lives only here (round 6).
+    Exposure and repair ownership are the serve-time gate's, over ALL the
+    licensing questions, answered or not, exactly as it judges them at serve
+    (a ``related`` worked example excludes the check when any licensing
+    question is a retention one). An exposure retires it, re-asking every
+    licensing question. ``licensing`` is the check's line's list
+    (:func:`_revaluation_licensing`); empty, its own question."""
 
     from learnloop.scheduling.intent.followup_gate import REPAIR_RETRY_OWNS
 
-    question = provenance.get("question") or {}
-    primary_key = str((provenance.get("valuation_ref") or {}).get("question") or "")
-    licensing = [{"key": primary_key, "question": question, "purpose": provenance.get("purpose"),
-                  "attempt_ids": list(provenance.get("attempt_ids") or []), "primary": True},
-                 *({**other, "primary": False} for other in others)]
+    licensing = [dict(q) for q in licensing] or [_own_question(provenance)]
     line: dict[str, Any] = {"commitment_id": commitment_id, "item_id": item_id, "retired": False}
-    if others:
+    if len(licensing) > 1:
         line["questions"] = [str(q["key"]) for q in licensing]
     created = str(_first_version(repository, commitment_id).get("created_at") or "")
     answers = [(q, answered_since(vault, repository, q["question"], since=created)) for q in licensing]
@@ -1507,15 +1544,15 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         return line
     if len(open_questions_) < len(licensing):
         line["answered_for"] = [str(q["key"]) for q, answered in answers if answered is not None]
-    # F16: the gate the serve path applies, by the strictest rule across the
-    # licensing questions open now (exposure of every intent together; a
-    # repair owns the check only when it owns every open one).
+    # The gate the serve path applies, on the same input (round 6): the
+    # strictest rule across ALL licensing questions, answered or not, so a
+    # check the gate holds at serve is retired here, never kept held forever.
     gate = _gate_verdict(vault, repository, item_id=item_id, provenance=provenance, valued_at=created, now=now,
                          questions=[{"key": q["key"], "intent": str(q["question"].get("intent") or "retention"),
                                      "purpose": q.get("purpose"),
                                      "facet_ids": list(q["question"].get("facet_ids") or []),
                                      "learning_object_ids": list(q["question"].get("learning_object_ids") or []),
-                                     "attempt_ids": list(q.get("attempt_ids") or [])} for q in open_questions_])
+                                     "attempt_ids": list(q.get("attempt_ids") or [])} for q in licensing])
     reasons = list(gate.get("reasons") or [])
     if REPAIR_RETRY_OWNS in reasons:
         detail = {"reason": RETIRE_REPAIR_OWNS, "extraction_id": extraction_id,
