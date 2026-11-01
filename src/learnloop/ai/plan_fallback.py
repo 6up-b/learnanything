@@ -143,7 +143,7 @@ def offer_blocker(config: LearnLoopConfig, task: str) -> str | None:
     """
 
     if task in PLAN_ONLY_TASKS:
-        return ("Your notes are read only by the ChatGPT plan, so OpenRouter is never offered for this; "
+        return ("Your notes are read only by the ChatGPT plan, so OpenRouter isn't offered for this; "
                 "it waits for the plan.")
     # The task's own price, then the price of the feature resolving it
     # (:func:`priced_by`, re-review F2): a passage check rides
