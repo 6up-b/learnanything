@@ -174,3 +174,23 @@ def test_rw4d_followup_find_sources_compare_intent_applies_the_rule(library, mon
     with pytest.raises(SidecarError) as caught:
         call(ctx, "find_sources", params)
     assert caught.value.code == "comparison_withheld"
+
+
+def test_rw4d_followup_an_agent_callers_comparison_is_not_withheld_as_unresolvable(tmp_path):
+    """Gate finding: RW4d's helper read every non-tutor caller's ref as a reading,
+    so an agent's ("cli") comparison was "unresolvable" and refused whole. Only a
+    Reader caller's ref is a reading; any other names no passage."""
+
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.tools import run_tool
+    from learnloop.reader import source_objects as SO
+    from tests.source_service_fakes import build_textbook_vault, loaded
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    llm = FakeServiceLLM()
+    agent = caller_for(repository, "agent", "cli")
+    out = run_tool(vault, repository, "compare_sources", {"query": "what happens to a determinant when rows are swapped"},
+                   caller=agent, clients={"source_rerank": llm, "source_compare": llm})
+    assert out["result"]["comparison_id"] and out["result"]["sources"]
+    assert not SO.withheld_comparisons(vault, repository, [(out["result"]["comparison_id"], None)])

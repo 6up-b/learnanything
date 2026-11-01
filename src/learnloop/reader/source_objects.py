@@ -353,12 +353,19 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
                       *(stored.get("dropped_pins") or ())])
         caller_ref = stored.get("caller_ref")
         if caller_ref:
-            if str(stored.get("caller") or "") == "tutor":
+            caller_kind = str(stored.get("caller") or "")
+            if caller_kind == "tutor":
                 events.append(str(caller_ref))
-            else:
+            elif caller_kind == "reader":
                 readings.append(str(caller_ref))
+            # Any other caller's ref (an agent's call id, the plan's) names no
+            # passage or reading (Reader follow-ups Nov 1: the direct RPC and the
+            # tool runs reach this helper with such callers; reading "cli" as a
+            # reading withheld every agent comparison as unresolvable).
         asks.extend(ask_store.asks_referencing_comparison(connection, str(comparison_id)))
         for request in tool_requests_for_result(connection, str(comparison_id)):
+            if request and str(request.get("caller_kind") or "") not in ("", "tutor"):
+                continue  # an agent's or another caller's run: its ref names no question (follow-ups Nov 1)
             if not request.get("caller_ref"):
                 raise LookupError(f"a run of comparison {comparison_id!r} names no question")
             events.append(str(request["caller_ref"]))
