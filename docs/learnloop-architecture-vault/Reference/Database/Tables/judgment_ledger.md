@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b5ae9988697a3537bfa21426f0070f42e5354f2f"
-source_commit_timestamp: "2026-10-31T17:40:16-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/proposals/method_statement_judge.py`
 - `src/learnloop/content/proposals/required_method_override.py`
 - `src/learnloop/db/stores/families.py`
+- `src/learnloop/db/stores/figures.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/reader_cue_links.py`
@@ -151,6 +152,7 @@ None found by exact static reference scan.
 - `src/learnloop/reader/reader_cues.py`
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/reader/reader_report.py`
 - `src/learnloop/source_retrieval/compare_scope.py`
 - `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/source_retrieval/reading_paths.py`
