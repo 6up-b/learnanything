@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
-source_commit_timestamp: "2026-10-31T20:05:36-04:00"
+source_commit: "88e11824ce548f64fffa1a9417ae3a0df6f81e45"
+source_commit_timestamp: "2026-10-31T21:42:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_ad3_reading.py`
 - `tests/test_ad_guard.py`
 - `tests/test_salience_firewall.py`
+- `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_deliverable_path.py`
 - `tests/test_plan_follows_path.py`

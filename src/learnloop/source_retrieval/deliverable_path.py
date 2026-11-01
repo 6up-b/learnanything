@@ -45,9 +45,14 @@ then picks, after its routine exclusions), dated by retrievability, never after 
 deadline. The answer per LO is *demonstrated*, *likely* (AD's labelled prediction) or
 *untested*, and the dated checks still to come; it never counts what was read.
 
-Display only: no plan, scheduling, projection, grading or serving path reads a
-deliverable path (C1 is the successor that makes the plan follow it). Kill switch
-``curriculum.enabled``.
+C0b is display only. **C1** (spec §7.6, §8.1; the successor
+``DELIVERABLE_PLAN_ALGORITHM_VERSION``) is the one serving reader: the daily plan's
+reading block follows the nearest active deliverable's fresh path
+(:func:`plan_deliverable`, :func:`deliverable_plan_path`: the same lines the Guide
+shows, read and never judged by the plan), and :func:`refresh_for_plan` is its daily
+quiet re-judgment of a stale path. No scheduling, projection, grading or replay path
+reads a deliverable path. Kill switches ``curriculum.enabled`` and (C1)
+``curriculum.plan_uses_path``.
 """
 
 from __future__ import annotations

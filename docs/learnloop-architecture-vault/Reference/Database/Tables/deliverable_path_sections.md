@@ -3,8 +3,8 @@ title: "deliverable_path_sections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
-source_commit_timestamp: "2026-10-31T20:05:36-04:00"
+source_commit: "88e11824ce548f64fffa1a9417ae3a0df6f81e45"
+source_commit_timestamp: "2026-10-31T21:42:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_path_sections"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/deliverables.py"
+  - "src/learnloop/source_retrieval/deliverable_path.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -99,6 +100,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/deliverables.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
 
 ### Direct SQL writers
 
@@ -114,6 +116,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_curriculum_c0b_landing.py`
+- `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_curriculum_migration.py`
 - `tests/test_deliverable_path.py`

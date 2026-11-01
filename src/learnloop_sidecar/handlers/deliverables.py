@@ -282,6 +282,13 @@ def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
         with work.lock:
             if work.refresh_day == day:
                 return
+        # Nothing to refresh without a deliverable (a cheap read on this thread): no
+        # thread, and the day stays unmarked so a deliverable made later today is seen.
+        if not DL.deliverable_goals(vault, repository):
+            return
+        with work.lock:
+            if work.refresh_day == day:
+                return
             work.refresh_day = day
             work.refresh = {"day": day, "status": "running"}
         client = getattr(ctx, "deliverable_path_client", None)
