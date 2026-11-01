@@ -55,7 +55,7 @@ def learner_state_enabled(vault: Any) -> bool:
 
 
 def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderRestriction",
-                  binding: Any = None, *, now_iso: str | None = None) -> Any:
+                  *, now_iso: str | None = None) -> Any:
     """The learner state one ``reader.ask`` hands the tutor, or None while the switch is off.
 
     Learner-blindness relax (owner direction 2026-11-01): the passage's
@@ -63,8 +63,9 @@ def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderR
     follow-up's root selection) and the learner's state on them, through
     ``learner_protection`` (``learnloop.reader_learner_state``). A question
     asked during a cold administration -- the client's flag or the server's
-    own derivation -- carries none (recorded as omitted); a workbench-bound
-    one carries no earlier tutor answer.
+    own derivation -- carries none (recorded as omitted). No question carries
+    a stored tutor answer (ruling R1: the state is readiness, confidence,
+    outcomes and the learner's own questions).
 
     Codex review F2: with both RW1c switches off the restriction is the
     base's (no server-derived cold status, no binding, no item guard and no
@@ -104,9 +105,7 @@ def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderR
         if ancestors:
             span_ids = [ancestors[0]["span_id"], *(ancestors[0].get("selection_span_ids") or [])]
     lo_ids = RT.passage_learning_objects(vault, repository, extraction_id=params.extraction_id, span_ids=span_ids)
-    bound_item = binding.item.id if binding is not None else (restricted.item_id or None)
-    return RLS.build(vault, repository, learning_object_ids=lo_ids, now_iso=now_iso or utc_now_iso(),
-                     bound_item_id=bound_item)
+    return RLS.build(vault, repository, learning_object_ids=lo_ids, now_iso=now_iso or utc_now_iso())
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:

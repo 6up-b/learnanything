@@ -2652,8 +2652,9 @@ class ReaderTutorConfig(BaseModel):
     #: where it matters, the grader): the Reader tutor's context also carries
     #: the learner's state on the passage's learning objects -- readiness in
     #: words (the Today headline's class), the learner's confidence events
-    #: (TE0's block) and recent practice and feedback exchanges and attempt
-    #: outcomes, all through ``learner_protection`` (exam, held-out, reserved,
+    #: (TE0's block), attempt outcomes and the learner's own questions from
+    #: recent practice and feedback exchanges (never a stored tutor answer),
+    #: all through ``learner_protection`` (exam, held-out, reserved,
     #: cold-check and probe work never shows; a question asked during a cold
     #: administration carries none). Context only: the tutor still writes no
     #: attempt, claim or mastery. Off: today's prompt and manifest byte for byte.

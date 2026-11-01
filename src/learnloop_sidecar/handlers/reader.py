@@ -169,7 +169,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     tools_allowed = not RTU.tools_refused(restricted)
     # Learner-blindness relax: the learner's state on the passage's learning
     # objects (None while reader_tutor.learner_state_enabled is off).
-    learner_state = RTU.learner_state(vault, repository, params, restricted, binding)
+    learner_state = RTU.learner_state(vault, repository, params, restricted)
     try:
         result = RD.ask(
             vault,

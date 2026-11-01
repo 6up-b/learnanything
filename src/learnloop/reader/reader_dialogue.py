@@ -193,9 +193,9 @@ def reader_prompt_contract(*, branches: bool = False, learner_state: bool = Fals
         contract["manifest_includes"] = [
             *contract["manifest_includes"],
             "the learner's state on the passage's learning objects: readiness in words (the Today headline's "
-            "class), their confidence events, and recent practice and feedback exchanges and attempt outcomes, "
-            "through learner_protection (no exam, held-out, reserved, cold-check or probe work; none during a "
-            "cold administration; a tutor answer only once its item can no longer be answered cold)",
+            "class), their confidence events, attempt outcomes and their own questions from recent practice and "
+            "feedback exchanges, through learner_protection (no exam, held-out, reserved, cold-check or probe "
+            "work; none during a cold administration; never a stored tutor answer)",
         ]
         contract["manifest_never_includes"] = [
             entry for entry in contract["manifest_never_includes"]

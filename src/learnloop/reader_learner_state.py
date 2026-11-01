@@ -13,17 +13,13 @@ on, its context also carries, for the passage's learning objects:
   read with the outcome), which TE0's ruling had kept out of the Reader;
 * **recent attempt outcomes** on each topic (date, result class, how much help),
   a held grade "held for review" and never a score;
-* **recent practice and feedback exchanges** on each topic: the learner's own
-  question, and the answer they were shown only once that item can no longer
-  be answered cold (``PastWork.solution_reason``: a feedback answer was
-  written with the rubric) and every passage it may have been written from
-  is still unprotected (:func:`answer_source_refs`, ``PastWork.source_reason``:
-  a passage marked exam or held-out material since withholds it, and so do
-  passages that cannot be established; Codex review F1), and so do those of
-  every earlier turn its thread gave it (Codex re-review F1); inside a workbench
-  session bound to an item no
-  earlier tutor answer is carried at all (the binding's guard plans every
-  model-written text of the call, ``reader_modes.plan_bound_delivery``).
+* **the learner's own questions** from recent practice and feedback
+  exchanges on each topic (their words, never the tutor's answer). No stored
+  model answer text is ever re-shown here (orchestrator ruling R1 on Codex
+  review F1: the model's past answers were low-value context relative to
+  the provenance risk of exam-derived text reaching them through retrieval
+  or an earlier turn of their thread; include learner data when it helps,
+  leave it out when it is noise).
 
 Everything is read through the one protection (``learner_protection``): an
 attempt or exchange on exam or held-out material, a reserved surface, an item
@@ -31,7 +27,8 @@ an open cold check holds or a diagnostic probe contributes nothing, and when the
 protection cannot be read nothing shows (fail closed). A question asked during
 a cold administration carries no learner state at all (its in-flight response
 is never read here, and the manifest keeps ``cold_in_flight_response``
-excluded); nothing here reads an answer key, a rubric or a reference solution.
+excluded); nothing here reads an answer key, a rubric, a reference solution or
+a stored tutor answer.
 
 Context only: nothing is written and no model is called; the tutor still
 writes no attempt, claim or mastery from a Reader question (P0 invariant 10).
@@ -94,8 +91,6 @@ _RESULT_WORDS = {
     "not_graded": "not graded",
 }
 _EXCHANGE_CONTEXTS = ("practice", "feedback")
-#: Why a stored answer is left out when the passages it was written from cannot be established.
-ANSWER_SOURCES_UNKNOWN = "the passages it was written from could not be established"
 
 
 def enabled(vault: Any) -> bool:
@@ -180,28 +175,23 @@ def _attempt_text(row: Mapping[str, Any], held: frozenset[str]) -> str:
     return f"{str(row.get('created_at') or '')[:10]}: {_RESULT_WORDS.get(result, result)}, {helped}"
 
 
-def build(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], now_iso: str,
-          bound_item_id: str | None = None) -> ReaderLearnerState:
+def build(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], now_iso: str) -> ReaderLearnerState:
     """The learner state on these learning objects strictly before ``now_iso``.
 
-    ``bound_item_id`` (a workbench session's item): no earlier tutor answer
-    is carried. Never raises: a read that fails yields no state."""
+    Never raises: a read that fails yields no state."""
 
     los = [str(lo) for lo in dict.fromkeys(learning_object_ids) if lo and str(lo) in vault.learning_objects]
     los = los[:TOPIC_LIMIT]
     if not los:
         return omitted(OMITTED_NO_TOPICS)
     try:
-        return _build(vault, repository, los, now_iso, bound_item_id)
+        return _build(vault, repository, los, now_iso)
     except Exception:  # noqa: BLE001 - a context without the state, never a failed answer
         _LOG.warning("reader learner state not read", exc_info=True)
         return omitted(OMITTED_UNREADABLE, los)
 
 
-def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
-           bound_item_id: str | None) -> ReaderLearnerState:
-    from learnloop.tutor.tutor_qa import delivered_answer_md
-
+def _build(vault: Any, repository: Any, los: list[str], now_iso: str) -> ReaderLearnerState:
     titles = {lo.id: lo.title for lo in vault.learning_objects.values()}
     withheld = protection.withheld_items(vault, repository)
     if not withheld.available:
@@ -209,15 +199,6 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
     marks = ",".join("?" for _ in los)
     item_lo = {item_id: str(item.learning_object_id) for item_id, item in vault.practice_items.items()}
     item_ids = [item_id for item_id, lo in item_lo.items() if lo in los]
-    pools: dict[str, list[dict[str, Any]]] = {}
-
-    def link_refs(lo: str) -> list[dict[str, Any]]:
-        if lo not in pools:
-            from learnloop.content.authoring.practice_leakage import teaching_link_refs
-
-            pools[lo] = teaching_link_refs(vault, repository, lo)
-        return pools[lo]
-
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         past = protection.PastWork(connection, vault, repository, withheld=withheld)
         attempts = [dict(row) for row in connection.execute(
@@ -235,11 +216,13 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
         shown_attempts = [row["id"] for rows in kept_attempts.values() for row in rows]
         held = past.held(shown_attempts) if shown_attempts else frozenset()
         exchanges: dict[str, list[dict[str, Any]]] = {}
-        withheld_answers = 0
         if item_ids:
             item_marks = ",".join("?" for _ in item_ids)
+            # The learner's own question only: the answer column is never read
+            # (ruling R1: no stored model answer text in the Reader learner state).
             rows = [dict(row) for row in connection.execute(
-                "SELECT * FROM question_events WHERE context IN ('practice', 'feedback') "
+                "SELECT id, context, practice_item_id, attempt_id, question_md, created_at FROM question_events "
+                "WHERE context IN ('practice', 'feedback') "
                 f"AND answer_status = 'answered' AND practice_item_id IN ({item_marks}) AND created_at < ? "
                 "ORDER BY created_at DESC, id DESC",
                 (*item_ids, now_iso),
@@ -251,39 +234,14 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
                 bucket = exchanges.setdefault(lo, [])
                 if len(bucket) >= EXCHANGE_LIMIT:
                     continue
-                item_id = str(row["practice_item_id"])
                 answers = [row["attempt_id"]] if row.get("attempt_id") else []
-                if past.evidence_reason(answers=answers, items=[item_id]) is not None:
+                if past.evidence_reason(answers=answers, items=[str(row["practice_item_id"])]) is not None:
                     continue
-                entry: dict[str, Any] = {
+                bucket.append({
                     "date": str(row.get("created_at") or "")[:10],
                     "when": "during an attempt" if row.get("context") == "practice" else "after a graded attempt",
                     "learner_question": _excerpt(row.get("question_md")),
-                }
-                decoded = _decoded(row)
-                answer_reason = ("asked inside a bound workbench session" if bound_item_id is not None
-                                 else past.solution_reason([item_id]))
-                if answer_reason is None:
-                    # Codex review F1: the answer's passages, against today's
-                    # protection (a passage marked held out since withholds it);
-                    # re-review F1: with every earlier turn its thread gave it.
-                    turns = _thread_turns(connection, row)
-                    if turns is None:
-                        answer_reason = ANSWER_SOURCES_UNKNOWN
-                    else:
-                        written_from = [(decoded, link_refs(lo))]
-                        for turn in turns:
-                            turn_lo = item_lo.get(str(turn.get("practice_item_id")))
-                            written_from.append((turn, link_refs(turn_lo) if turn_lo in vault.learning_objects
-                                                 else None))
-                        answer_reason = _source_reason(past, written_from)
-                answer = delivered_answer_md(decoded)
-                if answer_reason is None and answer:
-                    entry["answer_shown"] = _excerpt(answer)
-                elif answer:
-                    entry["answer_left_out"] = answer_reason
-                    withheld_answers += 1
-                bucket.append(entry)
+                })
     topics: list[dict[str, Any]] = []
     readiness = _readiness(vault, repository, los, now_iso)
     for lo in los:
@@ -298,155 +256,11 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
         vault, repository, learning_object_ids=los, before_iso=now_iso, titles=titles)
     state = {"version": VERSION, "note": NOTE, "topics": topics}
     counts = {"topics": len(topics), "attempts": len(shown_attempts),
-              "exchanges": sum(len(v) for v in exchanges.values()), "answers_left_out": withheld_answers}
+              "exchanges": sum(len(v) for v in exchanges.values())}
     return ReaderLearnerState(state=state, confidence=confidence, learning_object_ids=tuple(los), counts=counts)
 
 
-def _span_key(value: Any) -> tuple[str, str] | None:
-    """A recorded span key, ``extraction/span`` (retrieval) or ``extraction:span`` (pins)."""
-
-    text = str(value or "")
-    for separator in ("/", ":"):
-        extraction, found, span = text.partition(separator)
-        if found and extraction and span:
-            return extraction, span
-    return None
-
-
-def _reference_refs(value: Any) -> list[dict[str, Any]] | None:
-    """The blocks a delivery's followed references added (``References.describe``), or None when unreadable."""
-
-    if value is None:
-        return []
-    if not isinstance(value, Mapping):
-        return None
-    refs: list[dict[str, Any]] = []
-    for entry in value.get("resolved") or ():
-        if not isinstance(entry, Mapping) or not entry.get("extraction_id"):
-            return None
-        spans = [str(span) for span in [entry.get("span_id"), *(entry.get("spans") or ())] if span]
-        refs.append({"extraction_id": str(entry["extraction_id"]), "span_ids": spans})
-    return refs
-
-
-def answer_source_refs(source_context: Any, linked: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]] | None:
-    """Every passage a stored practice or feedback answer may have been written
-    from, or None when they cannot be established (Codex review F1).
-
-    The tutor's context for such an answer is the item's own text (checked by
-    the item's protection) plus passages: the provider's (``source_retrieval``:
-    its ``span_keys`` and the references it followed) or, without one, the
-    item's learning object's linked passages, which no row records, so their
-    whole pool (``linked``, ``practice_leakage.teaching_link_refs``) counts,
-    with the references the delivery followed (``delivery.references``) and
-    the citations kept. A retrieval that says it delivered passages without
-    naming them, or a record that cannot be read, establishes nothing."""
-
-    if source_context is None:
-        source_context = {}
-    if not isinstance(source_context, Mapping):
-        return None
-    refs = [dict(ref) for ref in linked]
-    retrieval = source_context.get("source_retrieval")
-    if retrieval is not None:
-        if not isinstance(retrieval, Mapping):
-            return None
-        keys = retrieval.get("span_keys")
-        if retrieval.get("basis") in ("retrieved_verified", "pinned") or keys is not None:
-            if not isinstance(keys, list):
-                return None
-            for key in keys:
-                parsed = _span_key(key)
-                if parsed is None:
-                    return None
-                refs.append({"extraction_id": parsed[0], "span_ids": [parsed[1]]})
-        followed = _reference_refs(retrieval.get("references"))
-        if followed is None:
-            return None
-        refs += followed
-    delivery = source_context.get("delivery")
-    if delivery is not None:
-        if not isinstance(delivery, Mapping):
-            return None
-        followed = _reference_refs(delivery.get("references"))
-        if followed is None:
-            return None
-        refs += followed
-    for citation in source_context.get("citations") or ():
-        if not isinstance(citation, Mapping) or not citation.get("extraction_id") or not citation.get("span_id"):
-            return None
-        refs.append({"extraction_id": str(citation["extraction_id"]), "span_ids": [str(citation["span_id"])]})
-    return refs
-
-
-def _thread_turns(connection: Any, row: Mapping[str, Any]) -> list[dict[str, Any]] | None:
-    """Every earlier turn the tutor may have been given with this stored answer
-    (Codex re-review F1), decoded; a turn whose answer was withheld as worked
-    help is left out (its thread carried the take step, never the text).
-
-    ``tutor_qa._thread`` gives a practice answer the attempt's earlier answered
-    practice turns on the same item, and a feedback answer the earlier answered
-    feedback turns on the same graded attempt. This reads a superset of each:
-    every earlier answered turn of that context on that item (practice) or
-    attempt (feedback), whatever its window, session or attempt key. The set
-    is transitively closed: an earlier turn's own thread is earlier still and
-    keyed the same, so it is already in it. Rows are never rewritten, so their
-    recorded provenance is the record this reads. None: the thread cannot be
-    established (a row without its item or attempt), so neither can the answer's."""
-
-    from learnloop.tutor.tutor_qa import answer_withheld
-
-    context = row.get("context")
-    if context == "practice":
-        where, key = "practice_item_id = ?", row.get("practice_item_id")
-    elif context == "feedback":
-        where, key = "attempt_id = ?", row.get("attempt_id")
-    else:
-        return None
-    if not key:
-        return None
-    turns = [_decoded(dict(found)) for found in connection.execute(
-        f"SELECT * FROM question_events WHERE context = ? AND answer_status = 'answered' AND {where} "
-        "AND id != ? AND created_at <= ? ORDER BY created_at, id",
-        (context, key, row["id"], str(row.get("created_at") or "")),
-    )]
-    return [turn for turn in turns if not answer_withheld(turn)]
-
-
-def _source_reason(past: Any,
-                   written_from: Sequence[tuple[Mapping[str, Any], Sequence[Mapping[str, Any]] | None]]) -> str | None:
-    """Why a stored answer's passages withhold it now (exam or held-out material,
-    unreadable protection, or passages that cannot be established), or None.
-
-    ``written_from``: the answer and every earlier turn its thread gave it
-    (:func:`_thread_turns`), each with its item's linked passage pool (None:
-    the pool cannot be read, so nothing is established)."""
-
-    refs: list[dict[str, Any]] = []
-    for decoded, linked in written_from:
-        found = None if linked is None else answer_source_refs(decoded.get("source_context"), linked)
-        if found is None:
-            return ANSWER_SOURCES_UNKNOWN
-        refs += found
-    return past.source_reason(refs) if refs else None
-
-
-def _decoded(row: Mapping[str, Any]) -> dict[str, Any]:
-    """A raw ``question_events`` row as ``delivered_answer_md`` reads it (its source context decoded)."""
-
-    import json
-
-    out = dict(row)
-    raw = out.pop("source_context_json", None)
-    try:
-        out["source_context"] = json.loads(raw) if raw else None
-    except (TypeError, ValueError):
-        out["source_context"] = None
-    return out
-
-
 __all__ = [
-    "ANSWER_SOURCES_UNKNOWN",
     "ATTEMPT_LIMIT",
     "EXCHANGE_LIMIT",
     "NOTE",
@@ -459,7 +273,6 @@ __all__ = [
     "TEXT_LIMIT",
     "TOPIC_LIMIT",
     "VERSION",
-    "answer_source_refs",
     "build",
     "enabled",
     "omitted",

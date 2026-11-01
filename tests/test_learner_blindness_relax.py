@@ -4,8 +4,9 @@ docs/reviews/learner-blindness-relax.md. Four model contexts may now read the
 learner, each behind its own switch, none of them the grader:
 
 1. the Reader tutor (``reader_tutor.learner_state_enabled``): readiness in
-   words, TE0's confidence events and recent exchanges and outcomes on the
-   passage's topics, through ``learner_protection``; none during a cold
+   words, TE0's confidence events, outcomes and the learner's own questions
+   (never a stored tutor answer) on the passage's topics, through
+   ``learner_protection``; none during a cold
    administration; the reserved-surface and cold in-flight exclusions stay;
 2. the reader narrative (``digest.narrative_quotes_inquiry``): the learner's
    own inquiry words, with the cited-id, 120-word and well-marker checks;
@@ -142,11 +143,11 @@ def test_the_reader_tutor_reads_the_learner_state_through_the_protection(tmp_pat
     assert topic["readiness"] in RLS.READINESS_WORDS.values()
     # Outcomes in words, newest first, the probe left out.
     assert topic["recent_attempts"] == ["2026-09-02: wrong, unassisted", "2026-09-01: right, with 2 hints"]
-    # The learner's own question shows; the feedback answer (written with the
-    # rubric) does not, while the item can still be answered cold.
+    # The learner's own question shows; the tutor's stored answer never does
+    # (ruling R1: no stored answer text in the Reader learner state).
     [exchange] = topic["recent_tutor_questions"]
     assert "MY_OWN_FEEDBACK_QUESTION" in exchange["learner_question"]
-    assert exchange["answer_left_out"] and "answer_shown" not in exchange
+    assert set(exchange) == {"date", "when", "learner_question"}
     for hidden in ("SECRET_WORKED_SOLUTION", "PROBE_QUESTION_TEXT", "PROBE_ANSWER_TEXT"):
         assert hidden not in prompt
     # TE0's confidence events now reach the Reader too (the probe's tap left out).
@@ -159,20 +160,24 @@ def test_the_reader_tutor_reads_the_learner_state_through_the_protection(tmp_pat
     assert manifest["excluded"] == ["assessment_reserved_surface", "cold_in_flight_response"]
     assert manifest["learnerState"]["given"] is True and manifest["learnerState"]["learningObjectIds"] == ["lo_matrices"]
     stored = repository.question_events(context="reader")[-1]["source_context"]["learner_state"]
-    assert stored["counts"] == {"topics": 1, "attempts": 2, "exchanges": 1, "answers_left_out": 1}
+    assert stored["counts"] == {"topics": 1, "attempts": 2, "exchanges": 1}
     # No new evidence path: the Ask wrote no attempt, grade, claim or mastery.
     assert counts["after"] == counts["before"] and "practice_attempts" in counts["before"]
     assert seeded["plain"] != seeded["probe"]
 
 
-def test_a_tutor_answer_shows_once_its_item_can_no_longer_be_answered_cold(tmp_path, monkeypatch):
+def test_a_stored_tutor_answer_never_shows_even_once_its_item_can_no_longer_be_answered_cold(tmp_path, monkeypatch):
+    """Ruling R1: the learner state re-shows no stored answer text, whatever
+    the item's window; the learner's question and the outcomes still show."""
+
     paths, repository, tutor, ctx_factory = _reader(tmp_path, monkeypatch)
     seeded = _seed_learner(paths, repository)
     _attempt(paths.sqlite_path, "att_now_right", item_id=seeded["plain"], lo_id="lo_matrices",
              at="2026-09-04T09:00:00Z", correctness=1.0)
     _ask(ctx_factory, paths)
     [prompt] = tutor.prompts
-    assert "SECRET_WORKED_SOLUTION" in prompt
+    assert "SECRET_WORKED_SOLUTION" not in prompt
+    assert "MY_OWN_FEEDBACK_QUESTION" in prompt and "2026-09-04: right, unassisted" in prompt
     assert "PROBE_ANSWER_TEXT" not in prompt and "PROBE_QUESTION_TEXT" not in prompt
 
 
@@ -219,7 +224,7 @@ def test_the_prompt_contract_names_the_learner_state_only_while_on(tmp_path):
     assert RD.reader_prompt_contract() == RD._base_prompt_contract(branches=False)
 
 
-def test_a_bound_question_carries_no_earlier_tutor_answer_and_unreadable_protection_carries_nothing(
+def test_the_state_carries_no_stored_answer_and_unreadable_protection_carries_nothing(
         tmp_path, monkeypatch):
     from learnloop import learner_protection
     from tests.library_ask_fixtures import build_library_vault
@@ -230,10 +235,8 @@ def test_a_bound_question_carries_no_earlier_tutor_answer_and_unreadable_protect
              at="2026-09-04T09:00:00Z", correctness=1.0)
     vault = load_vault(paths.root)
     free = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso="2026-10-01T00:00:00Z")
-    bound = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso="2026-10-01T00:00:00Z",
-                      bound_item_id=seeded["plain"])
-    assert "SECRET_WORKED_SOLUTION" in json.dumps(free.state)
-    assert "SECRET_WORKED_SOLUTION" not in json.dumps(bound.state)
+    assert "SECRET_WORKED_SOLUTION" not in json.dumps(free.state)
+    assert "MY_OWN_FEEDBACK_QUESTION" in json.dumps(free.state)
     # Strictly before the ask: an attempt from later never shows.
     early = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso="2026-09-01T12:00:00Z")
     assert early.state["topics"][0]["recent_attempts"] == ["2026-09-01: right, with 2 hints"]

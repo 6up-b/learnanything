@@ -27,10 +27,9 @@ contamination, evidence leakage, exam leakage or unapproved spend.
   * **TE0's confidence events** (`confidence_events.safe_learner_events`), reversing TE0's default ruling that
     the Reader carries none;
   * **recent attempt outcomes** per topic ("2026-09-02: wrong, unassisted"; held grade = "held for review");
-  * **recent practice and feedback exchanges** per topic: the learner's own question always; the answer they
-    were shown only once its item can no longer be answered cold (`PastWork.solution_reason`: a feedback
-    answer was written with the rubric). Inside a workbench session bound to an item, no earlier tutor answer
-    is carried at all (the binding's guard plans every model-written text of the call).
+  * **the learner's own questions** from recent practice and feedback exchanges per topic. No stored tutor
+    answer text is carried, ever (landing step 0, ruling R1 below; this replaced the stage's "answer shown
+    once its item can no longer be answered cold", which Codex reopened twice on answer provenance).
 * **Protection** is the one authority, `learner_protection` (`withheld_items`, `PastWork.attempt_reason`,
   `evidence_reason`, held grades): exam and held-out work, reserved surfaces, items an open cold check holds and
   diagnostic probes contribute nothing; unreadable protection = no state (fail closed).

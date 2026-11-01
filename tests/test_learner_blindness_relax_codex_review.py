@@ -1,10 +1,9 @@
 """Learner-blindness relax, Codex review fixes (docs/reviews/learner-blindness-relax-codex-review.md).
 
-F1: a stored tutor answer the Reader tutor's learner state re-shows is checked
-against today's protection by the passages it may have been written from
-(the item's linked passage pool, the provider's recorded spans, followed
-references, citations); a passage marked held out since withholds it, and so
-do passages that cannot be established.
+F1: closed structurally (orchestrator ruling R1): the Reader tutor's learner
+state never re-shows stored tutor answer text, so no provenance chain can
+carry exam-derived text into it; the learner's own questions and outcomes
+still show.
 
 F2: with both RW1c switches off, a question naming a workbench session bound
 to an item carries no learner state (nothing guards the call or attaches its
@@ -19,6 +18,7 @@ Fakes only; no model call anywhere.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from learnloop import reader_learner_state as RLS
@@ -61,31 +61,44 @@ def _exchange(state: RLS.ReaderLearnerState) -> dict[str, Any]:
 
 
 # -- F1 ----------------------------------------------------------------------------------------------
+#
+# Closed structurally (orchestrator ruling R1): the Reader learner state never
+# re-shows stored tutor answer text, so no provenance chain (a held-out
+# passage, a retrieval, an earlier turn of the thread, a cross-item feedback
+# chain) can carry exam-derived text into it. The earlier reproductions are
+# kept: each now passes because the answer text is absent, before and after
+# the protection changes, while the learner's own question still shows.
 
 
-def test_a_stored_answer_whose_linked_passage_is_held_out_since_is_withheld(tmp_path, monkeypatch):
-    from learnloop import learner_protection
+def _texts(state: RLS.ReaderLearnerState) -> str:
+    return json.dumps(state.state)
 
+
+def _entries(state: RLS.ReaderLearnerState) -> list[dict[str, Any]]:
+    return state.state["topics"][0]["recent_tutor_questions"]
+
+
+def _assert_questions_only(state: RLS.ReaderLearnerState) -> None:
+    for entry in _entries(state):
+        assert set(entry) == {"date", "when", "learner_question"}, entry
+
+
+def test_a_stored_answer_whose_linked_passage_is_held_out_since_is_never_shown(tmp_path, monkeypatch):
     paths, repository, _seeded = _closed_window_vault(tmp_path)
     vault = load_vault(paths.root)
-    shown = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    assert "SECRET_WORKED_SOLUTION" in _exchange(shown)["answer_shown"]
-    # The item's learning object is linked to ext_book/s2; that passage is marked held out since.
-    _hold_out(monkeypatch, ("ext_book", "s2"))
-    held = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    exchange = _exchange(held)
-    # The item itself is still ordinary practice: the learner's own question shows ...
-    assert "MY_OWN_FEEDBACK_QUESTION" in exchange["learner_question"]
-    # ... and the answer, which may have been written from the held-out passage, does not.
-    assert "answer_shown" not in exchange
-    assert exchange["answer_left_out"] == learner_protection.WITHHELD_EXAM
-    assert "SECRET_WORKED_SOLUTION" not in json.dumps(held.state)
-    assert held.counts["answers_left_out"] == 1
+    before = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    assert "SECRET_WORKED_SOLUTION" not in _texts(before)
+    assert "MY_OWN_FEEDBACK_QUESTION" in _exchange(before)["learner_question"]
+    _hold_out(monkeypatch, ("ext_book", "s2"))  # the item's topic's linked passage
+    after = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    # The item is still ordinary practice: the learner's own question shows; no answer text ever does.
+    assert "MY_OWN_FEEDBACK_QUESTION" in _exchange(after)["learner_question"]
+    assert "SECRET_WORKED_SOLUTION" not in _texts(after)
+    _assert_questions_only(after)
+    assert set(after.counts) == {"topics", "attempts", "exchanges"}
 
 
-def test_a_stored_answer_retrieved_from_a_passage_held_out_since_is_withheld(tmp_path, monkeypatch):
-    from learnloop import learner_protection
-
+def test_a_stored_answer_retrieved_from_a_passage_held_out_since_is_never_shown(tmp_path, monkeypatch):
     paths, repository, seeded = _closed_window_vault(tmp_path)
     repository.insert_question_event({
         "context": "practice", "practice_item_id": seeded["plain"], "attempt_id": None,
@@ -94,40 +107,13 @@ def test_a_stored_answer_retrieved_from_a_passage_held_out_since_is_withheld(tmp
         "source_context": {"source_retrieval": {"basis": "retrieved_verified", "span_keys": ["ext_book/s11"]}},
     })
     vault = load_vault(paths.root)
-    before = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    assert "RETRIEVED_ANSWER_TEXT" in json.dumps(before.state)
-    _hold_out(monkeypatch, ("ext_book", "s11"))  # not a link of the item's topic: only the record names it
-    after = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    entries = after.state["topics"][0]["recent_tutor_questions"]
-    retrieved = next(entry for entry in entries if "RETRIEVED_QUESTION" in entry["learner_question"])
-    assert retrieved["answer_left_out"] == learner_protection.WITHHELD_EXAM
-    assert "RETRIEVED_ANSWER_TEXT" not in json.dumps(after.state)
-    # The other answer (linked passages only, none held out) still shows.
-    assert "SECRET_WORKED_SOLUTION" in json.dumps(after.state)
-
-
-def test_an_answer_whose_passages_cannot_be_established_is_withheld():
-    linked = [{"extraction_id": "ext_a", "span_ids": ["a1"]}]
-    # Nothing recorded: the linked pool is what it was drawn from.
-    assert RLS.answer_source_refs(None, linked) == linked
-    refs = RLS.answer_source_refs({
-        "source_retrieval": {"basis": "pinned", "span_keys": ["ext_p:p1"],
-                             "references": {"resolved": [{"extraction_id": "ext_r", "span_id": "r1",
-                                                          "spans": ["r1", "r2"]}], "unresolved": []}},
-        "delivery": {"references": {"resolved": [{"extraction_id": "ext_d", "span_id": "d1", "spans": []}]}},
-        "citations": [{"extraction_id": "ext_c", "span_id": "c1", "label": "x"}],
-    }, linked)
-    assert {(ref["extraction_id"], tuple(ref["span_ids"])) for ref in refs} == {
-        ("ext_a", ("a1",)), ("ext_p", ("p1",)), ("ext_r", ("r1", "r1", "r2")), ("ext_d", ("d1",)),
-        ("ext_c", ("c1",))}
-    # A retrieval that delivered passages without naming them, or an unreadable record: nothing established.
-    assert RLS.answer_source_refs({"source_retrieval": {"basis": "retrieved_verified"}}, linked) is None
-    assert RLS.answer_source_refs({"source_retrieval": {"basis": "pinned", "span_keys": ["nokey"]}}, linked) is None
-    assert RLS.answer_source_refs({"source_retrieval": "garbled"}, linked) is None
-    assert RLS.answer_source_refs({"citations": [{"label": "no span"}]}, linked) is None
-    assert RLS.answer_source_refs("garbled", linked) is None
-    # A failed retrieval fell back to the linked passages: the pool covers it.
-    assert RLS.answer_source_refs({"source_retrieval": {"basis": "lo_provenance", "reason": "x"}}, linked) == linked
+    for held_out in (False, True):
+        if held_out:
+            _hold_out(monkeypatch, ("ext_book", "s11"))
+        state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+        assert "RETRIEVED_ANSWER_TEXT" not in _texts(state) and "SECRET_WORKED_SOLUTION" not in _texts(state)
+        assert any("RETRIEVED_QUESTION" in entry["learner_question"] for entry in _entries(state))
+        _assert_questions_only(state)
 
 
 def _retrieved_turn(repository: Any, item_id: str, *, context: str, attempt_id: str | None, question: str,
@@ -139,12 +125,9 @@ def _retrieved_turn(repository: Any, item_id: str, *, context: str, attempt_id: 
     })
 
 
-def test_a_later_turn_that_was_given_an_earlier_turn_from_a_passage_held_out_since_is_withheld(
-        tmp_path, monkeypatch):
-    """Codex re-review F1: Q1 was written from S, Q2 from clean T with Q1 in its
-    thread (``tutor_qa._thread``); S held out since withholds both answers."""
-
-    from learnloop import learner_protection
+def test_a_later_turn_given_an_earlier_turn_from_a_passage_held_out_since_shows_no_answer(tmp_path, monkeypatch):
+    """Codex re-review F1 (Q1 from S, Q2 from clean T with Q1 in its thread):
+    neither answer is in the state, before or after S is held out."""
 
     paths, repository, seeded = _closed_window_vault(tmp_path)
     plain = seeded["plain"]
@@ -153,56 +136,78 @@ def test_a_later_turn_that_was_given_an_earlier_turn_from_a_passage_held_out_sin
     _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="Q2_THREAD_QUESTION",
                     answer="Q2_ANSWER_RESTATING_Q1", at="2026-09-05T09:05:00Z", span_key="ext_book/s12")
     vault = load_vault(paths.root)
-    before = json.dumps(RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW).state)
-    assert "Q1_ANSWER_FROM_S" in before and "Q2_ANSWER_RESTATING_Q1" in before
-    _hold_out(monkeypatch, ("ext_book", "s11"))
-    after = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    entries = {entry["learner_question"]: entry for entry in after.state["topics"][0]["recent_tutor_questions"]}
-    text = json.dumps(after.state)
-    assert "Q1_ANSWER_FROM_S" not in text and "Q2_ANSWER_RESTATING_Q1" not in text
-    assert entries["Q1_THREAD_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
-    assert entries["Q2_THREAD_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
-    # The feedback answer's thread (its own attempt's feedback turns) never held Q1: it still shows.
-    assert "SECRET_WORKED_SOLUTION" in text
+    for held_out in (False, True):
+        if held_out:
+            _hold_out(monkeypatch, ("ext_book", "s11"))
+        state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+        text = _texts(state)
+        assert "Q1_ANSWER_FROM_S" not in text and "Q2_ANSWER_RESTATING_Q1" not in text
+        assert "Q1_THREAD_QUESTION" in text and "Q2_THREAD_QUESTION" in text
+        _assert_questions_only(state)
 
 
-def test_a_feedback_turn_inherits_the_earlier_feedback_turns_of_its_attempt(tmp_path, monkeypatch):
-    from learnloop import learner_protection
-
+def test_an_earlier_feedback_turn_of_the_attempt_carries_no_answer(tmp_path, monkeypatch):
     paths, repository, seeded = _closed_window_vault(tmp_path)
     plain = seeded["plain"]
-    # An earlier feedback turn on the same attempt as the seeded one, written from S.
     _retrieved_turn(repository, plain, context="feedback", attempt_id="att_last_wrong",
                     question="EARLIER_FEEDBACK_QUESTION", answer="EARLIER_FEEDBACK_FROM_S",
                     at="2026-09-02T09:30:00Z", span_key="ext_book/s11")
-    # A later practice turn on the item is not in that attempt's feedback thread.
     _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="LATER_PRACTICE",
                     answer="LATER_PRACTICE_ANSWER", at="2026-09-05T09:00:00Z", span_key="ext_book/s12")
     _hold_out(monkeypatch, ("ext_book", "s11"))
     vault = load_vault(paths.root)
     state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    entries = {entry["learner_question"].split(" ")[0]: entry
-               for entry in state.state["topics"][0]["recent_tutor_questions"]}
-    assert entries["MY_OWN_FEEDBACK_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
-    assert "SECRET_WORKED_SOLUTION" not in json.dumps(state.state)
-    assert "LATER_PRACTICE_ANSWER" in json.dumps(state.state)
+    text = _texts(state)
+    for answer in ("SECRET_WORKED_SOLUTION", "EARLIER_FEEDBACK_FROM_S", "LATER_PRACTICE_ANSWER"):
+        assert answer not in text
+    assert "MY_OWN_FEEDBACK_QUESTION" in text and "LATER_PRACTICE" in text
+    _assert_questions_only(state)
 
 
-def test_an_earlier_turn_whose_passages_cannot_be_established_withholds_the_later_answer(tmp_path):
+def test_a_cross_item_feedback_chain_carries_no_answer(tmp_path, monkeypatch):
+    """Codex job 20261101-160205-68yc5y: attempt A, an explicit item B, a later
+    turn restating B's solution, then B exam-protected. No answer text from any
+    turn is in the state; B's own exchanges leave with B's protection."""
+
+    from learnloop import learner_protection
+
     paths, repository, seeded = _closed_window_vault(tmp_path)
-    plain = seeded["plain"]
-    repository.insert_question_event({
-        "context": "practice", "practice_item_id": plain, "attempt_id": None, "question_md": "Q1_UNNAMED",
-        "answer_md": "Q1_UNNAMED_ANSWER", "answer_status": "answered", "created_at": "2026-09-05T09:00:00Z",
-        "source_context": {"source_retrieval": {"basis": "retrieved_verified"}},
-    })
-    _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="Q2_CLEAN",
-                    answer="Q2_CLEAN_ANSWER", at="2026-09-05T09:05:00Z", span_key="ext_book/s12")
     vault = load_vault(paths.root)
-    state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
-    entries = {entry["learner_question"]: entry for entry in state.state["topics"][0]["recent_tutor_questions"]}
-    assert entries["Q2_CLEAN"]["answer_left_out"] == RLS.ANSWER_SOURCES_UNKNOWN
-    assert "Q2_CLEAN_ANSWER" not in json.dumps(state.state)
+    plain = seeded["plain"]
+    other = next(item_id for item_id, item in sorted(vault.practice_items.items())
+                 if item.learning_object_id == "lo_matrices" and item_id not in (plain, seeded["probe"]))
+    _retrieved_turn(repository, other, context="practice", attempt_id=None, question="ASK_ABOUT_B",
+                    answer="B_WORKED_SOLUTION", at="2026-09-05T09:00:00Z", span_key="ext_book/s12")
+    _retrieved_turn(repository, plain, context="feedback", attempt_id="att_now_right",
+                    question="LATER_ASK_ON_A", answer="RESTATES_B_WORKED_SOLUTION", at="2026-09-05T09:10:00Z",
+                    span_key="ext_book/s12")
+    before = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    assert "ASK_ABOUT_B" in _texts(before) and "LATER_ASK_ON_A" in _texts(before)
+    real = learner_protection.withheld_items
+
+    def protect_b(*args: Any, **kwargs: Any) -> Any:
+        found = real(*args, **kwargs)
+        return replace(found, reasons={**found.reasons, other: learner_protection.WITHHELD_EXAM})
+
+    monkeypatch.setattr(learner_protection, "withheld_items", protect_b)
+    after = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    for state in (before, after):
+        text = _texts(state)
+        assert "B_WORKED_SOLUTION" not in text and "SECRET_WORKED_SOLUTION" not in text
+        _assert_questions_only(state)
+    assert "ASK_ABOUT_B" not in _texts(after)  # B's exchange leaves with B's protection
+    assert "LATER_ASK_ON_A" in _texts(after)  # the learner's own words on A stay
+
+
+def test_the_module_never_reads_stored_answer_text():
+    """Structural pin for ruling R1: the Reader learner state selects no answer
+    column and imports none of the tutor's answer readers."""
+
+    import inspect
+
+    source = inspect.getsource(RLS)
+    for name in ("answer_md", "delivered_answer_md", "SELECT *", "tutor_qa", "source_context_json"):
+        assert name not in source, name
 
 
 # -- F2 ----------------------------------------------------------------------------------------------

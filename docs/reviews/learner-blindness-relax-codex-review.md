@@ -231,3 +231,47 @@ These steps did not apply and were not run:
 - Only `src/learnloop/reader_learner_state.py` and its test file changed.
 - No config key, CLI surface, migration, DB or connection code, frontend or `src-tauri` changed.
 - No new constant was added.
+
+## Second re-review (Codex job `20261101-160205-68yc5y`, verdict REOPENED) and structural close
+
+Codex reopened F1 a second time, again on the transitive provenance of stored tutor answer text that the Reader
+learner state re-showed (`answer_shown`). The scenario was a cross-item feedback chain: attempt A, an explicit item
+B, a later turn restating B's solution, and B then exam-protected. F2 and F3 stayed confirmed fixed.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | REOPENED: a stored answer can restate another item's solution through a cross-item feedback chain | closed structurally | step-0 commit (see the landing record) | `tests/test_learner_blindness_relax_codex_review.py::test_a_cross_item_feedback_chain_carries_no_answer`, `::test_the_module_never_reads_stored_answer_text`, and the earlier F1 reproductions, which now pass because no answer text is present |
+| F2 | High | Unrelated switches disable the new state path's cold protection | confirmed fixed (no change) | `adb862f63e` | unchanged |
+| F3 | Medium | Prior workbench traces are omitted from diagnosis provenance | confirmed fixed (no change) | `adb862f63e` | unchanged |
+
+**What changed (stuck-loop rule, owner principle: include learner data when beneficial, leave it out when it is
+noise).** The Reader learner state no longer re-shows stored tutor, practice or feedback answer text at all. It
+carries:
+
+- readiness in words;
+- confidence events;
+- recent attempt outcomes (result class, date, help);
+- the learner's own question text from recent practice and feedback exchanges, filtered through
+  `learner_protection` as before (`PastWork.evidence_reason` on the item and the attempt).
+
+The query selects the question columns only, never `answer_md` or `source_context_json`. Removed: `answer_shown`,
+`answer_left_out`, the `answers_left_out` count, `answer_source_refs`, `_thread_turns`, `_source_reason`,
+`_decoded`, `ANSWER_SOURCES_UNKNOWN`, the `bound_item_id` parameter (it only suppressed answers), and
+`practice_leakage.teaching_link_refs` (only this module used it). The tutor prompt's learner-state sentence and the
+Reader prompt contract now say "their own questions … never the answers they were given". The learner's own attempt
+answer was never part of the state, and still is not. The F2 session resolution in
+`learnloop_sidecar.handlers.reader_tutor.learner_state` and the F3 trace fold are unchanged.
+
+**Tests.** No stored answer text appears in any of these scenarios, before or after the protection changes:
+
+- the held-out linked passage;
+- the retrieved passage;
+- the two-turn thread;
+- the feedback thread;
+- the cross-item chain.
+
+Each entry has exactly `date`, `when` and `learner_question`. Learner questions and outcomes still show. A source
+pin (`test_the_module_never_reads_stored_answer_text`) checks that the module selects no answer column and imports
+none of the tutor's answer readers.
+
+orchestrator ruling: F1 class closed by structural simplification (no stored answer text in Reader learner state)
