@@ -76,6 +76,9 @@ export interface UseIntentBoxArgs {
   canWorkThrough: boolean;
   /** Reader CA6b: effects this pane's palette leaves out (absent: none, the main pane). */
   hiddenKinds?: ReadonlyArray<string>;
+  /** Reader CA6b (Codex review F7): side by side's second pane. Its routings
+   *  ask the sidecar for that pane's actions only (absent: the main pane). */
+  sidePane?: boolean;
   hostRef: RefObject<HTMLDivElement | null>;
   /** Run an action; a capture or import resolves to what "change" may undo. */
   onRun: (action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void;
@@ -88,7 +91,7 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 export function useIntentBox(args: UseIntentBoxArgs) {
-  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hiddenKinds, hostRef, onRun, onCancelRun } = args;
+  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hiddenKinds, sidePane, hostRef, onRun, onCancelRun } = args;
   const enabled = contract !== null && extractionId !== null;
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState(false);
@@ -106,8 +109,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   const lastRun = useRef<Promise<IntentRunHandle | null>>(Promise.resolve(null));
   const focusPalette = useRef(false);
   const epoch = useRef(0);
-  const latest = useRef({ extractionId, spanIds, quote, notes });
-  latest.current = { extractionId, spanIds, quote, notes };
+  const latest = useRef({ extractionId, spanIds, quote, notes, sidePane: Boolean(sidePane) });
+  latest.current = { extractionId, spanIds, quote, notes, sidePane: Boolean(sidePane) };
 
   const groups = contract ? visiblePalette(contract, { notes, protectedSelection, canWorkThrough, ...(hiddenKinds ? { hiddenKinds } : {}) }) : [];
   const actionsRef = useRef<ReaderIntentActionDto[]>([]);
@@ -220,7 +223,10 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     const where = latest.current;
     if (!contract?.speculative || !where.extractionId || protectedSelection || !words) return;
     const first = api
-      .readerRouteIntent({ extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes })
+      .readerRouteIntent({
+        extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes,
+        ...(where.sidePane ? { sidePane: true } : {}),
+      })
       .then((answer) => (answer.status === "not_made" ? null : answer))
       .catch(() => null);
     const started = first.then((answer) => answer?.routingId || null);
@@ -241,9 +247,12 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     }, contract.speculateAfterMs);
   }, [contract, discardSpeculation, speculate]);
 
-  const actionFor = useCallback((routing: ReaderIntentRoutingDto | null): ReaderIntentActionDto => {
-    if (!routing || routing.status !== "routed" || !routing.action) return FALLBACK_ASK;
-    return actionsRef.current.find((action) => action.id === routing.action) ?? FALLBACK_ASK;
+  /** The action a routing runs here, and whether it is the routed one: a
+   *  routed action this box does not offer runs Ask instead (Codex review F7). */
+  const actionFor = useCallback((routing: ReaderIntentRoutingDto | null): { action: ReaderIntentActionDto; substituted: boolean } => {
+    if (!routing || routing.status !== "routed" || !routing.action) return { action: FALLBACK_ASK, substituted: false };
+    const offered = actionsRef.current.find((action) => action.id === routing.action);
+    return offered ? { action: offered, substituted: false } : { action: FALLBACK_ASK, substituted: true };
   }, []);
 
   const submit = useCallback(async () => {
@@ -276,6 +285,7 @@ export function useIntentBox(args: UseIntentBoxArgs) {
         const where = latest.current;
         const first = await api.readerRouteIntent({
           extractionId: where.extractionId ?? "", spanIds: where.spanIds, text: words, quote: where.quote, speculative: false, notes: where.notes,
+          ...(where.sidePane ? { sidePane: true } : {}),
         });
         routing = await settle(first);
       }
@@ -287,14 +297,17 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     }
     if (mine !== epoch.current) return;
     // Every routing whose action runs reports its use, Enter-only and
-    // speculative alike (the report's correction denominator, F12).
+    // speculative alike (the report's correction denominator, F12). A routed
+    // action this box does not offer never runs: Ask does, and the routing is
+    // recorded as not used (Codex review F7), so nothing says it ran.
+    const { action, substituted } = actionFor(routing);
     if (routing?.routingId && (routing.status === "routed" || routing.status === "fallback")) {
-      void api.readerIntentOutcome({ routingId: routing.routingId, outcome: "used" }).catch(() => undefined);
+      void api.readerIntentOutcome({ routingId: routing.routingId, outcome: substituted ? "discarded" : "used" }).catch(() => undefined);
     }
-    const action = actionFor(routing);
-    setRouted({ action, routingId: routing?.status === "routed" ? routing.routingId : null, reason: routing?.reason ?? (routing ? null : "unavailable") });
+    const ran = substituted ? null : routing;
+    setRouted({ action, routingId: ran?.status === "routed" ? ran.routingId : null, reason: substituted ? "not_offered" : routing?.reason ?? (routing ? null : "unavailable") });
     setPhase("landed");
-    lastRun.current = Promise.resolve(onRun(action, words, { entry: "box", routingId: routing?.routingId ?? null }) ?? null).catch(() => null);
+    lastRun.current = Promise.resolve(onRun(action, words, { entry: "box", routingId: ran?.routingId ?? null }) ?? null).catch(() => null);
   }, [text, protectedSelection, onRun, reset, discard, discardSpeculation, settle, actionFor]);
 
   const openPalette = useCallback(() => {

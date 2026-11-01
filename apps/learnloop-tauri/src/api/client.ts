@@ -1596,7 +1596,7 @@ export const api = {
   // Reader workbench RW1b: the intent box's router (start, read, outcome) and
   // active reading (a question on a selection, its status and actions,
   // "reconstruct this later" and its undo).
-  readerRouteIntent: (input: { extractionId: string; spanIds: string[]; text: string; quote?: string; speculative?: boolean; notes?: boolean }) =>
+  readerRouteIntent: (input: { extractionId: string; spanIds: string[]; text: string; quote?: string; speculative?: boolean; notes?: boolean; sidePane?: boolean }) =>
     call<ReaderIntentRoutingDto>("reader_route_intent", { input }),
   readerIntentRouting: (input: { routingId: string; waitMs?: number }) =>
     call<ReaderIntentRoutingDto>("reader_intent_routing", { input }),

@@ -50,7 +50,9 @@ export function IntentBox({ box }: { box: IntentBoxController }) {
           <div role="status" aria-live="polite" style={{ display: "flex", gap: 8, alignItems: "baseline", color: COLOR.textDim }}>
             <span>→ {routedLine(routed.action, words)}</span>
             {routed.reason && routed.action.id === "ask" ? (
-              <MeaningLabel style={{ fontSize: 10 }}>(LearnLoop's model couldn't choose, so this asks)</MeaningLabel>
+              <MeaningLabel style={{ fontSize: 10 }}>{routed.reason === "not_offered"
+                ? "(that isn't on offer here, so this asks)"
+                : "(LearnLoop's model couldn't choose, so this asks)"}</MeaningLabel>
             ) : null}
             <button type="button" onClick={box.change} style={{ ...linkStyle, marginLeft: "auto" }}>{INTENT_COPY.change}</button>
           </div>

@@ -103,6 +103,7 @@ export function useSidePane(input: SidePaneInput) {
     notes,
     canWorkThrough: false,
     hiddenKinds: SIDE_PANE_HIDDEN_KINDS,
+    sidePane: true,
     hostRef,
     onRun,
     onCancelRun,

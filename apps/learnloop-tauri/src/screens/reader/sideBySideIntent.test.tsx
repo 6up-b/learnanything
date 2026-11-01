@@ -195,7 +195,7 @@ async function route(action: string, words = "why is this true?") {
   await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
   await waitFor(() => expect(api.readerRouteIntent).toHaveBeenCalled());
   expect(api.readerRouteIntent).toHaveBeenLastCalledWith({
-    extractionId: "ext_axler", spanIds: ["ax7a_1"], text: words, quote: SIDE_TEXT, speculative: false, notes: false,
+    extractionId: "ext_axler", spanIds: ["ax7a_1"], text: words, quote: SIDE_TEXT, speculative: false, notes: false, sidePane: true,
   });
 }
 
@@ -554,3 +554,19 @@ it("F3: try again after a failed second-pane Ask asks the same request (its book
   expect(first).toMatchObject({ extractionId: "ext_axler", spanId: "ax7a_1", answerMode: "help_me_reason", selectionSpanIds: ["ax7a_1"], selectionQuote: SIDE_TEXT });
   expect(second).toEqual(first);
 });
+
+it.each([["work_through"], ["what_matters_here"]])(
+  "F7: a routing naming %s (not on the second pane's palette) runs Ask on that pane's book and records the routing as not used",
+  async (action) => {
+    state.contract = { ...ON, readingPaths: { enabled: true }, workbench: true };
+    await openSideBySide();
+    await route(action, "go through it");
+    await waitFor(() => expect(api.readerAsk).toHaveBeenCalled());
+    expect(api.readerAsk.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanId: "ax7a_1", question: "go through it" });
+    await waitFor(() => expect(api.readerIntentOutcome).toHaveBeenCalled());
+    expect(api.readerIntentOutcome).toHaveBeenCalledWith({ routingId: `r_${action}`, outcome: "discarded" });
+    expect(api.readerIntentOutcome).not.toHaveBeenCalledWith({ routingId: `r_${action}`, outcome: "used" });
+    // The box says what ran, and why.
+    expect(within(pane()!).getByText("(that isn't on offer here, so this asks)")).toBeTruthy();
+  },
+);

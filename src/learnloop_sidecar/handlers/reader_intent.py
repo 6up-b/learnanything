@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from learnloop.attempts.salience_firewall import salience_payload
@@ -194,7 +194,8 @@ class IntentRoutings:
         self._kept: dict[str, _Running] = {}
 
     def start(self, ctx: SidecarContext, vault: Any, repository: Any, *, text: str, quote: str,
-              extraction_id: str, span_ids: list[str], speculative: bool, notes: bool = False) -> _Running:
+              extraction_id: str, span_ids: list[str], speculative: bool, notes: bool = False,
+              side_pane: bool = False) -> _Running:
         routing_id = f"rint_{time.time_ns():x}"
         running = _Running(routing_id, extraction_id, speculative, time.monotonic())
         with self._lock:
@@ -215,7 +216,7 @@ class IntentRoutings:
                 }, subject_id=extraction_id)
                 running.routing = RI.route(
                     root, config, worker_repo, text=text, quote=quote, extraction_id=extraction_id,
-                    span_ids=span_ids, available=RI.Availability.from_config(config, notes=notes),
+                    span_ids=span_ids, available=_availability(config, notes=notes, side_pane=side_pane),
                     speculative=speculative,
                     client_factory=factory, routing_id=routing_id,
                 )
@@ -257,6 +258,16 @@ class IntentRoutings:
             return self._kept.get(routing_id)
 
 
+def _availability(config: Any, *, notes: bool, side_pane: bool) -> RI.Availability:
+    """The actions the box that asked can run. Reader CA6b (Codex review F7):
+    side by side's second pane runs neither the open book's working posture
+    (*work through this*) nor its Guide's reading path (*what matters here?*),
+    so the Decider is never offered them there."""
+
+    available = RI.Availability.from_config(config, notes=notes)
+    return replace(available, workbench=False, reading_paths=False) if side_pane else available
+
+
 def _routings(ctx: SidecarContext) -> IntentRoutings:
     routings = getattr(ctx, "reader_intent_routings", None)
     if routings is None:
@@ -284,6 +295,9 @@ class ReaderRouteIntentInput(ParamsModel):
     speculative: bool = False
     # The learner's own notes: the Decider is offered the anchor-free actions only.
     notes: bool = False
+    # Reader CA6b: asked from side by side's second pane (none of the open
+    # book's own views is offered: work through this, what matters here?).
+    side_pane: bool = False
 
 
 @method("reader.route_intent", ReaderRouteIntentInput)
@@ -306,7 +320,7 @@ def reader_route_intent(ctx: SidecarContext, params: ReaderRouteIntentInput) -> 
                                                         reason=reason).as_dict()})
     running = _routings(ctx).start(ctx, vault, repository, text=text, quote=params.quote,
                                    extraction_id=extraction_id, span_ids=spans, speculative=params.speculative,
-                                   notes=params.notes)
+                                   notes=params.notes, side_pane=params.side_pane)
     return versioned(_routing_payload(running))
 
 
