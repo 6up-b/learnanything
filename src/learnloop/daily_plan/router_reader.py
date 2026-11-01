@@ -25,27 +25,42 @@ text:
   stop), never a choice;
 * **the latest narrative**, labelled model-written, with its cited ids.
 
-**Data for the router, not a decision input today.** The card builder
-(``daily_plan.router_card``) puts it on ``LearnerStateCard.reader_activity``,
-outside the typed card, its text, its hash and its token count, so the stored
-cards, every router model's input and every decision are unchanged (router
-R2's rendering of it as a "Reader activity" section is a later step: moving
-it into the hashed card changes what the router models read, which needs its
-own successor). **Nothing in it is evidence** (W1): no scoring, scheduling,
-projection, grading or serving path reads it.
+**The card's "Reader activity" section** (router R2, spec §9.2; Codex review
+F1). The card builder (``daily_plan.router_card``) puts :func:`for_card`'s
+bounded copy in the card's typed evidence registry
+(``evidence_sections.reader_activity``, R2a's hook, as R2c's teach-back
+summaries) and ``router.card.render_text`` renders it, so the router models
+read it at the next block boundary. With no reader activity on the
+candidates' LOs, or with ``digest.enabled`` off, the card is the
+predecessor's byte for byte. **Nothing in it is evidence** (W1): no scoring,
+scheduling, projection, grading or serving path reads it, and the router
+never cites it as evidence.
+
+**As of** (Codex review F5). Every read is bounded by ``as_of``: digest rows
+created and ended before it; an inquiry's status from its
+``inquiry_status_set`` events before it; a follow-up's disposition and date
+from its commitment events and versions before it; a claim's answer from its
+facet curve's points before it; a gap's reversal and a probe episode's close
+before it; the narrative from its ``judgment_ledger`` verdict before it. Two
+inputs are read as they are now, because no history of them is kept: a
+rival's facet marginal and a causal factor's pending decision (they stay
+listed, with their source rows) and a digest row's summary rewritten by a
+later re-plan of the same session.
 
 Its reads are bounded by RW6b's digest rows (one per reader session with
-activity) whose sessions touched these LOs; it reads strictly before
-``as_of``. Absent (None) with ``digest.enabled`` or ``reader_inquiry.enabled``
-off. Exam material (the one predicate, ``exam_withheld``): an inquiry
-anchored in a withheld passage keeps its entry and never its words (fail
-closed when the predicate cannot be read).
+activity) whose sessions touched these LOs. Absent (None) with
+``digest.enabled`` or ``reader_inquiry.enabled`` off; the narrative also
+with ``digest.narrative_enabled`` off (Codex review F4). Exam material (the
+one predicate, ``exam_withheld``): an inquiry anchored in a withheld passage
+keeps its entry and never its words (fail closed when the predicate cannot
+be read).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
+import json
 import logging
 from typing import Any
 
@@ -59,11 +74,28 @@ ACTIVITY_VERSION = "reader_activity_v1"
 AUTHORITY = "routing_only"
 #: The root question's excerpt (the recap's own excerpt length).
 EXCERPT_CHARS = 140
+#: The narrative's ``judgment_ledger`` verdict (``instructional.reader_digest``'s
+#: ``LEDGER_TASK`` / ``LEDGER_LEFT``; restated: the plan never imports the service).
+NARRATIVE_LEDGER_TASK = "reader_digest_narrative"
+NARRATIVE_LEDGER_LEFT = "reader_session_digest"
 #: The sections of ``ReaderActivityV1``, in order.
 SECTIONS: tuple[str, ...] = (
     "open_inquiries", "assisted_only", "pending_followups", "missed_predictions", "open_hypotheses",
     "formative_records", "kept_comparisons", "candidate_actions", "narrative",
 )
+#: The card's evidence-registry key (``evidence_sections.reader_activity``).
+CARD_SECTION = "reader_activity"
+#: keep: a prompt-size bound, not a judgment (router R2c's teach-back
+#: ``CARD_LIMIT`` precedent). Each list section of the card's copy keeps this
+#: many entries (the newest, or the soonest due) and states how many it left
+#: out; ``reader_activity_for_card`` itself returns everything.
+CARD_LIST_LIMIT = 6
+_LIST_SECTIONS = tuple(name for name in SECTIONS if name != "narrative")
+#: Lists ordered oldest first, whose newest entries the card keeps.
+_NEWEST_LAST = frozenset({"open_inquiries", "missed_predictions", "open_hypotheses", "formative_records",
+                          "kept_comparisons"})
+#: A probe episode's statuses while it is open (``probe_episodes``).
+_EPISODE_OPEN = frozenset({"pending_items", "in_progress"})
 
 
 def reader_activity_enabled(vault: Any) -> bool:
@@ -73,6 +105,15 @@ def reader_activity_enabled(vault: Any) -> bool:
     config = vault.config
     return bool(getattr(getattr(config, "digest", None), "enabled", True)) and bool(
         getattr(getattr(config, "reader_inquiry", None), "enabled", True))
+
+
+def narrative_enabled(vault: Any) -> bool:
+    """``digest.narrative_enabled`` (under ``digest.enabled``): off, no saved
+    narrative reaches the section (Codex review F4). Read from the config
+    here: the daily plan never imports the instructional service."""
+
+    digest = getattr(vault.config, "digest", None)
+    return bool(getattr(digest, "enabled", True)) and bool(getattr(digest, "narrative_enabled", True))
 
 
 def _ids(values: Iterable[Any]) -> list[str]:
@@ -155,6 +196,39 @@ def _inquiry_tree(history: Sequence[Mapping[str, Any]], cutoff: datetime | None)
     return trees
 
 
+def _status_events(repository: Any) -> dict[str, list[dict[str, Any]]]:
+    """Each inquiry root's ``inquiry_status_set`` events, oldest first."""
+
+    from learnloop.reader import recap as RC
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    for event in RC._action_events(repository, ("inquiry_status_set",)):
+        payload = event.get("payload") or {}
+        root_id = str(payload.get("root_exchange_id") or "")
+        if root_id:
+            out.setdefault(root_id, []).append({"at": event.get("created_at"),
+                                                "resolution": payload.get("resolution"),
+                                                "previous": payload.get("previous_resolution")})
+    for events in out.values():
+        events.sort(key=lambda e: str(e.get("at") or ""))
+    return out
+
+
+def _resolution_as_of(root: Mapping[str, Any], events: Sequence[Mapping[str, Any]],
+                      cutoff: datetime | None) -> str:
+    """The inquiry's status as it stood at ``cutoff`` (Codex review F5): the
+    last status event before it; before its first event, that event's
+    previous status. With no event at all, its current status."""
+
+    current = str(root.get("resolution") or "open")
+    if cutoff is None or not events:
+        return current
+    earlier = [event for event in events if _before(event.get("at"), cutoff)]
+    if earlier:
+        return str(earlier[-1].get("resolution") or "open")
+    return str(events[0].get("previous") or "open")
+
+
 def _open_inquiries(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]], lo_ids: set[str],
                     cutoff: datetime | None) -> list[dict[str, Any]]:
     from learnloop.reader import reader_dialogue as RD
@@ -168,6 +242,7 @@ def _open_inquiries(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
                 if line.get("root_exchange_id"):
                     roots_by_extraction.setdefault(str(row["extraction_id"]), set()).add(str(line["root_exchange_id"]))
     out: list[dict[str, Any]] = []
+    statuses = _status_events(repository) if roots_by_extraction else {}
     for extraction_id, wanted in sorted(roots_by_extraction.items()):
         trees = _inquiry_tree(RD.ask_history(repository, extraction_id=extraction_id, branches=True), cutoff)
         for root_id in sorted(wanted):
@@ -175,7 +250,8 @@ def _open_inquiries(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
             if tree is None:
                 continue
             root = tree["root"]
-            if (root.get("resolution") or "open") != "open" or not root.get("question_event_id"):
+            if (_resolution_as_of(root, statuses.get(root_id) or (), cutoff) != "open"
+                    or not root.get("question_event_id")):
                 continue
             spans = _ids(root.get("selection_span_ids") or ()) or _ids((root.get("span_id"),))
             los: list[str] = []
@@ -208,7 +284,7 @@ def _open_inquiries(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
 
 
 def _assisted_only(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]], facets: set[str],
-                   lo_ids: set[str]) -> list[dict[str, Any]]:
+                   lo_ids: set[str], cutoff: datetime | None) -> list[dict[str, Any]]:
     claims: dict[str, dict[str, Any]] = {}
     for row in rows:
         summary = row.get("summary") or {}
@@ -234,13 +310,15 @@ def _assisted_only(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]
     if not claims:
         return []
     # Answered since: an unassisted success on the facet's Demonstrated curve
-    # after the session's start (RW6a's own definition of the claim).
+    # after the session's start (RW6a's own definition of the claim), from
+    # the curve's points before ``as_of`` (Codex review F5).
     try:
         from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
         from learnloop.reader import recap as RC
 
         curves = facet_evidence_timelines(vault, repository, sorted(claims))
         for facet, points in curves.items():
+            points = [point for point in points if _before(getattr(point, "t", None), cutoff)]
             if facet in claims and RC._effective_success_since(points, str(claims[facet]["since"])):
                 claims.pop(facet)
     except Exception:  # noqa: BLE001 - unreadable curves: the claims stand as recorded
@@ -248,8 +326,9 @@ def _assisted_only(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]
     return [claims[facet] for facet in sorted(claims)]
 
 
-def _due_hint(repository: Any, commitment_id: str) -> str | None:
-    versions = sorted(repository.commitment_versions_for(commitment_id), key=lambda r: int(r["version"]))
+def _due_hint(repository: Any, commitment_id: str, cutoff: datetime | None) -> str | None:
+    versions = sorted((v for v in repository.commitment_versions_for(commitment_id)
+                       if _before(v.get("created_at"), cutoff)), key=lambda r: int(r["version"]))
     return next((str(v["due_hint"]) for v in reversed(versions) if v.get("due_hint")), None)
 
 
@@ -262,7 +341,7 @@ def _line_los(line: Mapping[str, Any]) -> set[str]:
 
 
 def _pending_followups(repository: Any, rows: Sequence[Mapping[str, Any]], lo_ids: set[str],
-                       cutoff: datetime | None) -> list[dict[str, Any]]:
+                       cutoff: datetime | None, as_of: str | None) -> list[dict[str, Any]]:
     from learnloop.curriculum import commitments as C
 
     out: list[dict[str, Any]] = []
@@ -273,15 +352,19 @@ def _pending_followups(repository: Any, rows: Sequence[Mapping[str, Any]], lo_id
             los = _line_los(line) & lo_ids
             if not commitment_id or not los:
                 continue
+            # The disposition and the date as they stood at ``as_of`` (Codex review F5).
+            commitment = repository.commitment(str(commitment_id))
+            if commitment is None or not _before(commitment.get("created_at"), cutoff):
+                continue
             try:
-                if C.resolve_disposition(repository, str(commitment_id)) != "one_check_pending":
+                if C.resolve_disposition(repository, str(commitment_id), before=as_of) != "one_check_pending":
                     continue
             except C.UnknownCommitment:
                 continue
             out.append({
                 "commitment_id": str(commitment_id), "digest_id": row["id"], "item_id": line.get("ref"),
                 "purpose": line.get("purpose"), "novelty": line.get("novelty"),
-                "due_hint": _due_hint(repository, str(commitment_id)) or line.get("due_hint"),
+                "due_hint": _due_hint(repository, str(commitment_id), cutoff) or line.get("due_hint"),
                 "learning_object_ids": sorted(los),
                 "valuation": {"mode": line.get("mode"), "regime": line.get("regime"),
                               "value_minutes_lcb": line.get("value_minutes_lcb"),
@@ -293,14 +376,84 @@ def _pending_followups(repository: Any, rows: Sequence[Mapping[str, Any]], lo_id
     return sorted(out, key=lambda e: (str(e.get("due_hint") or "9999"), e["commitment_id"]))
 
 
-def _open_hypotheses(rows: Sequence[Mapping[str, Any]], lo_ids: set[str]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for row in rows:
+def _gap_reversals(repository: Any, gap_ids: Sequence[str], cutoff: datetime | None) -> dict[str, list[str]]:
+    """The learner's reversals of these named gaps made before ``cutoff``."""
+
+    if not gap_ids:
+        return {}
+    out: dict[str, list[str]] = {}
+    with repository.connection() as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                              ("learner_text_gap_reversals",)).fetchone() is None:
+            return {}
+        marks = ", ".join("?" for _ in gap_ids)
+        for row in connection.execute(
+                f"SELECT gap_id, reversal, created_at FROM learner_text_gap_reversals WHERE gap_id IN ({marks}) "
+                "ORDER BY created_at, id", list(gap_ids)):
+            if _before(row["created_at"], cutoff):
+                out.setdefault(str(row["gap_id"]), []).append(str(row["reversal"]))
+    return out
+
+
+def _episode_open(repository: Any, episode_id: str, cutoff: datetime | None) -> bool:
+    """A probe episode open at ``cutoff``: created before it and not closed
+    before it (its ``completed_at``, else its last update, is the close)."""
+
+    record = repository.probe_episode(episode_id)
+    if record is None:
+        return False
+    if not _before(getattr(record, "created_at", None), cutoff):
+        return False
+    if record.status in _EPISODE_OPEN:
+        return True
+    closed_at = getattr(record, "completed_at", None) or getattr(record, "updated_at", None)
+    return cutoff is not None and not _before(closed_at, cutoff)
+
+
+def _open_hypotheses(repository: Any, rows: Sequence[Mapping[str, Any]], lo_ids: set[str],
+                     cutoff: datetime | None) -> list[dict[str, Any]]:
+    """Open hypotheses as they stood at ``cutoff`` (Codex review F8): a named
+    gap the learner reversed is left out (it is kept, with its reversal, in
+    the card's own open problems); a rival explanation lists only its targets
+    still open (a probe episode closed by then, or a reversed gap, is
+    settled), and goes when none is. Each identity appears once, from the
+    latest session that named it, with its source rows."""
+
+    gaps: dict[str, dict[str, Any]] = {}
+    rivals: dict[str, dict[str, Any]] = {}
+    ordered = sorted(rows, key=lambda r: (str(r.get("ended_at") or ""), str(r.get("id") or "")))
+    gap_ids = sorted({str(gap.get("gap_id")) for row in ordered for gap in (row.get("summary") or {}).get("gaps_named")
+                      or () if gap.get("gap_id")}
+                     | {str(ref.get("id")) for row in ordered for q in (row.get("valuation") or {}).get("questions") or ()
+                        for ref in (q.get("question") or {}).get("target_hypotheses") or ()
+                        if ref.get("kind") == "named_gap" and ref.get("id")})
+    reversed_gaps = _gap_reversals(repository, gap_ids, cutoff)
+    episodes: dict[str, bool] = {}
+
+    def still_open(ref: Mapping[str, Any]) -> bool:
+        kind, ident = ref.get("kind"), str(ref.get("id") or "")
+        if kind == "named_gap":
+            return ident not in reversed_gaps
+        if kind == "episode_label":
+            if ident not in episodes:
+                episodes[ident] = _episode_open(repository, ident, cutoff)
+            return episodes[ident]
+        # A facet marginal or a causal factor's pending decision has no kept
+        # history: listed with its source row, as recorded.
+        return True
+
+    for row in ordered:
         summary = row.get("summary") or {}
         for gap in summary.get("gaps_named") or ():
-            out.append({"kind": "named_gap", **{key: gap.get(key) for key in
-                                                ("gap_id", "kind", "target_kind", "target_id", "source_id")},
-                        "source": {"table": "learner_text_gaps", "digest_id": row["id"]}})
+            gap_id = str(gap.get("gap_id") or "")
+            if not gap_id or gap_id in reversed_gaps:
+                continue
+            gaps.pop(gap_id, None)
+            # The gap's own kind (prerequisite, misconception...) is ``gap_kind``:
+            # ``kind`` names the hypothesis entry.
+            gaps[gap_id] = {"kind": "named_gap", "gap_kind": gap.get("kind"),
+                            **{key: gap.get(key) for key in ("gap_id", "target_kind", "target_id", "source_id")},
+                            "source": {"table": "learner_text_gaps", "digest_id": row["id"]}}
         for question in (row.get("valuation") or {}).get("questions") or ():
             body = question.get("question") or {}
             if body.get("purpose") != "discriminating" or not body.get("target_hypotheses"):
@@ -308,20 +461,69 @@ def _open_hypotheses(rows: Sequence[Mapping[str, Any]], lo_ids: set[str]) -> lis
             los = set(_ids(body.get("learning_object_ids") or ())) & lo_ids
             if not los:
                 continue
-            out.append({"kind": "rival_explanations", "question": question.get("key"),
-                        "learning_object_ids": sorted(los),
-                        "target_hypotheses": [dict(h) for h in body.get("target_hypotheses") or ()],
-                        "raised_by": [dict(r) for r in body.get("raised_by") or ()],
-                        "outcome": question.get("outcome"),
-                        "source": {"table": "reader_session_digests", "digest_id": row["id"]}})
+            targets = [dict(h) for h in body.get("target_hypotheses") or () if still_open(h)]
+            identity = str(question.get("key") or "")
+            rivals.pop(identity, None)
+            if not targets:
+                continue
+            rivals[identity] = {"kind": "rival_explanations", "question": question.get("key"),
+                                "learning_object_ids": sorted(los), "target_hypotheses": targets,
+                                "raised_by": [dict(r) for r in body.get("raised_by") or ()],
+                                "outcome": question.get("outcome"),
+                                "source": {"table": "reader_session_digests", "digest_id": row["id"]}}
+    return [*gaps.values(), *rivals.values()]
+
+
+def _prediction_los(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]]) -> dict[str, set[str]]:
+    """Each missed figure prediction's LOs, through its figure's passages
+    (Codex review F6: a prediction record names no facet or span of its own)."""
+
+    from learnloop.reader.reader_progression import learning_objects_for_span
+
+    wanted = sorted({str(event) for row in rows for record in (row.get("summary") or {}).get("predictions_missed") or ()
+                     if isinstance(record, Mapping) for event in record.get("source_event_ids") or ()})
+    if not wanted:
+        return {}
+    with repository.connection() as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_predictions'"
+                              ).fetchone() is None:
+            return {}
+        marks = ", ".join("?" for _ in wanted)
+        found = [dict(r) for r in connection.execute(
+            "SELECT p.id AS prediction_id, f.extraction_id, f.span_ids_json, f.input_span_ids_json "
+            f"FROM figure_predictions p JOIN interactive_figures f ON f.id = p.figure_id WHERE p.id IN ({marks})",
+            wanted)]
+    out: dict[str, set[str]] = {}
+    for row in found:
+        spans: list[str] = []
+        for column in ("span_ids_json", "input_span_ids_json"):
+            try:
+                spans = _ids(json.loads(row.get(column) or "[]"))
+            except (TypeError, ValueError):
+                spans = []
+            if spans:
+                break
+        los: set[str] = set()
+        for span_id in spans:
+            los.update(str(lo) for lo in learning_objects_for_span(
+                vault, repository, extraction_id=str(row["extraction_id"]), span_id=span_id))
+        out[str(row["prediction_id"])] = los
     return out
 
 
-def _records(rows: Sequence[Mapping[str, Any]], scope: set[str], key: str) -> list[dict[str, Any]]:
+def _records(rows: Sequence[Mapping[str, Any]], scope: set[str], key: str,
+             prediction_los: Mapping[str, set[str]] | None = None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in rows:
         for record in (row.get("summary") or {}).get(key) or ():
-            if isinstance(record, Mapping) and _record_in_scope(record, scope):
+            if not isinstance(record, Mapping):
+                continue
+            in_scope = _record_in_scope(record, scope)
+            if not in_scope and record.get("kind") == "prediction_missed" and prediction_los:
+                # A prediction's scope is its figure's passages' LOs (F6).
+                in_scope = any(prediction_los.get(str(event), set()) & scope
+                               for event in record.get("source_event_ids") or ())
+            if in_scope:
                 out.append({**dict(record), "digest_id": row["id"]})
     return out
 
@@ -376,8 +578,27 @@ def _candidate_actions(repository: Any, rows: Sequence[Mapping[str, Any]], pendi
     return actions
 
 
-def _narrative(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+def _narrated_at(repository: Any, digest_ids: Sequence[str]) -> dict[str, str]:
+    """When each digest's narrative was kept: its ``judgment_ledger`` verdict
+    (the narrative columns carry no time of their own)."""
+
+    if not digest_ids:
+        return {}
+    marks = ", ".join("?" for _ in digest_ids)
+    with repository.connection() as connection:
+        rows = connection.execute(
+            f"SELECT left_id, MIN(created_at) AS at FROM judgment_ledger WHERE task = ? AND left_kind = ? "
+            f"AND verdict = 'kept' AND left_id IN ({marks}) GROUP BY left_id",
+            (NARRATIVE_LEDGER_TASK, NARRATIVE_LEDGER_LEFT, *digest_ids)).fetchall()
+    return {str(row["left_id"]): str(row["at"]) for row in rows if row["at"]}
+
+
+def _narrative(repository: Any, rows: Sequence[Mapping[str, Any]], cutoff: datetime | None) -> dict[str, Any] | None:
     kept = [row for row in rows if row.get("narrative_md")]
+    if kept and cutoff is not None:
+        # Written before ``as_of`` (Codex review F5): its verdict's time.
+        times = _narrated_at(repository, [str(row["id"]) for row in kept])
+        kept = [row for row in kept if _before(times.get(str(row["id"])), cutoff)]
     if not kept:
         return None
     row = max(kept, key=lambda r: (str(r.get("ended_at") or ""), str(r.get("id") or "")))
@@ -412,19 +633,49 @@ def reader_activity_for_card(vault: Any, repository: Any, learning_object_ids: S
     rows = [row for row in rows if _before(row.get("ended_at"), cutoff) and _before(row.get("created_at"), cutoff)
             and _touches(row.get("summary") or {}, los, facets)]
     scope = los | facets
-    pending = _pending_followups(repository, rows, los, cutoff)
+    pending = _pending_followups(repository, rows, los, cutoff, as_of)
     activity.update({
         "open_inquiries": _open_inquiries(vault, repository, rows, los, cutoff),
-        "assisted_only": _assisted_only(vault, repository, rows, facets, los),
+        "assisted_only": _assisted_only(vault, repository, rows, facets, los, cutoff),
         "pending_followups": pending,
-        "missed_predictions": _records(rows, scope, "predictions_missed"),
-        "open_hypotheses": _open_hypotheses(rows, los),
+        "missed_predictions": _records(rows, scope, "predictions_missed", _prediction_los(vault, repository, rows)),
+        "open_hypotheses": _open_hypotheses(repository, rows, los, cutoff),
         "formative_records": _records(rows, scope, "observations"),
         "kept_comparisons": _kept_comparisons(vault, repository, lo_ids, as_of),
         "candidate_actions": _candidate_actions(repository, rows, pending, los),
-        "narrative": _narrative(rows),
+        # Off: no saved narrative in any payload (Codex review F4).
+        "narrative": _narrative(repository, rows, cutoff) if narrative_enabled(vault) else None,
     })
     return activity
 
 
-__all__ = ["ACTIVITY_VERSION", "AUTHORITY", "SECTIONS", "reader_activity_enabled", "reader_activity_for_card"]
+def for_card(activity: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """The card's copy (``evidence_sections.reader_activity``), or None when
+    there is nothing to say (the card is then the predecessor's, byte for
+    byte). Bounded for the card's budget: each list keeps
+    :data:`CARD_LIST_LIMIT` entries (the newest; for follow-ups and next
+    actions, the first in their order) and ``omitted`` counts the rest.
+    ``as_of`` is left out: the card has its own decision time."""
+
+    if not activity or not any(activity.get(name) for name in SECTIONS):
+        return None
+    out: dict[str, Any] = {"activity_version": activity.get("activity_version", ACTIVITY_VERSION),
+                           "authority": activity.get("authority", AUTHORITY)}
+    omitted: dict[str, int] = {}
+    for name in _LIST_SECTIONS:
+        entries = list(activity.get(name) or ())
+        if not entries:
+            continue
+        kept = entries[-CARD_LIST_LIMIT:] if name in _NEWEST_LAST else entries[:CARD_LIST_LIMIT]
+        if len(entries) > len(kept):
+            omitted[name] = len(entries) - len(kept)
+        out[name] = kept
+    if activity.get("narrative"):
+        out["narrative"] = dict(activity["narrative"])
+    if omitted:
+        out["omitted"] = omitted
+    return out
+
+
+__all__ = ["ACTIVITY_VERSION", "AUTHORITY", "CARD_LIST_LIMIT", "CARD_SECTION", "SECTIONS", "for_card",
+           "narrative_enabled", "reader_activity_enabled", "reader_activity_for_card"]

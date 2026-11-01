@@ -217,9 +217,15 @@ class CardGatherer:
                 self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns)
                 if confidence_on else ({}, None, 0))
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
-        # RW6b part 2 (spec §9.2): reader activity on the candidates' LOs, data
-        # beside the card (never hashed, rendered or read by a router model).
-        reader_activity = self._reader_activity(candidate_los, now_iso)
+        # RW6b part 2 (spec §9.2; Codex review F1): reader activity on the
+        # candidates' LOs, the card's "Reader activity" section (the evidence
+        # registry, as R2c's teach-back summaries). Absent with nothing to say
+        # or with digest.enabled off: the predecessor's card byte for byte.
+        reader_activity = self._reader_activity(candidate_los, now_iso, unknowns)
+        if reader_activity is not None:
+            from learnloop.daily_plan import router_reader
+
+            evidence_sections = {**evidence_sections, router_reader.CARD_SECTION: reader_activity}
         session = {
             "plan_id": state.plan_id,
             "plan_kind": state.kind,
@@ -259,22 +265,24 @@ class CardGatherer:
             confidence_limit=confidence_limit,
             confidence_omitted=confidence_omitted,
             confidence_enabled=confidence_on,
-            reader_activity=reader_activity,
         )
 
-    def _reader_activity(self, los: Sequence[str], now_iso: str) -> dict[str, Any] | None:
-        """``ReaderActivityV1`` (RW6b part 2), or None (switched off, or
-        unreadable: logged, never named in the hashed ``unknowns``)."""
+    def _reader_activity(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, Any] | None:
+        """The card's copy of ``ReaderActivityV1`` (RW6b part 2), or None
+        (switched off, or nothing on these LOs). Unreadable: named in the
+        card's unknowns, never guessed (the registry's rule)."""
 
         from learnloop.daily_plan import router_reader
 
         if not router_reader.reader_activity_enabled(self.vault):
             return None
         try:
-            return router_reader.reader_activity_for_card(self.vault, self.repository, los, now_iso)
+            activity = router_reader.reader_activity_for_card(self.vault, self.repository, los, now_iso)
         except Exception:  # noqa: BLE001 - the card never blocks the plan
             _LOG.warning("router card: reader activity could not be read", exc_info=True)
+            unknowns.append("reader activity could not be read")
             return None
+        return router_reader.for_card(activity)
 
     @staticmethod
     def _confidence(

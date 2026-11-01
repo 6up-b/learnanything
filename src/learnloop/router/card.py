@@ -113,12 +113,6 @@ class CardInputs:
     #: TE0's kill switch (``teacher.confidence_events_enabled``): off, the
     #: card is the predecessor's (``PREDECESSOR_CARD_VERSION``).
     confidence_enabled: bool = True
-    #: Reader workbench RW6b part 2 (spec §9.2): ``ReaderActivityV1`` for the
-    #: candidates' LOs. Data beside the card: carried onto
-    #: ``LearnerStateCard.reader_activity`` and never into the typed card, its
-    #: text, its hash or its tokens, so no stored card and no router model's
-    #: input changes (router R2's "Reader activity" section is a later step).
-    reader_activity: Mapping[str, Any] | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -129,10 +123,6 @@ class LearnerStateCard:
     card_hash: str
     tokens: int
     truncation: Mapping[str, Any]
-    #: RW6b part 2: reader activity, outside ``json``, ``text``, ``card_hash``
-    #: and ``tokens`` (and outside :meth:`payload`, so nothing stored changes;
-    #: and outside equality: two cards that hash alike compare alike).
-    reader_activity: Mapping[str, Any] | None = field(default=None, compare=False)
 
     def payload(self) -> dict[str, Any]:
         """What the decision stores (``router_decision_payloads``, kind card)."""
@@ -276,6 +266,9 @@ def render_text(card: Mapping[str, Any]) -> str:
                 points = [str(point) for point in entry.get(key) or ()]
                 if points:
                     lines.append(f"  {label}: " + "; ".join(points))
+    reader = (card.get("evidence_sections") or {}).get("reader_activity")
+    if reader:
+        lines.extend(_reader_lines(reader, card))
     lines.append("# Recent graded work (newest first)")
     work = card.get("recent_work") or ()
     if not work:
@@ -289,6 +282,67 @@ def render_text(card: Mapping[str, Any]) -> str:
             "older attempts left out)"
         )
     return "\n".join(lines) + "\n"
+
+
+def _topics(ids: Any, card: Mapping[str, Any]) -> str:
+    titles = {lo_id: (row or {}).get("title") for lo_id, row in (card.get("learning_objects") or {}).items()}
+    return ", ".join(str(titles.get(str(lo)) or lo) for lo in ids or ()) or "-"
+
+
+def _reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]:
+    """Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader
+    activity" section, typed facts in plain words. Routing only, never
+    evidence: nothing here is a grade or a demonstration."""
+
+    lines = ["# Reader activity (from the Reader; routing only, never evidence)"]
+    for entry in reader.get("open_inquiries") or ():
+        words = entry.get("question_excerpt")
+        shown = f'"{words}"' if words else f"words withheld ({entry.get('withheld') or 'unavailable'})"
+        lines.append(f"- open question on {_topics(entry.get('learning_object_ids'), card)}, "
+                     f"{entry.get('age_days')} days old, depth {entry.get('depth')}, "
+                     f"{entry.get('exchanges')} exchanges: {shown}")
+    for entry in reader.get("assisted_only") or ():
+        help_level = entry.get("highest_help_level")
+        lines.append(f"- assisted-only work on facet {entry.get('facet_id')} ({entry.get('basis')}): "
+                     f"highest help level {help_level if help_level is not None else 'none'}, "
+                     f"{entry.get('hints', 0)} hints{', book open' if entry.get('book_counted') else ''}; "
+                     f"{str(entry.get('at') or '')[:10]}; needs an independent check")
+    for entry in reader.get("pending_followups") or ():
+        valuation = entry.get("valuation") or {}
+        lines.append(f"- reader check pending ({entry.get('purpose')}) on "
+                     f"{_topics(entry.get('learning_object_ids'), card)}, item {entry.get('item_id')}, "
+                     f"due {str(entry.get('due_hint') or '')[:10] or 'unset'}; value lower bound "
+                     f"{valuation.get('value_minutes_lcb')} min ({valuation.get('scale')})")
+    for entry in reader.get("missed_predictions") or ():
+        lines.append(f"- missed figure prediction {str(entry.get('observed_at') or '')[:10]} "
+                     f"({', '.join(str(e) for e in entry.get('source_event_ids') or ())})")
+    for entry in reader.get("open_hypotheses") or ():
+        if entry.get("kind") == "named_gap":
+            lines.append(f"- open hypothesis: a named {entry.get('gap_kind') or 'gap'} "
+                         f"({entry.get('target_kind')} {entry.get('target_id')}) from question {entry.get('source_id')}")
+        else:
+            targets = ", ".join(f"{t.get('kind')} {t.get('id')}" for t in entry.get("target_hypotheses") or ())
+            lines.append(f"- rival explanations still open on {_topics(entry.get('learning_object_ids'), card)}: "
+                         f"{targets}")
+    for entry in reader.get("formative_records") or ():
+        facets = ", ".join(str(f) for f in entry.get("facet_candidates") or ()) or "-"
+        lines.append(f"- formative record {entry.get('kind')} {str(entry.get('observed_at') or '')[:10]}; "
+                     f"facets {facets}")
+    for entry in reader.get("kept_comparisons") or ():
+        lines.append(f"- kept comparison ({entry.get('caller')}) on {_topics(entry.get('learning_object_ids'), card)}, "
+                     f"kept {str(entry.get('kept_at') or '')[:10]}")
+    for entry in reader.get("candidate_actions") or ():
+        detail = entry.get("label") or entry.get("purpose") or entry.get("intent") or entry.get("item_id") or ""
+        lines.append(f"- possible next action (from {entry.get('from')}): {entry.get('kind')}"
+                     + (f", {detail}" if detail else ""))
+    narrative = reader.get("narrative")
+    if narrative:
+        lines.append(f"- {narrative.get('label')} ({str(narrative.get('ended_at') or '')[:10]}; cites "
+                     f"{len(narrative.get('cited_event_ids') or ())} events): {narrative.get('text')}")
+    omitted = sum(int(value) for value in (reader.get("omitted") or {}).values())
+    if omitted:
+        lines.append(f"({omitted} older reader entr{'ies' if omitted != 1 else 'y'} left out)")
+    return lines
 
 
 #: The card's version when it carries adaptive difficulty's fields (spec §10.1:
@@ -423,7 +477,6 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
         card_hash=digest,
         tokens=estimate_tokens(card) + estimate_tokens(text),
         truncation=dropped,
-        reader_activity=dict(inputs.reader_activity) if inputs.reader_activity is not None else None,
     )
 
 
