@@ -239,3 +239,65 @@ Test files changed or added: `apps/learnloop-tauri/src/screens/reader/figures/sk
   `desktop_generate.py` after those landings. The new audit test only fails if one of them adds a file with no
   app-entry path and no vitest importer, or a new directory without an area line.
 - The facet-table rewrite fix above (1, optionally 2 and 3) is waiting on the owner's go-ahead.
+
+## Landing onto main
+
+Landing done in the worktree `learnanything-astrafix` on the branch `fix/followups-oct31`. The orchestrator
+fast-forwards main and pushes.
+
+**Scoped verify.** After the F1 fix (`0d3a5b4235`, recorded in `docs/reviews/followups-oct31-codex-review.md`),
+a scoped Sol verify (job `20261101-001432-RG5LUa`) returned **CLEAN**.
+
+**Merge.** One merge of main `90346980c` (Reader RW6b part 1: mvp-0.39, migration 227, `migration_head_228`)
+into the branch: `f5de756add`. It was a merge, not a rebase, and it had **no conflicts**: the stage touched
+no file that main changed since the base `2c3507003`. Just before the full gate, main was still `90346980c`,
+so CA6 (side by side, landing in parallel in `learnanything-merge2`) had not landed and no second merge was
+needed. Main was still `90346980c` after the gate as well.
+
+**Catalog regeneration** (`15570cea2f`). RW6b added `screens/reader/ComingUp.tsx` (with `ComingUp.test.tsx`)
+and changed `ReaderScreen`, `RecapCard`, `WrapUpOffer`, `WrapUpPanel`, `recapCopy`, `api/client`, `api/dto`
+and the Rust `commands`/`main`. The F1 fix had also changed `LibraryAnswer.tsx` after the stage's
+regeneration.
+- `desktop_generate.py` (`env -i`): 290 TypeScript/TSX notes, 5 Rust notes, 24 area maps, 1 catalog.
+  `ComingUp.tsx` is reached from `src/main.tsx`, so it is `entry-reachable build graph`. No new
+  unclassified file, no new directory, and no new area line.
+- `desktop_validate.py` review-gate counts were moved by the one new file: 290 TS / 5 Rust; 282 entry-build
+  + 2 compiler-implicit + 6 vitest-support + 5 native; ACTIVE = 295.
+- `desktop_validate.py` passes, reproducible byte-for-byte (6750 wikilinks, 1836 Markdown/source links).
+- `validate_vault.py` passes: 1357 notes, 1355/1355 non-template notes reachable from Home.
+
+**Targeted tests** (each in a 5G scope, `env -i`, `TMPDIR` outside the worktree):
+
+| command | result |
+|---|---|
+| `pytest -n 6 tests/test_codex_tool_lockdown.py tests/test_desktop_activation_audit.py tests/test_public_tip_guards.py` | 151 passed, 1 skipped |
+| same lockdown file with `TMPDIR=…/fu31-landing/learnanything-docs` | 133 passed, 1 skipped |
+| `npx vitest run --maxWorkers=4`: the stage's three test files, the 15 other library/compare files from the F1 round, and RW6b's `ComingUp.test.tsx` | 18 files, 220 passed |
+
+**Full gate** (merged tip `15570cea2f`):
+
+| command | result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 36 kept, 0 broken |
+| full pytest: `flock /tmp/learnloop-fullsuite.lock systemd-run … MemoryMax=10G -p MemorySwapMax=2G -- env -i … uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…` | 22872 passed, 89 skipped, 47 xfailed, 0 failed (35 min 20 s) |
+| `npm install`, `npm run typecheck` | ok, exit 0 |
+| whole `npx vitest run --maxWorkers=4` (5G scope, under the full-suite lock) | 238 files, 2211 passed, 0 failed |
+| `npm run frontend:build` | built |
+
+There were no failures, so no single-test reruns were needed. Not run, as the brief directs: the durability
+lane and the owner lane, because the stage has no DB, connection or schema change. Also not run: cargo,
+because the stage changed nothing under `src-tauri`.
+
+**Checks.**
+- Main is an ancestor of the tip.
+- No tracked database or binary was added.
+- `.gitignore` is unchanged.
+- Nothing from `fixtures-local/` is tracked.
+
+### Open items
+
+- **The facet-table rewrite fix** (Investigation above: write only on change, optional reload fingerprint,
+  optional capability `created_at`) is queued and waits on the owner's go-ahead. It touches a DERIVED writer
+  used by replay and rebuild equivalence.
+- **The desktop catalog goes stale again when CA6 lands.** Regenerate with `desktop_generate.py` and move the
+  `desktop_validate.py` review-gate counts in CA6's landing, or in whichever of the two lands second.
