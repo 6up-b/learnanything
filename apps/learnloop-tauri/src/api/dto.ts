@@ -6784,6 +6784,83 @@ export interface ReaderPromptContractDto {
   };
   /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
   sideBySide?: { enabled: boolean };
+  /** Curriculum C2: your notes, linked (present only while notes.enabled is on and tend is installed). */
+  notes?: NotesContractDto;
+}
+
+/** Curriculum C2 (spec §10): the notes part of the Reader's prompt contract. */
+export interface NotesContractDto {
+  enabled: boolean;
+  lexicalOnly: boolean;
+  pocketNotesLabel: string;
+  takePrefix: string;
+}
+
+/** One linked note as the learner sees it: always in their own voice (›). */
+export interface NoteLinkDto {
+  linkId: string;
+  noteKey: string;
+  /** passage | learning_object */
+  targetKind: string;
+  learningObjectId: string | null;
+  extractionId: string | null;
+  sectionId: string | null;
+  spanId: string | null;
+  goalId: string | null;
+  /** ai (a proposal, kept without a tap) | learner (linked or kept by the learner) */
+  authorship: string;
+  /** "linked by LearnLoop's model" | "linked by you" */
+  byLabel: string;
+  how: string | null;
+  howWords: string | null;
+  howLine: string | null;
+  note: {
+    title: string;
+    heading: string;
+    capturedOn: string | null;
+    dateLabel: string | null;
+    /** tend | pocket_notes */
+    origin: string;
+    /** "handwritten · transcribed by Pocket Notes" for a Pocket Notes page, else null. */
+    originLabel: string | null;
+    text: string;
+    truncated: boolean;
+  };
+  /** "your note from 3 Oct" */
+  line: string;
+  /** Compare's band only: the take *use as my take* keeps (RW4d's own write, quoting the note). */
+  takeText?: string;
+}
+
+/** notes.path: the notes on a deliverable's path lines, by topic. */
+export interface NotesPathDto {
+  version?: number;
+  goalId: string;
+  /** running | done | waiting | null (nothing started) */
+  linking: string | null;
+  lines: Array<{ learningObjectId: string; notes: NoteLinkDto[] }>;
+}
+
+/** notes.marks: the › marks of one reading, per passage. */
+export interface NoteMarksDto {
+  version?: number;
+  extractionId: string;
+  marks: Array<{ spanId: string; notes: NoteLinkDto[] }>;
+}
+
+/** notes.search: a note section tend found (inside the allowlist). */
+export interface NoteHitDto {
+  noteKey: string;
+  path: string;
+  title: string;
+  heading: string;
+  headingPath: string;
+  line: number;
+  snippet: string;
+  capturedOn: string | null;
+  origin: string;
+  contentHash: string;
+  mtime: number;
 }
 
 /** Reader CA5: the line's hide preferences (Settings brings it back). */

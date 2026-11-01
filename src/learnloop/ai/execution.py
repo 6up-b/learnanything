@@ -30,6 +30,7 @@ _single_request: ContextVar[bool] = ContextVar("model_single_request", default=F
 _labels: ContextVar[dict[str, str] | None] = ContextVar("model_call_labels", default=None)
 _annotations: ContextVar[dict[str, Any] | None] = ContextVar("model_call_annotations", default=None)
 _reasoning_effort: ContextVar[str | None] = ContextVar("model_reasoning_effort", default=None)
+_withhold_input: ContextVar[bool] = ContextVar("model_withhold_input", default=False)
 _truncation_retry: ContextVar[bool] = ContextVar("model_truncation_retry", default=False)
 _request_gate: ContextVar["RequestGate | None"] = ContextVar("model_request_gate", default=None)
 
@@ -38,6 +39,25 @@ _request_gate: ContextVar["RequestGate | None"] = ContextVar("model_request_gate
 #: of the state it was given. Unknown labels are refused, never stored.
 CALL_LABELS = frozenset({"judge", "question_set_version", "state_hash"})
 JUDGE_LABELS = frozenset({"decider", "llm"})
+
+
+@contextmanager
+def withhold_receipt_input():
+    """Calls started in this context keep no prompt text on their receipts.
+
+    For a route whose prompt carries text the learner keeps private (curriculum C2's
+    note link judge, Codex review F3: the candidate notes the judge reads, most of
+    them never linked). The receipt keeps everything else: the prompt and schema
+    hashes, the request identity it declared (so a paid answer is still recovered
+    from its receipt), the usage and the answer (the verdicts). Nested contexts
+    inherit it; there is no way to switch it back off inside one.
+    """
+
+    token = _withhold_input.set(True)
+    try:
+        yield
+    finally:
+        _withhold_input.reset(token)
 
 
 @contextmanager
@@ -369,7 +389,7 @@ def _observed_call(
         "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None) or getattr(profile, "model", None),
         "endpoint": getattr(profile, "base_url", None) or getattr(client, "default_base_url", None),
         "prompt_hash": content_key(prompt), "schema_hash": content_key(schema),
-        "input_text": prompt if isinstance(prompt, str) and is_root else None,
+        "input_text": prompt if isinstance(prompt, str) and is_root and not _withhold_input.get() else None,
         "schema_json": json.dumps(schema, sort_keys=True) if is_root else None,
         "budget_json": json.dumps(budgets, sort_keys=True) if is_root and budgets is not None else None,
         "output_budget_tokens": budget, "started_at": datetime.now(timezone.utc).isoformat(),

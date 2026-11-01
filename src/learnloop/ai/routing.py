@@ -146,6 +146,8 @@ AITask = Literal[
     "figure_rich_author",
     # Reader workbench RW6b part 2: the session narrative (background, once per session).
     "reader_digest",
+    # Deliverable curriculum C2: the note link judge (a listwise task, background, plan only).
+    "note_link_judge",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -284,6 +286,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW6b part 2: one session narrative from the typed
     # summary (background, once per reader session; salience only).
     "reader_digest": "reader_digest",
+    # Deliverable curriculum C2: one listwise call judging which of the
+    # learner's candidate notes discuss one LO or its primary passage
+    # (background, the ChatGPT plan only; display and learner-voice records).
+    "note_link_judge": "note_link_judge",
     # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
     # subject; vault content only, never learner text), on AD's own route (the
     # compose onto T1: the plan's medium tier by default, spec §5.10).

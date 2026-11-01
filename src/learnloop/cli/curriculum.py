@@ -73,7 +73,8 @@ def curriculum_report(
     Coverage: the learner's corrections per judged (section, topic) row, each a
     labelled error. Choice: "use this one instead" swaps and skips per path line.
     Time: the minutes read in the path's books (recorded) against DL1's estimate
-    for reading those books in order (each section once). Read-only, no model call. Never
+    for reading those books in order (each section once). Notes (C2): note links hidden
+    against those proposed, and takes written from a note. Read-only, no model call. Never
     reports sections read, path completion, time on the page or in-session answers as
     success."""
 
@@ -89,6 +90,11 @@ def curriculum_report(
             raise ValueError("the deliverable curriculum is off (curriculum.enabled = false)")
         repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         result = report(loaded, repository)
+        if loaded.config.notes.enabled:
+            # Curriculum C2's notes row: links hidden vs proposed, use as my take (counts only).
+            from learnloop.source_retrieval.note_links import report_row
+
+            result["notes"] = report_row(repository)
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error, CoverageError) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))

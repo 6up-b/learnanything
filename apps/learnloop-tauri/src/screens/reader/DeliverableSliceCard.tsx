@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../api/client";
 import type {
-  DeliverableLineDto, DeliverablePathChoice, DeliverableReadyDto, DeliverableScopeDto, DeliverableSliceDto, ReadingPathDepth,
+  DeliverableLineDto, DeliverablePathChoice, DeliverableReadyDto, DeliverableScopeDto, DeliverableSliceDto, NoteLinkDto,
+  ReadingPathDepth,
 } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
 import { errorMessage, getCommandError } from "../../errors";
@@ -25,6 +26,7 @@ import {
 } from "./deliverableSlice";
 import { DeliverableEntry, DeliverableScopePanel, scopeNotice } from "./DeliverableScope";
 import { MeaningLabel } from "./voices";
+import { PathLineNotes, usePathNotes } from "./ReaderNotes";
 
 const LINK = {
   background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer",
@@ -141,6 +143,8 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
   const [scopeOpen, setScopeOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const goalId = slice.goal?.id ?? "";
+  // Curriculum C2: "your note from 3 Oct" on a line (absent while the notes are off).
+  const pathNotes = usePathNotes(goalId || null, slice.status === "ready" || slice.status === "stale");
 
   const act = async (work: () => Promise<unknown>, failure: string, reload: { judge: boolean } = { judge: false }) => {
     setBusy(true);
@@ -263,7 +267,8 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
                 onToggle={() => setOpen((current) => (current === line.learningObjectId ? null : line.learningObjectId))}
                 onJump={() => onJump(line.section.startSpanId)}
                 onChoose={(choice, ref) => void choose(line, choice, ref)}
-                onNotWhatINeed={(text) => void notWhatINeed(line, text)} />
+                onNotWhatINeed={(text) => void notWhatINeed(line, text)}
+                notes={pathNotes.get(line.learningObjectId) ?? []} />
             ))}
             {(slice.elsewhere ?? []).map((entry) => (
               <span key={`else:${entry.learningObjectId}`} data-deliverable-elsewhere={entry.learningObjectId}
@@ -305,8 +310,9 @@ export function DeliverableSliceCard({ slice, onJump, onError, onReload, onAlone
   );
 }
 
-function LineRow({ line, busy, open, onToggle, onJump, onChoose, onNotWhatINeed }: {
+function LineRow({ line, busy, open, onToggle, onJump, onChoose, onNotWhatINeed, notes = [] }: {
   line: DeliverableLineDto;
+  notes?: NoteLinkDto[];
   busy: boolean;
   open: boolean;
   onToggle: () => void;
@@ -329,6 +335,7 @@ function LineRow({ line, busy, open, onToggle, onJump, onChoose, onNotWhatINeed 
         <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>· {line.title}</span>
         <button type="button" style={LINK} aria-expanded={open} onClick={onToggle}>{COPY.why} {open ? "▾" : "▸"}</button>
       </div>
+      {notes.length ? <PathLineNotes notes={notes} /> : null}
       {line.elsewhere ? (
         <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim, paddingLeft: 8 }}>
           {COPY.onPathIn(line.title, line.elsewhere.book, sectionMarker(line.elsewhere.title))}

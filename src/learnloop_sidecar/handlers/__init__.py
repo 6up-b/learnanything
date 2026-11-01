@@ -45,6 +45,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     library_ask,
     library_exercises,
     measurement,
+    notes,
     placement,
     practice,
     practice_index,

@@ -148,6 +148,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Deliverable curriculum C0b: the scope inputs, resolutions and the
         # deliverable path (migration 228; append-only).
         "src/learnloop/db/stores/deliverables.py",
+        # Deliverable curriculum C2: learner_notes and learner_note_links
+        # (migration 229; append-only snapshots of linked notes and links).
+        "src/learnloop/db/stores/learner_notes.py",
         # Mobile PR-4: session ownership (migration 226): the exclusive start,
         # the adopt compare-and-swap and the session_handoffs receipts.
         "src/learnloop/db/stores/session_ownership.py",

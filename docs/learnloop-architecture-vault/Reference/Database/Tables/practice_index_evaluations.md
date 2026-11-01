@@ -3,13 +3,13 @@ title: "practice_index_evaluations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4d444edda033888a6d536d658c606d84ceb3fddb"
-source_commit_timestamp: "2026-11-01T14:52:06-05:00"
+source_commit: "a41eeb95d9a37431152a0a44fb5cc0ddedbaabe6"
+source_commit_timestamp: "2026-11-01T15:08:37-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_index_evaluations"
   - "table practice_index_evaluations"
-schema_head: 228
+schema_head: 229
 table_name: "practice_index_evaluations"
 table_role: "receipt"
 functionality_status: "active"
