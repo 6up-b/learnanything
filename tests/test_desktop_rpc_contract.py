@@ -59,8 +59,10 @@ def _typescript_calls(source: str) -> set[str]:
 
 
 def _tauri_handlers(source: str) -> set[str]:
-    marker = ".invoke_handler(tauri::generate_handler!["
-    body = source.split(marker, 1)[1].split("])", 1)[0]
+    # The handler list (RW5d P2 sketch compartment: wrapped by the frame guard, so it is bound to a name first).
+    marker = "tauri::generate_handler!["
+    assert source.count(marker) == 1
+    body = source.split(marker, 1)[1].split("]", 1)[0]
     return set(re.findall(r"^\s*([a-z][a-z0-9_]*)\s*,?\s*$", body, re.MULTILINE))
 
 

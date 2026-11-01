@@ -1924,6 +1924,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "thiserror 1.0.69",
+ "webkit2gtk",
 ]
 
 [[package]]

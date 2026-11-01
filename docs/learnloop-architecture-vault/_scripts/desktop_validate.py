@@ -181,10 +181,10 @@ def main() -> int:
 
     # The inventory and activation counts are review gates: a new desktop file
     # must be classified by the activation audit before these numbers change.
-    if len(ts_sources) != 299:
-        errors.append(f"source inventory drift: expected 299 TypeScript/TSX files, found {len(ts_sources)}")
-    if len(rust_sources) != 5:
-        errors.append(f"source inventory drift: expected 5 authored Rust modules, found {len(rust_sources)}")
+    if len(ts_sources) != 302:
+        errors.append(f"source inventory drift: expected 302 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(rust_sources) != 6:
+        errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
         errors.append(f"missing expected note: {path.relative_to(REPO_ROOT)}")
     for path in sorted(actual - expected):
@@ -276,10 +276,12 @@ def main() -> int:
             errors.append(f"duplicate source coverage for {source_path}: {len(notes)} notes")
 
     expected_activation_counts = {
-        "entry-reachable build graph": 291,
+        "entry-reachable build graph": 292,
+        # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
+        "bundled worker entry": 2,
         "compiler-implicit": 2,
         "vitest-support": 6,
-        "native-entry-reachable": 5,
+        "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
         errors.append(
@@ -288,7 +290,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 304}:
+    if dict(status_counts) != {"ACTIVE": 308}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
@@ -314,6 +316,7 @@ def main() -> int:
         f"{len(areas)} area maps, {yaml_checked} YAML documents, "
         f"status audit ACTIVE={status_counts['ACTIVE']} "
         f"({activation_counts['entry-reachable build graph']} entry-build + "
+        f"{activation_counts['bundled worker entry']} bundled-worker + "
         f"{activation_counts['compiler-implicit']} compiler-implicit + "
         f"{activation_counts['vitest-support']} vitest-support + "
         f"{activation_counts['native-entry-reachable']} native-entry), "

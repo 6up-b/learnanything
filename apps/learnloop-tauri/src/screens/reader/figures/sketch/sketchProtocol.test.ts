@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import hostileText from "./sketchHostileCorpus.json?raw";
 import { newHost } from "./engineForTests";
-import { SketchRunError } from "./sketchEngine";
-import { answerRequest, parseWorkerRequest, SKETCH_MAX_SOURCE_BYTES } from "./sketchProtocol";
+import { sceneDigest, SketchRunError } from "./sketchEngine";
+import { answerRequest, parseWorkerRequest, SKETCH_MAX_OUTPUT_CHARS, SKETCH_MAX_SOURCE_BYTES } from "./sketchProtocol";
 import { portRunner, type WorkerRequest, type WorkerResponse } from "./sketchRunner";
 
 const corpus = JSON.parse(hostileText) as { worker_messages: Array<{ name: string; message: unknown; expect: "accepted" | "refused" }> };
@@ -47,9 +47,11 @@ describe("the Worker's requests", () => {
     expect(await answerRequest(get, { id: 2, op: "init", args: [{ k: 3 }, 1] })).toEqual({ id: 2, ok: true, result: null });
     const reply = await answerRequest(get, { id: 3, op: "read", args: [{ k: 3 }, 0] });
     expect(reply.ok).toBe(true);
-    const result = (reply as { result: { scene: unknown; probes: unknown; digest: string } }).result;
-    expect(result.probes).toEqual({ k: 3 });
-    expect(result.digest).toMatch(/^[0-9a-f]{32}$/);
+    // The engine's own text crosses the channel (the sketch compartment): the client bounds and parses it.
+    const result = (reply as { result: { sceneText: string; probesText: string; digest: string } }).result;
+    expect(Object.keys(result).sort()).toEqual(["digest", "probesText", "sceneText"]);
+    expect(JSON.parse(result.probesText)).toEqual({ k: 3 });
+    expect(result.digest).toBe(sceneDigest(result.sceneText, result.probesText));
   });
 });
 
@@ -70,7 +72,28 @@ describe("the client's replies", () => {
     const { port, sent } = fakePort();
     const runner = portRunner(port);
     const pending = runner.read({}, 0);
-    port.reply({ id: sent[0].id, ok: true, result: { scene: {}, probes: {} } });
+    port.reply({ id: sent[0].id, ok: true, result: { sceneText: "{}", probesText: "{}" } });
+    await expect(pending).rejects.toThrow(/malformed/);
+  });
+
+  it("refuses a read reply carrying objects instead of the engine's text, or text that is not JSON", async () => {
+    for (const result of [
+      { scene: {}, probes: {}, digest: "a".repeat(32) },
+      { sceneText: {}, probesText: "{}", digest: "a".repeat(32) },
+      { sceneText: "{", probesText: "{}", digest: "a".repeat(32) },
+      { sceneText: "{}", probesText: "{}", digest: "a".repeat(32), extra: "x" },
+    ]) {
+      const { port, sent } = fakePort();
+      const pending = portRunner(port).read({}, 0);
+      port.reply({ id: sent[0].id, ok: true, result });
+      await expect(pending).rejects.toThrow(/malformed/);
+    }
+  });
+
+  it("refuses an oversize read before parsing it", async () => {
+    const { port, sent } = fakePort();
+    const pending = portRunner(port).read({}, 0);
+    port.reply({ id: sent[0].id, ok: true, result: { sceneText: `"${"x".repeat(SKETCH_MAX_OUTPUT_CHARS)}"`, probesText: "{}", digest: "a".repeat(32) } });
     await expect(pending).rejects.toThrow(/malformed/);
   });
 
@@ -105,10 +128,10 @@ describe("the client's replies", () => {
     const { port, sent } = fakePort();
     const runner = portRunner(port);
     const pending = runner.read({}, 0);
-    port.reply({ id: 999, ok: true, result: { scene: {}, probes: {}, digest: "0".repeat(32) } });
+    port.reply({ id: 999, ok: true, result: { sceneText: "{}", probesText: "{}", digest: "0".repeat(32) } });
     port.reply("not a reply");
     port.reply(null);
-    port.reply({ id: sent[0].id, ok: true, result: { scene: { viewport: 1 }, probes: {}, digest: "a".repeat(32) } });
+    port.reply({ id: sent[0].id, ok: true, result: { sceneText: '{"viewport":1}', probesText: "{}", digest: "a".repeat(32) } });
     await expect(pending).resolves.toEqual({ scene: { viewport: 1 }, probes: {}, digest: "a".repeat(32) });
   });
 });

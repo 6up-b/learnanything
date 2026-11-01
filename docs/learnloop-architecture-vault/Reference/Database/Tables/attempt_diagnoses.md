@@ -3,8 +3,8 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "05da25ac4ab7f697982eff055283a529e688a3fd"
-source_commit_timestamp: "2026-11-01T17:03:36-05:00"
+source_commit: "5fae2f76d65e28cf5f94461990fa8013acd483fd"
+source_commit_timestamp: "2026-11-01T15:52:32-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
@@ -109,7 +109,6 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
-- `src/learnloop/diagnosis/split/prior_analysis.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/hints/report_workbench.py`
