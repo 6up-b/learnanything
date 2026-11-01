@@ -22,7 +22,7 @@ const { api, plan, state } = vi.hoisted(() => ({
     readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
     readerLogActivity: vi.fn(), readerSetMode: vi.fn(), readerCorrespondents: vi.fn(), readerCorrespondentPeek: vi.fn(), readerCorrespondentDismiss: vi.fn(),
     getSpanView: vi.fn(), readerLibraryAsk: vi.fn(), readerLibraryAskNotes: vi.fn(), readerLibraryCompare: vi.fn(),
-    readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(), readerSaveProgress: vi.fn(),
+    readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(), readerSaveProgress: vi.fn(), readerLibraryAskTutor: vi.fn(),
   },
   plan: {
     sourceId: "src", extractionId: "ext", personalized: true, selectionBasis: "", goalContext: null,
@@ -190,6 +190,71 @@ it("with CA3 off and no hits, a comparison that fails says so where it would hav
   await compareFromFindSection();
   await waitFor(() => expect(document.querySelector("[data-sections-compare]")?.textContent).toContain("Couldn't compare these passages."));
   expect(document.querySelector("[data-compare-table]")).toBeNull();
+});
+
+// Follow-ups Oct 31, Codex review F1: with no hits, Ctrl+↵ inside the answer
+// still asks the tutor about the two sections' pins; its pending line, cancel,
+// answer and failure must show beside the comparison (they lived under the hits).
+const TUTOR_ANSWER = {
+  askId: "la_1", eventId: "ev_tut", answerMd: "Both diagonalize by an orthonormal basis.", citations: [], groundedKeys: [],
+  droppedPins: [], label: "from your two sections",
+};
+
+async function tutorFromSectionsCompare() {
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: NO_HITS_ASK });
+  api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_1", state: "done", result: TWO_SECTIONS });
+  await compareFromFindSection();
+  const pane = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>("[data-sections-compare]");
+    expect(found?.querySelector("[data-compare-table]")).toBeTruthy();
+    return found!;
+  });
+  fireEvent.keyDown(pane, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerLibraryAskTutor).toHaveBeenCalledTimes(1));
+  // The same two passages the comparison was sent (this section's and the hit's).
+  const comparedPins = api.readerLibraryCompare.mock.calls[0][0].pinnedSpanKeys;
+  expect(comparedPins).toContain("ext_axler:a7");
+  expect(api.readerLibraryAskTutor.mock.calls[0][0]).toMatchObject({ askId: "la_1", pinnedSpanKeys: comparedPins });
+  return pane;
+}
+
+it("with CA3 off and no hits, Ctrl+↵ asks the tutor about the two sections and its pending line, cancel and answer show", async () => {
+  let finish: (value: unknown) => void = () => undefined;
+  api.readerLibraryAskTutor.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  const pane = await tutorFromSectionsCompare();
+  await waitFor(() => expect(pane.textContent).toContain(LIBRARY_COPY.tutorWriting));
+  expect(Array.from(pane.querySelectorAll("button")).some((button) => button.textContent === "cancel")).toBe(true);
+  // The tutor's box is there too, so the request is visible and can be reworded.
+  expect(screen.getByRole("textbox", { name: "your question for the tutor" })).toBeTruthy();
+  await act(async () => { finish({ jobId: "j_tut", kind: "tutor", askId: "la_1", state: "done", result: TUTOR_ANSWER }); });
+  await waitFor(() => expect(pane.textContent).toContain("Both diagonalize by an orthonormal basis."));
+  expect(pane.textContent).not.toContain(LIBRARY_COPY.tutorWriting);
+});
+
+it("with CA3 off and no hits, a tutor answer that fails says so beside the comparison", async () => {
+  api.readerLibraryAskTutor.mockRejectedValue(new Error("boom"));
+  const pane = await tutorFromSectionsCompare();
+  await waitFor(() => expect(pane.textContent).toContain("Couldn't write an answer."));
+});
+
+it("with CA3 off and no hits, a cancelled comparison keeps the tutor over its pins on screen", async () => {
+  api.readerLibraryAsk.mockResolvedValue({ jobId: "j_ask", kind: "ask", askId: "la_1", state: "done", result: NO_HITS_ASK });
+  api.readerLibraryCompare.mockImplementation(() => new Promise(() => undefined));
+  api.readerLibraryAskTutor.mockResolvedValue({ jobId: "j_tut", kind: "tutor", askId: "la_1", state: "done", result: TUTOR_ANSWER });
+  await compareFromFindSection();
+  const pane = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>("[data-sections-compare]");
+    expect(found?.textContent).toContain(LIBRARY_COPY.comparing);
+    return found!;
+  });
+  fireEvent.click(Array.from(pane.querySelectorAll("button")).find((button) => button.textContent === "cancel")!);
+  const kept = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>("[data-sections-compare]");
+    expect(found?.textContent).not.toContain(LIBRARY_COPY.comparing);
+    return found!;
+  });
+  fireEvent.keyDown(kept, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(document.querySelector("[data-sections-compare]")?.textContent).toContain("Both diagonalize by an orthonormal basis."));
 });
 
 it("go there opens the other book as a detour", async () => {

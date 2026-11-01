@@ -401,6 +401,59 @@ export function LibraryAnswer({
       {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}
     </ModelActionState>
   ) : null;
+  // The tutor over the pins: its box, then its pending line, cancel, answer or
+  // failure. Under the hits, or (Codex review F1, follow-ups Oct 31) beside a
+  // section comparison whose ask found none, since Ctrl+↵ asks the tutor about
+  // those pins too and a request that runs is always on screen.
+  const pinsTutor = (
+    <>
+      {state.pinned.length > 0 ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void ctl.askTutor(question, "pins");
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: 6 }}
+        >
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={headStyle}>{LIBRARY_COPY.askTutor} ({state.pinned.length})</span>
+            <input
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder={LIBRARY_COPY.tutorPlaceholder}
+              aria-label="your question for the tutor"
+              style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "5px 8px" }}
+            />
+          </label>
+          <MeaningLabel style={{ fontSize: 10 }}>
+            answers only from {state.pinned.length === 1 ? "this passage" : `these ${state.pinned.length} passages`} · ↵ ask
+          </MeaningLabel>
+        </form>
+      ) : null}
+      {state.tutor.phase !== "idle" && state.tutorBasis !== "comparison" ? (
+        <ModelActionState
+          phase={state.tutor.phase}
+          verb={LIBRARY_COPY.tutorWriting}
+          failure={state.tutor.failure ?? undefined}
+          kept="Your question is kept."
+          capRoute="tutor"
+          onCancel={ctl.cancelTutor}
+          onRetry={() => void ctl.askTutor(question, "pins")}
+        >
+          {state.tutor.value ? (
+            <ModelVoice first note={state.tutor.value.label}>
+              <MarkdownMath value={state.tutor.value.answerMd ?? ""} />
+              {state.tutor.value.citations.length ? (
+                <span style={{ display: "block", color: COLOR.textDim, fontSize: 11 }}>
+                  cites: {state.tutor.value.citations.map((citation) => citation.label).join(" · ")}
+                </span>
+              ) : null}
+            </ModelVoice>
+          ) : null}
+        </ModelActionState>
+      ) : null}
+    </>
+  );
   // The comparing keys (UX §3.5), only while focus is inside the answer (never
   // on the reading surface): ↑ ↓ move between passages · Space peek · p pin ·
   // o open · c compare pinned · Ctrl+↵ ask the tutor about pinned.
@@ -509,11 +562,13 @@ export function LibraryAnswer({
               />
             ) : null}
             {ask.hits.length === 0 ? <MeaningLabel style={{ fontSize: 12 }}>{LIBRARY_COPY.nothing}</MeaningLabel> : null}
-            {ask.hits.length === 0 && state.intent.kind === "compare" && !scopedCompare && pinsCompare ? (
-              // CA5a with CA3 off: the two sections' comparison runs on its own pins, found or not.
+            {ask.hits.length === 0 && state.intent.kind === "compare" && !scopedCompare && (pinsCompare || state.pinned.length > 0) ? (
+              // CA5a with CA3 off: the two sections' comparison runs on its own pins, found or not;
+              // the tutor over those pins shows here too, even once the comparison is cancelled.
               <div data-sections-compare="" style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                 <MeaningLabel style={{ fontSize: 11 }}>{LIBRARY_COPY.sectionsCompared}</MeaningLabel>
                 {pinsCompare}
+                {pinsTutor}
               </div>
             ) : null}
             {ctl.keep && ask.comparedOn?.length ? (
@@ -600,51 +655,7 @@ export function LibraryAnswer({
                   <CompareScopeBody ctl={ctl} onReword={null} onPracticePick={onPracticePick} Table={CompareTable}
                     practice={false} kept="Your question and the books are kept." />
                 ) : pinsCompare}
-                {state.pinned.length > 0 ? (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void ctl.askTutor(question, "pins");
-                    }}
-                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
-                  >
-                    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <span style={headStyle}>{LIBRARY_COPY.askTutor} ({state.pinned.length})</span>
-                      <input
-                        value={question}
-                        onChange={(event) => setQuestion(event.target.value)}
-                        placeholder={LIBRARY_COPY.tutorPlaceholder}
-                        aria-label="your question for the tutor"
-                        style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "5px 8px" }}
-                      />
-                    </label>
-                    <MeaningLabel style={{ fontSize: 10 }}>
-                      answers only from {state.pinned.length === 1 ? "this passage" : `these ${state.pinned.length} passages`} · ↵ ask
-                    </MeaningLabel>
-                  </form>
-                ) : null}
-                {state.tutor.phase !== "idle" && state.tutorBasis !== "comparison" ? (
-                  <ModelActionState
-                    phase={state.tutor.phase}
-                    verb={LIBRARY_COPY.tutorWriting}
-                    failure={state.tutor.failure ?? undefined}
-                    kept="Your question is kept."
-                    capRoute="tutor"
-                    onCancel={ctl.cancelTutor}
-                    onRetry={() => void ctl.askTutor(question, "pins")}
-                  >
-                    {state.tutor.value ? (
-                      <ModelVoice first note={state.tutor.value.label}>
-                        <MarkdownMath value={state.tutor.value.answerMd ?? ""} />
-                        {state.tutor.value.citations.length ? (
-                          <span style={{ display: "block", color: COLOR.textDim, fontSize: 11 }}>
-                            cites: {state.tutor.value.citations.map((citation) => citation.label).join(" · ")}
-                          </span>
-                        ) : null}
-                      </ModelVoice>
-                    ) : null}
-                  </ModelActionState>
-                ) : null}
+                {pinsTutor}
                 {state.practice.phase !== "idle" ? (
                   <ModelActionState
                     phase={state.practice.phase}
