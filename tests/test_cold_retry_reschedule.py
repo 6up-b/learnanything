@@ -467,16 +467,17 @@ def _activated(paths, version=TAG) -> bool:
         ).fetchone() is not None
 
 
-def test_mvp038_is_one_constant_after_mvp037_and_the_latest():
+def test_mvp038_is_one_constant_after_mvp037():
     from learnloop.cold_retry_reschedule_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.config.schema import PracticeConfig
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.params.parameter_registry import classify_config_path
 
-    assert SUCCESSOR_CHAIN[-3:] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, TAG) == (
+    # Reader RW6b's mvp-0.39 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-4:-1] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, TAG) == (
         "mvp-0.36", "mvp-0.37", "mvp-0.38")
-    assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert COLD_RETRY_RESCHEDULE_VERSIONS == frozenset({TAG})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.39" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert COLD_RETRY_RESCHEDULE_VERSIONS == frozenset({TAG, "mvp-0.39"})
     assert PracticeConfig().reschedule_cold_after_assist is True
     rule = classify_config_path("practice.reschedule_cold_after_assist")
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
@@ -498,15 +499,19 @@ def test_upgrade_to_mvp038_works_from_supported_versions(tmp_path, _cli_process,
         assert _activated(paths, PREDECESSOR)
 
 
-def test_a_bare_upgrade_targets_mvp038_and_refuses_twice(tmp_path, _cli_process):
+def test_a_bare_upgrade_targets_the_latest_through_mvp038_and_mvp038_refuses_twice(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.cold_retry_reschedule_upgrade import upgrade_to_cold_retry_reschedule
 
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
-    again = upgrade_to_cold_retry_reschedule(paths.root)
+    # The latest is Reader RW6b's mvp-0.39, chained through this tag.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
+    other = _vault_at(tmp_path, "w", PREDECESSOR)
+    assert upgrade_to_cold_retry_reschedule(other.root).upgraded and _version(other) == TAG
+    again = upgrade_to_cold_retry_reschedule(other.root)
     assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
 

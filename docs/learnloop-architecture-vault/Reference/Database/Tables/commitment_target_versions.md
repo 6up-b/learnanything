@@ -3,8 +3,8 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
-source_commit_timestamp: "2026-10-31T22:15:39-04:00"
+source_commit: "75044d17e2317bd008923da79bf1eb41ae17654d"
+source_commit_timestamp: "2026-10-31T22:08:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/intent_reads.py"
+  - "src/learnloop/instructional/reader_followups.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/intent_reads.py`
+- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers

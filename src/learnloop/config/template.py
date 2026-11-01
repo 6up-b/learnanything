@@ -1691,13 +1691,27 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # can't express an idea, content and display only,
     # at every version (no successor); every snapshot moves only because the effective config gains
     # the key; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW6b part 1 (cold follow-ups; docs/reviews/
+    # reader-rw6b-p1-followups.md) adds [followups] enabled = true,
+    # formative_questions_enabled = true, generate_when_nothing_fits = false,
+    # max_wait_days = 14 (keep) and max_daily_cost_usd = 0.50 (keep)
+    # (modelled defaults, left out of the decision-only template): content
+    # the learner can undo (test_me_later commitments DL2 serves as any
+    # "Check once"), valued by the sources spec's existing machinery. The kill
+    # switch of the successor mvp-0.39 (Codex review F4: automatic dated
+    # requests change the maintain lane's serving); it acts only at that tag
+    # and later, and at every earlier version the section is present and
+    # inert. Every snapshot moves only because the effective
+    # config gains the section; all of them were recomputed from the composed
+    # defaults (defaults_fingerprint_for_version), and dropping the section
+    # reproduces every earlier value.
     # Reader CA6 (side by side; docs/reviews/reader-ca6-side-by-side.md) adds
     # [reader.side_by_side] enabled (true; a modelled default, left out of the
     # decision-only template): two source panes, follow along at section crossings to the
     # first judged correspondent. Navigation and display only, at every version (no
     # successor); every snapshot moves only because the effective config gains the key; all
     # of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "b52f495a90415897ae10b88832172bf95e21cd2c056608d890f380859e1f757a",
+    "mvp-0.9": "59e72e7ddb4c67652e1bc7c77ccb67588306bcc2cc8b2699efbc4499bf57e0f7",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1778,7 +1792,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.10": "58493dd2baaae76119e536608c35ea3891939870fe6b8465b216dc70b37cea98",
+    "mvp-0.10": "e9807f4b3411a38de0af077069e7e8cc01d4dc5f8a50c96b4ebf32cd9178239c",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1867,7 +1881,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.11": "c9f41c37dbfb8b45318255c1b4fdef85a124bc67a5923a91c22d770932509c05",
+    "mvp-0.11": "af52a5fe2ebf60e47ea53e3ccdd03af0711967432301a7c603af0ed99f92ef76",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1950,7 +1964,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.12": "c0acce66dfb26e7f092860ea9dcfd1e6178a59347129cf6c05aaf4456785818f",
+    "mvp-0.12": "6502225c603cb327dc1a0bfae7690deaefca89a30e9739b34bdadb63ca27d9ce",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2028,7 +2042,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.13": "f6b9fc9807471fbda83d1f65578adcf81eeb5064175310a95bf15bd933055575",
+    "mvp-0.13": "f4c1f1644ff530e3f46d5b77e784d5eac993a00c7c2f7618f897dc0ba7f8fa06",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2105,7 +2119,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.14": "2e6dc326afe02927f818da71f533a6c36d556241a7e491829a77eda001012cd7",
+    "mvp-0.14": "b88ab8d29ebbdd1f7bb760ee557993dff8d48e594ce66aa6d665f5d50d2c0e7c",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2180,7 +2194,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.15": "929314abbc3eb85e119a98b56441d6cf41e4ff1dabde136091ed2dd441b91cd8",
+    "mvp-0.15": "53311c0b5c0b9acb138725843801acab4361e5311869a52ef73067212e5dee28",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2262,7 +2276,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.16": "9c148b58081f2123a354bb5ec9444d712740b67cb83e407597c7d0d065d7d69e",
+    "mvp-0.16": "eac70ee9fb6d19997b61603ca87863d249b69d93db037cf0f1c21c4297f26efc",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2340,7 +2354,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.17": "ce7591eecf10e81a058af38b956354aad983d9d3146ecb1191a954323794ab74",
+    "mvp-0.17": "2e1d5194db33a26e0e3d883e34da375dfb02f1468ee7bf6c40f6b1a7ba14e413",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2411,7 +2425,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.18": "69a6b95169eb696a199297cf93ed999a1e9639feb9d1fddc22cd8996968876f4",
+    "mvp-0.18": "92a9f7172b764423572f7e65463995a793f8fc14bfede6971553acc9266d1469",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2482,7 +2496,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.19": "0cb09b50db46de2e09eaad779479ddaf9ae06593e60fece78eaeb8f8cfb652e7",
+    "mvp-0.19": "025534c2745425e275b37034c70be7eb30a5caeb0b36bc341ec3b8642109967c",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2549,7 +2563,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.20": "cc10e88f81eab8236b15c860b3717c7c6d347c56d0949b5367832c7be9cb8aa0",
+    "mvp-0.20": "577b3ea371d4e970f5d1465c80860ff0cd4625a210b6d17b686379f804496297",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2625,7 +2639,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.21": "e83fc79637dc1c121268907f430aa9eba132976c6f626f3908b4a3134a746135",
+    "mvp-0.21": "9af1d194b169afa46adcc76f3f8aab2339af623f463e95e3949bbd5291e90800",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2693,7 +2707,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.22": "1cfa38aaa9f1b225fa15b2867e31a740d151d484f84d8b42c930a3b8b8ec7d28",
+    "mvp-0.22": "298b76cd0b4bc5ec404a807b18226932b282949bbd1a0cef5419996c193ac5bb",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2756,7 +2770,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.23": "81c57047f400bbb4630824689823e826c6fefbb634a11413f0e85db1cc2f1508",
+    "mvp-0.23": "f01383289a1fc431c38d99fb64bd47923ffa3131d8e6da55cc446a74631b37cd",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2816,7 +2830,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.24": "622958e39bbeb9a9cc61f95c902dd04616bc76248e000ec797053d6c527477b7",
+    "mvp-0.24": "2e3e6e10b7193d1812337c25d72222d07383bc8922e5615c9c1eca4b61fa05dc",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2874,7 +2888,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.25": "077882ad6f8176a6c1bf22868d8925e0bb5f42bf460769062c16a06fb80b6f48",
+    "mvp-0.25": "cbeea84af5f23a390deb3ee88df3ade2bde75dba9b808ac950c58b335290c660",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2931,7 +2945,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.26": "6e09bca5b043f843b632d6071803a2138200bfe2cbdc75ec3c91357417087215",
+    "mvp-0.26": "2fe20f36c040b31612224c2bd03a934660492e20ae5127640c9718ceffd6b276",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2988,7 +3002,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.27": "2a12d0a49f319742b46a8c3bdd6f980624831be8f6ecb673fc00b82b820c6210",
+    "mvp-0.27": "213808483cce8568fffe89a7e5609a0e9f64e9ad57c6ce3c56fc3f54ce1b44e2",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -3034,7 +3048,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.29": "f2abaee8317b54e8f84943eeee976e9cc4d63c5a33e271f38ad52e96ebef821d",
+    "mvp-0.29": "32fb46a85629dc0f1b8abf68fc437f98bfb4a4ddb9a245a7f306599ae604f3b9",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3074,7 +3088,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.30": "d8d776aff9c6f4fffc488f51f1e75ba83c58ad335f99c40618b64d1605c55fde",
+    "mvp-0.30": "85825d27155c1ad469f719e4282b3870b81522b648301272e712530fc0f9e9c4",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3108,7 +3122,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.31": "ad39e02711e2de7300dce3d9f649f85099aecc12397afe0ff400211fa6301293",
+    "mvp-0.31": "b06615cd40a8574af9d4e94f9f5e5ee4e5d8644064e5b27d0af839ca501b8c53",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3139,7 +3153,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.32": "f9729a1c2fdaf021d31ebc5e7a8d68431d4df10e75d997435e116b4d230a419c",
+    "mvp-0.32": "07602291ed3a2fe07da18a246987c8dd74a56c1b79bc2cdb90bc08cf6168337c",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3168,7 +3182,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.33": "dc14ae9a18f54c11a7664c542a8dd3e87c2eaf268f7144cf232a25f59be7acc1",
+    "mvp-0.33": "0223c491788249967b9412e82a2bcac2d477b18317f92f337981f314badfca45",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3196,7 +3210,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.34": "1afc9644d1afbfdcc3e6064fddec6addb5341ddfe129cde93b40fa12678980a6",
+    "mvp-0.34": "8285e231892aed04e04911847e85f05d5913e376ea4109f2976f57c85e6d485d",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3223,7 +3237,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.35": "ee0dd1978a629f34b46196bcba6df82903b1e86771aff9fdabf445b77069107c",
+    "mvp-0.35": "38c6a68232d4967fdc1f9e3661e688ea22b256e03d42b4442919e50946a94f55",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3245,7 +3259,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.36": "269886d4681e6b0af1f5ea8238b0b71de2cd0afac8aa9b2f1c3cba200ad57f62",
+    "mvp-0.36": "6c6678b34418c6aa73820a58119287016b1c696af43bbcf3a2efc2760ab8ee55",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3270,7 +3284,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.37": "ebd096c6580702e6045554f0ed4dc80ec99117413cec74e72589796b7aa03335",
+    "mvp-0.37": "4fe221749bf9402ec0f07cb1f4a595f4f280e2e3025625a13fc6a0d92f20ce0d",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3282,8 +3296,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # version string moves the fingerprint (the key is in every snapshot
     # above, inert below the tag). Existing vaults reach it by `learnloop
     # upgrade` (default target) from mvp-0.37, or from mvp-0.9 onwards through
-    # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
-    # owner decision 2026-10-12).
+    # the chain. New vaults started here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12) until Reader RW6b's successor landed.
+    # Reader RW6b's [followups] moves it too (see mvp-0.9; inert below mvp-0.39).
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
@@ -3291,7 +3306,27 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
     # Reader CA6's [reader.side_by_side] enabled moves it too (see mvp-0.9; display only, no successor).
-    "mvp-0.38": "0ab9df130729b68fb8e98f08cc3f77bcf9d9254974144cf05565eab3a792e4c5",
+    "mvp-0.38": "5f78f9c53829d2ea69690f5306d4862b361677821953d26b2b1a9053f21cc5bf",
+    # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
+    # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
+    # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
+    # that clear the stop becoming automatic test_me_later commitments, dated
+    # by purpose, re-valued before each day's plan and gated at serve by the
+    # full exposure rule. Kill switch [followups] enabled (default true; off
+    # plans exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint (the section is in every snapshot
+    # above, inert below the tag). Existing vaults reach it by `learnloop
+    # upgrade` (default target) from mvp-0.38, or from mvp-0.9 onwards through
+    # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12).
+    # Reader CA5a's [reader.correspondence] enabled is in it too (see mvp-0.9; display only, no successor).
+    # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope are in it too (see mvp-0.9; display only, no successor).
+    # Reader CA4's [reader_compare] by_point and max_perspectives are in it too (see mvp-0.9; display only, no successor).
+    # Curriculum C0b's [curriculum] coverage_on_extract and two routes are in it too (see mvp-0.9; display only, no successor).
+    # Reader CA5's [reader.correspondence] hide_everywhere and hidden_sources are in it too (see mvp-0.9; display only, no successor).
+    # Reader RW5d P2's [figures] sketch_enabled is in it too (see mvp-0.9; content and display, no successor).
+    # Reader CA6's [reader.side_by_side] enabled is in it too (see mvp-0.9; display only, no successor).
+    "mvp-0.39": "4405e24da32e99b43dbedfd44c2af149178c92ccb60395abea8496085932f972",
 }
 
 

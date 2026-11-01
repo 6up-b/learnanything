@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
-source_commit_timestamp: "2026-10-31T22:15:39-04:00"
+source_commit: "75044d17e2317bd008923da79bf1eb41ae17654d"
+source_commit_timestamp: "2026-10-31T22:08:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -101,6 +101,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/one_ask_upgrade.py`
 - `src/learnloop/placement/report.py`
+- `src/learnloop/reader_followups_upgrade.py`
 - `src/learnloop/superseded_claims_upgrade.py`
 
 ### Direct SQL writers

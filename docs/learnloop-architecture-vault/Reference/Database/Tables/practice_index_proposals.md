@@ -3,8 +3,8 @@ title: "practice_index_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
-source_commit_timestamp: "2026-10-31T22:15:39-04:00"
+source_commit: "75044d17e2317bd008923da79bf1eb41ae17654d"
+source_commit_timestamp: "2026-10-31T22:08:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_index_proposals"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_practice_availability.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_practice_proposal_caller_columns.py`
+- `tests/test_reader_followup_valuation.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_source_first_needs.py`
 - `tests/test_tutor_practice_request.py`

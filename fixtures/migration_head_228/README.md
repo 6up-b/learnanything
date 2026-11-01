@@ -37,6 +37,28 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW6b part 1 (migration 227), landing of `reader/rw6b-followups`, 2026-10-31
+
+Curriculum C0b's 228 landed first, so at the landing of RW6b part 1 onto main
+`94494b4cc` (`docs/reviews/reader-rw6b-p1-followups.md`, "Landing onto main")
+this head keeps its name and now holds 226 + 227 + 228; the branch's own
+`migration_head_227` rename was dropped. Rebuilt from main's tracked,
+sanitized `migration_head_228/state.sqlite`: a backup-API copy under
+`fixtures-local/` with only `227_reader_session_digests.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`; the runner is set-based, so 227 applies after 228),
+then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header
+bytes 1/1), `integrity_check` ok and `foreign_key_check` empty, and copied
+into place with the backup API, with no companion files.
+
+* 227 (Reader RW6b, `spec_reader_workbench_v1` §9.4) adds the WORKFLOW
+  `reader_session_digests` (its autoindex, its UNIQUE autoindex and two
+  indexes), with no row.
+
+No other object changed definition, and only `schema_migrations` gained a row
+(227); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's).
+
 ## Curriculum C0b (migration 228), branch `curriculum/c0b-scope-path`, 2026-10-31
 
 Renamed from `migration_head_226` on the C0b branch

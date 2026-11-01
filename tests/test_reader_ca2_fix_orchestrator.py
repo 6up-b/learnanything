@@ -200,6 +200,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     from learnloop.db.migrate import upgrade_allowance
     from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
     from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
+    from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 
     through = tmp_path / "through_222"
     through.mkdir()
@@ -220,9 +221,9 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 228]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228]
     after = schema()
-    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - C0B_ADDED_OBJECTS == set(before)
+    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == (
         CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES
     )

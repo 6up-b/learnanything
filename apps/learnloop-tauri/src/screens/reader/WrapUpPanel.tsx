@@ -7,6 +7,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { ReaderWrapUpActionDto, ReaderWrapUpDto, ReaderWrapUpInquiryLineDto, ReaderWrapUpReinforceLineDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { ComingUp, type ComingUpProps } from "./ComingUp";
 import { Quoted, RecapLink } from "./RecapCard";
 import { RECAP_COPY, observationLine } from "./recapCopy";
 import { MeaningLabel } from "./voices";
@@ -21,6 +22,8 @@ export interface WrapUpPanelProps {
   /** An action already taken for this line (revisit once: the Ask chip's
    *  shared state), shown done and not offered again. */
   isDone?: (line: ReaderWrapUpInquiryLineDto, action: ReaderWrapUpActionDto) => boolean;
+  /** RW6b: worth reinforcing lists the checks coming up with their dates, each with undo. */
+  followups?: Pick<ComingUpProps, "onUndo" | "onUndoAll" | "onRestore">;
 }
 
 const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> = {
@@ -40,7 +43,7 @@ function reinforceLine(line: ReaderWrapUpReinforceLineDto): string {
   return `${line.marker} ${observationLine(line.kind, null, line.observed)}`;
 }
 
-export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone }: WrapUpPanelProps) {
+export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone, followups }: WrapUpPanelProps) {
   const [kept, setKept] = useState<Set<string>>(new Set());
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -113,6 +116,7 @@ export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone }: WrapUp
           </ul>
         </div>
       ) : null}
+      {wrapUp.comingUp && followups ? <ComingUp comingUp={wrapUp.comingUp} {...followups} /> : null}
     </section>
   );
 }
