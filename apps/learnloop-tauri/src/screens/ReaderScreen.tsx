@@ -3994,7 +3994,13 @@ export function ReaderScreen({
           />
 
           <AskRail
-            protectionMessage={askProtectionMessage}
+            // Reader CA6b: a composer the second pane opened asks about that pane's (never protected) passage.
+            protectionMessage={askComposerAnchor ? null : askProtectionMessage}
+            composerAbout={askComposerAnchor ? {
+              label: askComposerAnchor.about.label,
+              quote: askComposerAnchor.selectionQuote ?? "",
+              onClear: () => setAskComposerAnchor(null),
+            } : null}
             visible={railTab === "ask"}
             enabled={enabled}
             inquiry={inquiry}
