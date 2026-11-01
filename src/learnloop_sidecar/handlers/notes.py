@@ -203,7 +203,7 @@ def notes_path(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]:
     return versioned({"goal_id": params.goal_id, "linking": state.get("state"),
                       # A list, not a map: LO ids are data (the wire camel-cases map keys).
                       "lines": [{"learning_object_id": lo, "notes": views}
-                                for lo, views in NL.for_goal(vault, repository, params.goal_id).items()]})
+                                for lo, views in NL.for_goal(vault, repository, params.goal_id, targets=targets).items()]})
 
 
 class ExtractionInput(ParamsModel):

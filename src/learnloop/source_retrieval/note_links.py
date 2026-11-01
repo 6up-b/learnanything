@@ -574,10 +574,12 @@ def link_view(row: Mapping[str, Any], note: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
-def for_goal(vault: Any, repository: Repository, goal_id: str) -> dict[str, list[dict[str, Any]]]:
-    """The notes shown on the deliverable's path lines, by topic."""
+def for_goal(vault: Any, repository: Repository, goal_id: str, *,
+             targets: Sequence[Target] | None = None) -> dict[str, list[dict[str, Any]]]:
+    """The notes shown on the deliverable's path lines, by topic (``targets``: the path's
+    topics when the caller has read them already)."""
 
-    targets = path_targets(vault, repository, goal_id)
+    targets = list(targets) if targets is not None else path_targets(vault, repository, goal_id)
     if not targets:
         return {}
     by_lo = {target.learning_object_id: target for target in targets}
