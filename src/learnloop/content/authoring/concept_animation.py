@@ -347,10 +347,11 @@ RENDER_TASKS_MAX = 512
 _SCOPE_PROBE: dict[str, bool] = {}
 
 
-def _systemd_scope_works(run=subprocess.run) -> bool:
+def _systemd_scope_works(run=None) -> bool:
     """Whether ``systemd-run --user --scope`` can start a scope here (a user
     manager on the session bus), probed once per process with ``true``."""
 
+    run = run or subprocess.run
     if "ok" in _SCOPE_PROBE:
         return _SCOPE_PROBE["ok"]
     systemd_run = shutil.which("systemd-run")
@@ -367,7 +368,7 @@ def _systemd_scope_works(run=subprocess.run) -> bool:
 
 def capped_scope_prefix(*, memory_bytes: int = RENDER_MEMORY_MAX, cpu_quota: str = RENDER_CPU_QUOTA,
                         tasks_max: int = RENDER_TASKS_MAX, background: bool = False,
-                        run=subprocess.run) -> list[str]:
+                        run=None) -> list[str]:
     """The resource caps a sandboxed render runs under (Reader RW5d P2b,
     spec §9b.3): a ``systemd-run --user --scope`` with ``MemoryMax``,
     ``MemorySwapMax=0``, ``CPUQuota`` and ``TasksMax`` when a user scope can

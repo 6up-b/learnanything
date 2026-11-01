@@ -124,10 +124,12 @@ def rich_tiers_switch(vault: Any) -> bool:
     return admission_rich_tiers_enabled(vault)
 
 
-def manim_runtime_state(vault: Any) -> dict[str, Any]:
+def manim_runtime_state(vault: Any, *, probe: bool = True) -> dict[str, Any]:
     """Whether this machine can run the Manim tier, and why not: Linux, the
     ``bwrap`` binary, Manim installed (probed once per process per command:
-    ``manim --version`` takes seconds)."""
+    ``manim --version`` takes seconds). ``probe`` False never spawns the
+    probe: an unprobed Manim reads as ready (a core dependency; the press
+    that would use it probes before anything is built)."""
 
     from learnloop.content.authoring.concept_animation import (
         manim_runtime,
@@ -146,11 +148,14 @@ def manim_runtime_state(vault: Any) -> dict[str, Any]:
     animation = getattr(vault.config, "animation", None)
     command = tuple(resolve_manim_command(animation, vault.root)) if animation is not None else ()
     with _PROBE_GUARD:
-        probe = _MANIM_PROBE.get(command)
-    if probe is None:
-        probe = manim_runtime(manim_command=list(command) or None)
+        found = _MANIM_PROBE.get(command)
+    if found is None and not probe:
+        return {"ready": True, "reason": None, "version": None, "probed": False}
+    if found is None:
+        found = manim_runtime(manim_command=list(command) or None)
         with _PROBE_GUARD:
-            _MANIM_PROBE[command] = probe
+            _MANIM_PROBE[command] = found
+    probe = found
     if not probe.get("available"):
         return {"ready": False, "reason": "no_manim", "version": None}
     return {"ready": True, "reason": None, "version": probe.get("version")}
@@ -166,11 +171,12 @@ def manim_tier_ready(vault: Any) -> bool:
 
 def manim_opt_in_needed(vault: Any) -> bool:
     """The Manim tier would be on the menu but for the opt-in, never asked yet
-    (the press shows the inline *allow · not now* once; spec §9b.3)."""
+    (the press shows the inline *allow · not now* once; spec §9b.3). Never
+    spawns the Manim probe (the prompt contract asks this): *allow* probes."""
 
     if not rich_tiers_switch(vault) or admission_manim_opt_in(vault) is not None:
         return False
-    return bool(manim_runtime_state(vault)["ready"])
+    return bool(manim_runtime_state(vault, probe=False)["ready"])
 
 
 def tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]:

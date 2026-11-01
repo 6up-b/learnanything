@@ -74,13 +74,13 @@ def test_the_standing_opt_in_is_written_once_with_its_date(tmp_path, monkeypatch
 
 def test_allowing_where_manim_cannot_run_is_refused(tmp_path, monkeypatch):
     paths, _repository, ctx, _author, _rich = _ctx(tmp_path, monkeypatch, opt_in=None)
-    monkeypatch.setattr(RICH, "manim_runtime_state", lambda vault: {"ready": False, "reason": "no_bwrap",
-                                                                    "version": None})
+    monkeypatch.setattr(RICH, "manim_runtime_state", lambda vault, probe=True: {"ready": False, "reason": "no_bwrap",
+                                                                                "version": None})
     with pytest.raises(SidecarError) as refused:
         call(ctx, "figure.manim_opt_in", {"choice": "allow"})
     assert refused.value.code == "manim_unavailable"
     assert load_vault(paths.root).config.figures.manim_opt_in is None
-    assert _contract(ctx)["rich"] == {"manimOptIn": "unavailable"}
+    assert "rich" not in _contract(ctx)  # where Manim can't run, the contract is P2's
 
 
 def test_a_press_builds_the_quick_figure_and_the_fuller_one_lands_under_it(tmp_path, monkeypatch):

@@ -79,7 +79,7 @@ def ready_manim(monkeypatch: Any, *, version: str = "Manim Community v0.19.1") -
     import learnloop.content.authoring.concept_animation as CA
 
     monkeypatch.setattr(RICH, "manim_runtime_state",
-                        lambda vault: {"ready": True, "reason": None, "version": version})
+                        lambda vault, probe=True: {"ready": True, "reason": None, "version": version})
     # No transient systemd scope is started by a test: the capped scope falls back to prlimit.
     monkeypatch.setattr(CA, "_SCOPE_PROBE", {"ok": False})
 

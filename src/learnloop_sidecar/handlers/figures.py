@@ -93,12 +93,12 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
         # RW5d P2: present only while the sketch tier is on (and the engine
         # ready), so off the contract is P1's, key for key.
         figures["sketch"] = True
-    if FS.rich_enabled(vault):
-        # RW5d P2b: present only while the rich tiers are on (so off the
-        # contract is P2's, key for key), with the Manim tier's opt-in state:
-        # "ask" (ready here, never asked: the press shows allow · not now once),
-        # "standing", "declined", or "unavailable" (not Linux, no bwrap or Manim).
-        figures["rich"] = {"manim_opt_in": manim_opt_in_state(vault)}
+    if FS.rich_enabled(vault) and (state := manim_opt_in_state(vault)) != "unavailable":
+        # RW5d P2b: present only while the rich tiers are on and the Manim tier
+        # concerns this machine (so off, or where Manim can't run, the contract
+        # is P2's key for key), with its opt-in state: "ask" (never asked: the
+        # press shows allow · not now once), "standing" or "declined".
+        figures["rich"] = {"manim_opt_in": state}
     return {"figures": figures}
 
 

@@ -36,6 +36,15 @@ version (:data:`SKETCH_SUFFIX`) and with :data:`SKETCH_TEXT` in its
 instructions, which prefer the grammar. A sketch is still data to the
 service: a program the sealed engine runs and code verifies. Off, the
 contract, the prompt and the reuse key are RW5b's (and P1's) byte for byte.
+
+RW5d P2b (the rich tiers): with a rich tier on the menu the output widens to
+:class:`FigureAuthorOutputV3` (``spec`` | ``sketch`` | ``js_animation`` |
+``manim`` | ``unsupported``, with ``why_this_tier``, the rich brief in
+``rich_json`` and an optional quick spec or sketch), under ``+rich-v1`` and
+the menu, and the status sentence is :func:`tier_menu_text`: one neutral
+sentence per offered medium (cost, latency, what can be checked), no
+preference. The rich author ``figure_rich_author`` (:mod:`.rich`) is a
+second route on this module's :class:`FigureRoute` and the same envelope.
 """
 
 from __future__ import annotations

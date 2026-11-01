@@ -79,6 +79,25 @@ under this version". Off: the author's contract, prompt and reuse key are
 RW5b's byte for byte, and a stored sketch lists as "can't draw this yet".
 Sketches are illustrations, never "checked against the book".
 
+**RW5d P2b: the rich tiers, the Manim half** (spec_reader_show_me_figures_v1
+§7.2, §8.4, §8.6, §9b.3). The author's menu is :func:`learnloop.figures.rich.tiers_allowed`
+(Manim only with ``figures.rich_tiers_enabled``, Linux with ``bwrap``, Manim
+installed, the standing opt-in, and a way to start its durable job:
+``spawn_rich``); with a rich tier on it the contract is
+:class:`~learnloop.figures.routes.FigureAuthorOutputV3` (the medium chosen by
+what best explains the idea, ``why_this_tier`` receipted as ``figure_tier``)
+under its own prompt version, and the reuse key names the menu and the rich
+tier versions; with none, everything is P2's byte for byte. A rich status
+stores its optional quick figure at once (verified as any spec or sketch)
+and starts the rich job (:func:`learnloop.figures.rich.run_rich_job`) on the
+sidecar's queue; the rich figure lands as a second row under the same
+request (``fuller_of_id`` naming the quick one), listed as the quick
+figure's fuller version (:func:`fuller_state`: one figure line, two
+versions). With no quick figure the request's pending line shows
+(:func:`rich_pending`) and the same input never asks twice while it builds.
+Off: no rich menu entry, no rich keys in a view, and a stored rich figure
+lists as "can't show this kind here" (:func:`rich_off_row`).
+
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a
@@ -1234,7 +1253,7 @@ def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Se
         return found
     # RW5d P2b: a rich figure built with no quick figure is this input's own
     # figure (its fuller version is reached through the quick one instead).
-    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS)
+    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
     if rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only):
         return rich_only
     # RW5d P2: the same input under the other settings of the panels and of

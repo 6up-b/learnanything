@@ -153,7 +153,7 @@ export function useFigures({
   // RW5d P2b: while a rich build runs (a fuller line pending or waiting, or a
   // rich-only pending line), the source's figures are read again, paced; the
   // lines change in place under their passage, nothing else moves.
-  const richRunning = Boolean(contract?.rich) && (
+  const richRunning = (
     richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
     || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
   useEffect(() => {

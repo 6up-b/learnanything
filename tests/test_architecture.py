@@ -648,6 +648,8 @@ _SYMBOLIC_FIELD_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("src/learnloop/content/synthesis/source_coverage.py", "*"): {"claims_key"},
     ("src/learnloop/content/synthesis/source_unit_inventory.py", "*"): {"claims_key"},
     ("src/learnloop/db/repositories.py", "*"): {"claims_key"},
+    # Reader RW5d P2b: a Manim figure's declared claims (the rich author's output JSON).
+    ("src/learnloop/figures/manim_figure.py", "*"): {"claims_key"},
 }
 #: The readers, each CALLING the accessor (checked by AST).
 _SYMBOLIC_READERS = (
