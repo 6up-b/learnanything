@@ -36,6 +36,7 @@ import {
 import { KEEP_COPY, fineLabel } from "./CompareKeep";
 import { useCompareKeep } from "./compareKeepContext";
 import { MeaningLabel, SpokenOnly } from "./voices";
+import { NotesTakeBand, type NoteTakeOutcome } from "./ReaderNotes";
 
 export const POINT_COPY = {
   header: "differences kept · each line quotes its own book",
@@ -361,6 +362,18 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
     setDrafts((current) => ({ ...current, [target]: text }));
     setTakeOpen(null);
     setTakeText("");
+  };
+
+  /** Curriculum C2's *use as my take*: the note's quote as the take on the whole comparison
+   *  (RW4d's own write); before a keep it waits with the keep, as a typed take does. */
+  const takeFromNote = async (text: string): Promise<NoteTakeOutcome> => {
+    if (kept && canKeep) {
+      // Marked used only once saved (Codex review F11); a failure says why and keeps the action.
+      const saved = await serial(() => send({ takes: [{ text, about: "comparison" }] }, "Couldn't keep your take from your note."));
+      return saved ? "kept" : "failed";
+    }
+    setDrafts((current) => ({ ...current, comparison: text }));
+    return "drafted";
   };
 
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
@@ -779,6 +792,8 @@ export function ComparePointTable({ table }: { table: CompareTableDto }) {
             {youCell("comparison") ?? (
               <button type="button" style={{ ...linkStyle, alignSelf: "flex-start" }} onClick={() => openTake("comparison")}>{KEEP_COPY.addTake}</button>
             )}
+            <NotesTakeBand keys={table.rows.map((row) => row.key)} busy={phase === "pending"}
+              onUse={takeFromNote} />
           </div>
         ) : null}
         {unverified.map((entry, index) => (

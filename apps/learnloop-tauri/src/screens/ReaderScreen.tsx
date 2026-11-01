@@ -108,6 +108,8 @@ import { LibraryPane, useComparingStacked } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
 import { useKeptComparisons } from "./reader/useKeptComparisons";
+import { NoteLinkPicker, NoteMarkButton, NOTES_COPY, useNoteMarks } from "./reader/ReaderNotes";
+import { NotesContext } from "./reader/notesContext";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto, ReaderPresetReceiptDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
@@ -1438,16 +1440,24 @@ export function ReaderScreen({
   const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
   // RW4d: the ⇄ marks of comparisons the learner kept (off: none, nothing read).
   const keptCtl = useKeptComparisons({ contract, extractionId: render?.extractionId ?? null, sourceId: render?.sourceId ?? null, offline });
+  // Curriculum C2: the › marks of the learner's linked notes (off: none, nothing read).
+  const notesCtl = useNoteMarks({ settings: contract?.notes, extractionId: render?.extractionId ?? null, offline });
+  const [notePicker, setNotePicker] = useState<{ spanId: string; x: number; y: number } | null>(null);
   // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
   // overlay gutter beside the cue marks. They are the learner's own marks:
   // added after the cue placement, so the density setting never counts them.
   const pdfMarks = (): ReadonlyMap<string, ReactNode> | null => {
     const cues = cueMarksFor("pdf");
-    if (working || keptCtl.marks.size === 0) return cues;
+    if (working || (keptCtl.marks.size === 0 && notesCtl.marks.size === 0)) return cues;
     const merged = new Map<string, ReactNode>(cues ?? []);
     for (const [spanId, mark] of keptCtl.marks) {
       const cue = merged.get(spanId);
       merged.set(spanId, <Fragment key={`kept-${spanId}`}>{cue}<KeptMark mark={mark} surface="pdf" below={Boolean(cue)} /></Fragment>);
+    }
+    // Curriculum C2: the › marks join the gutter too, below a cue and a ⇄ (the learner's own marks).
+    for (const [spanId, mark] of notesCtl.marks) {
+      const before = merged.get(spanId);
+      merged.set(spanId, <Fragment key={`note-${spanId}`}>{before}<NoteMarkButton mark={mark} surface="pdf" below={Boolean(before)} /></Fragment>);
     }
     return merged;
   };
@@ -2910,7 +2920,9 @@ export function ReaderScreen({
               </div>
               {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
               {libraryCtl.open ? (
-                // RW4d: keep and reopen work on the library page too (Codex review F3).
+                // RW4d: keep and reopen work on the library page too (Codex review F3);
+                // curriculum C2: so do the notes' your-take band (C2 Codex review F10).
+                <NotesContext.Provider value={notesCtl.context}>
                 <CompareKeepContext.Provider value={keptCtl.context}>
                 <Card style={{ padding: 0 }}>
                   <LibraryAnswer
@@ -2927,6 +2939,7 @@ export function ReaderScreen({
                   />
                 </Card>
                 </CompareKeepContext.Provider>
+                </NotesContext.Provider>
               ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
@@ -3441,6 +3454,7 @@ export function ReaderScreen({
   };
 
   return (
+    <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3764,13 +3778,14 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
                 {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
+                {block.spanId && !working && notesCtl.marks.get(block.spanId) ? <NoteMarkButton mark={notesCtl.marks.get(block.spanId)!} /> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -4513,6 +4528,20 @@ export function ReaderScreen({
                 {t.label}
               </div>
             ))}
+            {notesCtl.enabled && !offline && render ? (
+              <div
+                data-note-link-entry=""
+                onClick={() => {
+                  setNotePicker({ spanId: tagMenu.spanId, x: tagMenu.x, y: tagMenu.y });
+                  setTagMenu(null);
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = COLOR.bgInput)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                style={{ padding: "8px 12px", fontSize: 12, color: COLOR.text, cursor: "pointer", borderTop: `1px solid ${COLOR.border}` }}
+              >
+                <span aria-hidden="true" style={{ color: COLOR.amber }}>› </span>{NOTES_COPY.linkNote}
+              </div>
+            ) : null}
             {pdfView && !offline && surface !== "pdf" ? (
               <div
                 onClick={() => {
@@ -4529,6 +4558,13 @@ export function ReaderScreen({
               </div>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {notePicker && render && notesCtl.enabled ? (
+        // Curriculum C2: link one of your notes to this passage (by hand: yours, never re-judged).
+        <div style={{ position: "fixed", left: Math.min(notePicker.x, window.innerWidth - 440), top: Math.min(notePicker.y, window.innerHeight - 360), width: 420, maxHeight: 340, overflowY: "auto", zIndex: 320, boxShadow: "0 16px 48px rgba(0,0,0,0.55)" }}>
+          <NoteLinkPicker extractionId={render.extractionId} spanId={notePicker.spanId} onClose={() => setNotePicker(null)} onError={onError} />
         </div>
       ) : null}
 
@@ -4555,5 +4591,6 @@ export function ReaderScreen({
       />
     </div>
     </CompareKeepContext.Provider>
+    </NotesContext.Provider>
   );
 }

@@ -3,8 +3,8 @@ title: "Config - teacher"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
+source_commit: "5c246bbc0b5c8a98488a74f99a19a49e38910c3c"
+source_commit_timestamp: "2026-11-01T15:45:10-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml teacher"
@@ -40,7 +40,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `teacher.confidence_events_enabled` | `true` | boolean | modeled default or validator seed | Turns confidence events behavior on or off within teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4025`; `src/learnloop/ai/plan_fallback.py:129` |
+| `teacher.confidence_events_enabled` | `true` | boolean | modeled default or validator seed | Turns confidence events behavior on or off within teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4087`; `src/learnloop/ai/plan_fallback.py:135` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

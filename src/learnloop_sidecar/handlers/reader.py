@@ -512,6 +512,10 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.side_by_side import prompt_contract_fields as side_by_side_fields
 
     contract.update(side_by_side_fields(vault))
+    # Curriculum C2's notes (absent while notes.enabled is off or tend is not installed).
+    from learnloop_sidecar.handlers.notes import prompt_contract_fields as notes_fields
+
+    contract.update(notes_fields(vault))
     return versioned(contract)
 
 

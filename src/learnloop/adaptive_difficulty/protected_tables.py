@@ -118,6 +118,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("learner_claims", NEUTRAL),
     ("learner_gap_check_advances", DENIED),
     ("learner_gap_commitments", DENIED),
+    # Curriculum C2 (migration 229): the learner's linked notes and their links (AD reads neither).
+    ("learner_note_links", PROTECTED),
+    ("learner_notes", PROTECTED),
     ("learner_text_gap_reversals", DENIED),
     ("learning_object_mastery", DENIED),
     ("lo_probe_state", DENIED),
@@ -415,6 +418,19 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="id goal_id depth learning_object_id ordinal learner_override commitment_id ledger_id model "
                "prompt_version created_at",
         derived="label reason state_key"),
+    # Curriculum C2 (migration 229): a note link names one reading's section and span (its margin
+    # mark): a READING row; the link's how, its line and the state key it was judged under are never
+    # read as stored. A note snapshot names no reading; its text, title, heading and tend reference
+    # are the learner's own words (a note may copy an exam question) and never read as stored.
+    "learner_note_links": _table({
+        "extraction_id": "extraction", "section_id": "section@extraction_id", "span_id": "span@extraction_id",
+    },
+        values="id note_id note_key target_kind learning_object_id goal_id authorship status ledger_id model "
+               "prompt_version created_at",
+        derived="target_key how how_line state_key"),
+    "learner_notes": _table({},
+        values="id note_key line content_hash captured_on origin truncated created_at",
+        derived="path heading_path title heading text_md"),
     # Curriculum C0b: a scope input may name a passage of a reading (a syllabus page): a READING row;
     # the learner's words are never read as stored.
     "deliverable_scope_inputs": _table({"extraction_id": "extraction", "span_ids_json": "spans@extraction_id"},
@@ -542,6 +558,13 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
        for column in ("label", "reason", "state_key")},
     **{("deliverable_scope_inputs", column): "unread: the learner's own words scoping a deliverable; AD reads "
                                              "no scope input" for column in ("text_md", "context_json")},
+    # Curriculum C2: AD reads no note and no note link.
+    **{("learner_note_links", column): "unread: a note link's target, how and the state it was judged "
+                                       "under; AD reads no note link" for column in (
+        "target_key", "how", "how_line", "state_key")},
+    **{("learner_notes", column): "unread: the learner's own note (its text and where it lives; a note "
+                                  "may copy an exam question); AD reads no note" for column in (
+        "path", "heading_path", "title", "heading", "text_md")},
     # Curriculum C0a: AD reads no section coverage.
     **{("section_coverage", column): "unread: the coverage judge's (or the learner's) reading of a section "
                                      "against an LO, ranked among other readings' sections; AD reads no "
@@ -569,6 +592,8 @@ READING = frozenset({
     "section_coverage",
     # Curriculum C0b: the deliverable path and the passage scope inputs (display only).
     "deliverable_path_sections", "deliverable_scope_inputs",
+    # Curriculum C2: the note links (display only, never evidence).
+    "learner_note_links",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

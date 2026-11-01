@@ -1499,6 +1499,15 @@ class AIRoutingConfig(BaseModel):
     # digest.max_daily_cost_usd at digest.price_per_million (unset: refused
     # before sending).
     reader_digest: str | None = None
+    # Deliverable curriculum C2 (spec_deliverable_curriculum_v1 §10.3, §10.4):
+    # the note link judge, one listwise call per learning object in the
+    # background over the candidate notes tend found (the LO, its primary
+    # passage's lead and the notes' text). Note text is read by the ChatGPT
+    # plan only: a route that does not resolve to the plan is refused before
+    # anything is sent, the job is quiet (never an OpenRouter offer, never a
+    # grant) and, with the plan down, it waits. Empty = ai.active_provider
+    # (the ChatGPT plan under T1; estimated_only).
+    note_link_judge: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2980,6 +2989,59 @@ class CurriculumConfig(BaseModel):
     plan_uses_path: bool = True
 
 
+class NotesTendConfig(BaseModel):
+    """Curriculum C2's one adapter, the owner's ``tend`` (spec §10.1, §10.4).
+
+    ``binary`` is the executable (absent: the notes features are hidden;
+    ``LEARNLOOP_NOTES_TEND`` overrides it, ``off`` meaning absent). ``paths``
+    is the allowlist: the folders of tend's corpus LearnLoop may use (grove
+    notes, Quicknote, the Obsidian vault and ``~/org``, owner Q5); project
+    repositories stay excluded, and a hit outside the list is dropped before
+    anything is stored or sent. ``pocket_notes_paths`` marks a 3DS page
+    Pocket Notes transcribed ("handwritten · transcribed by Pocket Notes").
+    ``lexical_only`` asks tend for words only (``--words``), so no query
+    leaves the machine (owner Q7). ``timeout_seconds`` bounds each tend call
+    and ``k`` the sections one query asks for (both ``keep``: a stalled
+    subprocess never holds a job; a prompt bound).
+    """
+
+    binary: str = "tend"
+    paths: list[str] = Field(default_factory=lambda: [
+        "~/Documents/thinking/notes", "~/Documents/Quicknote", "~/Documents/Obsidian Vault", "~/org"])
+    pocket_notes_paths: list[str] = Field(default_factory=lambda: [
+        "~/Documents/Quicknote/Pocket Notes", "~/org/pocket-inbox.org"])
+    lexical_only: bool = False
+    timeout_seconds: float = Field(default=10.0, ge=1.0, le=120.0)
+    k: int = Field(default=5, ge=1, le=20)
+
+
+class NotesConfig(BaseModel):
+    """Deliverable curriculum C2: notes in the learner's voice, linked
+    (spec_deliverable_curriculum_v1 §10, §12 C2).
+
+    Through ``tend`` (``[notes.tend]``), the learner's notes are searched for
+    each topic on a deliverable path (the topic's and its sections' titles; no
+    model), and one background call per topic (``ai.routing.note_link_judge``,
+    the ChatGPT plan only: never offered OpenRouter; with the plan down it
+    waits) proposes which notes discuss its passage or the topic, with one
+    line on how. Proposals show as "from your notes" (a ``›`` mark beside the
+    passage, the path line, Compare's *your take* band with *use as my take*);
+    one tap hides one; the learner can link a note by hand from the Reader.
+    Only a linked note is stored (a bounded snapshot, refreshed when tend
+    reports a new content hash); a note is never written to. A note is never a
+    source, a generation input or evidence. ``enabled`` is the kill switch
+    (off: no tend call, no model call, every notes RPC refuses and the Reader,
+    the path and Compare are today's exactly). ``max_candidates`` bounds the
+    notes one judgment reads (``keep``: a prompt bound). Display and
+    learner-voice records only: nothing in scoring, scheduling, projection or
+    serving reads a note, so no algorithm successor.
+    """
+
+    enabled: bool = True
+    max_candidates: int = Field(default=8, ge=1, le=20)
+    tend: NotesTendConfig = Field(default_factory=NotesTendConfig)
+
+
 class ReaderCorrespondenceConfig(BaseModel):
     """Reader CA5a: *find this section in my other books*
     (ux_reader_compare_ask_v1 §6.2, §6.3; CA5's *also in your books* will
@@ -4292,6 +4354,7 @@ class LearnLoopConfig(BaseModel):
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
+    notes: NotesConfig = Field(default_factory=NotesConfig)
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)

@@ -3,13 +3,13 @@ title: "deliverable_scope_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
+source_commit: "5c246bbc0b5c8a98488a74f99a19a49e38910c3c"
+source_commit_timestamp: "2026-11-01T15:45:10-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_scope_inputs"
   - "table deliverable_scope_inputs"
-schema_head: 228
+schema_head: 229
 table_name: "deliverable_scope_inputs"
 table_role: "raw_ledger"
 functionality_status: "active"

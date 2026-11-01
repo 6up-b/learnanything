@@ -3,6 +3,10 @@ import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryC
 import { READER_PREFIX, TAG } from "./queryTags";
 import { noteFallbackOffer } from "../app/planFallback";
 import type {
+  NoteHitDto,
+  NoteLinkDto,
+  NoteMarksDto,
+  NotesPathDto,
   DifficultyRating,
   FirstHintProgress,
   CompareRequestDto,
@@ -1669,6 +1673,19 @@ export const api = {
       "curriculum_ready_check", { input }),
   curriculumAlsoAbout: (input: { extractionId: string; sectionId: string; text: string }) =>
     call<{ status: string; learningObjectId: string | null; message?: string; title?: string }>("curriculum_also_about", { input }),
+  // Curriculum C2: your notes, linked (desktop only; absent from the contract while off).
+  notesPath: (input: { goalId: string; link?: boolean; retry?: boolean }) => call<NotesPathDto>("notes_path", { input }),
+  notesMarks: (input: { extractionId: string }) => call<NoteMarksDto>("notes_marks", { input }),
+  notesPassages: (input: { passages: Array<{ extractionId: string; spanId: string }> }) =>
+    call<{ notes: NoteLinkDto[] }>("notes_passages", { input }),
+  notesSearch: (input: { query?: string; extractionId?: string; spanId?: string }) =>
+    call<{ query: string; hits: NoteHitDto[] }>("notes_search", { input }),
+  notesLink: (input: {
+    note: { path: string; line: number; headingPath: string; title: string; contentHash: string; mtime: number };
+    extractionId: string; spanId: string;
+  }) => call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
+  notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
+    call<{ linkId: string; status: string }>("notes_decide", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
