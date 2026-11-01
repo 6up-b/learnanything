@@ -146,3 +146,91 @@ Test files added or changed: `tests/test_facet_state_write_on_change.py` (new).
   and residual row with the rebuild time, as before. That is expected: the owner boundary clears.
 - The no-op compare costs about 8.6 ms at 1400 cells, in Python. It is not worth optimizing at
   today's sizes (76 recall + 36 capability rows on the largest owner copy).
+
+## Landing onto main
+
+The branch `substrate/facet-write-on-change` (worktree `learnanything-dl2`, stage tip `9fffc73cdb`) lands onto main
+`2eb4bf6e61`. The orchestrator fast-forwards main and pushes.
+
+### Merges
+
+None. Main's tip was `2eb4bf6e61`, the branch's own base, when the landing started and again just before the full
+gate and before this record was committed, so the branch fast-forwards as it is. No conflict, no regeneration: no
+schema, config, template, frontend or `src-tauri` change, so the DB reference scripts, the desktop catalog, npm and
+cargo were not needed.
+
+### Gate (at `9fffc73cdb`)
+
+Every run under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR` outside the worktree,
+`LEARNLOOP_AD_MODELS=off`; every pytest run inside `systemd-run --user --scope` (full suite 10G, the rest 5G) under
+`flock /tmp/learnloop-fullsuite.lock`. No live model call.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- **Full pytest** (`-n 8 --dist worksteal`, 10G): **23095 passed, 89 skipped, 47 xfailed, 0 failed** (37:44). The 4
+  grader tests that failed on main in the CA6b landing pass (main's `2eb4bf6e61` fixed them).
+- **Durability lane** (`-m durability`, `-n 6`): **178 passed, 1 skipped**.
+- **Owner lane** (`-m owner_vaults`, `-n 6`, fresh backup-API copies, `learnloop.db.copies.copy_tree_with_databases`,
+  of `learnanything-ad1/fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in the gitignored
+  `fixtures-local/landing-facet/`): **83 passed, 2 failed, 4 skipped**. The failures are exactly the two known ones,
+  `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and
+  `test_placement_fixture_copies::…[arxiv_v2]`.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-facet-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). Main's code is `git archive 2eb4bf6e61` and the branch's `git archive 9fffc73cdb`, both with `src/`
+and `migrations/`. Each copy, under its own side's code: a bare `upgrade` (**mvp-0.35 → mvp-0.40**, head 228), the
+desktop start (`SidecarContext.load`, primary), `migrate_vault` (0 applied), `rebuild-derived-state`. Every process
+ran under `env -i` with empty `HOME`, `CODEX_HOME` and config dir and an audit hook that refuses non-loopback sockets
+and Codex process starts.
+
+**Reload probe** (`scripts/reload_probe.py`, on a further copy of each side's rebuilt vault, under that side's code;
+WAL, `synchronous=FULL`). Deterministic ids; the system clock is frozen and moved one hour before each step, so a
+rewrite shows in `updated_at`. Steps: a desktop start (`load`, maintenance on); `reload(maintenance=False)` twice (the
+refresh path the RPCs use); `refresh_canonical_projection_on_startup` alone; `close()` and a second desktop start in
+a new `SidecarContext` (maintenance on). After each step: `PRAGMA data_version` from an observer connection opened
+after the first load, and a sha256 of every table's rows (rowid order, every column including `rowid` and the
+timestamps).
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| rows: recall / capability / residual | 76 / 36 / 0 | 2 / 1 / 0 | 4 / 2 / 0 |
+| upgrade, desktop start, rebuild-derived-state (main and branch) | mvp-0.35 → mvp-0.40, ok (70 attempts replayed) | same (3) | same (3) |
+| facet value columns, main vs branch after rebuild-derived-state (timestamps excluded) | **identical** in all three tables | identical | identical |
+| Today (3 queue variants, frozen clock), branch vs main | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+| **main**: `data_version` over load → reload → reload → refresh → second start | 2 → 3 → 4 → 5 → 6 | 2 → 3 → 4 → 5 → 6 | 2 → 3 → 4 → 5 → 6 |
+| **main**: tables changed at each of the 4 steps | `facet_recall_state`, `facet_capability_evidence` (every step); nothing else | same | same |
+| **branch**: `data_version` over the same steps | **2 → 2 → 2 → 2 → 2** | 2 → 2 → 2 → 2 → 2 | 2 → 2 → 2 → 2 → 2 |
+| **branch**: tables changed at any step | **none**: the three facet tables and every other table byte-identical, timestamps included | none | none |
+
+- On main each step rewrites both facet tables, and it is the only write on that path: capability `created_at` and
+  `updated_at` moved from 09:00 to 13:00 over the four steps (linear_algebra), recall `updated_at` likewise. On the
+  branch the capability rows keep the `rebuild-derived-state` stamps through all four steps. The second desktop start
+  (maintenance on) committed nothing at all on the branch.
+- Timestamps differ between main's and the branch's rebuilt copies only where they are wall-clock stamps of the
+  rebuild (recall `updated_at`, capability `created_at`/`updated_at`; the rebuilds ran about a minute apart). Recall
+  `created_at` (projected: the first observation's time) is identical.
+- `capability_residual_state` is empty on all three owner copies, so the residual writer is exercised by the tests only
+  (`test_the_residual_writer_*` and the interleaving test `fe1953bed0`).
+- **Model call receipts:** across the 18 smoke databases compared with their base copies, **0 new**. probability's 56
+  historical rows (42 completed, 14 failed) are unchanged in each copy.
+- **Audit:** the audit log was never written, so there was no process start and no socket connect of any kind. No
+  Codex process ran.
+
+### Orchestrator rulings (verbatim)
+
+- R1: "Recall rows keep taking the created_at the projection supplies (first observation's time); a moved value counts as a change. Accepted: the live table must equal a fresh rebuild."
+- R2: "Fix (2) (fingerprint skip of the fold) and fix (3) (capability created_at backfill) are queued follow-ups; fix (3) changes stored timestamp values and goes to the owner."
+
+### Open items
+
+1. **Fix 2 (queued follow-up):** skip the fold on reload when nothing it reads changed (input fingerprint; see the
+   stage's open items). The fold still runs on every load and reload; only its write is gone.
+2. **Fix 3 (owner decision):** backfill capability `created_at` with the first contributing observation's time, as
+   recall rows have, so a rebuild reproduces it. It changes stored timestamp values (excluded from the shadow and
+   equivalence comparisons), so it goes to the owner. Until then, existing capability rows keep the `created_at` of
+   the last write before this landing (on the owner's vaults: their last reload or rebuild).
+3. A full rebuild still stamps every capability and residual row with the rebuild time (the owner boundary clears the
+   tables), as before.
