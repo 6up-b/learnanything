@@ -130,6 +130,81 @@ def test_an_answer_whose_passages_cannot_be_established_is_withheld():
     assert RLS.answer_source_refs({"source_retrieval": {"basis": "lo_provenance", "reason": "x"}}, linked) == linked
 
 
+def _retrieved_turn(repository: Any, item_id: str, *, context: str, attempt_id: str | None, question: str,
+                    answer: str, at: str, span_key: str) -> None:
+    repository.insert_question_event({
+        "context": context, "practice_item_id": item_id, "attempt_id": attempt_id, "question_md": question,
+        "answer_md": answer, "answer_status": "answered", "created_at": at,
+        "source_context": {"source_retrieval": {"basis": "retrieved_verified", "span_keys": [span_key]}},
+    })
+
+
+def test_a_later_turn_that_was_given_an_earlier_turn_from_a_passage_held_out_since_is_withheld(
+        tmp_path, monkeypatch):
+    """Codex re-review F1: Q1 was written from S, Q2 from clean T with Q1 in its
+    thread (``tutor_qa._thread``); S held out since withholds both answers."""
+
+    from learnloop import learner_protection
+
+    paths, repository, seeded = _closed_window_vault(tmp_path)
+    plain = seeded["plain"]
+    _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="Q1_THREAD_QUESTION",
+                    answer="Q1_ANSWER_FROM_S", at="2026-09-05T09:00:00Z", span_key="ext_book/s11")
+    _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="Q2_THREAD_QUESTION",
+                    answer="Q2_ANSWER_RESTATING_Q1", at="2026-09-05T09:05:00Z", span_key="ext_book/s12")
+    vault = load_vault(paths.root)
+    before = json.dumps(RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW).state)
+    assert "Q1_ANSWER_FROM_S" in before and "Q2_ANSWER_RESTATING_Q1" in before
+    _hold_out(monkeypatch, ("ext_book", "s11"))
+    after = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    entries = {entry["learner_question"]: entry for entry in after.state["topics"][0]["recent_tutor_questions"]}
+    text = json.dumps(after.state)
+    assert "Q1_ANSWER_FROM_S" not in text and "Q2_ANSWER_RESTATING_Q1" not in text
+    assert entries["Q1_THREAD_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
+    assert entries["Q2_THREAD_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
+    # The feedback answer's thread (its own attempt's feedback turns) never held Q1: it still shows.
+    assert "SECRET_WORKED_SOLUTION" in text
+
+
+def test_a_feedback_turn_inherits_the_earlier_feedback_turns_of_its_attempt(tmp_path, monkeypatch):
+    from learnloop import learner_protection
+
+    paths, repository, seeded = _closed_window_vault(tmp_path)
+    plain = seeded["plain"]
+    # An earlier feedback turn on the same attempt as the seeded one, written from S.
+    _retrieved_turn(repository, plain, context="feedback", attempt_id="att_last_wrong",
+                    question="EARLIER_FEEDBACK_QUESTION", answer="EARLIER_FEEDBACK_FROM_S",
+                    at="2026-09-02T09:30:00Z", span_key="ext_book/s11")
+    # A later practice turn on the item is not in that attempt's feedback thread.
+    _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="LATER_PRACTICE",
+                    answer="LATER_PRACTICE_ANSWER", at="2026-09-05T09:00:00Z", span_key="ext_book/s12")
+    _hold_out(monkeypatch, ("ext_book", "s11"))
+    vault = load_vault(paths.root)
+    state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    entries = {entry["learner_question"].split(" ")[0]: entry
+               for entry in state.state["topics"][0]["recent_tutor_questions"]}
+    assert entries["MY_OWN_FEEDBACK_QUESTION"]["answer_left_out"] == learner_protection.WITHHELD_EXAM
+    assert "SECRET_WORKED_SOLUTION" not in json.dumps(state.state)
+    assert "LATER_PRACTICE_ANSWER" in json.dumps(state.state)
+
+
+def test_an_earlier_turn_whose_passages_cannot_be_established_withholds_the_later_answer(tmp_path):
+    paths, repository, seeded = _closed_window_vault(tmp_path)
+    plain = seeded["plain"]
+    repository.insert_question_event({
+        "context": "practice", "practice_item_id": plain, "attempt_id": None, "question_md": "Q1_UNNAMED",
+        "answer_md": "Q1_UNNAMED_ANSWER", "answer_status": "answered", "created_at": "2026-09-05T09:00:00Z",
+        "source_context": {"source_retrieval": {"basis": "retrieved_verified"}},
+    })
+    _retrieved_turn(repository, plain, context="practice", attempt_id=None, question="Q2_CLEAN",
+                    answer="Q2_CLEAN_ANSWER", at="2026-09-05T09:05:00Z", span_key="ext_book/s12")
+    vault = load_vault(paths.root)
+    state = RLS.build(vault, repository, learning_object_ids=["lo_matrices"], now_iso=NOW)
+    entries = {entry["learner_question"]: entry for entry in state.state["topics"][0]["recent_tutor_questions"]}
+    assert entries["Q2_CLEAN"]["answer_left_out"] == RLS.ANSWER_SOURCES_UNKNOWN
+    assert "Q2_CLEAN_ANSWER" not in json.dumps(state.state)
+
+
 # -- F2 ----------------------------------------------------------------------------------------------
 
 

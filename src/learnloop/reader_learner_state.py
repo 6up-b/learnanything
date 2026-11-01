@@ -19,7 +19,8 @@ on, its context also carries, for the passage's learning objects:
   written with the rubric) and every passage it may have been written from
   is still unprotected (:func:`answer_source_refs`, ``PastWork.source_reason``:
   a passage marked exam or held-out material since withholds it, and so do
-  passages that cannot be established; Codex review F1); inside a workbench
+  passages that cannot be established; Codex review F1), and so do those of
+  every earlier turn its thread gave it (Codex re-review F1); inside a workbench
   session bound to an item no
   earlier tutor answer is carried at all (the binding's guard plans every
   model-written text of the call, ``reader_modes.plan_bound_delivery``).
@@ -264,8 +265,18 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str,
                                  else past.solution_reason([item_id]))
                 if answer_reason is None:
                     # Codex review F1: the answer's passages, against today's
-                    # protection (a passage marked held out since withholds it).
-                    answer_reason = _source_reason(past, decoded, link_refs(lo))
+                    # protection (a passage marked held out since withholds it);
+                    # re-review F1: with every earlier turn its thread gave it.
+                    turns = _thread_turns(connection, row)
+                    if turns is None:
+                        answer_reason = ANSWER_SOURCES_UNKNOWN
+                    else:
+                        written_from = [(decoded, link_refs(lo))]
+                        for turn in turns:
+                            turn_lo = item_lo.get(str(turn.get("practice_item_id")))
+                            written_from.append((turn, link_refs(turn_lo) if turn_lo in vault.learning_objects
+                                                 else None))
+                        answer_reason = _source_reason(past, written_from)
                 answer = delivered_answer_md(decoded)
                 if answer_reason is None and answer:
                     entry["answer_shown"] = _excerpt(answer)
@@ -368,13 +379,55 @@ def answer_source_refs(source_context: Any, linked: Sequence[Mapping[str, Any]])
     return refs
 
 
-def _source_reason(past: Any, decoded: Mapping[str, Any], linked: Sequence[Mapping[str, Any]]) -> str | None:
-    """Why a stored answer's passages withhold it now (exam or held-out material,
-    unreadable protection, or passages that cannot be established), or None."""
+def _thread_turns(connection: Any, row: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    """Every earlier turn the tutor may have been given with this stored answer
+    (Codex re-review F1), decoded; a turn whose answer was withheld as worked
+    help is left out (its thread carried the take step, never the text).
 
-    refs = answer_source_refs(decoded.get("source_context"), linked)
-    if refs is None:
-        return ANSWER_SOURCES_UNKNOWN
+    ``tutor_qa._thread`` gives a practice answer the attempt's earlier answered
+    practice turns on the same item, and a feedback answer the earlier answered
+    feedback turns on the same graded attempt. This reads a superset of each:
+    every earlier answered turn of that context on that item (practice) or
+    attempt (feedback), whatever its window, session or attempt key. The set
+    is transitively closed: an earlier turn's own thread is earlier still and
+    keyed the same, so it is already in it. Rows are never rewritten, so their
+    recorded provenance is the record this reads. None: the thread cannot be
+    established (a row without its item or attempt), so neither can the answer's."""
+
+    from learnloop.tutor.tutor_qa import answer_withheld
+
+    context = row.get("context")
+    if context == "practice":
+        where, key = "practice_item_id = ?", row.get("practice_item_id")
+    elif context == "feedback":
+        where, key = "attempt_id = ?", row.get("attempt_id")
+    else:
+        return None
+    if not key:
+        return None
+    turns = [_decoded(dict(found)) for found in connection.execute(
+        f"SELECT * FROM question_events WHERE context = ? AND answer_status = 'answered' AND {where} "
+        "AND id != ? AND created_at <= ? ORDER BY created_at, id",
+        (context, key, row["id"], str(row.get("created_at") or "")),
+    )]
+    return [turn for turn in turns if not answer_withheld(turn)]
+
+
+def _source_reason(past: Any,
+                   written_from: Sequence[tuple[Mapping[str, Any], Sequence[Mapping[str, Any]] | None]]) -> str | None:
+    """Why a stored answer's passages withhold it now (exam or held-out material,
+    unreadable protection, or passages that cannot be established), or None.
+
+    ``written_from``: the answer and every earlier turn its thread gave it
+    (:func:`_thread_turns`), each with its item's linked passage pool (None:
+    the pool cannot be read, so nothing is established)."""
+
+    refs: list[dict[str, Any]] = []
+    for decoded, linked in written_from:
+        found = None if linked is None else answer_source_refs(decoded.get("source_context"), linked)
+        if found is None:
+            return ANSWER_SOURCES_UNKNOWN
+        refs += found
     return past.source_reason(refs) if refs else None
 
 
