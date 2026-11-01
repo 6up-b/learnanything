@@ -73,6 +73,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled
 from learnloop.figure_admission import manim_opt_in as admission_manim_opt_in
 from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tiers_enabled
+from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import routes as R
 from learnloop.ids import new_ulid
@@ -102,12 +103,12 @@ WAITING_FOR_PLAN = "waiting_for_plan"
 #: What a stored rich figure shows while the rich tiers are off.
 RICH_OFF_KIND = "an animation (figures.rich_tiers_enabled is off)"
 RICH_OFF_LABEL = "can't show this kind here"
-#: The Manim figure's code-owned badges (spec §6.8): never "checked against the book".
-MANIM_LABEL = "AI-made video · not checked against the book"
-MANIM_UNCHECKED_LABEL = "AI-made video · not checked"
-MANIM_NOT_FROM_BOOKS_LABEL = "AI-made video · not from your books"
+#: The Manim figure's code-owned badges (spec §6.8; :mod:`.labels`): never "checked against the book".
+MANIM_LABEL = L.MANIM_LABEL
+MANIM_UNCHECKED_LABEL = L.MANIM_UNCHECKED_LABEL
+MANIM_NOT_FROM_BOOKS_LABEL = L.MANIM_NOT_FROM_BOOKS_LABEL
 #: The line every Manim figure's checks end with (spec §6.8).
-MANIM_NOT_COVERED = "the video itself is not checked frame by frame"
+MANIM_NOT_COVERED = L.MANIM_NOT_COVERED
 LEDGER_TASK = "figure_verified"
 TIER_LEDGER_TASK = "figure_tier"
 

@@ -140,6 +140,7 @@ from learnloop.figure_admission import sketch_enabled as admission_sketch_enable
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
 from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
 from learnloop.figures import grammar as G
+from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
@@ -164,8 +165,9 @@ GROUNDING_PASSAGES = ADMISSION_GROUNDING_PASSAGES
 GROUNDINGS = ("anchor", "retrieved", "none")
 SHOW_ME_VERSION = "show-me-v1"
 REQUEST_PREFIX = "frq_"
-#: What a figure built with nothing from the learner's books says (RW1c's abstention).
-NOT_FROM_BOOKS_LABEL = "AI-built illustration · not from your books"
+#: What a figure built with nothing from the learner's books says (RW1c's
+#: abstention): a code-owned label (:mod:`.labels`).
+NOT_FROM_BOOKS_LABEL = L.NOT_FROM_BOOKS_LABEL
 FIGURE_BLOCK_TYPES = frozenset({"Figure", "FigureGroup", "Picture", "PictureGroup"})
 #: Paragraphs on each side of the selection sent as context.
 CONTEXT_BLOCKS = 2
@@ -182,7 +184,7 @@ PREDICTION_PREFIX = "fpr_"
 FIGURE_PREFIX = "fig_"
 
 LABELS = {
-    "illustrative": "AI-built illustration of an interpretation · not checked against the book",
+    "illustrative": L.ILLUSTRATIVE_LABEL,
 }
 #: RW5d P2: the spec versions a stored figure may have (a grammar spec or a sketch).
 SPEC_VERSIONS = (S.SPEC_VERSION, K.SKETCH_VERSION)
@@ -190,10 +192,10 @@ SPEC_VERSIONS = (S.SPEC_VERSION, K.SKETCH_VERSION)
 #: figure when it follows one (``fuller_of_id``), else on its own line.
 RICH_SPEC_VERSIONS = (M.MANIM_FIG_VERSION,)
 ALL_SPEC_VERSIONS = SPEC_VERSIONS + RICH_SPEC_VERSIONS
-#: The sketch's code-owned badges (spec §6.6, §9.5): never "checked against the book".
-SKETCH_LABEL = "AI-written simulation · sandboxed · not checked against the book"
-SKETCH_UNCHECKED_LABEL = "AI-written simulation · nothing in it checked"
-SKETCH_NOT_FROM_BOOKS_LABEL = "AI-written simulation · sandboxed · not from your books"
+#: The sketch's code-owned badges (spec §6.6, §9.5; :mod:`.labels`): never "checked against the book".
+SKETCH_LABEL = L.SKETCH_LABEL
+SKETCH_UNCHECKED_LABEL = L.SKETCH_UNCHECKED_LABEL
+SKETCH_NOT_FROM_BOOKS_LABEL = L.SKETCH_NOT_FROM_BOOKS_LABEL
 #: What a stored sketch shows while the tier is off, and when a new engine refuses it.
 SKETCH_OFF_KIND = "a simulation (figures.sketch_enabled is off)"
 ENGINE_CHANGED_REASON = "couldn't run under this version · rebuild"
@@ -1727,6 +1729,47 @@ def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, reque
                                     home=home), reused=True)
 
 
+def _free_text(output: Any, status: str) -> list[tuple[str, Any]]:
+    """The author's model-written free text the label rule reads (spec
+    §9b.4): the tier reason, and what each figure it carries shows and
+    assumes (a rich status's quick figure and brief included)."""
+
+    if status == "unsupported":
+        return []
+    rich = status in RICH.RICH_TIERS
+    fields: list[tuple[str, Any]] = [(name, getattr(output, name, None)) for name in ("why_this_tier", "why_not_spec")]
+    if status != "sketch":
+        fields += L.json_fields("spec_json", getattr(output, "spec_json", None))
+    if status == "sketch" or rich:
+        fields += L.json_fields("sketch_json", getattr(output, "sketch_json", None))
+    if rich:
+        fields += L.json_fields("rich_json", getattr(output, "rich_json", None))
+    return fields
+
+
+def _without_label_text(output: Any) -> Any:
+    """The author's answer with its label-like free text left out (spec
+    §9b.4): a tier reason in code's words, a figure's or brief's label-like
+    ``demonstrates`` emptied and label-like assumptions dropped."""
+
+    update: dict[str, Any] = {}
+    for name in ("why_this_tier", "why_not_spec"):
+        if L.label_like(getattr(output, name, None)) is not None:
+            update[name] = L.REASON_WITHHELD
+    for name in ("spec_json", "sketch_json", "rich_json"):
+        raw = getattr(output, name, None)
+        stripped = L.strip_json(raw)
+        if stripped is not raw:
+            update[name] = stripped
+    if not update:
+        return output
+    if hasattr(output, "model_copy"):
+        return output.model_copy(update=update)
+    from types import SimpleNamespace
+
+    return SimpleNamespace(**{**vars(output), **update})
+
+
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
@@ -1780,6 +1823,16 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                 continue
             break
         status = str(output.status).strip().lower()
+        # The free-text label rule (spec §9b.4, P2b ruling R2): free text
+        # that reads like a code-owned check label is the repair call's
+        # problem, in code's words; still there after it, the figure is
+        # shown without that text (a Manim figure's own text: its job).
+        labelled = L.label_problems(_free_text(output, status))
+        if labelled:
+            if attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
+                problems = labelled
+                continue
+            output = _without_label_text(output)
         if v3:
             # RW5d P2b: the status is the medium chosen; why_this_tier its reason.
             menu_statuses = {"spec" if tier == "grammar" else tier for tier in tiers or ()} | {"unsupported"}
