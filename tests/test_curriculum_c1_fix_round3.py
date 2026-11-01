@@ -221,32 +221,32 @@ def test_m3_k0_observed_k1_prepared_and_a_concurrent_guide_open_for_k1_send_one_
 
 
 def test_m3_the_guides_worker_moves_its_claim_to_the_inputs_it_prepared(tmp_path, monkeypatch):
-    from learnloop_sidecar.handlers.deliverables import _work
+    from learnloop_sidecar.handlers import deliverables as H
 
     c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
     c1.clock.advance(days=1)
     fake = DeliverableFake(primaries=PRIMARIES)
     ctx = context(c1.paths.root, deliverable_path_client=fake, deliverable_inline=True)
     _no_refresh(ctx)
-    gathered = DP.path_inputs
     keys: list[str] = []
+    real_spawn = H._spawn
 
-    def k0_then_k1(vault, repository, goal_id, **kwargs):
-        inputs = gathered(vault, repository, goal_id, **kwargs)
-        if not keys and inputs is not None:
-            keys.append(inputs.state_key())  # the Guide's read: K0, which it claims
+    def between_claim_and_worker(ctx_, name, run):
+        if name.startswith("deliverable-path-") and not keys:
+            vault = load_vault(c1.paths.root)
+            keys.append(DP.path_inputs(vault, c1.repository, c1.goal_id).state_key())  # K0: claimed by the open
+            # The learner's state moves to K1, and the daily refresh is judging K1 right now.
             c1.repository.upsert_reader_section_progress(
                 extraction_id="ext_lay", section_id="lay_ortho", spans_seen=1, span_count=4)
-            k1 = gathered(vault, repository, goal_id, **kwargs)
+            k1 = DP.path_inputs(vault, c1.repository, c1.goal_id)
             keys.append(k1.state_key())
-            # The daily refresh is judging K1 right now.
-            _work(ctx).judging[(goal_id, k1.depth, k1.state_key())] = {"state": "running", "by": "plan_refresh"}
-        return inputs
+            H._work(ctx).judging[(c1.goal_id, k1.depth, k1.state_key())] = {"state": "running", "by": "plan_refresh"}
+        return real_spawn(ctx_, name, run)
 
-    monkeypatch.setattr(DP, "path_inputs", k0_then_k1)
+    monkeypatch.setattr(H, "_spawn", between_claim_and_worker)
     call(ctx, "curriculum.path", {"goalId": c1.goal_id})
     assert len(keys) == 2 and keys[0] != keys[1]
     assert fake.calls == 0  # the worker prepared K1, found it running and sent nothing
-    judging = _work(ctx).judging
+    judging = H._work(ctx).judging
     assert (c1.goal_id, "learn_to_use_it", keys[0]) not in judging  # its K0 mark is cleared
     assert judging[(c1.goal_id, "learn_to_use_it", keys[1])]["by"] == "plan_refresh"
