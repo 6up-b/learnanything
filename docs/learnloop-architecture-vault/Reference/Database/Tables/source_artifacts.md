@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
-source_commit_timestamp: "2026-11-01T10:53:23-05:00"
+source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
+source_commit_timestamp: "2026-11-01T12:20:35-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 228
+schema_head: 229
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -56,7 +56,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/032_source_layer.sql`.
-- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `062_source_artifact_display_title.sql`, `088_source_render_views.sql`, `094_source_objects.sql`, `104_source_reader_enabled.sql`, `198_add_book_state.sql`.
+- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `062_source_artifact_display_title.sql`, `088_source_render_views.sql`, `094_source_objects.sql`, `104_source_reader_enabled.sql`, `198_add_book_state.sql`, `229_learner_notes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -151,12 +151,12 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
+- `tests/test_notes_never_read.py`
 - `tests/test_quick_add.py`
 - `tests/test_reader_ca1_as_printed.py`
 - `tests/test_reader_ca1_astra_codex_review.py`
 - `tests/test_reader_ca1_astra_fixes.py`
 - `tests/test_reader_ca1_astra_redesign.py`
-- `tests/test_reader_ca1_astra_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

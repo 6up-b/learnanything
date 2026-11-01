@@ -3,13 +3,13 @@ title: "target_exemplars"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
-source_commit_timestamp: "2026-11-01T10:53:23-05:00"
+source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
+source_commit_timestamp: "2026-11-01T12:20:35-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite target_exemplars"
   - "table target_exemplars"
-schema_head: 228
+schema_head: 229
 table_name: "target_exemplars"
 table_role: "raw_ledger"
 functionality_status: "active"
