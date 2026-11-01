@@ -4428,12 +4428,19 @@ def _compute_resolved_grade_application(
             )
         except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)
             interpretation_variance = 0.0
+    # Teacher TE1 (spec_teacher_v1 §12.1): a lesson check enters at the mass recorded for it when it
+    # was graded (the learned lesson-check weight, filtered as of the check); live and replay read the
+    # same receipt row, and every other attempt (no row) keeps its type's configured mass.
+    from learnloop.learner.lesson_weight import lesson_check_mass
+
+    recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
     reliability = resolve_reliability(
         item,
         attempt_type=draft.attempt_type,
         hints_used=draft.hints_used,
         grader_confidence=grader_confidence_source,
         evidence=vault.config.evidence,
+        attempt_type_mass=recorded_mass,
     )
     familiarity = familiarity_discount_from_attempts(
         prior_state.recent_learning_object_attempts,
@@ -4526,7 +4533,10 @@ def _compute_resolved_grade_application(
         error_sharpening=error_impact.error_sharpening,
         observation_reliability=reliability.observation_reliability,
         observation_weight_override=error_impact.observation_weight,
-        attempt_evidence_mass=attempt_evidence_mass(draft.attempt_type, vault.config.evidence),
+        attempt_evidence_mass=(
+            recorded_mass if recorded_mass is not None
+            else attempt_evidence_mass(draft.attempt_type, vault.config.evidence)
+        ),
         primed=draft.primed,
         soft_score_override=None,
         interpretation_variance=interpretation_variance,

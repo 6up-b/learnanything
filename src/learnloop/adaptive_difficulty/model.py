@@ -46,6 +46,7 @@ from typing import Any
 import numpy as np
 
 from learnloop.adaptive_difficulty import priors as P
+from learnloop.adf_numeric import gauss_hermite, sigmoid
 
 _NORMAL = NormalDist()
 
@@ -54,19 +55,15 @@ CENSORED = -1
 CATEGORIES = (0, 1, 2)
 
 
-def _gauss_hermite(n: int) -> tuple[np.ndarray, np.ndarray]:
-    nodes, weights = np.polynomial.hermite_e.hermegauss(n)
-    return nodes.astype(np.float64), (weights / weights.sum()).astype(np.float64)
+# The quadrature and the logistic live in the neutral numeric module the
+# evidence-side lesson-check weight shares (spec_teacher_v1 §12.1); the
+# numerics are unchanged.
+_gauss_hermite = gauss_hermite
 
 
 X32, W32 = _gauss_hermite(32)
 X24, W24 = _gauss_hermite(24)
 X5, W5 = _gauss_hermite(5)
-
-
-def sigmoid(x: np.ndarray | float) -> np.ndarray:
-    x = np.asarray(x, dtype=np.float64)
-    return 1.0 / (1.0 + np.exp(-np.clip(x, -700.0, 700.0)))
 
 
 def category_likelihood(eta: np.ndarray, guess: np.ndarray, category: np.ndarray) -> np.ndarray:
