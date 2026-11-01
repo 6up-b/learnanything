@@ -302,6 +302,55 @@ def test_f2_a_manim_narration_with_a_check_line_is_a_problem():
     assert any(problem.startswith("narration_md reads like") for problem in raised.value.problems)
 
 
+# -- orchestrator scoped verify remainder (F1 through Markdown) -------------------
+
+
+@pytest.mark.parametrize("text", [
+    "This curve matches **the book**.", "This curve *matches the book*.", "This curve __matches__ your textbook.",
+    "This curve `matches the book`.", "This curve matches [the book](https://example.org/book).",
+    "This curve [matches your textbook](#p3).", "This curve matches ![the book](figure.png).",
+    "every value *verified* against **the book**", "it _agrees with_ the book's formula",
+    "This curve matches\nthe book.", "This curve **matches\nthe book**.", "This curve matches\n> **the book**.",
+    "This curve [matches the\nbook](#p3).",
+])
+def test_f1_remainder_a_source_claim_inside_markdown_formatting_is_matched(text):
+    """F1 remainder (orchestrator's scoped verify): Markdown emphasis, a code
+    span or a link around the claim, or a line break inside it, does not hide
+    it. The desktop renders the narration's Markdown and keeps its line breaks,
+    so the learner reads *This curve matches the book.*"""
+
+    assert L.label_like(text) is not None
+
+
+@pytest.mark.parametrize("text", [
+    "the **book's** notation for the rate", "Match the colours to the legend.\nThe book uses λ for the rate.",
+    "We *match* the curve to\nthe data.", "[The book](#p3) defines the rate as **λ**.",
+    "Look it up in the book; the `match` is close.", "**Check** that the area is 1\nthen move on.",
+    "- the mean is 0\n- the variance is 2", "This curve matches the data.\nThe book has more examples.",
+])
+def test_f1_remainder_ordinary_formatted_prose_is_not_matched(text):
+    assert L.label_like(text) is None
+
+
+def test_f1_remainder_a_manim_narration_with_a_bold_source_claim_is_a_problem():
+    from types import SimpleNamespace
+
+    from learnloop.figures import manim_figure as M
+
+    for narration in ("This curve matches **the book**.", "This curve matches\nthe book."):
+        with pytest.raises(M.ManimFigureError) as raised:
+            M.parse_figure(SimpleNamespace(**{**RF.scene_output(), "narration_md": narration}))
+        assert any(problem.startswith("narration_md reads like") for problem in raised.value.problems), narration
+
+
+def test_f1_remainder_a_stored_transcript_with_a_formatted_source_claim_is_presented_without_it():
+    assert L.strip_lines("The spiral turns.\nThis curve matches **the book**.\nThen it settles.") == (
+        f"The spiral turns.\n{L.LINE_WITHHELD}\nThen it settles.")
+    # Split across a line break, no single line reads like a label: all of it is replaced.
+    assert L.strip_lines("The spiral turns. This curve matches\n[the book](#p3).") == L.TEXT_WITHHELD
+    assert L.strip_lines("The spiral turns.\nThe book uses λ.") == "The spiral turns.\nThe book uses λ."
+
+
 def _rule_off(patched):
     """The free-text rule as it was before this follow-up (a figure stored
     before it): no author-time problem, so nothing is repaired or stripped."""

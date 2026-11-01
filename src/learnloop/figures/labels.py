@@ -30,7 +30,12 @@ structurally, from the constants below and not from a hand list of phrases:
 * a badge form at the start of any line of its own, read at the text's
   original line breaks without its Markdown lead or emphasis (a line reading
   *- **Checked:** ...*), since the desktop keeps a narration's line breaks
-  (Codex review F2).
+  (Codex review F2);
+* a label phrase or a source-verification claim in the text as its Markdown
+  renders: emphasis, code spans and link targets dropped, and its lines joined
+  without their leads (*matches **the book***, *matches [the book](...)*, a
+  claim broken over a line break; the orchestrator's scoped verify, F1
+  remainder).
 
 Ordinary prose is not matched: *check that the area is 1*, *we verified the
 identity by expanding*, *the box is checked*. Matching ignores case and
@@ -163,15 +168,19 @@ _SOURCE_CLAIM = re.compile(
 #: (Codex review F2, Nov 1b: the desktop keeps a narration's line breaks).
 _LINE_LEAD = re.compile(r"^[\s>#*+\-]*(?:\d+[.)]\s*)?")
 _EMPHASIS = re.compile(r"[*_`~]+")
+#: A Markdown link or image, inline or by reference: the learner reads its text
+#: (orchestrator's scoped verify, F1 remainder). The text may span a line break.
+_LINK = re.compile(r"!?\[([^\]]*)\]\s*(?:\([^)]*\)|\[[^\]]*\])")
 
 
 def _lines(text: Any) -> list[str]:
     """Each line of ``text`` as the rule reads it, split at its original line
-    breaks before spaces collapse, without its Markdown lead and emphasis."""
+    breaks before spaces collapse, without its Markdown lead, emphasis, code
+    spans and link targets."""
 
     found = []
-    for line in str(text or "").splitlines():
-        folded = _LINE_LEAD.sub("", fold(_EMPHASIS.sub("", line)))
+    for line in _EMPHASIS.sub("", _LINK.sub(r"\1", str(text or ""))).splitlines():
+        folded = _LINE_LEAD.sub("", fold(line))
         if folded:
             found.append(folded)
     return found
@@ -185,9 +194,15 @@ def label_like(text: Any) -> str | None:
         return None
     found = _PHRASE.search(folded) or _BADGE.search(folded) or _SOURCE_CLAIM.search(folded)
     if found is None:
+        lines = _lines(text)
+        # The text as the learner reads it once its Markdown renders (F1
+        # remainder): *matches **the book***, a link's text, or a claim broken
+        # over lines (each line's lead dropped) still states the claim.
+        plain = " ".join(lines)
         # A label form at the start of a line of its own (Codex review F2):
         # "Checked: ..." after a line break shows as a separate label line.
-        found = next((match for line in _lines(text) if (match := _BADGE.search(line))), None)
+        found = (_PHRASE.search(plain) or _SOURCE_CLAIM.search(plain)
+                 or next((match for line in lines if (match := _BADGE.search(line))), None))
     return found.group(0).strip() if found else None
 
 

@@ -79,3 +79,22 @@ Every pytest ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p M
 - **After the last docstring and doc edits:** `tests/test_figure_label_wording.py`, `tests/test_registry_audit.py`, `tests/test_architecture.py` and `tests/test_public_tip_guards.py` were rerun: **114 passed**.
 
 Test files run: the 112 listed under "Test files run" in `docs/reviews/reader-followups-nov1b.md` (they include `test_figure_label_wording.py` and `test_figure_rich_failed_correction_durable.py`, the two files changed in this step).
+
+## Orchestrator scoped verify remainder, fixed
+
+The orchestrator's scoped Sol verify (job `20261101-151747-gKdoDv`) found F2 and F4 closed and F3's presentation coverage closed. It left one remainder of F1:
+
+> Source claims survive ordinary Markdown formatting — labels.py:186. `This curve matches **the book**.` returns no match: Markdown-normalized lines run only _BADGE, excluding _SOURCE_CLAIM. Manim parsing accepts this narration and stored presentation leaves it unchanged. Fix: run source-claim detection on Markdown-normalized text too, retaining detection across line breaks.
+
+It also reported that the ordinary-prose examples pass, that nothing is wrongly refused, that listing and reuse do not diverge, and that the newest-correction scan (about 0.21 s for 20 lookups over 50,000 jobs) is not a finding.
+
+**Fix** (`figures/labels.py`). `label_like` now also reads the text as its Markdown renders. Emphasis, code spans and link or image targets are dropped (`_LINK`, `_EMPHASIS`). The lines are joined without their leads. `_PHRASE` and `_SOURCE_CLAIM` run on that text, and `_BADGE` still runs per line (F2). A claim inside `**...**`, `` `...` `` or `[...](...)`, or one broken over a line break (including a link text that spans lines, or a next line starting `> `), is matched. `strip_lines` replaces the line that holds it. When no single line reads like a label but the whole text does, it replaces all of it with `TEXT_WITHHELD`.
+
+**Tests** (`tests/test_figure_label_wording.py`, 23 new):
+
+- `test_f1_remainder_a_source_claim_inside_markdown_formatting_is_matched`: 13 cases (bold, italic, `__`, code span, inline link, link around the verb, image alt, emphasised *verified against the book*, `_agrees with_`, three split across a line break, a link text split across lines).
+- `test_f1_remainder_ordinary_formatted_prose_is_not_matched`: 8 cases, among them *the **book's** notation*, *We \*match\* the curve to\nthe data.*, *[The book](#p3) defines the rate*, and *This curve matches the data.\nThe book has more examples.*
+- `test_f1_remainder_a_manim_narration_with_a_bold_source_claim_is_a_problem`: `parse_figure` refuses the bold and the line-broken narration.
+- `test_f1_remainder_a_stored_transcript_with_a_formatted_source_claim_is_presented_without_it`: `strip_lines` replaces the line, replaces the whole text for a claim split across lines, and leaves ordinary text unchanged.
+
+**Fail-first.** Before the fix: **9 failed, 14 passed**. The 14 that passed are the 8 negatives and the 6 matched cases the plain fold already caught: italic, code span, the link around the verb, and three of the line-broken cases. They stay as regression guards. After the fix: `tests/test_figure_label_wording.py` **87 passed**. Then `tests/test_figure*.py`, `tests/test_figures*.py`, `tests/test_manim_figure_checks.py`, `tests/test_sketch*.py`, `tests/test_registry_audit.py` and `tests/test_architecture.py` (`-n 6`, 5G scope): **850 passed**.
