@@ -60,7 +60,7 @@ def test_label_like_text_is_matched(text):
     "check that the area under the curve is 1", "we verified the identity by expanding both sides",
     "the box is checked when the event happens", "a checked step", "the sum is verified.",
     "how verification works", "the density of the two-sided exponential", "", None,
-    L.REASON_WITHHELD,
+    L.REASON_WITHHELD, L.LINE_WITHHELD, L.TEXT_WITHHELD, "the book's notation for the rate",
 ])
 def test_ordinary_prose_is_not_matched(text):
     assert L.label_like(text) is None
@@ -237,3 +237,134 @@ def test_r2_a_manim_narration_still_label_like_is_refused(tmp_path, monkeypatch)
     assert row["verification"] == "failed" and row["spec_json"] is None
     assert json.loads(row["verification_report_json"])["reason"].startswith("narration_md reads like")
     assert "The spiral below is checked" not in json.dumps(rig.listed())
+
+
+# -- Codex review (reader-followups-nov1b) ---------------------------------------
+
+
+@pytest.mark.parametrize("text", [
+    "matches the book", "The curve matches the book's equation", "this plot matches the textbook",
+    "it agrees with the book's formula", "Matches your book exactly", "every value verified against the book",
+])
+def test_f1_a_source_verification_claim_is_matched_without_a_check_word_or_glyph(text):
+    """F1: N-a's "never 'matches the book'" (§9b.4) is a prohibited claim of
+    its own, with no ``(checked)`` and no check mark needed."""
+
+    assert L.label_like(text) is not None
+
+
+def test_f1_a_manim_narration_saying_it_matches_the_book_is_a_problem():
+    from types import SimpleNamespace
+
+    from learnloop.figures import manim_figure as M
+
+    with pytest.raises(M.ManimFigureError) as raised:
+        M.parse_figure(SimpleNamespace(**{**RF.scene_output(), "narration_md": "This spiral matches the book."}))
+    assert any(problem.startswith("narration_md reads like") for problem in raised.value.problems)
+
+
+def test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call(tmp_path):
+    _outcome, author, _repository = _build(tmp_path, [flagship(kind="illustrative", demonstrates="matches the book"),
+                                                      flagship(kind="illustrative")])
+    assert author.calls == 2
+    assert author.contexts[1]["problems_with_the_last_attempt"][0].startswith("spec_json.demonstrates reads like")
+
+
+@pytest.mark.parametrize("text", [
+    "The area is 1\nChecked: normalization", "The area is 1\r\nVerified", "Step one.\n**Checked:** the area is 1",
+    "Step one.\n- Verified: the mean", "Step one.\n## Checked", "Step one.\n1. Checked: the variance",
+    "Step one.\n> __Verified__",
+])
+def test_f2_a_label_lead_on_its_own_line_is_matched(text):
+    """F2: the desktop keeps the narration's line breaks, so a label lead at
+    the start of a line (formatted or not) reads as its own label line."""
+
+    assert L.label_like(text) is not None
+
+
+@pytest.mark.parametrize("text", [
+    "When the eigenvalues are complex\nthe solution turns as it decays.",
+    "First we check the area.\nWe verified the identity by expanding both sides.",
+    "The box is\nchecked when the event happens.", "**Check** that the area is 1\nthen move on.",
+    "- the mean is 0\n- the variance is 2",
+])
+def test_f2_ordinary_multiline_prose_is_not_matched(text):
+    assert L.label_like(text) is None
+
+
+def test_f2_a_manim_narration_with_a_check_line_is_a_problem():
+    from types import SimpleNamespace
+
+    from learnloop.figures import manim_figure as M
+
+    with pytest.raises(M.ManimFigureError) as raised:
+        M.parse_figure(SimpleNamespace(**{**RF.scene_output(), "narration_md": "The area is 1\nChecked: normalization"}))
+    assert any(problem.startswith("narration_md reads like") for problem in raised.value.problems)
+
+
+def _rule_off(patched):
+    """The free-text rule as it was before this follow-up (a figure stored
+    before it): no author-time problem, so nothing is repaired or stripped."""
+
+    patched.setattr(L, "label_problems", lambda fields: [])
+
+
+def test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused(tmp_path, monkeypatch):
+    """F3: a figure stored before the rule (its paid output kept as stored)
+    is shown without its label-like text when listed and when reused."""
+
+    bad = flagship(kind="illustrative", demonstrates=CLAIM,
+                   assumptions=[CLEAN_ASSUMPTION, {"text": "✓ verified by LearnLoop"}])
+    paths, repository = build_figure_vault(tmp_path / "vault")
+    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    with monkeypatch.context() as patched:
+        _rule_off(patched)
+        first = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([bad]))
+    (row,) = rows(repository, "interactive_figures")
+    assert json.loads(row["spec_json"])["demonstrates"] == CLAIM  # stored before the rule: as written
+    (listed,) = FS.list_figures(load_vault(paths.root), repository, EXTRACTION)
+    again = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([]))
+    assert again.reused
+    for view in (first.view, listed, again.view):
+        assert view["verification"] == "illustrative" and view["demonstrates"] == ""
+        assert [a["text"] for a in view["assumptions"]] == [CLEAN_ASSUMPTION["text"]]
+        assert "(checked)" not in view["spec_json"] and "✓" not in view["spec_json"]
+        assert json.loads(view["spec_json"])["panels"] == json.loads(row["spec_json"])["panels"]
+    (kept,) = rows(repository, "interactive_figures")
+    assert kept["spec_json"] == row["spec_json"]  # the stored (paid) output is unchanged
+
+
+def test_f3_a_stored_label_like_sketch_is_presented_without_that_text(tmp_path, monkeypatch):
+    bad = F.walk(demonstrates="Verified: the spread grows like sqrt(n)",
+                 assumptions=[{"text": "steps of +1 or -1"}, {"text": "(checked) independent steps"}])
+    paths, repository = build_figure_vault(tmp_path / "vault", sketch=True)
+    with monkeypatch.context() as patched:
+        _rule_off(patched)
+        FS.build_figure(load_vault(paths.root), repository,
+                        FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+                        author_client=AuthorFake([("sketch", bad, "the grammar has no random process")]))
+    (view,) = FS.list_figures(load_vault(paths.root), repository, EXTRACTION)
+    assert view["tier"] == "sketch" and view["verification"] == "illustrative"
+    assert view["demonstrates"] in ("", None) and [a["text"] for a in view["assumptions"]] == ["steps of +1 or -1"]
+    assert "Verified" not in view["spec_json"] and "(checked)" not in view["spec_json"]
+
+
+def test_f3_a_stored_label_like_manim_title_and_transcript_are_presented_without_that_text(tmp_path, monkeypatch):
+    bad = {**RF.scene_output(), "title": "✓ Why the trajectory spirals",
+           "narration_md": "The spiral turns as it decays.\nChecked: normalization\nThen it settles."}
+    rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(assumptions=[{"text": "a < 0"},
+                                                                                {"text": "[verified]"}]), WHY)],
+               [bad])
+    with monkeypatch.context() as patched:
+        _rule_off(patched)
+        rig.build()
+        rig.ingest.drain()
+    (row,) = rows(rig.repository, "interactive_figures")
+    assert row["verification"] == "illustrative" and "Checked: normalization" in row["spec_json"]
+    (line,) = rig.listed()
+    assert line["tier"] == "manim" and line["verification"] == "illustrative"
+    assert line["manim"]["title"] == ""
+    assert line["manim"]["narration_md"] == (
+        f"The spiral turns as it decays.\n{L.LINE_WITHHELD}\nThen it settles.")
+    assert [a["text"] for a in line["assumptions"]] == ["a < 0"]
+    assert rows(rig.repository, "interactive_figures")[0]["spec_json"] == row["spec_json"]

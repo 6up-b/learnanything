@@ -82,9 +82,22 @@ CHECK_GLYPHS = "✓✔☑✅\U0001f5f8"
 #: keep (wording rule): the shortest label segment matched on its own. Two
 #: words (*not checked*) are ordinary prose. Three name a label's claim.
 MIN_SEGMENT_WORDS = 3
+#: keep (wording rule, N-a; Codex review F1, Nov 1b): the source-verification
+#: claim no RW5d tier makes (§9b.4: *never "matches the book"*), matched on its
+#: own, with no check word or glyph: one of these verbs, then *the* or *your*,
+#: then one of :data:`SOURCE_NOUNS`. Equality with the book's equation is
+#: RW5c's question and label; until RW5c draws it, nothing may claim it.
+SOURCE_CLAIM_VERBS = ("match", "matches", "matched", "matching", "agree with", "agrees with", "agreed with")
+#: keep (wording rule, N-a): what a source-verification claim names.
+SOURCE_NOUNS = ("book", "books", "textbook", "textbooks")
 #: What replaces a tier reason that still reads like a check label after the
 #: repair call (it is a receipt's rationale, in code's words).
 REASON_WITHHELD = "(the author's reason read like a LearnLoop check label and was left out)"
+#: What replaces a stored figure's label-like line when it is presented
+#: (Codex review F3, Nov 1b): the stored text is kept, the view says so.
+LINE_WITHHELD = "(a line that read like a LearnLoop check label was left out)"
+#: What replaces stored text that reads like a label across its lines.
+TEXT_WITHHELD = "(this text read like a LearnLoop check label and was left out)"
 
 _SEPARATORS = re.compile(r"\s*[·•∙⋅]\s*")
 _SPACES = re.compile(r"\s+")
@@ -125,6 +138,29 @@ _BADGE = re.compile(
     rf"|(?:^|·)\s*{_WORD}\s*(?:·|:|[.!]?$)"                    # · checked ·, Verified, Checked: ...
     rf"|[{re.escape(CHECK_GLYPHS)}]"                                     # a check-mark glyph
 )
+_NOUN = "(?:" + "|".join(re.escape(noun) for noun in sorted(SOURCE_NOUNS, key=len, reverse=True)) + ")"
+_SOURCE_CLAIM = re.compile(
+    "(?<!\\w)(?:" + "|".join(re.escape(verb).replace("\\ ", r"\s+")
+                             for verb in sorted(SOURCE_CLAIM_VERBS, key=len, reverse=True)) + ")"
+    rf"\s+(?:the|your)\s+{_NOUN}(?!\w)"                                   # matches the book
+    rf"|(?<!\w){_WORD}\s+against\s+(?:the|your)\s+{_NOUN}(?!\w)"          # verified against your books
+)
+#: A line's Markdown lead (quote, heading, list or number marker) and emphasis
+#: (Codex review F2, Nov 1b: the desktop keeps a narration's line breaks).
+_LINE_LEAD = re.compile(r"^[\s>#*+\-]*(?:\d+[.)]\s*)?")
+_EMPHASIS = re.compile(r"[*_`~]+")
+
+
+def _lines(text: Any) -> list[str]:
+    """Each line of ``text`` as the rule reads it, split at its original line
+    breaks before spaces collapse, without its Markdown lead and emphasis."""
+
+    found = []
+    for line in str(text or "").splitlines():
+        folded = _LINE_LEAD.sub("", fold(_EMPHASIS.sub("", line)))
+        if folded:
+            found.append(folded)
+    return found
 
 
 def label_like(text: Any) -> str | None:
@@ -133,7 +169,11 @@ def label_like(text: Any) -> str | None:
     folded = fold(text)
     if not folded:
         return None
-    found = _PHRASE.search(folded) or _BADGE.search(folded)
+    found = _PHRASE.search(folded) or _BADGE.search(folded) or _SOURCE_CLAIM.search(folded)
+    if found is None:
+        # A label form at the start of a line of its own (Codex review F2):
+        # "Checked: ..." after a line break shows as a separate label line.
+        found = next((match for line in _lines(text) if (match := _BADGE.search(line))), None)
     return found.group(0).strip() if found else None
 
 
@@ -148,6 +188,19 @@ def label_problems(fields: Iterable[tuple[str, Any]]) -> list[str]:
                             "writes check labels, and only for checks its code ran: say it in your own words, "
                             "without check marks or words like \"checked\" or \"verified\" used as a label")
     return problems
+
+
+def strip_lines(text: Any) -> str:
+    """Stored ``text`` as it is presented (Codex review F3, Nov 1b): each
+    label-like line replaced by :data:`LINE_WITHHELD`, so the cut is never
+    silent; :data:`TEXT_WITHHELD` when it still reads like a label across its
+    lines. Unchanged when nothing reads like a label."""
+
+    raw = str(text or "")
+    if label_like(raw) is None:
+        return raw
+    kept = "\n".join(LINE_WITHHELD if label_like(line) is not None else line for line in raw.splitlines())
+    return kept if label_like(kept) is None else TEXT_WITHHELD
 
 
 def _assumption_text(item: Any) -> Any:
@@ -207,6 +260,7 @@ __all__ = [
     "CODE_OWNED_LABELS",
     "ILLUSTRATIVE_LABEL",
     "LABEL_PHRASES",
+    "LINE_WITHHELD",
     "MANIM_LABEL",
     "MANIM_NOT_COVERED",
     "MANIM_NOT_FROM_BOOKS_LABEL",
@@ -217,9 +271,13 @@ __all__ = [
     "SKETCH_LABEL",
     "SKETCH_NOT_FROM_BOOKS_LABEL",
     "SKETCH_UNCHECKED_LABEL",
+    "SOURCE_CLAIM_VERBS",
+    "SOURCE_NOUNS",
+    "TEXT_WITHHELD",
     "fold",
     "json_fields",
     "label_like",
     "label_problems",
     "strip_json",
+    "strip_lines",
 ]

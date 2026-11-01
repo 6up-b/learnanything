@@ -928,6 +928,41 @@ def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = Non
             "engine_sha256": ENGINE_SHA256}
 
 
+def worded_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Spec §9b.4 when a stored figure is presented (Reader follow-ups Nov 1b,
+    Codex review F3): a figure stored before the free-text label rule (or by
+    any path that skipped it) is shown, listed and reused without its
+    label-like text, as :mod:`.labels` rules for an answer that still
+    violates after its repair call: what it shows emptied, a label-like
+    assumption (in the spec and in the stored report) dropped, and a Manim
+    figure's label-like title left out and each label-like transcript line
+    replaced in code's words. The stored row (the paid output) is never
+    rewritten. Unchanged (the same object) when nothing reads like a label."""
+
+    if row.get("verification") not in store.SHOWN or not row.get("spec_json"):
+        return row
+    raw = row["spec_json"]
+    spec_json = L.strip_json(raw)
+    if rich_row(row):
+        try:
+            program = json.loads(spec_json) if isinstance(spec_json, str) else None
+        except ValueError:
+            program = None
+        if isinstance(program, dict):
+            title, narration = program.get("title"), program.get("narration_md")
+            worded = {"title": "" if L.label_like(title) is not None else title,
+                      "narration_md": L.strip_lines(narration) if narration else narration}
+            if worded != {"title": title, "narration_md": narration}:
+                spec_json = json.dumps({**program, **worded}, ensure_ascii=False)
+    report = row.get("verification_report") or {}
+    assumptions = report.get("assumptions")
+    kept = [item for item in assumptions if L.label_like(item.get("text") if isinstance(item, Mapping) else item)
+            is None] if isinstance(assumptions, list) else assumptions
+    if spec_json is raw and kept == assumptions:
+        return row
+    return {**row, "spec_json": spec_json, "verification_report": {**report, "assumptions": kept}}
+
+
 def drawable_now(vault: Any, row: Mapping[str, Any]) -> bool:
     """A stored figure that can be drawn as configured now (RW5b's panels and
     RW5d P2's sketch tier both on when it needs them)."""
@@ -997,6 +1032,9 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
     if sketch_enabled(vault):
         row = sketch_rechecked(row, repository)
+    # After the re-verification (it reads the stored program): the free-text
+    # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
+    row = worded_row(row)
     region = row.get("region") or {}
     asked = _figure_request(repository, row)
     home = home or (asked or {}).get("reading_at") or {}
