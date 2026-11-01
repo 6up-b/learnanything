@@ -331,3 +331,129 @@ one test run at a time, with TMPDIR outside the worktree.
   once on timing under load (`t = 0 / 100`, 12 s). It passed alone (9/9) and in the full rerun. `npm run
   frontend:build`: ok.
 - Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added.
+
+## Fix round 4 (Sol verify of round 3)
+
+The Sol verify of round 3 (job `20261101-025113-5pWHQR`, on `8389f3a791`) returned NOT CLEAN with one High and three
+Mediums. The orchestrator ruled that finding 1 and the earlier F1 are one class: something begun in the second pane
+is persisted or opened under the main book. So this round fixes the handler and also audits every action reachable
+from the second pane, or from an object that came from it (table below).
+
+Every new test was committed alone (`7591dc68a1`, plus the show-passage test in the fix commit) and run against
+the unchanged sources of `8389f3a791` (source files checked out from `HEAD`, test files kept, then restored).
+12 of the 13 new tests failed there, each for the reported reason. The exception is the reconnect test, which
+covers an F1-era fix and passes before and after. Fixes: `1f78f64af4`. No migration, no config key, no new parameter
+(nothing to classify in `parameter_registry.py`), no schema change, no Python change, no paid or live call, no vault
+opened and no GUI launched.
+
+### Verbatim findings
+
+> 1. High — ReaderScreen.tsx:2381: imported second-pane exercises open under the main book. Import an Axler exercise beside Strang, then press the completed import's "work through this" in Notes. The import state keeps Axler's spans but drops its source identity. The handler at line 4132 calls the Strang-bound `wbCtl.openItem`, persisting a workbench session with Strang's extraction and Axler's spans. Fix: retain the import's source and reading, and hand off to that book before opening the item.
+> 2. Medium — App.tsx:984: F8 remains open when a check requires starting a session. In the classic shell with no session, start "check me" from the second pane, then begin the session. `fromStart` remounts the Reader with only `{ card, spanId }`, discarding `request.besideTrail`, so Alt+← can no longer restore side by side. Fix: carry the trail into every Reader remount performed here.
+> 3. Medium — useSidePane.ts:235: discovery results disappear when completion occurs during a pause. Hide the pane with a comparison while discovery runs. Completion invokes a reload whose extraction is null, so it returns without refreshing. Resuming uses the still-fresh cached plan, while discovery's completed-target record suppresses another request. An isolated reproduction returned without the newly discovered marks. Fix: retain a pending refresh across pauses, or refresh the open book's plan independently of its visibility.
+> 4. Medium — useReaderInquiry.ts:776: a late successful Ask takes over a fresh composer. Start an Ask on passage A, then open a new composer on B while it is pending. A's success unconditionally installs A as the parent and clears B's draft, so the next question follows A despite the composer's B anchor (reproduced in memory). Fix: apply the composer-generation check to successful composer updates as well as failure retry state, while keeping the answer in history.
+
+### Closures
+
+| finding | severity | verdict | test (fails on `8389f3a791`, passes after) |
+|---|---|---|---|
+| 1 | High | **fixed** (with the audit below) | `sideBySideIntent.test.tsx` *finding 1: an exercise imported from the second pane is worked through in that book …* (Axler opens in the main pane; `workbench.open` names `ext_axler`, `ax7a_1`, once; never the main reading) |
+| 2 | Medium | **fixed** | `App.today.test.tsx` *CA6b fix round 4, finding 2*: *classic: Begin, then the Reader opens on the check's book with the trail* and *simple: the implicit start, then the Reader reopened … carries the trail* |
+| 3 | Medium | **fixed** | *finding 3: what discovery found while the second pane was loading another section is drawn when it shows (the plan re-read past the cache)*. The test turns on the mock's plan cache, as `readGuidePlan`'s is. |
+| 4 | Medium | **fixed** | *finding 4: an answer that lands after a new composer opened goes into history, and leaves that composer's draft and thread alone* |
+
+Rejected: none.
+
+### What changed
+
+- **Finding 1.** `ExerciseImportState` now carries the book and reading the exercise was imported from
+  (`sourceId`, `extractionId`). An import made in the second pane names that book; one made in the main pane names
+  the open book. *work through this* on a completed import (`workThroughImported`) opens the item directly only
+  when that reading is the open one. Otherwise it takes the book to the main pane through the beside handoff (a new
+  `item` run) and opens the item there with its own passages.
+- **Finding 2.** In `pickCheckMe`, the Reader the shell reopens (`fromStart`, or a check whose book is not the open
+  one) gets `besideTrail` with `{ card, spanId }`. This is the only Reader remount there.
+- **Finding 3.** `useSidePaneCues` keeps a forced re-read asked for while no reading is shown (`reloadPending`). Such
+  a request comes from discovery finishing during a pause, or from a preference change. When the reading comes back,
+  the plan is read past the cache.
+- **Finding 4.** `useReaderInquiry` now has a second counter, `composerOpenRef`. It moves on only with a new composer
+  (`forgetFailedAsk`, through `openComposer`) and with a source reset; a selection or thread change does not move it.
+  An answer that lands after that counter moved goes into history (and the return stack's branch entries). It does
+  not become the thread, empty the box, remount the composer or move focus. A failure from an older composer no longer
+  writes its words into the newer one. The retry gate is round 3's counter, unchanged. Selecting in the main pane
+  while a second-pane composer is open is a new composer too (`openComposer(null)`).
+- **The handoff runs once.** While testing finding 1, the beside handoff effect ran up to four times for one handoff.
+  Clearing it is a state update, and a render already under way at a higher priority may not include that update yet,
+  so the effect saw the same handoff again. A check or a work through could therefore be handed on more than once. A
+  ref (`besideRanRef`) now runs each handoff id once. The finding 1 test asserts a single `workbench.open` after the
+  handoff settles.
+
+### Audit: the second book's identity
+
+Rule applied: an action begun in the second pane, or on an object that came from it, takes its book, revision and
+reading from the pane or the object, never from the main render. Where the object outlives the moment, the identity
+is stored on it: the exchange's `about` (since F1), the import (finding 1), and the library ask's request (`sourceId`,
+new). What needs the open book takes that book to the main pane first, through `takeBesideBook`, with side by side
+one step back. What the second pane can show runs there while it shows that passage.
+
+| # | action | persists or opens | identity from | test |
+|---|---|---|---|---|
+| 1 | Ask (routed, or the composer the pane opened) | `reader.ask` | the pane's section (`AskAnchor.about`) | *a routed ask acts on the second pane's book …*; *an empty Enter in the second pane opens the composer …* |
+| 2 | Follow-up, *another way*, *that didn't help* on a thread about that book | `reader.ask` | the parent exchange's `about` | *audit: a reconnect answer …* (asserts the follow-up's `ext_axler`) |
+| 3 | *resolved* / *dismiss* / *reopen* | `reader.set_inquiry_status` | `exchange.extractionId` | *F1: dismissing a thread …*, *F1: a thread about the second pane's book keeps its commitments and status …* |
+| 4 | *revisit once* / *make it something I can do* | `reader.invoke_preset` | `exchange.about` (source, revision, reading) | *F1: a thread about …* |
+| 5 | Branch *done* | `resolve_question_event` | the question event's id (no book) | *audit: a reconnect answer …* |
+| 6 | Reconnect answers, quick check, its poll and answers | `reader.reconnect_answer`, `reader.inquiry_question(_action)` | `extractionOf(root)` = the exchange's reading | *audit: a reconnect answer on a thread about the second book names that book's reading* (the quick check uses the same `extractionOf`) |
+| 7 | Preset (*explain differently*, …) | `reader.invoke_preset` | the pane's capture target | *a routed preset (explain differently) goes to the second pane's book …* |
+| 8 | Highlight or note (box; CA6's bar with the box off) | `reader.capture` | the pane's capture target / section | *a routed highlight and an exercise import go to the second pane's book*; `sideBySideReader.test.tsx` (bar captures) |
+| 9 | Import exercise | `reader.import_exercise` | the pane's capture target | as 8, and *finding 1* |
+| 10 | *work through this* on that import | `workbench.open` | the import's own `sourceId`/`extractionId` (new), handed to that book | *finding 1 …* |
+| 11 | *work through this* (box) and the reading path's *try it* | `workbench.open` (through the import) | the pane's target / the path's exercise, handed to that book; crumb snapshot (round 3) | *F7: work through this in the second pane …*; *F8 round 3: work through this …* |
+| 12 | Reading path in the pane: read, depth, override | `reader.reading_path(_set_depth/_override)` | `ReadingPathCard`'s `extractionId` (the pane's reading) | *F7: what matters here? in the second pane …* |
+| 13 | Active reading, *another way*, *try this step first* from a mark | `reader.active_question` | the pane's own `useActiveReading` | *active reading and another way run on the second pane's reading …*; *F5 …* |
+| 14 | Figures (*make this explorable*, *show me* with words) | `reader.figure_request` / `figure.request` | the pane's own `useFigures` | *make this explorable builds a figure on the second pane's reading* |
+| 15 | Cue marks: impressions, taps, *fewer*, discovery, preferences | `reader.cue_*`, `reader.set_cue_preferences` | the pane's render (`useReaderCues`) | *F4*, *F5*, *F12 round 3*, *cue marks follow the density setting per pane …* |
+| 16 | *check me* on a mark | the shell's check (card) | the mark's book, handed to that book | *F8 …*, *F8 round 3 …* |
+| 17 | Library ask (*where else is this explained?*, Transfer) | `reader.library_ask` | the pane's reading, and now its book on the request (`sourceId`) | *where else is this explained? asks the library anchored on the second pane's reading* |
+| 18 | That answer's comparisons (*compare these books*, compare all, refine, pins, compare again) | `reader.library_compare` | `openSourceId` = the ask's book (`useLibraryAsk.openOf`, new; was the open book) | *audit: a library answer asked from the second pane compares with that book leading* |
+| 19 | That answer's *practice this question* and its pick | `find_practice`; the shell's check | the ask's reading (`caller.ref`); the ask's book and anchor passage, handed to that book (new; was the open book's card and reading position) | *audit: a practice pick from a library answer asked in the second pane opens in that book …* |
+| 20 | *how do my other books treat this?* | `reader.library_compare` | the pane's reading; `openSourceId` the pane's book | *how do my other books treat this? in the second pane …* |
+| 21 | Tutor offers on an answer about that book: *try the next step first* | `reader.active_question` | `exchange.about`: in the pane when it shows the passage, else in that book (handoff `next_step`) | *audit: the tutor's offers …* (pane); *audit: try the next step … with side by side closed …* (handoff) |
+| 22 | … *show me* (the tutor's goal) | `figure.request` (`readingAt`) | `exchange.about`: the pane's figures, else that book (handoff `show_me`) | *audit: the tutor's offers …* |
+| 23 | … *make this explorable* | `reader.figure_request` after opening that book | `exchange.about` (was the open book) | *audit: make this explorable on an answer about the second book …* |
+| 24 | … *how do your books treat this?* | `reader.library_compare` | `extractionId` the exchange's; `openSourceId` `exchange.about` (was the open book) | *audit: the tutor's offers …* |
+| 25 | … *practice this* pick | the shell's check | `exchange.about` and the exchange's passage, handed to that book (`checkBeside`, as 19) | the same `checkBeside` path as 19 (no separate test) |
+| 26 | … textbook exercises (RW4b) | `workbench` / open in book | each candidate's own `sourceId` (unchanged) | existing RW4b tests |
+| 27 | *show me ▸* from the Ask rail on a thread about that book, or from the composer the pane opened | `figure.request` | the parent's `about` / the composer's anchor (was the open book's figures) | *audit: show me from the Ask rail on a thread about the second book …* |
+| 28 | A show-me line's *open* for a figure of that book | opens the figure | `figure.extractionId`: the pane's figures | none (UI only) |
+| 29 | *show passage*: button, `p`, *show inherited passage* | a return-stack peek in the open book | not offered on a thread about that book (the button was hidden since F1; `p` and *show inherited passage* now too) | *audit: on a thread about the second book, `p` (show passage) opens nothing in the main book …* |
+| 30 | Citations on such an answer | opens their book | the citation's own `sourceId` (RW1c) | existing RW1c tests |
+
+Not covered by a new test: 25 (it shares `checkBeside` with 19), 28 (UI only), and the quick check in 6 (it shares
+`extractionOf` with the reconnect answer).
+
+### Interactions and limits
+
+- A thread about the second book exists only while the main pane holds another book. A source reset clears the
+  history, so `about` never names the open book.
+- An import from another reading of the open book has the same source but a different reading. Its *work through
+  this* is dropped (the handoff effect sees the reading differ) rather than opened on the wrong reading.
+- Taking the book to the main pane closes side by side (`via: "source"`), with its crumb one step back, as in rounds 2
+  and 3. A *show me* line whose handoff did not open its book is marked failed.
+- RW6b part 2 also edits `ReaderScreen`. This round's changes there are the handoff kinds and their runner, the audit
+  helpers before `showMeFromAsk`, the tutor and show-me wiring in the Ask rail props, `workThroughImported`,
+  `askLibraryHere`'s anchor, and `pickLibraryPractice`.
+
+### Gate (fix round 4; targeted, the full suite runs once at landing)
+
+Every vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`,
+one test run at a time, with TMPDIR outside the worktree.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- No Python changed: no pytest. No migration, DB code or schema change: no durability run and no DB reference
+  regeneration. `src-tauri` is unchanged: no cargo check.
+- Frontend: `npm run typecheck` clean. Vitest (`--maxWorkers=4`), the same 122-file set (no new test file):
+  **122 files, 1325 passed** (1312 + 13 new: 11 in `sideBySideIntent.test.tsx`, 2 in `App.today.test.tsx`). The
+  `App.today.test.tsx` StartScreen stub gained a *begin stub* button (the classic shell's Begin). `npm run
+  frontend:build`: ok.
+- Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added.
