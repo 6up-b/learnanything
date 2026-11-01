@@ -85,3 +85,15 @@ def test_test_support_is_never_reached_from_the_app_entry():
     for info in support:
         assert info.activation_chain, info.relative
         assert all(infos[step].activation_kind == "vitest-support" for step in info.activation_chain), info.relative
+
+
+def test_desktop_notes_are_unique_when_case_is_ignored():
+    """Obsidian resolves links case-insensitively: two modules whose names differ only by case
+    (a .ts beside a .tsx) must not share a note name, or one note is unreachable."""
+
+    generator = _generator()
+    notes = [generator.note_path(path.resolve(), language) for path, language in generator.source_files()]
+    seen: dict[str, list[str]] = {}
+    for note in notes:
+        seen.setdefault(note.as_posix().casefold(), []).append(note.name)
+    assert {key: names for key, names in seen.items() if len(names) > 1} == {}

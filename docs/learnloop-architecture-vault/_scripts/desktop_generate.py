@@ -180,7 +180,25 @@ def area_for(source: Path, language: str) -> str:
 
 def note_path(source: Path, language: str) -> Path:
     root = TS_ROOT if language == "TypeScript" else RUST_ROOT
-    return (CATALOG_ROOT / language / source.relative_to(root)).with_suffix(".md")
+    note = (CATALOG_ROOT / language / source.relative_to(root)).with_suffix(".md")
+    # Obsidian resolves links case-insensitively: when a sibling module's stem
+    # differs only by case (exerciseCandidates.ts beside ExerciseCandidates.tsx),
+    # each note names its extension so neither link lands on the other note.
+    if language == "TypeScript" and any(
+        sibling != source
+        and sibling.suffix in {".ts", ".tsx"}
+        and not is_vitest_file(sibling)
+        and module_stem(sibling).casefold() == module_stem(source).casefold()
+        for sibling in source.parent.iterdir()
+    ):
+        note = note.with_name(f"{module_stem(source)} ({source.suffix.lstrip('.')}).md")
+    return note
+
+
+def module_stem(path: Path) -> str:
+    """A module's name without its extension (``x.d.ts`` keeps ``x.d``, as with_suffix does)."""
+
+    return path.with_suffix("").name
 
 
 def area_note_path(area: str) -> Path:
