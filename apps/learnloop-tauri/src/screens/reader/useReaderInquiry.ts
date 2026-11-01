@@ -204,6 +204,10 @@ export interface ReaderInquiry {
   passageCheckOffered: boolean;
   submitAsk: (asked: string, parent: ReaderExchange | null, override?: AskOverride) => Promise<void>;
   ask: () => void;
+  /** "try again": the request that just failed (re-review F10). */
+  retryAsk: () => void;
+  /** A new composer opened: a failed request is not its own (re-review F10). */
+  forgetFailedAsk: () => void;
   /** RW1c: "another way" and "that didn't help…" under an answer. */
   askAnotherWay: (exchange: ReaderExchange) => void;
   askDidntHelp: (exchange: ReaderExchange, text: string) => void;
@@ -299,9 +303,17 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   const [inquiryCommitments, setInquiryCommitments] = useState<Record<string, InquiryCommitment[]>>({});
   const [askTabMarked, setAskTabMarked] = useState(false);
 
+  // Reader CA6b (Codex review F3): the request that just failed, so "try
+  // again" asks it with the same grounding -- its parent, its anchor (the
+  // book beside's passage) and its routed answer mode -- whatever the open
+  // book's selection is now. It is the failed request of THIS source and
+  // composer only (Codex re-review F10): a source reset or a new composer
+  // forgets it.
+  const failedAskRef = useRef<{ asked: string; parent: ReaderExchange | null; override?: AskOverride } | null>(null);
   const resetInquiryState = useCallback(() => {
     askEpoch.current += 1;
     askPending.current = false;
+    failedAskRef.current = null;
     setParentExchange(null);
     setQuestion("");
     setAskComposerVersion(0);
@@ -621,11 +633,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // words stay in the composer until the answer lands; a failure keeps them.
   const [askPhase, setAskPhase] = useState<ModelActionPhase>("idle");
   const askJobRef = useRef<{ jobId: string; kind: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
-  // Reader CA6b (Codex review F3): the request that just failed, so "try
-  // again" asks it with the same grounding -- its parent, its anchor (the
-  // book beside's passage) and its routed answer mode -- whatever the open
-  // book's selection is now.
-  const failedAskRef = useRef<{ asked: string; parent: ReaderExchange | null; override?: AskOverride } | null>(null);
   const submitAsk = useCallback(async (
     asked: string,
     parent: ReaderExchange | null,
@@ -808,7 +815,9 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     pushDetours, question, setBusy, noteUsableResult, askComposerRef]);
 
   const ask = useCallback(() => {
-    // "try again" on the words that just failed: the same request (Codex review F3).
+    // ↵ on the words that just failed (still in the composer): the same
+    // request (Codex review F3), while that failure is still this source's
+    // and this composer's (re-review F10).
     const failed = failedAskRef.current;
     if (failed && failed.asked === question.trim()) {
       void submitAsk(failed.asked, failed.parent, failed.override);
@@ -822,6 +831,20 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     }
     void submitAsk(question.trim(), inquiry ? parentExchange : null);
   }, [submitAsk, question, inquiry, parentExchange, composerAnchorRef]);
+
+  /** "try again": the request that failed, explicitly (re-review F10); with none, an ordinary ask. */
+  const retryAsk = useCallback(() => {
+    const failed = failedAskRef.current;
+    if (failed) {
+      void submitAsk(failed.asked, failed.parent, failed.override);
+      return;
+    }
+    ask();
+  }, [submitAsk, ask]);
+  /** A new composer (the second pane's, or back to the open book's): the failed request is not its own. */
+  const forgetFailedAsk = useCallback(() => {
+    failedAskRef.current = null;
+  }, []);
 
   // Another selection or thread: "try again" is no longer that request.
   useEffect(() => {
@@ -1273,7 +1296,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
     markBranchDone,
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,

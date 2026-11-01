@@ -21,8 +21,8 @@
 // anything by itself, and a failure is quiet: the marks the plan has stay.
 //
 // Codex verify F16: every request names this open of the source, an id
-// minted once per open (a new source, or the Reader mounted again, is a new
-// open). The sidecar keeps one judge call budget per open, so a re-ask or a
+// minted once per open (a new source, the Reader mounted again, or the same
+// source opened again after its open ended, is a new open). The sidecar keeps one judge call budget per open, so a re-ask or a
 // new target mid-open draws on what the open's earlier jobs left.
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
@@ -63,6 +63,15 @@ export function useCueDiscovery({ extractionId, discovery, offline, reloadGuideP
   const targetsPending = Boolean(discovery?.targetsPending);
   // This open of the source (F16): minted when the source changes, kept for every ask while it stays open.
   const openRef = useRef<{ extractionId: string; id: string } | null>(null);
+  if (!extractionId && openRef.current) {
+    // The open ended (no source, or side by side's second pane closed): the
+    // next open of any source -- the same one too -- is a new open, with its
+    // own id and budget, asked afresh even for targets an earlier open
+    // already asked about (Reader CA6b, Codex re-review F11).
+    openRef.current = null;
+    askedRef.current.clear();
+    reasksRef.current.clear();
+  }
   if (extractionId && openRef.current?.extractionId !== extractionId) {
     openRef.current = { extractionId, id: `copen_${newActivityId()}` };
   }

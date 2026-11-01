@@ -45,6 +45,8 @@ export interface AskRailProps {
   askComposerVersion: number;
   askComposerRef: MutableRefObject<HTMLTextAreaElement | null>;
   ask: () => void | Promise<void>;
+  /** "try again" under a failed answer: that request, explicitly (Reader CA6b re-review F10); absent, `ask`. */
+  retryAsk?: () => void;
   history: ReaderExchange[];
   visibleAskHistory: ReaderExchange[];
   normalizedAskFind: string;
@@ -167,6 +169,7 @@ export function AskRail({
   askComposerVersion,
   askComposerRef,
   ask,
+  retryAsk,
   history,
   visibleAskHistory,
   normalizedAskFind,
@@ -320,7 +323,7 @@ export function AskRail({
                   capRoute="tutor"
                   fallback="Your saved threads and the passage"
                   onCancel={cancelAsk}
-                  onRetry={() => void ask()}
+                  onRetry={() => (retryAsk ? retryAsk() : void ask())}
                 />
               ) : null}
               </>

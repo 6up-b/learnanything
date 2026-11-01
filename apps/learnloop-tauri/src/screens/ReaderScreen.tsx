@@ -608,8 +608,8 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
-    markBranchDone, commitInquiry,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, retryAsk, forgetFailedAsk, askAnotherWay, askDidntHelp, cancelAsk,
+    setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState, pushSideBySide, replaceSideBySide, dropDetour,
@@ -1494,6 +1494,11 @@ export function ReaderScreen({
   useEffect(() => {
     if (!side.selection) setAskComposerAnchor(null);
   }, [side.selection]);
+  // A new composer (the second pane's, or back to the open book's): a failed
+  // Ask is not its request, so ↵ there asks it afresh (Codex re-review F10).
+  useEffect(() => {
+    forgetFailedAsk();
+  }, [askComposerAnchor, forgetFailedAsk]);
   const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
   useEffect(() => {
     if (!sbsPanes) setSbsRailOverlay(false);
@@ -4054,6 +4059,7 @@ export function ReaderScreen({
             askComposerVersion={askComposerVersion}
             askComposerRef={askComposerRef}
             ask={ask}
+            retryAsk={retryAsk}
             history={history}
             visibleAskHistory={visibleAskHistory}
             normalizedAskFind={normalizedAskFind}

@@ -26,6 +26,7 @@ import { resetReaderActivityForTests } from "./activity";
 import { CUE_COPY } from "./cues";
 import { SIDE_PANE_COPY } from "./SideBySidePane";
 import { SIDE_BY_SIDE_COPY } from "./useSideBySide";
+import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 
 const SPAN_IDS = view.blocks.map((block) => block.spanId!).filter(Boolean);
 const BOX = "What do you want to do with this?";
@@ -729,4 +730,74 @@ it("F9: with marks only in the second pane, Alt+down there moves to them", async
   sideBody().focus();
   await act(async () => { fireEvent.keyDown(sideBody(), { key: "ArrowDown", altKey: true }); });
   await waitFor(() => expect(document.activeElement?.getAttribute("data-cue-mark")).toBe("cue_only"));
+});
+
+// ── Codex re-review (F10, F11) ─────────────────────────────────────────────
+
+it("F10: a failed second-pane Ask is forgotten when another book opens: the same words then ask about the open book", async () => {
+  const stored = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value),
+    removeItem: (key: string) => void stored.delete(key),
+  });
+  api.readerAsk.mockRejectedValueOnce(new Error("boom"));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  await screen.findByRole("button", { name: /try again/ });
+  // The learner leaves for the library and opens a book there (a source reset),
+  // which resumes at its saved place (no selection, no reply parent).
+  window.localStorage.setItem(readingPositionKey(view.sourceId), encodeReadingPlace(view.extractionId, SPAN_IDS[1]));
+  fireEvent.click(screen.getByRole("button", { name: "← Library" }));
+  fireEvent.click(await screen.findByText("Strang"));
+  await screen.findAllByText("6.1 Symmetric matrices");
+  // The Ask tab, on the reading position (no selection: nothing else forgets the failed request).
+  fireEvent.click(screen.getByRole("button", { name: /^ask/ }));
+  const composer = await screen.findByPlaceholderText("ask about this passage…");
+  fireEvent.change(composer, { target: { value: "why is this true?" } });
+  fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  const second = api.readerAsk.mock.calls[1][0] as Record<string, unknown>;
+  expect(second).toMatchObject({ extractionId: view.extractionId, question: "why is this true?" });
+  expect(second.answerMode).not.toBe("help_me_reason");
+  expect(second.selectionSpanIds).not.toEqual(["ax7a_1"]);
+});
+
+it("F10: a new composer opened in the second pane is not the failed request: its question asks with the new composer's grounding", async () => {
+  api.readerAsk.mockRejectedValueOnce(new Error("boom"));
+  await openSideBySide();
+  await route("ask_help_me_reason");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  await screen.findByRole("button", { name: /try again/ });
+  // An empty Enter opens a fresh composer on the pane's selection; the same words are a new question there.
+  const box = await sideBox();
+  fireEvent.change(box, { target: { value: "" } });
+  await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+  await screen.findByText(/ASKING ABOUT YOUR SELECTION IN Axler/);
+  const composer = screen.getByPlaceholderText("ask about this passage…");
+  fireEvent.change(composer, { target: { value: "why is this true?" } });
+  fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  // Not the routed mode of the failed request: an ordinary question from the composer.
+  expect((api.readerAsk.mock.calls[1][0] as Record<string, unknown>).answerMode).not.toBe("help_me_reason");
+});
+
+it("F11: closing the second pane and opening the same book again is a fresh discovery (a new open, asked again for unchanged targets)", async () => {
+  plans.side = { ...plans.side, cues: discoveredCues([]) };
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+  api.readerCueDiscovery.mockResolvedValue({
+    jobId: "cjob_side", extractionId: "ext_axler", state: "done", result: { status: "done", targetsKey: "tk_side", calls: 0, links: 0 },
+  });
+  await openSideBySide();
+  await waitFor(() => expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1));
+  // Close side by side, then open it again on the same book (its targets unchanged).
+  await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
+  await waitFor(() => expect(pane()).toBeNull());
+  await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
+  await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
+  await waitFor(() => expect(api.readerCueDiscovery).toHaveBeenCalledTimes(2));
+  const [first, second] = api.readerCueDiscovery.mock.calls.map((call) => call[0] as { extractionId: string; sourceOpenId: string });
+  expect(second.extractionId).toBe("ext_axler");
+  expect(second.sourceOpenId).toMatch(/^copen_/);
+  expect(second.sourceOpenId).not.toBe(first.sourceOpenId);
 });
