@@ -599,3 +599,56 @@ Rebuild `--shadow` 0/0/0 (`test_rebuild_shadow_is_zero_with_follow_ups_present`)
 and shadow tests (`test_reader_followups_successor.py`, `test_cold_retry_reschedule.py`) are in that run and green.
 No frontend, `src-tauri`, migration or schema change. `licensing` lives inside the digest's `valuation_json`, so
 nothing new is persisted.
+
+## Round 7 (F19, F20; Sol verify job `20261031-200207-4SHZVh`)
+
+The verify of `7587ffdb9` confirmed F17 and F18 as fixed. It found two Mediums:
+
+- **F19: pruning from a stale read.** Re-valuation computed which licensing questions to remove from its first read
+  of the receipt, then applied those removals to the freshly read row. It did not check whether a publication in
+  between had restored a question. The result was a receipt with [D, R] but licensing [D], and the gate then allowed
+  the check cold.
+- **F20: legacy fallback.** A line without a `licensing` list fell back to a single question, which loses secondary
+  licenses when the check is shared. **Orchestrator ruling:** RW6b never landed, so no vault holds lines in the older
+  format. Remove the fallback and build no converter.
+
+### What changed
+
+- **F19.** The persisted pruning is computed inside the re-valuation transaction from the row read there. A line keeps
+  every licensing question that is in the fresh receipt, so a question a publication restored meanwhile is never
+  removed. The pruning is never down to an empty list. The re-valuation's own decision still reads its first
+  snapshot. If that snapshot was narrower than the persisted list, the serve-time gate (which reads the persisted
+  list) is the stricter of the two, and the next re-valuation decides on the same list.
+- **F20.** A reader follow-up's `chosen` line without a valid `licensing` list is malformed: missing, empty, or an
+  entry without a question or intent.
+  - The gate (`line_licensing`) holds it as `licensing_unreadable`.
+  - Re-valuation (`_revaluation_licensing`) retires it with that reason and re-asks the check's own question.
+  - The planner's `_licensing` reads only the list.
+  - When every licensing question has left the receipt, re-valuation decides on the whole list (answered or below
+    the stop for every open one), not on a fallback question.
+
+### Tests (`tests/test_reader_followups_round7.py`), fail-first on `7587ffdb9`
+
+| test | before (`7587ffdb9`) |
+|---|---|
+| `test_f19_a_publication_between_the_read_and_the_write_keeps_the_restored_license`: B is licensed by [D, R] and R has left the receipt. During re-valuation another process restores R to the receipt. B keeps [D, R], and a related worked example then holds B. | fails: B's list pruned to [D] (the finding) |
+| `test_f20_a_line_without_a_licensing_list_is_held_and_retired_as_unreadable` | fails: A served cold (the fallback, the finding) |
+| `test_f19_a_question_still_absent_from_the_fresh_receipt_is_pruned` | passes (a guard: pruning still works) |
+
+`test_intent_checks.py`'s hand-made follow-up line now carries a `licensing` list. Round 4's
+`_studied_related_example` takes the item as a parameter.
+
+### Round 7 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repro serial). The full suite, the durability lane and
+vitest were not run. **Spend: $0.** No model or paid calls, and no Python outside pytest.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`7587ffdb9`, a `git archive` copy with the worktree's venv): `pytest tests/test_reader_followups_round7.py` | 2 failed, 1 passed (the guard) |
+| `pytest -n 6` over round 6's 61 files plus `test_reader_followups_round7.py` | 1417 passed, 3 skipped |
+
+Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity and shadow tests are in that run and green. No frontend,
+`src-tauri`, migration or schema change.

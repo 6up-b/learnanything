@@ -131,7 +131,8 @@ def test_the_way_back_is_rendered_only_when_the_provenance_carries_it(iv):
         RDG.insert_digest(connection, {
             "id": "rsd_test", "extraction_id": "ex_1", "session_key": "s1", "started_at": "2026-01-01T00:00:00Z",
             "ended_at": "2026-01-01T00:30:00Z", "status": "planned", "followup_commitment_ids": [commitment_id],
-            "valuation": {"chosen": [{"ref": "pi_b1", "commitment_id": commitment_id, "question": "q1"}],
+            "valuation": {"chosen": [{"ref": "pi_b1", "commitment_id": commitment_id, "question": "q1",
+                                      "licensing": [{"question": "q1", "intent": "retention"}]}],
                           "questions": [{"key": "q1", "question": {"intent": "retention"}}]},
             "created_at": "2026-01-01T00:30:00Z"})
         connection.commit()

@@ -139,19 +139,16 @@ def _shape(entry: Mapping[str, Any]) -> dict[str, Any]:
 
 def line_licensing(line: Mapping[str, Any], provenance: Mapping[str, Any]) -> list[dict[str, Any]] | None:
     """The licensing questions a ``chosen`` line carries, or None when the
-    line is inconsistent (a malformed ``licensing`` list, or several
-    questions named without one). An empty list falls back to the
-    provenance's own question."""
+    line is inconsistent: its ``licensing`` list missing, empty or malformed
+    (round 7, F20: no fallback to a single question; RW6b never landed, so
+    no vault holds a line without one)."""
 
     licensing = line.get("licensing")
-    if licensing is None:
-        # A line written before the list existed names its one question.
-        return [_primary(provenance)]
-    if not isinstance(licensing, list) or any(
+    if not isinstance(licensing, list) or not licensing or any(
             not isinstance(entry, Mapping) or not entry.get("question") or not entry.get("intent")
             for entry in licensing):
         return None
-    return [_shape(entry) for entry in licensing] or [_primary(provenance)]
+    return [_shape(entry) for entry in licensing]
 
 
 def licensing_questions(connection: Any, provenance: Mapping[str, Any], commitment_id: str | None,

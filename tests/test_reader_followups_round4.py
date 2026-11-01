@@ -75,8 +75,8 @@ def _due(row) -> tuple[datetime, float]:
     return moment, (moment - T0).total_seconds() / 60.0
 
 
-def _studied_related_example(repo, minutes):
-    """The learner studies a worked example (in scope) that the judge called ``related`` to A."""
+def _studied_related_example(repo, minutes, item_id=A):
+    """The learner studies a worked example (in scope) that the judge called ``related`` to the item (A)."""
 
     from learnloop.db.stores.source_service import WORKED_EXAMPLE_LEDGER_TASK
     from tests.source_service_fakes import seed_textbook
@@ -90,7 +90,7 @@ def _studied_related_example(repo, minutes):
             "INSERT INTO judgment_ledger (id, created_at, task, left_kind, left_id, right_kind, right_id, judge, "
             "judge_model, prompt_version, input_hash, verdict, rationale) "
             "VALUES (?, ?, ?, 'item', ?, 'span', ?, 'llm', 'fake', 'v1', 'h', 'related', 'r')",
-            (f"jl_{span}", iso(minutes + 1), WORKED_EXAMPLE_LEDGER_TASK, A, f"ext_we:{span}"))
+            (f"jl_{span}", iso(minutes + 1), WORKED_EXAMPLE_LEDGER_TASK, item_id, f"ext_we:{span}"))
         connection.commit()
 
 
