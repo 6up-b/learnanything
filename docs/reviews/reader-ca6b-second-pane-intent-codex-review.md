@@ -205,6 +205,6 @@ Every pytest, vitest and npm command ran inside `systemd-run --user --scope --qu
   `returnStack`, `useReaderWorkbench`, `readerWorkbench`, `readerCheck` or `App`, plus every `src/screens/reader/**`
   and `src/screens/ReaderScreen.*` test, every `src/app/App.*` test, `attentionBudget`, `workbench/switchOff`,
   `keymap`, `shellChrome`, `classicIsBase`, `readerWorkbench` and `readerCheck`. In it, `sideBySideIntent.test.tsx`
-  has 36 tests (7 new and 3 rewritten in this round), `App.today.test.tsx` 24 (1 new), `readerWorkbench.test.ts`
+  has 36 tests (6 new, and 3 rewritten: the palette test, the not-offered fallback, which replaces the two-case F7 table, and F8), `App.today.test.tsx` 24 (1 new), `readerWorkbench.test.ts`
   1 new and `returnStack.test.ts` 1 new. `npm run frontend:build`: ok.
 - Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added in this round.
