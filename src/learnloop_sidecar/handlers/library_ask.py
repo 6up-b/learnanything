@@ -41,6 +41,7 @@ from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
 from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
@@ -435,6 +436,16 @@ class LibraryAskInput(ParamsModel):
     workbench_session_id: str | None = None
 
 
+def _resolved_or_none(repository: Any, extraction_id: str | None) -> str | None:
+    """A named reading as the handlers resolve it (a source names its current reading)."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+
+    if not extraction_id:
+        return None
+    return resolve_extraction_id(repository, extraction_id) or extraction_id
+
+
 @method("reader.library_ask", LibraryAskInput)
 def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str, Any]:
     """Passages from the learner's library for a question, sources first (spec §7.3)."""
@@ -449,6 +460,8 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
         extraction_id = resolve_extraction_id(repository, params.extraction_id)
         if extraction_id is None:
             raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+        # Reader CA6b fix round 5: the anchor's passages are this reading's (fail closed).
+        require_identity(repository, extraction_id=extraction_id, span_ids=params.span_ids)
     caller = reader_caller(vault, repository, extraction_id=extraction_id,
                            workbench_session_id=params.workbench_session_id)
     record = _caller_record(caller, workbench_session_id=params.workbench_session_id)
@@ -570,6 +583,13 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
     if not LA.compare_enabled(vault):
         raise SidecarError("reader_compare_disabled",
                            "Comparing sources is switched off (reader_compare.enabled or source_service.compare).")
+    # Reader CA6b fix round 5: each pin is its reading's passage, and an
+    # anchored door's passages are its reading's, the reading of the source
+    # that leads (fail closed, before anything is opened or compared).
+    require_identity(repository, extraction_id=_resolved_or_none(repository, params.extraction_id),
+                     span_ids=params.anchor_span_ids or [],
+                     source_id=params.open_source_id if params.extraction_id else None,
+                     span_keys=params.pinned_span_keys or [])
     scoped = scope_enabled(vault)
     if not scoped:
         # CA3 off: today's request exactly (an ask, two pins, no CA3 field).
@@ -733,6 +753,8 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 
     vault, repository = _require(ctx)
+    # Reader CA6b fix round 5: each pin is its reading's passage (fail closed).
+    require_identity(repository, extraction_id=None, span_keys=params.pinned_span_keys or [])
     if not scope_enabled(vault):
         # CA3 off: today's request exactly (at least one pin, no comparison).
         _PinnedTutorInput.model_validate(params.model_dump(exclude_defaults=True))

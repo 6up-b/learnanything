@@ -281,4 +281,5 @@ def test_validation_refusals(tmp_path):
     assert caught.value.code == "validation_error"
     with pytest.raises(SidecarError) as caught:
         build(ctx, {"extractionId": EXTRACTION, "spanIds": ["no_such_span"]})
-    assert caught.value.code == "validation_error"
+    # Reader CA6b fix round 5: a passage the reading does not have is the typed refusal.
+    assert caught.value.code == "span_extraction_mismatch"

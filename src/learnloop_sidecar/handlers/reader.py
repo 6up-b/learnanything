@@ -35,6 +35,7 @@ from learnloop.source_retrieval.suggest import suggested_learning_objects
 from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
 from learnloop.vault.required_method import fit_presented_prompt
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import (
@@ -134,6 +135,9 @@ def _reader_answer_mode(vault: Any, requested: str | None) -> str:
 @method("reader.ask", ReaderAskInput)
 def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id,
+                     span_ids=[params.span_id, *(params.selection_span_ids or [])], exchange_id=params.parent_exchange_id)
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
@@ -295,6 +299,8 @@ class ReaderSetAnswerModeInput(ParamsModel):
 @method("reader.set_answer_mode", ReaderSetAnswerModeInput)
 def reader_set_answer_mode(ctx: SidecarContext, params: ReaderSetAnswerModeInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, span_ids=[params.span_id])
     try:
         event_id = RD.set_answer_mode(
             repository,
@@ -875,6 +881,9 @@ class ReaderCaptureInput(ParamsModel):
 @method("reader.capture", ReaderCaptureInput)
 def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
+                     source_id=params.source_id, revision_id=params.revision_id)
     try:
         receipt = RC.capture(
             repository,
@@ -909,6 +918,9 @@ class ReaderCreateAnnotationInput(ParamsModel):
 @method("reader.create_annotation", ReaderCreateAnnotationInput)
 def reader_create_annotation(ctx: SidecarContext, params: ReaderCreateAnnotationInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
+                     source_id=params.source_id, revision_id=params.revision_id)
     translation = ANN.translate_selection(
         repository, extraction_id=params.extraction_id,
         raw_selection=params.raw_selection, render_view_id=params.render_view_id,
@@ -1076,6 +1088,9 @@ class ReaderInvokePresetInput(ParamsModel):
 @method("reader.invoke_preset", ReaderInvokePresetInput)
 def reader_invoke_preset(ctx: SidecarContext, params: ReaderInvokePresetInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection,
+                     subject_id=params.subject_id, source_id=params.source_id, revision_id=params.revision_id)
     try:
         receipt = RC.invoke_preset(
             repository,
@@ -1150,6 +1165,9 @@ class ReaderEnqueueRequestInput(ParamsModel):
 @method("reader.enqueue_request", ReaderEnqueueRequestInput)
 def reader_enqueue_request(ctx: SidecarContext, params: ReaderEnqueueRequestInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, span_ids=[params.span_id],
+                     source_id=params.source_id, revision_id=params.revision_id)
     try:
         result = RR.enqueue_request(
             repository, source_id=params.source_id, revision_id=params.revision_id,
@@ -1976,6 +1994,9 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
     nodes = list((params.raw_selection or {}).get("nodes") or [])
     if not nodes:
         raise SidecarError("validation_error", "The selection has no anchorable nodes.")
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=resolved, raw_selection=params.raw_selection,
+                     source_id=params.source_id, revision_id=params.revision_id)
     source_id = params.source_id or _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
@@ -2150,6 +2171,8 @@ def reader_manual_anchor(ctx: SidecarContext, params: ReaderManualAnchorInput) -
         raise SidecarError(
             "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
         )
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, raw_selection=params.raw_selection)
     translation = ANN.translate_selection(
         repository,
         extraction_id=params.extraction_id,
@@ -2232,6 +2255,8 @@ def reader_set_inquiry_status(ctx: SidecarContext, params: ReaderSetInquiryStatu
     """Open, resolve, dismiss or reopen an inquiry (its root question's resolution)."""
 
     _vault, repository = _require_inquiry(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, exchange_id=params.exchange_id)
     try:
         result = RI.set_inquiry_status(
             repository,
@@ -2258,6 +2283,8 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
     passage-scoped question (never on the request path: a durable job writes it)."""
 
     vault, repository = _require_inquiry(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, exchange_id=params.exchange_id)
     try:
         result = RI.answer_reconnect(
             repository,
@@ -2347,6 +2374,8 @@ def reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionIn
     read), and the state of the job writing it when ``batchId`` names one."""
 
     vault, repository = _require_inquiry(ctx)
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=params.extraction_id, exchange_id=params.exchange_id)
     try:
         root = RI.resolve_inquiry_root(
             repository, extraction_id=params.extraction_id, exchange_id=params.exchange_id

@@ -51,6 +51,7 @@ from learnloop.reader import reader_quick_check as RQC
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
@@ -295,6 +296,8 @@ def reader_route_intent(ctx: SidecarContext, params: ReaderRouteIntentInput) -> 
     spans = [str(span) for span in params.span_ids if span]
     if not spans:
         raise SidecarError("validation_error", "A routing needs the selection's passages.")
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=extraction_id, span_ids=spans)
     _refuse_held_out(vault, repository, extraction_id, spans)
     text = params.text.strip()
     if not text:
@@ -457,6 +460,8 @@ def reader_active_question(ctx: SidecarContext, params: ReaderActiveQuestionInpu
         raise SidecarError("validation_error", f"Unknown question style {params.style!r}.")
     extraction_id = _extraction(repository, params.extraction_id)
     spans = [str(span) for span in params.span_ids if span]
+    # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
+    require_identity(repository, extraction_id=extraction_id, span_ids=spans)
     try:
         view = RQC.selection_view(repository, extraction_id=extraction_id, anchor_span_ids=spans, style=params.style)
     except RQC.ReaderQuickCheckError as exc:

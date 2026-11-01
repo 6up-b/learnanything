@@ -35,6 +35,7 @@ from learnloop_sidecar.context import SidecarContext, session_snapshot
 from learnloop_sidecar.dto import ParamsModel, to_camel
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.source_identity import require_identity
 
 T = TypeVar("T")
 
@@ -530,6 +531,35 @@ class WorkbenchOpenProblemsInput(ParamsModel):
 # -- RPCs ---------------------------------------------------------------------------------------------
 
 
+def _require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None:
+    """Reader CA6b fix round 5: a problem's passages are the reading it opens
+    on, its import request is that reading's own selection (source, revision,
+    reading and nodes agree), and a source exercise's passages are its
+    reading's. Refused (``span_extraction_mismatch``) before anything is written."""
+
+    from learnloop.reader.source_identity import MISMATCH_CODE
+
+    if params.extraction_id:
+        require_identity(repository, extraction_id=params.extraction_id, span_ids=params.span_ids or [])
+    request = dict(params.import_request) if params.import_request else None
+    if request:
+        reading = str(request.get("extraction_id") or request.get("extractionId") or "")
+        if reading:
+            require_identity(
+                repository, extraction_id=reading,
+                raw_selection=request.get("raw_selection") or request.get("rawSelection"),
+                source_id=request.get("source_id") or request.get("sourceId"),
+                revision_id=request.get("revision_id") or request.get("revisionId"),
+            )
+            if params.extraction_id and reading != params.extraction_id:
+                raise SidecarError(MISMATCH_CODE, "The problem's import is a selection of another reading.",
+                                   details={"extraction_id": params.extraction_id, "reason": "import_reading",
+                                            "span_ids": []})
+    if params.source_exercise:
+        require_identity(repository, extraction_id=params.source_exercise.extraction_id,
+                         span_ids=params.source_exercise.span_ids)
+
+
 @method("workbench.open", WorkbenchOpenInput)
 def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str, Any]:
     """Open a problem at once (or resume the open one for the same item or
@@ -537,6 +567,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     verbatim selection and the import runs in the background."""
 
     vault, repository = _require(ctx)
+    _require_open_identity(repository, params)
     carried = max(0, int(params.carried_hints or 0))
     serve = _named_serve(params)
     if params.session_id:

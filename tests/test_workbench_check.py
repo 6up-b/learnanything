@@ -297,6 +297,12 @@ def test_check_and_help_wait_for_setup_and_refuse_while_switched_off(tmp_path, m
 
     monkeypatch.setattr(handler, "_enqueue_import", lambda ctx, vault, repository, request: "batch_1")
     _paths, ctx, _session = sidecar(tmp_path)
+    # Reader CA6b fix round 5: the problem's reading exists, with its passage s1.
+    from learnloop.db.repositories import Repository
+    from tests.source_retrieval_fakes import seed_source
+
+    seed_source(Repository(_paths.sqlite_path), source_id="src_ext", revision_id="rev_ext", extraction_id="ext",
+                title="Book", units={"u": ("Section", [("Line", 1)])}, furniture=False)
     view = call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "stemMd": "Find P.",
                                         "extractionId": "ext", "spanIds": ["s1"],
                                         "importRequest": {"extractionId": "ext", "rawSelection": {"nodes": []}}})["session"]

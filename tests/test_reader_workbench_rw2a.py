@@ -61,7 +61,14 @@ def _context(root):
 
 
 def _vault(tmp_path, *, config: str = ""):
+    from tests.source_retrieval_fakes import seed_source
+
     paths, _vault, repository = split_vault(tmp_path, version="mvp-0.27", config=config)
+    # Reader CA6b fix round 5: the problem's reading exists, with the passages
+    # the problems name (s5, s6, s9): the sidecar checks a problem's passages
+    # against its reading and refuses another reading's (or none).
+    seed_source(repository, source_id="src_wb", revision_id="rev_wb", extraction_id=EXTRACTION, title="Workbench book",
+                units={"u_wb": ("Probability", [(f"Line {index}", 1) for index in range(12)])}, furniture=False)
     return paths, repository
 
 

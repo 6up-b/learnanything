@@ -54,6 +54,7 @@ from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.figures import service as FS
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
@@ -308,6 +309,13 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     from learnloop_sidecar.handlers.library_ask import reader_caller
 
     vault, repository = _require(ctx)
+    # Reader CA6b fix round 5: the anchor's passages and the reading place are
+    # their readings' own (fail closed, before any job).
+    if extraction_id:
+        require_identity(repository, extraction_id=extraction_id,
+                         span_ids=[*span_ids, (region or {}).get("span_id")])
+    if reading_at and reading_at.get("extraction_id"):
+        require_identity(repository, extraction_id=str(reading_at["extraction_id"]), span_ids=[reading_at.get("span_id")])
     if origin in FS.RESERVED_ORIGINS:
         raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
     goal = " ".join(str(goal_text or "").split()) or None
