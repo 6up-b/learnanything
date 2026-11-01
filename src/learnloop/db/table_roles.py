@@ -337,6 +337,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
+    # Deliverable curriculum C2 (migration 229): snapshots of the learner's
+    # notes taken only when linked, and the link decisions (the model's
+    # proposals, the learner's links and hides). Learner-voice records, never
+    # a source, a generation input or evidence; replay never reads them.
+    ("learner_note_links", TableRole.RAW_LEDGER),
+    ("learner_notes", TableRole.RAW_LEDGER),
     # Learner-text gaps (implementation_handoffs §4, mvp-0.16): what each
     # learner text was read as and what was done (append-only, paid input
     # never re-asked), the learner's undo taps, the job queue, and the two
