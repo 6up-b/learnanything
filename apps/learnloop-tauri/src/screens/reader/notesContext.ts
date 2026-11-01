@@ -3,7 +3,14 @@
 // Provided by the Reader only while the prompt contract carries `notes` (notes.enabled on
 // and tend installed); absent (null), the Reader, the path and Compare are today's exactly.
 import { createContext, useContext } from "react";
-import type { NotesContractDto } from "../../api/dto";
+import type { NoteLinkDto, NotesContractDto } from "../../api/dto";
+
+/** A link the learner hid this session: kept on screen with *undo* (Codex review F5). */
+export interface HiddenNote {
+  link: NoteLinkDto;
+  /** The learner's hide row: *undo* keeps it after all. */
+  hiddenId: string;
+}
 
 export interface NotesContextValue {
   settings: NotesContractDto;
@@ -11,6 +18,11 @@ export interface NotesContextValue {
   onChanged: () => void;
   /** Bumped on every change, so a surface holding notes reads them again. */
   revision: number;
+  /** The links hidden this session, by the hidden link's id: a refresh no longer lists
+   *  them, so every surface keeps their card (with *undo*) until undone (Codex review F5). */
+  hidden: ReadonlyMap<string, HiddenNote>;
+  remember: (link: NoteLinkDto, hiddenId: string) => void;
+  forget: (linkId: string) => void;
 }
 
 export const NotesContext = createContext<NotesContextValue | null>(null);

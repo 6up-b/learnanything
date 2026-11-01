@@ -460,6 +460,33 @@ it("C2: › marks a passage with a linked note (the learner's own mark) and the 
   await waitFor(() => expect(api.notesSearch).toHaveBeenCalledWith({ extractionId: view.extractionId, spanId: span }));
 });
 
+it("C2: the library page's comparison with no book open offers the notes' your-take band (F10)", async () => {
+  contract.value = { ...contract.value, notes: NOTES };
+  api.readerSearchSources.mockResolvedValue({ query: "x", deep: false, searchedSources: 1, basis: "keyword", rewritten: null, hits: [] });
+  api.readerLibraryAsk.mockResolvedValue(done({ ...ASK, extractionId: null, anchorSpanIds: [] }));
+  api.readerLibraryCompare.mockResolvedValue(done(TABLE, "compare"));
+  api.notesPassages.mockResolvedValue({ notes: [{
+    linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo", extractionId: "ext_symmetric",
+    sectionId: "sec", spanId: "span_spectral_worked", goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model",
+    how: "restates", howWords: null, howLine: null, line: "your note from 3 Oct",
+    note: { title: "Linear algebra", heading: "Spectral", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "tend",
+            originLabel: null, text: "Symmetric means real eigenvalues.", truncated: false },
+    takeText: "From your note “Linear algebra › Spectral”, 3 Oct: “Symmetric means real eigenvalues.”" }] });
+  render(<ReaderScreen onError={vi.fn()} />);
+  const search = await screen.findByPlaceholderText("search all sources…");
+  fireEvent.change(search, { target: { value: "symmetric matrices" } });
+  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  const pins = await within(pane).findAllByRole("button", { name: "pin" });
+  fireEvent.click(pins[0]);
+  fireEvent.click(pins[1]);
+  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
+  await waitFor(() => expect(api.notesPassages).toHaveBeenCalled());
+  expect(await within(pane).findByText("Symmetric means real eigenvalues.", { exact: false })).toBeTruthy();
+  expect(within(pane).getAllByRole("button", { name: "use as my take" }).length).toBeGreaterThan(0);
+  expect(api.notesMarks).not.toHaveBeenCalled(); // no book open: no reading's marks are read
+});
+
 it("C2: without notes in the contract no › mark is read or drawn and the menu is today's", async () => {
   render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   const text = await screen.findByText(view.blocks[1].markdown);

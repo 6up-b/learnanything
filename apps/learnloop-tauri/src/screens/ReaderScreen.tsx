@@ -2918,7 +2918,9 @@ export function ReaderScreen({
               </div>
               {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
               {libraryCtl.open ? (
-                // RW4d: keep and reopen work on the library page too (Codex review F3).
+                // RW4d: keep and reopen work on the library page too (Codex review F3);
+                // curriculum C2: so do the notes' your-take band (C2 Codex review F10).
+                <NotesContext.Provider value={notesCtl.context}>
                 <CompareKeepContext.Provider value={keptCtl.context}>
                 <Card style={{ padding: 0 }}>
                   <LibraryAnswer
@@ -2935,6 +2937,7 @@ export function ReaderScreen({
                   />
                 </Card>
                 </CompareKeepContext.Provider>
+                </NotesContext.Provider>
               ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>

@@ -14,12 +14,12 @@
 // stays hidden. Keeping it needs no tap. A Pocket Notes page says "handwritten ·
 // transcribed by Pocket Notes". A note is never a source, never evidence and never
 // grades anything. Nothing here opens, moves focus or animates unasked.
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../../api/client";
 import type { NoteHitDto, NoteLinkDto, NoteMarksDto, NotesContractDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
-import { useNotes, type NotesContextValue } from "./notesContext";
+import { useNotes, type HiddenNote, type NotesContextValue } from "./notesContext";
 import { LearnerVoice, MeaningLabel } from "./voices";
 
 export const NOTES_COPY = {
@@ -55,32 +55,52 @@ export function noteLabel(link: NoteLinkDto): string {
   return [NOTES_COPY.yourNote, where, link.note.dateLabel].filter(Boolean).join(" · ");
 }
 
-/** Hide one link (one tap), with undo; the server keeps the learner's word across re-judgments. */
-function useDecide(onChanged: (() => void) | undefined) {
-  const [hidden, setHidden] = useState<Record<string, string>>({});
+/** UI refresh cadence while the background linking runs or waits for the plan or tend
+ *  (Codex review F4). `keep`: how often a screen asks again, never a model parameter. */
+export const NOTES_POLL_MS = { running: 3_000, waiting: 60_000 } as const;
+
+/** Keep the cards of links hidden this session that a refresh no longer lists, where they
+ *  were (Codex review F5: *undo* must survive the refresh a hide starts). */
+export function retainHidden(previous: readonly NoteLinkDto[], next: readonly NoteLinkDto[],
+  hidden: ReadonlyMap<string, HiddenNote>): NoteLinkDto[] {
+  const listed = new Set(next.map((link) => link.linkId));
+  const out = [...next];
+  previous.forEach((link, index) => {
+    if (hidden.has(link.linkId) && !listed.has(link.linkId)) out.splice(Math.min(index, out.length), 0, link);
+  });
+  return out;
+}
+
+/** Hide one link (one tap), with undo; the server keeps the learner's word across
+ *  re-judgments, the context keeps the hidden card on screen until undone. */
+function useDecide(ctx: NotesContextValue | null) {
+  const [local, setLocal] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const hiddenId = (link: NoteLinkDto) => (ctx ? ctx.hidden.get(link.linkId)?.hiddenId : local[link.linkId]);
   const decide = async (link: NoteLinkDto, choice: "hide" | "keep") => {
     setFailure(null);
     try {
       if (choice === "hide") {
         const out = await api.notesDecide({ linkId: link.linkId, choice: "hide" });
-        setHidden((current) => ({ ...current, [link.linkId]: out.linkId }));
+        if (ctx) ctx.remember(link, out.linkId);
+        else setLocal((current) => ({ ...current, [link.linkId]: out.linkId }));
       } else {
-        const hiddenId = hidden[link.linkId];
-        if (!hiddenId) return;
-        await api.notesDecide({ linkId: hiddenId, choice: "keep" });
-        setHidden((current) => {
+        const id = hiddenId(link);
+        if (!id) return;
+        await api.notesDecide({ linkId: id, choice: "keep" });
+        if (ctx) ctx.forget(link.linkId);
+        else setLocal((current) => {
           const next = { ...current };
           delete next[link.linkId];
           return next;
         });
       }
-      onChanged?.();
+      ctx?.onChanged();
     } catch (error) {
       setFailure(errorMessage(error, "Couldn't save that; nothing changed."));
     }
   };
-  return { hidden, failure, decide };
+  return { isHidden: (link: NoteLinkDto) => Boolean(hiddenId(link)), failure, decide };
 }
 
 /** One linked note, in the learner's voice. */
@@ -117,11 +137,11 @@ export function NoteCard({ link, isHidden, onHide, onUndo, extra }: {
 }
 
 function NoteList({ links, ctx }: { links: NoteLinkDto[]; ctx: NotesContextValue | null }) {
-  const { hidden, failure, decide } = useDecide(ctx?.onChanged);
+  const { isHidden, failure, decide } = useDecide(ctx);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {links.map((link) => (
-        <NoteCard key={link.linkId} link={link} isHidden={Boolean(hidden[link.linkId])}
+        <NoteCard key={link.linkId} link={link} isHidden={isHidden(link)}
           onHide={() => void decide(link, "hide")} onUndo={() => void decide(link, "keep")} />
       ))}
       {failure ? <span role="status"><MeaningLabel>{failure}</MeaningLabel></span> : null}
@@ -177,8 +197,22 @@ export function NoteMarkButton({ mark, surface = "text", below = false }: { mark
 }
 
 const NO_MARKS: ReadonlyMap<string, NoteMark> = new Map();
+const NO_HIDDEN: ReadonlyMap<string, HiddenNote> = new Map();
 
-/** The › marks of the open reading (off: none, nothing read). */
+/** A reading's marks as read now, with the cards hidden this session kept in place (F5):
+ *  a passage whose last note was hidden keeps its › and the hidden card's *undo*. */
+export function mergeMarks(previous: ReadonlyMap<string, NoteMark>, next: readonly NoteMark[],
+  hidden: ReadonlyMap<string, HiddenNote>): Map<string, NoteMark> {
+  const out = new Map(next.map((mark) => [mark.spanId, mark] as const));
+  if (hidden.size === 0) return out;
+  for (const [spanId, mark] of previous) {
+    const merged = retainHidden(mark.notes, out.get(spanId)?.notes ?? [], hidden);
+    if (merged.length) out.set(spanId, { ...mark, notes: merged });
+  }
+  return out;
+}
+
+/** The › marks of the open reading (off: none, nothing read), and the notes context. */
 export function useNoteMarks({ settings, extractionId, offline }: {
   settings: NotesContractDto | null | undefined;
   extractionId: string | null;
@@ -187,23 +221,46 @@ export function useNoteMarks({ settings, extractionId, offline }: {
   const enabled = Boolean(settings?.enabled);
   const [marks, setMarks] = useState<ReadonlyMap<string, NoteMark>>(NO_MARKS);
   const [revision, setRevision] = useState(0);
+  const [hidden, setHidden] = useState<ReadonlyMap<string, HiddenNote>>(NO_HIDDEN);
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
+  const marksFor = useRef<string | null>(null);
   useEffect(() => {
     if (!enabled || !extractionId || offline) {
       setMarks(NO_MARKS);
+      marksFor.current = null;
       return;
     }
     let cancelled = false;
     void api.notesMarks({ extractionId })
-      .then((result) => { if (!cancelled) setMarks(new Map(result.marks.map((mark) => [mark.spanId, mark] as const))); })
+      .then((result) => {
+        if (cancelled) return;
+        // Another reading's marks never carry over (its hidden cards stay with it).
+        const same = marksFor.current === extractionId;
+        marksFor.current = extractionId;
+        setMarks((previous) => mergeMarks(same ? previous : NO_MARKS, result.marks, hiddenRef.current));
+      })
       // Marks are a convenience: an unreadable list shows none, quietly.
       .catch(() => { if (!cancelled) setMarks(NO_MARKS); });
     return () => { cancelled = true; };
   }, [enabled, extractionId, offline, revision]);
   const onChanged = useCallback(() => setRevision((value) => value + 1), []);
+  const remember = useCallback((link: NoteLinkDto, hiddenId: string) => {
+    setHidden((current) => new Map(current).set(link.linkId, { link, hiddenId }));
+  }, []);
+  const forget = useCallback((linkId: string) => {
+    setHidden((current) => {
+      if (!current.has(linkId)) return current;
+      const next = new Map(current);
+      next.delete(linkId);
+      return next;
+    });
+  }, []);
   const settingsKey = settings ? JSON.stringify(settings) : "";
   const context = useMemo<NotesContextValue | null>(
+    () => (settings?.enabled ? { settings, onChanged, revision, hidden, remember, forget } : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => (settings?.enabled ? { settings, onChanged, revision } : null), [settingsKey, onChanged, revision],
+    [settingsKey, onChanged, revision, hidden, remember, forget],
   );
   return { enabled, marks, context };
 }
@@ -227,21 +284,48 @@ export function PathLineNotes({ notes }: { notes: NoteLinkDto[] }) {
   );
 }
 
-/** The notes of one deliverable's path, by topic (and the background linking started once a day). */
+/** The notes of one deliverable's path, by topic (and the background linking started once
+ *  a day). While that linking runs (or waits for the plan or tend) the path is read again
+ *  (Codex review F4: `NOTES_POLL_MS`); when it finishes, every surface reads its notes
+ *  again (the reading's › marks too). */
 export function usePathNotes(goalId: string | null, ready: boolean) {
   const ctx = useNotes();
   const [byLo, setByLo] = useState<ReadonlyMap<string, NoteLinkDto[]>>(new Map());
+  const [tick, setTick] = useState(0);
   const enabled = Boolean(ctx?.settings.enabled) && Boolean(goalId) && ready;
   const revision = ctx?.revision ?? 0;
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const linking = useRef<{ goalId: string | null; state: string | null }>({ goalId: null, state: null });
   useEffect(() => {
-    if (!enabled || !goalId) { setByLo(new Map()); return undefined; }
+    if (!enabled || !goalId) { setByLo(new Map()); linking.current = { goalId: null, state: null }; return undefined; }
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     void api.notesPath({ goalId })
-      .then((out) => { if (!cancelled) setByLo(new Map(out.lines.map((line) => [line.learningObjectId, line.notes] as const))); })
+      .then((out) => {
+        if (cancelled) return;
+        const hidden = ctxRef.current?.hidden ?? NO_HIDDEN;
+        const same = linking.current.goalId === goalId;
+        const before = same ? linking.current.state : null;
+        linking.current = { goalId, state: out.linking ?? null };
+        setByLo((previous) => {
+          const next = new Map(out.lines.map((line) => [line.learningObjectId, line.notes] as const));
+          if (same) {
+            for (const [lo, list] of previous) {
+              const merged = retainHidden(list, next.get(lo) ?? [], hidden);
+              if (merged.length) next.set(lo, merged);
+            }
+          }
+          return next;
+        });
+        if ((before === "running" || before === "waiting") && out.linking === "done") ctxRef.current?.onChanged();
+        const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null;
+        if (wait !== null) timer = setTimeout(() => { if (!cancelled) setTick((value) => value + 1); }, wait);
+      })
       // Notes are a convenience on the path: unreadable, none show.
       .catch(() => { if (!cancelled) setByLo(new Map()); });
-    return () => { cancelled = true; };
-  }, [enabled, goalId, revision]);
+    return () => { cancelled = true; if (timer !== undefined) clearTimeout(timer); };
+  }, [enabled, goalId, revision, tick]);
   return byLo;
 }
 
@@ -257,13 +341,35 @@ export function passagesOfKeys(keys: string[]): Array<{ extractionId: string; sp
   return out;
 }
 
-export function NotesTakeBand({ keys, onUse, busy = false }: { keys: string[]; onUse: (text: string) => void; busy?: boolean }) {
+/** What *use as my take* did: kept as a take, put in the take's draft (kept with the
+ *  comparison), or failed (nothing saved: the action stays to try again). */
+export type NoteTakeOutcome = "kept" | "drafted" | "failed";
+
+export function NotesTakeBand({ keys, onUse, busy = false }: {
+  keys: string[];
+  onUse: (text: string) => Promise<NoteTakeOutcome>;
+  busy?: boolean;
+}) {
   const ctx = useNotes();
   const [notes, setNotes] = useState<NoteLinkDto[]>([]);
   const [used, setUsed] = useState<string[]>([]);
-  const passages = useMemo(() => passagesOfKeys(keys), [keys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [using, setUsing] = useState<string | null>(null);
+  const keysKey = keys.join("|");
+  const passages = useMemo(() => passagesOfKeys(keys), [keysKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const enabled = Boolean(ctx?.settings.enabled) && passages.length > 0;
   const revision = ctx?.revision ?? 0;
+  // Another comparison: nothing of it was used yet (Codex review F11).
+  useEffect(() => { setUsed([]); setUsing(null); }, [keysKey]);
+  const use = async (link: NoteLinkDto) => {
+    if (!link.takeText || using) return;
+    setUsing(link.linkId);
+    try {
+      // Marked used only once the take is kept (Codex review F11); a failure keeps the action.
+      if ((await onUse(link.takeText)) === "kept") setUsed((value) => [...value, link.linkId]);
+    } finally {
+      setUsing(null);
+    }
+  };
   useEffect(() => {
     if (!enabled) { setNotes([]); return undefined; }
     let cancelled = false;
@@ -279,8 +385,8 @@ export function NotesTakeBand({ keys, onUse, busy = false }: { keys: string[]; o
       {notes.map((link) => (
         <NoteCard key={link.linkId} link={link} extra={
           used.includes(link.linkId) ? <MeaningLabel>✓</MeaningLabel> : (
-            <button type="button" style={linkStyle} disabled={busy || !link.takeText}
-              onClick={() => { if (link.takeText) { onUse(link.takeText); setUsed((value) => [...value, link.linkId]); } }}>
+            <button type="button" style={linkStyle} disabled={busy || Boolean(using) || !link.takeText}
+              onClick={() => void use(link)}>
               {NOTES_COPY.useAsMyTake}
             </button>
           )} />

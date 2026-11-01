@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/reader/notesContext.ts"
 source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
 source_commit_timestamp: "2026-11-01T08:51:49-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area.
+Provides `HiddenNote`, `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/notesContext.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/notesContext.ts) |
-| Source lines | 20 |
+| Source lines | 32 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `517a3eec6bdd10976bb35ca9c5f2506fabfb9aec` |
 | Commit timestamp | `2026-11-01T08:51:49-05:00` |
 
@@ -60,9 +60,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface NotesContextValue` — interface, line 8
-- `export const NotesContext = createContext<NotesContextValue | null>(null)` — const, line 16
-- `export function useNotes(): NotesContextValue | null` — function, line 18
+- `export interface HiddenNote` — interface, line 9
+- `export interface NotesContextValue` — interface, line 15
+- `export const NotesContext = createContext<NotesContextValue | null>(null)` — const, line 28
+- `export function useNotes(): NotesContextValue | null` — function, line 30
 
 ## Internal implementation anchors
 
@@ -74,13 +75,13 @@ No non-exported declaration anchor was detected by the static extractor.
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `NotesContext`; references `NotesContext`
-- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export: `NotesContextValue`, `useNotes`; references `NotesContextValue`, `useNotes`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export: `HiddenNote`, `NotesContextValue`, `useNotes`; references `HiddenNote`, `NotesContextValue`, `useNotes`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `NotesContractDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `NoteLinkDto`, `NotesContractDto`
 
 ### Assets, platform, and third-party dependencies
 

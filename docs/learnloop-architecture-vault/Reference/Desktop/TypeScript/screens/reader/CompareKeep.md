@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx"
 source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
 source_commit_timestamp: "2026-11-01T08:51:49-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx) |
-| Source lines | 302 |
+| Source lines | 306 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `517a3eec6bdd10976bb35ca9c5f2506fabfb9aec` |
 | Commit timestamp | `2026-11-01T08:51:49-05:00` |
 
@@ -67,7 +67,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function relationPairs(table: CompareTableDto): RelationPair[]` — function, line 85
 - `export type KeepTarget =` — type, line 118
 - `export function CompareKeep(` — function, line 121
-- `export function KeptComparisonView(` — function, line 257
+- `export function KeptComparisonView(` — function, line 261
 
 ## Internal implementation anchors
 
@@ -92,15 +92,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const targets = takeTargets(table)` — const, line 128
 - `const comparisonId = table.comparisonId` — const, line 142
 - `const pairs = relationPairs(table)` — const, line 143
-- `const keep = async (withTake: boolean, noteText?: string)` — const, line 145
-- `const chosen = targets.find((entry)` — const, line 146
-- `const text = (noteText ?? take).trim()` — const, line 147
-- `const takes = withTake && text && chosen ? [` — const, line 148
-- `const result = await api.readerLibraryCompareKeep(` — const, line 152
-- `const remove = async ()` — const, line 172
-- `const ctx = useCompareKeep()` — const, line 266
-- `const openSourceId = ctx?.openSourceId ?? null` — const, line 270
-- `let cancelled = false` — let, line 272
+- `const keep = async (withTake: boolean, noteText?: string): Promise<boolean>` — const, line 147
+- `const chosen = targets.find((entry)` — const, line 148
+- `const text = (noteText ?? take).trim()` — const, line 149
+- `const takes = withTake && text && chosen ? [` — const, line 150
+- `const result = await api.readerLibraryCompareKeep(` — const, line 154
+- `const remove = async ()` — const, line 176
+- `const ctx = useCompareKeep()` — const, line 270
+- `const openSourceId = ctx?.openSourceId ?? null` — const, line 274
+- `let cancelled = false` — let, line 276
 
 ## Who imports or calls it
 

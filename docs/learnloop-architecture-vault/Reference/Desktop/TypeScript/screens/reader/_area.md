@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
-source_commit_timestamp: "2026-11-01T08:51:49-05:00"
+source_commit: "70e2411634dadd3eda8b7d200e80ac22d29e5ac1"
+source_commit_timestamp: "2026-11-01T09:05:24-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -88,7 +88,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|exerciseCandidates.ts]] | `ACTIVE` | Provides `EXERCISE_COPY`, `ExerciseCandidate`, `ReaderWorkbenchExercise`, `proposalKeys` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 7 |
 | [[Reference/Desktop/TypeScript/screens/reader/guidePlan|guidePlan.ts]] | `ACTIVE` | Provides `GUIDE_DIAGNOSIS_POLL_MS`, `GUIDE_DIAGNOSIS_POLL_MAX_MS`, `guidePlanKey`, `pendingDiagnoses` and related exports within the desktop's TypeScript/screens/reader ownership area. | 5 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/intentPalette|intentPalette.ts]] | `ACTIVE` | Provides `INTENT_COPY`, `visiblePalette`, `paletteActions`, `SHOW_ME_LABEL` and related exports within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/notesContext|notesContext.ts]] | `ACTIVE` | Provides `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
+| [[Reference/Desktop/TypeScript/screens/reader/notesContext|notesContext.ts]] | `ACTIVE` | Provides `HiddenNote`, `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/observerGeneration|observerGeneration.ts]] | `ACTIVE` | Provides `ObserverGeneration`, `observerGeneration` within the desktop's TypeScript/screens/reader ownership area. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerCache|readerCache.ts]] | `ACTIVE` | Provides `READER_CACHE_MS`, `SourceReadOptions`, `cachedSourceRead` within the desktop's TypeScript/screens/reader ownership area. | 2 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/readerKeys|readerKeys.ts]] | `ACTIVE` | Provides `ReaderKey`, `readerKeyBarKeys` within the desktop's TypeScript/screens/reader ownership area. | 0 | 1 |

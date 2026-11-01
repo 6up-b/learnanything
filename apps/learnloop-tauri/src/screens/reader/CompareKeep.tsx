@@ -142,7 +142,9 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
   const comparisonId = table.comparisonId;
   const pairs = relationPairs(table);
 
-  const keep = async (withTake: boolean, noteText?: string) => {
+  /** Keep the comparison (with a take): true once it is saved (C2's *use as my take*
+   *  waits for it, Codex review F11). */
+  const keep = async (withTake: boolean, noteText?: string): Promise<boolean> => {
     const chosen = targets.find((entry) => entry.value === about) ?? targets[0];
     const text = (noteText ?? take).trim();
     const takes = withTake && text && chosen ? [{ text, keys: chosen.keys }] : [];
@@ -164,9 +166,11 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
       if (noteText === undefined) setTake("");
       setPhase("idle");
       ctx.onChanged();
+      return true;
     } catch (error) {
       setPhase("failed");
       setFailure(errorMessage(error, "Couldn't keep this comparison. Nothing was saved; try again."));
+      return false;
     }
   };
   const remove = async () => {
@@ -204,7 +208,7 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
         {/* Curriculum C2: the notes linked to these passages; *use as my take* keeps one as
             your take (RW4d's own write, quoting the note), on the passages chosen below. */}
         <NotesTakeBand keys={table.rows.map((row) => row.key)} busy={phase === "pending"}
-          onUse={(text) => void keep(true, text)} />
+          onUse={async (text) => ((await keep(true, text)) ? "kept" : "failed")} />
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={headStyle}><span aria-hidden="true">› </span>{KEEP_COPY.take}</span>
           <input

@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx"
 source_commit: "517a3eec6bdd10976bb35ca9c5f2506fabfb9aec"
 source_commit_timestamp: "2026-11-01T08:51:49-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx) |
-| Source lines | 817 |
+| Source lines | 819 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `517a3eec6bdd10976bb35ca9c5f2506fabfb9aec` |
 | Commit timestamp | `2026-11-01T08:51:49-05:00` |
 
@@ -140,49 +140,50 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const submitTake = async (target: Target)` — const, line 347
 - `const text = takeText.trim()` — const, line 348
 - `const take: KeepTakeDto = target === "comparison" ?` — const, line 354
-- `const takeFromNote = async (text: string)` — const, line 369
-- `const toggle = (list: string[], value: string)` — const, line 377
-- `const cellAt = (at: CellPosition):` — const, line 380
-- `const book = at.col > 0 && at.row < columns.length ? at.row : null` — const, line 382
-- `const point = points[at.row] ?? null` — const, line 385
-- `const quotedCell = (point: ComparePointDto | null, column: number | null): ComparePointCellDto | null` — const, line 389
-- `const cell = point.cells.find((entry)` — const, line 391
-- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 395
-- `const target = event.target as HTMLElement` — const, line 396
-- `const next = moveCell(focus, event.key, rowCount, colsOf)` — const, line 408
-- `const cell = quotedCell(point, column)` — const, line 417
-- `const handled = ()` — const, line 418
-- `const cellProps = (row: number, col: number, label: string)` — const, line 484
-- `const question = table.scope?.question ?? table.query ?? null` — const, line 494
-- `const firstModelPoint = points.findIndex((point)` — const, line 495
-- `const quote = (point: ComparePointDto, cell: ComparePointCellDto)` — const, line 497
-- `const open = expanded.includes(`$` — const, line 498
-- `const text = cell.quote ?? ""` — const, line 499
-- `const long = text.length > CLAMP_CHARS` — const, line 500
-- `const bookCell = (point: ComparePointDto, column: number): ReactNode` — const, line 517
-- `const cell = point.cells.find((entry)` — const, line 518
-- `const cellLabel = (point: ComparePointDto, column: number): string` — const, line 535
-- `const title = columns[column].sourceTitle ?? "a source"` — const, line 536
-- `const cell = point.cells.find((entry)` — const, line 537
-- `const chips = (point: ComparePointDto)` — const, line 544
-- `const list = rowChips(point, titles)` — const, line 545
-- `const pairs = chipPairs(point)` — const, line 547
-- `const open = pairsOpen.includes(point.id)` — const, line 548
-- `const pairsBand = (point: ComparePointDto)` — const, line 568
-- `const rowHeader = (point: ComparePointDto, index: number)` — const, line 586
-- `const learner = point.labelVoice === "learner"` — const, line 587
-- `const takeBox = (target: Target, placeholder: string)` — const, line 608
-- `const youCell = (target: Target)` — const, line 626
-- `const takes = takesOf(target)` — const, line 628
-- `const draft = drafts[target]` — const, line 629
-- `const youOrAdd = (point: ComparePointDto, empty: ReactNode = null): ReactNode` — const, line 648
-- `const hiddenRow = (point: ComparePointDto, row: number)` — const, line 654
-- `const grid = ()` — const, line 665
-- `const template = `$` — const, line 666
-- `const stickyHead =` — const, line 667
-- `const cardsView = ()` — const, line 698
-- `const byBookView = ()` — const, line 719
-- `const unverified = table.unverifiedSources ?? []` — const, line 754
+- `const takeFromNote = async (text: string): Promise<NoteTakeOutcome>` — const, line 369
+- `const saved = await serial(()` — const, line 372
+- `const toggle = (list: string[], value: string)` — const, line 379
+- `const cellAt = (at: CellPosition):` — const, line 382
+- `const book = at.col > 0 && at.row < columns.length ? at.row : null` — const, line 384
+- `const point = points[at.row] ?? null` — const, line 387
+- `const quotedCell = (point: ComparePointDto | null, column: number | null): ComparePointCellDto | null` — const, line 391
+- `const cell = point.cells.find((entry)` — const, line 393
+- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 397
+- `const target = event.target as HTMLElement` — const, line 398
+- `const next = moveCell(focus, event.key, rowCount, colsOf)` — const, line 410
+- `const cell = quotedCell(point, column)` — const, line 419
+- `const handled = ()` — const, line 420
+- `const cellProps = (row: number, col: number, label: string)` — const, line 486
+- `const question = table.scope?.question ?? table.query ?? null` — const, line 496
+- `const firstModelPoint = points.findIndex((point)` — const, line 497
+- `const quote = (point: ComparePointDto, cell: ComparePointCellDto)` — const, line 499
+- `const open = expanded.includes(`$` — const, line 500
+- `const text = cell.quote ?? ""` — const, line 501
+- `const long = text.length > CLAMP_CHARS` — const, line 502
+- `const bookCell = (point: ComparePointDto, column: number): ReactNode` — const, line 519
+- `const cell = point.cells.find((entry)` — const, line 520
+- `const cellLabel = (point: ComparePointDto, column: number): string` — const, line 537
+- `const title = columns[column].sourceTitle ?? "a source"` — const, line 538
+- `const cell = point.cells.find((entry)` — const, line 539
+- `const chips = (point: ComparePointDto)` — const, line 546
+- `const list = rowChips(point, titles)` — const, line 547
+- `const pairs = chipPairs(point)` — const, line 549
+- `const open = pairsOpen.includes(point.id)` — const, line 550
+- `const pairsBand = (point: ComparePointDto)` — const, line 570
+- `const rowHeader = (point: ComparePointDto, index: number)` — const, line 588
+- `const learner = point.labelVoice === "learner"` — const, line 589
+- `const takeBox = (target: Target, placeholder: string)` — const, line 610
+- `const youCell = (target: Target)` — const, line 628
+- `const takes = takesOf(target)` — const, line 630
+- `const draft = drafts[target]` — const, line 631
+- `const youOrAdd = (point: ComparePointDto, empty: ReactNode = null): ReactNode` — const, line 650
+- `const hiddenRow = (point: ComparePointDto, row: number)` — const, line 656
+- `const grid = ()` — const, line 667
+- `const template = `$` — const, line 668
+- `const stickyHead =` — const, line 669
+- `const cardsView = ()` — const, line 700
+- `const byBookView = ()` — const, line 721
+- `const unverified = table.unverifiedSources ?? []` — const, line 756
 
 ## Who imports or calls it
 
@@ -200,7 +201,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|src/screens/reader/CompareKeep.tsx]] — import-or-re-export; imports `KEEP_COPY`, `fineLabel`
-- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `NotesTakeBand`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `NoteTakeOutcome`, `NotesTakeBand`
 - [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `useCompareKeep`
 - [[Reference/Desktop/TypeScript/screens/reader/comparePoints|src/screens/reader/comparePoints.ts]] — import-or-re-export; imports `CellPosition`, `CompareLayout`, `POINT_COLUMN_PX`, `READABLE_CELL_PX`, `YOU_COLUMN_PX`, `cardsByPoint`, `chipPairs`, `columnTitles`, `moveCell`, `notFound`, `readLayout`, `rowChips`, `writeLayout`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`, `SpokenOnly`
