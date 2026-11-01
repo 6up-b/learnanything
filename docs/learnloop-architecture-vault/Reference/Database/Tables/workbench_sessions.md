@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fae2f76d65e28cf5f94461990fa8013acd483fd"
-source_commit_timestamp: "2026-11-01T15:52:32-05:00"
+source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
+source_commit_timestamp: "2026-11-01T18:24:26-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -137,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_field_workbench_signals.py`
 - `tests/test_help_outcomes.py`
 - `tests/test_hint_telemetry.py`
+- `tests/test_learner_blindness_relax_codex_review.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_library_exercises.py`
 - `tests/test_reader_ca2_astra_handoff_recovery.py`
@@ -150,7 +151,6 @@ None found by exact static reference scan.
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_rw2d_receipts_migration.py`
-- `tests/test_section_coverage_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
