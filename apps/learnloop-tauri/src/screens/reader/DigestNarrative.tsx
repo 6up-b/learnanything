@@ -8,10 +8,14 @@
 // failed (no retry: one narrative per session), unreachable and capped (it is
 // retried at the next Today build; the lists above are complete without it).
 // Switched off it is absent: the sidecar sends nothing and nothing renders.
+// While it is pending the surface showing it re-reads it; a re-read that
+// fails (fix round 4) shows W14's offline state when the sidecar is down, or
+// says the summary could not be checked, with "try again", until a read
+// succeeds (the surface's other content stays as it was).
 import { useState, type CSSProperties } from "react";
 import type { ReaderDigestNarrativeDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
-import { ModelActionState } from "./ModelActionState";
+import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { MeaningLabel, ModelVoice } from "./voices";
 
 // The recap's link style (RecapCard imports this component, so it is not imported back).
@@ -28,14 +32,25 @@ export const NARRATIVE_COPY = {
   kept: "The lists above are complete without it.",
   capRoute: "summary",
   fallback: "Everything above",
+  pollFailed: "Couldn't check on the summary.",
 } as const;
+
+/** How the last re-read of a pending narrative failed (client-side only). */
+export type NarrativePollFailure = Extract<ModelActionPhase, "offline" | "failed">;
+
+/** The narrative as a surface shows it: the sidecar's DTO, plus, while it is
+ *  pending and the last re-read failed, how it failed and a way to re-read now. */
+export type NarrativeView = ReaderDigestNarrativeDto & {
+  pollFailure?: NarrativePollFailure;
+  onRetry?: () => void;
+};
 
 /** The well's markers are evidence's vocabulary, never model text's. */
 function withoutMarkers(text: string): string {
   return text.replace(/[●◌○]/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-export function DigestNarrative({ narrative }: { narrative: ReaderDigestNarrativeDto | null | undefined }) {
+export function DigestNarrative({ narrative }: { narrative: NarrativeView | null | undefined }) {
   const [open, setOpen] = useState(false);
   if (!narrative) return null;
   if (narrative.state === "landed") {
@@ -55,6 +70,14 @@ export function DigestNarrative({ narrative }: { narrative: ReaderDigestNarrativ
     );
   }
   const capAmount = typeof narrative.capUsd === "number" ? `$${narrative.capUsd.toFixed(2)}` : undefined;
+  if (narrative.state === "pending" && narrative.pollFailure) {
+    return (
+      <div data-digest-narrative={narrative.pollFailure} style={{ marginTop: 8 }}>
+        <ModelActionState phase={narrative.pollFailure} verb={NARRATIVE_COPY.writing} failure={NARRATIVE_COPY.pollFailed}
+          kept={NARRATIVE_COPY.kept} onRetry={narrative.onRetry} />
+      </div>
+    );
+  }
   return (
     <div data-digest-narrative={narrative.state} style={{ marginTop: 8 }}>
       {narrative.state === "pending" ? (

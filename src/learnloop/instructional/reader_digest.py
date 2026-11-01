@@ -334,10 +334,11 @@ def request_timeout_seconds(vault: Any, route: PaidRoute) -> float:
 
 
 def narration_lease_seconds(timeout_seconds: float) -> int:
-    """The session claim's lease (final verify F3): it outlives the longest
-    request the narration can have outstanding, so a successor can take the
-    claim over only once the holder has stopped renewing it for longer than
-    any of its requests can last, which in practice means the holder died.
+    """The session claim's lease (final verify F3): it outlives the route's
+    configured request timeout, so a successor can take the claim over only
+    once the holder has stopped renewing it for longer than that timeout,
+    which in practice means the holder died or froze (ruling R3: the timeout
+    is per network operation, so it is not a hard bound on the request).
 
     It is the route's configured request timeout plus a margin. keep: the
     margin is the claims' ordinary liveness lease
@@ -535,15 +536,21 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
     # (the approach-map builds' and AD's); whoever holds it re-reads the row
     # first.
     #
-    # Its lease outlives the longest request (final verify F3): it is the
+    # Its lease outlives the request timeout (final verify F3): it is the
     # route's request timeout plus a margin, every request carries that
     # timeout, the lease is renewed in full just before each send, and the
     # heartbeat renews it while the call is in flight. A successor can take
-    # it over only once it expired with its holder no longer renewing it,
-    # by when the holder's last request has timed out: no takeover ever
-    # sends while the predecessor's request may still be outstanding. A dead
-    # holder's lease lapses and the next Today build retries. (No transport
-    # offers an idempotency key, so the claim is the only guard.)
+    # it over only once it expired with its holder no longer renewing it for
+    # longer than the request timeout: while the holder lives, no takeover
+    # sends. A dead holder's lease lapses and the next Today build retries.
+    # (No transport offers an idempotency key, so the claim is the only
+    # guard.) The request
+    # timeout is per network operation, not a total deadline, so a holder
+    # that froze or died mid-request can be taken over while its response is
+    # still arriving; it can never publish (fenced), and the worst case is one
+    # duplicate charge on a metered route, within digest.max_daily_cost_usd
+    # (ruling R3; an abortable total deadline is an open item for the AI
+    # transport layer).
     from learnloop.hints import map_builder as claims
 
     route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))

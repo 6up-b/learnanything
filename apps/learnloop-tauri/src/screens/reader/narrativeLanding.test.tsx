@@ -44,6 +44,7 @@ function Harness({ extractionId = "ext1" }: { extractionId?: string }) {
   return (
     <div>
       <section aria-label="card"><DigestNarrative narrative={ctl.recap?.narrative} /></section>
+      <section aria-label="recap kept">{ctl.recap ? `session ${ctl.recap.session.sessionId}` : "no recap"}</section>
       <button type="button" onClick={() => void ctl.openWrapUp()}>open wrap up</button>
       <button type="button" onClick={ctl.closeWrapUp}>close wrap up</button>
       <section aria-label="wrap up">{ctl.wrapUpOpen ? <DigestNarrative narrative={ctl.wrapUpOpen.narrative} /> : null}</section>
@@ -113,4 +114,59 @@ it("a changed source clears the pending read", async () => {
   await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS * 2); });
   expect(api.readerRecap.mock.calls.length).toBe(calls);
   expect(api.readerRecap.mock.calls.every(([params]) => params.extractionId === "ext1" || params.extractionId === "ext2")).toBe(true);
+});
+
+// RW6b part 2, fix round 4 (Sol verify finding 2): a polling read that fails
+// is classified (W14) instead of being discarded: the sidecar down shows the
+// offline state, any other failure says the summary could not be checked.
+// The recap stays, polling continues, and the next successful read recovers.
+const SIDECAR_DOWN = { code: "sidecar_unavailable", message: "The sidecar stopped.", retryable: true };
+
+it("a failed re-read shows the offline state, keeps the recap and recovers when a read succeeds", async () => {
+  api.readerRecap.mockResolvedValueOnce(card("pending"));
+  api.readerWrapUp.mockResolvedValue({ ...wrapUp("pending"), available: false });
+  render(<Harness />);
+  await flush();
+  expect(screen.getByLabelText("card").textContent).toContain(NARRATIVE_COPY.writing);
+  // The sidecar goes down: the narrative says so, in place; the recap is kept.
+  api.readerRecap.mockRejectedValueOnce(SIDECAR_DOWN);
+  await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS); });
+  const cardText = () => screen.getByLabelText("card").textContent ?? "";
+  expect(cardText()).toContain("background service isn't responding");
+  expect(cardText()).not.toContain(NARRATIVE_COPY.writing);
+  expect(screen.getByLabelText("card").querySelector("[data-model-state='offline']")).not.toBeNull();
+  expect(screen.getByLabelText("recap kept").textContent).toBe("session v1");
+  // Another failure of another kind: still not "writing" forever.
+  api.readerRecap.mockRejectedValueOnce(new Error("boom"));
+  await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS); });
+  expect(cardText()).toContain(NARRATIVE_COPY.pollFailed);
+  expect(screen.getByLabelText("recap kept").textContent).toBe("session v1");
+  // Polling continues; the next read succeeds (still pending): writing again.
+  api.readerRecap.mockResolvedValueOnce(card("pending"));
+  await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS); });
+  expect(cardText()).toContain(NARRATIVE_COPY.writing);
+  expect(cardText()).not.toContain("background service");
+  // And it lands at the one after.
+  api.readerRecap.mockResolvedValueOnce(card("landed"));
+  await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS); });
+  expect(cardText()).toContain(NARRATIVE_COPY.collapsed);
+});
+
+it("try again re-reads at once, and a failed Wrap up re-read shows offline there too", async () => {
+  api.readerRecap.mockResolvedValue(card("landed"));
+  api.readerWrapUp.mockResolvedValue(wrapUp("pending"));
+  render(<Harness />);
+  await flush();
+  await act(async () => { screen.getByRole("button", { name: "open wrap up" }).click(); });
+  await flush();
+  api.readerWrapUp.mockRejectedValueOnce(SIDECAR_DOWN);
+  await act(async () => { await vi.advanceTimersByTimeAsync(NARRATIVE_POLL_MS); });
+  const wrapText = () => screen.getByLabelText("wrap up").textContent ?? "";
+  expect(wrapText()).toContain("background service isn't responding");
+  const before = api.readerWrapUp.mock.calls.length;
+  api.readerWrapUp.mockResolvedValueOnce(wrapUp("landed"));
+  await act(async () => { screen.getByRole("button", { name: /try again/ }).click(); });
+  await flush();
+  expect(api.readerWrapUp.mock.calls.length).toBe(before + 1);
+  expect(wrapText()).toContain(NARRATIVE_COPY.collapsed);
 });
