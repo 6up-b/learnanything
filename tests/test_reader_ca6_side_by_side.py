@@ -282,3 +282,50 @@ def test_a_highlight_made_in_the_second_pane_goes_to_its_own_book(tmp_path):
     listed = call(ctx, "reader.source_annotations", {"source_id": "src_lay", "extraction_id": "ext_lay"})["annotations"]
     assert [row["annotation"]["id"] for row in listed] == [receipt["annotationId"]]
     assert {segment["spanId"] for segment in listed[0]["segments"]} == {"s5"}
+
+
+# -- landing onto main (RW6b part 1): the second pane's exposure holds a follow-up -------------------------
+
+
+def test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there(tmp_path):
+    """RW6b's serve-time gate reads ``source_exposure`` rows: a follow-up whose item's canonical
+    exercise is a block the second pane showed since its valuation is held as ``source_exposed``
+    (the rows the read returns as its exposure ids); one on a block of a section not shown is not."""
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.instructional import reader_followups as RF
+    from learnloop.scheduling.intent.followup_gate import followup_gate
+    from learnloop.source_retrieval import section_coverage as SC
+    from learnloop.vault.loader import load_vault
+
+    paths, repository = build_coverage_vault(tmp_path / "vault")
+    ctx = _ctx(paths)
+    call(ctx, "reader.prompt_contract", {})
+    other = SC.section_text(load_vault(paths.root), repository, "ext_lay", "lay_eigen")  # read, not shown
+    unshown = other["blocks"][0]["span_id"]
+
+    def item(span):
+        return SimpleNamespace(id=f"pi_{span}", family_id=None, learning_object_id="lo_x", evidence_facets=(),
+                               canonical_exercise=SimpleNamespace(extraction_id="ext_lay", span_ids=(span,)))
+
+    provenance = {"via": RF.VIA, "purpose": "discriminating",
+                  "question": {"intent": "discriminate", "facet_ids": [], "learning_object_ids": ["lo_x"]},
+                  "attempt_ids": []}
+    now = datetime.now(UTC) + timedelta(minutes=1)
+    valued_at = (now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+
+    def gate(span):
+        vault = SimpleNamespace(practice_items={f"pi_{span}": item(span)}, canonical_facet_id=lambda facet: facet)
+        return followup_gate(vault, repository, item_id=f"pi_{span}", provenance=provenance,
+                             valued_at=valued_at, now=now)
+
+    shown_before = SC.section_text(load_vault(paths.root), repository, "ext_lay", "lay_char")["blocks"][0]["span_id"]
+    assert gate(shown_before) is None
+    section = call(ctx, "reader.side_by_side_section", LAY_CHAR)["section"]
+    shown = section["blocks"][0]["spanId"]
+    assert shown == shown_before
+    verdict = gate(shown)
+    assert verdict is not None and verdict["reasons"] == ["source_exposed"]
+    assert set(verdict["exposure"]["inputs"]["exposure_event_ids"]) <= set(section["exposureEventIds"])
+    assert verdict["exposure"]["inputs"]["exposure_event_ids"]
+    assert gate(unshown) is None
