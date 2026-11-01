@@ -4,7 +4,8 @@
 > differ. The card's Reader activity section is now rendered and hashed (F1). Narratives no longer need follow-ups
 > (F2). One durable claim is taken per narration (F3). Open questions 2–4 below are closed. Fix round 3 (final
 > verify): the claim's lease outlives the narration's longest request (F3), a figure's LO selects its session (F6),
-> and the `as_of` contract is documented (R2).
+> and the `as_of` contract is documented (R2). **Landed onto main** after curriculum C1 (mvp-0.40): see "Landing onto
+> main" at the end (no successor, no migration; rulings R1–R3).
 
 Builds `spec_reader_workbench_v1` §9.2 (with §9.5, §9.6; UX §4.8, W14; G25) on top of part 1 (mvp-0.39,
 migration 227): the session narrative and reader activity for the router's learner-state card.
@@ -135,3 +136,155 @@ Fail-first: the stage wrote the implementation before the tests, so fail-first i
 5. **Card build cost.** At each block boundary the section reads the digest rows, the Ask history of the
    extractions with relevant open inquiries and, for claims, the facets' Demonstrated curves. All are bounded by
    RW6b's digests on the candidate LOs, but the curves are the heaviest read; R2 can cache per plan if needed.
+
+## Landing onto main
+
+Main was `58e78a1d07` (curriculum C1, successor mvp-0.40, no migration, on top of `2b8b530279`). The branch was
+prepared for a fast-forward; the orchestrator does the ff and the push. **RW6b part 2 still has no successor and no
+migration**: the router card change rides on ruling R1. Spend: $0 (fakes only; the smoke's routes are at the
+`127.0.0.1:9` blackhole).
+
+### The merge (`6df601ebac`, a merge, no rebase)
+
+- **`config/template.py`** was the only source conflict (31 snapshot blocks). Both sides' notes are kept in every
+  defaults snapshot (RW6b part 2's `[digest]` + `ai.routing.reader_digest` note and C1's `plan_uses_path` note), and
+  RW6b part 2's note is added to C1's new mvp-0.40 snapshot ("are in it too"). All **31 fingerprints were recomputed**
+  with `defaults_fingerprint_for_version` after clearing every `.pyc` (under `env -i`; a second pass recomputed 0, so
+  the values are stable). The digest keys are in the mvp-0.40 snapshot (its fingerprint moved with them).
+- **The parameter registry** merged cleanly (C1's `curriculum.plan_uses_path` rule beside the digest rules).
+- **`daily_plan/engine.py`** merged cleanly: the branch never touched it. Part 1's fixes to `_publish` and
+  `_commit_revaluation` live in `instructional/reader_followups.py` (both compare rows through
+  `RDG.without_narrative`), which main did not change; they are intact.
+- **The generated references** (438 notes in conflict): main's side taken, then regenerated with
+  `db_generate_reference.py` (**1091 effective leaves in 77 sections**: main's 1086 plus the five digest leaves; 358
+  table notes). The prose counts in `Configuration.md` and `Database.md` moved from 1086/76 to 1091/77.
+  `db_validate_reference.py`: **errors []**. `validate_vault.py`: passes (1362 notes, 1360/1360 reachable).
+- **The desktop catalog** regenerated with `desktop_generate.py`: one new TypeScript file, `DigestNarrative.tsx`,
+  classified **ACTIVE, entry-reachable build graph** (`ReaderScreen` → `RecapCard`/`WrapUpPanel` →
+  `DigestNarrative`, from `src/main.tsx`). `desktop_validate.py`'s review counts moved to **294** TypeScript/TSX
+  files, **286** entry-build and **ACTIVE 299**; it passes byte for byte.
+
+### Interactions with C1 (`tests/test_reader_rw6b_p2_landing.py`, `317185da34`)
+
+- **(i) The narrative job after a C1 plan.** A C1 vault (deliverable judged across two books) with an ended reader
+  session's digest row waiting for its narrative. One Today build through the sidecar: the plan's receipt is
+  `reading_path_plan_v2`, chosen by the deliverable (`ch_det`), and the background job narrates the session once. A
+  second Today build (the narrative now written) chooses the same reading with the same receipt.
+  **The memo:** `_remembered_fresh_reading` computes once and then remembers; the narrative's write (a committed DB
+  write) makes exactly one miss, whose recomputation is the same reading and receipt; with nothing written since,
+  it remembers again. So the narrative invalidates C1's memo once and harmlessly: no reading moves.
+- **(ii) The router card on a C1 plan.** The block decision on the day's C1 plan (receipt v2, chosen by the
+  deliverable): a session narrated an hour before on the block's candidate LOs adds the card's "Reader activity"
+  section, and only it (the card's typed JSON without that section equals the plain card's). With
+  `digest.enabled = false` the card is the plain card byte for byte: payload, `card_hash` and text.
+- **(iii) The claims.** C1's deliverable judgments coalesce in process (`handlers/deliverables._claim_path`) and
+  take no `judgment_work_claims` row; the claims C1's path relies on are RW7b's reading-path claims
+  (`reading_path_judge:<extraction>:<depth>:<state>`). The narration's key (`reader_digest_narrative:<digest>`) and
+  task are distinct from them. While the narration holds its claim (with its long lease and heartbeat), every other
+  claim row is unchanged, a reading-path claim is taken and released beside it, the narration still holds its own
+  lease afterwards, and a C1 Today build runs; that build's own narration finds the claim held and sends nothing.
+
+### Gate (tree `317185da34`)
+
+Every command ran under `env -i` with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `TMPDIR`
+outside the worktree, after `uv sync --extra dev --extra mobile` (+ `pypdfium2`).
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope --quiet -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…` | **23068 passed, 89 skipped, 47 xfailed, 0 failed** in 36 min 50 s |
+| Durability: `pytest -m durability -n 6` (5G scope, under the flock) | **177 passed, 1 skipped** |
+| Owner lane: `LEARNLOOP_OWNER_VAULTS=fixtures-local/landing-rw6b2/owner-lane` (fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035/*` via `learnloop.db.copies.copy_tree_with_databases`), `pytest -m owner_vaults -n 6` (5G, under the flock) | **83 passed, 2 failed, 4 skipped**, as expected. The 2 are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies[arxiv_v2]`); each rerun alone 3 times: fails every time, deterministically, as on main |
+| Frontend (5G scope): `npm install`, `npm run typecheck`, the whole vitest at `--maxWorkers=4`, `npm run frontend:build` | install ok; typecheck ok; **244 files, 2272 passed**; built (the usual chunk-size warning only) |
+| `cargo check` | not run: nothing under `src-tauri` differs from main |
+| DB/config reference, desktop catalog, vault | `db_validate_reference` errors []; `desktop_validate` passes byte for byte; `validate_vault` passes |
+
+No single test failed in the full suite, durability or vitest, so there was nothing to rerun there.
+
+### Smoke on fresh copies (`fixtures-local/landing-rw6b2/`, drivers `scripts/smoke.sh`, `scripts/session_only.sh`)
+
+**Setup.**
+- Fresh backup-API copies (`copy_tree_with_databases`) of the three mvp035 owner copies (`linear_algebra`,
+  `probability`, `arxiv_v2`), neutralized (`neutralize3.py`, run under each side's own code so each config names only
+  its own routes: every route at the `127.0.0.1:9` blackhole, its key variable unset; rewrite, rerank, dense and
+  embeddings off).
+- Main's code is `git archive 58e78a1d07` (src, migrations); the branch's is `git archive 317185da34`.
+- Each copy: bare `upgrade` (**mvp-0.35 -> mvp-0.40**, migrations to head 228), the desktop start (primary load),
+  `rebuild-derived-state`.
+- Every process ran under `env -i` with empty `HOME`, `CODEX_HOME` and config dir; an audit hook logged every process
+  start and refused non-loopback sockets.
+
+**Results.**
+- **Today and the daily plan, branch vs main: identical byte for byte** on all three copies (Today 525,266, 740,827
+  and 344,204 bytes; the plan dump, with every router decision and its stored card payload, 84,705, 124,030 and
+  32,442 bytes). The copies have no reader activity on the block's candidates at the plan's time, so the card has no
+  "Reader activity" section (0 occurrences in the branch's plans), and the card is main's.
+- **`digest.enabled = false` and `digest.narrative_enabled = false`: each identical byte for byte to main's** Today
+  and plan, on all three copies.
+- **`rebuild --shadow`: 0/0/0** on all three branch copies (live database unchanged), and again after each session
+  run below.
+- **One ended reader session through product RPCs** on each copy (`reader.log_activity` open, `workbench.open` on
+  an item with the book open, `workbench.save_step`, `reader.log_activity` close), then the desktop's Today build
+  (`get_today_queue`) a day later, the background job joined, and `reader.recap` in the same process:
+  - Part 1 wrote the session's digest row (activity true; `incomplete`: its valuation could not finish with every
+    route at the blackhole), the recap's card is that session, and **no narrative and no `prompt_version` were written**.
+  - **Default config (no `digest.price_per_million`, a metered blackhole route):** the narration is refused before
+    any call; no claim, no request. The recap shows `unreachable` with "A metered narrative route needs
+    digest.price_per_million." **0 new receipts.**
+  - **Priced, key unset:** the claim is taken and released; client resolution fails before any request
+    ("Environment variable LL_LANDING_NO_KEY is required."), and the recap shows `unreachable` with that message.
+    **0 new receipts.**
+  - **Priced, with a dummy key, so the request really goes to `127.0.0.1:9`:** 3 attempts (the call and its 2
+    retries), each refused by the blackhole (3 loopback connects per copy, the only sockets in the audit log), nothing
+    published; the recap shows `unreachable` with "AIProviderUnavailable: Connection error.", retried at the next
+    Today build. This variant writes **6 `failed` receipt rows per copy, all `reader_digest`, cost null** (each
+    attempt's logical and physical receipt), as every receipted route does for a failed attempt.
+- **Receipts:** across the 33 smoke databases compared with their base copies, the only new `model_call_receipts`
+  are the 18 `failed` rows of the dummy-key variant above. Every other run (Today, plans, both switches, the default
+  and key-unset sessions) added **0**; probability's 56 historical rows are unchanged in each copy.
+- The audit log has no non-loopback connection and no Codex process start.
+
+### Rulings (verbatim)
+
+> - R1 (F1 deviation accepted): reader activity now reaches the hashed router card the router models read. With digest.enabled off it is byte-identical. That goes beyond my launch brief ("must not change any router decision"), but it is what spec §9.2 and §9.6 describe, and it follows TE0's precedent: router input changes without a successor, and router decisions are serving-time and not persisted meaning. Accepted without a successor; flagged to the owner.
+> - R2 (F5 ruled Low): no production caller reconstructs historical cards. as_of bounds event-timed rows; digest summaries are the latest version. Document that contract on reader_activity_for_card. Do not add digest versioning. Keep it as an open item for R2, the router rendering the section.
+
+> ORCHESTRATOR RULING R3 on F3: ruled Low.
+> - While the holder process is alive, its heartbeat renews the lease, so no successor can take over. Round 3 proved that, and the renew-before-send fence means a lost claim never sends or publishes.
+> - A takeover therefore needs the holder's heartbeat to have stopped, which in practice means the process died or froze. Its request can then never publish (fenced), and the worst case is one duplicate narrative charge on a metered route. That is bounded by digest.max_daily_cost_usd and occurs only on a crash during a slow request. The default plan route is unmetered.
+> - An abortable total transport deadline is an open item for the AI transport layer, not this stage.
+> Add one sentence to the comment at the claim saying this.
+
+### Owner notes
+
+- **The narrative is on by default** (`digest.narrative_enabled = true` under `digest.enabled = true`) and goes on
+  the plan route (`ai.routing.reader_digest` unset = the active provider; the ChatGPT plan under T1). One short
+  summary per reader session with activity, written in the background at the next Today build, from the session's
+  typed summary only (never your words), labelled "summary written by LearnLoop's model", collapsed in "Last time
+  here" and Wrap up. With the plan down or signed out nothing is sent and the card says the model could not be
+  reached; the lists are complete without it.
+- **The router models now see reader activity** (R1, flagged to you): the card's "Reader activity" section (open
+  questions, assisted-only work, pending checks, missed predictions, open hypotheses, formative records, kept
+  comparisons, possible next actions, the narrative) is in the hashed card the router models read. It is routing
+  only, never evidence. `digest.enabled = false` restores the predecessor's card byte for byte. If you want it
+  behind a successor instead, it would be mvp-0.41.
+- **`digest.max_daily_cost_usd` (0.25) matters only on a metered route with `digest.price_per_million` set.** Unset
+  (the default), a metered route is refused before sending ("A metered narrative route needs
+  digest.price_per_million"); the plan route is unmetered.
+- No upgrade step: no successor and no migration. The desktop picks it up on restart.
+
+### Open items
+
+1. **R3: a total transport deadline.** The request timeout is per network operation, so a narrator that freezes or
+   dies mid-request can be taken over while its response still arrives; it never publishes, and on a metered route
+   the worst case is one duplicate charge within `digest.max_daily_cost_usd`. An abortable total deadline belongs to
+   the AI transport layer.
+2. **R2: historical card reconstruction.** `reader_activity_for_card(as_of)` bounds event-timed rows; a digest row's
+   summary and valuation are its latest version (documented on the function). Digest versions would be needed only
+   if router R2 (rendering, replay) ever rebuilds past cards.
+3. **The tutor's narrative hook (§4.6).** The Reader tutor has no field for the latest narrative; adding it is a
+   prompt change with its own prompt version.
+4. **Narratives below mvp-0.39 or with follow-ups off.** Closed by the Codex review's F2: with `followups.enabled` off, or below
+   mvp-0.39, the narration writes its own summary-only digest row (`incomplete`, `valuation_json.not_planned`), so
+   those sessions are narrated with no migration. What remains is cosmetic: the row reuses part 1's `incomplete`
+   status; a dedicated narrative-only status would need migration 229.
