@@ -1023,7 +1023,8 @@ def licensing_entry(question: Question) -> dict[str, Any]:
 
 
 def _licensing_entries(line: Mapping[str, Any]) -> list[dict[str, Any]]:
-    return [dict(entry) for entry in line.get("licensing") or [] if isinstance(entry, Mapping)]
+    licensing = line.get("licensing")
+    return [dict(entry) for entry in licensing if isinstance(entry, Mapping)] if isinstance(licensing, list) else []
 
 
 def _licensing(line: Mapping[str, Any]) -> list[str]:
@@ -1254,9 +1255,15 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
     retires it (F11), and a studied worked example nobody judged yet keeps it
     for the background refresh (:func:`refresh_exposure`); then the valuation
     retires one below the stop. With ``source_service.discriminating_search``
-    (or the service) off, nothing is valued and the checks stay."""
+    (or the service) off, nothing is valued and the checks stay.
 
-    report: dict[str, Any] = {"retired": [], "kept": [], "skipped": None}
+    Round 8: one digest's decisions are computed from one snapshot of its row
+    and committed only if the row is unchanged inside the commit transaction
+    (the freshness guard publication has); otherwise all of them are
+    discarded and recomputed, up to ``REVALUATION_ATTEMPTS``, then the digest
+    is left for the next pass (``report["deferred"]``)."""
+
+    report: dict[str, Any] = {"retired": [], "kept": [], "skipped": None, "deferred": []}
     if not followups_enabled(vault):
         report["skipped"] = "followups.enabled is false"
         return report
@@ -1265,121 +1272,160 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
     switched_off = disabled_reason(vault, "discriminating_search")
     today = _today(now)
     with repository.connection() as connection:
-        rows = [row for row in RDG.digests(connection) if row.get("followup_commitment_ids")]
-    for row in rows:
-        if row.get("revalued_on") == today and not force:
+        ids = [row["id"] for row in RDG.digests(connection) if row.get("followup_commitment_ids")]
+    for digest_id in ids:
+        # Round 8: the whole-row freshness guard publication has. Decisions
+        # are computed from one snapshot of the digest and committed only if
+        # the row is still that snapshot inside the commit transaction;
+        # otherwise every decision of the pass is discarded and recomputed
+        # from the fresh row. After REVALUATION_ATTEMPTS the digest is left
+        # for the next pass (safe: the serve-time gate is the stricter one).
+        for _attempt in range(REVALUATION_ATTEMPTS):
+            with repository.connection() as connection:
+                snapshot = RDG.digest(connection, digest_id)
+            if snapshot is None or not snapshot.get("followup_commitment_ids") or (
+                    snapshot.get("revalued_on") == today and not force):
+                break
+            lines = _revaluation_decisions(vault, repository, snapshot, valuer=valuer, switched_off=switched_off,
+                                           now=now, clock=clock)
+            committed = _commit_revaluation(repository, snapshot, lines, now=now, today=today, clock=clock)
+            if committed is not None:
+                for line in committed:
+                    report["retired" if line["retired"] else "kept"].append(line)
+                break
+        else:
+            report["deferred"].append(digest_id)
+    return report
+
+
+#: How many times re-valuation recomputes one digest whose row changed under
+#: it before leaving it for the next pass (round 8; a retry bound, not a
+#: model parameter).
+REVALUATION_ATTEMPTS = 3
+
+
+def _revaluation_decisions(vault: Any, repository: Repository, snapshot: Mapping[str, Any], *,
+                           valuer: Callable[..., Mapping[str, Any]] | None, switched_off: str | None,
+                           now: datetime, clock: Clock | None) -> list[dict[str, Any]]:
+    """Every pending check's decision from one digest snapshot; writes nothing.
+    A retirement is a line with ``retire: True`` (applied at commit)."""
+
+    lines = []
+    stored = snapshot.get("valuation") or {}
+    line_by_commitment = {str(line["commitment_id"]): line for line in stored.get("chosen") or []
+                          if isinstance(line, Mapping) and line.get("commitment_id")}
+    receipt_keys = {str(entry.get("key")) for entry in stored.get("questions") or []}
+    for commitment_id in snapshot["followup_commitment_ids"]:
+        try:
+            disposition = C.resolve_disposition(repository, commitment_id)
+        except C.UnknownCommitment:
             continue
-        lines = []
+        if disposition != "one_check_pending" or _learner_kept(repository, commitment_id):
+            continue
+        provenance = _provenance(repository, commitment_id)
+        question = provenance.get("question") or {}
+        item_id = next((t["target_ref"] for t in _targets(repository, commitment_id)
+                        if t["target_kind"] == "legacy_practice_item"), None)
+        if not question or item_id is None:
+            continue
+        licensing, _pruned, unreadable = _revaluation_licensing(
+            provenance, line_by_commitment.get(commitment_id), item_id, receipt_keys)
+        if unreadable:
+            # Fail closed: retired at commit with its re-ask marker.
+            own = _own_question(provenance)["key"]
+            line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False, "retire": True,
+                    "reason": RETIRE_UNREADABLE, "question_keys": [own] if own else [],
+                    "detail": {"reason": RETIRE_UNREADABLE, "extraction_id": snapshot["extraction_id"],
+                               "followups_version": FOLLOWUPS_VERSION}}
+        elif switched_off is not None:
+            line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
+                    "kept_because": [switched_off]}
+        elif valuer is None:
+            continue
+        else:
+            line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
+                                     provenance=provenance, valuer=valuer, extraction_id=snapshot["extraction_id"],
+                                     licensing=licensing, now=now, clock=clock)
+        lines.append(line)
+    return lines
+
+
+def _commit_revaluation(repository: Repository, snapshot: Mapping[str, Any], lines: list[dict[str, Any]], *,
+                        now: datetime, today: str, clock: Clock | None) -> list[dict[str, Any]] | None:
+    """Commit one digest's decisions, or None (nothing written) when the row
+    is no longer the snapshot they were computed from (round 8).
+
+    In one transaction (F13): every retirement, the re-ask markers of an
+    exposed or unreadable check's licensing questions, the licensing pruning
+    (from this same row, F19), the re-valuation receipt and the queue
+    revision. A check the learner undid, restored or answered meanwhile is
+    kept (``changed_meanwhile``)."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        fresh = RDG.digest(connection, snapshot["id"])
+        if fresh != snapshot:
+            return None
         requery: list[str] = []
         reask_reason: dict[str, str] = {}
-        reopen = False
-        stored = row.get("valuation") or {}
-        line_by_commitment = {str(line["commitment_id"]): line for line in stored.get("chosen") or []
-                              if line.get("commitment_id")}
-        receipt_keys = {str(entry.get("key")) for entry in stored.get("questions") or []}
-        for commitment_id in row["followup_commitment_ids"]:
-            try:
-                disposition = C.resolve_disposition(repository, commitment_id)
-            except C.UnknownCommitment:
+        reopen = retired_here = False
+        for line in lines:
+            if not line.pop("retire", False):
                 continue
-            if disposition != "one_check_pending" or _learner_kept(repository, commitment_id):
+            commitment_id = str(line["commitment_id"])
+            if C.resolve_disposition(repository, commitment_id) != "one_check_pending" \
+                    or _learner_kept(repository, commitment_id):
+                for key in ("reason", "detail", "question_keys"):
+                    line.pop(key, None)
+                line["kept_because"] = ["changed_meanwhile"]
                 continue
-            provenance = _provenance(repository, commitment_id)
-            question = provenance.get("question") or {}
-            item_id = next((t["target_ref"] for t in _targets(repository, commitment_id)
-                            if t["target_kind"] == "legacy_practice_item"), None)
-            if not question or item_id is None:
-                continue
-            # The decision reads this snapshot; what is persisted is recomputed
-            # from the fresh row inside the transaction below (round 7, F19).
-            licensing, _pruned, unreadable = _revaluation_licensing(
-                provenance, line_by_commitment.get(commitment_id), item_id, receipt_keys)
-            if unreadable:
-                # Retired in the transaction below with its re-ask markers (fail closed).
-                own = _own_question(provenance)["key"]
-                line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
-                        "reason": RETIRE_UNREADABLE, "question_keys": [own] if own else [],
-                        "detail": {"reason": RETIRE_UNREADABLE, "extraction_id": row["extraction_id"],
-                                   "followups_version": FOLLOWUPS_VERSION}}
-            elif switched_off is not None:
-                line = {"commitment_id": commitment_id, "item_id": item_id, "retired": False,
-                        "kept_because": [switched_off]}
-            elif valuer is None:
-                continue
-            else:
-                line = _revaluation_line(vault, repository, commitment_id=commitment_id, item_id=item_id,
-                                         provenance=provenance, valuer=valuer, extraction_id=row["extraction_id"],
-                                         licensing=licensing,
-                                         now=now, clock=clock)
-            lines.append(line)
-        retired_here = False
-        with repository.atomic():
-            # F13 (Codex re-review): an exposure retirement, its question's
-            # re-ask marker and the queue revision commit together, so a
-            # failure between them loses neither the check nor the search.
-            connection = repository.connection()
-            for line in lines:
-                if line.get("reason") not in (RETIRE_EXPOSED, RETIRE_UNREADABLE) or line.get("retired"):
-                    continue
-                commitment_id = str(line["commitment_id"])
-                if C.resolve_disposition(repository, commitment_id) != "one_check_pending" \
-                        or _learner_kept(repository, commitment_id):
-                    for key in ("reason", "detail", "question_keys"):
-                        line.pop(key, None)
-                    line["kept_because"] = ["changed_meanwhile"]
-                    continue
-                C.retire(repository, commitment_id=commitment_id, detail=line["detail"], clock=clock)
-                line["retired"] = True
+            C.retire(repository, commitment_id=commitment_id, detail=line["detail"], clock=clock)
+            line["retired"] = retired_here = True
+            if line.get("reason") in (RETIRE_EXPOSED, RETIRE_UNREADABLE):
                 reopen = True
                 # Every question that licensed the exposed (or unreadable) check is asked again.
-                for key in line.pop("question_keys", None) or ():
+                for key in line.get("question_keys") or ():
                     if key:
                         requery.append(str(key))
                         reask_reason.setdefault(str(key), str(line["reason"]))
-            for line in lines:
-                line.pop("question_keys", None)
-                report["retired" if line["retired"] else "kept"].append(line)
-                retired_here = retired_here or bool(line["retired"])
-            columns: dict[str, Any] = {}
-            # The row as it stands now, inside the transaction (round 7, F19:
-            # a publication between the first read and here may have restored
-            # a question, so nothing pruned from the earlier read is applied).
-            fresh = RDG.digest(connection, row["id"]) or row
-            valuation = dict(fresh.get("valuation") or {})
-            fresh_keys = {str(entry.get("key")) for entry in valuation.get("questions") or []}
-            chosen, pruned_any = [], False
-            for line_ in valuation.get("chosen") or []:
-                kept_licensing = [entry for entry in line_.get("licensing") or []
+        for line in lines:
+            line.pop("question_keys", None)
+        columns: dict[str, Any] = {}
+        valuation = dict(fresh.get("valuation") or {})
+        fresh_keys = {str(entry.get("key")) for entry in valuation.get("questions") or []}
+        chosen, pruned_any = [], False
+        for line_ in valuation.get("chosen") or []:
+            licensing = line_.get("licensing") if isinstance(line_, Mapping) else None
+            if isinstance(licensing, list):
+                kept_licensing = [entry for entry in licensing
                                   if isinstance(entry, Mapping) and str(entry.get("question")) in fresh_keys]
-                if isinstance(line_.get("licensing"), list) and kept_licensing and \
-                        len(kept_licensing) < len(line_["licensing"]):
-                    # Round 6: a licensing question no longer in the fresh
-                    # receipt stops licensing its check, in the line itself;
-                    # never down to an empty list (malformed; round 7, F20).
+                if kept_licensing and len(kept_licensing) < len(licensing):
+                    # Round 6: a licensing question no longer in the receipt
+                    # stops licensing its check, in the line itself; never
+                    # down to an empty list (malformed; round 7, F20).
                     line_ = {**line_, "licensing": kept_licensing}
                     pruned_any = True
-                chosen.append(line_)
-            if pruned_any:
-                valuation["chosen"] = chosen
-                columns.update(valuation_json=valuation)
-            if reopen:
-                # F1: the exposed check's questions are asked again (a fresh
-                # search; the exposed item is out of its exact filters now).
-                questions = []
-                for entry in valuation.get("questions") or []:
-                    if entry.get("key") in requery:
-                        entry = {**entry, "incomplete": True,
-                                 "reason": reask_reason.get(entry.get("key"), RETIRE_EXPOSED)}
-                        entry.pop("continue_from", None)
-                    questions.append(entry)
-                valuation["questions"] = questions
-                columns.update(status="incomplete", valuation_json=valuation)
-            RDG.update_digest(connection, row["id"], revaluation_json={
-                "revalued_at": _iso(now), "followups_version": FOLLOWUPS_VERSION, "lines": lines},
-                revalued_on=today, updated_at=utc_now_iso(clock), **columns)
-            if retired_here:
-                repository.bump_queue_revision(clock=clock)
-    return report
+            chosen.append(line_)
+        if pruned_any:
+            valuation["chosen"] = chosen
+            columns.update(valuation_json=valuation)
+        if reopen:
+            # F1: the exposed check's questions are asked again (a fresh
+            # search; the exposed item is out of its exact filters now).
+            questions = []
+            for entry in valuation.get("questions") or []:
+                if entry.get("key") in requery:
+                    entry = {**entry, "incomplete": True, "reason": reask_reason.get(entry.get("key"), RETIRE_EXPOSED)}
+                    entry.pop("continue_from", None)
+                questions.append(entry)
+            valuation["questions"] = questions
+            columns.update(status="incomplete", valuation_json=valuation)
+        RDG.update_digest(connection, snapshot["id"], revaluation_json={
+            "revalued_at": _iso(now), "followups_version": FOLLOWUPS_VERSION, "lines": lines},
+            revalued_on=today, updated_at=utc_now_iso(clock), **columns)
+        if retired_here:
+            repository.bump_queue_revision(clock=clock)
+    return lines
 
 
 def exposure_refresh_waiting(repository: Repository) -> bool:
@@ -1540,8 +1586,7 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         answered = answers[0][1] or {}
         detail = {"reason": RETIRE_ANSWERED, **answered, "extraction_id": extraction_id,
                   "followups_version": FOLLOWUPS_VERSION}
-        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
-        line.update(retired=True, reason=RETIRE_ANSWERED, detail=detail)
+        line.update(retire=True, reason=RETIRE_ANSWERED, detail=detail)  # applied at commit (round 8)
         return line
     if len(open_questions_) < len(licensing):
         line["answered_for"] = [str(q["key"]) for q, answered in answers if answered is not None]
@@ -1559,19 +1604,19 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
         detail = {"reason": RETIRE_REPAIR_OWNS, "extraction_id": extraction_id,
                   "followup_task_id": gate.get("followup_task_id"),
                   "followups_version": FOLLOWUPS_VERSION}
-        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
-        line.update(retired=True, reason=RETIRE_REPAIR_OWNS, detail=detail)
+        line.update(retire=True, reason=RETIRE_REPAIR_OWNS, detail=detail)  # applied at commit (round 8)
         return line
     reasons = [reason for reason in reasons if reason != REPAIR_RETRY_OWNS]
     if reasons and set(reasons) <= {"worked_example_unjudged"}:
         line["kept_because"] = [KEPT_REFRESH]
         return line
     if reasons:
-        # Retired by the caller, in one transaction with the questions'
-        # re-ask markers (Codex re-review F13).
+        # Retired at commit, in one transaction with the questions' re-ask
+        # markers (Codex re-review F13; round 8).
         detail = {"reason": RETIRE_EXPOSED, "reasons": reasons, "extraction_id": extraction_id,
                   "followups_version": FOLLOWUPS_VERSION}
-        line.update(reason=RETIRE_EXPOSED, detail=detail, question_keys=[str(q["key"]) for q in licensing])
+        line.update(retire=True, reason=RETIRE_EXPOSED, detail=detail,
+                    question_keys=[str(q["key"]) for q in licensing])
         return line
     kept: list[str] = []
     stop_reasons: set[str] = set()
@@ -1608,8 +1653,7 @@ def _revaluation_line(vault: Any, repository: Repository, *, commitment_id: str,
     if every_stop:
         detail = {"reason": RETIRE_BELOW_STOP, "extraction_id": extraction_id,
                   "stop_reasons": sorted(stop_reasons), "followups_version": FOLLOWUPS_VERSION}
-        C.retire(repository, commitment_id=commitment_id, detail=detail, clock=clock)
-        line.update(retired=True, reason=RETIRE_BELOW_STOP, detail=detail)
+        line.update(retire=True, reason=RETIRE_BELOW_STOP, detail=detail)  # applied at commit (round 8)
         return line
     line["kept_because"] = list(dict.fromkeys(kept)) or ["abstain"]
     return line

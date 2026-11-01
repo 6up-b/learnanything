@@ -652,3 +652,62 @@ vitest were not run. **Spend: $0.** No model or paid calls, and no Python outsid
 
 Rebuild `--shadow` 0/0/0 and the mvp-0.38 off-state parity and shadow tests are in that run and green. No frontend,
 `src-tauri`, migration or schema change.
+
+## Round 8 (re-valuation freshness guard; Sol verify job `20261031-211907-zauFg9`)
+
+The verify of `05ccb8b36` confirmed F19 and F20 as fixed. It found:
+
+- **Medium: a stale re-valuation decision could retire a healthy shared check.** B carries [D, R], and the first
+  snapshot's receipt has only D. During D's valuation a publication restores R. D returns stop, and re-valuation
+  retired B as below the stop before its transaction re-read the digest. The re-valuation decisions themselves were
+  the stale part, not only the persisted pruning.
+- **Low:** a scalar `licensing` (for example `7`) made the pruning raise `TypeError` before its type check.
+
+**Orchestrator direction: one structural rule, no more per-field patches.** Re-valuation gets the same whole-row
+freshness guard that publication has.
+
+### What changed
+
+- **Decisions are pure; commit is guarded.** `revalue_pending` handles one digest at a time:
+  1. It reads one snapshot of the row.
+  2. `_revaluation_decisions` computes every pending check's decision from that snapshot and writes nothing. Every
+     retirement (answered, repair-owned, below the stop, exposed, unreadable) is now a line marked `retire: True`;
+     `_revaluation_line` no longer retires anything itself.
+  3. `_commit_revaluation` re-reads the row inside the commit transaction. If it differs from the snapshot in any
+     way (the whole decoded row, as publication compares), nothing is written and all of the pass's decisions are
+     discarded: retirements, prunings, re-ask markers, the queue revision.
+  4. The digest is recomputed from the fresh row, up to `REVALUATION_ATTEMPTS` (3, a retry bound). After that it is
+     left for the next pass and listed in `report["deferred"]`. This is safe because the serve-time gate is the
+     stricter one.
+  Only decisions computed from the row being written are committed, together in one transaction: every retirement,
+  the re-ask markers, the licensing pruning, the re-valuation receipt and the queue revision. A check the learner
+  undid, restored or answered meanwhile is kept (`changed_meanwhile`) for every kind of retirement, not only
+  exposure.
+- **The Low.** `licensing` is type-checked before it is iterated: in the commit's pruning, in the planner's
+  `_licensing_entries`, and in re-valuation's index of lines. A non-list is malformed, so the gate holds the check as
+  `licensing_unreadable` and re-valuation retires and re-asks it.
+
+### Tests (`tests/test_reader_followups_round8.py`), fail-first on `05ccb8b36`
+
+| test | before (`05ccb8b36`) |
+|---|---|
+| `test_round8_sols_interleaving_keeps_the_shared_check_live`: Sol's exact interleaving. B stays live, R still licenses it, the receipt holds D and R, the re-valuation receipt is written from the recomputed pass, and B is served. | fails: B retired as below the stop (the finding) |
+| `test_round8_a_changed_row_is_recomputed_and_the_second_pass_commits`: any write to the row during valuation. The pass is recomputed once and the second pass's retirement commits. | fails: no recomputation |
+| `test_round8_a_row_that_keeps_changing_is_left_for_the_next_pass`: after three attempts nothing is written, the digest is deferred, and the next pass re-values it. | fails: no deferral |
+| `test_round8_a_scalar_licensing_is_unreadable_not_a_crash` | fails: `TypeError` (the Low) |
+
+### Round 8 gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --`,
+behind `flock /tmp/learnloop-fullsuite.lock`, at `-n 6` (the repro serial). The full suite, the durability lane and
+vitest were not run. **Spend: $0.** No model or paid calls, and no Python outside pytest.
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 36 kept, 0 broken |
+| repro on the base (`05ccb8b36`, a `git archive` copy with the worktree's venv): `pytest tests/test_reader_followups_round8.py` | 4 failed |
+| `pytest -n 6` over round 7's 62 files plus `test_reader_followups_round8.py` | 1421 passed, 3 skipped |
+
+Every earlier round's test passed unchanged under the guard, including F13's interrupted commit. Rebuild `--shadow`
+0/0/0 and the mvp-0.38 off-state parity and shadow tests are in that run and green. No frontend, `src-tauri`,
+migration or schema change.
