@@ -212,6 +212,12 @@ MODULE_INVENTORY: dict[str, str] = {
     # Reader RW5d P1 (spec_reader_show_me_figures_v1 §8.3, §15): the figure
     # switches' leaf module, home of the grounding-passage cap.
     "figure_admission": "src/learnloop/figure_admission.py",
+    # Reader RW5d P2 (spec_reader_show_me_figures_v1 §9, §15): the sketch tier's
+    # caps, numerical tolerances and sandbox limits, every one a `keep`
+    # guardrail (no learner-model weight, margin or threshold).
+    "figure_sketch": "src/learnloop/figures/sketch.py",
+    "figure_sketch_engine": "src/learnloop/figures/sketch_engine.py",
+    "figure_sketch_verify": "src/learnloop/figures/sketch_verify.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
     # quality margin or ranking weight is a constant: adoption, the screen's choice and whether
@@ -424,6 +430,80 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
            rationale="keep: prompt size (spec_reader_show_me_figures_v1 §8.3, §15, owner-approved): at most three "
                      "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
+
+# Reader RW5d P2: the sketch tier's module constants (all keep: caps, tolerances, sandbox limits, identities).
+_reg_const("figure_sketch:SKETCH_MAX_SOURCE_BYTES", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep: bounds a sketch's program to one reviewable idea (spec §15: 32 KiB).")
+_reg_const("figure_sketch:SKETCH_MAX_ELEMENTS", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (display): the renderer's cost, at most 4,000 drawn elements (spec §15).")
+_reg_const("figure_sketch:SKETCH_MAX_POINTS", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (display): every coordinate drawn across a scene's elements; renderer cost.")
+_reg_const("figure_sketch:SKETCH_MAX_CELLS", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (display): one heat map's cells (64 x 64); renderer cost.")
+_reg_const("figure_sketch:SKETCH_MAX_SERIES", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (display): a probe series' length (the values table and claim checks).")
+_reg_const("figure_sketch:SKETCH_TIME_SAMPLES", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (numerical): verification coverage of a clocked sketch, 9 times from 0 to t_max (spec §15).')
+_reg_const("figure_sketch:SKETCH_MAX_CLOCK_STEPS", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (operational): the most clock steps to t_max, so verification stays bounded.')
+_reg_const("figure_sketch:SKETCH_PLAY_TICKS", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (display, fix round 4): how many reads play takes from t = 0 to t_max (the desktop's PLAY_TICKS); part of the read schedule every run of a sketch follows.")
+_reg_const("figure_sketch:SKETCH_FRAME_MS", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (display): one frame's budget in the desktop (spec §15: 16 ms).")
+_reg_const("figure_sketch:SKETCH_WATCHDOG_FRAMES", "operational", kind="structural", owner="figure_sketch",
+           rationale='keep (display): frames a Worker call may take before the sketch is paused (spec §15: 30).')
+_reg_const("figure_sketch:CLAIM_REL_TOL", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (numerical): float equality for an equals claim, the golden corpus's 1e-9 relative.")
+_reg_const("figure_sketch:ODE_SAFETY", "constraint", kind="structural", owner="figure_sketch",
+           rationale="keep (numerical): the margin on the Richardson estimate of RK4's integration error (spec §15: 4).")
+_reg_const("figure_sketch:MC_FALSE_ALARM", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (numerical): how often a correct Monte Carlo sketch may be refused by chance, per check (spec §15: 1e-6); the strictness of a guard, not a learner-model number.')
+_reg_const("figure_sketch:MAX_PROBES", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (display): declared probes per sketch (the values table).')
+_reg_const("figure_sketch:MAX_CLAIMS", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (operational): claims per sketch (verification work, check lines).')
+_reg_const("figure_sketch:MAX_BINDINGS", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (operational): element-probe bindings per sketch.')
+_reg_const("figure_sketch:MAX_CHOICES", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (display): answers a choice prediction offers.')
+_reg_const("figure_sketch:MAX_ID", "constraint", kind="structural", owner="figure_sketch",
+           rationale='keep (display): the length of an element id.')
+_reg_const("figure_sketch_engine:SKETCH_MEMORY_BYTES", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (machine safety): the sealed engine's memory cap, compiled into the engine (spec §15: 64 MiB).")
+_reg_const("figure_sketch_engine:SKETCH_FUEL_PER_CALL", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale='keep (deterministic work cap): interrupt ticks per entry-point call, identical in verifier and desktop; measured on carson so a call at the cap fits about one frame (spec §15; the review file records the measurement).')
+_reg_const("figure_sketch_engine:SKETCH_SERIALIZE_TICKS", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (deterministic work cap): ticks for writing one result as JSON, compiled into the engine; a scene at the point cap fits, and a getter or toJSON left in a result stays bounded.")
+_reg_const("figure_sketch_engine:WASM_MEMORY_BYTES", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (machine safety): wasmtime's store memory limit, above the engine's own cap.")
+_reg_const("figure_sketch_engine:WASM_FUEL_PER_CALL", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale='keep (machine safety): wasmtime fuel per call, a backstop for native work the interpreter cannot interrupt.')
+_reg_const("figure_sketch_engine:CALL_SECONDS", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale='keep (machine safety): the wall-clock epoch deadline per call, the last backstop.')
+_reg_const("figure_sketch_engine:WASM_STACK_BYTES", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (machine safety): wasm stack for the interpreter's recursion (the engine's JS guard fires first).")
+_reg_const("figure_sketch_engine:STDERR_KEEP", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep: error text kept from the shim's fd_write.")
+_reg_const("figure_sketch_engine:_EBADF", "version", kind="structural", owner="figure_sketch_engine",
+           rationale='a WASI errno value the deny-all shim answers with (protocol identity, not a parameter).')
+_reg_const("figure_sketch_engine:_ENOSYS", "version", kind="structural", owner="figure_sketch_engine",
+           rationale='a WASI errno value the deny-all shim answers with (protocol identity, not a parameter).')
+_reg_const("figure_sketch:SKETCH_MAX_CLAIM_WORK", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F2): the most grammar-expression steps checking one sketch's claims may take over every point read, every grammar evaluation metered as it runs (Codex review F2 round 3); bounds the Python oracle as the engine's caps bound the program.")
+_reg_const("figure_sketch:SKETCH_MAX_VERIFY_OUTPUT_BYTES", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F1): the engine output one verification reads over both runs; results are streamed (one held at a time), and this bounds their parsing and checking.")
+_reg_const("figure_sketch:SKETCH_VERIFY_SECONDS", "operational", kind="structural", owner="figure_sketch",
+           rationale="keep (machine safety, Codex review F2): one verification's wall clock (spec §8.4: a sketch is ready in tens of seconds); engine calls and claim loops stop at it.")
+_reg_const("figure_sketch_engine:EPOCH_TICK_SECONDS", "operational", kind="structural", owner="figure_sketch_engine",
+           rationale="keep (machine safety, Codex review F7): the tick of the shared epoch clock per-store deadlines are counted in; a deadline is honoured to within one tick.")
+_reg_const("figure_sketch_verify:_TICK_WORK", "operational", kind="structural", owner="figure_sketch_verify",
+           rationale="keep (operational, Codex re-review F2): how many metered expression steps claim checks do between wall-clock checks (about a millisecond of the oracle); cost of the check, not a model number.")
+_reg_const("figure_sketch_verify:VERIFIER_REPORT_VERSION", "version", kind="structural", owner="figure_sketch_verify",
+           rationale="the verifier's report version (Codex review F11 round 3), bumped whenever verification semantics change; a stored report from another version is re-verified by code before it is shown (an identity, not a parameter).")
+_reg_const("figure_sketch_verify:TESTED_DIGEST_HEX", "version", kind="structural", owner="figure_sketch_verify",
+           rationale="the length (hex digits, 128 bits) of a tested read's SHA-256 a report keeps for the desktop to compare (fix round 4); a format, not a parameter.")
+_reg_const("figure_sketch_verify:VERIFY_SEED", "version", kind="structural", owner="figure_sketch_verify",
+           rationale="the seed verification and a sketch's first drawn sample use (an identity, so the first drawn sample is the verified one).")
 
 # probe_families
 _reg_const("probe_families:ORDINAL_VOCABULARY", "likelihood", owner="probe_families",
@@ -1270,6 +1350,32 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the typing pause before a speculative intent routing / its deadline / the route's daily Decider "
         "call cap; latency and spend bounds, no measurement authority (a routing only picks which palette "
         "action runs)."),
+    # Reader CA3: comparing from anywhere. The kill switch (a boolean,
+    # classified so every new key has a rule), and the ask box's reading of
+    # named books (one Decider request per pressed Enter; verdicts go to
+    # judgment_ledger, never evidence): its deadline and the route's daily
+    # call cap. Latency and spend bounds: the reading only picks which books
+    # a display-only comparison reads.
+    _ConfigRule(_exact(
+        "reader_compare.scope_enabled",
+        "reader_compare.scope_timeout_seconds",
+        "reader_compare.scope_max_calls_per_day",
+    ), "structural", "operational",
+        "kill switch for comparing from anywhere (one comparison request for every door, an anchor without "
+        "pins, named books that only narrow the scope) / the ask box's reading deadline / the route's daily "
+        "Decider call cap; display, latency and spend bounds, no measurement, scheduling or serving authority."),
+    # Reader CA4: the table by point. The kill switch (a boolean, classified so
+    # every new key has a rule) and the most views a comparison asks for and
+    # keeps: a stored-size bound labelled a `keep` guardrail (§12.2), never a
+    # learned constant (the views only pick which display rows exist).
+    _ConfigRule(_exact(
+        "reader_compare.by_point",
+        "reader_compare.max_perspectives",
+    ), "structural", "display",
+        "kill switch for the comparison table by point (source_compare.v2, the grid, chips, the learner's "
+        "column, hide row, narrow cards, by book) / keep: the most requested views a comparison asks for and "
+        "keeps (a stored-size bound); display and proposals only, no measurement, scheduling or serving "
+        "authority."),
     # Reader workbench RW4a: the library answer's organizer (one listwise call
     # per ask; notes are display, verdicts go to judgment_ledger, never
     # evidence): its metered spend a UTC day.
@@ -1444,6 +1550,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "keep: one coverage judgment's prompt bound (the context window), shared equally by the candidate "
         "sections' passages; a size bound, never a threshold on any score."),
+    # Reader CA5a (ux_reader_compare_ask_v1 §6.2, §13): "find this section in
+    # my other books". A boolean (classified so every new key has a rule):
+    # the Guide's pressed action over reader.correspondents' unchecked search
+    # hits; navigation and display, with no weight, margin or threshold (the
+    # hits keep the search's own order and C0a's per-source bound).
+    _ConfigRule(_exact(
+        "reader.correspondence.enabled",
+    ), "structural", "operational",
+        "kill switch for Reader CA5a's find this section in my other books (the Guide's pressed action: "
+        "unchecked search hits by book, peek, go there, compare, not about this); navigation and display, "
+        "no measurement, scheduling or serving authority (no algorithm successor)."),
+    # Deliverable curriculum C0b: the on-extract coverage job's switch (a
+    # boolean, classified so every new key has a rule). The scope resolver
+    # and the path judge add no number: they share the C0a caps above.
+    _ConfigRule(_exact(
+        "curriculum.coverage_on_extract",
+    ), "structural", "operational",
+        "kill switch for the background job a completed extraction queues to judge the already-covered LOs "
+        "again (quiet: plan only); display and retrieval context only, no measurement, scheduling or serving "
+        "authority (no algorithm successor)."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are
@@ -1487,6 +1613,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "citations; on-off availability of content, no measurement, scheduling or serving authority."),
     # Reader RW5d P1: "show me" (the learner's words, with or without a
     # passage; the tutor's optional figure goal). A kill switch over content.
+    # Reader RW5d P2: the sketch tier (sealed, verified simulations). A kill
+    # switch over content.
+    _ConfigRule(_exact(
+        "figures.sketch_enabled",
+    ), "structural", "operational",
+        "kill switch for RW5d's sketch tier (a sealed, verified simulation when the figure grammar can't express "
+        "an idea); on-off availability of content, no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.show_me_enabled",
     ), "structural", "operational",

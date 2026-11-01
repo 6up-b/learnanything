@@ -3,8 +3,8 @@ title: "Config - ask"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ask"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/tutor/tutor_qa.py"
   - "tests/test_batch3_landing.py"
   - "tests/test_cold_retry_reschedule.py"
+  - "tests/test_curriculum_c0b_landing.py"
   - "tests/test_reader_ca2_codex_review.py"
   - "tests/test_reader_ca2_one_ask.py"
   - "tests/test_reader_tutor_switch_off.py"
@@ -47,8 +48,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `ask.panel_enabled` | `true` | boolean | modeled default or validator seed | Turns panel behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3849`; `src/learnloop/ai/plan_fallback.py:125`; `src/learnloop/tutor/tutor_qa.py:165` |
-| `ask.cold_help_converts` | `true` | boolean | modeled default or validator seed | Turns cold help converts behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3850`; `src/learnloop/ai/plan_fallback.py:125` |
+| `ask.panel_enabled` | `true` | boolean | modeled default or validator seed | Turns panel behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3919`; `src/learnloop/ai/plan_fallback.py:127`; `src/learnloop/tutor/tutor_qa.py:165` |
+| `ask.cold_help_converts` | `true` | boolean | modeled default or validator seed | Turns cold help converts behavior on or off within Reader CA2's one Ask panel: its switch, the default help style that sets Ask's mode, and whether help on a cold follow-up converts the check to practice with help. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3920`; `src/learnloop/ai/plan_fallback.py:127` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -59,6 +60,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/test_batch3_landing.py`
 - `tests/test_cold_retry_reschedule.py`
+- `tests/test_curriculum_c0b_landing.py`
 - `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_tutor_switch_off.py`

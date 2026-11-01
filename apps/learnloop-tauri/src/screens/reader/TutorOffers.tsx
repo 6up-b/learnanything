@@ -39,6 +39,12 @@
 // RW4d: a shown comparison can be kept (CompareKeep, under the table), only
 // while the Reader provides its compareKeep context; without it nothing more
 // renders.
+//
+// Reader CA3 (`onCompare`, present only while compare from anywhere is on and
+// the comparing posture can open): "how do your books treat this?" is one more
+// door of the one comparison request: the press opens the comparing posture's
+// table beside the book (anchored on the passage the question was asked on),
+// and the offer says so; nothing runs here. Absent: today's inline table.
 import { useEffect, useReducer } from "react";
 import { api } from "../../api/client";
 import type {
@@ -71,6 +77,8 @@ export const OFFER_COPY = {
   showMeAiWritten: "(AI-written)",
   looking: "looking in your books",
   comparing: "comparing",
+  /** CA3: the comparison opened beside the book. */
+  compareOpened: "compared beside the book ▸",
   nothing: "nothing in your practice or books fits this yet",
   failed: "Couldn't look that up — press to try again.",
   unchecked: "Your books couldn't be checked just now",
@@ -186,6 +194,8 @@ export interface TutorOffersProps {
   store?: TutorOfferStore;
   /** RW4b: the textbook-exercise view (absent while library_exercises is off). */
   exercises?: LibraryExercisesProps | null;
+  /** Reader CA3: open the comparison beside the book (the one request); absent: today's inline table. */
+  onCompare?: ((request: { question: string; toolCallId: string | null }) => void) | null;
 }
 
 function offersFor(props: TutorOffersProps): Offer[] {
@@ -421,10 +431,11 @@ export function TutorOffers(props: TutorOffersProps) {
 
   const press = (offer: Offer) => {
     const lookup = state.lookups[offer.key];
+    const opensBeside = offer.kind === "compare" && Boolean(props.onCompare);
     logReaderAction("tutor_offer_pressed", {
       extraction_id: props.extractionId, exchange_id: props.exchangeId, offer_kind: offer.kind,
       tool_call_id: offer.toolCallId,
-      offer_result: offer.kind === "try_next_step" || offer.kind === "make_explorable" || offer.kind === "show_me" ? "opened" : lookup?.phase === "ready" ? "shown"
+      offer_result: offer.kind === "try_next_step" || offer.kind === "make_explorable" || offer.kind === "show_me" || opensBeside ? "opened" : lookup?.phase === "ready" ? "shown"
         : lookup?.phase === "loading" ? "looking" : lookup?.phase === "empty" ? "empty" : "run",
     });
     if (offer.kind === "try_next_step" && offer.button) {
@@ -436,6 +447,14 @@ export function TutorOffers(props: TutorOffersProps) {
       state.pressed = new Set(state.pressed).add(offer.key);
       notify(state);
       props.onMakeExplorable?.(offer.button.spanId, props.offerRef);
+      return;
+    }
+    if (opensBeside && offer.request) {
+      // CA3: the same comparison as every other door, beside the book.
+      state.pressed = new Set(state.pressed).add(offer.key);
+      notify(state);
+      const query = offer.request.arguments?.query;
+      props.onCompare?.({ question: typeof query === "string" && query.trim() ? query : offer.reason ?? "", toolCallId: offer.toolCallId });
       return;
     }
     if (offer.kind === "show_me" && offer.button && props.offerRef) {
@@ -460,6 +479,14 @@ export function TutorOffers(props: TutorOffersProps) {
           return (
             <span key={offer.key} data-offer-empty={offer.kind}>
               <MeaningLabel>{OFFER_COPY.nothing}</MeaningLabel>
+            </span>
+          );
+        }
+        if (offer.kind === "compare" && props.onCompare && isPressed && !lookup) {
+          // CA3: the comparison is beside the book; pressing again opens it again.
+          return (
+            <span key={offer.key} data-offer={offer.kind} data-offer-pressed="">
+              <button type="button" onClick={() => press(offer)} style={buttonStyle}>{OFFER_COPY.compareOpened}</button>
             </span>
           );
         }

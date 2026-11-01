@@ -3,13 +3,13 @@ title: "familiarity_kernel_models"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite familiarity_kernel_models"
   - "table familiarity_kernel_models"
-schema_head: 227
+schema_head: 228
 table_name: "familiarity_kernel_models"
 table_role: "raw_ledger"
 functionality_status: "active"

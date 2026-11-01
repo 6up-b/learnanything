@@ -23,6 +23,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("tier1_decider", "decider", "tier1"),
     ("learner_gap_decider", "decider", "learner_text_gaps"),
     ("reader_intent", "decider", "reader_intent"),
+    ("compare_scope", "decider", "compare_scope"),
     ("library_organizer", "llm", "library_ask"),
     ("approach_map", "llm", "approach_maps"),
     ("hint_chooser", "decider", "hint_chooser"),
@@ -34,6 +35,8 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("workbench_check", "llm", "workbench_check"),
     ("passage_cue_judge", "llm", "cues"),
     ("reading_path_judge", "llm", "reading_paths"),
+    ("deliverable_scope_resolver", "llm", "curriculum_scope"),
+    ("deliverable_path_judge", "llm", "curriculum_path"),
     ("figure_author", "llm", "figures"),
 )
 
@@ -85,6 +88,14 @@ _WHEN = {
         "meant. With reader_intent.speculative_enabled on (the default) the same is sent once you "
         "pause typing for a moment, before you press Enter, so the action is ready when you do; "
         "switching it off sends nothing until Enter. An empty Enter sends nothing."
+    ),
+    "compare_scope": (
+        "While reader_compare.scope_enabled is on, each time you press Enter in the ask box (Ctrl+Shift+F in "
+        "the Reader, or Ask on the library page) or in a comparison's refine box (/): your words and the titles "
+        "and file names of the books in your library (and, when refining, which of them are being compared), "
+        "so the Decider can say whether you asked for a comparison, which books you named and what the topic "
+        "is. Never a passage of a book, nothing else you wrote and never material held out for an exam. "
+        "Nothing is sent while you type, or for any other way into a comparison."
     ),
     "library_ask": (
         "While library_ask.enabled is on, each time you ask your library (Shift+Enter in the library "
@@ -164,6 +175,25 @@ _WHEN = {
         "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
         "exam. It never grades you; with reading_paths.plan_uses_path on, today's plan reads the labels "
         "(no further call) so your reading block opens the next core or prerequisite section."
+    ),
+    "curriculum_scope": (
+        "While curriculum.enabled is on, each time you name or change what you are learning for (a deliverable: "
+        "a sentence, a pasted topic list, a selected passage of one of your books, a correction such as \"not "
+        "Jordan form\") or write \"also about...\" on a section: your words in order, and your vault's active "
+        "topics as short records (title, statement, concept, prerequisites), so LearnLoop's model can say which "
+        "topics you need and which phrases match none. Never a practice question, an answer or a grade, never "
+        "material held out for an exam (a protected passage is refused before anything is sent). It never grades "
+        "you; a new topic is created only when you say yes."
+    ),
+    "curriculum_path": (
+        "While curriculum.enabled is on, once per deliverable and depth (and again when its topics, your status "
+        "on them, the sections your books have for them or your reading changes), when the Guide shows the "
+        "deliverable's path: your deliverable's sentence and deadline, each topic it needs with the phrase of "
+        "yours it answers and your status on it (shown on your own, assumed known, learning, new), the sections "
+        "of your books that treat it (book and section titles, how each treats it, its roles and notation line, "
+        "minutes of reading), which books you have been reading and the choices you made on earlier paths (use "
+        "this one instead, skip), so LearnLoop's model can pick one section per topic. No passage text, never "
+        "material held out for an exam. It never grades you; nothing in today's plan reads the path yet."
     ),
     "figures": (
         "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "

@@ -37,25 +37,29 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Reader RW6b part 1 (migration 227), branch `reader/rw6b-followups`, 2026-10-27
+## Curriculum C0b (migration 228), branch `curriculum/c0b-scope-path`, 2026-10-31
 
-Renamed from `migration_head_226` on the RW6b part 1 branch (base main
-`5b3f66059`; `docs/reviews/reader-rw6b-p1-followups.md`). Rebuilt from the
-tracked, sanitized `migration_head_226/state.sqlite`: a backup-API copy under
-`fixtures-local/` with only `227_reader_session_digests.sql` applied through
+Renamed from `migration_head_226` on the C0b branch
+(`docs/reviews/curriculum-c0b-scope-path.md`). Rebuilt from main's tracked,
+sanitized `migration_head_226/state.sqlite` (main `5b3f66059`): a backup-API
+copy with only `228_deliverable_curriculum.sql` applied through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
 (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
 `foreign_key_check` empty, and copied into place with the backup API, with no
 companion files.
 
-* 227 (Reader RW6b, `spec_reader_workbench_v1` §9.4) adds the WORKFLOW
-  `reader_session_digests` (its autoindex, its UNIQUE autoindex and two
-  indexes), with no row.
+* 228 adds exactly its objects: `deliverable_scope_inputs` (RAW_LEDGER),
+  `deliverable_scope_resolutions` and `deliverable_path_sections` (WORKFLOW),
+  their three autoindexes, five indexes and six append-only triggers, with no
+  row.
 
-No other object changed definition, and only `schema_migrations` gained a
-row (227); every other table's rows are identical, so the sanitized content
-carries over (every companion file is byte-identical to main's).
+No other object changed definition, and only `schema_migrations` gained a row
+(228); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's). Reader RW6b part 1
+holds 227 on its own branch: if it lands first, this head is rebuilt at the
+landing on main's 227 the same way (228 stays 228); if this lands first, 227
+is applied after it (the runner has no contiguity rule).
 
 ## Mobile PR-4 (migration 226), landing of stage `mobile-pr3-pr4`, 2026-10-27
 
@@ -146,14 +150,13 @@ built from the tracked copy). The C0a branch's own head (222 on 220, without
 ## History
 
 This is a copy of the small conic-sections vault upgraded through migration
-227, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+226, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
 applied after 215-218 at AD2+AD3's compose rounds, 219 on that head at RW2d's
 landing, 220 on that one at local contextual retrieval P1's landing, 221 on
 that one on the LP-min (a) claim-fixes branch, 222 on that one at
 curriculum C0a's landing, 223 then 224 on that one at the batch landing of
 Reader CA2 and RW5d P1, 225 on that one on the mvp-0.36 branch, and 226 on
-that one at mobile PR-4's landing, and 227 on that one on the RW6b part 1
-branch). Migration 167 adds the learner-field F1 read model
+that one at mobile PR-4's landing). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,

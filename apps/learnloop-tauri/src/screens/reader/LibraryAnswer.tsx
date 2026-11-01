@@ -18,16 +18,30 @@
 // or a figure; note.explorable, present only while figures.offers_enabled is
 // on) carries "make this explorable"; pressing it builds the figure under that
 // passage in its book (the button itself calls nothing).
+// Reader CA3 (libraryAsk.compareScope on): a comparison with no library answer
+// renders as CompareScopeView; the ask box's reading shows its pending line;
+// an answer offers "compare these books ▸" (its books, no pins), and a reading
+// that failed offers comparing all the books on the words; that comparison
+// has every door's controls (CompareScopeBody: the routed line, refine,
+// previous, the tutor about the comparison shown; Codex review F5), while
+// pins keep RW4a's/RW4d's table and their tutor. Off, the answer is RW4a's/RW4d's.
+// Reader CA4 (libraryAsk.compareByPoint on): a comparison by point (v2) renders
+// as ComparePointTable (a row per point, a column per book); a v1 comparison
+// renders by book as today, with "compare again by point ▸" where a library
+// question can re-run it; the grid's Space and o peek and open a cell's passage.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
+import { CompareScopeBody, CompareScopeView, PeekPanel } from "./CompareScope";
+import { CompareGridActionsContext, ComparePointTable, useCompareGridActions, type CompareGridActions } from "./ComparePointTable";
+import { byPoint } from "./comparePoints";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { hitRoleLabel } from "./roleLabel";
-import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
+import { LIBRARY_COPY, SCOPE_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { EvidenceMarker, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 const linkStyle = {
@@ -178,15 +192,32 @@ function uncheckedBecause(verification: CompareTableDto["verification"]): string
   return null;
 }
 
+/** The comparison table: by point (Reader CA4, a v2 comparison) or by book (today's). */
+export function CompareTable({ table }: { table: CompareTableDto }) {
+  if (byPoint(table)) return <ComparePointTable table={table} />;
+  return <CompareTableByBook table={table} />;
+}
+
+export const COMPARE_AGAIN_COPY = { again: "compare again by point ▸", cost: "runs one comparison" } as const;
+
 /** W10, display only (RW4d adds keep): one row per source; differences kept. A
  *  source whose passages could not be checked is a possible match, never read
- *  as "one source" (Codex review F9). */
-export function CompareTable({ table }: { table: CompareTableDto }) {
+ *  as "one source" (Codex review F9). Reader CA4: the layout of a v1
+ *  comparison (§5.3), which no label calls old; where a library question can
+ *  re-run it by point, "compare again by point ▸" says it runs one comparison. */
+export function CompareTableByBook({ table }: { table: CompareTableDto }) {
   const unverified = table.unverifiedSources ?? [];
   const because = uncheckedBecause(table.verification);
+  const { onCompareAgain } = useCompareGridActions();
   return (
     <div data-compare-table="" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <span style={headStyle}>compare · {table.rows.length} sources · {table.header}</span>
+      {onCompareAgain && table.status === "ok" && table.rows.length >= 2 ? (
+        <span data-compare-again="">
+          <button type="button" style={linkStyle} onClick={() => onCompareAgain(table)}>{COMPARE_AGAIN_COPY.again}</button>
+          <MeaningLabel style={{ fontSize: 10 }}> · {COMPARE_AGAIN_COPY.cost}</MeaningLabel>
+        </span>
+      ) : null}
       {table.requestedPerspectives?.length ? (
         // RW4d: the perspectives asked for, and those no source covers.
         <span data-perspectives="" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -252,8 +283,11 @@ export function LibraryAnswer({
   onClose,
   exercises = null,
   onMakeExplorable = null,
+  onReword = null,
 }: {
   ctl: LibraryAskController;
+  /** CA3: "change" on the routed line reopens the ask box with these words (absent: no "change"). */
+  onReword?: ((words: string) => void) | null;
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
   onOpenHit: ((hit: LibraryHitDto) => void) | null;
   /** RW5b: build an offered figure of a hit (`offerRef`: this library question). Absent: no offer shown. */
@@ -270,7 +304,38 @@ export function LibraryAnswer({
   const [reopened, setReopened] = useState<string | null>(null);
   const state = ctl.state;
   if (!state) return null;
+  // CA4: what the grid's keys reach (Space peeks, o opens, a view no book
+  // fills asks the library, a v1 table re-runs by point); absent while off.
+  const gridActions: CompareGridActions | null = ctl.byPoint ? {
+    onPeek: ({ spanKey, sourceTitle }) => void ctl.peek(spanKey, sourceTitle),
+    onOpen: onOpenHit ? ({ sourceId, extractionId, spanId }) => onOpenHit({ sourceId, extractionId, spanId } as LibraryHitDto) : undefined,
+    onCompareAgain: ctl.compareAgain,
+    onWhereElse: ctl.whereElse,
+  } : null;
+  if (state.direct) {
+    // CA3: a comparison from a door with no library answer.
+    return (
+      <CompareGridActionsContext.Provider value={gridActions}>
+        <CompareScopeView ctl={ctl} onClose={onClose} onReword={onReword} onPracticePick={onPracticePick} Table={CompareTable} />
+      </CompareGridActionsContext.Provider>
+    );
+  }
+  if (state.scope?.phase === "pending") {
+    // CA3: the ask box's words are being read for named books (pressed, so it may take a moment).
+    return (
+      <section aria-label="ask your library" data-library-answer="" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+        <span style={headStyle}>{LIBRARY_COPY.title}</span>
+        <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>“{state.request.query}”</span>
+        <ModelActionState phase="pending" verb={SCOPE_COPY.reading} onCancel={onClose} />
+      </section>
+    );
+  }
   const ask = state.ask.value;
+  // CA3: a comparison of the answer's books (not its pins) shows every door's controls (F5).
+  const scopedCompare = ctl.scopeOn && Boolean(state.chips) && Boolean(state.lastCompare)
+    && state.lastCompare?.door !== "pins";
+  // CA3: the answer's own books, for "compare these books ▸".
+  const answerSources = new Set((ask?.hits ?? []).flatMap((hit) => (hit.sourceId ? [hit.sourceId] : [])));
   const notes = new Map((state.notes.value?.notes ?? []).map((note) => [note.key, note]));
   const notesPhase = state.notes.phase;
   const hits = new Map((ask?.hits ?? []).map((hit) => [hit.key, hit]));
@@ -325,7 +390,7 @@ export function LibraryAnswer({
     if (target.closest("input, textarea, select")) {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && state.pinned.length) {
         event.preventDefault();
-        void ctl.askTutor(question);
+        void ctl.askTutor(question, "pins");
       }
       return;
     }
@@ -343,7 +408,7 @@ export function LibraryAnswer({
     if (event.ctrlKey || event.metaKey || event.altKey) {
       if (event.key === "Enter" && state.pinned.length) {
         event.preventDefault();
-        void ctl.askTutor(question);
+        void ctl.askTutor(question, "pins");
       }
       return;
     }
@@ -365,7 +430,10 @@ export function LibraryAnswer({
     }
   };
   return (
+    // The section stays the root whichever stage shows (its node is kept), the
+    // grid's actions inside it.
     <section aria-label="ask your library" data-library-answer="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+    <CompareGridActionsContext.Provider value={gridActions}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <span style={headStyle}>{LIBRARY_COPY.title}</span>
         <span style={{ flex: 1 }} />
@@ -394,6 +462,12 @@ export function LibraryAnswer({
             <MeaningLabel style={{ fontSize: 11 }}>
               {ask.sourceCount} source{ask.sourceCount === 1 ? "" : "s"} · {ask.passageCount} passage{ask.passageCount === 1 ? "" : "s"} · {LIBRARY_COPY.found(ask.basis)} · {LIBRARY_COPY.notesBy}
             </MeaningLabel>
+            {ctl.scopeOn && state.compareAllWords ? (
+              // CA3: the ask box couldn't read which books were named (§4.3).
+              <button type="button" data-compare-all="" onClick={ctl.compareAll} style={{ ...linkStyle, textDecoration: "none", textAlign: "left" }}>
+                {SCOPE_COPY.compareAll(state.compareAllWords)}
+              </button>
+            ) : null}
             {notesPhase === "pending" ? (
               <ModelActionState phase="pending" verb={LIBRARY_COPY.noting} onCancel={ctl.cancelNotes} />
             ) : null}
@@ -462,22 +536,7 @@ export function LibraryAnswer({
               </div>
             ))}
             {state.peek ? (
-              <div data-library-peek="" style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <span style={headStyle}>peek</span>
-                  <span style={{ flex: 1 }} />
-                  <button type="button" onClick={ctl.closePeek} style={linkStyle}>close peek</button>
-                </div>
-                {state.peek.view ? (
-                  <SourceVoice source={hits.get(state.peek.key)?.sourceTitle} locator={state.peek.view.page !== null ? `p.${state.peek.view.page}` : null}>
-                    {[...state.peek.view.previousSpans.map((span) => span.text), state.peek.view.text, ...state.peek.view.nextSpans.map((span) => span.text)].map((text, index) => (
-                      <p key={index} style={{ margin: "0 0 6px", fontWeight: index === state.peek!.view!.previousSpans.length ? 600 : 400 }}>{clip(text, 700)}</p>
-                    ))}
-                  </SourceVoice>
-                ) : (
-                  <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> opening the passage…</MeaningLabel>
-                )}
-              </div>
+              <PeekPanel peek={state.peek} title={state.peek.title ?? hits.get(state.peek.key)?.sourceTitle ?? null} onClose={ctl.closePeek} />
             ) : null}
             {ask.hits.length > 0 ? (
               <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -495,17 +554,26 @@ export function LibraryAnswer({
                       />
                     </label>
                   ) : null}
+                  {ctl.scopeOn && answerSources.size >= 2 ? (
+                    // CA3: all the books in the answer, no pins needed.
+                    <button type="button" onClick={ctl.compareBooks} style={linkStyle}>{SCOPE_COPY.compareBooks}</button>
+                  ) : null}
                   {ctl.settings?.compare ? (
                     ctl.canCompare ? (
                       <button type="button" onClick={() => void ctl.compare(perspectiveList())} style={linkStyle}>{LIBRARY_COPY.compare} ({state.pinned.length})</button>
-                    ) : (
+                    ) : ctl.scopeOn ? null : (
                       <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_COPY.compareNeeds}</MeaningLabel>
                     )
                   ) : null}
                   <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button>
                 </div>
                 <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↑↓ move · space peek · p pin · o open · c compare pinned · ctrl+↵ ask the tutor about pinned</span>
-                {state.compare.phase !== "idle" ? (
+                {scopedCompare ? (
+                  // CA3: "compare these books" has every door's controls (F5); the
+                  // routed line shows as soon as the books are known (§4.2).
+                  <CompareScopeBody ctl={ctl} onReword={null} onPracticePick={onPracticePick} Table={CompareTable}
+                    practice={false} kept="Your question and the books are kept." />
+                ) : state.compare.phase !== "idle" ? (
                   <ModelActionState
                     phase={state.compare.phase}
                     verb={LIBRARY_COPY.comparing}
@@ -514,7 +582,7 @@ export function LibraryAnswer({
                     capRoute="comparison"
                     fallback="Reading the passages"
                     onCancel={ctl.cancelCompare}
-                    onRetry={() => void ctl.compare(perspectiveList())}
+                    onRetry={() => (ctl.scopeOn && state.lastCompare ? ctl.retryCompare() : void ctl.compare(perspectiveList()))}
                   >
                     {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
                     {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}
@@ -524,7 +592,7 @@ export function LibraryAnswer({
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void ctl.askTutor(question);
+                      void ctl.askTutor(question, "pins");
                     }}
                     style={{ display: "flex", flexDirection: "column", gap: 6 }}
                   >
@@ -543,7 +611,7 @@ export function LibraryAnswer({
                     </MeaningLabel>
                   </form>
                 ) : null}
-                {state.tutor.phase !== "idle" ? (
+                {state.tutor.phase !== "idle" && state.tutorBasis !== "comparison" ? (
                   <ModelActionState
                     phase={state.tutor.phase}
                     verb={LIBRARY_COPY.tutorWriting}
@@ -551,7 +619,7 @@ export function LibraryAnswer({
                     kept="Your question is kept."
                     capRoute="tutor"
                     onCancel={ctl.cancelTutor}
-                    onRetry={() => void ctl.askTutor(question)}
+                    onRetry={() => void ctl.askTutor(question, "pins")}
                   >
                     {state.tutor.value ? (
                       <ModelVoice first note={state.tutor.value.label}>
@@ -596,6 +664,7 @@ export function LibraryAnswer({
           </div>
         ) : null}
       </ModelActionState>
+    </CompareGridActionsContext.Provider>
     </section>
   );
 }

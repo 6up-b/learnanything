@@ -460,6 +460,45 @@ class FakeServiceLLM:
         return SourceComparison(contributions=contributions, relations=relations,
                                 missing_perspectives=requested[1:])
 
+    def _SourceComparisonV2(self, request, context):
+        """Reader CA4: the comparison by point. One point every source quotes
+        (consecutive pairs ``different_notation``), one only the first source
+        quotes, and per requested perspective a point: the first perspective
+        quoted by the last source only, the others by none. ``bad_comparison_quote``
+        adds a point whose only quote is invented (code drops it)."""
+
+        from learnloop.source_retrieval.compare import ComparisonPoint, PairRelation, PointCell, SourceComparisonV2
+
+        sources = context["sources"]
+        requested = context.get("requested_perspectives") or []
+
+        def quote(text, words=6, start=0):
+            return " ".join(text.split()[start:start + words])
+
+        def cell(src, *, quoted=True, text=None, line=None):
+            if not quoted:
+                return PointCell(source_ref=src["ref"], status="not_addressed", quote="", line="")
+            return PointCell(source_ref=src["ref"], status="quoted", quote=text or quote(src["passage"]),
+                             line=line or f"{src['source']} states it its way")
+
+        relations = [PairRelation(left_ref=left["ref"], right_ref=right["ref"], relation="different_notation",
+                                  statement="same idea, different notation", left_quote=quote(left["passage"], 5),
+                                  right_quote=quote(right["passage"], 5)) for left, right in zip(sources, sources[1:])]
+        points = [ComparisonPoint(label="the main claim", perspective="", cells=[cell(src) for src in sources],
+                                  relations=relations)]
+        if sources:
+            points.append(ComparisonPoint(label="what the first book adds", perspective="",
+                                          cells=[cell(src, quoted=index == 0) for index, src in enumerate(sources)],
+                                          relations=[]))
+        if self.bad_comparison_quote and sources:
+            points.append(ComparisonPoint(label="an invented point", perspective="", relations=[], cells=[
+                cell(sources[0], text="words that are nowhere in the passage", line="invented")]))
+        for index, perspective in enumerate(requested):
+            if index == 0 and sources:
+                points.append(ComparisonPoint(label="(model's own words)", perspective=perspective, relations=[],
+                                              cells=[cell(src, quoted=src is sources[-1]) for src in sources]))
+        return SourceComparisonV2(points=points)
+
     # S2a: the exercise screen and the worked-example equivalence judge
     def _ExerciseScreens(self, request, context):
         from learnloop.instructional.screen import ExerciseScreen, ExerciseScreens, HypothesisSignature

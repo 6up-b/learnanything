@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 227
+schema_head: 228
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -137,6 +137,7 @@ None found by exact static reference scan.
 
 - `tests/mcp_world.py`
 - `tests/test_decider_landing.py`
+- `tests/test_deliverable_scope.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_codex_review.py`
 - `tests/test_figures_fix_round2.py`
@@ -154,7 +155,6 @@ None found by exact static reference scan.
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_mvp016_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -60,6 +60,8 @@ export interface FiguresContract {
   offers?: boolean;
   /** RW5d P1: "show me" in the learner's words (present only while figures.show_me_enabled is on). */
   showMe?: boolean;
+  /** RW5d P2: the sketch tier. */
+  sketch?: boolean;
 }
 
 export interface FiguresCtl {

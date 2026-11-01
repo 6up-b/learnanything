@@ -3,13 +3,13 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
   - "table commitment_events"
-schema_head: 227
+schema_head: 228
 table_name: "commitment_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -109,7 +109,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/scheduling/scheduler.py`
 
@@ -119,7 +118,6 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_p2_acceptance.py`
-- `tests/test_reader_followups.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`

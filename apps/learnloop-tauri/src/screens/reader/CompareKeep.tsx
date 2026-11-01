@@ -13,12 +13,15 @@
 // "remove" supersedes them. Nothing is kept until the press. Without the
 // Reader's `compareKeep` context (reader_compare.keep_enabled off) this
 // renders nothing, so the table is RW4a's and the tutor's offer RW1c's.
+// Reader CA4: under a table by point this renders nothing either; the grid
+// (ComparePointTable) holds keep, its takes by row and hide row.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useEffect, useState, type ComponentType } from "react";
 import { api } from "../../api/client";
 import type { CompareTableDto, KeptComparisonDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
+import { byPoint } from "./comparePoints";
 import { useCompareKeep } from "./compareKeepContext";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
@@ -127,6 +130,8 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
   const [failure, setFailure] = useState<string | null>(null);
   const [why, setWhy] = useState(false);
   useEffect(() => { setKept(table.kept ?? null); }, [table.kept, table.comparisonId]);
+  // Reader CA4: a table by point keeps, takes and hides rows in its own grid.
+  if (byPoint(table)) return null;
   if (!ctx || !allowed) return null;
   if (table.status !== "ok" || !table.comparisonId) return null;
   // Two rows are needed to keep a new comparison; a keep that exists (one

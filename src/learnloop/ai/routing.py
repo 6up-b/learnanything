@@ -104,6 +104,8 @@ AITask = Literal[
     "rubric_phrasing_judge",
     # Reader workbench RW1b: the intent box's router (a decider task).
     "reader_intent",
+    # Reader CA3: the ask box's reading of named books (a decider task).
+    "compare_scope",
     # Reader workbench RW4a: the library answer's organizer (a listwise task).
     "library_organizer",
     # Adaptive hints H1: the approach-map builder and learner-route merge.
@@ -135,6 +137,9 @@ AITask = Literal[
     "reading_path_judge",
     # Deliverable curriculum C0a: the section coverage judge (a listwise task, one call per LO).
     "section_coverage_judge",
+    # Deliverable curriculum C0b: the scope resolver (pressed) and the deliverable path judge.
+    "deliverable_scope_resolver",
+    "deliverable_path_judge",
     # Reader workbench RW5a: the figure author (the declarative spec).
     "figure_author",
 ]
@@ -144,7 +149,7 @@ AITask = Literal[
 #: overrides them, the same rule as ``ai.routing.embedding``.
 DECIDER_TASKS: frozenset[str] = frozenset(
     {"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider", "reader_intent",
-     "hint_chooser", "ad_forecast_decider"}
+     "hint_chooser", "ad_forecast_decider", "compare_scope"}
 )
 #: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
 #: structured question of a chat model, or typed questions of a decision model
@@ -262,6 +267,11 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # section of the library treats one learning object (coverage; display
     # and retrieval context only).
     "section_coverage_judge": "section_coverage_judge",
+    # Deliverable curriculum C0b: one call resolving the learner's scope words to
+    # the LOs a deliverable needs (pressed), and one call choosing the path
+    # across books per deliverable and depth (display only).
+    "deliverable_scope_resolver": "deliverable_scope_resolver",
+    "deliverable_path_judge": "deliverable_path_judge",
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",

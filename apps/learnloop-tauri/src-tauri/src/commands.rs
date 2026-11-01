@@ -1396,6 +1396,9 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Reader CA3: the ask box's reading of named books, and the learner's change of it.
+sidecar_passthrough!(reader_compare_scope, "reader.compare_scope");
+sidecar_passthrough!(reader_compare_scope_correction, "reader.compare_scope_correction");
 // Reader workbench RW4b (exercises from my sources: the view, the fallback): desktop only.
 sidecar_passthrough!(reader_exercise_candidates, "reader.exercise_candidates");
 sidecar_passthrough!(reader_find_exercises, "reader.find_exercises");
@@ -1408,6 +1411,26 @@ sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
 sidecar_passthrough!(reader_reading_path, "reader.reading_path");
 sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
 sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
+// Reader CA5a (find this section in my other books: the correspondents read and
+// C0a's "not about this" correction): desktop only.
+sidecar_passthrough!(reader_correspondents, "reader.correspondents");
+sidecar_passthrough!(curriculum_coverage_correct, "curriculum.coverage_correct");
+sidecar_passthrough!(reader_correspondent_peek, "reader.correspondent_peek");
+sidecar_passthrough!(reader_correspondent_dismiss, "reader.correspondent_dismiss");
+// Deliverable curriculum C0b (the deliverable's scope, its path across books, the
+// Guide's slice, overrides, "Am I ready?", "also about"): desktop only.
+sidecar_passthrough!(curriculum_deliverables, "curriculum.deliverables");
+sidecar_passthrough!(curriculum_create_deliverable, "curriculum.create_deliverable");
+sidecar_passthrough!(curriculum_set_scope, "curriculum.set_scope");
+sidecar_passthrough!(curriculum_scope, "curriculum.scope");
+sidecar_passthrough!(curriculum_scope_decide, "curriculum.scope_decide");
+sidecar_passthrough!(curriculum_set_depth, "curriculum.set_depth");
+sidecar_passthrough!(curriculum_path, "curriculum.path");
+sidecar_passthrough!(curriculum_guide_slice, "curriculum.guide_slice");
+sidecar_passthrough!(curriculum_path_override, "curriculum.path_override");
+sidecar_passthrough!(curriculum_ready, "curriculum.ready");
+sidecar_passthrough!(curriculum_ready_check, "curriculum.ready_check");
+sidecar_passthrough!(curriculum_also_about, "curriculum.also_about");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
 // figures, predictions and "what changed?"): desktop only.
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");

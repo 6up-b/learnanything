@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6391805a6b81404b76d636aadd8c727342b849e1"
-source_commit_timestamp: "2026-10-31T15:33:15-04:00"
+source_commit: "3c6a83f16f3a44b382a39b345e079e8cc4bad10c"
+source_commit_timestamp: "2026-10-31T20:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 227
+schema_head: 228
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -97,14 +97,15 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
-- `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/checks.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/intent/deadline.py`
 - `src/learnloop/ops/pf_publish.py`
 - `src/learnloop/placement/decisions.py`
+- `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/context.py`
+- `src/learnloop_sidecar/handlers/deliverables.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
 - `src/learnloop_sidecar/handlers/learner_gaps.py`
 - `src/learnloop_sidecar/handlers/queue.py`

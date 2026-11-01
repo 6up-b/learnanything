@@ -59,8 +59,9 @@ def test_grouping_changes_no_presets_effect():
     kinds = {a.effect["kind"] for a in RI.ACTIONS}
     # RW7a adds Orient's "what matters here?" (opens the Guide's reading path); RW5a adds Understand's
     # "make this explorable" (a figure built in the background).
+    # Reader CA3 adds Transfer's "how do my other books treat this?" (a comparison anchored on the selection).
     assert kinds == {"ask", "preset", "highlight", "import_exercise", "work_through", "active_reading", "another_way",
-                     "library_ask", "reading_path", "figure"}
+                     "library_ask", "reading_path", "figure", "compare"}
     assert {a.effect["style"] for a in RI.ACTIONS if a.effect["kind"] == "active_reading"} == set(RQC.SELECTION_STYLES)
 
 

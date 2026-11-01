@@ -62,6 +62,9 @@ export interface TutorRailProps {
   onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
   /** RW5d P1: "show me" the tutor's figure goal (absent: not offered). */
   onShowMe?: ((goal: string, offerRef: string, exchange: ReaderExchange) => void) | null;
+  /** Reader CA3: "how do your books treat this?" opens the comparing posture's
+   *  table (the one request), anchored on this exchange's passage. Absent: today's inline table. */
+  onCompare?: ((request: { question: string; toolCallId: string | null }, exchange: ReaderExchange) => void) | null;
   /** Open a passage the answer quotes or cites: this source peeks at it,
    *  another book opens as a detour (Alt+← comes back). Absent: not offered. */
   onOpenPassage?: ((passage: TutorPassageRef) => void) | null;
@@ -170,6 +173,7 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           onTryNextStep={tutor.onTryNextStep ?? null}
           onMakeExplorable={tutor.onMakeExplorable ?? null}
           onShowMe={tutor.onShowMe ? (goal, offerRef) => tutor.onShowMe?.(goal, offerRef, exchange) : null}
+          {...(tutor.onCompare ? { onCompare: (request: { question: string; toolCallId: string | null }) => tutor.onCompare?.(request, exchange) } : {})}
           offerRef={exchange.questionEventId ?? null}
           {...(tutor.offerStore ? { store: tutor.offerStore } : {})}
           {...(tutor.exercises ? { exercises: tutor.exercises } : {})}
