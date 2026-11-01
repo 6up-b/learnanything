@@ -3,8 +3,8 @@ title: "source_document_assets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "42940bc38d52a27aa9ac16265014ae2c5fd1a5ff"
-source_commit_timestamp: "2026-11-01T13:56:34-05:00"
+source_commit: "4d444edda033888a6d536d658c606d84ceb3fddb"
+source_commit_timestamp: "2026-11-01T14:52:06-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_assets"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 
 - `tests/ad_ingest_fakes.py`
 - `tests/test_migrations.py`
+- `tests/exam_scope_fixtures.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_projection.py`
@@ -142,7 +143,6 @@ Indexes and uniqueness:
 - `tests/test_primed_attempts.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_pdf_selection.py`
-- `tests/test_reading_hardening_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
