@@ -10,8 +10,8 @@ area: "TypeScript/components/recipeedit"
 source_path: "apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx"
-source_commit: "324e21708f4ec712cc669086f5a261efa70f57ff"
-source_commit_timestamp: "2026-07-15T11:03:42-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx](../../../../../../../apps/learnloop-tauri/src/components/recipeedit/RecipeTreeEditor.tsx) |
-| Source lines | 775 |
+| Source lines | 774 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/recipeedit/_area|TypeScript/components/recipeedit]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `324e21708f4ec712cc669086f5a261efa70f57ff` |
-| Commit timestamp | `2026-07-15T11:03:42-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Activation and status evidence
 
@@ -105,22 +105,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const matches = useMemo(()` — const, line 495
 - `const needle = q.trim().toLowerCase()` — const, line 496
 - `const ready = facet.trim().length > 0` — const, line 503
-- `function BlastRadiusPanel(` — function, line 561
-- `const timer = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 573
-- `const signature = useMemo(()` — const, line 575
-- `let alive = true` — let, line 581
-- `const cur = preview?.current.readiness ?? null` — const, line 604
-- `const prop = preview?.proposed.readiness ?? null` — const, line 605
-- `const delta = cur != null && prop != null ? prop - cur : null` — const, line 606
-- `const bnChanged = preview && (preview.current.bottleneck?.facet !== preview.proposed.bottleneck?.facet || preview.current.bottleneck?.capability !== preview.proposed.bottleneck?.capability)` — const, line 607
-- `const toggleBtn: CSSProperties =` — const, line 703
-- `const linkBtn: CSSProperties =` — const, line 713
-- `const numInput: CSSProperties =` — const, line 723
-- `const rationaleInput: CSSProperties =` — const, line 733
-- `const fileBar: CSSProperties =` — const, line 738
-- `const ruleLegendStyle: CSSProperties =` — const, line 747
-- `const suggestBox: CSSProperties =` — const, line 756
-- `const suggestRow: CSSProperties =` — const, line 769
+- `function BlastRadiusPanel(` — function, line 560
+- `const timer = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 572
+- `const signature = useMemo(()` — const, line 574
+- `let alive = true` — let, line 580
+- `const cur = preview?.current.readiness ?? null` — const, line 603
+- `const prop = preview?.proposed.readiness ?? null` — const, line 604
+- `const delta = cur != null && prop != null ? prop - cur : null` — const, line 605
+- `const bnChanged = preview && (preview.current.bottleneck?.facet !== preview.proposed.bottleneck?.facet || preview.current.bottleneck?.capability !== preview.proposed.bottleneck?.capability)` — const, line 606
+- `const toggleBtn: CSSProperties =` — const, line 702
+- `const linkBtn: CSSProperties =` — const, line 712
+- `const numInput: CSSProperties =` — const, line 722
+- `const rationaleInput: CSSProperties =` — const, line 732
+- `const fileBar: CSSProperties =` — const, line 737
+- `const ruleLegendStyle: CSSProperties =` — const, line 746
+- `const suggestBox: CSSProperties =` — const, line 755
+- `const suggestRow: CSSProperties =` — const, line 768
 
 ## Who imports or calls it
 

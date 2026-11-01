@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/WriteCardDialog.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/WriteCardDialog.tsx"
-source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
-source_commit_timestamp: "2026-07-21T13:26:14-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/WriteCardDialog.tsx](../../../../../../apps/learnloop-tauri/src/components/WriteCardDialog.tsx) |
-| Source lines | 271 |
+| Source lines | 284 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `02c3e6e10f5ca37e16cef05657ee693b33502fb7` |
-| Commit timestamp | `2026-07-21T13:26:14-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,36 +60,37 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function WriteCardDialog(` — function, line 18
+- `export function WriteCardDialog(` — function, line 20
 
 ## Internal implementation anchors
 
-- `const PRACTICE_MODES = [` — const, line 11
-- `let alive = true` — let, line 39
-- `const seen = new Map<string, string>()` — const, line 44
-- `const options = Array.from(seen, ([value, label])` — const, line 50
-- `const handler = (e: KeyboardEvent)` — const, line 65
-- `const options = useMemo(()` — const, line 72
-- `const base = loOptions ?? []` — const, line 73
-- `const canSubmit = !busy && learningObjectId !== "" && prompt.trim() !== "" && expectedAnswer.trim() !== ""` — const, line 80
-- `const submit = async ()` — const, line 82
-- `const hints = hintsText .split("\n") .map((h)` — const, line 87
-- `const res = await api.authorPracticeItem(` — const, line 91
-- `const command = err && typeof err === "object" && "code" in err ? (err as CommandError) : null` — const, line 101
-- `function Label(` — function, line 190
-- `const textareaStyle: CSSProperties =` — const, line 198
-- `const backdropStyle: CSSProperties =` — const, line 211
-- `const modalStyle: CSSProperties =` — const, line 223
-- `const headerStyle: CSSProperties =` — const, line 235
-- `const footerStyle: CSSProperties =` — const, line 244
-- `const primaryBtn: CSSProperties =` — const, line 253
-- `const ghostBtn: CSSProperties =` — const, line 263
+- `const PRACTICE_MODES = [` — const, line 13
+- `let alive = true` — let, line 48
+- `const seen = new Map<string, string>()` — const, line 53
+- `const options = Array.from(seen, ([value, label])` — const, line 59
+- `const handler = (e: KeyboardEvent)` — const, line 74
+- `const options = useMemo(()` — const, line 82
+- `const base = loOptions ?? []` — const, line 83
+- `const canSubmit = !busy && learningObjectId !== "" && prompt.trim() !== "" && expectedAnswer.trim() !== ""` — const, line 90
+- `const submit = async ()` — const, line 92
+- `const hints = hintsText .split("\n") .map((h)` — const, line 97
+- `const res = await api.authorPracticeItem(` — const, line 101
+- `const command = err && typeof err === "object" && "code" in err ? (err as CommandError) : null` — const, line 112
+- `function Label(` — function, line 203
+- `const textareaStyle: CSSProperties =` — const, line 211
+- `const backdropStyle: CSSProperties =` — const, line 224
+- `const modalStyle: CSSProperties =` — const, line 236
+- `const headerStyle: CSSProperties =` — const, line 248
+- `const footerStyle: CSSProperties =` — const, line 257
+- `const primaryBtn: CSSProperties =` — const, line 266
+- `const ghostBtn: CSSProperties =` — const, line 276
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/components/InboxStrip|src/components/InboxStrip.tsx]] — import-or-re-export: `WriteCardDialog`; references `WriteCardDialog`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `WriteCardDialog`; references `WriteCardDialog`
 
 ## Dependencies
@@ -98,6 +99,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
+- [[Reference/Desktop/TypeScript/components/CapturePhoto|src/components/CapturePhoto.tsx]] — import-or-re-export; imports `CapturePhoto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `TermSelect`
 
 ### Assets, platform, and third-party dependencies
@@ -112,7 +115,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/components/WriteCardDialog.photo.test.tsx](../../../../../../apps/learnloop-tauri/src/components/WriteCardDialog.photo.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

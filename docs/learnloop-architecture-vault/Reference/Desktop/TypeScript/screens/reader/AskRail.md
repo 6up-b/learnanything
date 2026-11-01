@@ -1,0 +1,133 @@
+---
+title: "Desktop module · src/screens/reader/AskRail.tsx"
+type: "desktop-module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+module: "desktop.src.screens.reader.AskRail"
+language: "TypeScript"
+area: "TypeScript/screens/reader"
+source_path: "apps/learnloop-tauri/src/screens/reader/AskRail.tsx"
+source_paths:
+  - "apps/learnloop-tauri/src/screens/reader/AskRail.tsx"
+source_commit: "bdd511fa67095e92f3d2221bab84917b8d8cb137"
+source_commit_timestamp: "2026-10-26T19:04:43-04:00"
+source_worktree_state: "clean"
+activation_kind: "entry-reachable build graph"
+activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
+generated: true
+generated_at: "2026-08-18"
+tags:
+  - "learnloop/docs"
+  - "learnloop/reference/module"
+  - "learnloop/desktop"
+  - "learnloop/desktop/typescript"
+  - "refactor/active"
+---
+
+# `src/screens/reader/AskRail.tsx`
+
+Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+Implements the `AskRail` routed desktop screen and coordinates its learner-facing workflow state.
+
+The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
+
+^desktop-module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [apps/learnloop-tauri/src/screens/reader/AskRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/AskRail.tsx) |
+| Source lines | 434 |
+| Language | `TypeScript` |
+| Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
+| Refactor status | `ACTIVE` |
+| Activation kind | `entry-reachable build graph` |
+| Worktree state | `clean` |
+| Source commit | `bdd511fa67095e92f3d2221bab84917b8d8cb137` |
+| Commit timestamp | `2026-10-26T19:04:43-04:00` |
+
+## Activation and status evidence
+
+> [!success] ACTIVE
+> A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
+>
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]]
+
+## Public API
+
+- `export interface AskRailProps` — interface, line 21
+- `export const PERSONALIZED_COPY =` — const, line 96
+- `export function AskRail(` — function, line 140
+
+## Internal implementation anchors
+
+- `function ShowMeThreadLine(` — function, line 102
+- `const link =` — const, line 103
+- `const peek = inquiry && peekPassage ? peekPassage : jumpToSpan` — const, line 186
+- `const next = new Set(ids)` — const, line 357
+- `const next = new Set(ids)` — const, line 366
+- `const seen = new Set<string>()` — const, line 367
+- `let cursor: ReaderExchange | undefined = exchange` — let, line 368
+- `const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id)` — const, line 390
+- `const next = new Set(ids)` — const, line 397
+
+## Who imports or calls it
+
+> [!note] Static-evidence boundary
+> “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
+
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AskRail`; references `AskRail`
+
+## Dependencies
+
+### Desktop source modules
+
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigurePassageDto`, `FigureViewDto`, `InquiryResolution`, `ReaderAnswerMode`, `ReaderRenderBlockDto`
+- [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `AffectTap`, `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `Dim`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`
+- [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `ModelActionState`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export; imports `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`
+- [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export; imports `TutorAnswer`, `TutorRailProps`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export; imports `frameBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|src/screens/reader/figures/showMe.ts]] — import-or-re-export; imports `SHOW_ME_COPY`, `ShowMeLine`, `isShowMeKey`, `passageChip`, `showMeSourceLine`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `LearnerQuote`, `LearnerVoice`, `MeaningLabel`
+
+### Assets, platform, and third-party dependencies
+
+- Imported packages/crates: `react`
+
+## Larger desktop and workflow participation
+
+- [[Architecture/Adapter Architecture#Request flow|adapter request flow]] — places this module on the UI/sidecar boundary.
+- [[Workflows/Reader to Practice Workflow|Reader to Practice Workflow]] — owns the end-to-end reader sequence.
+- [[Concepts/Reader Tutor and Teach-Back#Reader|Reader model]] — owns reader semantics.
+
+The workflow note owns end-to-end sequencing; this module note describes only its local participation and edges.
+
+## Tests that define behavior
+
+- [apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
+- [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
+- [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
+- [tests/test_reader_requests.py](../../../../../../../tests/test_reader_requests.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
+
+## Modification guidance
+
+- Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
+- When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
+
+### Regeneration checklist
+
+1. Modify [apps/learnloop-tauri/src/screens/reader/AskRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/AskRail.tsx) and focused tests.
+2. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_generate.py`.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_validate.py`.

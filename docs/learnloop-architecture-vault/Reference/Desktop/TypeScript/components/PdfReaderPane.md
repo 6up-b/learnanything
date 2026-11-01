@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/PdfReaderPane.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/PdfReaderPane.tsx"
-source_commit: "a679159b2a895789ac8568f7cfa50361df73b7f2"
-source_commit_timestamp: "2026-09-03T10:56:04-07:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/PdfReaderPane.tsx](../../../../../../apps/learnloop-tauri/src/components/PdfReaderPane.tsx) |
-| Source lines | 1332 |
+| Source lines | 1425 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a679159b2a895789ac8568f7cfa50361df73b7f2` |
-| Commit timestamp | `2026-09-03T10:56:04-07:00` |
+| Source commit | `ea590e192e7d05cf407e35bee338909582716483` |
+| Commit timestamp | `2026-10-22T23:06:34-04:00` |
 
 ## Activation and status evidence
 
@@ -60,264 +60,218 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface TagMenuRequest` — interface, line 80
-- `export interface PdfReaderPaneHandle` — interface, line 92
-- `export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(` — const, line 119
+- `export interface TagMenuRequest` — interface, line 63
+- `export type PassageAlign = "center" | "start"` — type, line 76
+- `export interface PdfReaderPaneHandle` — interface, line 79
+- `export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(` — const, line 162
 
 ## Internal implementation anchors
 
-- `interface PageGeometry` — interface, line 35
-- `const TRAIL_COLORS: Record<string,` — const, line 42
-- `const FURNITURE_TYPES = new Set(["PageHeader", "PageFooter", "TableOfContents"])` — const, line 49
-- `function isSelectable(block: ReaderPdfBlockDto): boolean` — function, line 51
-- `interface MarqueeBox` — interface, line 58
-- `const MARQUEE_MIN_EXTENT_PTS = 4` — const, line 64
-- `function rectOverlap(a: number[], b: number[]): number` — function, line 66
-- `const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0])` — const, line 67
-- `const h = Math.min(a[3], b[3]) - Math.max(a[1], b[1])` — const, line 68
-- `function rectArea(r: number[]): number` — function, line 72
-- `const EMPTY_SPANS = new Set<string>()` — const, line 76
-- `interface PdfReaderPaneProps` — interface, line 96
-- `interface FindMatch` — interface, line 114
-- `const containerRef = useRef<HTMLDivElement | null>(null)` — const, line 126
-- `const pageTextsRef = useRef<Map<number, string>>(new Map())` — const, line 134
-- `const findInputRef = useRef<HTMLInputElement | null>(null)` — const, line 135
-- `const clampZoom = (value: number)` — const, line 137
-- `const zoomIn = useCallback(()` — const, line 138
-- `const zoomOut = useCallback(()` — const, line 139
-- `const openFind = useCallback(()` — const, line 141
-- `const closeFind = useCallback(()` — const, line 145
-- `const coveredPages = useMemo( ()` — const, line 152
-- `const blocksByPage = useMemo(()` — const, line 156
-- `const map = new Map<number, ReaderPdfBlockDto[]>()` — const, line 157
-- `const list = map.get(block.page) ?? []` — const, line 159
-- `const trailsByPage = useMemo(()` — const, line 165
-- `const map = new Map<number, AnnotationTrail[]>()` — const, line 166
-- `const list = map.get(trail.page) ?? []` — const, line 168
-- `let cancelled = false` — let, line 179
-- `const node = containerRef.current` — const, line 196
-- `const observer = new ResizeObserver(()` — const, line 198
-- `let cancelled = false` — let, line 211
-- `const timer = setTimeout(async ()` — const, line 212
-- `const query = findQuery.trim().toLowerCase()` — const, line 213
-- `const found: FindMatch[] = []` — const, line 214
-- `let text = pageTextsRef.current.get(page)` — let, line 216
-- `const pdfPage = await doc.getPage(page + 1)` — const, line 219
-- `const content = await pdfPage.getTextContent()` — const, line 220
-- `let from = 0` — let, line 232
-- `let ordinal = 0` — let, line 233
-- `const at = text.indexOf(query, from)` — const, line 235
-- `const scrollToMatch = useCallback((match: FindMatch)` — const, line 253
-- `const pageEl = containerRef.current?.querySelector(`[data-pdf-page="$` — const, line 254
-- `const hits = pageEl.querySelectorAll(".ll-find-hit")` — const, line 257
-- `const target = hits[Math.min(match.ordinal, Math.max(0, hits.length - 1))]` — const, line 258
-- `const current = matches[matchIdx]` — const, line 263
-- `const gotoMatch = useCallback( (delta: number)` — const, line 267
-- `const handler = (event: KeyboardEvent)` — const, line 276
-- `const modifier = event.ctrlKey || event.metaKey` — const, line 277
-- `const editing = event.target instanceof HTMLElement && ["INPUT", "TEXTAREA"].includes(event.target.tagName)` — const, line 283
-- `const node = containerRef.current` — const, line 302
-- `const onWheel = (event: WheelEvent)` — const, line 304
-- `const scrollToSegment = useCallback((page: number, spanId?: string | null)` — const, line 313
-- `const pageEl = containerRef.current?.querySelector(`[data-pdf-page="$` — const, line 314
-- `const target = spanId ? pageEl.querySelector(`[data-span-id="$` — const, line 318
-- `const blockAtPoint = useCallback( (pageEl: HTMLElement, clientX: number, clientY: number): ReaderPdfBlockDto | null` — const, line 325
-- `const page = Number(pageEl.dataset.pdfPage)` — const, line 327
-- `const widthPoints = Number(pageEl.dataset.widthPoints)` — const, line 328
-- `const rect = pageEl.getBoundingClientRect()` — const, line 329
-- `const scale = rect.width / widthPoints` — const, line 331
-- `const x = (clientX - rect.left) / scale` — const, line 332
-- `const y = (clientY - rect.top) / scale` — const, line 333
-- `const candidates = (blocksByPage.get(page) ?? []).filter( (b)` — const, line 334
-- `const pageElFor = (node: Node | null): HTMLElement | null` — const, line 348
-- `let current: Node | null = node` — let, line 349
-- `const indexBySpan = useMemo(()` — const, line 360
-- `const blockBySpan = useMemo(()` — const, line 361
-- `const blockNearPoint = useCallback( (pageEl: HTMLElement, clientX: number, clientY: number): ReaderPdfBlockDto | null` — const, line 365
-- `const direct = blockAtPoint(pageEl, clientX, clientY)` — const, line 367
-- `const page = Number(pageEl.dataset.pdfPage)` — const, line 369
-- `const widthPoints = Number(pageEl.dataset.widthPoints)` — const, line 370
-- `const rect = pageEl.getBoundingClientRect()` — const, line 371
-- `const scale = rect.width / widthPoints` — const, line 373
-- `const x = (clientX - rect.left) / scale` — const, line 374
-- `const y = (clientY - rect.top) / scale` — const, line 375
-- `let best: ReaderPdfBlockDto | null = null` — let, line 376
-- `let bestDistance = Infinity` — let, line 377
-- `const dx = x < block.bbox[0] ? block.bbox[0] - x : x > block.bbox[2] ? x - block.bbox[2] : 0` — const, line 380
-- `const dy = y < block.bbox[1] ? block.bbox[1] - y : y > block.bbox[3] ? y - block.bbox[3] : 0` — const, line 381
-- `const distance = dy * 4 + dx` — const, line 382
-- `const sweepRef = useRef<` — const, line 394
-- `const lastPointRef = useRef<` — const, line 395
-- `const sweeping = sweep !== null` — const, line 396
-- `const marqueeBoxesRef = useRef<MarqueeBox[]>([])` — const, line 403
-- `const marqueeDragRef = useRef<` — const, line 404
-- `const clearMarquee = useCallback(()` — const, line 405
-- `const sweepSpans = useMemo(()` — const, line 412
-- `const lo = Math.min(sweep.anchor, sweep.head)` — const, line 414
-- `const hi = Math.max(sweep.anchor, sweep.head)` — const, line 415
-- `const onSweepMouseDown = useCallback( (event: React.MouseEvent)` — const, line 419
-- `const target = event.target as Node` — const, line 425
-- `const pageEl = pageElFor(target)` — const, line 427
-- `const block = blockNearPoint(pageEl, event.clientX, event.clientY)` — const, line 429
-- `const idx = block ? indexBySpan.get(block.spanId) : undefined` — const, line 430
-- `const updateHead = (clientX: number, clientY: number)` — const, line 447
-- `const state = sweepRef.current` — const, line 448
-- `const pageEl = pageElFor(document.elementFromPoint(clientX, clientY))` — const, line 450
-- `const block = blockNearPoint(pageEl, clientX, clientY)` — const, line 452
-- `const idx = block ? indexBySpan.get(block.spanId) : undefined` — const, line 453
-- `const onMove = (event: MouseEvent)` — const, line 459
-- `const state = sweepRef.current` — const, line 460
-- `const onUp = ()` — const, line 466
-- `const state = sweepRef.current` — const, line 467
-- `const lo = Math.min(state.anchor, state.head)` — const, line 471
-- `const hi = Math.max(state.anchor, state.head)` — const, line 472
-- `const covered = blocks.slice(lo, hi + 1).filter(isSelectable)` — const, line 473
-- `const nodes = covered.map((b)` — const, line 479
-- `const display = nodes.map((n)` — const, line 480
-- `const scroller = (()` — const, line 485
-- `let node: HTMLElement | null = containerRef.current?.parentElement ?? null` — let, line 486
-- `const style = window.getComputedStyle(node)` — const, line 488
-- `const timer = window.setInterval(()` — const, line 494
-- `const point = lastPointRef.current` — const, line 495
-- `const rect = scroller.getBoundingClientRect()` — const, line 497
-- `const zone = 48` — const, line 498
-- `const delta = point.y < rect.top + zone ? -Math.ceil((rect.top + zone - point.y) / 3) : point.y > rect.bottom - zone ? Math.ceil((point.y - (rect.bottom - zone)) / 3) : 0` — const, line 499
-- `const pdfPointFromClient = (pageEl: HTMLElement, clientX: number, clientY: number): [number, number] | null` — const, line 526
-- `const widthPoints = Number(pageEl.dataset.widthPoints)` — const, line 527
-- `const rect = pageEl.getBoundingClientRect()` — const, line 528
-- `const scale = rect.width / widthPoints` — const, line 530
-- `const x = Math.min(Math.max((clientX - rect.left) / scale, 0), widthPoints)` — const, line 531
-- `const y = Math.min(Math.max((clientY - rect.top) / scale, 0), rect.height / scale)` — const, line 532
-- `const blockForRect = useCallback( (page: number, rect: number[]): ReaderPdfBlockDto | null` — const, line 536
-- `let best: ReaderPdfBlockDto | null = null` — let, line 538
-- `let bestArea = 0` — let, line 539
-- `const w = Math.min(rect[2], block.bbox[2]) - Math.max(rect[0], block.bbox[0])` — const, line 542
-- `const h = Math.min(rect[3], block.bbox[3]) - Math.max(rect[1], block.bbox[1])` — const, line 543
-- `const onMarqueeMouseDown = useCallback((event: React.MouseEvent): boolean` — const, line 554
-- `const target = event.target as Node` — const, line 556
-- `const pageEl = pageElFor(target)` — const, line 558
-- `const point = pdfPointFromClient(pageEl, event.clientX, event.clientY)` — const, line 560
-- `const page = Number(pageEl.dataset.pdfPage)` — const, line 566
-- `const marqueeDrafting = marqueeDraft !== null` — const, line 575
-- `const draftRect = (drag:` — const, line 578
-- `const onMove = (event: MouseEvent)` — const, line 584
-- `const drag = marqueeDragRef.current` — const, line 585
-- `const point = pdfPointFromClient(drag.pageEl, event.clientX, event.clientY)` — const, line 587
-- `const onUp = (event: MouseEvent)` — const, line 590
-- `const drag = marqueeDragRef.current` — const, line 591
-- `const point = pdfPointFromClient(drag.pageEl, event.clientX, event.clientY)` — const, line 595
-- `const rect = draftRect(drag, point)` — const, line 597
-- `const next = [...marqueeBoxesRef.current,` — const, line 599
-- `const resolveMarquee = useCallback( (boxes: MarqueeBox[]): Array<` — const, line 617
-- `const container = containerRef.current` — const, line 619
-- `interface Gather` — interface, line 621
-- `const gathered = new Map<string, Gather>()` — const, line 628
-- `const entryFor = (block: ReaderPdfBlockDto): Gather` — const, line 629
-- `let entry = gathered.get(block.spanId)` — let, line 630
-- `const pages = [...new Set(boxes.map((b)` — const, line 643
-- `let order = 0` — let, line 644
-- `const pageBoxes = boxes.filter((b)` — const, line 646
-- `const pageEl = container.querySelector(`[data-pdf-page="$` — const, line 647
-- `const overlap = rectOverlap(rect, block.bbox)` — const, line 654
-- `const widthPoints = Number(pageEl.dataset.widthPoints)` — const, line 662
-- `const pageRect = pageEl.getBoundingClientRect()` — const, line 663
-- `const layer = pageEl.querySelector(".textLayer")` — const, line 664
-- `const scale = pageRect.width / widthPoints` — const, line 666
-- `const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT)` — const, line 667
-- `const text = node as Text` — const, line 669
-- `const wordPattern = /\S+/g` — const, line 670
-- `let match: RegExpExecArray | null` — let, line 671
-- `const wordRange = document.createRange()` — const, line 673
-- `const rects = Array.from(wordRange.getClientRects()).filter((r)` — const, line 676
-- `const union = rects.reduce( (acc, r)` — const, line 678
-- `const cx = (union[0] + union[2]) / 2` — const, line 687
-- `const cy = (union[1] + union[3]) / 2` — const, line 688
-- `const hit = pageBoxes.some( (rect)` — const, line 689
-- `const block = blockForRect(page, union)` — const, line 695
-- `const entry = entryFor(block)` — const, line 697
-- `const commitMarquee = useCallback(()` — const, line 722
-- `const boxes = marqueeBoxesRef.current` — const, line 723
-- `const nodes = resolveMarquee(boxes)` — const, line 725
-- `const display = nodes.map((n)` — const, line 730
-- `const commitMarqueeRef = useRef(commitMarquee)` — const, line 733
-- `const onKeyDown = (event: KeyboardEvent)` — const, line 741
-- `const onKeyUp = (event: KeyboardEvent)` — const, line 745
-- `const onBlur = ()` — const, line 751
-- `const marqueeByPage = useMemo(()` — const, line 769
-- `const map = new Map<number, number[][]>()` — const, line 770
-- `const list = map.get(box.page) ?? []` — const, line 772
-- `const onPaneMouseDown = useCallback( (event: React.MouseEvent)` — const, line 781
-- `const resolveSelection = useCallback(():` — const, line 798
-- `const selection = window.getSelection()` — const, line 803
-- `const quote = selection.toString().replace(/\s+/g, " ").trim()` — const, line 805
-- `const range = selection.getRangeAt(0)` — const, line 807
-- `const root = range.commonAncestorContainer` — const, line 810
-- `const textNodes: Node[] = []` — const, line 811
-- `const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)` — const, line 815
-- `const segments: Array<` — const, line 824
-- `const bySpan = new Map<string,` — const, line 825
-- `const append = (spanId: string, text: string)` — const, line 826
-- `let segment = bySpan.get(spanId)` — let, line 827
-- `const sub = document.createRange()` — const, line 836
-- `const text = sub.toString().replace(/\s+/g, " ")` — const, line 840
-- `const pageEl = pageElFor(node)` — const, line 842
-- `const page = Number(pageEl.dataset.pdfPage)` — const, line 844
-- `const widthPoints = Number(pageEl.dataset.widthPoints)` — const, line 845
-- `const pageRect = pageEl.getBoundingClientRect()` — const, line 846
-- `const scale = pageRect.width / widthPoints` — const, line 848
-- `const overlaps = new Map<string, number>()` — const, line 849
-- `const x0 = (rect.left - pageRect.left) / scale` — const, line 851
-- `const x1 = (rect.right - pageRect.left) / scale` — const, line 852
-- `const y0 = (rect.top - pageRect.top) / scale` — const, line 853
-- `const y1 = (rect.bottom - pageRect.top) / scale` — const, line 854
-- `const w = Math.min(x1, block.bbox[2]) - Math.max(x0, block.bbox[0])` — const, line 859
-- `const h = Math.min(y1, block.bbox[3]) - Math.max(y0, block.bbox[1])` — const, line 860
-- `const best = [...overlaps.entries()].sort((a, b)` — const, line 864
-- `const nodes = segments .map((segment)` — const, line 871
-- `const block = blockBySpan.get(segment.spanId)` — const, line 873
-- `const primary = [...nodes].sort((a, b)` — const, line 885
-- `const onMouseUp = useCallback(()` — const, line 889
-- `const resolved = resolveSelection()` — const, line 890
-- `const onContextMenu = useCallback( (event: React.MouseEvent)` — const, line 900
-- `const resolved = resolveSelection()` — const, line 902
-- `const pageEl = pageElFor(event.target as Node)` — const, line 917
-- `const point = pageEl ? pdfPointFromClient(pageEl, event.clientX, event.clientY) : null` — const, line 918
-- `const page = pageEl ? Number(pageEl.dataset.pdfPage) : null` — const, line 921
-- `const onCommittedBox = point !== null && page !== null && marqueeBoxesRef.current.some( (box)` — const, line 922
-- `const nodes = resolveMarquee(marqueeBoxesRef.current)` — const, line 931
-- `const block = blockAtPoint(pageEl, event.clientX, event.clientY)` — const, line 945
-- `const pageWidth = Math.max(320, containerWidth - 2) * zoom` — const, line 961
-- `function ZoomButton(` — function, line 1058
-- `function PdfPage(` — function, line 1083
-- `const wrapperRef = useRef<HTMLDivElement | null>(null)` — const, line 1112
-- `const canvasRef = useRef<HTMLCanvasElement | null>(null)` — const, line 1113
-- `const textRef = useRef<HTMLDivElement | null>(null)` — const, line 1114
-- `const renderedKeyRef = useRef<string | null>(null)` — const, line 1117
-- `const node = wrapperRef.current` — const, line 1120
-- `const observer = new IntersectionObserver( (entries)` — const, line 1122
-- `const renderKey = `$` — const, line 1132
-- `let cancelled = false` — let, line 1134
-- `const page = await doc.getPage(pageIndex + 1)` — const, line 1137
-- `const base = page.getViewport(` — const, line 1138
-- `const scale = widthPx / base.width` — const, line 1139
-- `const viewport = page.getViewport(` — const, line 1140
-- `const canvas = canvasRef.current` — const, line 1141
-- `const textDiv = textRef.current` — const, line 1142
-- `const dpr = Math.min(window.devicePixelRatio || 1, 2)` — const, line 1144
-- `const context = canvas.getContext("2d")` — const, line 1147
-- `const textLayer = new pdfjs.TextLayer(` — const, line 1157
-- `const textDiv = textRef.current` — const, line 1179
-- `const query = findQuery.toLowerCase()` — const, line 1181
-- `const hit = query.length > 0 && (span.textContent ?? "").toLowerCase().includes(query)` — const, line 1183
-- `const aspect = geometry ? geometry.heightPoints / geometry.widthPoints : 1.294` — const, line 1188
-- `const scale = geometry ? widthPx / geometry.widthPoints : 1` — const, line 1189
-- `const color = TRAIL_COLORS[t.kind] ?? TRAIL_COLORS.other` — const, line 1210
-- `const swept = sweepSpans?.has(b.spanId) ?? false` — const, line 1237
-- `const selected = selectedSpans.has(b.spanId)` — const, line 1238
-- `const active = activeSpan === b.spanId` — const, line 1239
-- `const guided = guidanceSpans.has(b.spanId)` — const, line 1240
-- `const border = swept ? `2px solid $` — const, line 1241
-- `const background = swept ? "rgba(245, 166, 35, 0.20)" : selected ? "rgba(245, 166, 35, 0.13)" : active ? "rgba(245, 166, 35, 0.08)" : guided ? "rgba(90, 77, 138, 0.10)" : "transparent"` — const, line 1250
+- `interface PageGeometry` — interface, line 44
+- `const NO_HIGHLIGHTS: PdfHighlight[] = []` — const, line 49
+- `const NO_BOXES: Box[] = []` — const, line 50
+- `const NO_PAGE_HIGHLIGHTS: HighlightOnPage[] = []` — const, line 51
+- `const NO_MARQUEE: number[][] = []` — const, line 52
+- `const NEAR_VIEW_MARGIN = "1200px 0px"` — const, line 56
+- `const BETWEEN_PAGES_PX = 48` — const, line 59
+- `const PASSAGE_TOP_MARGIN_PX = 56` — const, line 88
+- `function alignPassage(box: HTMLElement, align: PassageAlign, smooth: boolean)` — function, line 90
+- `interface PdfReaderPaneProps` — interface, line 95
+- `interface FindMatch` — interface, line 136
+- `function sameBoxes(a: readonly Box[], b: readonly Box[]): boolean` — function, line 142
+- `const x = a[i]` — const, line 146
+- `const y = b[i]` — const, line 147
+- `function samePageHighlights(a: readonly HighlightOnPage[], b: readonly HighlightOnPage[]): boolean` — function, line 153
+- `const FIGURE_BLOCK_TYPES = new Set(["Figure", "FigureGroup", "Picture", "PictureGroup"])` — const, line 160
+- `const containerRef = useRef<HTMLDivElement | null>(null)` — const, line 188
+- `const pageTextsRef = useRef<Map<number, string>>(new Map())` — const, line 196
+- `const findInputRef = useRef<HTMLInputElement | null>(null)` — const, line 197
+- `const clampZoom = (value: number)` — const, line 199
+- `const zoomIn = useCallback(()` — const, line 200
+- `const zoomOut = useCallback(()` — const, line 201
+- `const openFind = useCallback(()` — const, line 203
+- `const closeFind = useCallback(()` — const, line 207
+- `const coveredPages = useMemo(()` — const, line 214
+- `const blocksByPage = useMemo(()` — const, line 215
+- `const map = new Map<number, ReaderPdfBlockDto[]>()` — const, line 216
+- `const list = map.get(block.page) ?? []` — const, line 218
+- `let cancelled = false` — let, line 229
+- `const hasBoxes = blocks.length > 0` — const, line 252
+- `let cancelled = false` — let, line 255
+- `const base = (await doc.getPage(page + 1)).getViewport(` — const, line 258
+- `const sizes = pageSizes && pageSizes.doc === doc ? pageSizes.sizes : null` — const, line 272
+- `const node = containerRef.current` — const, line 275
+- `const observer = new ResizeObserver(()` — const, line 277
+- `let cancelled = false` — let, line 290
+- `const timer = setTimeout(async ()` — const, line 291
+- `const query = findQuery.trim().toLowerCase()` — const, line 292
+- `const found: FindMatch[] = []` — const, line 293
+- `let text = pageTextsRef.current.get(page)` — let, line 295
+- `const pdfPage = await doc.getPage(page + 1)` — const, line 298
+- `const content = await pdfPage.getTextContent()` — const, line 299
+- `let from = 0` — let, line 311
+- `let ordinal = 0` — let, line 312
+- `const at = text.indexOf(query, from)` — const, line 314
+- `const scrollToMatch = useCallback((match: FindMatch)` — const, line 332
+- `const pageEl = containerRef.current?.querySelector(`[data-pdf-page="$` — const, line 333
+- `const hits = pageEl.querySelectorAll(".ll-find-hit")` — const, line 336
+- `const target = hits[Math.min(match.ordinal, Math.max(0, hits.length - 1))]` — const, line 337
+- `const current = matches[matchIdx]` — const, line 342
+- `const gotoMatch = useCallback( (delta: number)` — const, line 346
+- `const handler = (event: KeyboardEvent)` — const, line 355
+- `const modifier = event.ctrlKey || event.metaKey` — const, line 357
+- `const editing = event.target instanceof HTMLElement && ["INPUT", "TEXTAREA"].includes(event.target.tagName)` — const, line 363
+- `const node = containerRef.current` — const, line 382
+- `const onWheel = (event: WheelEvent)` — const, line 384
+- `const onTouch = ()` — const, line 393
+- `const pendingTargetRef = useRef<` — const, line 412
+- `const applyPageScroll = useCallback((page: number, offset: number): boolean` — const, line 421
+- `const container = containerRef.current` — const, line 422
+- `const pageEl = container?.querySelector(`[data-pdf-page="$` — const, line 423
+- `const pageRect = pageEl.getBoundingClientRect()` — const, line 425
+- `let scroller: HTMLElement | null = container?.parentElement ?? null` — let, line 427
+- `const passageBox = useCallback((page: number, spanId: string): HTMLElement | null` — const, line 439
+- `const pageEl = containerRef.current?.querySelector(`[data-pdf-page="$` — const, line 440
+- `const box = Array.from(pageEl.querySelectorAll<HTMLElement>("[data-span-id]")).find( (element)` — const, line 442
+- `const applyTarget = useCallback( (target:` — const, line 447
+- `const box = passageBox(target.page, target.spanId)` — const, line 450
+- `const keepTarget = useCallback( (page: number, offset: number, spanId: string | null, align: PassageAlign = "center")` — const, line 461
+- `const target =` — const, line 463
+- `const scrollToSegment = useCallback( (page: number, spanId?: string | null, align: PassageAlign = "center")` — const, line 474
+- `const box = spanId ? passageBox(page, spanId) : null` — const, line 477
+- `const scrollToPage = useCallback( (page: number, offset = 0)` — const, line 489
+- `const timer = window.setInterval(()` — const, line 495
+- `const pending = pendingTargetRef.current` — const, line 496
+- `const model = useMemo(()` — const, line 515
+- `const onPageText = useCallback( (page: number, items: readonly GlyphItem[], transform: readonly number[], styles?: TextStyles | null)` — const, line 517
+- `const onPageGlyphs = useCallback( (page: number, words: readonly GlyphWord[])` — const, line 527
+- `const nearPagesRef = useRef<ReadonlySet<number>>(nearPages)` — const, line 538
+- `const pageEls = useRef(new Map<number, HTMLElement>())` — const, line 540
+- `const registerPage = useCallback((page: number, element: HTMLElement | null)` — const, line 541
+- `const onNearChange = useCallback((page: number, near: boolean)` — const, line 545
+- `const next = new Set(current)` — const, line 548
+- `const pointAt = useCallback((clientX: number, clientY: number): PagePoint | null` — const, line 557
+- `const near = nearPagesRef.current` — const, line 558
+- `const candidates = near.size ? [...near] : [...pageEls.current.keys()]` — const, line 559
+- `let best:` — let, line 560
+- `const element = pageEls.current.get(page)` — const, line 562
+- `const rect = element.getBoundingClientRect()` — const, line 564
+- `const distance = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0` — const, line 566
+- `const widthPoints = Number(best.element.dataset.widthPoints)` — const, line 570
+- `const scale = best.rect.width / widthPoints` — const, line 572
+- `const placed = useMemo(()` — const, line 581
+- `const details = useMemo(()` — const, line 582
+- `const activeId = activeHighlight?.id ?? null` — const, line 587
+- `const onHighlightClick = useCallback((id: string | null, point?: PagePoint)` — const, line 593
+- `const onHighlightFocus = useCallback((id: string | null, page: number)` — const, line 596
+- `const pageHighlightsRef = useRef(new Map<number, HighlightOnPage[]>())` — const, line 602
+- `const pageHighlights = useMemo(()` — const, line 603
+- `const next = new Map<number, HighlightOnPage[]>()` — const, line 605
+- `const fresh = highlightsOnPage(model, placed, page)` — const, line 607
+- `const previous = pageHighlightsRef.current.get(page)` — const, line 608
+- `const highlightAtPoint = useCallback( (point: PagePoint): string | null` — const, line 615
+- `const firstShownPage = useCallback((): number | null` — const, line 623
+- `const top = containerRef.current?.parentElement?.getBoundingClientRect().top ?? 0` — const, line 624
+- `let best:` — let, line 625
+- `const rect = pageEls.current.get(page)?.getBoundingClientRect()` — const, line 627
+- `const revealBlock = useCallback( (index: number)` — const, line 635
+- `const block = model.blocks[index]` — const, line 637
+- `const box = passageBox(block.page, block.spanId)` — const, line 639
+- `const regionAt = useCallback( (box:` — const, line 648
+- `const cx = (box.rect[0] + box.rect[2]) / 2` — const, line 651
+- `const cy = (box.rect[1] + box.rect[3]) / 2` — const, line 652
+- `const figure = blocks.find((block)` — const, line 653
+- `const text = figure?.text ?? ""` — const, line 656
+- `const sel = usePdfSelection(` — const, line 662
+- `const selectionRectsRef = useRef(new Map<number, Box[]>())` — const, line 679
+- `const selectionRects = useMemo(()` — const, line 680
+- `const next = new Map<number, Box[]>()` — const, line 682
+- `const fresh = rangeRects(model, sel.painted, page)` — const, line 685
+- `const previous = selectionRectsRef.current.get(page)` — const, line 687
+- `const framedSpan = useMemo(()` — const, line 697
+- `const block = model.blockIndex(activeSpan)` — const, line 699
+- `const covered = sel.painted.some((range)` — const, line 701
+- `const lo = Math.min(range.anchor.block, range.head.block)` — const, line 702
+- `const hi = Math.max(range.anchor.block, range.head.block)` — const, line 703
+- `const caret = useMemo(():` — const, line 709
+- `const box = model.geometry(sel.caret.block).boxes[sel.caret.unit]?.[0]` — const, line 712
+- `const marqueeByPage = useMemo(()` — const, line 716
+- `const map = new Map<number, number[][]>()` — const, line 717
+- `const list = map.get(box.page) ?? []` — const, line 719
+- `const onPagesMouseMove = useCallback( (event: React.MouseEvent)` — const, line 729
+- `const target = event.target as HTMLElement` — const, line 732
+- `const point = target.closest?.("[data-pdf-page]") ? pointAt(event.clientX, event.clientY) : null` — const, line 734
+- `const hovered = point ? highlightAtPoint(point) : null` — const, line 735
+- `let next = "default"` — let, line 737
+- `const block = blockAt(model, point.page, point.x, point.y)` — const, line 740
+- `const inside = block !== null && (()` — const, line 741
+- `const highlightActions = useRef(` — const, line 754
+- `const removeHighlight = useCallback((id: string)` — const, line 756
+- `const openHighlight = useCallback((id: string)` — const, line 763
+- `const onPagesKeyDown = useCallback( (event: React.KeyboardEvent)` — const, line 765
+- `const target = event.target as HTMLElement` — const, line 767
+- `const editing = target.isContentEditable || Boolean(target.closest?.("input, textarea, select"))` — const, line 768
+- `const onContextMenu = useCallback( (event: React.MouseEvent)` — const, line 793
+- `const target = event.target as HTMLElement` — const, line 795
+- `const point = pointAt(event.clientX, event.clientY)` — const, line 797
+- `const under = sel.selectionUnder(point)` — const, line 799
+- `const block = blockAt(model, point.page, point.x, point.y)` — const, line 805
+- `const reportedWidth = Math.max(320, containerWidth - 2) * zoom` — const, line 818
+- `const pages = coveredPages.flatMap((page, index)` — const, line 821
+- `const size = sizes.get(page)` — const, line 822
+- `const pageWidth = Math.max(320, containerWidth - 2) * zoom` — const, line 838
+- `const busy = sel.pressing || sel.sweeping` — const, line 839
+- `const onPage = pageHighlights.get(page) ?? NO_PAGE_HIGHLIGHTS` — const, line 915
+- `const NO_BLOCKS: ReaderPdfBlockDto[] = []` — const, line 962
+- `const VISUALLY_HIDDEN =` — const, line 964
+- `function ZoomButton(` — function, line 973
+- `const FONT_WAIT_MS = 3_000` — const, line 999
+- `async function paintedWords( page:` — function, line 1004
+- `const ops = (pdfjs as` — const, line 1009
+- `const annotationMode = (pdfjs as` — const, line 1011
+- `const opList = await page.getOperatorList(annotationMode === undefined ? undefined :` — const, line 1012
+- `const objects = page.commonObjs as |` — const, line 1013
+- `const fonts = new Map<string, PdfFontInfo | null>()` — const, line 1016
+- `const name = String((opList.argsArray[index] as unknown[] | undefined)?.[0] ?? "")` — const, line 1019
+- `let font: unknown = null` — let, line 1021
+- `interface ActiveHighlight` — interface, line 1040
+- `function isGlyphItem(item: unknown): item is GlyphItem` — function, line 1046
+- `function isCancelled(error: unknown): boolean` — function, line 1050
+- `interface PdfPageProps` — interface, line 1054
+- `const PdfPage = memo(function PdfPage(` — const, line 1087
+- `const wrapperRef = useRef<HTMLDivElement | null>(null)` — const, line 1118
+- `const canvasRef = useRef<HTMLCanvasElement | null>(null)` — const, line 1119
+- `const textRef = useRef<HTMLDivElement | null>(null)` — const, line 1120
+- `const renderedKeyRef = useRef<string | null>(null)` — const, line 1126
+- `const setWrapper = useCallback( (element: HTMLDivElement | null)` — const, line 1128
+- `const node = wrapperRef.current` — const, line 1138
+- `const observer = new IntersectionObserver( (entries)` — const, line 1140
+- `const renderKey = `$` — const, line 1154
+- `let cancelled = false` — let, line 1156
+- `let task:` — let, line 1157
+- `const page = await doc.getPage(pageIndex + 1)` — const, line 1160
+- `const base = page.getViewport(` — const, line 1161
+- `let content: Awaited<ReturnType<typeof page.getTextContent>> | null = null` — let, line 1164
+- `const items: GlyphItem[] = []` — const, line 1173
+- `const scale = widthPx / base.width` — const, line 1180
+- `const viewport = page.getViewport(` — const, line 1181
+- `const canvas = canvasRef.current` — const, line 1182
+- `const textDiv = textRef.current` — const, line 1183
+- `const dpr = Math.min(window.devicePixelRatio || 1, 2)` — const, line 1185
+- `const context = canvas.getContext("2d")` — const, line 1188
+- `const textLayer = new pdfjs.TextLayer(` — const, line 1199
+- `const words = await paintedWords(page, base.transform)` — const, line 1222
+- `const wasDrawn = renderedKeyRef.current !== null` — const, line 1243
+- `const canvas = canvasRef.current` — const, line 1244
+- `const textDiv = textRef.current` — const, line 1266
+- `const query = findQuery.toLowerCase()` — const, line 1268
+- `const hit = query.length > 0 && (span.textContent ?? "").toLowerCase().includes(query)` — const, line 1270
+- `const known = measured ?? size` — const, line 1277
+- `const aspect = known ? known.heightPoints / known.widthPoints : 1.294` — const, line 1278
+- `const scale = known ? widthPx / known.widthPoints : 1` — const, line 1279
+- `const active = activeSpan === b.spanId` — const, line 1303
+- `const guided = guidanceSpans.has(b.spanId)` — const, line 1304
+- `const covered = Boolean(coveredSpans?.has(b.spanId))` — const, line 1307
 
 ## Who imports or calls it
 
@@ -325,16 +279,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `PdfReaderPane`, `PdfReaderPaneHandle`, `TagMenuRequest`; references `PdfReaderPane`, `PdfReaderPaneHandle`, `TagMenuRequest`
+- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `PassageAlign`; references `PassageAlign`
+- [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]] — import-or-re-export: `PdfReaderPane`; references `PdfReaderPane`
+- [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export: `TagMenuRequest`; references `TagMenuRequest`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `PassageAlign`; references `PassageAlign`
+- [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `PassageAlign`, `PdfReaderPaneHandle`; references `PassageAlign`, `PdfReaderPaneHandle`
 
 ## Dependencies
 
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderPdfBlockDto`
-- [[Reference/Desktop/TypeScript/components/RectUnionOverlay|src/components/RectUnionOverlay.tsx]] — import-or-re-export; imports `RectUnionOverlay`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/pdfDocumentCache|src/components/pdfDocumentCache.ts]] — import-or-re-export; imports `acquirePdfDocument`
+- [[Reference/Desktop/TypeScript/components/pdfPages|src/components/pdfPages.ts]] — import-or-re-export; imports `pagesLeftOutLabel`, `pagesShownLabel`, `pagesToShow`
+- [[Reference/Desktop/TypeScript/components/pdfSelection/PdfSelectionLayer|src/components/pdfSelection/PdfSelectionLayer.tsx]] — import-or-re-export; imports `PdfSelectionLayer`
+- [[Reference/Desktop/TypeScript/components/pdfSelection/geometry|src/components/pdfSelection/geometry.ts]] — import-or-re-export; imports `PdfFontInfo`, `operatorWords`
+- [[Reference/Desktop/TypeScript/components/pdfSelection/highlights|src/components/pdfSelection/highlights.ts]] — import-or-re-export; imports `HighlightOnPage`, `PdfHighlight`, `highlightAt`, `highlightsOnPage`, `placeHighlights`
+- [[Reference/Desktop/TypeScript/components/pdfSelection/model|src/components/pdfSelection/model.ts]] — import-or-re-export; imports `Box`, `GlyphItem`, `GlyphWord`, `SelectionModel`, `SelectionPayload`, `TextStyles`, `blockAt`, `rangeRects`
+- [[Reference/Desktop/TypeScript/components/pdfSelection/usePdfSelection|src/components/pdfSelection/usePdfSelection.ts]] — import-or-re-export; imports `HeldSelection`, `PagePoint`, `usePdfSelection`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `AnnotationTrail`
+- [[Reference/Desktop/TypeScript/screens/reader/cues|src/screens/reader/cues.ts]] — import-or-re-export; imports `PdfPageLayout`
 
 ### Assets, platform, and third-party dependencies
 
@@ -350,6 +315,9 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/PdfReaderPane.selection.test.tsx](../../../../../../apps/learnloop-tauri/src/components/PdfReaderPane.selection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/components/PdfReaderPane.scroll.test.tsx](../../../../../../apps/learnloop-tauri/src/components/PdfReaderPane.scroll.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/components/PdfReaderPane.marks.test.tsx](../../../../../../apps/learnloop-tauri/src/components/PdfReaderPane.marks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/QuestionQueue.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/QuestionQueue.tsx"
-source_commit: "971d7c274e09873d726d43578cd080e4d8865571"
-source_commit_timestamp: "2026-07-27T06:01:19-04:00"
+source_commit: "d417dd9d3637496910cfd36dd6b756f8a63d2073"
+source_commit_timestamp: "2026-10-13T06:07:23-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/QuestionQueue.tsx](../../../../../../apps/learnloop-tauri/src/components/QuestionQueue.tsx) |
-| Source lines | 354 |
+| Source lines | 356 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `971d7c274e09873d726d43578cd080e4d8865571` |
-| Commit timestamp | `2026-07-27T06:01:19-04:00` |
+| Source commit | `d417dd9d3637496910cfd36dd6b756f8a63d2073` |
+| Commit timestamp | `2026-10-13T06:07:23-04:00` |
 
 ## Activation and status evidence
 
@@ -61,6 +61,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export function QuestionQueuePanel(` — function, line 29
+- `export function targetForDialogue(row: QuestionQueueRowDto): AskTarget | null` — function, line 300
 
 ## Internal implementation anchors
 
@@ -76,9 +77,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const dialogueTarget = targetForDialogue(row)` — const, line 127
 - `const primedItemId = readyPracticeItemId(row)` — const, line 128
 - `const primedItemId = sourceLaunch.primedItemId` — const, line 290
-- `function targetForDialogue(row: QuestionQueueRowDto): AskTarget | null` — function, line 300
-- `function readyPracticeItemId(row: QuestionQueueRowDto): string | null` — function, line 330
-- `function QueueAction(` — function, line 338
+- `function readyPracticeItemId(row: QuestionQueueRowDto): string | null` — function, line 332
+- `function QueueAction(` — function, line 340
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `QuestionQueuePanel`; references `QuestionQueuePanel`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `targetForDialogue`; references `targetForDialogue`
 
 ## Dependencies
 

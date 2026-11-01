@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/CommandOverlayFrame.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/CommandOverlayFrame.tsx"
-source_commit: "fa517c8bc9765da6c71430b15a4c41f3897c0736"
-source_commit_timestamp: "2026-07-24T10:35:21-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/CommandOverlayFrame.tsx](../../../../../../apps/learnloop-tauri/src/components/CommandOverlayFrame.tsx) |
-| Source lines | 184 |
+| Source lines | 185 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `fa517c8bc9765da6c71430b15a4c41f3897c0736` |
-| Commit timestamp | `2026-07-24T10:35:21-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,21 +60,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const learnloopShowOverlayWidth = "min(1120px, 100%)"` — const, line 4
-- `export function CommandOverlayFrame(` — function, line 11
-- `export const commandOverlayActionStyle: CSSProperties =` — const, line 133
+- `export const learnloopShowOverlayWidth = "min(1120px, 100%)"` — const, line 5
+- `export function CommandOverlayFrame(` — function, line 12
+- `export const commandOverlayActionStyle: CSSProperties =` — const, line 134
 
 ## Internal implementation anchors
 
-- `const modalRef = useRef<HTMLElement | null>(null)` — const, line 40
-- `const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null` — const, line 44
-- `const focusable = Array.from( modalRef.current?.querySelectorAll<HTMLElement>( 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])' ) ?? [] )` — const, line 68
-- `const first = focusable[0]` — const, line 73
-- `const last = focusable[focusable.length - 1]` — const, line 74
-- `const commandOverlayBackdropStyle: CSSProperties =` — const, line 143
-- `const commandOverlayModalStyle: CSSProperties =` — const, line 155
-- `const commandOverlayHeaderStyle: CSSProperties =` — const, line 166
-- `const commandOverlayFooterStyle: CSSProperties =` — const, line 175
+- `const modalRef = useRef<HTMLElement | null>(null)` — const, line 41
+- `const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null` — const, line 45
+- `const focusable = Array.from( modalRef.current?.querySelectorAll<HTMLElement>( 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])' ) ?? [] )` — const, line 69
+- `const first = focusable[0]` — const, line 74
+- `const last = focusable[focusable.length - 1]` — const, line 75
+- `const commandOverlayBackdropStyle: CSSProperties =` — const, line 144
+- `const commandOverlayModalStyle: CSSProperties =` — const, line 156
+- `const commandOverlayHeaderStyle: CSSProperties =` — const, line 167
+- `const commandOverlayFooterStyle: CSSProperties =` — const, line 176
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/app/keyScope|src/app/keyScope.ts]] — import-or-re-export; imports `keyScope`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 
 ### Assets, platform, and third-party dependencies

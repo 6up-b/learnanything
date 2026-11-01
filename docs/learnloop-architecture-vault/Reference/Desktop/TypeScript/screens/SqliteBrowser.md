@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/SqliteBrowser.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/SqliteBrowser.tsx"
-source_commit: "b19e81d9993c28e995049da1aa16f8d316d56d68"
-source_commit_timestamp: "2026-07-13T13:41:22-04:00"
+source_commit: "3ff403d6b8e867037e05fc2ef5dc0fcfa5141492"
+source_commit_timestamp: "2026-10-21T13:01:47-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/SqliteBrowser.tsx](../../../../../../apps/learnloop-tauri/src/screens/SqliteBrowser.tsx) |
-| Source lines | 715 |
+| Source lines | 754 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `b19e81d9993c28e995049da1aa16f8d316d56d68` |
-| Commit timestamp | `2026-07-13T13:41:22-04:00` |
+| Source commit | `3ff403d6b8e867037e05fc2ef5dc0fcfa5141492` |
+| Commit timestamp | `2026-10-21T13:01:47-04:00` |
 
 ## Activation and status evidence
 
@@ -60,56 +60,57 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function SqliteBrowser(` — function, line 114
+- `export function SqliteBrowser(` — function, line 115
 
 ## Internal implementation anchors
 
 - `type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react"` — type, line 7
 - `type RefObject } from "react"` — type, line 8
-- `const PAGE = 200` — const, line 14
-- `type Cell = string | number | boolean | null` — type, line 16
-- `type BrowserMode = "nav" | "edit"` — type, line 17
-- `type CellPosition =` — type, line 18
-- `function CellText(` — function, line 20
-- `function GridCell(` — function, line 29
-- `const tdStyle =` — const, line 44
-- `function ConsoleResult(` — function, line 74
-- `const gridRef = useRef<HTMLDivElement>(null)` — const, line 127
-- `const editRef = useRef<HTMLTextAreaElement>(null)` — const, line 128
-- `const cellRefs = useRef(new Map<string, HTMLTableCellElement>())` — const, line 129
-- `const initialFocusPath = useRef<string | null>(null)` — const, line 130
-- `const refreshTables = useCallback(async ()` — const, line 132
-- `const snapshot = await api.sqliteTables(path)` — const, line 134
-- `const loadTable = useCallback( async (table: string, nextOffset: number)` — const, line 155
-- `const updateCell = async (rowid: number, column: string, value: string | null): Promise<boolean>` — const, line 191
-- `const insertRow = async ()` — const, line 206
-- `const deleteRow = async (rowid: number)` — const, line 220
-- `const runSql = async ()` — const, line 234
-- `const result = await api.sqliteExec(path, sql)` — const, line 238
-- `const editable = Boolean(data?.editable)` — const, line 252
-- `const rangeEnd = data ? Math.min(offset + (data.rows.length || 0), data.rowCount) : 0` — const, line 253
-- `const pkSet = useMemo(()` — const, line 254
-- `const selectedValue = activeCell && data ? data.rows[activeCell.row]?.cells[activeCell.column] : undefined` — const, line 255
-- `const selectedColumn = activeCell && data ? data.columns[activeCell.column] : undefined` — const, line 256
-- `const selectedRow = activeCell && data ? data.rows[activeCell.row] : undefined` — const, line 257
-- `const selectedCellEditable = Boolean(editable && selectedRow?.rowid !== null && selectedRow?.rowid !== undefined)` — const, line 258
-- `const focusGrid = ()` — const, line 260
-- `const selectCell = (position: CellPosition, openInspector = false)` — const, line 262
-- `const beginCellEdit = (position: CellPosition | null = activeCell)` — const, line 269
-- `const row = data.rows[position.row]` — const, line 271
-- `const value = row?.cells[position.column]` — const, line 272
-- `const cancelCellEdit = ()` — const, line 281
-- `const commitCellEdit = async ()` — const, line 286
-- `const saved = await updateCell(selectedRow.rowid, selectedColumn.name, editAsNull ? null : editDraft)` — const, line 288
-- `const moveCell = (rowDelta: number, columnDelta: number)` — const, line 295
-- `const current = activeCell ??` — const, line 297
-- `const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>)` — const, line 304
-- `let handled = true` — let, line 306
-- `const key = `$` — const, line 418
-- `function CellInspector(` — function, line 501
-- `function ActionButton(` — function, line 672
-- `const headStyle =` — const, line 694
-- `const cellStyle =` — const, line 708
+- `const PAGE = 200` — const, line 15
+- `type Cell = string | number | boolean | null` — type, line 17
+- `type BrowserMode = "nav" | "edit"` — type, line 18
+- `type CellPosition =` — type, line 19
+- `function CellText(` — function, line 21
+- `function GridCell(` — function, line 30
+- `const tdStyle =` — const, line 45
+- `function ConsoleResult(` — function, line 75
+- `const gridRef = useRef<HTMLDivElement>(null)` — const, line 141
+- `const editRef = useRef<HTMLTextAreaElement>(null)` — const, line 142
+- `const cellRefs = useRef(new Map<string, HTMLTableCellElement>())` — const, line 143
+- `const initialFocusPath = useRef<string | null>(null)` — const, line 144
+- `const refreshTables = useCallback(async ()` — const, line 146
+- `const snapshot = await api.sqliteTables(path)` — const, line 148
+- `const loadTable = useCallback( async (table: string, nextOffset: number)` — const, line 169
+- `const updateCell = async (rowid: number, column: string, value: string | null): Promise<boolean>` — const, line 205
+- `const insertRow = async ()` — const, line 220
+- `const deleteRow = async (rowid: number)` — const, line 234
+- `const runSql = async ()` — const, line 248
+- `const result = await api.sqliteExec(path, sql)` — const, line 252
+- `const tableEditable = Boolean(data?.editable)` — const, line 266
+- `const editable = tableEditable && editsAllowed` — const, line 267
+- `const rangeEnd = data ? Math.min(offset + (data.rows.length || 0), data.rowCount) : 0` — const, line 268
+- `const pkSet = useMemo(()` — const, line 269
+- `const selectedValue = activeCell && data ? data.rows[activeCell.row]?.cells[activeCell.column] : undefined` — const, line 270
+- `const selectedColumn = activeCell && data ? data.columns[activeCell.column] : undefined` — const, line 271
+- `const selectedRow = activeCell && data ? data.rows[activeCell.row] : undefined` — const, line 272
+- `const selectedCellEditable = Boolean(editable && selectedRow?.rowid !== null && selectedRow?.rowid !== undefined)` — const, line 273
+- `const focusGrid = ()` — const, line 275
+- `const selectCell = (position: CellPosition, openInspector = false)` — const, line 277
+- `const beginCellEdit = (position: CellPosition | null = activeCell)` — const, line 284
+- `const row = data.rows[position.row]` — const, line 286
+- `const value = row?.cells[position.column]` — const, line 287
+- `const cancelCellEdit = ()` — const, line 296
+- `const commitCellEdit = async ()` — const, line 301
+- `const saved = await updateCell(selectedRow.rowid, selectedColumn.name, editAsNull ? null : editDraft)` — const, line 303
+- `const moveCell = (rowDelta: number, columnDelta: number)` — const, line 310
+- `const current = activeCell ??` — const, line 312
+- `const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>)` — const, line 319
+- `let handled = true` — let, line 326
+- `const key = `$` — const, line 451
+- `function CellInspector(` — function, line 540
+- `function ActionButton(` — function, line 711
+- `const headStyle =` — const, line 733
+- `const cellStyle =` — const, line 747
 
 ## Who imports or calls it
 
@@ -117,6 +118,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `SqliteBrowser`; references `SqliteBrowser`
+- [[Reference/Desktop/TypeScript/screens/underhood/tools|src/screens/underhood/tools.tsx]] — dynamic import: dynamic import; no named call claim
 
 ## Dependencies
 
@@ -124,6 +126,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SqliteExecResult`, `SqliteTableInfo`, `SqliteTableSnapshot`
+- [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export; imports `simpleShell`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`
 
 ### Assets, platform, and third-party dependencies
@@ -140,6 +143,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/SqliteBrowser.readOnly.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/SqliteBrowser.readOnly.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

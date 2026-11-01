@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx"
-source_commit: "8afe46254010114346f91d8643dc3ff29d8d8fe2"
-source_commit_timestamp: "2026-09-03T10:56:04-07:00"
+source_commit: "b59f5a1a88e2481769277ee7f9fc528968d2f5d2"
+source_commit_timestamp: "2026-10-13T11:32:17-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx) |
-| Source lines | 254 |
+| Source lines | 292 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8afe46254010114346f91d8643dc3ff29d8d8fe2` |
-| Commit timestamp | `2026-09-03T10:56:04-07:00` |
+| Source commit | `b59f5a1a88e2481769277ee7f9fc528968d2f5d2` |
+| Commit timestamp | `2026-10-13T11:32:17-04:00` |
 
 ## Activation and status evidence
 
@@ -60,26 +60,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function RegistryReviewScreen(` — function, line 14
+- `export function RegistryReviewScreen(` — function, line 18
 
 ## Internal implementation anchors
 
-- `const registryQuery = useCachedQuery( subjectId ? ["get_subject_registry", subjectId] : null, ()` — const, line 27
-- `const registry: SubjectRegistryDto | null = registryQuery.data ?? null` — const, line 32
-- `const loading = registryQuery.loading` — const, line 33
-- `const error = actionError ?? registryQuery.error?.message ?? null` — const, line 35
-- `const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null)` — const, line 38
-- `const facetOptions = useMemo(()` — const, line 50
-- `function MeasurementRankRow(` — function, line 102
-- `const ratio = rank.rankRatio == null ? "—" : rank.rankRatio.toFixed(2)` — const, line 103
-- `function WarningRow(` — function, line 138
-- `const canCoarsen = warning.kind === "coarsen_distinction" && warning.facetIds.length === 2` — const, line 139
-- `function FacetCard(` — function, line 157
-- `const others = facetOptions.filter((id)` — const, line 160
-- `const accent = card.status === "reviewed" ? COLOR.greenSoft : card.status === "proposed" ? COLOR.amber : COLOR.textFaint` — const, line 163
-- `const lockDetail = card.lockReasons[0]?.detail` — const, line 164
-- `function ListBlock(` — function, line 232
-- `const smallBtn: CSSProperties =` — const, line 246
+- `const registryQuery = useCachedQuery( subjectId ? ["get_subject_registry", subjectId] : null, ()` — const, line 31
+- `const registry: SubjectRegistryDto | null = registryQuery.data ?? null` — const, line 36
+- `const loading = registryQuery.loading` — const, line 37
+- `const error = actionError ?? registryQuery.error?.message ?? null` — const, line 39
+- `const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null)` — const, line 44
+- `const result = await api.proposeFacetMerge(` — const, line 48
+- `const undoLastMerge = async ()` — const, line 57
+- `const facetOptions = useMemo(()` — const, line 70
+- `function MeasurementRankRow(` — function, line 147
+- `const ratio = rank.rankRatio == null ? "—" : rank.rankRatio.toFixed(2)` — const, line 148
+- `function WarningRow(` — function, line 183
+- `const canCoarsen = warning.kind === "coarsen_distinction" && warning.facetIds.length === 2` — const, line 184
+- `function FacetCard(` — function, line 202
+- `const others = facetOptions.filter((id)` — const, line 205
+- `const accent = card.status === "reviewed" ? COLOR.greenSoft : card.status === "proposed" ? COLOR.amber : COLOR.textFaint` — const, line 208
+- `function ListBlock(` — function, line 270
+- `const smallBtn: CSSProperties =` — const, line 284
 
 ## Who imports or calls it
 
@@ -97,6 +98,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/ProvenancePanel|src/components/ProvenancePanel.tsx]] — import-or-re-export; imports `ProvenancePanel`
+- [[Reference/Desktop/TypeScript/components/RewordConfirms|src/components/RewordConfirms.tsx]] — import-or-re-export; imports `RewordConfirmList`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`
 
 ### Assets, platform, and third-party dependencies

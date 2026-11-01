@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/KnowledgeWellView.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/KnowledgeWellView.tsx"
-source_commit: "d0f25b2598a77dcc5236118dad9e1af2422d8682"
-source_commit_timestamp: "2026-08-16T20:45:34-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,176 +42,180 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/KnowledgeWellView.tsx](../../../../../../apps/learnloop-tauri/src/screens/KnowledgeWellView.tsx) |
-| Source lines | 727 |
+| Source lines | 765 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d0f25b2598a77dcc5236118dad9e1af2422d8682` |
-| Commit timestamp | `2026-08-16T20:45:34-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|src/screens/KnowledgeWellView.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|src/screens/KnowledgeWellView.tsx]]
 
 ## Public API
 
-- `export function KnowledgeWellView(` — function, line 271
+- `export function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null | undefined): FacetState[]` — function, line 121
+- `export function buildGeometry(states: FacetState[]): WellGeometry` — function, line 169
+- `export function KnowledgeWellView(` — function, line 283
 
 ## Internal implementation anchors
 
-- `const DEFAULT_W = 860` — const, line 31
-- `const DEFAULT_H = 640` — const, line 32
-- `const CENTER_LIFT = 0.047` — const, line 33
-- `const SCALE_W = 0.273` — const, line 34
-- `const SCALE_H = 0.42` — const, line 35
-- `const DEPTH = 0.9` — const, line 37
-- `const CENTER_BLEND = 0.28` — const, line 38
-- `const PROFILE_POW = 1.55` — const, line 39
-- `const EVIDENCE_K = 1.2` — const, line 40
-- `const DEMO_THRESHOLD = 0.5` — const, line 41
-- `const DEEP_LEVEL = 0.4` — const, line 42
-- `const SHALLOW_LEVEL = 0.12` — const, line 43
-- `const BEAD_R = 0.52` — const, line 44
-- `const RING_RS = [0.14, 0.28, 0.42, 0.56, 0.7, 0.84, 1]` — const, line 45
-- `const CONTOUR_QS = [0.12, 0.24, 0.36, 0.48, 0.6, 0.72]` — const, line 46
-- `const SPOKE_STEPS = 26` — const, line 47
-- `const EASE = "stroke 0.22s ease, fill 0.22s ease, opacity 0.22s ease, stroke-width 0.22s ease"` — const, line 48
-- `const clamp01 = (value: number)` — const, line 50
-- `const smooth = (t: number)` — const, line 51
-- `const visibility = (evidenceMass: number)` — const, line 52
-- `type V3 =` — type, line 54
-- `function labelLines(facetId: string, maxChars = 20): string[]` — function, line 57
-- `const words = facetId.split("_")` — const, line 58
-- `const lines: string[] = []` — const, line 59
-- `let current = ""` — let, line 60
-- `const candidate = current ? `$` — const, line 62
-- `interface FacetState` — interface, line 76
-- `function decayByFacet(decay: DecayPressureDto | null | undefined): Map<string,` — function, line 97
-- `const out = new Map<string,` — const, line 98
-- `const prev = out.get(row.facetId)` — const, line 100
-- `const crosses = [prev?.crossesInDays, row.crossesInDays].filter((v): v is number` — const, line 101
-- `function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null | undefined): FacetState[]` — function, line 110
-- `const points = [...field.points].sort((a, b)` — const, line 113
-- `const N = points.length` — const, line 114
-- `const decayMap = decayByFacet(decay)` — const, line 115
-- `const vis = visibility(point.evidenceMass)` — const, line 117
-- `const wellDepth = clamp01(point.ready) * vis` — const, line 118
-- `const ghostDepth = clamp01(point.readyGhost) * vis` — const, line 119
-- `const absent = !point.hasBlueprints` — const, line 120
-- `const entry = decayMap.get(point.id)` — const, line 121
-- `const noHistory = entry != null && !entry.hasHistory` — const, line 125
-- `const demonstrated = point.demonstratedMass >= DEMO_THRESHOLD` — const, line 126
-- `interface WellGeometry` — interface, line 148
-- `function buildGeometry(states: FacetState[]): WellGeometry` — function, line 157
-- `const N = states.length` — const, line 158
-- `const meanDepth = states.reduce((sum, s)` — const, line 159
-- `const depthAtAngle = (theta: number): number` — const, line 163
-- `const u = (((theta + Math.PI / 2) / (2 * Math.PI)) * N) % N` — const, line 164
-- `const uu = u < 0 ? u + N : u` — const, line 165
-- `const i0 = Math.floor(uu) % N` — const, line 166
-- `const t = uu - Math.floor(uu)` — const, line 167
-- `const d0 = states[i0].effectiveDepth` — const, line 168
-- `const d1 = states[(i0 + 1) % N].effectiveDepth` — const, line 169
-- `const s = (1 - Math.cos(t * Math.PI)) / 2` — const, line 170
-- `const surfaceZ = (theta: number, r: number): number` — const, line 174
-- `const blend = smooth(clamp01(r / CENTER_BLEND))` — const, line 175
-- `const d = meanDepth + (depthAtAngle(theta) - meanDepth) * blend` — const, line 176
-- `const polar = (theta: number, r: number, lift = 0): V3` — const, line 180
-- `const ASAMP = Math.max(96, Math.min(168, N * 12))` — const, line 186
-- `const thetaAt = (s: number)` — const, line 187
-- `const rings = RING_RS.map((r)` — const, line 189
-- `const pts: V3[] = []` — const, line 190
-- `const spokeAt = (theta: number): V3[]` — const, line 195
-- `const pts: V3[] = []` — const, line 196
-- `const spokes = states.map((s)` — const, line 200
-- `const RFINE = 110` — const, line 205
-- `const contours = CONTOUR_QS.map((q)` — const, line 206
-- `const zL = -DEPTH * q` — const, line 207
-- `const runs: V3[][] = []` — const, line 208
-- `let run: V3[] = []` — let, line 209
-- `const theta = thetaAt(s)` — const, line 211
-- `let hit: number | null = null` — let, line 212
-- `let prevR = 1` — let, line 213
-- `let prevZ = surfaceZ(theta, 1)` — let, line 214
-- `const r = 1 - f / RFINE` — const, line 216
-- `const z = surfaceZ(theta, r)` — const, line 217
-- `const t = prevZ === z ? 0.5 : (zL - prevZ) / (z - prevZ)` — const, line 219
-- `const beads = states.map((s)` — const, line 237
-- `const ghosts = states.map((s)` — const, line 238
-- `const labels = states.map((s)` — const, line 248
-- `function depthRuns(points: Projected[]): Array<` — function, line 255
-- `const bucketOf = (depth: number)` — const, line 256
-- `const runs: Array<` — const, line 257
-- `let start = 0` — let, line 258
-- `let bucket = points.length > 1 ? bucketOf((points[0].depth + points[1].depth) / 2) : 0` — let, line 259
-- `const b = i + 1 < points.length ? bucketOf((points[i].depth + points[i + 1].depth) / 2) : bucket` — const, line 261
-- `const W = width && width > 0 ? width : DEFAULT_W` — const, line 293
-- `const H = height && height > 0 ? height : DEFAULT_H` — const, line 294
-- `const CX = W / 2` — const, line 295
-- `const CY = H / 2 - H * CENTER_LIFT` — const, line 296
-- `const SCALE = Math.min(W * SCALE_W, H * SCALE_H)` — const, line 297
-- `const zoom = useScrollZoom(` — const, line 303
-- `const states = useMemo(()` — const, line 304
-- `const geometry = useMemo(()` — const, line 305
-- `const view =` — const, line 307
-- `const proj = (p: V3)` — const, line 308
-- `const beadOrder = useMemo(()` — const, line 313
-- `const summary = useMemo(()` — const, line 322
-- `let deep = 0` — let, line 323
-- `let anchored = 0` — let, line 324
-- `let shallow = 0` — let, line 325
-- `let flat = 0` — let, line 326
-- `let held = 0` — let, line 327
-- `let debt = 0` — let, line 328
-- `let instructed = 0` — let, line 329
-- `const ariaLabel = `Knowledge well, $` — const, line 345
-- `const sortedIds = states.map((s)` — const, line 357
-- `const pin = onPin ?? onSelect` — const, line 363
-- `const onKeyDown = (event: React.KeyboardEvent<SVGSVGElement>)` — const, line 367
-- `const idx = selected ? sortedIds.indexOf(selected) : -1` — const, line 369
-- `const lo = states[idx].point.learningObjectIds[0]` — const, line 387
-- `const isRim = RING_RS[ri] === 1` — const, line 456
-- `const s = states[i]` — const, line 473
-- `const isActive = s.point.id === selected` — const, line 474
-- `const s = states[i]` — const, line 530
-- `const p = proj(geometry.beads[i])` — const, line 531
-- `const isActive = s.point.id === selected` — const, line 532
-- `const fade = depthFade(p.depth, 0.6, 1)` — const, line 533
-- `const size = (isActive ? 5 : 3.8) * p.k * zoom.markerScale` — const, line 534
-- `const hit = 11 * zoom.markerScale` — const, line 535
-- `const tooltip = `$` — const, line 536
-- `const onEnter = ()` — const, line 546
-- `const onClick = (event: React.MouseEvent)` — const, line 550
-- `const lo = s.point.learningObjectIds[0]` — const, line 555
-- `const d = size + 1.2` — const, line 572
-- `const s = states[i]` — const, line 644
-- `const p = proj(pos)` — const, line 645
-- `const isActive = s.point.id === selected` — const, line 646
-- `const anchor = Math.abs(p.x - CX) < 14 ? "middle" : p.x > CX ? "start" : "end"` — const, line 647
-- `const lines = labelLines(s.point.id)` — const, line 648
-- `const LINE_H = 12` — const, line 649
-- `const blockShift = p.y > CY + 10 ? 4 : -((lines.length - 1) * LINE_H) / 2` — const, line 650
-- `const fade = depthFade(p.depth, 0.55, 1)` — const, line 651
-- `const x = sx > 0 ? W - 10 : 10` — const, line 706
-- `const y = sy > 0 ? H - 10 : 10` — const, line 707
+- `const DEFAULT_W = 860` — const, line 32
+- `const DEFAULT_H = 640` — const, line 33
+- `const CENTER_LIFT = 0.047` — const, line 34
+- `const SCALE_W = 0.273` — const, line 35
+- `const SCALE_H = 0.42` — const, line 36
+- `const DEPTH = 0.9` — const, line 38
+- `const CENTER_BLEND = 0.28` — const, line 39
+- `const PROFILE_POW = 1.55` — const, line 40
+- `const EVIDENCE_K = 1.2` — const, line 41
+- `const DEMO_THRESHOLD = 0.5` — const, line 42
+- `const DEEP_LEVEL = 0.4` — const, line 43
+- `const SHALLOW_LEVEL = 0.12` — const, line 44
+- `const BEAD_R = 0.52` — const, line 45
+- `const RING_RS = [0.14, 0.28, 0.42, 0.56, 0.7, 0.84, 1]` — const, line 46
+- `const CONTOUR_QS = [0.12, 0.24, 0.36, 0.48, 0.6, 0.72]` — const, line 47
+- `const SPOKE_STEPS = 26` — const, line 48
+- `const EASE = "stroke 0.22s ease, fill 0.22s ease, opacity 0.22s ease, stroke-width 0.22s ease"` — const, line 49
+- `const ASSUMED_NOTE = "assumed known, not tested: its first review is the check"` — const, line 54
+- `const ASSUMED_DASH = "1.6 1.8"` — const, line 55
+- `const clamp01 = (value: number)` — const, line 57
+- `const smooth = (t: number)` — const, line 58
+- `const visibility = (evidenceMass: number)` — const, line 59
+- `type V3 =` — type, line 61
+- `function labelLines(facetId: string, maxChars = 20): string[]` — function, line 64
+- `const words = facetId.split("_")` — const, line 65
+- `const lines: string[] = []` — const, line 66
+- `let current = ""` — let, line 67
+- `const candidate = current ? `$` — const, line 69
+- `interface FacetState` — interface, line 83
+- `function decayByFacet(decay: DecayPressureDto | null | undefined): Map<string,` — function, line 108
+- `const out = new Map<string,` — const, line 109
+- `const prev = out.get(row.facetId)` — const, line 111
+- `const crosses = [prev?.crossesInDays, row.crossesInDays].filter((v): v is number` — const, line 112
+- `const points = [...field.points].sort((a, b)` — const, line 124
+- `const N = points.length` — const, line 125
+- `const decayMap = decayByFacet(decay)` — const, line 126
+- `const vis = visibility(point.evidenceMass)` — const, line 128
+- `const wellDepth = point.untested ? 0 : clamp01(point.ready) * vis` — const, line 129
+- `const ghostDepth = point.untested ? 0 : clamp01(point.readyGhost) * vis` — const, line 130
+- `const absent = !point.hasBlueprints` — const, line 131
+- `const entry = decayMap.get(point.id)` — const, line 132
+- `const noHistory = entry != null && !entry.hasHistory` — const, line 136
+- `const demonstrated = point.demonstratedMass >= DEMO_THRESHOLD` — const, line 137
+- `interface WellGeometry` — interface, line 160
+- `const N = states.length` — const, line 170
+- `const meanDepth = states.reduce((sum, s)` — const, line 171
+- `const depthAtAngle = (theta: number): number` — const, line 175
+- `const u = (((theta + Math.PI / 2) / (2 * Math.PI)) * N) % N` — const, line 176
+- `const uu = u < 0 ? u + N : u` — const, line 177
+- `const i0 = Math.floor(uu) % N` — const, line 178
+- `const t = uu - Math.floor(uu)` — const, line 179
+- `const d0 = states[i0].effectiveDepth` — const, line 180
+- `const d1 = states[(i0 + 1) % N].effectiveDepth` — const, line 181
+- `const s = (1 - Math.cos(t * Math.PI)) / 2` — const, line 182
+- `const surfaceZ = (theta: number, r: number): number` — const, line 186
+- `const blend = smooth(clamp01(r / CENTER_BLEND))` — const, line 187
+- `const d = meanDepth + (depthAtAngle(theta) - meanDepth) * blend` — const, line 188
+- `const polar = (theta: number, r: number, lift = 0): V3` — const, line 192
+- `const ASAMP = Math.max(96, Math.min(168, N * 12))` — const, line 198
+- `const thetaAt = (s: number)` — const, line 199
+- `const rings = RING_RS.map((r)` — const, line 201
+- `const pts: V3[] = []` — const, line 202
+- `const spokeAt = (theta: number): V3[]` — const, line 207
+- `const pts: V3[] = []` — const, line 208
+- `const spokes = states.map((s)` — const, line 212
+- `const RFINE = 110` — const, line 217
+- `const contours = CONTOUR_QS.map((q)` — const, line 218
+- `const zL = -DEPTH * q` — const, line 219
+- `const runs: V3[][] = []` — const, line 220
+- `let run: V3[] = []` — let, line 221
+- `const theta = thetaAt(s)` — const, line 223
+- `let hit: number | null = null` — let, line 224
+- `let prevR = 1` — let, line 225
+- `let prevZ = surfaceZ(theta, 1)` — let, line 226
+- `const r = 1 - f / RFINE` — const, line 228
+- `const z = surfaceZ(theta, r)` — const, line 229
+- `const t = prevZ === z ? 0.5 : (zL - prevZ) / (z - prevZ)` — const, line 231
+- `const beads = states.map((s)` — const, line 249
+- `const ghosts = states.map((s)` — const, line 250
+- `const labels = states.map((s)` — const, line 260
+- `function depthRuns(points: Projected[]): Array<` — function, line 267
+- `const bucketOf = (depth: number)` — const, line 268
+- `const runs: Array<` — const, line 269
+- `let start = 0` — let, line 270
+- `let bucket = points.length > 1 ? bucketOf((points[0].depth + points[1].depth) / 2) : 0` — let, line 271
+- `const b = i + 1 < points.length ? bucketOf((points[i].depth + points[i + 1].depth) / 2) : bucket` — const, line 273
+- `const W = width && width > 0 ? width : DEFAULT_W` — const, line 305
+- `const H = height && height > 0 ? height : DEFAULT_H` — const, line 306
+- `const CX = W / 2` — const, line 307
+- `const CY = H / 2 - H * CENTER_LIFT` — const, line 308
+- `const SCALE = Math.min(W * SCALE_W, H * SCALE_H)` — const, line 309
+- `const zoom = useScrollZoom(` — const, line 315
+- `const states = useMemo(()` — const, line 316
+- `const geometry = useMemo(()` — const, line 317
+- `const view =` — const, line 319
+- `const proj = (p: V3)` — const, line 320
+- `const beadOrder = useMemo(()` — const, line 325
+- `const summary = useMemo(()` — const, line 334
+- `let deep = 0` — let, line 335
+- `let anchored = 0` — let, line 336
+- `let shallow = 0` — let, line 337
+- `let flat = 0` — let, line 338
+- `let held = 0` — let, line 339
+- `let debt = 0` — let, line 340
+- `let instructed = 0` — let, line 341
+- `const ariaLabel = `Knowledge well, $` — const, line 357
+- `const sortedIds = states.map((s)` — const, line 369
+- `const pin = onPin ?? onSelect` — const, line 375
+- `const onKeyDown = (event: React.KeyboardEvent<SVGSVGElement>)` — const, line 379
+- `const idx = selected ? sortedIds.indexOf(selected) : -1` — const, line 381
+- `const lo = states[idx].point.learningObjectIds[0]` — const, line 399
+- `const isRim = RING_RS[ri] === 1` — const, line 468
+- `const s = states[i]` — const, line 485
+- `const isActive = s.point.id === selected` — const, line 486
+- `const point = states[i].point` — const, line 518
+- `const s = states[i]` — const, line 543
+- `const p = proj(geometry.beads[i])` — const, line 544
+- `const isActive = s.point.id === selected` — const, line 545
+- `const fade = depthFade(p.depth, 0.6, 1)` — const, line 546
+- `const size = (isActive ? 5 : 3.8) * p.k * zoom.markerScale` — const, line 547
+- `const hit = 11 * zoom.markerScale` — const, line 548
+- `const tooltip = `$` — const, line 549
+- `const onEnter = ()` — const, line 564
+- `const onClick = (event: React.MouseEvent)` — const, line 568
+- `const lo = s.point.learningObjectIds[0]` — const, line 573
+- `const d = size + 1.2` — const, line 609
+- `const s = states[i]` — const, line 682
+- `const p = proj(pos)` — const, line 683
+- `const isActive = s.point.id === selected` — const, line 684
+- `const anchor = Math.abs(p.x - CX) < 14 ? "middle" : p.x > CX ? "start" : "end"` — const, line 685
+- `const lines = labelLines(s.point.id)` — const, line 686
+- `const LINE_H = 12` — const, line 687
+- `const blockShift = p.y > CY + 10 ? 4 : -((lines.length - 1) * LINE_H) / 2` — const, line 688
+- `const fade = depthFade(p.depth, 0.55, 1)` — const, line 689
+- `const x = sx > 0 ? W - 10 : 10` — const, line 744
+- `const y = sy > 0 ? H - 10 : 10` — const, line 745
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `KnowledgeWellView`; references `KnowledgeWellView`
+- [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `ASSUMED_LABEL`, `KnowledgeWellView`; references `ASSUMED_LABEL`, `KnowledgeWellView`
 
 ## Dependencies
 
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DecayPressureDto`, `KnowledgeFacetField`, `KnowledgeFacetPoint`
+- [[Reference/Desktop/TypeScript/components/PlacementControls|src/components/PlacementControls.tsx]] — import-or-re-export; imports `ASSUMED_LABEL`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/scrollZoom|src/screens/scrollZoom.ts]] — import-or-re-export; imports `useScrollZoom`
 - [[Reference/Desktop/TypeScript/screens/wire3d|src/screens/wire3d.ts]] — import-or-re-export; imports `Projected`, `depthFade`, `polyPath`, `project`, `useOrbitCamera`
@@ -230,6 +234,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/KnowledgeWellView.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/KnowledgeWellView.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_edit_proposals.py](../../../../../../tests/test_graph_edit_proposals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

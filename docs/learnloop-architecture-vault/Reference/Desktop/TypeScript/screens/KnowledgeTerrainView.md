@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx"
-source_commit: "971d7c274e09873d726d43578cd080e4d8865571"
-source_commit_timestamp: "2026-07-27T06:01:19-04:00"
+source_commit: "aa9b47ce7ee0fb2b2b835ed297d88d76842ce297"
+source_commit_timestamp: "2026-10-11T23:14:58-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,21 +42,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx](../../../../../../apps/learnloop-tauri/src/screens/KnowledgeTerrainView.tsx) |
-| Source lines | 437 |
+| Source lines | 451 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `971d7c274e09873d726d43578cd080e4d8865571` |
-| Commit timestamp | `2026-07-27T06:01:19-04:00` |
+| Source commit | `aa9b47ce7ee0fb2b2b835ed297d88d76842ce297` |
+| Commit timestamp | `2026-10-11T23:14:58-04:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|src/screens/KnowledgeTerrainView.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|src/screens/KnowledgeTerrainView.tsx]]
 
 ## Public API
 
@@ -107,7 +107,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const d2 = (point.x - x) ** 2 + (point.y - y) ** 2` — const, line 101
 - `const distance = Math.sqrt(d2)` — const, line 106
 - `const weight = 1 / (distance + 0.075)` — const, line 107
-- `const evidenceConfidence = (point.evidenceMass / (point.evidenceMass + 1)) * (1 / (1 + 18 * point.readyVariance))` — const, line 108
+- `const evidenceConfidence = point.untested ? 0 : (point.evidenceMass / (point.evidenceMass + 1)) * (1 / (1 + 18 * point.readyVariance))` — const, line 108
 - `const presence = visible.length ? clamp01(1 - Math.sqrt(nearest) / 1.15) : 0` — const, line 118
 - `const maxPotential = Math.max(maxDemo, maxReady)` — const, line 131
 - `function sample(cells: Cell[][], x: number, y: number): Cell` — function, line 141
@@ -175,14 +175,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const active = point.id === selected` — const, line 340
 - `const fade = depthFade(demoPoint.depth, 0.58, 1)` — const, line 341
 - `const radius = active ? 10 : 8` — const, line 342
-- `const tooltip = `$` — const, line 343
-- `const style = arcStyle(arc.status)` — const, line 372
-- `const candidatePoint = pointById.get(candidate)` — const, line 386
-- `const candidateZ = sheetZ(sample(cells, candidatePoint.x, candidatePoint.y)).demo` — const, line 388
-- `const ghost = proj(candidatePoint.x, candidatePoint.y, candidateZ - 0.012 - index * 0.002)` — const, line 389
-- `const ghost = proj(point.x, point.y, READY_OFFSET - READY_DEPTH * point.readyGhost)` — const, line 404
-- `const point = pointById.get(field.nextGap.facetId)` — const, line 419
-- `const base = proj(point.x, point.y, sheetZ(sample(cells, point.x, point.y)).demo - 0.035)` — const, line 421
+- `const tooltip = `$` — const, line 357
+- `const style = arcStyle(arc.status)` — const, line 386
+- `const candidatePoint = pointById.get(candidate)` — const, line 400
+- `const candidateZ = sheetZ(sample(cells, candidatePoint.x, candidatePoint.y)).demo` — const, line 402
+- `const ghost = proj(candidatePoint.x, candidatePoint.y, candidateZ - 0.012 - index * 0.002)` — const, line 403
+- `const ghost = proj(point.x, point.y, READY_OFFSET - READY_DEPTH * point.readyGhost)` — const, line 418
+- `const point = pointById.get(field.nextGap.facetId)` — const, line 433
+- `const base = proj(point.x, point.y, sheetZ(sample(cells, point.x, point.y)).demo - 0.035)` — const, line 435
 
 ## Who imports or calls it
 

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/FacetInspector.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/FacetInspector.tsx"
-source_commit: "971d7c274e09873d726d43578cd080e4d8865571"
-source_commit_timestamp: "2026-07-27T06:01:19-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,52 +42,54 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/FacetInspector.tsx](../../../../../../apps/learnloop-tauri/src/components/FacetInspector.tsx) |
-| Source lines | 852 |
+| Source lines | 851 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `971d7c274e09873d726d43578cd080e4d8865571` |
-| Commit timestamp | `2026-07-27T06:01:19-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/components/FacetInspector|src/components/FacetInspector.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] → [[Reference/Desktop/TypeScript/components/FacetInspector|src/components/FacetInspector.tsx]]
 
 ## Public API
 
-- `export function FacetInspector(` — function, line 30
+- `export function FacetInspector(` — function, line 32
+- `export function historyLine(entry: FacetIdentityActionDto): string` — function, line 276
 
 ## Internal implementation anchors
 
-- `const LOCK_GLYPH = "\u` — const, line 28
-- `let cancelled = false` — let, line 46
-- `const message = err instanceof Error ? err.message : String(err)` — const, line 60
-- `const onKey = (event: KeyboardEvent)` — const, line 71
-- `function FacetBody(` — function, line 132
-- `const locked = lock.locked` — const, line 142
-- `function LockSection(` — function, line 258
-- `function RestructureActions(` — function, line 287
-- `function MergeFlow(` — function, line 322
-- `let cancelled = false` — let, line 351
-- `const subs = snap.vault?.subjects ?? []` — const, line 356
-- `const pickOther = (summary: FacetSummaryDto)` — const, line 368
-- `const eitherLocked = selfLocked || other?.locked === true || otherDetail?.lock.locked === true` — const, line 387
-- `const submitMerge = async ()` — const, line 389
-- `const retiredFacetId = survivor === "self" ? other.id : facetId` — const, line 391
-- `const survivingFacetId = survivor === "self" ? facetId : other.id` — const, line 392
-- `const res = await api.proposeFacetMerge(` — const, line 396
-- `const submitRestructure = async ()` — const, line 410
-- `const facetIds = other ? [facetId, other.id] : [facetId]` — const, line 414
-- `const res = await api.queueRestructureRequest(` — const, line 415
-- `function SplitFlow(` — function, line 529
-- `const submit = async ()` — const, line 555
-- `const res = await api.queueRestructureRequest(` — const, line 559
-- `function LockReasonList(` — function, line 603
+- `let cancelled = false` — let, line 50
+- `const message = err instanceof Error ? err.message : String(err)` — const, line 64
+- `const onKey = (event: KeyboardEvent)` — const, line 75
+- `function FacetBody(` — function, line 145
+- `const fields = entry.confirm.fields.length ? entry.confirm.fields.join(", ") : "meaning"` — const, line 278
+- `const fields = entry.reworded.fields.length ? entry.reworded.fields.join(", ") : "examples"` — const, line 285
+- `const from = entry.reworded.fromVersion ?? "?"` — const, line 289
+- `const to = entry.reworded.toVersion ?? "?"` — const, line 290
+- `const fields = entry.reworded.fields.length ? entry.reworded.fields.join(", ") : "meaning"` — const, line 291
+- `const retired = entry.retired.map((facet)` — const, line 294
+- `function HistorySection(` — function, line 298
+- `const undo = async (entry: FacetIdentityActionDto)` — const, line 310
+- `function RestructureActions(` — function, line 363
+- `function MergeFlow(` — function, line 396
+- `let cancelled = false` — let, line 422
+- `const subs = snap.vault?.subjects ?? []` — const, line 427
+- `const pickOther = (summary: FacetSummaryDto)` — const, line 439
+- `const submitMerge = async ()` — const, line 457
+- `const retiredFacetId = survivor === "self" ? other.id : facetId` — const, line 459
+- `const survivingFacetId = survivor === "self" ? facetId : other.id` — const, line 460
+- `const res = await api.proposeFacetMerge(` — const, line 464
+- `const undoMerge = async ()` — const, line 478
+- `function SplitFlow(` — function, line 568
+- `const submit = async ()` — const, line 574
+- `const res = await api.queueRestructureRequest(` — const, line 578
 - `function ContractCompare(` — function, line 621
 - `const rows: Array<` — const, line 632
 - `const l = left.detail?.facet` — const, line 633
@@ -98,15 +100,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const matches = useMemo(()` — const, line 706
 - `const q = query.trim().toLowerCase()` — const, line 708
 - `const pool = q ? all.filter((f)` — const, line 709
-- `function StatCell(` — function, line 767
-- `function ListBlock(` — function, line 776
-- `const fmt = (value: number | null)` — const, line 790
-- `const btnStyle: CSSProperties =` — const, line 792
-- `const panelStyle: CSSProperties =` — const, line 802
-- `const inputStyle: CSSProperties =` — const, line 809
-- `const textareaStyle: CSSProperties =` — const, line 821
-- `const radioLabel: CSSProperties =` — const, line 836
-- `const ledgerRowStyle: CSSProperties =` — const, line 844
+- `function StatCell(` — function, line 766
+- `function ListBlock(` — function, line 775
+- `const fmt = (value: number | null)` — const, line 789
+- `const btnStyle: CSSProperties =` — const, line 791
+- `const panelStyle: CSSProperties =` — const, line 801
+- `const inputStyle: CSSProperties =` — const, line 808
+- `const textareaStyle: CSSProperties =` — const, line 820
+- `const radioLabel: CSSProperties =` — const, line 835
+- `const ledgerRowStyle: CSSProperties =` — const, line 843
 
 ## Who imports or calls it
 
@@ -120,8 +122,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FacetDetailDto`, `FacetSummaryDto`, `RestructureRequestDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FacetDetailDto`, `FacetIdentityActionDto`, `FacetSummaryDto`, `RestructureRequestDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/KnowledgeModel|src/components/KnowledgeModel.tsx]] — import-or-re-export; imports `FacetEvidenceReceipt`
+- [[Reference/Desktop/TypeScript/components/RewordConfirms|src/components/RewordConfirms.tsx]] — import-or-re-export; imports `roleLabel`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Meta`, `Pill`, `SectionHeader`, `TermSelect`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `EntityLink`
 
@@ -139,6 +143,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/FacetInspector.test.tsx](../../../../../../apps/learnloop-tauri/src/components/FacetInspector.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_edit_proposals.py](../../../../../../tests/test_graph_edit_proposals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

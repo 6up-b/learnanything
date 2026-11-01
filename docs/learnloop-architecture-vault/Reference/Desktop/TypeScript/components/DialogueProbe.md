@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/DialogueProbe.tsx"
-source_commit: "a6c3391bee0c4732249b52d238aa1660b1a3042e"
-source_commit_timestamp: "2026-07-28T01:49:30-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/DialogueProbe.tsx](../../../../../../apps/learnloop-tauri/src/components/DialogueProbe.tsx) |
-| Source lines | 344 |
+| Source lines | 382 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a6c3391bee0c4732249b52d238aa1660b1a3042e` |
-| Commit timestamp | `2026-07-28T01:49:30-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,27 +60,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function DialogueProbePanel(` — function, line 31
+- `export function DialogueProbePanel(` — function, line 33
 
 ## Internal implementation anchors
 
-- `const TURN_KIND_LABEL: Record<string, string> =` — const, line 16
-- `interface SubmittedTurn` — interface, line 23
-- `type Phase = "starting" | "asking" | "submitting" | "ending" | "done"` — type, line 29
-- `const turnOpenedAtMs = useRef(Date.now())` — const, line 51
-- `const elapsedSeconds = ()` — const, line 52
-- `const dialogueState = useRef<string | null>(null)` — const, line 58
-- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 59
-- `const fail = useCallback( (error: unknown)` — const, line 61
-- `const endBlock = useCallback(async ()` — const, line 69
-- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 76
-- `const advance = useCallback(async ()` — const, line 84
-- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 87
-- `const started = useRef(false)` — const, line 108
-- `const submitTurn = useCallback( async (dontKnow: boolean)` — const, line 125
-- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 154
-- `const stopAndTeach = useCallback(async ()` — const, line 177
-- `const onKey = (event: KeyboardEvent)` — const, line 191
+- `const TURN_KIND_LABEL: Record<string, string> =` — const, line 18
+- `interface SubmittedTurn` — interface, line 25
+- `type Phase = "starting" | "asking" | "submitting" | "ending" | "done"` — type, line 31
+- `const turnOpenedAtMs = useRef(Date.now())` — const, line 53
+- `const elapsedSeconds = ()` — const, line 54
+- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 60
+- `const dialogueState = useRef<string | null>(null)` — const, line 64
+- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 65
+- `const fail = useCallback( (error: unknown)` — const, line 67
+- `const endBlock = useCallback(async ()` — const, line 75
+- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 82
+- `const advance = useCallback(async ()` — const, line 90
+- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 93
+- `const started = useRef(false)` — const, line 115
+- `const submitTurn = useCallback( async (dontKnow: boolean)` — const, line 132
+- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 162
+- `const stopAndTeach = useCallback(async ()` — const, line 193
+- `const onKey = (event: KeyboardEvent)` — const, line 207
 
 ## Who imports or calls it
 
@@ -95,6 +96,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `DialogueTurnDto`, `GuidedRedoDto`, `ProbeBlockEndDto`
+- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `STUCK_PROMPT_TEXT`, `algoConfig`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/ProbeBlockResult|src/components/ProbeBlockResult.tsx]] — import-or-re-export; imports `ProbeBlockResult`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `Card`, `Pill`, `SectionHeader`
@@ -115,6 +118,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/DialogueProbe.test.tsx](../../../../../../apps/learnloop-tauri/src/components/DialogueProbe.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

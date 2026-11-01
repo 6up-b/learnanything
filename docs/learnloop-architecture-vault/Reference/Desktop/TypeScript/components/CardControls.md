@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/CardControls.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/CardControls.tsx"
-source_commit: "6fb2c13944c0431c70d3dba01553c23f93db883d"
-source_commit_timestamp: "2026-07-28T01:49:30-04:00"
+source_commit: "2884cee074386546fb9aa6741a0f2d77a6b695f1"
+source_commit_timestamp: "2026-10-12T13:19:40-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/CardControls.tsx](../../../../../../apps/learnloop-tauri/src/components/CardControls.tsx) |
-| Source lines | 483 |
+| Source lines | 494 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `6fb2c13944c0431c70d3dba01553c23f93db883d` |
-| Commit timestamp | `2026-07-28T01:49:30-04:00` |
+| Source commit | `2884cee074386546fb9aa6741a0f2d77a6b695f1` |
+| Commit timestamp | `2026-10-12T13:19:40-04:00` |
 
 ## Activation and status evidence
 
@@ -60,38 +60,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function RungVariantActions(` — function, line 33
-- `export function ProbeRemintAction(` — function, line 133
-- `export function TeachBackAction(` — function, line 221
-- `export function CardControls(` — function, line 266
+- `export function RungVariantActions(` — function, line 34
+- `export function ProbeRemintAction(` — function, line 134
+- `export function TeachBackAction(` — function, line 222
+- `export function CardControls(` — function, line 267
 
 ## Internal implementation anchors
 
-- `const REASON_LABEL: Record<RetirementReason, string> =` — const, line 13
-- `type Panel = "reword" | "split" | "retire" | null` — type, line 27
-- `const pollRef = useRef<number | null>(null)` — const, line 48
-- `const request = async (direction: "easier" | "harder")` — const, line 57
-- `const result = await api.requestRungVariant(` — const, line 62
-- `const requestId = result.requestId` — const, line 64
-- `const inactive = busy || disabled` — const, line 94
-- `const linkStyle =` — const, line 95
-- `let cancelled = false` — let, line 160
-- `const keep = async ()` — const, line 176
-- `const result = await api.remintDiagnosticProbe(` — const, line 180
-- `const command = error as CommandError` — const, line 184
-- `const inactive = busy || disabled || notice !== null` — const, line 195
-- `const request = async ()` — const, line 234
-- `const result = await api.requestTeachBack(` — const, line 238
-- `const inactive = disabled || busy` — const, line 246
-- `const run = async (fn: ()` — const, line 302
-- `const reword = ()` — const, line 313
-- `const input:` — const, line 315
-- `const split = ()` — const, line 329
-- `const result = await api.splitPracticeItem(` — const, line 331
-- `const retire = ()` — const, line 341
-- `const link = (label: string, target: Panel)` — const, line 351
-- `const textarea = (value: string, set: (v: string)` — const, line 371
-- `const action = (label: string, onClick: ()` — const, line 390
+- `const REASON_LABEL: Record<RetirementReason, string> =` — const, line 14
+- `type Panel = "reword" | "split" | "retire" | null` — type, line 28
+- `const pollRef = useRef<number | null>(null)` — const, line 49
+- `const request = async (direction: "easier" | "harder")` — const, line 58
+- `const result = await api.requestRungVariant(` — const, line 63
+- `const requestId = result.requestId` — const, line 65
+- `const inactive = busy || disabled` — const, line 95
+- `const linkStyle =` — const, line 96
+- `let cancelled = false` — let, line 161
+- `const keep = async ()` — const, line 177
+- `const result = await api.remintDiagnosticProbe(` — const, line 181
+- `const command = error as CommandError` — const, line 185
+- `const inactive = busy || disabled || notice !== null` — const, line 196
+- `const request = async ()` — const, line 235
+- `const result = await api.requestTeachBack(` — const, line 239
+- `const inactive = disabled || busy` — const, line 247
+- `const run = async (fn: ()` — const, line 310
+- `const reword = ()` — const, line 321
+- `const input:` — const, line 323
+- `const split = ()` — const, line 337
+- `const result = await api.splitPracticeItem(` — const, line 339
+- `const retire = ()` — const, line 349
+- `const link = (label: string, target: Panel)` — const, line 359
+- `const textarea = (value: string, set: (v: string)` — const, line 379
+- `const action = (label: string, onClick: ()` — const, line 398
 
 ## Who imports or calls it
 
@@ -109,6 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `RETIREMENT_REASONS`, `RetirementReason`
+- [[Reference/Desktop/TypeScript/components/PlacementControls|src/components/PlacementControls.tsx]] — import-or-re-export; imports `KnowThisAction`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`
 
 ### Assets, platform, and third-party dependencies

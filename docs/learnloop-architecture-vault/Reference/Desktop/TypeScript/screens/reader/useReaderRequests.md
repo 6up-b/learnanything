@@ -110,7 +110,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `parseRequestError`, `parseRequestResult`, `useReaderRequests`; references `parseRequestError`, `parseRequestResult`, `useReaderRequests`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `useReaderRequests`; references `useReaderRequests`
+- [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `BackgroundRequest`, `SynthesizedObject`, `parseRequestError`, `parseRequestResult`; references `BackgroundRequest`, `SynthesizedObject`, `parseRequestError`, `parseRequestResult`
 
 ## Dependencies
 

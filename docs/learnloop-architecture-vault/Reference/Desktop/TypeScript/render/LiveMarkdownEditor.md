@@ -10,8 +10,8 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx"
-source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
-source_commit_timestamp: "2026-05-28T11:36:12-04:00"
+source_commit: "0947b8fce973ebe53519b6f2ef2a93781ef9253d"
+source_commit_timestamp: "2026-10-17T08:45:47-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx](../../../../../../apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx) |
-| Source lines | 218 |
+| Source lines | 294 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `4a28c9635f24945d78366fa26212db7488d82545` |
-| Commit timestamp | `2026-05-28T11:36:12-04:00` |
+| Source commit | `0947b8fce973ebe53519b6f2ef2a93781ef9253d` |
+| Commit timestamp | `2026-10-17T08:45:47-04:00` |
 
 ## Activation and status evidence
 
@@ -60,7 +60,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function LiveMarkdownEditor(` — function, line 78
+- `export interface LiveMarkdownKeyInfo` — interface, line 81
+- `export function LiveMarkdownEditor(` — function, line 88
 
 ## Internal implementation anchors
 
@@ -83,23 +84,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const isFence = trimmed.startsWith("```") || trimmed.startsWith("~~~")` — const, line 56
 - `const isMath = trimmed === "$$"` — const, line 57
 - `const SCROLL_STYLE =` — const, line 76
-- `const taRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 89
-- `const blocks = useMemo(()` — const, line 91
-- `const aStart = editing ? editing.before.length : -1` — const, line 94
-- `const aEnd = editing ? value.length - editing.after.length : -1` — const, line 95
-- `const draft = editing ? value.slice(aStart, aEnd) : ""` — const, line 96
-- `function startEdit(block: Block)` — function, line 98
-- `function startEditEmpty()` — function, line 102
-- `function onDraftChange(next: string)` — function, line 106
-- `const node = taRef.current` — const, line 114
-- `const end = node.value.length` — const, line 116
-- `const node = taRef.current` — const, line 123
-- `function renderBlock(block: Block)` — function, line 130
-- `const textarea = ( <textarea ref=` — const, line 151
-- `let body` — let, line 178
-- `const beforeBlocks = blocks.filter((block)` — const, line 189
-- `const afterBlocks = blocks.filter((block)` — const, line 190
-- `const frontmatterStyle =` — const, line 207
+- `const COMPACT_STYLE =` — const, line 78
+- `const taRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 120
+- `const blocks = useMemo(()` — const, line 122
+- `const aStart = editing ? editing.before.length : -1` — const, line 125
+- `const aEnd = editing ? value.length - editing.after.length : -1` — const, line 126
+- `const draft = editing ? value.slice(aStart, aEnd) : ""` — const, line 127
+- `function startEdit(block: Block)` — function, line 129
+- `function startEditEmpty()` — function, line 133
+- `function onDraftChange(next: string)` — function, line 137
+- `function startEditAtEnd()` — function, line 143
+- `const last = blocks[blocks.length - 1]` — const, line 144
+- `const node = taRef.current` — const, line 158
+- `const end = node.value.length` — const, line 160
+- `const node = taRef.current` — const, line 167
+- `function renderBlock(block: Block)` — function, line 174
+- `const keyProps = onKeyDown ?` — const, line 195
+- `const node = event.currentTarget` — const, line 198
+- `const caretAtDraftEnd = node.selectionStart === node.value.length && node.selectionEnd === node.value.length` — const, line 199
+- `const textarea = ( <textarea ref=` — const, line 207
+- `let body` — let, line 241
+- `const beforeBlocks = blocks.filter((block)` — const, line 252
+- `const afterBlocks = blocks.filter((block)` — const, line 253
+- `const restProps = focusable && !editing ?` — const, line 265
+- `const frontmatterStyle =` — const, line 283
 
 ## Who imports or calls it
 
@@ -107,6 +115,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `LiveMarkdownEditor`; references `LiveMarkdownEditor`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `LiveMarkdownEditor`, `LiveMarkdownKeyInfo`; references `LiveMarkdownEditor`, `LiveMarkdownKeyInfo`
 
 ## Dependencies
 
@@ -129,7 +138,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/render/LiveMarkdownEditor.test.tsx](../../../../../../apps/learnloop-tauri/src/render/LiveMarkdownEditor.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -10,8 +10,8 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/queryTags.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/queryTags.ts"
-source_commit: "ad991418ef3cb163828f9b1cf1ad9da9cce7549a"
-source_commit_timestamp: "2026-09-03T10:55:39-07:00"
+source_commit: "807cf0540938f14375d3656d69a37071fa0d7396"
+source_commit_timestamp: "2026-10-12T23:30:44-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/queryTags.ts](../../../../../../apps/learnloop-tauri/src/api/queryTags.ts) |
-| Source lines | 44 |
+| Source lines | 46 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `ad991418ef3cb163828f9b1cf1ad9da9cce7549a` |
-| Commit timestamp | `2026-09-03T10:55:39-07:00` |
+| Source commit | `807cf0540938f14375d3656d69a37071fa0d7396` |
+| Commit timestamp | `2026-10-12T23:30:44-04:00` |
 
 ## Activation and status evidence
 
@@ -61,9 +61,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const TAG =` — const, line 10
-- `export type KnownTag = (typeof TAG)[keyof typeof TAG]` — type, line 37
-- `export const READER_PREFIX = "reader:"` — const, line 40
-- `export function readerTag(sourceId: string): string` — function, line 42
+- `export type KnownTag = (typeof TAG)[keyof typeof TAG]` — type, line 39
+- `export const READER_PREFIX = "reader:"` — const, line 42
+- `export function readerTag(sourceId: string): string` — function, line 44
 
 ## Internal implementation anchors
 
@@ -75,19 +75,27 @@ No non-exported declaration anchor was detected by the static extractor.
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export: `READER_PREFIX`, `TAG`; references `READER_PREFIX`, `TAG`
+- [[Reference/Desktop/TypeScript/app/autoAdvance|src/app/autoAdvance.ts]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|src/components/SourceLibrarySidebar.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/GraphScreen|src/screens/GraphScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/IngestScreen|src/screens/IngestScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|src/screens/KnowledgeMapScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/screens/LibraryPlace|src/screens/LibraryPlace.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|src/screens/MaintenanceScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/ProposalsScreen|src/screens/ProposalsScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `TAG`, `readerTag`; references `TAG`, `readerTag`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|src/screens/RegistryReviewScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/SettingsScreen|src/screens/SettingsScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/StartScreen|src/screens/StartScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/screens/reader/guidePlan|src/screens/reader/guidePlan.ts]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export: `readerTag`; references `readerTag`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/screens/underhood/tools|src/screens/underhood/tools.tsx]] — import-or-re-export: `TAG`; references `TAG`
 
 ## Dependencies
 
@@ -108,7 +116,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/FeedbackScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/FeedbackScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/autoAdvance.test.tsx](../../../../../../apps/learnloop-tauri/src/app/autoAdvance.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

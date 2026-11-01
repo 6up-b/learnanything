@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx"
-source_commit: "0e91c7ba1b7ff32d5d093dd62826890b70445d3f"
-source_commit_timestamp: "2026-08-03T22:04:38-04:00"
+source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
+source_commit_timestamp: "2026-10-22T16:58:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx](../../../../../../apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx) |
-| Source lines | 458 |
+| Source lines | 460 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `0e91c7ba1b7ff32d5d093dd62826890b70445d3f` |
-| Commit timestamp | `2026-08-03T22:04:38-04:00` |
+| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
+| Commit timestamp | `2026-10-22T16:58:30-04:00` |
 
 ## Activation and status evidence
 
@@ -60,36 +60,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const STARTING_LEVELS:` — const, line 10
-- `export function StudyMapBriefWizard(` — function, line 30
+- `export const STARTING_LEVELS:` — const, line 11
+- `export function StudyMapBriefWizard(` — function, line 31
 
 ## Internal implementation anchors
 
-- `type Outcome = "general_learning" | "reference_mastery" | "exam_prep"` — type, line 17
-- `type PracticeItemsMode = "upfront" | "as_you_read"` — type, line 18
-- `const OUTCOMES:` — const, line 19
-- `const DEPTHS = ["intro", "standard", "deep"]` — const, line 24
-- `const PRACTICE_ITEM_MODES:` — const, line 25
-- `const steps = useMemo( ()` — const, line 63
-- `const isLast = step === steps.length - 1` — const, line 67
-- `const build = (): StudyMapBriefDto` — const, line 69
-- `const brief: StudyMapBriefDto =` — const, line 70
-- `const advance = ()` — const, line 92
-- `const handler = (e: KeyboardEvent)` — const, line 101
-- `const tag = (e.target as HTMLElement)?.tagName` — const, line 106
-- `const current = steps[step]` — const, line 116
-- `function ChipInput(` — function, line 321
-- `const add = ()` — const, line 323
-- `const value = draft.trim()` — const, line 324
-- `function Label(` — function, line 372
-- `const backdropStyle: CSSProperties =` — const, line 380
-- `const modalStyle: CSSProperties =` — const, line 392
-- `const headerStyle: CSSProperties =` — const, line 404
-- `const footerStyle: CSSProperties =` — const, line 413
-- `const inputStyle: CSSProperties =` — const, line 422
-- `const primaryBtn: CSSProperties =` — const, line 433
-- `const ghostBtn: CSSProperties =` — const, line 443
-- `const segBtn: CSSProperties =` — const, line 453
+- `type Outcome = "general_learning" | "reference_mastery" | "exam_prep"` — type, line 18
+- `type PracticeItemsMode = "upfront" | "as_you_read"` — type, line 19
+- `const OUTCOMES:` — const, line 20
+- `const DEPTHS = ["intro", "standard", "deep"]` — const, line 25
+- `const PRACTICE_ITEM_MODES:` — const, line 26
+- `const steps = useMemo( ()` — const, line 64
+- `const isLast = step === steps.length - 1` — const, line 68
+- `const build = (): StudyMapBriefDto` — const, line 70
+- `const brief: StudyMapBriefDto =` — const, line 71
+- `const advance = ()` — const, line 93
+- `const handler = (e: KeyboardEvent)` — const, line 102
+- `const tag = (e.target as HTMLElement)?.tagName` — const, line 108
+- `const current = steps[step]` — const, line 118
+- `function ChipInput(` — function, line 323
+- `const add = ()` — const, line 325
+- `const value = draft.trim()` — const, line 326
+- `function Label(` — function, line 374
+- `const backdropStyle: CSSProperties =` — const, line 382
+- `const modalStyle: CSSProperties =` — const, line 394
+- `const headerStyle: CSSProperties =` — const, line 406
+- `const footerStyle: CSSProperties =` — const, line 415
+- `const inputStyle: CSSProperties =` — const, line 424
+- `const primaryBtn: CSSProperties =` — const, line 435
+- `const ghostBtn: CSSProperties =` — const, line 445
+- `const segBtn: CSSProperties =` — const, line 455
 
 ## Who imports or calls it
 
@@ -106,6 +106,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `StartingLevel`, `StudyMapBriefDto`
+- [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 
 ### Assets, platform, and third-party dependencies
