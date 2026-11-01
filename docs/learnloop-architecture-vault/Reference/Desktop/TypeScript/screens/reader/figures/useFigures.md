@@ -10,9 +10,9 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts"
-source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
-source_commit_timestamp: "2026-11-01T08:37:27-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts) |
-| Source lines | 389 |
+| Source lines | 401 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `73e04e71c69fef5371cef306d228eedd8bf67836` |
-| Commit timestamp | `2026-11-01T08:37:27-05:00` |
+| Worktree state | `clean` |
+| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
+| Commit timestamp | `2026-11-01T09:50:06-05:00` |
 
 ## Activation and status evidence
 
@@ -67,58 +67,59 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface FigurePending` — interface, line 45
 - `export interface FiguresContract` — interface, line 58
 - `export interface FiguresCtl` — interface, line 73
-- `export function figurePlacementKey(figure: Pick<FigureViewDto, "figureId" | "anchorSpanId">): string` — function, line 103
-- `export function useFigures(` — function, line 111
+- `export function figurePlacementKey(figure: Pick<FigureViewDto, "figureId" | "anchorSpanId">): string` — function, line 107
+- `export function useFigures(` — function, line 115
 
 ## Internal implementation anchors
 
-- `function sleep(ms: number): Promise<void>` — function, line 107
-- `const enabled = Boolean(contract && extractionId)` — const, line 120
-- `const setExpanded = useCallback((figure: FigureViewDto | null)` — const, line 128
-- `const generation = useRef(0)` — const, line 130
-- `const runs = useRef(new Map<string, object>())` — const, line 131
-- `const onBuiltRef = useRef(onBuilt)` — const, line 132
-- `const mine = generation.current` — const, line 142
-- `const richRunning = ( richPending.some((line)` — const, line 156
-- `const mine = generation.current` — const, line 161
-- `const timer = setTimeout(()` — const, line 162
-- `const land = useCallback((figure: FigureViewDto)` — const, line 175
-- `const sameRequest = (item: FigureViewDto)` — const, line 176
-- `const goalOnly = figure.spanIds.length === 0 && figure.region === null` — const, line 184
-- `const anchors = goalOnly ? [...new Set([figure.anchorSpanId, ...list.filter((item)` — const, line 185
-- `const placed = anchors.map((anchorSpanId)` — const, line 188
-- `const run = useCallback( (key: string, anchorSpanId: string, start: ()` — const, line 200
-- `const mine = generation.current` — const, line 203
-- `const token =` — const, line 204
-- `const live = ()` — const, line 206
-- `let jobId: string | null = null` — let, line 207
-- `const retry = ()` — const, line 208
-- `const cancel = ()` — const, line 209
-- `let job = await start()` — let, line 217
-- `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 226
-- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 232
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 233
-- `const command = getCommandError(error)` — const, line 245
-- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 256
-- `const spanIds = [...new Set(input.spanIds)]` — const, line 259
-- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 260
-- `const region = input.region && contract?.region ? input.region : null` — const, line 263
-- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 264
-- `const key = `req:$` — const, line 265
-- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 266
-- `const anchored = spanIds.length > 0 || region !== null` — const, line 273
-- `const readingAt = input.readingAt?.spanId ?` — const, line 274
-- `const refresh = useCallback(()` — const, line 293
-- `const mine = generation.current` — const, line 295
-- `const cancelRich = useCallback((richJobId: string)` — const, line 306
-- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 311
-- `const revise = useCallback( (figure: FigureViewDto, note: string)` — const, line 319
-- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 327
-- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 335
-- `const found = await api.readerFigurePredict(` — const, line 338
-- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 345
-- `const found = await api.readerFigureExplain(` — const, line 348
-- `const under = useCallback( (spanId: string | null | undefined)` — const, line 355
+- `function sleep(ms: number): Promise<void>` — function, line 111
+- `const enabled = Boolean(contract && extractionId)` — const, line 124
+- `const setExpanded = useCallback((figure: FigureViewDto | null)` — const, line 132
+- `const generation = useRef(0)` — const, line 134
+- `const runs = useRef(new Map<string, object>())` — const, line 135
+- `const onBuiltRef = useRef(onBuilt)` — const, line 136
+- `const mine = generation.current` — const, line 146
+- `const richRunning = ( richPending.some((line)` — const, line 160
+- `const mine = generation.current` — const, line 165
+- `const timer = setTimeout(()` — const, line 166
+- `const land = useCallback((figure: FigureViewDto)` — const, line 179
+- `const sameRequest = (item: FigureViewDto)` — const, line 180
+- `const goalOnly = figure.spanIds.length === 0 && figure.region === null` — const, line 188
+- `const anchors = goalOnly ? [...new Set([figure.anchorSpanId, ...list.filter((item)` — const, line 189
+- `const placed = anchors.map((anchorSpanId)` — const, line 192
+- `const run = useCallback( (key: string, anchorSpanId: string, start: ()` — const, line 204
+- `const mine = generation.current` — const, line 207
+- `const token =` — const, line 208
+- `const live = ()` — const, line 210
+- `let jobId: string | null = null` — let, line 211
+- `const retry = ()` — const, line 212
+- `const cancel = ()` — const, line 213
+- `let job = await start()` — let, line 221
+- `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 230
+- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 236
+- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 237
+- `const command = getCommandError(error)` — const, line 249
+- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 260
+- `const spanIds = [...new Set(input.spanIds)]` — const, line 263
+- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 264
+- `const region = input.region && contract?.region ? input.region : null` — const, line 267
+- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 268
+- `const key = `req:$` — const, line 269
+- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 270
+- `const anchored = spanIds.length > 0 || region !== null` — const, line 277
+- `const readingAt = input.readingAt?.spanId ?` — const, line 278
+- `const refresh = useCallback(()` — const, line 297
+- `const mine = generation.current` — const, line 299
+- `const cancelRich = useCallback((richJobId: string)` — const, line 310
+- `const retryRich = useCallback((richJobId: string)` — const, line 315
+- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 321
+- `const revise = useCallback( (figure: FigureViewDto, note: string, differentKind?: boolean)` — const, line 329
+- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 338
+- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 346
+- `const found = await api.readerFigurePredict(` — const, line 349
+- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 356
+- `const found = await api.readerFigureExplain(` — const, line 359
+- `const under = useCallback( (spanId: string | null | undefined)` — const, line 366
 
 ## Who imports or calls it
 

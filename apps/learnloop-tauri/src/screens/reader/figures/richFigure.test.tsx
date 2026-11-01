@@ -20,7 +20,7 @@ import { RICH_POLL_MS, useFigures, type FiguresContract } from "./useFigures";
 const api = vi.hoisted(() => ({
   readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
   readerFigureRevise: vi.fn(), readerFigurePredict: vi.fn(), readerFigureExplain: vi.fn(), readerLogActivity: vi.fn(),
-  figureRichCancel: vi.fn(), figureManimOptIn: vi.fn(), figureRequest: vi.fn(),
+  figureRichCancel: vi.fn(), figureRichRetry: vi.fn(), figureManimOptIn: vi.fn(), figureRequest: vi.fn(),
 }));
 vi.mock("../../../api/client", () => ({ api }));
 vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (name: string) => `llmedia://localhost/${name}` }));
@@ -190,4 +190,45 @@ it("switched off (no rich contract) a stored animation shows as can't show this 
   render(<Harness contract={{ predictions: true, region: true, revisions: true }} />);
   expect(await screen.findByText(RICH_FRAME.cantShow)).toBeTruthy();
   expect(screen.queryByText(/needs an animation/)).toBeNull();
+});
+
+it("a rich-only build that ended with no figure says why and tries again (Codex review F9)", async () => {
+  const line: FigureRichPendingDto = { requestId: "frq_1", extractionId: "ext_prob", anchorSpanId: "p3",
+    tier: "manim", goalText: "the spiral", state: "failed", phase: null, reason: "interrupted when LearnLoop stopped",
+    richJobId: "ijob_3" };
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [], richPending: [line] });
+  api.figureRichRetry.mockResolvedValue({ richJobId: "ijob_3", state: "pending" });
+  render(<Harness />);
+  expect(await screen.findByText(RICH_FRAME.richFailed)).toBeTruthy();
+  expect(screen.queryByText("interrupted when LearnLoop stopped")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.why }));
+  expect(screen.getByText("interrupted when LearnLoop stopped")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.tryAgain }));
+  expect(api.figureRichRetry).toHaveBeenCalledWith({ richJobId: "ijob_3" });
+  expect(await screen.findByText(`${RICH_PHASES.writing} · keep reading`)).toBeTruthy();
+});
+
+it("not right? on an animation sends the note, or asks for a different kind (Codex review F11)", async () => {
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [manimView()], richPending: [] });
+  api.readerFigureRevise.mockResolvedValue({ jobId: "j2", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.readerFigureJob.mockReturnValue(new Promise(() => undefined));
+  render(<Harness />);
+  fireEvent.click(await screen.findByRole("button", { name: /animation/ }));
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.notRight }));
+  fireEvent.change(screen.getByLabelText(RICH_FRAME.notRight), { target: { value: "the spiral should be red" } });
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.askBetter }));
+  expect(api.readerFigureRevise).toHaveBeenCalledWith({ figureId: "fig_rich", note: "the spiral should be red" });
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.notRight }));
+  fireEvent.change(screen.getByLabelText(RICH_FRAME.notRight), { target: { value: "a picture is enough" } });
+  fireEvent.click(screen.getByLabelText(RICH_FRAME.differentKind, { exact: false }));
+  fireEvent.click(screen.getByRole("button", { name: RICH_FRAME.askBetter }));
+  expect(api.readerFigureRevise).toHaveBeenLastCalledWith({ figureId: "fig_rich", note: "a picture is enough",
+    differentKind: true });
+});
+
+it("without revisions in the contract an animation has no not right?", async () => {
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [manimView()], richPending: [] });
+  render(<Harness contract={{ ...CONTRACT, revisions: false }} />);
+  fireEvent.click(await screen.findByRole("button", { name: /animation/ }));
+  expect(screen.queryByRole("button", { name: RICH_FRAME.notRight })).toBeNull();
 });

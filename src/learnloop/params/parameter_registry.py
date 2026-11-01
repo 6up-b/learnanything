@@ -476,6 +476,26 @@ _reg_const("concept_animation:RENDER_MEMORY_MAX", "operational", kind="structura
            rationale="keep (machine safety, RW5d P2b spec §15): a figure render's memory cap (4 GiB; oomd history).")
 _reg_const("concept_animation:RENDER_TASKS_MAX", "operational", kind="structural", owner="concept_animation",
            rationale="keep (machine safety, RW5d P2b): a figure render's task cap in its scope (fork bombs).")
+# Reader RW5d P2b, Codex review fixes (F2, F3): the declared-function check's work and clock, and the render's
+# output and video caps. All keep: machine-safety bounds, never a weight, margin or threshold.
+_reg_const("concept_animation:RENDER_MAX_OUTPUT_BYTES", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (machine safety, Codex review F3): the most stdout+stderr one render may print; both pipes "
+                     "are drained with bounded tails, and a render past it is stopped (its process group) and fails.")
+_reg_const("concept_animation:RENDER_MAX_VIDEO_BYTES", "operational", kind="structural", owner="concept_animation",
+           rationale="keep (machine safety, Codex review F3): the largest rendered mp4 read into the sidecar; a "
+                     "larger file fails as too large, unread.")
+_reg_const("figure_manim:MAX_CLAIM_WORK", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (machine safety, Codex review F2): the claim oracle's metered expression steps over one "
+                     "Manim figure's claims (the sketch verifier's cap, reused).")
+_reg_const("figure_manim:CHECK_SECONDS", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (machine safety, Codex review F2): one Manim figure's whole check (sandboxed run and "
+                     "oracle) wall clock, as the sketch verifier's.")
+_reg_const("figure_manim:INTERRUPT_SECONDS", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (operational, Codex review F2/F6): how often a long oracle phase calls the rich job's "
+                     "heartbeat (where a cancel is noticed), at most.")
+_reg_const("figure_manim:_TICK_WORK", "operational", kind="structural", owner="figure_manim",
+           rationale="keep (operational): metered steps between the oracle's looks at the clock (about a "
+                     "millisecond), as the sketch verifier's.")
 _reg_const("figure_sketch:SKETCH_MAX_SOURCE_BYTES", "constraint", kind="structural", owner="figure_sketch",
            rationale="keep: bounds a sketch's program to one reviewable idea (spec §15: 32 KiB).")
 _reg_const("figure_sketch:SKETCH_MAX_ELEMENTS", "constraint", kind="structural", owner="figure_sketch",

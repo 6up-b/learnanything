@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
-source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
-source_commit_timestamp: "2026-11-01T08:37:27-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx) |
-| Source lines | 579 |
+| Source lines | 582 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `73e04e71c69fef5371cef306d228eedd8bf67836` |
-| Commit timestamp | `2026-11-01T08:37:27-05:00` |
+| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
+| Commit timestamp | `2026-11-01T09:50:06-05:00` |
 
 ## Activation and status evidence
 
@@ -73,7 +73,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function PredictionBlock(` — function, line 181
 - `export function PredictionResult(` — function, line 237
 - `export function FigureInline(` — function, line 471
-- `export function FiguresUnder(` — function, line 566
+- `export function FiguresUnder(` — function, line 569
 
 ## Internal implementation anchors
 
@@ -123,8 +123,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const toggle = ()` — const, line 520
 - `const openFuller = ()` — const, line 524
 - `const openQuick = ()` — const, line 529
-- `const body = showingFuller && fullerReady ? <ManimFigureBody figure=` — const, line 533
-- `const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask"` — const, line 569
+- `const notRightOn = (target: FigureViewDto)` — const, line 534
+- `const body = showingFuller && fullerReady ? <ManimFigureBody figure=` — const, line 536
+- `const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask"` — const, line 572
 
 ## Who imports or calls it
 
@@ -146,7 +147,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|src/screens/reader/figures/FigurePanels.tsx]] — import-or-re-export; imports `FigurePanel`, `formatValue`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export; imports `FullerLine`, `ManimFigureBody`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export; imports `FullerLine`, `ManimFigureBody`, `ManimNotRight`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|src/screens/reader/figures/figureSpec.ts]] — import-or-re-export; imports `CompiledFigure`, `FigureParameter`, `compileSpec`, `evaluateFigure`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export; imports `SKETCH_FRAME`, `SketchFigure`, `checksStand`, `sketchBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/checksWithdrawn|src/screens/reader/figures/sketch/checksWithdrawn.ts]] — import-or-re-export; imports `useChecksWithdrawn`

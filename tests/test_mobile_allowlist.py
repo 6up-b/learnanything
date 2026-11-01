@@ -516,6 +516,7 @@ READER_RW5D_RPCS = (
     "figure.request",
     # Reader RW5d P2b: cancel a rich build; the standing Manim opt-in. Desktop only.
     "figure.rich_cancel",
+    "figure.rich_retry",
     "figure.manim_opt_in",
 )
 

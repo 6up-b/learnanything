@@ -487,10 +487,13 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/cli/ai_compare.py", "tracked_database_reason", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "manim_runtime", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "provision_animation_venv", "subprocess.run"),
-    ("src/learnloop/content/authoring/concept_animation.py", "render_scene", "subprocess.run"),
     # Reader RW5d P2b: the one-time probe that a user systemd scope can start
     # (`systemd-run --user --scope --quiet -- true`, a fixed argv, no shell, no model call).
     ("src/learnloop/content/authoring/concept_animation.py", "_systemd_scope_works", "subprocess.run"),
+    # Reader RW5d P2b, Codex review F3: the render's launcher (render_scene's default `run`): the
+    # same argv render_scene built (the capped scope, bubblewrap, manim), no shell, its output drained
+    # with bounded tails and its process group killed past the budget or the timeout.
+    ("src/learnloop/content/authoring/concept_animation.py", "bounded_run", "subprocess.Popen"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "check_generator_answers", "subprocess.run"),
     # E1's harness (experiments, owner-run): the metered worker under its scope,
     # nvidia-smi probes, the env's version listing. Fixed argv lists, no shell.

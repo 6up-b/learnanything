@@ -11,7 +11,11 @@
   grant it carries neither (no offer, no grant honoured). A plan-waiting job
   is asked again by a later read, at most once per interval, and no response
   carries an offer for it.
-* ``figure.rich_cancel`` cancels only the rich job.
+* ``figure.rich_cancel`` cancels only the rich job; ``figure.rich_retry``
+  requeues a rich-only build that ended with no row (Codex review F9).
+* A read recovers a rich job whose enqueue never happened (F8), and "not
+  right?" on an animation goes to the rich author or, asked for a different
+  kind, back to the tier choice (F11).
 
 Fakes only: the authors, the renderer and the function runner are injected;
 the queue drains in the foreground.
@@ -166,7 +170,8 @@ def test_cancelling_an_unknown_or_other_job_is_refused(tmp_path, monkeypatch):
 
 def test_switched_off_the_rpcs_refuse_and_the_listing_has_no_rich_key(tmp_path, monkeypatch):
     _paths, _repository, ctx, _author, _rich = _ctx(tmp_path, monkeypatch, rich=False)
-    for name, params in (("figure.rich_cancel", {"richJobId": "x"}), ("figure.manim_opt_in", {"choice": "allow"})):
+    for name, params in (("figure.rich_cancel", {"richJobId": "x"}), ("figure.rich_retry", {"richJobId": "x"}),
+                         ("figure.manim_opt_in", {"choice": "allow"})):
         with pytest.raises(SidecarError) as refused:
             call(ctx, name, params)
         assert refused.value.code == "rich_disabled"
@@ -187,3 +192,80 @@ def test_rich_build_cancelled_is_a_salience_only_event_without_words(tmp_path, m
     assert "rich_build_cancelled" in RI.RW5D_SERVER_EVENTS
     assert {"fuller_version_opened", "quick_version_opened"} <= set(RI.CLIENT_ACTION_EVENTS)
     assert not set(RI.RW5D_SERVER_EVENTS) & set(RI.CLIENT_ACTION_EVENTS)
+
+
+def test_an_interrupted_rich_only_build_reads_as_failed_and_rich_retry_requeues_it(tmp_path, monkeypatch):
+    """Codex review F9 through the sidecar: the failed line, then ``figure.rich_retry``."""
+
+    from learnloop.content.pipeline.runner import IngestRunner
+
+    _paths, repository, ctx, author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], foreground=False)
+    result = build(ctx)
+    job_id = result["rich"]["richJobId"]
+    with repository.connection() as connection:
+        connection.execute("UPDATE ingest_jobs SET status = 'running', worker_id = 'dead', attempt_count = 1, "
+                           "heartbeat_at = '2000-01-01T00:00:00Z' WHERE id = ?", (job_id,))
+        connection.commit()
+    IngestRunner(repository, vault_root=ctx.vault_root, worker_id="w2").recover_stale_leases()
+    (line,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["richPending"]
+    assert line["state"] == "failed" and line["reason"] == "interrupted when LearnLoop stopped"
+    # The queue drains in the foreground again: the retry runs the job.
+    monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker", type(ctx.ingest_jobs)._ensure_worker.__get__(ctx.ingest_jobs))
+    assert call(ctx, "figure.rich_retry", {"richJobId": job_id})["state"] == "pending"
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert listed["richPending"] == [] and listed["figures"][0]["tier"] == "manim"
+    assert author.calls == 1 and rich_author.calls == 1
+    with pytest.raises(SidecarError) as again:
+        call(ctx, "figure.rich_retry", {"richJobId": job_id})
+    assert again.value.code == "not_failed"
+
+
+def test_reading_a_source_starts_a_rich_job_whose_enqueue_never_happened(tmp_path, monkeypatch):
+    """Codex review F8 through the sidecar: the read recovers the durable intent, with no grant."""
+
+    from learnloop.figures import service as FS
+
+    _paths, repository, ctx, _author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    monkeypatch.setattr(FS._RichSpawn, "after_quick", lambda self, *args, **kwargs: None)
+    seen = []
+    original = ctx.ingest_jobs.enqueue_figure_rich
+    monkeypatch.setattr(ctx.ingest_jobs, "enqueue_figure_rich",
+                        lambda **kwargs: seen.append(kwargs) or original(**kwargs))
+    build(ctx)
+    assert seen == []
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    (spawned,) = seen
+    assert spawned["grant"] is None and spawned["origin"] is None
+    assert spawned["payload"]["build_mode"] == "recovered"
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert listed["figures"][0]["fuller"]["state"] == "ready" and rich_author.calls == 1
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert len(seen) == 1
+
+
+@pytest.mark.parametrize("different_kind", [False, True])
+def test_not_right_on_an_animation_through_the_sidecar(tmp_path, monkeypatch, different_kind):
+    """Codex review F11: ``reader.figure_revise`` on a Manim figure (and its "different kind" escape)."""
+
+    _paths, repository, ctx, author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY), flagship(kind="illustrative")])
+    build(ctx)
+    (first,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    params = {"figureId": first["figureId"], "note": "red please"}
+    if different_kind:
+        params["differentKind"] = True
+    job = call(ctx, "reader.figure_revise", params)
+    kept = ctx.figure_jobs.get(job["jobId"])
+    assert kept is not None and kept.done.wait(120)
+    result = call(ctx, "reader.figure_job", {"jobId": job["jobId"]})["result"]
+    (line,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
+    assert line["supersedesId"] == first["figureId"] and line["versions"] == 2
+    if different_kind:
+        assert author.calls == 2 and rich_author.calls == 1 and line["tier"] == "grammar"
+        assert result["figure"]["tier"] == "grammar"
+    else:
+        assert author.calls == 1 and rich_author.calls == 2 and line["tier"] == "manim"
+        assert result["figure"] is None and result["rich"]["state"] == "pending"
+        assert rich_author.contexts[1]["learner_note"] == "red please"

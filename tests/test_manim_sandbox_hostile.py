@@ -93,6 +93,136 @@ def test_the_scope_probe_runs_once_and_fails_closed_to_prlimit(monkeypatch):
     assert len(calls) == 1 and calls[0][:3] == ["/usr/bin/systemd-run", "--user", "--scope"]
 
 
+# --- Codex review F1: the scope launcher gets the session bus, the sandbox never does --
+
+
+def test_the_render_launch_gives_the_scope_the_session_bus_and_unsets_it_in_the_sandbox(monkeypatch, tmp_path):
+    """F1: the render's env dropped DBUS_SESSION_BUS_ADDRESS and XDG_RUNTIME_DIR,
+    so ``systemd-run --user`` could not reach the user manager and every render failed."""
+
+    monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/1000")
+    monkeypatch.setenv("LEARNLOOP_SECRET_SHAPED", "never")
+    wrapper = ["/usr/bin/systemd-run", "--user", "--scope", "--quiet", "--"]
+    command, env = CA.render_launch(["python", "-m", "manim"], tmp_path, "/usr/bin/bwrap", wrapper)
+    assert env["DBUS_SESSION_BUS_ADDRESS"] == "unix:path=/run/user/1000/bus"
+    assert env["XDG_RUNTIME_DIR"] == "/run/user/1000" and "LEARNLOOP_SECRET_SHAPED" not in env
+    assert env["HOME"] == str(tmp_path)
+    assert command[:len(wrapper)] == wrapper
+    flags = command[len(wrapper):command.index("--", len(wrapper))]
+    unset = [flags[index + 1] for index, flag in enumerate(flags) if flag == "--unsetenv"]
+    assert sorted(unset) == ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]
+    # Under prlimit (no scope) nothing of the session is passed at all.
+    command, env = CA.render_launch(["python"], tmp_path, "/usr/bin/bwrap", ["/usr/bin/prlimit", "--as=1", "--"])
+    assert "DBUS_SESSION_BUS_ADDRESS" not in env and "--unsetenv" not in command
+
+
+def test_the_scope_probe_launches_exactly_as_a_render_does(monkeypatch):
+    monkeypatch.setattr(CA.sys, "platform", "linux")
+    monkeypatch.setattr(CA.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(CA, "_SCOPE_PROBE", {})
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/1000")
+    monkeypatch.setenv("LEARNLOOP_SECRET_SHAPED", "never")
+    seen = {}
+
+    class Done:
+        returncode = 0
+
+    def run(command, **kwargs):
+        seen.update(kwargs)
+        return Done()
+
+    assert CA._systemd_scope_works(run) is True
+    assert seen["env"]["XDG_RUNTIME_DIR"] == "/run/user/1000" and "LEARNLOOP_SECRET_SHAPED" not in seen["env"]
+
+
+def _scope_runs_here() -> bool:
+    import os
+    import shutil
+    import subprocess
+
+    systemd_run = shutil.which("systemd-run")
+    if not systemd_run or not os.environ.get("XDG_RUNTIME_DIR"):
+        return False
+    try:
+        return subprocess.run([systemd_run, "--user", "--scope", "--quiet", "--", "true"], capture_output=True,
+                              timeout=15).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+@needs_bwrap
+@pytest.mark.skipif(not _scope_runs_here(), reason="no user systemd scope can start here")
+def test_the_real_capped_scope_launches_the_sandbox_without_the_session_bus(monkeypatch, tmp_path):
+    """F1, end to end on this machine: the capped scope and the hardened sandbox
+    start through render_launch (a transient scope around ``env``, never Manim),
+    and the sandboxed command sees neither session variable."""
+
+    monkeypatch.setattr(CA, "_SCOPE_PROBE", {})
+    wrapper = CA.capped_scope_prefix(memory_bytes=512 * 1024 * 1024)
+    assert wrapper and wrapper[0].endswith("systemd-run")
+    command, env = CA.render_launch(["/usr/bin/env"], tmp_path, CA.sandbox_bwrap_path(), wrapper)
+    result = CA.bounded_run(command, cwd=str(tmp_path), env=env, timeout=60)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    inner = result.stdout.decode()
+    assert "DBUS_SESSION_BUS_ADDRESS" not in inner and "XDG_RUNTIME_DIR" not in inner
+    assert f"HOME={tmp_path}" in inner
+
+
+# --- Codex review F3: render output and the video are bounded in the sidecar ---------
+
+
+def test_bounded_run_stops_a_flood_and_keeps_only_the_tails(tmp_path):
+    """F3: a validator-accepted scene printing without end used to accumulate in
+    the sidecar (capture_output); now the group is killed past the budget."""
+
+    import sys
+
+    flood = "import sys\nchunk = 'x' * 65536\nwhile True:\n    sys.stdout.write(chunk); sys.stderr.write(chunk)\n"
+    result = CA.bounded_run([sys.executable, "-c", flood], cwd=str(tmp_path), timeout=60,
+                            max_output_bytes=4 * 1024 * 1024, tail_bytes=1000)
+    assert result.output_exceeded is True and result.returncode != 0
+    assert len(result.stdout) <= 1000 and len(result.stderr) <= 1000
+
+
+def test_bounded_run_returns_the_output_tails_and_times_out(tmp_path):
+    import subprocess
+    import sys
+
+    result = CA.bounded_run([sys.executable, "-c", "import sys; print('out'); print('err', file=sys.stderr)"],
+                            cwd=str(tmp_path), timeout=60)
+    assert result.returncode == 0 and result.stdout.strip() == b"out" and result.stderr.strip() == b"err"
+    assert result.output_exceeded is False
+    with pytest.raises(subprocess.TimeoutExpired):
+        CA.bounded_run([sys.executable, "-c", "import time; time.sleep(30)"], cwd=str(tmp_path), timeout=0.5)
+
+
+def test_render_scene_runs_bounded_by_default_and_fails_a_flood(monkeypatch):
+    seen = {}
+
+    def flooded(command, **kwargs):
+        seen["called"] = True
+        return CA.BoundedResult(list(command), -9, b"", b"x" * 100, output_exceeded=True)
+
+    monkeypatch.setattr(CA, "bounded_run", flooded)
+    result = CA.render_scene("from manim import *\nclass S(Scene):\n    pass\n", "S", sandbox=False)
+    assert seen["called"] and result.ok is False and "MiB of output and was stopped" in result.stderr_tail
+
+
+def test_a_video_past_the_cap_is_never_read(monkeypatch):
+    def writes_big_video(command, cwd=None, **kwargs):
+        media = Path(command[command.index("--media_dir") + 1]) / "videos" / "scene" / "480p15"
+        media.mkdir(parents=True)
+        (media / "S.mp4").write_bytes(b"\0" * 4096)
+        return CA.BoundedResult(list(command), 0, b"", b"")
+
+    monkeypatch.setattr(CA, "RENDER_MAX_VIDEO_BYTES", 1024)
+    monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail("the video must not be read"))
+    result = CA.render_scene("from manim import *\nclass S(Scene):\n    pass\n", "S", sandbox=False,
+                             run=writes_big_video)
+    assert result.ok is False and "larger than" in result.stderr_tail
+
+
 HOSTILE_PROBE = r'''
 import json, os, sys
 workdir = sys.argv[1]

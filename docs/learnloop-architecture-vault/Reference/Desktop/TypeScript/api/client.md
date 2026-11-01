@@ -10,8 +10,8 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/client.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/client.ts"
-source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
-source_commit_timestamp: "2026-11-01T08:37:27-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/client.ts](../../../../../../apps/learnloop-tauri/src/api/client.ts) |
-| Source lines | 1903 |
+| Source lines | 1905 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `73e04e71c69fef5371cef306d228eedd8bf67836` |
-| Commit timestamp | `2026-11-01T08:37:27-05:00` |
+| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
+| Commit timestamp | `2026-11-01T09:50:06-05:00` |
 
 ## Activation and status evidence
 

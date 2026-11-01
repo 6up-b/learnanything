@@ -165,8 +165,9 @@ def test_rich_only_shows_the_pending_line_and_never_asks_twice(tmp_path, monkeyp
     assert line["anchor_span_id"] == "p3"
     (asked, second) = rows(rig.repository, "figure_requests")
     assert asked["figure_id"] == line["figure_id"]
+    # The tier receipt is the request's (Codex review F10), which names the figure.
     (tier,) = _ledger(rig.repository, "figure_tier")
-    assert tier["left_id"] == line["figure_id"] and tier["verdict"] == "manim"
+    assert tier["left_kind"] == "figure_request" and tier["left_id"] == asked["id"] and tier["verdict"] == "manim"
     # A later request reuses the stored animation with no call.
     reused = rig.build()
     assert reused.reused and reused.view["figure_id"] == line["figure_id"] and rig.author.calls == 1
@@ -308,20 +309,6 @@ def test_a_failing_quick_figure_is_dropped_and_the_rich_half_carries_on(tmp_path
     outcome = rig.build()
     assert outcome.view is None and outcome.rich["state"] == "pending"
     assert rig.job()["payload"]["quick_dropped"]
-
-
-def test_not_right_on_an_animation_comes_later(tmp_path, monkeypatch):
-    rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)])
-    rig.build()
-    rig.ingest.drain()
-    from learnloop.db.stores import figures as store
-
-    (line,) = rig.listed()
-    with rig.repository.connection() as connection:
-        base = store.figure(connection, line["figure_id"])
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.check_request(rig.vault, rig.repository, FS.revision_request(rig.repository, base, "wrong"))
-    assert refused.value.code == "rich_revision_later"
 
 
 def test_the_report_shows_the_rich_tier_rows(tmp_path, monkeypatch):

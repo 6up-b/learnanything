@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/RichFigure.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/RichFigure.tsx"
-source_commit: "73e04e71c69fef5371cef306d228eedd8bf67836"
-source_commit_timestamp: "2026-11-01T08:37:27-05:00"
+source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
+source_commit_timestamp: "2026-11-01T09:50:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/RichFigure.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/RichFigure.tsx) |
-| Source lines | 178 |
+| Source lines | 235 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `73e04e71c69fef5371cef306d228eedd8bf67836` |
-| Commit timestamp | `2026-11-01T08:37:27-05:00` |
+| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
+| Commit timestamp | `2026-11-01T09:50:06-05:00` |
 
 ## Activation and status evidence
 
@@ -60,29 +60,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const RICH_FRAME =` — const, line 24
-- `export const RICH_PHASES: Readonly<Record<string, string>> = Object.freeze(` — const, line 52
-- `export function manimBadge(figure: FigureViewDto): string` — function, line 58
-- `export function manimCheckLine(check: FigureManimCheckDto): string` — function, line 66
-- `export function ManimFigureBody(` — function, line 79
-- `export function FullerLine(` — function, line 112
-- `export function RichPendingLine(` — function, line 159
-- `export function ManimOptInLine(` — function, line 170
+- `export const RICH_FRAME =` — const, line 25
+- `export const RICH_PHASES: Readonly<Record<string, string>> = Object.freeze(` — const, line 61
+- `export function manimBadge(figure: FigureViewDto): string` — function, line 67
+- `export function manimCheckLine(check: FigureManimCheckDto): string` — function, line 75
+- `export function ManimNotRight(` — function, line 89
+- `export function ManimFigureBody(` — function, line 118
+- `export function FullerLine(` — function, line 152
+- `export function RichPendingLine(` — function, line 201
+- `export function ManimOptInLine(` — function, line 227
 
 ## Internal implementation anchors
 
-- `const settings = `at $` — const, line 67
-- `const property = check.property === "nonnegative" ? "is never negative" : check.property === "bounded" ? `stays within ±$` — const, line 73
-- `const manim = figure.manim` — const, line 81
-- `const style =` — const, line 120
-- `const text = line.state === "waiting_for_plan" ? RICH_FRAME.richWaiting : (RICH_PHASES[line.phase ?? "writing"] ?? RICH_PHASES.writing)` — const, line 160
+- `const settings = `at $` — const, line 76
+- `const property = check.property === "nonnegative" ? "is never negative" : check.property === "bounded" ? `stays within ±$` — const, line 82
+- `const manim = figure.manim` — const, line 120
+- `const style =` — const, line 160
+- `const text = line.state === "waiting_for_plan" ? RICH_FRAME.richWaiting : (RICH_PHASES[line.phase ?? "writing"] ?? RICH_PHASES.writing)` — const, line 217
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `FullerLine`, `ManimFigureBody`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`; references `FullerLine`, `ManimFigureBody`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `FullerLine`, `ManimFigureBody`, `ManimNotRight`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`; references `FullerLine`, `ManimFigureBody`, `ManimNotRight`, `ManimOptInLine`, `RICH_FRAME`, `RichPendingLine`, `manimBadge`
 
 ## Dependencies
 
