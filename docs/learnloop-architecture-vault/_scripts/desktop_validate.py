@@ -181,8 +181,8 @@ def main() -> int:
 
     # The inventory and activation counts are review gates: a new desktop file
     # must be classified by the activation audit before these numbers change.
-    if len(ts_sources) != 111:
-        errors.append(f"source inventory drift: expected 111 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 289:
+        errors.append(f"source inventory drift: expected 289 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 5:
         errors.append(f"source inventory drift: expected 5 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -276,8 +276,9 @@ def main() -> int:
             errors.append(f"duplicate source coverage for {source_path}: {len(notes)} notes")
 
     expected_activation_counts = {
-        "entry-reachable build graph": 110,
-        "compiler-implicit": 1,
+        "entry-reachable build graph": 281,
+        "compiler-implicit": 2,
+        "vitest-support": 6,
         "native-entry-reachable": 5,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -287,7 +288,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 116}:
+    if dict(status_counts) != {"ACTIVE": 294}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
@@ -314,6 +315,7 @@ def main() -> int:
         f"status audit ACTIVE={status_counts['ACTIVE']} "
         f"({activation_counts['entry-reachable build graph']} entry-build + "
         f"{activation_counts['compiler-implicit']} compiler-implicit + "
+        f"{activation_counts['vitest-support']} vitest-support + "
         f"{activation_counts['native-entry-reachable']} native-entry), "
         f"{wikilinks} Wikilinks ({fragments} fragments), "
         f"{markdown_links} Markdown/source links, reproducible byte-for-byte"

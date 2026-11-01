@@ -37,12 +37,22 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/components": "Reusable learner-facing controls and composite interaction surfaces.",
     "TypeScript/components/goldenpath": "Golden-path setup and triage components used by the staged learning journey.",
     "TypeScript/components/graphedit": "Study-map editing widgets, pending edits, and geometry previews.",
+    "TypeScript/components/pdfSelection": "The PDF text-layer selection model: tokens, geometry, highlights, and the selection layer over a rendered page.",
+    "TypeScript/components/pdfSelection/testing": "Synthetic PDFs and books built in memory for the PDF selection vitest files (test support, outside the Vite build).",
     "TypeScript/components/recipeedit": "Recipe-tree editing for structured learning plans.",
+    "TypeScript/copy": "Learner-facing copy policy: the jargon deny-list the vitest lints apply, and plain-language ingest error wording.",
     "TypeScript/fixtures": "Deterministic renderer fixtures used to demonstrate or restore known states.",
     "TypeScript/fixtures/goldenpath": "A barrel over checked-in golden-path JSON scenario fixtures.",
     "TypeScript/render": "Markdown, mathematics, and live-editor rendering adapters.",
     "TypeScript/screens": "Top-level routed workflow screens in the desktop shell.",
+    "TypeScript/screens/feedback": "The post-answer feedback surface: answer exposure, method comparison, and its exposure contract.",
+    "TypeScript/screens/practice": "Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen.",
     "TypeScript/screens/reader": "Reader request-state coordination extracted from the main reader screen.",
+    "TypeScript/screens/reader/figures": "Reader \"show me\" figures: the figure grammar and spec, inline figures, panels, predictions, and their state.",
+    "TypeScript/screens/reader/figures/sketch": "The sandboxed sketch tier: the pinned engine host, its Worker protocol and runner, and the scene renderer.",
+    "TypeScript/screens/today": "The Today place: the daily plan view and re-entry after time away.",
+    "TypeScript/screens/underhood": "Under the hood's thin tool entry points (SQLite browser, inspector, calibration, mistake history, AI routes).",
+    "TypeScript/screens/workbench": "The Reader workbench: steps, Check my work, the help ladder, step hints, and the session state behind them.",
     "TypeScript/screens/startBackdrops": "Canvas/SVG simulations and workers used as the start-screen visual backdrop.",
     "Rust": "The native Tauri shell, command bridge, sidecar process manager, error contract, and vault watcher.",
 }
@@ -433,6 +443,32 @@ def reconstruct_chain(target: Path, parents: dict[Path, Path | None]) -> list[Pa
     return list(reversed(chain))
 
 
+def vitest_reachability(infos: dict[Path, SourceInfo]) -> dict[Path, Path | None]:
+    """Sources a vitest file reaches through static or dynamic imports (the
+    same resolution as the build graph), for the test-support audit rule. A
+    source a vitest file imports is a root (its parent is None)."""
+
+    source_set = set(infos)
+    parents: dict[Path, Path | None] = {}
+    queue: list[Path] = []
+    for test in vitest_files():
+        test = test.resolve()
+        probe = SourceInfo(source=test, language="TypeScript", area="", text=test.read_text(encoding="utf-8"),
+                           symbols=[], commit="", commit_timestamp="", worktree_state="")
+        add_ts_imports(probe, source_set)
+        for target in sorted(probe.internal_dependencies):
+            if target not in parents:
+                parents[target] = None
+                queue.append(target)
+    while queue:
+        current = queue.pop(0)
+        for target in sorted(infos[current].internal_dependencies):
+            if target not in parents:
+                parents[target] = current
+                queue.append(target)
+    return parents
+
+
 def audit_activation(infos: dict[Path, SourceInfo]) -> None:
     """Assign lifecycle status only from explicit build/runtime evidence."""
     ts_entry = (TS_ROOT / "main.tsx").resolve()
@@ -440,6 +476,8 @@ def audit_activation(infos: dict[Path, SourceInfo]) -> None:
     ts_parents = entry_reachability(ts_entry, infos)
     rust_parents = entry_reachability(rust_entry, infos)
     ambient = (TS_ROOT / "vite-env.d.ts").resolve()
+    test_ambient = (TS_ROOT / "testNodeShims.d.ts").resolve()
+    vitest_parents = vitest_reachability(infos)
     for source, info in infos.items():
         if source in ts_parents:
             info.refactor_status = "ACTIVE"
@@ -455,6 +493,24 @@ def audit_activation(infos: dict[Path, SourceInfo]) -> None:
             info.refactor_status = "ACTIVE"
             info.activation_kind = "compiler-implicit"
             info.activation_evidence = "tsconfig.json includes src, and this declaration references vite/client for the current frontend build."
+        elif source == test_ambient:
+            info.refactor_status = "ACTIVE"
+            info.activation_kind = "compiler-implicit"
+            info.activation_evidence = (
+                "tsconfig.json includes src, and this declaration types the few Node built-ins the vitest files read "
+                "(the app ships no @types/node); it declares nothing the app bundle uses."
+            )
+        elif source in vitest_parents:
+            # Test support: no path from src/main.tsx, but positive evidence of
+            # use: a vitest file imports it (directly or through other test
+            # support). It runs in `npm test`, never in the app bundle.
+            info.refactor_status = "ACTIVE"
+            info.activation_kind = "vitest-support"
+            info.activation_chain = reconstruct_chain(source, vitest_parents)
+            info.activation_evidence = (
+                "Outside the Vite build graph: test support imported only by vitest files, directly or through "
+                "other test support; it runs under `npm test` and is never in the app bundle."
+            )
         elif source in rust_parents:
             info.refactor_status = "ACTIVE"
             info.activation_kind = "native-entry-reachable"
@@ -692,7 +748,8 @@ def render_module(
             wikilink(note_path(source, infos[source].language), infos[source].relative)
             for source in info.activation_chain
         )
-        lines.append(f"> Build/entry chain: {chain}")
+        label = "Test-import chain (from a vitest file)" if info.activation_kind == "vitest-support" else "Build/entry chain"
+        lines.append(f"> {label}: {chain}")
     else:
         tsconfig = REPO_ROOT / "apps" / "learnloop-tauri" / "tsconfig.json"
         lines.append(
@@ -893,7 +950,9 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit:
     ts_entry_reachable = sum(info.activation_kind == "entry-reachable build graph" for info in infos.values())
     rust_entry_reachable = sum(info.activation_kind == "native-entry-reachable" for info in infos.values())
     compiler_implicit = sum(info.activation_kind == "compiler-implicit" for info in infos.values())
-    fixture_count = sum("/fixtures/" in info.relative for info in infos.values())
+    vitest_support = sum(info.activation_kind == "vitest-support" for info in infos.values())
+    fixture_count = sum("/fixtures/" in info.relative and info.activation_kind != "vitest-support" for info in infos.values())
+    fixture_tests = sum("/fixtures/" in info.relative and info.activation_kind == "vitest-support" for info in infos.values())
     backdrop_count = sum("/startBackdrops/" in info.relative for info in infos.values())
     lines = [
         "---",
@@ -948,14 +1007,14 @@ def render_catalog(infos: dict[Path, SourceInfo], areas: list[str], head_commit:
         "",
         "| Refactor status | Modules | Positive evidence required |",
         "|---|---:|---|",
-        f"| `ACTIVE` | {status_counts.get('ACTIVE', 0)} | Current entry/build reachability or an explicit compiler inclusion. |",
+        f"| `ACTIVE` | {status_counts.get('ACTIVE', 0)} | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |",
         f"| `DORMANT` | {status_counts.get('DORMANT', 0)} | An owned retained seam plus evidence that no primary workflow uses it. |",
         f"| `COMPAT` | {status_counts.get('COMPAT', 0)} | An explicitly frozen compatibility contract. |",
         f"| `EVALUATION` | {status_counts.get('EVALUATION', 0)} | A simulation/audit surface that measures rather than serves the learner. |",
         "",
-        f"The audit proves **{ts_entry_reachable} TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **{compiler_implicit} ambient declaration** is included by `tsconfig.json`, and **{rust_entry_reachable} Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.",
+        f"The audit proves **{ts_entry_reachable} TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **{compiler_implicit} ambient declarations** are included by `tsconfig.json`, **{vitest_support} test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **{rust_entry_reachable} Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.",
         "",
-        f"The reachability set includes all **{fixture_count} authored fixture modules** through current Reader/GoldenPath screens and all **{backdrop_count} backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all {len(infos)} files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.",
+        f"The reachability set includes all **{fixture_count} app fixture modules** through current Reader/GoldenPath screens (the other {fixture_tests} fixture modules are vitest support) and all **{backdrop_count} backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all {len(infos)} files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.",
         "",
         "> [!warning] Static graph limits",
         "> Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.",
