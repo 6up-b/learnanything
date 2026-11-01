@@ -1548,6 +1548,19 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the background job a completed extraction queues to judge the already-covered LOs "
         "again (quiet: plan only); display and retrieval context only, no measurement, scheduling or serving "
         "authority (no algorithm successor)."),
+    # Deliverable curriculum C1 (mvp-0.39; spec §7.6): the kill switch of the
+    # successor whose plan reading block follows the nearest deliverable's
+    # path. A boolean (classified so every new key has a rule); which section
+    # is read is the path judge's order and the existing filters, so no
+    # weight, margin or threshold is added. Off restores RW7b's plans exactly;
+    # replay never reads it.
+    _ConfigRule(_exact(
+        "curriculum.plan_uses_path",
+    ), "structural", "operational",
+        "kill switch for curriculum C1's successor: the plan's reading block opens the next unfinished core or "
+        "prerequisite section in the nearest active deliverable's fresh path order, in whichever book (the "
+        "front-matter rule, exam filter and DL2's reading_allowed first); off, RW7b's plans byte for byte. "
+        "Never read by replay."),
     # Reader CA2 (ux_reader_compare_ask_v1 §7, §13): the one Ask panel's
     # presentation switch and the kill switch of its successor's one help
     # rule. Booleans (classified so every new key has a rule); the rules are

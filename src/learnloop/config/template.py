@@ -1685,7 +1685,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # can't express an idea, content and display only,
     # at every version (no successor); every snapshot moves only because the effective config gains
     # the key; all of them were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "680e3f6e8724c40d6ecb85bd25c200182f3895523d66ff21654146e793da348f",
+    # Curriculum C1's successor (the plan follows the deliverable; spec_deliverable_curriculum_v1 §7.6,
+    # §8.1; docs/reviews/curriculum-c1-plan-follows-path.md) adds [curriculum] plan_uses_path (true; a
+    # modelled default, left out of the decision-only template): the kill switch of its successor. It
+    # acts only at that tag and later; at every earlier version the key is present and inert. Every
+    # snapshot moves only because the effective config gains the key; all of them were recomputed from
+    # the composed defaults (defaults_fingerprint_for_version), and dropping the key reproduces every
+    # earlier value.
+    "mvp-0.9": "dd426463944424309398604c3f44159d287f171c89ea3cc3dbc471fc833b7340",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1764,7 +1771,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.10": "f93e5a282ad2bfb4db3ea3213c6e0a1c29f635073d20b461f0ec552916bc3ec0",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.10": "c9d3698cf1eb6987ae77cd6fb6d7af237d9fbe5a1a465b5ec42c572807d3b3d6",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1851,7 +1859,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.11": "347d8ffbd6988bbca537fa31b3f687d46c8c44332f3e9a610c6eb7e6bb63a7c7",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.11": "dd8f74e85466dffdf13d3e1cd2ea9ac19a2c05d450abc64e18d369bd3d323efb",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1932,7 +1941,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.12": "85ab041abe0905c12782097631aa1dd189558d296f33876981a229c982b5094f",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.12": "1943735fb285bc8092817cdc571fbc10978fc3db140ac3161a051cec83efdb56",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2008,7 +2018,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.13": "1734d4d81d05afc4154406d90df579433e96d32ec821d0d3479d1ec93f25fb52",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.13": "ffa598e1159898dc49ab64591c26b9e4557457ad2b64ae9bdd0d75606ce2f3f9",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2083,7 +2094,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.14": "cee2e18383ec47459522839c034dcdb758d3cb92166385041aaaabdcc38d24db",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.14": "015d7281fbbc97143e152705556c1465d208c83d96f898fa933f63b433c57b30",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2156,7 +2168,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.15": "5248a6da87b6d30f3000fe40821ea64904b9b2e77e607fccab2b3083c8a3e29b",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.15": "042522a5e8723a3af22d85c23bc01bef6c70864ae98704e12293cba4c666a66d",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2236,7 +2249,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.16": "e359d476ee03aaf26b6ec8610d4385957d648277f66f87cfe60e657776398468",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.16": "6e2ca0aea28831442336e94d81ea9de143dffb6680c0667bfa4b08cc9e8abffc",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2312,7 +2326,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.17": "ad0b31ff18eae916c6dfb116c1cb92eaf4a1949d9798761574491970d4cd9069",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.17": "a229c8ffd37180342fa4a27a3a3da904a6516c7028fe42d42a1bd46815b3fd1d",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2381,7 +2396,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.18": "e763079466fe191d4a6b1475204235fe9c01a22bc80f1451d6b869595d9e8308",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.18": "d5d939c0ff3d47fa7fccf14c43227293b18f7c6dc502182d0727f797ea8a03d9",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2450,7 +2466,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.19": "8f2ef32fa8847d7a6fa15fb78d4c58cb6b101d52432e5fe89f3ca44972dd242d",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.19": "00dbff7f647ebe20b0882e631e1f6bd2c9850288ff92b934cc2c530575ef8aed",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2515,7 +2532,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.20": "f09882bc7327b490fdd889430d8e268e6919a0e07043c5edd7078176754b0dd5",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.20": "bc64cf6054e17a3984f6a3bbcfedc669f273256379fc962eeedf99367bd87664",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2589,7 +2607,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.21": "d4145c5ad8cbc74d49209385c44ebac335ab13a6499c5b660656a235a82d9516",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.21": "b43284dbe72cd0d4ab45bf71ecd444e68216a8e3a13e83475914eae3a116839b",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2655,7 +2674,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.22": "58a432ae57d77e32758c46c48bf65dcddf8741674345854c5a92b69124272d09",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.22": "0e972ccd396bf1fbf041c6b622718ce55eb2422bd129f17547da798ce25ccced",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2716,7 +2736,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.23": "cfc1f42864e598b83b7b565d1fb881d3110fb0ab886c69ac2a6f68162ac44e20",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.23": "3970c7a52fc89605b9cbdac57e5b4b05751359421aab5c4d2b3bc9da0dbe901f",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2774,7 +2795,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.24": "d33aef07a97b6600f6983d2eca5974756709df03a1deeee9e6432e80c5ecdf4d",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.24": "9bed8b4e74a0f80e2beb88523537c79dca9a0c1ad903e0c366a2ed38bf1317da",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2830,7 +2852,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.25": "c1eb234127d034582ab8dbe4ab6376c3060a60733878690ecd96a0b40e68a5b3",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.25": "037f655d4330d6fe74821310f09320d4fdc3f860a6187ccb40a9f2338616d0ec",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2885,7 +2908,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.26": "572534157e260d3a387b3e5d43c720ed7db830679b16ae43938286253abcc5d8",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.26": "862a60ee59608fc4871762af0484964d8982f7b561380af25920541a74b98bb3",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2940,7 +2964,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.27": "9cee8c107f1456080089698e07c7fdd83d29dbcc39f0f2e35a885a0e408b64e7",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.27": "af781bd1c8c90ca9166bddfba6a510adcee3061d0aa853f6d6eb3603220ad478",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2984,7 +3009,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.29": "e052cae30a4b5bc44dfaa145a51a165cc595662f8ec4f93609623da3934b9d80",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.29": "2e443e67169a9a0398fdab0ba43e8a219a6db374e63ea1cad4a7433826dd7a9f",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3022,7 +3048,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.30": "009fcc58b8f404df00aff18069c4ebd3677ff527f03eeae90767ebadb48eaf35",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.30": "42f600b417be0060b63acbee3302f413f8dda248e1608d12a211aaaa0791fb48",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3054,7 +3081,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.31": "7774da4ee3cb3ecf2ed4bc43eddaa9fea32607a4b58f98222b6951741d6bdb9a",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.31": "aac68273a18a2052862063dd4dec52dfa3ce1fddd9cefd19cf6427c57ce81de9",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3083,7 +3111,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.32": "83503840e61f6257fda5c69e7f6e60c71302f072114899c58d7d329346665a85",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.32": "24d6a8d1f899a5f0f83b3efa5b094ebac37e9ce6d1914e0152448230f877d09f",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3110,7 +3139,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.33": "cb67e8df8b8e3cfa5c35f67c3a6f4c0ce5843afa840fb456f50128c4e7285237",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.33": "8b539d0eecd1961d5183cda238353bd071faaad2b6c26197826224e3fa4550df",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3136,7 +3166,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.34": "d03c1b302d9b3b40a5757c2327fc06be984d3d725ba73f89089dab31b1f12aed",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.34": "b3bd43e0a53dde22deba9d467215558a52e70390e3308c7227b86483db525d6b",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3161,7 +3192,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.35": "318413ef624b2576aae403c5e5a4687f1e8f80e024a798c2dee337813552d6e7",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.35": "3f50fece064c75ac4af2afcc88c7a9d93903b90a2d25d7b558f0a5aa789dc558",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3181,7 +3213,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.36": "21071417ad2fe305ff101e867a282e0e093ab64706c374fd64c551a05ec7465e",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.36": "4b1bc4b467173d9d7473d161fdc9d786c9619155914cfd80fdd7fd95fbfae016",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3204,7 +3237,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.37": "6ec0c72c2f765ef0a6e0ba49a2e7d41830e05aab4d3d58375053b1abffadadfa",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.37": "916d3ab260d6b6f458f3864c57db196a7a63f19605d5e8859f3a61eb0958bd60",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3215,15 +3249,31 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # schedules exactly as the predecessor). No default changes here: only the
     # version string moves the fingerprint (the key is in every snapshot
     # above, inert below the tag). Existing vaults reach it by `learnloop
-    # upgrade` (default target) from mvp-0.37, or from mvp-0.9 onwards through
-    # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
-    # owner decision 2026-10-12).
+    # upgrade` from mvp-0.37, or from mvp-0.9 onwards through the chain. New
+    # vaults started here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12) until curriculum C1's successor landed.
     # Reader CA5a's [reader.correspondence] enabled moves it too (see mvp-0.9; display only, no successor).
     # Reader CA3's [reader_compare] scope keys and ai.routing.compare_scope move it too (see mvp-0.9; display only, no successor).
     # Reader CA4's [reader_compare] by_point and max_perspectives move it too (see mvp-0.9; display only, no successor).
     # Curriculum C0b's [curriculum] coverage_on_extract and two routes move it too (see mvp-0.9; display only, no successor).
     # Reader RW5d P2's [figures] sketch_enabled moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.38": "ab0286eeae656892c119eb42c5c6ab399f5ad5e002aa2bf73236289f4a2da70e",
+    # Curriculum C1's [curriculum] plan_uses_path moves it too (see mvp-0.9; inert below mvp-0.39).
+    "mvp-0.38": "07382e464389624084171faca1471ade5d2b1cfa7bfff44f7220574d44468d66",
+    # mvp-0.39 (curriculum C1, the plan follows the deliverable;
+    # spec_deliverable_curriculum_v1 §7.6, §8.1;
+    # docs/reviews/curriculum-c1-plan-follows-path.md): mvp-0.38 plus the
+    # plan's reading block opening the next unfinished core or prerequisite
+    # section in the nearest active deliverable's fresh path order, in
+    # whichever book it is (the front-matter rule, the exam filter and DL2's
+    # reading_allowed first), receipts reading_path_plan_v2. Kill switch
+    # [curriculum] plan_uses_path (default true; off, or curriculum.enabled
+    # off, builds RW7b's plans byte for byte). No default changes here: only
+    # the version string moves the fingerprint (the key is in every snapshot
+    # above, inert below the tag). Existing vaults reach it by `learnloop
+    # upgrade` (default target) from mvp-0.38, or from mvp-0.9 onwards through
+    # the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12).
+    "mvp-0.39": "7c7d6a82a1621ae11535019528184b10bd1826a176916d911713977adfb36bcd",
 }
 
 
