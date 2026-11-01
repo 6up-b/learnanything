@@ -1084,20 +1084,30 @@ def learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) 
         anchor_learning_object_ids=tuple(found["learning_object_ids"]),
         reading=None,
         context=found["context"],
+        bound_passages=tuple(found["passage_refs"]),
     )
 
 
-def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str) -> str | None:
+def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str, *,
+                         prepared: LearnerText | None = None) -> str | None:
     """Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read
     for gaps now (None: it may), from ``vault`` as configured now. The note reading's
     request gate (``pipeline.NoteGate``) asks before every request and before the gap row
-    is written. Switched off it reads no note row."""
+    is written. Switched off it reads no note row.
+
+    ``prepared``: the text the reading was prepared with (Codex re-review F3). The
+    passages it was built from are revalidated against the protection read now, and
+    what it sends must still be what the note's links build now."""
 
     if not learner_notes_enabled(vault):
         return "your notes, or reading them for gaps, are switched off (or tend is gone)"
     from learnloop.source_retrieval import note_gaps
 
-    return note_gaps.refusal(vault, repository, note_id)
+    if prepared is None:
+        return note_gaps.refusal(vault, repository, note_id)
+    bound = note_gaps.payload(text=prepared.text, learning_object_ids=prepared.anchor_learning_object_ids,
+                              subject_id=prepared.subject_id, context=prepared.context)
+    return note_gaps.refusal(vault, repository, note_id, prepared=bound, passages=prepared.bound_passages)
 
 
 def learner_text(

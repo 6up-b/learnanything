@@ -31,8 +31,9 @@ note row.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import json
 from typing import Any
 
 from learnloop.curriculum import notes_tend as NT
@@ -197,24 +198,59 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
         "learning_object_ids": tuple(los),
         "subject_id": next(iter(subjects)) if len(subjects) == 1 else None,
         "context": context,
+        # What the text and context were built from (never sent): the request gate
+        # revalidates exactly these (Codex re-review F3).
+        "passage_refs": tuple(linked.passages),
     }
 
 
-def refusal(vault: Any, repository: Repository, note_id: str) -> str | None:
+def payload(*, text: str, learning_object_ids: Sequence[str], subject_id: str | None,
+            context: Mapping[str, Any]) -> str:
+    """What a note's reading sends (its text, topics, subject and context), in one
+    canonical form: the request gate compares the prepared request's with what the
+    note's links build now (Codex re-review F3)."""
+
+    return json.dumps({"text": str(text), "learning_object_ids": [str(lo) for lo in learning_object_ids],
+                       "subject_id": subject_id, "context": context}, sort_keys=True, default=str)
+
+
+#: The gate's reasons (shown on the skipped job; no note text in them).
+OFF = "your notes, or reading them for gaps, are switched off (or tend is gone)"
+PROTECTED = "the note is linked to protected material"
+UNLINKED = "the note is no longer linked (hidden, unlinked, changed, or outside the folders LearnLoop may read)"
+CHANGED = ("what the note is linked to changed after its reading was prepared (the next sweep prepares it "
+           "again from its links as they are then)")
+
+
+def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str | None = None,
+            passages: Sequence[tuple[str, str | None, str | None]] = ()) -> str | None:
     """Why the snapshot ``note_id`` may not be read for gaps now, or None when it may
     (Codex review F3: the note reading's request gate asks before every request and
     before the gap row is written). Read from ``vault`` as configured now: switched
     off, tend gone, no longer linked (hidden, unlinked, superseded) or outside the
-    allowlist, or linked to protected material."""
+    allowlist, or linked to protected material.
+
+    Bound to the prepared request (Codex re-review F3): ``passages`` are the passages
+    it was built from (``LearnerText.bound_passages``), each revalidated against the
+    protection read now even when its link is gone; ``prepared`` is its
+    :func:`payload`, which must still be what the note's links build now (a link
+    removed, a topic added, an opening changed: the prepared request is stale and is
+    not sent)."""
 
     if not enabled(vault):
-        return "your notes, or reading them for gaps, are switched off (or tend is gone)"
+        return OFF
     try:
         found = note_text(vault, repository, note_id)
+        library = SC.Library(vault, repository)
+        for passage in passages:
+            _section_lead(vault, repository, library, tuple(passage))
     except NoteWithheld:
-        return "the note is linked to protected material"
+        return PROTECTED
     if found is None:
-        return "the note is no longer linked (hidden, unlinked, changed, or outside the folders LearnLoop may read)"
+        return UNLINKED
+    if prepared is not None and payload(text=found["text"], learning_object_ids=found["learning_object_ids"],
+                                        subject_id=found["subject_id"], context=found["context"]) != prepared:
+        return CHANGED
     return None
 
 
@@ -226,5 +262,6 @@ __all__ = [
     "linked_note_ids",
     "linked_notes",
     "note_text",
+    "payload",
     "refusal",
 ]

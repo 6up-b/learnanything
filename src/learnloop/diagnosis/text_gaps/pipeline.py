@@ -179,8 +179,10 @@ class ReadingWaits(ReadingDeferred):
 class NoteReadingStopped(BaseException):
     """A note's reading may go no further (curriculum C5, Codex review F3): the
     learner switched the opt-in, the notes or gap reading off, tend is gone, the
-    note's folder left the allowlist, its link was hidden or superseded, or what
-    it is linked to became protected material. Raised by :class:`NoteGate`
+    note's folder left the allowlist, its link was hidden or superseded, what
+    it is linked to (or a passage its prepared request was built from) became
+    protected material, or what it is linked to changed after the request was
+    prepared (Codex re-review F3). Raised by :class:`NoteGate`
     before a request is sent or the gap row is written: nothing more is sent or
     written. A ``BaseException``, as C2's ``NotesSwitchedOff`` and RW5a's
     ``FiguresChanged``: the pipeline turns an ``Exception`` from a judge into a
@@ -199,14 +201,25 @@ class NoteGate:
     ``learner_text_gaps.enabled`` and tend present; the link still standing
     (not hidden, not superseded by a newer snapshot); the note's path inside the
     current allowlist; and nothing it is linked to protected now
-    (``sources.learner_note_refusal``). The first refusal refuses everything
+    (``sources.learner_note_refusal``). Bound to the prepared text (Codex
+    re-review F3): the passages it was built from are revalidated against the
+    protection read now even when their links are gone, and what it sends must
+    still be what the note's links build now (otherwise it is stale and stops;
+    the next sweep prepares it again). The first refusal refuses everything
     after it. Composes with the gate installed around it (the outer one admits
     first; a refusal settles its admission)."""
 
-    def __init__(self, root: Path, repository: Repository, note_id: str) -> None:
+    def __init__(self, root: Path, repository: Repository, text: LearnerText) -> None:
+        import copy
+        import dataclasses
+
         self._root = Path(root)
         self._repository = repository
-        self._note_id = str(note_id)
+        self._note_id = str(text.source_id)
+        #: The text as it was prepared, frozen before any request (Codex re-review
+        #: F3): the passages it was built from and what it sends are what every
+        #: check is bound to, whatever the note is linked to by then.
+        self._prepared = dataclasses.replace(text, context=copy.deepcopy(dict(text.context)))
         from learnloop.ai.execution import active_request_gate
 
         self._outer = active_request_gate()
@@ -222,7 +235,7 @@ class NoteGate:
         except Exception:  # noqa: BLE001 - an unreadable configuration authorizes nothing
             return "the vault's settings could not be read"
         try:
-            return learner_note_refusal(vault, self._repository, self._note_id)
+            return learner_note_refusal(vault, self._repository, self._note_id, prepared=self._prepared)
         except Exception:  # noqa: BLE001 - undecidable is refused
             return "whether the note may still be read could not be decided"
 
@@ -1014,7 +1027,7 @@ def process_learner_text(
     # A note's reading runs under its own request gate (Codex review F3): consent,
     # the link, the allowlist and protection are read again before every request
     # and before the row is written.
-    gate = NoteGate(root, repository, text.source_id) if note else None
+    gate = NoteGate(root, repository, text) if note else None
     reading_note = _READING_NOTE.set(note)
     try:
         # A note's receipts keep no prompt text (curriculum C5, as C2's F3).

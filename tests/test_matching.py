@@ -222,6 +222,27 @@ def test_a_failed_call_releases_its_claim(repository):
     assert [row.status for row in judge_pairs(repository, KIND, _pairs("a"), execute=retry)] == ["judged"]
 
 
+def test_a_stop_that_is_not_an_exception_releases_its_claim_and_propagates(repository):
+    """C5 Codex re-review F6: a ``BaseException`` stop (a note's consent withdrawn before the
+    pair's request) unwinds the run, but never leaves the pair's lease behind."""
+
+    class Stopped(BaseException):
+        pass
+
+    class StopsJudge:
+        producer = "fake-judge"
+
+        def __call__(self, *_args):
+            raise Stopped("consent withdrawn")
+
+    with pytest.raises(Stopped):
+        judge_pairs(repository, KIND, _pairs("a"), execute=StopsJudge())
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM judgment_work_claims WHERE state = 'leased'").fetchone()[0] == 0
+    retry = _Judge(["same"])
+    assert [row.status for row in judge_pairs(repository, KIND, _pairs("a"), execute=retry)] == ["judged"]
+
+
 def test_a_partially_backfilled_replacement_model_never_ranks(repository):
     """Review F8 (Slice 1 §9.6): until the new model covers what the old one
     covers, the old index ranks and the replacement's partial index is unused."""

@@ -223,6 +223,11 @@ class LearnerText:
     #: fix round 3: whether a figure prediction's reading read its "what
     #: changed?", ``explanation_read``).
     markers: Mapping[str, Any] = field(default_factory=dict)
+    #: Curriculum C5 (Codex re-review F3): the passages a note's text and context were
+    #: built from, ``(extraction, section, span)``. Never sent, never checkpointed: the
+    #: note reading's request gate revalidates them (protection read now) before every
+    #: request and the write, whatever the note is linked to by then. Empty otherwise.
+    bound_passages: tuple[tuple[str, str | None, str | None], ...] = ()
 
     @property
     def anchor(self) -> str | None:

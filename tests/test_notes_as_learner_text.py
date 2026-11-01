@@ -757,3 +757,145 @@ def test_f5_a_plan_outage_at_inference_waits_and_never_fails_the_note(tmp_path, 
     # The plan back: read.
     _clear_backoff(repository, source[1])
     assert _run(paths, repository, _clients(PlanGapFake(reading=LearnerGap(kind="none"))), source=source).state == "done"
+
+
+# -- Codex re-review (C5) fixes ----------------------------------------------------------------------
+
+PROTECTED_PASSAGE = ("ext_book", "ch_eigen", "s1")
+SAME_LEAD_PASSAGE = ("ext_book", "ch_eigen", "s2")
+
+
+@pytest.mark.parametrize("change", ["link_removed", "same_lead_elsewhere"])
+def test_f3_rereview_the_gate_is_bound_to_the_prepared_passages(tmp_path, monkeypatch, change):
+    """Codex re-review F3: the text is prepared with its linked passage's opening, then that
+    passage becomes protected and its link goes, while the note stays linked (by its topic;
+    or, second case, to another passage whose opening reads the same). The gate revalidates
+    the passages the prepared request was BUILT from, and the payload itself, before every
+    request and the write: nothing is sent, nothing written, the job is skipped (queued
+    again, rebuilt from its links as they are then, by the next sweep)."""
+
+    from learnloop.source_retrieval import note_gaps
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    typed_id = snapshots["Eigen stuff"]
+    original_text, original_linked, original_lead = J.learner_text, note_gaps.linked_notes, note_gaps._section_lead
+    prepared: dict = {}
+    changed = {"now": False}
+
+    def linked_now(vault, repository):
+        out = original_linked(vault, repository)
+        if not changed["now"]:
+            return out
+        moved = () if change == "link_removed" else (SAME_LEAD_PASSAGE,)
+        return [note_gaps.LinkedNote(note_id=entry.note_id, note_key=entry.note_key,
+                                     learning_object_ids=entry.learning_object_ids, passages=moved, note=entry.note)
+                if entry.note_id == typed_id else entry for entry in out]
+
+    opening: dict = {}
+
+    def lead_now(vault, repository, library, passage):
+        passage = tuple(passage)
+        if passage == SAME_LEAD_PASSAGE:
+            return opening["s1"]  # another passage whose opening reads the same
+        if passage == PROTECTED_PASSAGE and changed["now"]:
+            raise note_gaps.NoteWithheld("linked to protected material")
+        found = original_lead(vault, repository, library, passage)
+        if passage == PROTECTED_PASSAGE:
+            opening["s1"] = found
+        return found
+
+    def prepared_then_changed(*args, **kwargs):
+        text = original_text(*args, **kwargs)
+        prepared["passages"] = list(text.context.get("passages") or [])
+        assert prepared["passages"], "the prepared request carries the passage's opening"
+        changed["now"] = True
+        return text
+
+    monkeypatch.setattr(note_gaps, "linked_notes", linked_now)
+    monkeypatch.setattr(note_gaps, "_section_lead", lead_now)
+    monkeypatch.setattr(J, "learner_text", prepared_then_changed)
+    vault = load_vault(paths.root)
+    assert note_gaps.refusal(vault, repository, typed_id) is None  # unchanged yet: readable
+    plan = PhysicalPlanFake(reading=LearnerGap(kind="none"))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", typed_id))
+    # Whatever links stand now, the prepared request held the protected passage: not sent.
+    current = note_gaps.note_text(load_vault(paths.root), repository, typed_id)
+    assert current is not None  # the note is still linked: a check of the CURRENT links alone admits it
+    assert (current["context"].get("passages") or []) == ([] if change == "link_removed" else prepared["passages"])
+    assert outcome.state == "skipped" and plan.calls == [] and _gaps(repository) == []
+    with repository.connection() as connection:
+        error = connection.execute("SELECT last_error FROM learner_text_gap_jobs WHERE source_id = ?",
+                                   (typed_id,)).fetchone()[0]
+    assert error.startswith("stopped:")
+
+
+def test_f3_rereview_a_payload_changed_after_preparation_is_not_sent(tmp_path, monkeypatch):
+    """Codex re-review F3: a topic linked after the text was prepared changes what the request
+    would carry: the prepared request is stale, so the reading stops before sending it."""
+
+    from learnloop.source_retrieval import note_gaps
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    typed_id = _snapshots(repository)["Eigen stuff"]
+    original_text, original_linked = J.learner_text, note_gaps.linked_notes
+    changed = {"now": False}
+
+    def linked_now(vault, repository):
+        out = original_linked(vault, repository)
+        if not changed["now"]:
+            return out
+        return [note_gaps.LinkedNote(note_id=entry.note_id, note_key=entry.note_key,
+                                     learning_object_ids=entry.learning_object_ids + ("lo_det",),
+                                     passages=entry.passages, note=entry.note)
+                if entry.note_id == typed_id else entry for entry in out]
+
+    def prepared_then_changed(*args, **kwargs):
+        text = original_text(*args, **kwargs)
+        changed["now"] = True
+        return text
+
+    monkeypatch.setattr(note_gaps, "linked_notes", linked_now)
+    monkeypatch.setattr(J, "learner_text", prepared_then_changed)
+    plan = PhysicalPlanFake(reading=LearnerGap(kind="none"))
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", typed_id))
+    assert outcome.state == "skipped" and plan.calls == [] and _gaps(repository) == []
+    # The next run prepares it again from its links as they are now, and reads it.
+    monkeypatch.setattr(J, "learner_text", original_text)
+    J.enqueue_learner_notes(load_vault(paths.root), repository)
+    outcome = _run(paths, repository, _clients(plan), source=("learner_note", typed_id))
+    assert outcome.state == "done" and len(_readings(plan)) == 1
+
+
+def test_f6_hidden_before_pair_dispatch_then_undo_resumes_without_an_abandoned_claim(tmp_path, monkeypatch):
+    """Codex re-review F6: the learner hides the link after the reading, so the gate refuses
+    the pair request after its work claim was taken. The claim is released as the stop
+    unwinds (no lease left behind); after *undo* the note is read to the end, its pair
+    verdict sent once, never ``claimed_elsewhere`` until it fails."""
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    snapshots = _snapshots(repository)
+    source = ("learner_note", snapshots["Eigen stuff"])
+    typed = next(line for line in lines if line["note"]["heading"] == "Eigen stuff")
+    hidden: dict = {}
+
+    class HidesAfterReading(PhysicalPlanFake):
+        def complete(self, request):
+            result = super().complete(request)
+            if request.purpose == "learner_gap_reading" and not hidden:
+                hidden.update(call(ctx, "notes.decide", {"link_id": typed["linkId"], "choice": "hide"}))
+            return result
+
+    reading = LearnerGap(kind="prerequisite", prerequisite_name="the determinant of a matrix")
+    plan = HidesAfterReading(reading=reading, decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(plan), source=source)
+    assert outcome.state == "skipped"
+    with repository.connection() as connection:
+        leased = connection.execute("SELECT COUNT(*) FROM judgment_work_claims WHERE state = 'leased'").fetchone()[0]
+    assert leased == 0  # the pair's claim was released as the stop unwound
+    call(ctx, "notes.decide", {"link_id": hidden["linkId"], "choice": "keep"})
+    again = PhysicalPlanFake(reading=reading, decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(again), source=source)
+    assert outcome.state == "done", (outcome.state, outcome.error)
+    assert any(purpose == "learner_gap_same_prerequisite" for purpose, _ in again.calls)
+    assert len(_gaps(repository)) == 1

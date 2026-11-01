@@ -559,8 +559,9 @@ def process_next_gap_job(
     except NoteReadingStopped as exc:
         # Curriculum C5 (Codex review F3): the learner withdrew what let this note be
         # read (the opt-in or the notes off, the link hidden, its folder out of the
-        # allowlist, its passage protected) before a request or the write: nothing
-        # more was sent or written. Skipped; linked again, the sweep queues it again.
+        # allowlist, its passage protected, its links changed after it was prepared:
+        # Codex re-review F3) before a request or the write: nothing more was sent or
+        # written. Skipped; still (or again) linked, the sweep queues it again.
         return skip(f"stopped: {exc}"[:500], text)
     except ReadingWaits as exc:
         # Curriculum C5: a note's reading waits for the ChatGPT plan (nothing was
