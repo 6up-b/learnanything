@@ -29,9 +29,10 @@ pins below move with it (see "Renumbering at landing").
 | `deliverable_plan_path(vault, repository, goal)`: RW7b's `plan_path`'s sibling. The lines are the Guide's own (`effective_lines`) from the judge's rows **for the learner's current state key**; `stale` (judged only for an older state), `withheld` (protection unreadable: followed, plans nothing), `unreadable` (recorded, RW7b decides), `no_scope` / `no_depth` / `not_judged` (not in play). Never judged here | `source_retrieval/deliverable_path.py` |
 | The walk: `next_listed_reading_target(steps, from_furthest, exam, allowed)` takes the planned lines (`core`, `prerequisite`, a *read it anyway*) in the path's order across books, and runs the predecessor's rules first on each candidate: the exam predicate (an exam extraction, a section with an exam span), U4's front-matter rule (with `plan.reading_from_furthest`), DL2's `reading_allowed` per book; a finished section (DL1's rule, now `_unfinished_target`, shared) is passed | `daily_plan/reading.py` |
 | Receipt `reading_path_plan_v2` (only where a deliverable path was in play): v1's keys with `predecessor` = **RW7b's choice**, `chosen_by` ∈ `deliverable` / RW7b's `path` / `order`, `deliverable` (goal id, status, depth, `input_state_key`, `judgment.state_key`, every row read with its judge and override row ids, the line chosen, every deliverable consulted) and `rw7b` (RW7b's own v1 receipt, or None) | `daily_plan/engine.py` |
-| The switch reaching a built plan: `_reading_path_switched_off` now asks `_path_switch_target` where to go. A v1 receipt behaves exactly as before. A v2 receipt with C1 off and RW7b on goes back to RW7b's choice (transition reason `deliverable_path_off`); with RW7b off too, to the order's (RW7b's own receipt's `predecessor`; `reading_path_off`). The block move (end the unstarted reading block unread, recompute the reading's minutes, re-split) is `_move_plan_reading`, factored out unchanged | `daily_plan/engine.py`, `daily_plan/records.py` |
+| Plans already built (fix round 2: **one invariant**, `_reading_follows_fresh_choice`): while the plan's reading has no reading history, it is whatever a fresh build would choose right now. A v2 plan with no history whose fresh choice (`_fresh_reading`, the build's own selection: C1, else RW7b, else the order, under the current switches and freshness) differs from its staged reading withdraws the unstarted block and stages the new reading, with one entry in the receipt's bounded `moves`. A v1 receipt keeps RW7b's own rule (`_reading_path_switched_off`, unchanged from main). The block move (end the unstarted reading block unread, recompute the reading's minutes, re-split) is `_move_plan_reading` | `daily_plan/engine.py`, `daily_plan/records.py` |
+| The fresh choice's memo (fix round 2, Low 6): the choice is memoized on a fingerprint of its inputs (switches, goals and their days left, dates, DL1's daily minutes, cheap counters over every table the choice reads), taken before any input is gathered; a hit returns exactly what the computation returned. About 11 ms against about 620 ms for the full choice on C1's fixture | `daily_plan/reading_choice.py`, `daily_plan/engine.py` (`_remembered_fresh_reading`) |
 | The daily quiet re-judgment: `deliverable_path.refresh_for_plan` judges the nearest in-play deliverable whose path is stale, under `plan_fallback.quiet()` (no OpenRouter offer, no grant); the sidecar starts it in the background from every plan RPC (`daily_plan._require` → `handlers/deliverables.refresh_for_plan`), at most once a local day per vault per sidecar process | `source_retrieval/deliverable_path.py`, `learnloop_sidecar/handlers/deliverables.py`, `learnloop_sidecar/handlers/daily_plan.py` |
-| Refresh adoption: a plan built on a stale path takes C1's step once a judgment of a stale deliverable is recorded after the build and the path is fresh, while no reading of the plan has started or ended (recorded once, as the receipt's `refreshed`) | `daily_plan/engine.py` (`_deliverable_path_refreshed`) |
+| Refresh adoption is the invariant itself: once a refresh (or a Guide open) makes the nearest path fresh, the fresh choice is C1's step and a plan with no reading history takes it. The Guide's judgments and the daily refresh share one in-flight coalescing set keyed by (deliverable, depth, path state key), so neither sends a second judgment for the same state while the other's runs | `daily_plan/engine.py`, `learnloop_sidecar/handlers/deliverables.py` (`_claim_path`) |
 | Config reference: the kill switch's description; DB/config reference regenerated | `docs/learnloop-architecture-vault/_scripts/db_generate_reference.py`, the generated notes |
 | Spec §7.6 "as built" note | `docs/specs/spec_deliverable_curriculum_v1.md` |
 
@@ -54,8 +55,11 @@ pins below move with it (see "Renumbering at landing").
 6. **The v2 receipt keeps `rw7b`** (RW7b's own receipt) so that turning C1 off restores RW7b's reading exactly
    and turning both paths off restores the order's. When C1 and RW7b choose the same section, C1 off still moves
    the stored reading to RW7b's own copy (RW7b's `core` label, not C1's `prerequisite`): RW7b's plan exactly.
-   The two switches may reach the plan in separate reads (Codex review F2): C1 off, then RW7b's switch off, moves
-   the reading on to the order's while unstarted; `transition` is the latest, `transitions` keeps both.
+   Fix round 2: the switches are inputs of the fresh choice like any other. In whatever order they reach the plan
+   (C1 off, then RW7b's switch off; C1 back on), a reading with no history ends where a build now would; the
+   receipt's v2 keys record the latest choice and `moves` the first and the latest move (`move_count` counts
+   all). Switching C1 back on moves an unread reading back to C1's step (RW7b's v1 "recorded once" rule is
+   unchanged for v1 plans).
 7. **The daily re-judgment runs in the background and the build never waits.** The sidecar answers one request
    at a time and the plan calls no model, so a synchronous judgment before the build would freeze the app for
    a model call. It starts with the first plan RPC of the day (`get_daily_plan` and every other plan RPC go
@@ -63,18 +67,27 @@ pins below move with it (see "Renumbering at landing").
    once more, and a fresh path pays nothing). "Plan route only" is `plan_fallback.quiet()` (no offer, no grant),
    as C0b's on-extract job; an explicitly metered route would still be held to `curriculum.max_daily_cost_usd`.
    The CLI builds plans without it (a CLI build on a stale path follows RW7b and says `stale`).
-8. **Refresh adoption (beyond the letter of §7.6).** The path's key holds the days left before the deadline and
-   the books read (C0b's learner context), so a deadline deliverable's path is stale at **every** day's build,
-   and starting a new book makes it stale too. Without adoption C1 would almost never act for an exam. A plan
-   built stale takes the deliverable's step on a later read, once a deliverable the build found stale was judged
-   since the build read it and the path is fresh, while its reading is unstarted; recorded once as `refreshed`
-   (not `transition`, so the kill switch still reaches the plan afterwards). Codex review fixes: the cheap gate
-   is the newest judgment's identity (`judged_since_read`, the ledger id each stale `consulted` entry records),
-   never the clock (F3); a nearer deliverable found stale while a farther fresh path was followed is adopted
-   once refreshed (F4); a reading the refresh withdrew holds no history, so the switch still restores RW7b's (F1).
+8. **One invariant for plans already built (beyond the letter of §7.6; fix round 2).** The path's key holds the
+   days left before the deadline and the books read (C0b's learner context), so a deadline deliverable's path is
+   stale at **every** day's build, and starting a new book makes it stale too; without following later
+   judgments C1 would almost never act for an exam. Fix round 1 adopted refreshes and switch changes through
+   incremental state (judgment-identity markers, withdrawn-block exclusions, sequential transitions, a
+   consulted-stale scan), and the scoped verify found four orderings it missed. Fix round 2 replaces all of it
+   with: **while the plan's reading block has no reading history, it is whatever a fresh build would choose
+   right now.** *Reading history* is a live reading block (a path reading withdrawn unread is none) that
+   started, ended or took reading progress (`note_reading_progress`, a prefetched block read in the reader), or
+   progress on the staged section since it was staged (the receipt's `staged_progress` snapshot, so a Library
+   reading counts). With history nothing moves. Without, the fresh choice (memoized on its inputs' fingerprint)
+   is compared with the staged reading: equal, nothing is written; different, the unstarted block is withdrawn,
+   the new reading staged, the receipt's v2 keys updated to the latest choice and one `moves` entry added
+   (reason `deliverable_path_moved` with C1 on, `deliverable_path_off` with C1 off and RW7b on,
+   `reading_path_off` with both off). A plan that closed by itself only for want of a reading reopens when the
+   fresh choice is one (live blocks only). A plan built with either switch off carries no v2 receipt and follows
+   RW7b's own rule, so G-C4 holds. A choice made while protection or a path could not be read stands for that
+   read but is never memoized.
 9. **One block reason.** Any path withdrawal ends the block with `reading_path_off` (so
-   `PlannedBlock.withdrawn_path_reading` keeps its meaning); the transition's own reason distinguishes
-   `deliverable_path_off` and `deliverable_path_refreshed`.
+   `PlannedBlock.withdrawn_path_reading` keeps its meaning); the move's own reason distinguishes
+   `deliverable_path_moved`, `deliverable_path_off` and `reading_path_off`.
 10. **The block's "why" reuses RW7b's words** ("prerequisite on your reading path"): no DTO or frontend change.
 11. **The learner context C0b deferred to C1** (RW1c's "that didn't help" rows, kept comparisons, DL1's minute
     estimates) is **already fed to the path judge**: C0b's Codex review fix F11 added all three
@@ -360,8 +373,13 @@ the CLI help snapshot, the spec's as-built note and this record.
 
 1. Should C1 stand on its own switches, independent of RW7b's `reading_paths.plan_uses_path` (decision 1)?
 2. Should the deliverable branch read only as-you-read books, as DL1's order does (decision 2)?
-3. Refresh adoption (decision 8) is beyond the spec's letter; the alternative is a synchronous re-judgment before
-   the day's first build (blocking the app for one model call). Keep adoption?
+3. Following later judgments and switch changes on a built plan (decision 8's invariant) is beyond the spec's
+   letter; the alternative is a synchronous re-judgment before the day's first build (blocking the app for one
+   model call). Keep the invariant?
+6. The fresh choice's fingerprint (decision 8, `daily_plan/reading_choice.py`) lists the tables the choice reads
+   by a trace plus the evidence ledgers; a future input outside that list would be missed until another input
+   changes. The list is conservative today; should a later stage derive it (an authorizer in tests that fails
+   when the choice reads an unlisted table)?
 4. A path goes stale whenever the learner starts a new book (C0b's key names books read); the daily refresh or a
    Guide open re-judges it. Should "books read" leave the key (a C0b change) so C1 follows longer between days?
 5. A CLI-built plan never starts the refresh (decision 7). Acceptable?

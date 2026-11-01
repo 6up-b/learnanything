@@ -352,11 +352,19 @@ def _fresh_reading(env: Any, intent: Any) -> tuple[ReadingTarget | None, dict[st
     (:func:`deliverable_plan_active`), else RW7b's per-book path
     (:func:`reading_path_plan_active`), else the order. No model is called."""
 
+    reading, receipt, _readable = _fresh_reading_checked(env, intent)
+    return reading, receipt
+
+
+def _fresh_reading_checked(env: Any, intent: Any) -> tuple[ReadingTarget | None, dict[str, Any] | None, bool]:
+    """:func:`_fresh_reading` and whether its protection could be read (False: no step,
+    fail closed, and the memo never keeps it: the next read asks again)."""
+
     from_furthest = reading_from_furthest_active(env.vault)
     protected = reading_step_rule(env.vault) != READING_RULE_DL1
     exam = _exam_material(env.vault, env.repository) if protected else None
     if protected and exam is None:
-        return None, None
+        return None, None, False
     # DL2 (Codex review F7, §6.10): only a source under Learn or Master (or uncommitted)
     # reads; with intent changing nothing the candidates are DL1's (None: the step reads
     # them itself).
@@ -371,14 +379,30 @@ def _fresh_reading(env: Any, intent: Any) -> tuple[ReadingTarget | None, dict[st
         # RW7b (a successor): the reading path narrows the order; the receipt records what
         # the order alone would choose. Curriculum C1 (its successor) is the first branch:
         # the nearest deliverable's fresh path, across books.
-        return _reading_on_path(
+        reading, receipt = _reading_on_path(
             env, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam,
             allowed=(None if intent is None
                      else (lambda extraction_id: reading_allowed(env, intent, extraction_id))),
         )
+        return reading, receipt, not _read_failed(receipt)
     return next_reading_target(
         env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
-    ), None
+    ), None, True
+
+
+def _read_failed(receipt: Mapping[str, Any] | None) -> bool:
+    """Whether a path the choice consulted could not be read (``unreadable``: a deliverable,
+    or one of RW7b's per-book paths). Such a choice stands for this read, but the memo
+    never keeps it: a passing failure is asked again on the next read."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    deliverable = receipt.get("deliverable") if isinstance(receipt.get("deliverable"), Mapping) else {}
+    statuses = [deliverable.get("status")] + [entry.get("status") for entry in deliverable.get("consulted") or ()
+                                              if isinstance(entry, Mapping)]
+    rw7b = receipt.get("rw7b") if receipt.get("version") == READING_PATH_RECEIPT_VERSION_V2 else receipt
+    statuses += [entry.get("status") for entry in ((rw7b or {}).get("paths") or ()) if isinstance(entry, Mapping)]
+    return "unreadable" in statuses
 
 
 #: :func:`_remembered_fresh_reading` reads DL2's intent itself, and only on a memo miss.
@@ -450,8 +474,8 @@ def _remembered_fresh_reading(
         if remembered is not None:
             return remembered.reading, remembered.receipt
     view = intent_view(env) if intent is _INTENT_UNREAD else intent
-    reading, receipt = _fresh_reading(env, view)
-    if fingerprint is not None:
+    reading, receipt, readable = _fresh_reading_checked(env, view)
+    if fingerprint is not None and readable:
         RC.remember(env.repository, env.vault, fingerprint, reading, receipt)
     return reading, (json.loads(json.dumps(receipt)) if receipt is not None else None)
 

@@ -222,7 +222,7 @@ def test_m4_a_staged_section_read_through_the_library_before_its_block_exists_is
     _no_refresh(ctx)
     call(ctx, "get_daily_plan", {})
     built = _split(c1.repository)
-    assert _at(built["reading"]) == ("ext_book", "ch_eigen") and built["reading_path"]["staged_progress"] is None
+    assert _at(built["reading"]) == ("ext_book", "ch_eigen")
     assert not [b for b in _record(c1).blocks if b.is_reading]
     # Read in the Library while the plan serves practice: no block takes it, the row does.
     call(ctx, "reader.mark_section_progress",
@@ -363,3 +363,26 @@ def test_l6_blocks_for_the_record(tmp_path, monkeypatch):
     assert withdrawn.withdrawn_path_reading and withdrawn.est_minutes() == 0.0
     blocks, _events = _blocks(c1.repository)
     assert sum(1 for b in record.blocks if b.is_reading and not b.withdrawn_path_reading) == 1 and blocks
+
+
+def test_l6_a_choice_made_while_a_read_failed_is_never_kept(tmp_path, monkeypatch):
+    c1 = _c1(tmp_path, monkeypatch)
+    env = E.PlanEnv(load_vault(c1.paths.root), c1.repository)
+    computed = E._fresh_reading(env, E.intent_view(env))
+    assert _at(computed[0]) == ("ext_book", "ch_det")
+    real = E._exam_material
+    monkeypatch.setattr(E, "_exam_material", lambda *a, **k: None)
+    assert E._remembered_fresh_reading(env) == (None, None)  # protection unreadable: no step
+    monkeypatch.setattr(E, "_exam_material", real)
+    assert E._remembered_fresh_reading(env) == computed  # asked again, not the failure kept
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    lines = DP.effective_lines
+    monkeypatch.setattr(DP, "effective_lines", boom)
+    reloaded = E.PlanEnv(load_vault(c1.paths.root), c1.repository)  # another vault object: a miss
+    _reading, receipt = E._remembered_fresh_reading(reloaded)
+    assert receipt["deliverable"]["status"] == "unreadable"  # a path that cannot be read: RW7b's
+    monkeypatch.setattr(DP, "effective_lines", lines)
+    assert E._remembered_fresh_reading(reloaded)[1]["deliverable"]["status"] == "path"
