@@ -893,6 +893,16 @@ class ProtectionChanged(BaseException):
     admission_refused = True
 
 
+class GateClosed(ProtectionChanged):
+    """The caller's gate (``CoverageGuard(gate=...)``) is closed on the snapshot
+    being admitted: nothing more is sent or recorded (curriculum C1's
+    automatic refresh, its switches turned off; Reader follow-ups Nov 1)."""
+
+
+#: The refusal a closed gate records (``CoverageGuard.changed``).
+GATE_CLOSED = "its caller's switches are off"
+
+
 #: How many times a check reads protection again when the loaded vault was
 #: reloaded while it was being read (re-review F1), before refusing: a
 #: guardrail (keep: a bound on a check's retry cost, as AD's ``sending.RELOAD_RETRIES``), not
@@ -946,14 +956,23 @@ class CoverageGuard:
     up to :data:`RELOAD_RETRIES` times, then refused. The guarantee is AD's
     (``adaptive_difficulty.sending``): nothing is sent or recorded that is
     protected in the snapshot current at that request's or record's
-    admission; a reload after admission is an edit made a moment after it."""
+    admission; a reload after admission is an edit made a moment after it.
+
+    ``gate`` (curriculum C1's automatic refresh: its complete gate; Reader
+    follow-ups Nov 1, closing the C1 round-5 ruling's follow-up (b)) is asked
+    of the same snapshot, inside the same validation: the verdict counts only
+    if that snapshot is still the published one, so a reload that turns the
+    caller's switches off cannot slip between the gate's read and the
+    admission. Closed (or unreadable: fail closed) raises :class:`GateClosed`."""
 
     def __init__(self, library: Library, keys: Iterable[tuple[str, str]], *,
-                 live_vault: Callable[[], Any] | None = None) -> None:
+                 live_vault: Callable[[], Any] | None = None,
+                 gate: Callable[[Any], bool] | None = None) -> None:
         self._library = library
         self._root = Path(library.vault.root).resolve()
         self._keys = list(dict.fromkeys(keys))
         self._live = live_vault
+        self._gate = gate
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the judgment's requests and records are refused (None: they are not).
@@ -989,6 +1008,19 @@ class CoverageGuard:
                 return "the library's exam material could not be checked"
             if vault is None or Path(vault.root).resolve() != self._root:
                 return "another vault is open"
+            if self._gate is not None:
+                try:
+                    gate_open = bool(self._gate(vault))
+                except Exception:  # noqa: BLE001 - an unreadable gate admits nothing
+                    gate_open = False
+                if not gate_open:
+                    try:
+                        published = self._still_published(generation)
+                    except Exception:  # noqa: BLE001 - an unreadable provider never admits
+                        return GATE_CLOSED
+                    if published:
+                        return GATE_CLOSED
+                    continue  # read on a snapshot already replaced: read the published one
             try:
                 protection = read_protection(vault, self._library.repository)
             except CoverageError:
@@ -1008,6 +1040,8 @@ class CoverageGuard:
         with self._lock:
             if self.changed is None:
                 self.changed = self._refusal()
+            if self.changed == GATE_CLOSED:
+                raise GateClosed(f"{purpose} refused: {self.changed}")
             if self.changed is not None:
                 raise ProtectionChanged(f"{purpose} refused: {self.changed}")
 
@@ -2196,6 +2230,8 @@ __all__ = [
     "Candidate",
     "CoverageError",
     "CoverageGuard",
+    "GATE_CLOSED",
+    "GateClosed",
     "JudgeResult",
     "Library",
     "LibraryCache",
