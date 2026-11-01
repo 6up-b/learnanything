@@ -147,3 +147,87 @@ These steps did not apply and were not run:
 - No frontend or `src-tauri` change, so no npm, vitest or cargo run.
 - No new constant was added that needs classification. The new values are reason strings and an omission label,
   not weights or thresholds.
+
+## Re-review (Codex job `20261101-155305-nSMdrA`, verdict REOPENED)
+
+Codex's runner again could not reach the user bus for `systemd-run --user`, so its validation was source-based. It
+named no new defects in the fix commits.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | REOPENED: a stored answer's source check omits the earlier tutor turns its thread gave it | fixed | `571559eff2` | `tests/test_learner_blindness_relax_codex_review.py::test_a_later_turn_that_was_given_an_earlier_turn_from_a_passage_held_out_since_is_withheld`, `::test_a_feedback_turn_inherits_the_earlier_feedback_turns_of_its_attempt`, `::test_an_earlier_turn_whose_passages_cannot_be_established_withholds_the_later_answer` |
+| F2 | High | Unrelated switches disable the new state path's cold protection | confirmed fixed (no change) | `adb862f63e` | Codex confirmed the server-side session resolution closes the path |
+| F3 | Medium | Prior workbench traces are omitted from diagnosis provenance | confirmed fixed (no change) | `adb862f63e` | Codex confirmed the record is incomplete and the diagnosis withheld |
+
+**Reproduction.** The three new tests were run against `9cb9199ce3` (before this fix), and all three failed:
+
+- In Codex's two-turn scenario, Q1 was written from `ext_book/s11` and Q2 from the clean `ext_book/s12`, with Q1 in
+  Q2's thread. After `s11` was held out, Q2's answer `Q2_ANSWER_RESTATING_Q1` was still `answer_shown`.
+- An earlier feedback turn on the same graded attempt was written from `s11`. After `s11` was held out, the later
+  feedback answer on that attempt still showed.
+- An earlier turn's retrieval said it delivered passages without naming them. The later answer still showed.
+
+### F1: the answer's check includes every earlier turn of its thread (fixed)
+
+`reader_learner_state._thread_turns` reads every earlier turn the tutor may have been given with a stored answer.
+`tutor_qa._thread` gives a practice answer the attempt's earlier answered practice turns on the item, and a feedback
+answer the earlier answered feedback turns on its graded attempt. `_thread_turns` reads a superset of each:
+
+- **Practice:** every earlier answered practice turn on the item, whatever its window, session or attempt key.
+- **Feedback:** every earlier answered feedback turn on the attempt.
+
+That set is transitively closed. An earlier turn's own thread is earlier still and has the same key, so it is
+already in the set. Question rows are never rewritten after they are answered, and each keeps its recorded
+`source_context`. The table is therefore the per-answer provenance record. Reading it at check time also covers rows
+written before this stage, with no migration. Recording the same thing again at write time would duplicate it.
+
+The answer's passages and those of every turn in its thread are now checked together by `PastWork.source_reason`.
+For each turn, these count:
+
+- its own linked pool;
+- its retrieval spans;
+- the references it followed;
+- the citations it kept.
+
+The answer is withheld with `ANSWER_SOURCES_UNKNOWN` when the provenance cannot be established:
+
+- any turn's passages cannot be established;
+- a turn's item is no longer in the vault, so its linked pool cannot be read;
+- the row has no item or attempt key, so its thread cannot be established.
+
+A turn whose answer was withheld as worked help is skipped. Its thread carried the take step
+(`delivered_answer_md`), never the withheld text. A practice turn is not in a feedback answer's thread, so the
+seeded feedback answer still shows when only a later practice turn read a held-out passage. That case is pinned.
+
+## Re-review gate (this fix step; the full suite runs once in the landing gate)
+
+Every pytest run was inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, with TMPDIR in
+the stage scratch directory outside the worktree. No live or paid call was made, and no owner vault was opened. Only
+synthetic vaults and fakes were used.
+
+- `uv sync --extra dev --extra mobile`, plus `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **40 kept, 0 broken**.
+- Reproduction (pre-fix source): `uv run pytest -q tests/test_learner_blindness_relax_codex_review.py -k "later_turn
+  or feedback_turn_inherits or earlier_turn_whose"` gave **3 failed**.
+- Fixed tree: `uv run pytest -q tests/test_learner_blindness_relax_codex_review.py tests/test_learner_blindness_relax.py`
+  gave **26 passed**.
+- Targeted run, `uv run pytest -n 6 -q` on the files below: **958 passed, 0 failed** (155 s).
+  - Added or changed: `tests/test_learner_blindness_relax_codex_review.py`
+  - Stage tests: `tests/test_learner_blindness_relax.py`
+  - Practice leakage and exam protection: `tests/test_practice_leakage.py`, `tests/test_exam_protection.py`,
+    `tests/test_exam_protection_identity.py`
+  - Reader tutor and RW1c: `tests/test_reader_rw1c_review.py`, `tests/test_reader_rw2b_fix15.py`,
+    `tests/test_reader_tutor_retrieval.py`, `tests/test_reader_tutor_offers.py`,
+    `tests/test_reader_tutor_switch_off.py`, `tests/test_library_ask_review.py`,
+    `tests/test_reader_ca2_astra_handoff.py`, `tests/test_reader_ca2_astra_handoff_recovery.py`,
+    `tests/test_reader_ca2_codex_rereview.py`, `tests/test_reader_ca2_codex_review.py`,
+    `tests/test_reader_ca2_one_ask.py`
+  - TE0 confidence events: `tests/test_teacher_te0_confidence_events.py`, `tests/test_teacher_te0_fix_round2.py`,
+    `tests/test_teacher_te0_review_fixes.py`
+  - Contracts: `tests/test_architecture.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_mobile_allowlist.py`
+
+These steps did not apply and were not run:
+
+- Only `src/learnloop/reader_learner_state.py` and its test file changed.
+- No config key, CLI surface, migration, DB or connection code, frontend or `src-tauri` changed.
+- No new constant was added.
