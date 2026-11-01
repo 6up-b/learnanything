@@ -1729,6 +1729,12 @@ export const api = {
   readerFigureJobCancel: (input: { jobId: string }) =>
     call<LibraryJobDto<null>>("reader_figure_job_cancel", { input }),
   readerFigures: (input: { extractionId: string }) => call<FiguresDto>("reader_figures", { input }),
+  // Reader RW5d P2b: cancel a rich build (only the rich job; a quick figure stays), and the
+  // standing Manim opt-in ("allow" | "decline"), asked once inline on a press. Desktop only.
+  figureRichCancel: (input: { richJobId: string }) =>
+    call<{ richJobId: string; state: "cancelled" }>("figure_rich_cancel", { input }),
+  figureManimOptIn: (input: { choice: "allow" | "decline" }) =>
+    call<{ manimOptIn: "standing" | "declined" | "ask" | "unavailable" }>("figure_manim_opt_in", { input }),
   readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>
     call<FigurePredictionResultDto>("reader_figure_predict", { input }),
   readerFigureExplain: (input: { predictionId: string; text: string }) =>

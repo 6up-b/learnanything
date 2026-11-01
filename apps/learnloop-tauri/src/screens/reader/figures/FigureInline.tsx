@@ -95,6 +95,7 @@ import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFi
 import { checksStand, SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
 import { useChecksWithdrawn } from "./sketch/checksWithdrawn";
 import { parseProgram } from "./sketch/sketchScene";
+import { FullerLine, ManimFigureBody, ManimOptInLine, manimBadge, RICH_FRAME, RichPendingLine } from "./RichFigure";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -472,14 +473,20 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
   const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
   // RW5d P2: a sketch's specJson is its SketchProgramV1, drawn by SketchFigure.
   const isSketch = figure.tier === "sketch";
+  // RW5d P2b: a Manim figure plays its video (no spec to compile); a quick
+  // figure may carry its fuller version, swapped in within the same frame.
+  const isManim = figure.tier === "manim";
+  const [showingFuller, setShowingFuller] = useState(false);
+  const fuller = figure.fuller ?? null;
+  const fullerReady = fuller?.state === "ready" && fuller.figure ? fuller.figure : null;
   const compiled = useMemo(() => {
-    if (!shown || !figure.specJson || isSketch) return null;
+    if (!shown || !figure.specJson || isSketch || isManim) return null;
     try {
       return compileSpec(figure.specJson);
     } catch {
       return null;
     }
-  }, [shown, figure.specJson, isSketch]);
+  }, [shown, figure.specJson, isSketch, isManim]);
   const program = useMemo(() => (shown && isSketch ? parseProgram(figure.specJson) : null), [shown, isSketch, figure.specJson]);
   // Fix round 4: a sketch whose page run disagreed with the verified run has its checks withdrawn here too.
   const withdrawn = useChecksWithdrawn(figure.figureId);
@@ -488,8 +495,8 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
         style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
         <FigureGoal figure={figure} />
-        <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{frameBadge(figure.verification)}</MeaningLabel></span>
-        {figure.verification === "unsupported" && figure.unsupportedKind ? (
+        <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{figure.label === RICH_FRAME.cantShow ? RICH_FRAME.cantShow : isManim ? manimBadge(figure) : frameBadge(figure.verification)}</MeaningLabel></span>
+        {figure.verification === "unsupported" && figure.unsupportedKind && figure.label !== RICH_FRAME.cantShow ? (
           <span data-figure-detail="">needs {figure.unsupportedKind}</span>
         ) : null}
         {figure.verification === "failed" && figure.reason ? <span data-figure-detail="">({figure.reason})</span> : null}
@@ -505,21 +512,40 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
       </div>
     );
   }
-  const checks = isSketch
+  const checks = isManim
+    ? (figure.manim?.checks.length ? [`${figure.manim.checks.length} check${figure.manim.checks.length === 1 ? "" : "s"}, listed inside`] : [])
+    : isSketch
     ? (figure.sketch && checksStand(figure.sketch, withdrawn) ? [`${figure.sketch.checks.length} check${figure.sketch.checks.length === 1 ? "" : "s"}, listed inside`] : [])
     : frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
     ctl.setExpanded(expanded ? null : figure);
   };
+  const openFuller = () => {
+    if (!fullerReady) return;
+    logReaderAction("fuller_version_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
+    setShowingFuller(true);
+  };
+  const openQuick = () => {
+    logReaderAction("quick_version_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
+    setShowingFuller(false);
+  };
+  const body = showingFuller && fullerReady
+    ? <ManimFigureBody figure={fullerReady} />
+    : isManim
+    ? <ManimFigureBody figure={figure} />
+    : isSketch
+    ? (program ? <SketchFigure figure={figure} ctl={ctl} program={program} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>)
+    : compiled ? <FigureBody figure={figure} ctl={ctl} compiled={compiled} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>;
   return (
     <div data-figure={figure.figureId} data-figure-verification={figure.verification} style={{ margin: "4px 0 8px 0", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
         <button type="button" aria-expanded={expanded} onClick={toggle}
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
-          <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {FIGURE_COPY.collapsed} ·{" "}
+          <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {isManim ? RICH_FRAME.collapsed : FIGURE_COPY.collapsed} ·{" "}
           {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
-          <span data-figure-badge="">{isSketch ? sketchBadge(figure, withdrawn) : frameBadge(figure.verification, figure.grounding)}</span>
+          <span data-figure-badge="">{isManim ? manimBadge(figure) : isSketch ? sketchBadge(figure, withdrawn) : frameBadge(figure.verification, figure.grounding)}</span>
+          {!expanded && fullerReady ? <span data-fuller-collapsed=""> · {RICH_FRAME.collapsedReady}</span> : null}
         </button>
         <FigurePassages figure={figure} />
         {checks.length ? (
@@ -527,10 +553,10 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
         ) : null}
         {expanded ? <button type="button" style={linkStyle} onClick={() => ctl.setExpanded(null)}>{FIGURE_COPY.close}</button> : null}
       </div>
-      {expanded ? (
-        isSketch
-          ? (program ? <SketchFigure figure={figure} ctl={ctl} program={program} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>)
-          : compiled ? <FigureBody figure={figure} ctl={ctl} compiled={compiled} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>
+      {expanded ? body : null}
+      {expanded && fuller ? (
+        <FullerLine fuller={fuller} showing={showingFuller} onOpen={openFuller} onBack={openQuick}
+          onCancel={(richJobId) => ctl.cancelRich(richJobId)} />
       ) : null}
     </div>
   );
@@ -539,11 +565,14 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
 /** Everything figure-related under one passage (figures and their pending lines). */
 export function FiguresUnder({ ctl, spanId }: { ctl: FiguresCtl; spanId: string | null | undefined }) {
   if (!ctl.enabled || !spanId) return null;
-  const { figures, pending } = ctl.under(spanId);
-  if (!figures.length && !pending.length) return null;
+  const { figures, pending, richPending } = ctl.under(spanId);
+  const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask";
+  if (!figures.length && !pending.length && !richPending.length && !askOptIn) return null;
   return (
     <div data-figures-under={spanId}>
       {pending.map((item) => <FigurePendingLine key={item.key} pending={item} />)}
+      {askOptIn ? <ManimOptInLine onAnswer={(choice) => ctl.answerManimOptIn(choice)} /> : null}
+      {richPending.map((line) => <RichPendingLine key={line.richJobId ?? line.requestId ?? ""} line={line} onCancel={(id) => ctl.cancelRich(id)} />)}
       {figures.map((figure) => <FigureInline key={figure.figureId} figure={figure} ctl={ctl} />)}
     </div>
   );

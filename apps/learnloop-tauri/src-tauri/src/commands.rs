@@ -1441,6 +1441,9 @@ sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section")
 sidecar_passthrough!(reader_figure_request, "reader.figure_request");
 // Reader RW5d P1 ("show me": FigureRequestV1, one request for every host): desktop only.
 sidecar_passthrough!(figure_request, "figure.request");
+// Reader RW5d P2b (rich figures, the Manim half: cancel a rich build; the standing opt-in): desktop only.
+sidecar_passthrough!(figure_rich_cancel, "figure.rich_cancel");
+sidecar_passthrough!(figure_manim_opt_in, "figure.manim_opt_in");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");
 sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");

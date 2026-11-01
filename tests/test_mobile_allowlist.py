@@ -514,6 +514,9 @@ READER_RW5A_RPCS = (
 # figure request for every host (FigureRequestV1). Desktop only (§6.7).
 READER_RW5D_RPCS = (
     "figure.request",
+    # Reader RW5d P2b: cancel a rich build; the standing Manim opt-in. Desktop only.
+    "figure.rich_cancel",
+    "figure.manim_opt_in",
 )
 
 

@@ -650,6 +650,8 @@ fn main() {
             reader_side_by_side_section,
             reader_figure_request,
             figure_request,
+            figure_rich_cancel,
+            figure_manim_opt_in,
             reader_figure_revise,
             reader_figure_job,
             reader_figure_job_cancel,
