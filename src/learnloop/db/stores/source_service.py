@@ -892,6 +892,57 @@ def comparison_row(connection: sqlite3.Connection, comparison_id: str) -> dict[s
     return None if row is None else _comparison(row)
 
 
+#: The ``caller_context`` key listing the tutor questions a stored comparison
+#: was reused for (Codex re-review F1): RW4d's provenance reads them as it reads
+#: ``caller_ref``, the question it was made for.
+REUSE_QUESTIONS_KEY = "reuse_question_event_ids"
+
+
+def add_comparison_reuse_provenance(connection: sqlite3.Connection, comparison_id: str, *,
+                                    dropped_pins: Sequence[Mapping[str, Any]],
+                                    unverified_sources: Sequence[Mapping[str, Any]],
+                                    question_event_ids: Sequence[str] = ()) -> bool:
+    """A reuse's contributors joined to the stored comparison's (Reader
+    follow-ups Nov 1, Codex review F1): the passages a reusing call dropped
+    or could not check, each once (by its passage), and the tutor question it
+    was reused for (Codex re-review F1: a direct RPC writes no tool run that
+    would link it), so every later read of the comparison's provenance reads
+    them. Written only when something is new; True when it was."""
+
+    row = connection.execute("SELECT dropped_pins_json, unverified_sources_json, caller_context_json "
+                             "FROM source_comparisons WHERE id=?", (comparison_id,)).fetchone()
+    if row is None:
+        return False
+
+    def merged(stored: list[Any], added: Sequence[Mapping[str, Any]]) -> list[Any]:
+        seen = {(entry.get("extraction_id"), entry.get("span_id")) for entry in stored if isinstance(entry, Mapping)}
+        out = list(stored)
+        for entry in added:
+            key = (entry.get("extraction_id"), entry.get("span_id"))
+            if key not in seen:
+                seen.add(key)
+                out.append(dict(entry))
+        return out
+
+    old_pins = _loads(row["dropped_pins_json"], [])
+    old_unverified = _loads(row["unverified_sources_json"], [])
+    pins, unverified = merged(old_pins, dropped_pins), merged(old_unverified, unverified_sources)
+    caller_context = _loads(row["caller_context_json"], {})
+    if not isinstance(caller_context, dict):
+        caller_context = {}
+    old_questions = caller_context.get(REUSE_QUESTIONS_KEY)
+    old_questions = list(old_questions) if isinstance(old_questions, list) else []
+    questions = list(dict.fromkeys([*old_questions, *(str(q) for q in question_event_ids if q)]))
+    if len(pins) == len(old_pins) and len(unverified) == len(old_unverified) and len(questions) == len(old_questions):
+        return False
+    if len(questions) != len(old_questions):
+        caller_context = {**caller_context, REUSE_QUESTIONS_KEY: questions}
+    connection.execute("UPDATE source_comparisons SET dropped_pins_json=?, unverified_sources_json=?, "
+                       "caller_context_json=? WHERE id=?",
+                       (_dumps(pins), _dumps(unverified), _dumps(caller_context), comparison_id))
+    return True
+
+
 def find_comparison(connection: sqlite3.Connection, *, query_hash: str, policy: str,
                     counterpart_keys: Sequence[Any]) -> dict[str, Any] | None:
     """A stored comparison of the same question over the same counterparts under the same policy."""

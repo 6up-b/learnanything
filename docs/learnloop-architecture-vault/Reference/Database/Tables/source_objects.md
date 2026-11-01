@@ -3,13 +3,13 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
-source_commit_timestamp: "2026-11-01T12:20:35-05:00"
+source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
+source_commit_timestamp: "2026-11-01T12:28:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
   - "table source_objects"
-schema_head: 229
+schema_head: 228
 table_name: "source_objects"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/094_source_objects.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/instructional/sources.py"
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/reader/reader_requests.py"
   - "src/learnloop/reader/source_roles.py"
   - "src/learnloop/source_retrieval/find_sources.py"
-  - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -121,10 +121,11 @@ Indexes and uniqueness:
 - `tests/test_sidecar_reader_p3_slice2.py`
 - `tests/test_source_objects.py`
 - `tests/test_source_roles.py`
+- `tests/test_whole_comparison_provenance_surfaces.py`
+- `tests/test_whole_comparison_reuse_provenance.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_reader_requests.py`
-- `tests/test_reader_rw1b_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

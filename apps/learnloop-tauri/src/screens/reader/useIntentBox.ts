@@ -23,6 +23,7 @@ import type { ReaderIntentActionDto, ReaderIntentContractDto, ReaderIntentRoutin
 import { paletteActions, visiblePalette } from "./intentPalette";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { screenLeavesKey } from "../../app/keymap";
+import { passageKeys } from "./readerShared";
 
 /** How long after mouse-up the box appears, so a drag never flickers it. */
 export const SHOW_AFTER_MS = 150;
@@ -218,7 +219,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     const where = latest.current;
     if (!contract?.speculative || !where.extractionId || protectedSelection || !words) return;
     const first = api
-      .readerRouteIntent({ extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes })
+      .readerRouteIntent({ extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes,
+        spanKeys: passageKeys(where.extractionId, where.spanIds) })
       .then((answer) => (answer.status === "not_made" ? null : answer))
       .catch(() => null);
     const started = first.then((answer) => answer?.routingId || null);
@@ -277,6 +279,7 @@ export function useIntentBox(args: UseIntentBoxArgs) {
         const where = latest.current;
         const first = await api.readerRouteIntent({
           extractionId: where.extractionId ?? "", spanIds: where.spanIds, text: words, quote: where.quote, speculative: false, notes: where.notes,
+          spanKeys: passageKeys(where.extractionId ?? "", where.spanIds),
         });
         routing = await settle(first);
       }

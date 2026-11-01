@@ -109,14 +109,14 @@ def test_m2_the_gate_going_off_at_the_request_or_the_write_keeps_nothing(tmp_pat
 
     rows = _rows(c1)
     fake = OffMidCall(primaries=PRIMARIES)
-    result = DP.refresh_for_plan(c1.vault, c1.repository, client=fake, still_wanted=lambda: on["value"])
+    result = DP.refresh_for_plan(c1.vault, c1.repository, client=fake, still_wanted=lambda _vault: on["value"])
     assert fake.calls == 1 and result["status"] == "switched_off" and _rows(c1) == rows  # nothing written
     # Off before the request: nothing sent.
     on["value"] = True
     calls: list[int] = []
     checks = iter([True])  # the claim's check passes, every later one says off
 
-    def wanted() -> bool:
+    def wanted(_vault) -> bool:
         calls.append(1)
         return next(checks, False)
 

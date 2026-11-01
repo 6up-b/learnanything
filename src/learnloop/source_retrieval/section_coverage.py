@@ -893,6 +893,16 @@ class ProtectionChanged(BaseException):
     admission_refused = True
 
 
+class GateClosed(ProtectionChanged):
+    """The caller's gate (``CoverageGuard(gate=...)``) is closed on the snapshot
+    being admitted: nothing more is sent or recorded (curriculum C1's
+    automatic refresh, its switches turned off; Reader follow-ups Nov 1)."""
+
+
+#: The refusal a closed gate records (``CoverageGuard.changed``).
+GATE_CLOSED = "its caller's switches are off"
+
+
 #: How many times a check reads protection again when the loaded vault was
 #: reloaded while it was being read (re-review F1), before refusing: a
 #: guardrail (keep: a bound on a check's retry cost, as AD's ``sending.RELOAD_RETRIES``), not
@@ -975,27 +985,37 @@ class CoverageGuard:
     protected in the snapshot current at that request's or record's
     admission; a reload after admission is an edit made a moment after it.
 
+    ``gate`` (curriculum C1's automatic refresh: its complete gate; Reader
+    follow-ups Nov 1, closing the C1 round-5 ruling's follow-up (b)) is asked
+    of the same snapshot, inside the same validation: the verdict counts only
+    if that snapshot is still the published one, so a reload that turns the
+    caller's switches off cannot slip between the gate's read and the
+    admission. Closed (or unreadable: fail closed) raises :class:`GateClosed`.
+
     ``also`` (curriculum C2, Codex re-review F2): a further authorization
     judged on the *same* snapshot (``also(vault)`` is why it refuses, or
     None), so a reload between the two can never admit on one snapshot's
     authorization and the other's protection; its refusal raises
-    ``also_refusal``."""
+    ``also_refusal``. Both may be given: ``also`` is judged first."""
 
     def __init__(self, library: Library, keys: Iterable[tuple[str, str]], *,
                  live_vault: Callable[[], Any] | None = None,
+                 gate: Callable[[Any], bool] | None = None,
                  also: Callable[[Any], str | None] | None = None,
                  also_refusal: type[BaseException] = ProtectionChanged) -> None:
         self._library = library
         self._root = Path(library.vault.root).resolve()
         self._keys = list(dict.fromkeys(keys))
         self._live = live_vault
+        self._gate = gate
         self._also = also
         self._also_refusal = also_refusal
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the judgment's requests and records are refused (None: they are not).
         self.changed: str | None = None
-        #: What a refusal raises (``also_refusal`` when ``also`` refused).
+        #: What a refusal raises (:class:`GateClosed` when the gate is closed, ``also_refusal``
+        #: when ``also`` refused).
         self._refused_with: type[BaseException] = ProtectionChanged
 
     def _snapshot(self) -> tuple[Any | None, Any]:
@@ -1019,6 +1039,19 @@ class CoverageGuard:
             also = None if self._also is None else self._also(vault)
             if also is None and (vault is None or Path(vault.root).resolve() != self._root):
                 return "another vault is open", ProtectionChanged
+            if also is None and self._gate is not None:
+                try:
+                    gate_open = bool(self._gate(vault))
+                except Exception:  # noqa: BLE001 - an unreadable gate admits nothing
+                    gate_open = False
+                if not gate_open:
+                    try:
+                        published = self._still_published(generation)
+                    except Exception:  # noqa: BLE001 - an unreadable provider never admits
+                        return GATE_CLOSED, GateClosed
+                    if published:
+                        return GATE_CLOSED, GateClosed
+                    continue  # read on a snapshot already replaced: read the published one
             sendable = False
             if also is None:
                 try:
@@ -1037,8 +1070,8 @@ class CoverageGuard:
         return "the vault kept being reloaded while its protection was checked", ProtectionChanged
 
     def check(self, purpose: str = "request") -> None:
-        """Raise :class:`ProtectionChanged` (or ``also_refusal``) when the judgment may send
-        or record nothing more."""
+        """Raise :class:`ProtectionChanged` (:class:`GateClosed` when the gate is closed, or
+        ``also_refusal``) when the judgment may send or record nothing more."""
 
         with self._lock:
             if self.changed is None:
@@ -2233,6 +2266,8 @@ __all__ = [
     "Candidate",
     "CoverageError",
     "CoverageGuard",
+    "GATE_CLOSED",
+    "GateClosed",
     "JudgeResult",
     "Library",
     "LibraryCache",

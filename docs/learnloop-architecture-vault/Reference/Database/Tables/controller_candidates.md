@@ -3,13 +3,13 @@ title: "controller_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
-source_commit_timestamp: "2026-11-01T12:20:35-05:00"
+source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
+source_commit_timestamp: "2026-11-01T12:28:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_candidates"
   - "table controller_candidates"
-schema_head: 229
+schema_head: 228
 table_name: "controller_candidates"
 table_role: "workflow"
 functionality_status: "active"

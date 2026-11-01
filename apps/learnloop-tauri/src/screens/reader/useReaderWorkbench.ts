@@ -59,6 +59,7 @@ import {
 } from "../workbench/splitWidth";
 import type { ReaderWorkbenchExercise } from "./exerciseCandidates";
 import type { ReturnStack } from "./returnStack";
+import { passageKeys } from "./readerShared";
 
 /** A margin cue's "check me", picked by the shell (D40): the item and the
  *  serve its answer is to. */
@@ -346,7 +347,8 @@ export function useReaderWorkbench(input: {
     try {
       const result = await api.workbenchOpen({
         origin: "reader", entry: "work_through", stemMd: request.stemMd, extractionId,
-        spanIds: request.spanIds, importRequest: request.importRequest, clientIdempotencyKey: newKey(),
+        spanIds: request.spanIds, spanKeys: passageKeys(extractionId, request.spanIds), importRequest: request.importRequest,
+        clientIdempotencyKey: newKey(),
       });
       if (admits(sent, result.session)) begin(result.session, sent);
     } catch (error) {
@@ -360,7 +362,7 @@ export function useReaderWorkbench(input: {
     try {
       const result = await api.workbenchOpen({
         origin: "reader", entry: "work_through", practiceItemId: request.practiceItemId, stemMd: request.stemMd,
-        extractionId, spanIds: request.spanIds, clientIdempotencyKey: newKey(),
+        extractionId, spanIds: request.spanIds, spanKeys: passageKeys(extractionId, request.spanIds), clientIdempotencyKey: newKey(),
       });
       if (admits(sent, result.session)) begin(result.session, sent);
     } catch (error) {
@@ -404,6 +406,8 @@ export function useReaderWorkbench(input: {
     void api.workbenchOpen({
       origin: "reader", entry: checkMe.entry ?? "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
       extractionId: sent.extractionId, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
+      // The check's passage keyed by the check's own reading (its SourceIdentity), not the open one.
+      spanKeys: passageKeys(checkMe.reading.extractionId, [checkMe.spanId]),
       // The pick's serve goes on the problem itself, so leaving and resuming
       // it still submits as that serve (review F13); the server also hides
       // the book on a reused problem, keeping what it counted (F14).
@@ -438,8 +442,10 @@ export function useReaderWorkbench(input: {
     void api.workbenchOpen({
       origin: "reader", entry: exercise.entry, stemMd: exercise.stemMd, extractionId: exercise.extractionId,
       spanIds: exercise.spanIds, clientIdempotencyKey: newKey(),
+      ...(exercise.extractionId ? { spanKeys: passageKeys(exercise.extractionId, exercise.spanIds ?? []) } : {}),
       ...(exercise.sourceExercise
-        ? { sourceExercise: exercise.sourceExercise }
+        ? { sourceExercise: { ...exercise.sourceExercise,
+            spanKeys: passageKeys(exercise.sourceExercise.extractionId, exercise.sourceExercise.spanIds) } }
         : { importRequest: exercise.importRequest ?? null, ...(exercise.exercisePick ? { exercisePick: exercise.exercisePick } : {}) }),
     })
       .then((result) => {

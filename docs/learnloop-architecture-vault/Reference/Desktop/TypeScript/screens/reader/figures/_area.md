@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures"
-source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
-source_commit_timestamp: "2026-11-01T09:50:06-05:00"
+source_commit: "178337e59f3a64ff337e7d563c8d48067d8c9a50"
+source_commit_timestamp: "2026-11-01T12:27:21-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -43,7 +43,7 @@ Reader "show me" figures: the figure grammar and spec, inline figures, panels, p
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureGrammar|figureGrammar.ts]] | `ACTIVE` | Provides `MAX_EXPR_CHARS`, `MAX_NODES`, `MAX_DEPTH`, `MAX_EXPANDED_NODES` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|showMe.ts]] | `ACTIVE` | Provides `SHOW_ME_COPY`, `ShowMeLine`, `passageChip`, `showMeSourceLine` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 4 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 4 |
 
 ## Modification guidance
 

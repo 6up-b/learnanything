@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts"
-source_commit: "47cec5279eec7c2738ab839c558ebcbd603f4b6a"
-source_commit_timestamp: "2026-11-01T04:24:32-05:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts) |
-| Source lines | 1364 |
+| Source lines | 1367 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `47cec5279eec7c2738ab839c558ebcbd603f4b6a` |
-| Commit timestamp | `2026-11-01T04:24:32-05:00` |
+| Source commit | `0e255d2058e29d8da9f7b21dee8d80e7a7889dbe` |
+| Commit timestamp | `2026-11-01T08:39:53-05:00` |
 
 ## Activation and status evidence
 
@@ -163,94 +163,95 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const selectionSourceQuote = parent ? parent.selectionSourceQuoteMd ?? null : edited && selection ? selection.quote.trim() || null : null` — const, line 718
 - `const jobKind = parent ? "follow_up" : "ask"` — const, line 721
 - `const job =` — const, line 722
-- `const answer = await api.readerAsk(` — const, line 729
-- `const waited = Date.now() - job.startedAt` — const, line 748
-- `const exchange: ReaderExchange =` — const, line 759
-- `const ownComposer = composerOpen === composerOpenRef.current` — const, line 786
-- `const branchEntry = (target: ReaderExchange, label: string): ReturnEntry` — const, line 794
-- `const pushes: ReturnEntry[] = []` — const, line 799
-- `const next = new Set(ids)` — const, line 809
-- `const composerHadFocus = document.activeElement === askComposerRef.current` — const, line 821
-- `const onAskTab = railTab === "ask"` — const, line 827
-- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 832
-- `const phase = phaseForError(error)` — const, line 840
-- `const ask = useCallback(()` — const, line 872
-- `const failed = failedAskRef.current` — const, line 876
-- `const anchor = composerAnchorRef?.current ?? null` — const, line 882
-- `const retryAsk = useCallback(()` — const, line 891
-- `const failed = failedAskRef.current` — const, line 892
-- `const forgetFailedAsk = useCallback(()` — const, line 900
-- `const askAnotherWay = useCallback((exchange: ReaderExchange)` — const, line 914
-- `const askDidntHelp = useCallback((exchange: ReaderExchange, text: string)` — const, line 922
-- `const cancelAsk = useCallback(()` — const, line 930
-- `const job = askJobRef.current` — const, line 931
-- `const extractionOf = useCallback((rootId: string): string` — const, line 952
-- `const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>)` — const, line 956
-- `const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip")` — const, line 960
-- `const result = await api.readerSetInquiryStatus(` — const, line 963
-- `const markBranchDone = useCallback(async (branch: ReaderExchange)` — const, line 972
-- `const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment>` — const, line 984
-- `const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? [])` — const, line 985
-- `const commitPendingRef = useRef<Set<string>>(new Set())` — const, line 999
-- `const commitKeysRef = useRef<Record<string, string>>(` — const, line 1000
-- `const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment)` — const, line 1004
-- `const slot = `$` — const, line 1006
-- `const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey())` — const, line 1009
-- `const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId]` — const, line 1010
-- `const about = root.about ?? null` — const, line 1013
-- `const receipt = await api.readerInvokePreset(` — const, line 1019
-- `const openInquiry = useCallback((rootId: string, fallbackSpanId?: string | null)` — const, line 1051
-- `const root = history.find((exchange)` — const, line 1052
-- `const next = new Set(ids)` — const, line 1061
-- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 1074
-- `const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra:` — const, line 1087
-- `const job = inquiryJobsRef.current[rootId]` — const, line 1090
-- `const waited = Date.now() - job.startedAt` — const, line 1093
-- `const recordUnqueuedCheck = useCallback((failureReason: string)` — const, line 1106
-- `const jobId = newActivityId()` — const, line 1107
-- `const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail")` — const, line 1118
-- `const waitId = newKey()` — const, line 1123
-- `const visitIds = visitPayload()` — const, line 1124
-- `const startedAt = Date.now()` — const, line 1125
-- `const activity = learnerActivitySnapshot()` — const, line 1126
-- `const result = await api.readerReconnectAnswer(` — const, line 1128
-- `const batchId = result.batchId` — const, line 1133
-- `const tracked = inquiryJobsRef.current[rootId]` — const, line 1134
-- `const phase = phaseForError(error)` — const, line 1152
-- `const cancelQuickCheck = useCallback((rootId: string)` — const, line 1160
-- `const current = inquiryChecks[rootId]` — const, line 1161
-- `const wait = current?.batchId ?` — const, line 1162
-- `const batchId = wait?.batchId ?? null` — const, line 1165
-- `const dismissInquiryCheck = useCallback((rootId: string)` — const, line 1175
-- `const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "")` — const, line 1182
-- `const line = reconnect` — const, line 1183
-- `const via = line.inline ? "inline" : "rail"` — const, line 1185
-- `const result = await api.readerReconnectAnswer(` — const, line 1193
-- `const root = history.find((item)` — const, line 1202
-- `const watching = Object.entries(inquiryChecks).filter( ([, check])` — const, line 1217
-- `const timer = window.setInterval(()` — const, line 1221
-- `const batchId = check.batchId as string` — const, line 1223
-- `const waitId = check.waitId as string` — const, line 1224
-- `const attempts = (check.attempts ?? 0) + 1` — const, line 1225
-- `const same = (checks: typeof inquiryChecks)` — const, line 1228
-- `const timedOut = ()` — const, line 1229
-- `const job = result.job ?? null` — const, line 1235
-- `const landedQuestion = result.question` — const, line 1237
-- `const code = job.errorCode ?? "error"` — const, line 1248
-- `const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed"` — const, line 1250
-- `const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null` — const, line 1251
-- `const phase = phaseForError(error)` — const, line 1262
-- `const pollErrors = (check.pollErrors ?? 0) + 1` — const, line 1270
-- `const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string)` — const, line 1281
-- `const check = inquiryChecks[rootId]` — const, line 1282
-- `const result = await api.readerInquiryQuestionAction(` — const, line 1285
-- `const escalateInquiryCheck = useCallback(async (rootId: string)` — const, line 1297
-- `const check = inquiryChecks[rootId]` — const, line 1298
-- `const passageCheckOffered = useMemo(()` — const, line 1313
-- `const root = history.find((exchange)` — const, line 1315
-- `const normalizedAskFind = askFindQuery.trim().toLowerCase()` — const, line 1324
-- `const visibleAskHistory = useMemo( ()` — const, line 1325
-- `const onFind = (event: KeyboardEvent)` — const, line 1338
+- `const askReading = about?.extractionId ?? render.extractionId` — const, line 729
+- `const answer = await api.readerAsk(` — const, line 730
+- `const waited = Date.now() - job.startedAt` — const, line 751
+- `const exchange: ReaderExchange =` — const, line 762
+- `const ownComposer = composerOpen === composerOpenRef.current` — const, line 789
+- `const branchEntry = (target: ReaderExchange, label: string): ReturnEntry` — const, line 797
+- `const pushes: ReturnEntry[] = []` — const, line 802
+- `const next = new Set(ids)` — const, line 812
+- `const composerHadFocus = document.activeElement === askComposerRef.current` — const, line 824
+- `const onAskTab = railTab === "ask"` — const, line 830
+- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 835
+- `const phase = phaseForError(error)` — const, line 843
+- `const ask = useCallback(()` — const, line 875
+- `const failed = failedAskRef.current` — const, line 879
+- `const anchor = composerAnchorRef?.current ?? null` — const, line 885
+- `const retryAsk = useCallback(()` — const, line 894
+- `const failed = failedAskRef.current` — const, line 895
+- `const forgetFailedAsk = useCallback(()` — const, line 903
+- `const askAnotherWay = useCallback((exchange: ReaderExchange)` — const, line 917
+- `const askDidntHelp = useCallback((exchange: ReaderExchange, text: string)` — const, line 925
+- `const cancelAsk = useCallback(()` — const, line 933
+- `const job = askJobRef.current` — const, line 934
+- `const extractionOf = useCallback((rootId: string): string` — const, line 955
+- `const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>)` — const, line 959
+- `const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip")` — const, line 963
+- `const result = await api.readerSetInquiryStatus(` — const, line 966
+- `const markBranchDone = useCallback(async (branch: ReaderExchange)` — const, line 975
+- `const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment>` — const, line 987
+- `const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? [])` — const, line 988
+- `const commitPendingRef = useRef<Set<string>>(new Set())` — const, line 1002
+- `const commitKeysRef = useRef<Record<string, string>>(` — const, line 1003
+- `const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment)` — const, line 1007
+- `const slot = `$` — const, line 1009
+- `const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey())` — const, line 1012
+- `const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId]` — const, line 1013
+- `const about = root.about ?? null` — const, line 1016
+- `const receipt = await api.readerInvokePreset(` — const, line 1022
+- `const openInquiry = useCallback((rootId: string, fallbackSpanId?: string | null)` — const, line 1054
+- `const root = history.find((exchange)` — const, line 1055
+- `const next = new Set(ids)` — const, line 1064
+- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 1077
+- `const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra:` — const, line 1090
+- `const job = inquiryJobsRef.current[rootId]` — const, line 1093
+- `const waited = Date.now() - job.startedAt` — const, line 1096
+- `const recordUnqueuedCheck = useCallback((failureReason: string)` — const, line 1109
+- `const jobId = newActivityId()` — const, line 1110
+- `const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail")` — const, line 1121
+- `const waitId = newKey()` — const, line 1126
+- `const visitIds = visitPayload()` — const, line 1127
+- `const startedAt = Date.now()` — const, line 1128
+- `const activity = learnerActivitySnapshot()` — const, line 1129
+- `const result = await api.readerReconnectAnswer(` — const, line 1131
+- `const batchId = result.batchId` — const, line 1136
+- `const tracked = inquiryJobsRef.current[rootId]` — const, line 1137
+- `const phase = phaseForError(error)` — const, line 1155
+- `const cancelQuickCheck = useCallback((rootId: string)` — const, line 1163
+- `const current = inquiryChecks[rootId]` — const, line 1164
+- `const wait = current?.batchId ?` — const, line 1165
+- `const batchId = wait?.batchId ?? null` — const, line 1168
+- `const dismissInquiryCheck = useCallback((rootId: string)` — const, line 1178
+- `const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "")` — const, line 1185
+- `const line = reconnect` — const, line 1186
+- `const via = line.inline ? "inline" : "rail"` — const, line 1188
+- `const result = await api.readerReconnectAnswer(` — const, line 1196
+- `const root = history.find((item)` — const, line 1205
+- `const watching = Object.entries(inquiryChecks).filter( ([, check])` — const, line 1220
+- `const timer = window.setInterval(()` — const, line 1224
+- `const batchId = check.batchId as string` — const, line 1226
+- `const waitId = check.waitId as string` — const, line 1227
+- `const attempts = (check.attempts ?? 0) + 1` — const, line 1228
+- `const same = (checks: typeof inquiryChecks)` — const, line 1231
+- `const timedOut = ()` — const, line 1232
+- `const job = result.job ?? null` — const, line 1238
+- `const landedQuestion = result.question` — const, line 1240
+- `const code = job.errorCode ?? "error"` — const, line 1251
+- `const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed"` — const, line 1253
+- `const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null` — const, line 1254
+- `const phase = phaseForError(error)` — const, line 1265
+- `const pollErrors = (check.pollErrors ?? 0) + 1` — const, line 1273
+- `const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string)` — const, line 1284
+- `const check = inquiryChecks[rootId]` — const, line 1285
+- `const result = await api.readerInquiryQuestionAction(` — const, line 1288
+- `const escalateInquiryCheck = useCallback(async (rootId: string)` — const, line 1300
+- `const check = inquiryChecks[rootId]` — const, line 1301
+- `const passageCheckOffered = useMemo(()` — const, line 1316
+- `const root = history.find((exchange)` — const, line 1318
+- `const normalizedAskFind = askFindQuery.trim().toLowerCase()` — const, line 1327
+- `const visibleAskHistory = useMemo( ()` — const, line 1328
+- `const onFind = (event: KeyboardEvent)` — const, line 1341
 
 ## Who imports or calls it
 
@@ -274,7 +275,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`
 - [[Reference/Desktop/TypeScript/screens/reader/checkOffer|src/screens/reader/checkOffer.ts]] — import-or-re-export; imports `checkOffer`
 - [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export; imports `cachedSourceRead`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `MarginAnnotation`, `ReaderSelection`, `clip`, `passageKeys`, `selectionNodes`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export; imports `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`
 - [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]] — import-or-re-export; imports `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|src/screens/reader/useReaderVisit.ts]] — import-or-re-export; imports `ReaderVisit`

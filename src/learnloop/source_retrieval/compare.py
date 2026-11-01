@@ -80,7 +80,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key, search_blocks
-from learnloop.db.stores.source_service import find_comparison, insert_comparison
+from learnloop.db.stores.source_service import add_comparison_reuse_provenance, find_comparison, insert_comparison
 from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.listwise import route_skip
@@ -103,6 +103,9 @@ COMPARE_PROMPT_VERSION_V2 = "source_compare.v2"
 KEYS_PER_SOURCE = 3
 VERIFY_PAGE = 15
 PASSAGE_CHARS = 2400
+#: A dropped pin's reason when it names no passage at all (nothing of it
+#: contributed; a reuse does not write it onto the stored comparison).
+NO_SUCH_PASSAGE = "no such passage"
 RELATIONS = ("equivalent", "different_assumptions", "different_notation", "disagreement", "unclear")
 _INSTRUCTIONS = (
     "Compare how the learner's own sources treat the question. Each source is given with its passage. For each "
@@ -332,7 +335,7 @@ def _compare_sources(
             block = found.get(key)
             # The exam label first: a scope that leaves exam material out (the
             # teaching scope, post_attempt's) would otherwise give a vaguer reason.
-            why = "no such passage" if block is None else "it is exam material" if key in exam_keys \
+            why = NO_SUCH_PASSAGE if block is None else "it is exam material" if key in exam_keys \
                 else _pin_reason(scope, key, policy=derived, item=item)
             if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
                     block.text, item.expected_answer):
@@ -536,6 +539,27 @@ def _compare_sources(
     if stored is not None:
         result.reused = True
         result.comparison_id = stored["id"]
+        # Codex review F1 (Reader follow-ups Nov 1): RW4d's whole-comparison
+        # provenance is the union across reuse, so what this call dropped or
+        # could not check joins the stored comparison's, and every later read
+        # of it (the library's deliveries and keeps) reads them. A pin naming
+        # no passage contributed nothing and is not written (it would make the
+        # shared comparison unresolvable for everyone).
+        reuse_pins = [pin for pin in result.dropped_pins if pin.get("reason") != NO_SUCH_PASSAGE]
+        # Codex re-review F1: the tutor question this reuse is for, unless it
+        # is the one the comparison was made for. A tool run's row links it
+        # too, but a direct RPC writes none. A question that does not exist
+        # names no passage and is not written (it would make the shared
+        # comparison unresolvable); the current call still fails closed on it.
+        reuse_questions = [str(caller.ref)] if (
+            caller.kind == "tutor" and caller.ref
+            and not (stored.get("caller") == "tutor" and str(stored.get("caller_ref") or "") == str(caller.ref))
+            and repository.question_event(str(caller.ref)) is not None) else []
+        if reuse_pins or result.unverified_sources or reuse_questions:
+            with repository.atomic(), repository.connection() as connection:
+                add_comparison_reuse_provenance(connection, str(stored["id"]), dropped_pins=reuse_pins,
+                                                unverified_sources=result.unverified_sources,
+                                                question_event_ids=reuse_questions)
         payload = stored["comparison"]
         result.sources, result.relations = payload.get("sources", []), payload.get("relations", [])
         result.missing_perspectives = payload.get("missing_perspectives", [])

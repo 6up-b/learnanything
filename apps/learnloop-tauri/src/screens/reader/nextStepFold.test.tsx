@@ -96,7 +96,8 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); setAlgoC
 
 it("the next lines fold at once, before the question is written, with show one press away", async () => {
   await tryNextStep();
-  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [SELECTED.spanId], style: "next_step" }));
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith({ extractionId: view.extractionId, spanIds: [SELECTED.spanId], style: "next_step",
+    spanKeys: [`${view.extractionId}:${SELECTED.spanId}`] }));
   expect(await screen.findByText(/the next line is folded while you try/)).toBeTruthy();
   expect(screen.queryByText(NEXT.markdown)).toBeNull();
   expect(screen.getByText(/writing the question — the lines stay folded/)).toBeTruthy();

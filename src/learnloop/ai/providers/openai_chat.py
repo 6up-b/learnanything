@@ -7,10 +7,12 @@ import json
 import logging
 import os
 import random
+import socket
 import time
 from contextvars import ContextVar
 from typing import Any
 
+import httpcore
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
@@ -73,6 +75,187 @@ _request_options: ContextVar[tuple[float | None, int | None, str | None]] = Cont
 _purpose_label: ContextVar[str | None] = ContextVar("chat_request_purpose", default=None)
 
 
+# -- the total transport deadline (Reader follow-ups Nov 1; RW6b part 2's F3) --------------
+#
+# ``timeout`` on an SDK request is httpx's per network operation: a server that
+# dribbles bytes keeps every read under it and holds the request open for as
+# long as it likes. Each physical request here also has a TOTAL deadline (the
+# attempt's timeout, the remaining time of the loop's deadline), enforced in
+# the transport itself: the SDK's httpx pool sends through a network backend
+# that bounds every operation (connect, TLS, upload, response headers, body)
+# by the deadline's remaining time, in the calling thread, and refuses to
+# start one once the deadline has passed. The request is therefore over when
+# the adapter raises (``TotalDeadlineExceeded``): nothing is left running, so
+# a retry or a successor never sends beside it, and a lease that must outlive
+# it (reader_digest's narration claim) can rely on the bound (Codex review F2:
+# the earlier worker-thread wait abandoned a request whose response headers
+# had not arrived). Name resolution is the system resolver's; a deadline that
+# passed during it closes the new connection before anything is sent.
+
+#: The deadline's clock: real time, unlike the retry loop's replaceable
+#: ``_monotonic`` (the request's operations run in real time).
+_deadline_clock = time.monotonic
+
+
+class TotalDeadlineExceeded(TimeoutError):
+    """A physical request reached its total transport deadline and was cancelled."""
+
+
+class _RequestDeadline:
+    """One physical request's total deadline."""
+
+    def __init__(self, seconds: float) -> None:
+        self.seconds = float(seconds)
+        self.at = _deadline_clock() + self.seconds
+
+    def remaining(self) -> float:
+        return self.at - _deadline_clock()
+
+    def passed(self) -> bool:
+        return self.remaining() <= 0
+
+
+#: The deadline of the physical request being sent on this thread.
+_active_deadline: ContextVar[_RequestDeadline | None] = ContextVar("chat_transport_deadline", default=None)
+
+
+def _bounded(timeout: float | None, error: type[Exception]) -> float | None:
+    """One network operation's timeout under the active request's deadline:
+    its own timeout or the deadline's remaining time, whichever is shorter;
+    ``error`` (httpcore's timeout for the operation) once nothing remains."""
+
+    deadline = _active_deadline.get()
+    if deadline is None:
+        return timeout
+    remaining = deadline.remaining()
+    if remaining <= 0:
+        raise error("the request's total transport deadline passed")
+    return remaining if timeout is None else min(float(timeout), remaining)
+
+
+#: httpcore's plain socket stream (TCP, or TLS directly on it), whose write the
+#: deadline stream runs itself. Exact type only: its TLS-in-TLS sibling's
+#: socket carries the outer TLS and must not be written raw.
+try:
+    from httpcore._backends.sync import SyncStream as _SYNC_STREAM
+except ImportError:  # pragma: no cover - a test pins the location; every stream then writes in pieces
+    _SYNC_STREAM = None
+#: A TLS record's maximum plaintext (RFC 8449): the piece size for a stream
+#: whose send loop is opaque. keep: a structural bound, not a tuned value.
+_WRITE_PIECE_BYTES = 16384
+
+
+class _DeadlineNetworkStream(httpcore.NetworkStream):
+    """A connection whose every operation is bounded by the deadline of the
+    request using it (read at the operation: a pooled connection serves
+    requests with different deadlines)."""
+
+    def __init__(self, inner: httpcore.NetworkStream) -> None:
+        self._inner = inner
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return self._inner.read(max_bytes, _bounded(timeout, httpcore.ReadTimeout))
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        # One httpcore write loops over partial sends and gives each the same
+        # timeout, so bounding the write once let a slow peer stretch it far
+        # past the deadline (Codex re-review F2). The deadline's remaining
+        # time is recomputed before every partial send instead.
+        if _active_deadline.get() is None:
+            self._inner.write(buffer, timeout)
+            return
+        sock = self._inner.get_extra_info("socket") if type(self._inner) is _SYNC_STREAM else None
+        if sock is None:
+            # Another stream (TLS-in-TLS through a proxy, a test double): its
+            # own send loop is opaque, so it gets the buffer a TLS record at a
+            # time, each piece bounded afresh.
+            view = memoryview(buffer)
+            for start in range(0, len(view), _WRITE_PIECE_BYTES):
+                self._inner.write(bytes(view[start:start + _WRITE_PIECE_BYTES]),
+                                  _bounded(timeout, httpcore.WriteTimeout))
+            return
+        # httpcore's plain stream: its socket (TCP, or TLS on it) sends here,
+        # httpcore's own loop with the bound recomputed per send.
+        view = memoryview(buffer)
+        while view:
+            bound = _bounded(timeout, httpcore.WriteTimeout)
+            try:
+                sock.settimeout(bound)
+                sent = sock.send(view)
+            except socket.timeout as exc:
+                raise httpcore.WriteTimeout(exc) from exc
+            except OSError as exc:
+                raise httpcore.WriteError(exc) from exc
+            view = view[sent:]
+
+    def close(self) -> None:
+        self._inner.close()
+
+    def start_tls(self, ssl_context: Any, server_hostname: str | None = None,
+                  timeout: float | None = None) -> httpcore.NetworkStream:
+        return _DeadlineNetworkStream(self._inner.start_tls(
+            ssl_context, server_hostname=server_hostname, timeout=_bounded(timeout, httpcore.ConnectTimeout)))
+
+    def get_extra_info(self, info: str) -> Any:
+        return self._inner.get_extra_info(info)
+
+
+class _DeadlineNetworkBackend(httpcore.NetworkBackend):
+    """httpcore's network backend with every connection under the deadline."""
+
+    def __init__(self, inner: httpcore.NetworkBackend) -> None:
+        self._inner = inner
+
+    def _opened(self, stream: httpcore.NetworkStream) -> httpcore.NetworkStream:
+        deadline = _active_deadline.get()
+        if deadline is not None and deadline.passed():
+            # The deadline passed while connecting (name resolution is not
+            # bounded by the timeout): close it before anything is sent.
+            stream.close()
+            raise httpcore.ConnectTimeout("the request's total transport deadline passed")
+        return _DeadlineNetworkStream(stream)
+
+    def connect_tcp(self, host: str, port: int, timeout: float | None = None, local_address: str | None = None,
+                    socket_options: Any = None) -> httpcore.NetworkStream:
+        return self._opened(self._inner.connect_tcp(
+            host, port, timeout=_bounded(timeout, httpcore.ConnectTimeout), local_address=local_address,
+            socket_options=socket_options))
+
+    def connect_unix_socket(self, path: str, timeout: float | None = None,
+                            socket_options: Any = None) -> httpcore.NetworkStream:
+        return self._opened(self._inner.connect_unix_socket(
+            path, timeout=_bounded(timeout, httpcore.ConnectTimeout), socket_options=socket_options))
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+def _arm_http_client(http_client: Any) -> bool:
+    """Put every connection pool of an httpx client (its transport and any
+    proxy mounts) behind the deadline backend. True when its default
+    transport is armed; False (the deadline is not enforced) when the
+    installed httpx/httpcore keep their pool elsewhere, which a test pins."""
+
+    armed = False
+    default = getattr(http_client, "_transport", None)
+    for transport in (default, *(getattr(http_client, "_mounts", None) or {}).values()):
+        pool = getattr(transport, "_pool", None)
+        backend = getattr(pool, "_network_backend", None)
+        if backend is None:
+            continue
+        if not isinstance(backend, _DeadlineNetworkBackend):
+            pool._network_backend = _DeadlineNetworkBackend(backend)
+        armed = armed or transport is default
+    return armed
+
+
+def enforced_total_seconds(timeout_seconds: float) -> float:
+    """The total time one physical request may take, from the caller's side,
+    when it is sent with ``timeout_seconds`` (the attempt's floor included)."""
+
+    return max(_MIN_ATTEMPT_SECONDS, float(timeout_seconds))
+
+
 class OpenAIChatProviderClient(TokenUsageAccounting):
     provider_type = "openai_chat"
     # Subclass hooks: a provider type with a fixed endpoint (e.g. openrouter)
@@ -112,6 +295,19 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         headers = self._default_headers()
         if headers:
             client_kwargs["default_headers"] = headers
+        # The total transport deadline (above): the SDK's own httpx client
+        # (its defaults), with its connection pools behind the deadline
+        # backend. Without the real SDK (an offline stand-in module) the
+        # deadline is not armed.
+        http_client_factory = getattr(openai, "DefaultHttpxClient", None)
+        self._enforce_deadline = False
+        if http_client_factory is not None:
+            http_client = http_client_factory()
+            self._enforce_deadline = _arm_http_client(http_client)
+            if not self._enforce_deadline:
+                logger.warning("AI provider %s: the total transport deadline could not be armed on this httpx "
+                               "version; requests are bounded per network operation only", provider_name)
+            client_kwargs["http_client"] = http_client
         self._client = openai.OpenAI(**client_kwargs)
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
@@ -361,7 +557,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         request_error: Exception | None = None
         with model_call(self, purpose="chat_request", prompt=kwargs.get("messages"), schema=kwargs.get("response_format"), budget=kwargs.get("max_tokens")) as receipt:
             try:
-                response = self._client.chat.completions.create(**kwargs)
+                response = self._create_within_deadline(kwargs)
             except Exception as exc:
                 request_error = exc
                 receipt.update(status="failed", error_type=type(exc).__name__)
@@ -373,6 +569,29 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
                     raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
                 return response
         raise _RequestFailed(request_error)
+
+    def _create_within_deadline(self, kwargs: dict[str, Any]) -> Any:
+        """The SDK request under its total deadline (``kwargs["timeout"]``), in
+        this thread: every network operation is bounded by the deadline's
+        remaining time (the deadline backend, above), so when this returns or
+        raises the request's transport work is over. Past the deadline the
+        request fails with :class:`TotalDeadlineExceeded`."""
+
+        seconds = kwargs.get("timeout")
+        if not self._enforce_deadline or not isinstance(seconds, (int, float)) or seconds <= 0:
+            return self._client.chat.completions.create(**kwargs)
+        deadline = _RequestDeadline(float(seconds))
+        token = _active_deadline.set(deadline)
+        try:
+            return self._client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if deadline.passed() and isinstance(exc, self._connection_errors):
+                raise TotalDeadlineExceeded(
+                    f"{self.provider_name} ({self.model}) request reached its total deadline of "
+                    f"{deadline.seconds:.1f}s and was cancelled") from exc
+            raise
+        finally:
+            _active_deadline.reset(token)
 
     def _meter_response(self, response: Any) -> None:
         """Record usage on the receipt and the run, and spend the request budget."""

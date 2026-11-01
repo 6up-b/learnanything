@@ -101,5 +101,6 @@ it("pressing the tutor's offer builds with the answer's question event as the of
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledTimes(1));
   expect(api.readerFigureRequest).toHaveBeenCalledWith({
     extractionId: view.extractionId, spanIds: [spanId], origin: "tutor", offerRef: "qe_tutor",
+    spanKeys: [`${view.extractionId}:${spanId}`],
   });
 });

@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderWorkbench.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderWorkbench.ts"
-source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
-source_commit_timestamp: "2026-11-01T03:48:43-05:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderWorkbench.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderWorkbench.ts) |
-| Source lines | 557 |
+| Source lines | 563 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
-| Commit timestamp | `2026-11-01T03:48:43-05:00` |
+| Source commit | `0e255d2058e29d8da9f7b21dee8d80e7a7889dbe` |
+| Commit timestamp | `2026-11-01T08:39:53-05:00` |
 
 ## Activation and status evidence
 
@@ -60,79 +60,79 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderWorkbenchCheck` — interface, line 65
-- `export interface ReaderWorkbenchProps` — interface, line 83
-- `export interface ReaderWorkbenchResume` — interface, line 115
-- `export interface ActiveWorkbench` — interface, line 123
-- `export interface ReaderWorkbench` — interface, line 139
-- `export function useReaderWorkbench(input:` — function, line 179
+- `export interface ReaderWorkbenchCheck` — interface, line 66
+- `export interface ReaderWorkbenchProps` — interface, line 84
+- `export interface ReaderWorkbenchResume` — interface, line 116
+- `export interface ActiveWorkbench` — interface, line 124
+- `export interface ReaderWorkbench` — interface, line 140
+- `export function useReaderWorkbench(input:` — function, line 180
 
 ## Internal implementation anchors
 
-- `interface Ticket` — interface, line 168
-- `function newKey(): string` — function, line 175
-- `const props = input.props` — const, line 187
-- `const extractionRef = useRef(extractionId)` — const, line 194
-- `const cardRef = useRef(card)` — const, line 196
-- `const activeRef = useRef<ActiveWorkbench | null>(null)` — const, line 198
-- `const propsRef = useRef(props)` — const, line 200
-- `const generation = useRef(0)` — const, line 208
-- `const openSeq = useRef(0)` — const, line 209
-- `const bump = useCallback(()` — const, line 210
-- `const ticket = useCallback((isOpen: boolean): Ticket` — const, line 214
-- `const fresh = useCallback((sent: Ticket)` — const, line 221
-- `const onOpenBook = useCallback((session: WorkbenchSessionDto, book: Pick<Ticket, "extractionId" | "sourceId">)` — const, line 227
-- `const admits = useCallback((sent: Ticket, session: WorkbenchSessionDto)` — const, line 232
-- `const refreshSeq = useRef(0)` — const, line 237
-- `const refresh = useCallback(async ()` — const, line 238
-- `const current = extractionRef.current` — const, line 239
-- `const asked = refreshSeq.current` — const, line 242
-- `const result = await api.workbenchForSource(` — const, line 244
-- `const initialAttemptId = props?.initialAttemptId ?? null` — const, line 262
-- `const openedAttemptRef = useRef<string | null>(null)` — const, line 263
-- `const sent = ticket(true)` — const, line 267
-- `const session = result.session` — const, line 270
-- `const shown = cardRef.current` — const, line 271
-- `const onResize = ()` — const, line 282
-- `const setWidth = useCallback((next: number)` — const, line 287
-- `const clamped = clampSplitWidth(next, window.innerWidth)` — const, line 288
-- `const resizeBy = useCallback((delta: number)` — const, line 292
-- `const clamped = clampSplitWidth(current + delta, window.innerWidth)` — const, line 294
-- `const admitting = useRef(new Set<string>())` — const, line 308
-- `const admit = useCallback((session: WorkbenchSessionDto)` — const, line 309
-- `const book =` — const, line 310
-- `const sentGeneration = generation.current` — const, line 315
-- `const asked = session.sessionId` — const, line 316
-- `type Serve =` — type, line 331
-- `const begin = useCallback((session: WorkbenchSessionDto, sent: Ticket, readOnly = false, serve?: Serve)` — const, line 334
-- `const shown = cardRef.current` — const, line 335
-- `const openSelection = useCallback(async (request:` — const, line 343
-- `const sent = ticket(true)` — const, line 345
-- `const result = await api.workbenchOpen(` — const, line 347
-- `const openItem = useCallback(async (request:` — const, line 357
-- `const sent = ticket(true)` — const, line 359
-- `const result = await api.workbenchOpen(` — const, line 361
-- `const resume = useCallback(async (sessionId: string)` — const, line 371
-- `const sent = ticket(true)` — const, line 372
-- `const result = await api.workbenchOpen(` — const, line 378
-- `const checkMe = props?.checkMe ?? null` — const, line 390
-- `const openedCheckRef = useRef<` — const, line 391
-- `const sent = ticket(true)` — const, line 403
-- `const exercise = props?.exercise ?? null` — const, line 431
-- `const openedExerciseRef = useRef<` — const, line 432
-- `const sent = ticket(true)` — const, line 437
-- `const resumeRequest = props?.resumeProblem ?? null` — const, line 467
-- `const resumedRef = useRef<` — const, line 468
-- `const reopenAbandoned = useCallback(async ()` — const, line 482
-- `const update = useCallback((session: WorkbenchSessionDto, shownIn?: number)` — const, line 491
-- `const current = activeRef.current` — const, line 493
-- `const close = useCallback((session: WorkbenchSessionDto | null, options?:` — const, line 500
-- `const shown = activeRef.current` — const, line 504
-- `const target = session ?? shown?.session ?? null` — const, line 507
-- `const submitted = useCallback((result: WorkbenchSubmitDto, shownIn?: number)` — const, line 522
-- `const current = activeRef.current` — const, line 523
-- `const shown = current !== null && (shownIn === undefined || shownIn === generation.current) && current.session.sessionId === result.session.sessionId && (!result.session.extractionId || result.session.extractionId === extractionRef.current)` — const, line 524
-- `const spanId = result.session.spanIds[0] ?? current.session.spanIds[0] ?? ""` — const, line 531
+- `interface Ticket` — interface, line 169
+- `function newKey(): string` — function, line 176
+- `const props = input.props` — const, line 188
+- `const extractionRef = useRef(extractionId)` — const, line 195
+- `const cardRef = useRef(card)` — const, line 197
+- `const activeRef = useRef<ActiveWorkbench | null>(null)` — const, line 199
+- `const propsRef = useRef(props)` — const, line 201
+- `const generation = useRef(0)` — const, line 209
+- `const openSeq = useRef(0)` — const, line 210
+- `const bump = useCallback(()` — const, line 211
+- `const ticket = useCallback((isOpen: boolean): Ticket` — const, line 215
+- `const fresh = useCallback((sent: Ticket)` — const, line 222
+- `const onOpenBook = useCallback((session: WorkbenchSessionDto, book: Pick<Ticket, "extractionId" | "sourceId">)` — const, line 228
+- `const admits = useCallback((sent: Ticket, session: WorkbenchSessionDto)` — const, line 233
+- `const refreshSeq = useRef(0)` — const, line 238
+- `const refresh = useCallback(async ()` — const, line 239
+- `const current = extractionRef.current` — const, line 240
+- `const asked = refreshSeq.current` — const, line 243
+- `const result = await api.workbenchForSource(` — const, line 245
+- `const initialAttemptId = props?.initialAttemptId ?? null` — const, line 263
+- `const openedAttemptRef = useRef<string | null>(null)` — const, line 264
+- `const sent = ticket(true)` — const, line 268
+- `const session = result.session` — const, line 271
+- `const shown = cardRef.current` — const, line 272
+- `const onResize = ()` — const, line 283
+- `const setWidth = useCallback((next: number)` — const, line 288
+- `const clamped = clampSplitWidth(next, window.innerWidth)` — const, line 289
+- `const resizeBy = useCallback((delta: number)` — const, line 293
+- `const clamped = clampSplitWidth(current + delta, window.innerWidth)` — const, line 295
+- `const admitting = useRef(new Set<string>())` — const, line 309
+- `const admit = useCallback((session: WorkbenchSessionDto)` — const, line 310
+- `const book =` — const, line 311
+- `const sentGeneration = generation.current` — const, line 316
+- `const asked = session.sessionId` — const, line 317
+- `type Serve =` — type, line 332
+- `const begin = useCallback((session: WorkbenchSessionDto, sent: Ticket, readOnly = false, serve?: Serve)` — const, line 335
+- `const shown = cardRef.current` — const, line 336
+- `const openSelection = useCallback(async (request:` — const, line 344
+- `const sent = ticket(true)` — const, line 346
+- `const result = await api.workbenchOpen(` — const, line 348
+- `const openItem = useCallback(async (request:` — const, line 359
+- `const sent = ticket(true)` — const, line 361
+- `const result = await api.workbenchOpen(` — const, line 363
+- `const resume = useCallback(async (sessionId: string)` — const, line 373
+- `const sent = ticket(true)` — const, line 374
+- `const result = await api.workbenchOpen(` — const, line 380
+- `const checkMe = props?.checkMe ?? null` — const, line 392
+- `const openedCheckRef = useRef<` — const, line 393
+- `const sent = ticket(true)` — const, line 405
+- `const exercise = props?.exercise ?? null` — const, line 435
+- `const openedExerciseRef = useRef<` — const, line 436
+- `const sent = ticket(true)` — const, line 441
+- `const resumeRequest = props?.resumeProblem ?? null` — const, line 473
+- `const resumedRef = useRef<` — const, line 474
+- `const reopenAbandoned = useCallback(async ()` — const, line 488
+- `const update = useCallback((session: WorkbenchSessionDto, shownIn?: number)` — const, line 497
+- `const current = activeRef.current` — const, line 499
+- `const close = useCallback((session: WorkbenchSessionDto | null, options?:` — const, line 506
+- `const shown = activeRef.current` — const, line 510
+- `const target = session ?? shown?.session ?? null` — const, line 513
+- `const submitted = useCallback((result: WorkbenchSubmitDto, shownIn?: number)` — const, line 528
+- `const current = activeRef.current` — const, line 529
+- `const shown = current !== null && (shownIn === undefined || shownIn === generation.current) && current.session.sessionId === result.session.sessionId && (!result.session.extractionId || result.session.extractionId === extractionRef.current)` — const, line 530
+- `const spanId = result.session.spanIds[0] ?? current.session.spanIds[0] ?? ""` — const, line 537
 
 ## Who imports or calls it
 
@@ -152,6 +152,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderImportExerciseInput`, `SessionSnapshot`, `SourceIdentity`, `SourceLibraryCard`, `WorkbenchSessionDto`, `WorkbenchSubmitDto`, `WorkbenchSummaryDto`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `SPAN_MISMATCH_COPY`, `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|src/screens/reader/exerciseCandidates.ts]] — import-or-re-export; imports `ReaderWorkbenchExercise`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export; imports `ReturnStack`
 - [[Reference/Desktop/TypeScript/screens/workbench/splitWidth|src/screens/workbench/splitWidth.ts]] — import-or-re-export; imports `SPLIT_STEP`, `clampSplitWidth`, `defaultSplitWidth`, `isNarrow`, `readSplitWidth`, `writeSplitWidth`
 

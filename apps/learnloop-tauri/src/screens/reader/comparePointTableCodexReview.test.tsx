@@ -326,7 +326,7 @@ it("F7: where else asks the library on the view's words, from the same open book
   act(() => result.current.whereElse("an application", "why eigenvalues exist"));
   await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(2));
   expect(api.readerLibraryAsk.mock.calls[1][0]).toEqual({ query: "why eigenvalues exist: an application",
-    entry: "where_else_explained", extractionId: "ext_axler", spanIds: ["a1"], personalized: true });
+    entry: "where_else_explained", extractionId: "ext_axler", spanIds: ["a1"], personalized: true, spanKeys: ["ext_axler:a1"] });
 });
 
 // Reader CA6b fix round 5 (verify finding 1): a comparison begun in side by

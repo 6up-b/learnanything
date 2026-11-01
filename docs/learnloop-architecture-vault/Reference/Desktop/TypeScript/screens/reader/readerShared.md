@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/readerShared.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/readerShared.ts"
-source_commit: "589b0196e3f27734e1c37460c3f063c634e801e1"
-source_commit_timestamp: "2026-10-20T19:39:38-04:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,21 +42,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/readerShared.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readerShared.ts) |
-| Source lines | 126 |
+| Source lines | 136 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `589b0196e3f27734e1c37460c3f063c634e801e1` |
-| Commit timestamp | `2026-10-20T19:39:38-04:00` |
+| Source commit | `0e255d2058e29d8da9f7b21dee8d80e7a7889dbe` |
+| Commit timestamp | `2026-11-01T08:39:53-05:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]]
 
 ## Public API
 
@@ -65,24 +65,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function clip(text: string, max: number): string` — function, line 16
 - `export interface SelectionNode` — interface, line 23
 - `export interface ReaderSelection` — interface, line 40
-- `export function selectionNodes(sel:` — function, line 51
-- `export interface AnnotationSegment` — interface, line 59
-- `export interface MarginAnnotation` — interface, line 69
-- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 84
-- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 97
-- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 107
-- `export function askGroundingSpans( parent:` — function, line 118
+- `export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[]` — function, line 57
+- `export function selectionNodes(sel:` — function, line 61
+- `export interface AnnotationSegment` — interface, line 69
+- `export interface MarginAnnotation` — interface, line 79
+- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 94
+- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 107
+- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 117
+- `export function askGroundingSpans( parent:` — function, line 128
 
 ## Internal implementation anchors
 
-- `const held = new Set(protection.heldOutSpanIds)` — const, line 101
+- `const held = new Set(protection.heldOutSpanIds)` — const, line 111
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `placedSpanIds`, `selectionNodes`, `selectionProtected`; references `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `placedSpanIds`, `selectionNodes`, `selectionProtected`
+- [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `passageKeys`; references `passageKeys`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `passageKeys`, `placedSpanIds`, `selectionNodes`, `selectionProtected`; references `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `passageKeys`, `placedSpanIds`, `selectionNodes`, `selectionProtected`
 - [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|src/screens/reader/AlsoInBooks.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`; references `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `clip`; references `clip`
@@ -92,8 +94,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/ReconnectLine|src/screens/reader/ReconnectLine.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `clip`; references `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export: `passageKeys`; references `passageKeys`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export: `ReaderSelection`; references `ReaderSelection`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`
+- [[Reference/Desktop/TypeScript/screens/reader/useActiveReading|src/screens/reader/useActiveReading.ts]] — import-or-re-export: `passageKeys`; references `passageKeys`
+- [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export: `passageKeys`; references `passageKeys`
+- [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export: `passageKeys`; references `passageKeys`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `passageKeys`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `passageKeys`, `selectionNodes`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `passageKeys`; references `passageKeys`
 
 ## Dependencies
 

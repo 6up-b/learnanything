@@ -732,7 +732,8 @@ TOO_LARGE_MESSAGE = ("This deliverable's path names more sections than LearnLoop
 def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | None = None,
           clock: Clock | None = None, inputs: PathInputs | None = None,
           live_vault: Callable[[], Any] | None = None,
-          still_wanted: Callable[[], bool] | None = None) -> JudgeResult:
+          still_wanted: Callable[[Any], bool] | None = None,
+          route: DL.ChatRoute | None = None) -> JudgeResult:
     """Choose the deliverable's path at its depth: no call when the current state was
     judged; otherwise one call, the honest-label rules, the exercises, then the ledger
     verdicts and the rows in one transaction. Never raises for a model failure.
@@ -741,9 +742,15 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     it, nothing is sent: ``too_large``). Every section it names is checked against
     protection as it is then (C0a's :class:`SC.CoverageGuard`, ``live_vault``) before each
     attempt and physical request and again inside the write: a change keeps nothing
-    (``stale``, Codex review F1). ``still_wanted`` (C1's automatic refresh: its gate on the
-    vault as it is now; fix round 5) is asked before each attempt and physical request and
-    inside the write, like protection: false, nothing is sent or kept (``switched_off``)."""
+    (``stale``, Codex review F1). ``still_wanted`` (C1's automatic refresh: its gate; fix
+    round 5) is asked of the same vault snapshot as protection, inside the guard's
+    generation-bound validation (Reader follow-ups Nov 1, the round-5 ruling's follow-up
+    (b)), before each attempt and physical request and inside the write: closed, nothing
+    is sent or kept (``switched_off``). It receives the snapshot's vault.
+
+    ``route`` (the refresh's own pinned route, already checked plan-only; the round-5
+    ruling's follow-up (a)): the call is sent on exactly that route, never on one resolved
+    again here."""
 
     inputs = inputs or path_inputs(vault, repository, goal_id, clock=clock)
     if inputs is None:
@@ -756,8 +763,8 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     with repository.connection() as connection:
         if store.judged(connection, goal_id, inputs.depth, key):
             return JudgeResult("fresh", state_key=key)
-    route = DL.ChatRoute(vault, repository, DL.PATH_ROUTE, client=client,
-                         envelope=DL.daily_envelope(vault, repository, clock=clock), label="your deliverable's path")
+    if route is None:
+        route = path_route(vault, repository, client=client, clock=clock)
     problem = route.problem()
     if problem is not None:
         return JudgeResult("unavailable", state_key=key, reason=problem.reason, message=problem.message)
@@ -766,9 +773,7 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
         return JudgeResult("unavailable", state_key=key, reason="too_large", message=TOO_LARGE_MESSAGE)
     library = SC.Library(vault, repository)
     sent = sorted({(t.extraction_id, t.section_id) for entry in inputs.los for t in entry.treatments})
-    guard = SC.CoverageGuard(library, sent, live_vault=live_vault)
-    if still_wanted is not None:
-        guard = _GatedGuard(guard, still_wanted)
+    guard = SC.CoverageGuard(library, sent, live_vault=live_vault, gate=still_wanted)
     try:
         output = route.ask(prompt, DeliverablePathOutputV1, owner_id=f"{goal_id}:{inputs.depth}:{key[:16]}",
                            prompt_version=PROMPT_VERSION, guard=guard)
@@ -825,35 +830,20 @@ def judge(vault: Any, repository: Repository, goal_id: str, *, client: Any | Non
     return JudgeResult("ready", state_key=key)
 
 
-class _GateOff(SC.ProtectionChanged):
-    """C1's gate turned off while its automatic refresh ran (fix round 5): raised by the
-    guard's checks at request and write admission, so no layer retries or relabels it."""
+#: C1's gate closed while its automatic refresh ran (fix round 5): the guard's
+#: :class:`SC.GateClosed`, raised by its checks at request and write admission, so no
+#: layer retries or relabels it.
+_GateOff = SC.GateClosed
 
 
-class _GatedGuard:
-    """A :class:`SC.CoverageGuard` that also asks the caller's ``still_wanted`` at every check
-    (each attempt, each physical request, inside the write)."""
+def path_route(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
+               plan_only: bool = False) -> DL.ChatRoute:
+    """The path judge's pinned route for one judgment (``plan_only``: C1's automatic
+    refresh, which asks the subscription plan only, on the route and on the client)."""
 
-    def __init__(self, guard: Any, still_wanted: Callable[[], bool]) -> None:
-        self._guard = guard
-        self._still_wanted = still_wanted
-
-    def check(self, stage: str = "request") -> None:
-        if not self._still_wanted():
-            raise _GateOff(f"the plan's path switches turned off before {stage}")
-        self._guard.check(stage)
-
-    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
-        # Each physical request: the gate first (nothing reserved yet), then protection.
-        if not self._still_wanted():
-            raise _GateOff(f"the plan's path switches turned off before {purpose}")
-        return self._guard.admit(client, purpose=purpose, prompt=prompt, budget=budget)
-
-    def settle(self, admission: Any, usage: dict[str, Any]) -> None:
-        self._guard.settle(admission, usage)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._guard, name)
+    return DL.ChatRoute(vault, repository, DL.PATH_ROUTE, client=client,
+                        envelope=DL.daily_envelope(vault, repository, clock=clock), label="your deliverable's path",
+                        plan_only=plan_only)
 
 
 # ---------------------------------------------------------------------------
@@ -1844,19 +1834,16 @@ def plan_refresh_route_problem(vault: Any, client: Any | None = None) -> str | N
     other resolution (a metered provider, priced and budgeted or not) sends nothing. A
     learner-initiated Guide judgment is not held to this."""
 
-    from learnloop.config.schema import CHATGPT_PLAN_PROFILE_TYPE
     from learnloop.practice_index.paid import plan_route
 
     route = plan_route(vault, DL.PATH_ROUTE, client)
-    if (route.profile_type or "").strip().lower() != CHATGPT_PLAN_PROFILE_TYPE:
-        return "not_plan_route"
-    return None
+    return None if DL._is_plan_type(route.profile_type) else DL.PLAN_ONLY_REASON
 
 
 def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None = None, clock: Clock | None = None,
                      live_vault: Callable[[], Any] | None = None,
                      in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None = None,
-                     still_wanted: Callable[[], bool] | None = None,
+                     still_wanted: Callable[[Any], bool] | None = None,
                      ) -> dict[str, Any]:
     """C1's daily job (§7.6): the deliverable path's key includes learner state (the days
     left among it), so a path the plan would follow goes stale; once a day, before the
@@ -1875,17 +1862,24 @@ def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None =
     Fix round 5: the job asks the subscription plan route only
     (:func:`plan_refresh_route_problem`; any other resolution is ``unavailable`` with no
     call, and the plan's receipt stays ``stale``), and ``still_wanted`` (the sidecar's check
-    of C1's complete gate on the vault as it is now) is asked before the claim, before the
-    request and inside the write: false, nothing is sent or kept (``switched_off``)."""
+    of C1's complete gate) is asked before the claim (``still_wanted(None)``: the vault as
+    it is now), then of each admitted snapshot, before the request and inside the write:
+    false, nothing is sent or kept (``switched_off``). Reader follow-ups Nov 1 (the round-5
+    ruling's follow-ups): the route is resolved once and the judgment sends on it, the
+    exact client is held to the plan too, and the gate is read inside the guard's snapshot
+    validation."""
 
     from learnloop.ai import plan_fallback
 
     reason = plan_refresh_reason(vault)
     if reason is not None:
         return {"status": "switched_off", "reason": reason}
-    route_problem = plan_refresh_route_problem(vault, client)
+    # The route is resolved once, checked plan-only here, and the judgment sends on it
+    # (the round-5 ruling's follow-up (a)); the exact client is checked again in ``ask``.
+    route = path_route(vault, repository, client=client, clock=clock, plan_only=True)
+    route_problem = route.plan_only_problem()
     if route_problem is not None:
-        return {"status": "unavailable", "reason": route_problem}
+        return {"status": "unavailable", "reason": route_problem.reason}
     with plan_fallback.quiet():
         for goal in nearest_deliverables(vault, repository):
             path = deliverable_plan_path(vault, repository, goal, clock=clock)
@@ -1903,14 +1897,14 @@ def refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None =
             if inputs is None:
                 continue
             key = inputs.state_key()
-            if still_wanted is not None and not still_wanted():
+            if still_wanted is not None and not still_wanted(None):
                 return {"status": "switched_off", "reason": "gate_off", "goal_id": path.goal_id}
             claim = in_flight(path.goal_id, inputs.depth, key) if in_flight else nullcontext(True)
             with claim as claimed:
                 if not claimed:
                     return {"status": "coalesced", "goal_id": path.goal_id, "depth": inputs.depth, "state_key": key}
                 result = judge(vault, repository, path.goal_id, client=client, clock=clock, live_vault=live_vault,
-                               inputs=inputs, still_wanted=still_wanted)
+                               inputs=inputs, still_wanted=still_wanted, route=route)
             return {"status": result.status, "goal_id": path.goal_id, "depth": inputs.depth,
                     "reason": result.reason, "state_key": result.state_key}
     return {"status": "none"}
@@ -1952,6 +1946,7 @@ __all__ = [
     "nearest_deliverables",
     "override",
     "path_inputs",
+    "path_route",
     "path_view",
     "plan_deliverable",
     "plan_refresh_reason",

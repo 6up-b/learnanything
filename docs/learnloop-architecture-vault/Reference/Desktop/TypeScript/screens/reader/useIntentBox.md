@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useIntentBox.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useIntentBox.ts"
-source_commit: "0c5bc9546b622e4d87b7075f53b026c74b9e5462"
-source_commit_timestamp: "2026-11-01T02:25:38-05:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useIntentBox.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useIntentBox.ts) |
-| Source lines | 453 |
+| Source lines | 456 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `0c5bc9546b622e4d87b7075f53b026c74b9e5462` |
-| Commit timestamp | `2026-11-01T02:25:38-05:00` |
+| Source commit | `0e255d2058e29d8da9f7b21dee8d80e7a7889dbe` |
+| Commit timestamp | `2026-11-01T08:39:53-05:00` |
 
 ## Activation and status evidence
 
@@ -60,91 +60,91 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SHOW_AFTER_MS = 150` — const, line 28
-- `export type IntentRunHow =` — type, line 34
-- `export interface IntentRunHandle` — interface, line 37
-- `export interface IntentCancel` — interface, line 43
-- `export interface IntentBoxPosition` — interface, line 49
-- `export const FALLBACK_ASK: ReaderIntentActionDto =` — const, line 56
-- `export interface UseIntentBoxArgs` — interface, line 67
-- `export function useIntentBox(args: UseIntentBoxArgs)` — function, line 88
-- `export type IntentBoxController = ReturnType<typeof useIntentBox>` — type, line 453
+- `export const SHOW_AFTER_MS = 150` — const, line 29
+- `export type IntentRunHow =` — type, line 35
+- `export interface IntentRunHandle` — interface, line 38
+- `export interface IntentCancel` — interface, line 44
+- `export interface IntentBoxPosition` — interface, line 50
+- `export const FALLBACK_ASK: ReaderIntentActionDto =` — const, line 57
+- `export interface UseIntentBoxArgs` — interface, line 68
+- `export function useIntentBox(args: UseIntentBoxArgs)` — function, line 89
+- `export type IntentBoxController = ReturnType<typeof useIntentBox>` — type, line 456
 
 ## Internal implementation anchors
 
-- `const POLL_WAIT_MS = 250` — const, line 30
-- `const BOX_WIDTH = 360` — const, line 31
-- `const BOX_HEIGHT = 86` — const, line 32
-- `interface Speculation` — interface, line 60
-- `function isEditable(target: EventTarget | null): boolean` — function, line 84
-- `const enabled = contract !== null && extractionId !== null` — const, line 90
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 99
-- `const boxRef = useRef<HTMLDivElement | null>(null)` — const, line 100
-- `const showTimer = useRef<number | null>(null)` — const, line 101
-- `const specTimer = useRef<number | null>(null)` — const, line 102
-- `const speculation = useRef<Speculation | null>(null)` — const, line 103
-- `const lastRun = useRef<Promise<IntentRunHandle | null>>(Promise.resolve(null))` — const, line 104
-- `const focusPalette = useRef(false)` — const, line 105
-- `const epoch = useRef(0)` — const, line 106
-- `const latest = useRef(` — const, line 107
-- `const groups = contract ? visiblePalette(contract,` — const, line 110
-- `const actionsRef = useRef<ReaderIntentActionDto[]>([])` — const, line 111
-- `const clearTimers = useCallback(()` — const, line 114
-- `const discard = useCallback((spec: Speculation | null)` — const, line 124
-- `const discardSpeculation = useCallback(()` — const, line 130
-- `const spec = speculation.current` — const, line 131
-- `const reset = useCallback(()` — const, line 136
-- `const close = useCallback(()` — const, line 148
-- `const place = useCallback(()` — const, line 157
-- `const host = hostRef.current` — const, line 158
-- `const hostRect = host.getBoundingClientRect()` — const, line 160
-- `let rect: DOMRect | null = null` — let, line 161
-- `const sel = window.getSelection()` — const, line 162
-- `const range = sel.getRangeAt(0)` — const, line 164
-- `const last = latest.current.spanIds[latest.current.spanIds.length - 1]` — const, line 168
-- `const element = last // Reader CA6b: the second pane marks its passages data-sbs-span. ? Array.from(host.querySelectorAll<HTMLElement>("[data-span-id], [data-sbs-span]")).find((node)` — const, line 169
-- `const above = rect.bottom + BOX_HEIGHT + 8 > hostRect.bottom && rect.top - BOX_HEIGHT - 8 > hostRect.top` — const, line 176
-- `const top = (above ? rect.top - BOX_HEIGHT - 6 : rect.bottom + 6) - hostRect.top + host.scrollTop` — const, line 177
-- `const maxLeft = Math.max(8, host.clientWidth - BOX_WIDTH - 8)` — const, line 178
-- `const left = Math.min(Math.max(8, rect.left - hostRect.left + host.scrollLeft), maxLeft)` — const, line 179
-- `const show = useCallback(()` — const, line 183
-- `const noteSelection = useCallback(()` — const, line 190
-- `const noteSelectionCleared = useCallback(()` — const, line 202
-- `const settle = useCallback(async (first: ReaderIntentRoutingDto): Promise<ReaderIntentRoutingDto | null>` — const, line 208
-- `const deadline = Date.now() + ((contract?.timeoutSeconds ?? 4) + 1) * 1000` — const, line 209
-- `let current = first` — let, line 210
-- `const speculate = useCallback((words: string)` — const, line 217
-- `const where = latest.current` — const, line 218
-- `const first = api .readerRouteIntent(` — const, line 220
-- `const started = first.then((answer)` — const, line 224
-- `const result = first.then((answer)` — const, line 225
-- `const setText = useCallback((value: string)` — const, line 229
-- `const words = value.trim()` — const, line 233
-- `const actionFor = useCallback((routing: ReaderIntentRoutingDto | null):` — const, line 244
-- `const offered = actionsRef.current.find((action)` — const, line 246
-- `const submit = useCallback(async ()` — const, line 250
-- `const words = text.trim()` — const, line 251
-- `const ask = actionsRef.current.find((action)` — const, line 255
-- `const mine = ++epoch.current` — const, line 263
-- `let routing: ReaderIntentRoutingDto | null = null` — let, line 266
-- `const spec = speculation.current` — const, line 268
-- `const where = latest.current` — const, line 277
-- `const first = await api.readerRouteIntent(` — const, line 278
-- `const ran = substituted ? null : routing` — const, line 298
-- `const openPalette = useCallback(()` — const, line 304
-- `const change = useCallback(()` — const, line 318
-- `const pick = useCallback((action: ReaderIntentActionDto)` — const, line 327
-- `const words = text.trim()` — const, line 331
-- `const onKey = (event: KeyboardEvent)` — const, line 344
-- `const input = inputRef.current` — const, line 346
-- `const inBox = input !== null && event.target === input` — const, line 347
-- `const onPaletteButton = event.target instanceof HTMLButtonElement && (boxRef.current?.contains(event.target) ?? false)` — const, line 350
-- `const buttons = Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>("[data-intent-action]") ?? [])` — const, line 352
-- `const at = onPaletteButton ? buttons.indexOf(event.target as HTMLButtonElement) : -1` — const, line 356
-- `const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1` — const, line 357
-- `const target = event.target` — const, line 366
-- `const onReading = !(target instanceof Element) || target === document.body || (hostRef.current?.contains(target) ?? false)` — const, line 367
-- `const onDown = (event: MouseEvent)` — const, line 431
+- `const POLL_WAIT_MS = 250` — const, line 31
+- `const BOX_WIDTH = 360` — const, line 32
+- `const BOX_HEIGHT = 86` — const, line 33
+- `interface Speculation` — interface, line 61
+- `function isEditable(target: EventTarget | null): boolean` — function, line 85
+- `const enabled = contract !== null && extractionId !== null` — const, line 91
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 100
+- `const boxRef = useRef<HTMLDivElement | null>(null)` — const, line 101
+- `const showTimer = useRef<number | null>(null)` — const, line 102
+- `const specTimer = useRef<number | null>(null)` — const, line 103
+- `const speculation = useRef<Speculation | null>(null)` — const, line 104
+- `const lastRun = useRef<Promise<IntentRunHandle | null>>(Promise.resolve(null))` — const, line 105
+- `const focusPalette = useRef(false)` — const, line 106
+- `const epoch = useRef(0)` — const, line 107
+- `const latest = useRef(` — const, line 108
+- `const groups = contract ? visiblePalette(contract,` — const, line 111
+- `const actionsRef = useRef<ReaderIntentActionDto[]>([])` — const, line 112
+- `const clearTimers = useCallback(()` — const, line 115
+- `const discard = useCallback((spec: Speculation | null)` — const, line 125
+- `const discardSpeculation = useCallback(()` — const, line 131
+- `const spec = speculation.current` — const, line 132
+- `const reset = useCallback(()` — const, line 137
+- `const close = useCallback(()` — const, line 149
+- `const place = useCallback(()` — const, line 158
+- `const host = hostRef.current` — const, line 159
+- `const hostRect = host.getBoundingClientRect()` — const, line 161
+- `let rect: DOMRect | null = null` — let, line 162
+- `const sel = window.getSelection()` — const, line 163
+- `const range = sel.getRangeAt(0)` — const, line 165
+- `const last = latest.current.spanIds[latest.current.spanIds.length - 1]` — const, line 169
+- `const element = last // Reader CA6b: the second pane marks its passages data-sbs-span. ? Array.from(host.querySelectorAll<HTMLElement>("[data-span-id], [data-sbs-span]")).find((node)` — const, line 170
+- `const above = rect.bottom + BOX_HEIGHT + 8 > hostRect.bottom && rect.top - BOX_HEIGHT - 8 > hostRect.top` — const, line 177
+- `const top = (above ? rect.top - BOX_HEIGHT - 6 : rect.bottom + 6) - hostRect.top + host.scrollTop` — const, line 178
+- `const maxLeft = Math.max(8, host.clientWidth - BOX_WIDTH - 8)` — const, line 179
+- `const left = Math.min(Math.max(8, rect.left - hostRect.left + host.scrollLeft), maxLeft)` — const, line 180
+- `const show = useCallback(()` — const, line 184
+- `const noteSelection = useCallback(()` — const, line 191
+- `const noteSelectionCleared = useCallback(()` — const, line 203
+- `const settle = useCallback(async (first: ReaderIntentRoutingDto): Promise<ReaderIntentRoutingDto | null>` — const, line 209
+- `const deadline = Date.now() + ((contract?.timeoutSeconds ?? 4) + 1) * 1000` — const, line 210
+- `let current = first` — let, line 211
+- `const speculate = useCallback((words: string)` — const, line 218
+- `const where = latest.current` — const, line 219
+- `const first = api .readerRouteIntent(` — const, line 221
+- `const started = first.then((answer)` — const, line 226
+- `const result = first.then((answer)` — const, line 227
+- `const setText = useCallback((value: string)` — const, line 231
+- `const words = value.trim()` — const, line 235
+- `const actionFor = useCallback((routing: ReaderIntentRoutingDto | null):` — const, line 246
+- `const offered = actionsRef.current.find((action)` — const, line 248
+- `const submit = useCallback(async ()` — const, line 252
+- `const words = text.trim()` — const, line 253
+- `const ask = actionsRef.current.find((action)` — const, line 257
+- `const mine = ++epoch.current` — const, line 265
+- `let routing: ReaderIntentRoutingDto | null = null` — let, line 268
+- `const spec = speculation.current` — const, line 270
+- `const where = latest.current` — const, line 279
+- `const first = await api.readerRouteIntent(` — const, line 280
+- `const ran = substituted ? null : routing` — const, line 301
+- `const openPalette = useCallback(()` — const, line 307
+- `const change = useCallback(()` — const, line 321
+- `const pick = useCallback((action: ReaderIntentActionDto)` — const, line 330
+- `const words = text.trim()` — const, line 334
+- `const onKey = (event: KeyboardEvent)` — const, line 347
+- `const input = inputRef.current` — const, line 349
+- `const inBox = input !== null && event.target === input` — const, line 350
+- `const onPaletteButton = event.target instanceof HTMLButtonElement && (boxRef.current?.contains(event.target) ?? false)` — const, line 353
+- `const buttons = Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>("[data-intent-action]") ?? [])` — const, line 355
+- `const at = onPaletteButton ? buttons.indexOf(event.target as HTMLButtonElement) : -1` — const, line 359
+- `const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1` — const, line 360
+- `const target = event.target` — const, line 369
+- `const onReading = !(target instanceof Element) || target === document.body || (hostRef.current?.contains(target) ?? false)` — const, line 370
+- `const onDown = (event: MouseEvent)` — const, line 434
 
 ## Who imports or calls it
 
@@ -165,6 +165,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/intentPalette|src/screens/reader/intentPalette.ts]] — import-or-re-export; imports `paletteActions`, `visiblePalette`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 
 ### Assets, platform, and third-party dependencies
 

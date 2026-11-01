@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d2d1b8b8a14d5dbb10a5a2526c3fc91e67ab16"
-source_commit_timestamp: "2026-11-01T12:20:35-05:00"
+source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
+source_commit_timestamp: "2026-11-01T12:28:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 229
+schema_head: 228
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `215_reader_discovered_cues.sql`, `217_reader_reading_paths.sql`, `222_section_coverage.sql`, `228_deliverable_curriculum.sql`, `229_learner_notes.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `215_reader_discovered_cues.sql`, `217_reader_reading_paths.sql`, `222_section_coverage.sql`, `228_deliverable_curriculum.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -116,7 +116,6 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/figures.py`
-- `src/learnloop/db/stores/learner_notes.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/reader_cue_links.py`

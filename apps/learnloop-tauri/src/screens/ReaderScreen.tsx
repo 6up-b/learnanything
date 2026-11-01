@@ -131,6 +131,7 @@ import {
   askGroundingSpans,
   clip,
   groundingProtected,
+  passageKeys,
   placedSpanIds,
   selectionNodes,
   selectionProtected,
@@ -2581,6 +2582,7 @@ export function ReaderScreen({
           extractionId: render.extractionId,
           spanId: activeSpan,
           answerMode: answerModeNext,
+          spanKeys: passageKeys(render.extractionId, [activeSpan]),
         });
       } catch (error) {
         if (answerModeSaveVersionRef.current === version) setAnswerMode(previous);

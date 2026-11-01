@@ -122,8 +122,14 @@ def propose_sources(vault: LoadedVault, repository: Repository, query: str, *, c
     # Retrieval, its embeddings and rewrite, and verification all run under the
     # service's shared daily cap (Codex re-review F2).
     with service_spend(vault, repository, clock=kwargs.get("clock")):
-        return find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
+        hits = find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
                                        misconceptions=misconceptions or (), **kwargs)
+    if hits.manifest.get("delegated_to") == "compare_sources":
+        # ``intent="compare"`` carries the whole comparison on its manifest:
+        # RW4d's whole-comparison rule, as on compare_sources (follow-ups Nov 1).
+        refuse_withheld_comparison(vault, repository, hits.manifest.get("comparison_id"), caller=caller,
+                                   current=hits.manifest.get("comparison"))
+    return hits
 
 
 def propose_comparison(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext,
@@ -135,11 +141,64 @@ def propose_comparison(vault: LoadedVault, repository: Repository, query: str, *
         return compare_sources(vault, repository, query, caller=caller, **kwargs)
 
 
+#: The refusal of a comparison withheld whole, in RW4d's words (the library's
+#: ``comparison_withheld``), so every surface says the same.
+COMPARISON_WITHHELD_MESSAGE = ("Part of this comparison is held out for an exam now (or its sources can't be "
+                               "checked), so it isn't shown.")
+
+
+def current_contributors(caller: CallerContext | None,
+                         current: Comparison | Mapping[str, Any] | None) -> tuple[list[str], list[Any]]:
+    """What the call acting now brings to a comparison, beyond what is stored
+    (Codex review F1): the tutor question it was asked for, and its anchor,
+    dropped pins and unverified sources. A reused comparison's stored row
+    names another call's; RW4d's rule reads both."""
+
+    questions = [str(caller.ref)] if caller is not None and caller.kind == "tutor" and caller.ref else []
+    if current is None:
+        return questions, []
+    payload = current.as_dict() if hasattr(current, "as_dict") else dict(current)
+    manifest = payload.get("manifest") if isinstance(payload.get("manifest"), Mapping) else {}
+    passages = [*(payload.get("dropped_pins") or ()), *(payload.get("unverified_sources") or ()),
+                *(manifest.get("anchor_keys") or ())]
+    return questions, passages
+
+
+def refuse_withheld_comparison(vault: LoadedVault, repository: Repository, comparison_id: str | None, *,
+                               caller: CallerContext | None = None,
+                               current: Comparison | Mapping[str, Any] | None = None) -> None:
+    """RW4d's whole-comparison rule on the direct ``compare_sources`` RPC and the
+    tutor's tool run (Reader follow-ups Nov 1; RW4d's queued follow-up). Raises
+    ``PolicyRefused("comparison_withheld")`` when any passage that contributed
+    to the stored comparison (its sources, counterparts, dropped pins, the tutor
+    question it was asked for) is exam or held out now, or its provenance cannot
+    be read: RW4d's own helper decides (``reader.source_objects.withheld_comparisons``,
+    failing closed), never a copy of it. Nothing compared (no comparison id: too
+    few sources, or a failed call) has nothing to withhold.
+
+    ``caller`` and ``current`` are this call's (Codex review F1): a comparison
+    the service REUSED stores another call's provenance, so this call's own
+    question, anchor, dropped pins and unverified sources are read with it,
+    before any response is built."""
+
+    if not comparison_id:
+        return
+    from learnloop.reader import source_objects as SO
+
+    questions, passages = current_contributors(caller, current)
+    if SO.withheld_comparisons(vault, repository, [(str(comparison_id), None)], question_event_ids=questions,
+                               passages=passages):
+        raise PolicyRefused("comparison_withheld", COMPARISON_WITHHELD_MESSAGE)
+
+
 __all__ = [
+    "COMPARISON_WITHHELD_MESSAGE",
     "ServiceDisabled",
     "active_misconceptions",
+    "current_contributors",
     "propose_comparison",
     "propose_sources",
+    "refuse_withheld_comparison",
     "remediation_passage_provider",
     "resolve_misconceptions",
     "tutor_intent_for",

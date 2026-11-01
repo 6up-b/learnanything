@@ -37,6 +37,7 @@ import {
   shortDate,
   useStoredHelpStyle
 } from "./askPanel";
+import { passageKeys } from "../screens/reader/readerShared";
 
 /**
  * The Reader exchange a continued dialogue attaches to, when the sidecar
@@ -579,6 +580,7 @@ export function AskOverlay({
         const readerAnswer = await api.readerAsk({
           extractionId: target.extractionId,
           spanId: target.spanId,
+          spanKeys: passageKeys(target.extractionId, [target.spanId]),
           question: text,
           // Present only while reader_inquiry is on (absent: today's request).
           ...(readerParentRef.current !== null ? { parentExchangeId: readerParentRef.current } : {})

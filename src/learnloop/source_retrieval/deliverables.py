@@ -146,26 +146,54 @@ def capped_message(vault: Any) -> str:
             "is used. Your books and the Guide still work.")
 
 
+#: The one route an automatic (unattended) call may ask: the subscription
+#: ChatGPT plan (curriculum C1's daily refresh, §7.6; fix round 5, Medium 1).
+PLAN_ONLY_REASON = "not_plan_route"
+
+
+def _is_plan_type(profile_type: Any) -> bool:
+    from learnloop.config.schema import CHATGPT_PLAN_PROFILE_TYPE
+
+    return str(profile_type or "").strip().lower() == CHATGPT_PLAN_PROFILE_TYPE
+
+
 class ChatRoute:
-    """One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape)."""
+    """One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape).
+
+    ``plan_only`` (curriculum C1's automatic refresh; Reader follow-ups Nov 1,
+    closing the C1 round-5 ruling's follow-up (a)): the planned route must be
+    the subscription ChatGPT plan (``problem``), and so must the exact client
+    that sends (``ask`` checks the client it resolved, or was given, before
+    any request): anything else is ``not_plan_route`` and sends nothing."""
 
     def __init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None,
-                 envelope: Any | None, label: str) -> None:
+                 envelope: Any | None, label: str, plan_only: bool = False) -> None:
         self.vault = vault
         self.repository = repository
         self.task = task
         self.injected = client
         self.envelope = envelope
         self.label = label
+        self.plan_only = plan_only
         self.route: PaidRoute = plan_route(vault, task, client)  # type: ignore[arg-type]
         self.client: Any | None = None
         self.calls: PaidCalls | None = None
+
+    def plan_only_problem(self) -> RouteUnavailable | None:
+        """With ``plan_only``, why the planned route may not be asked (None: it may)."""
+
+        if self.plan_only and not _is_plan_type(self.route.profile_type):
+            return RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
+        return None
 
     @property
     def subscription(self) -> bool:
         return self.route.billing == "subscription"
 
     def problem(self) -> RouteUnavailable | None:
+        plan_only = self.plan_only_problem()
+        if plan_only is not None:
+            return plan_only
         if self.injected is None and models_off():
             return RouteUnavailable("models_off", f"{MODELS_ENV}=off: no curriculum model is reached.")
         if self.injected is None and not self.route.available:
@@ -196,6 +224,10 @@ class ChatRoute:
             self.client, message = resolve_client(self.vault, self.route)
             if self.client is None:
                 raise RouteUnavailable("unavailable", message or f"the {self.label} model is not ready")
+        if self.plan_only and not _is_plan_type(getattr(self.client, "provider_type", None)):
+            # The exact client that would send, not only the planned route: a
+            # resolution that lands anywhere but the plan sends nothing.
+            raise RouteUnavailable(PLAN_ONLY_REASON, f"Only the ChatGPT plan is asked automatically for {self.label}.")
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=self.subscription)
         self.calls = PaidCalls(route=self.route, budget=budget,
                                price_per_million=self.vault.config.source_retrieval.llm_price_per_million,

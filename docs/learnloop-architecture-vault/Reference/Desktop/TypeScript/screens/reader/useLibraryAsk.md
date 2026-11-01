@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useLibraryAsk.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useLibraryAsk.ts"
-source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
-source_commit_timestamp: "2026-11-01T03:48:43-05:00"
+source_commit: "0e255d2058e29d8da9f7b21dee8d80e7a7889dbe"
+source_commit_timestamp: "2026-11-01T08:39:53-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useLibraryAsk.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useLibraryAsk.ts) |
-| Source lines | 934 |
+| Source lines | 936 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
-| Commit timestamp | `2026-11-01T03:48:43-05:00` |
+| Source commit | `0e255d2058e29d8da9f7b21dee8d80e7a7889dbe` |
+| Commit timestamp | `2026-11-01T08:39:53-05:00` |
 
 ## Activation and status evidence
 
@@ -60,184 +60,184 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const LIBRARY_COPY =` — const, line 59
-- `export const SCOPE_COPY =` — const, line 89
-- `export interface CompareRequest` — interface, line 132
-- `export function comparePayload(request: CompareRequest): Required<CompareRequestDto>` — function, line 153
-- `export interface ScopeChips` — interface, line 170
-- `export type SourceCaller =` — type, line 190
-- `export interface LibraryAskRequest` — interface, line 192
-- `export const JOB_POLL_MS = 250` — const, line 220
-- `export type LibraryAskIntent =` — type, line 242
-- `export interface LibraryAskState` — interface, line 244
-- `export function notesPhase(status: string): ModelActionPhase` — function, line 280
-- `export function comparePhase(status: string): ModelActionPhase` — function, line 289
-- `export function useLibraryAsk(` — function, line 304
-- `export type LibraryAskController = ReturnType<typeof useLibraryAsk>` — type, line 934
+- `export const LIBRARY_COPY =` — const, line 60
+- `export const SCOPE_COPY =` — const, line 90
+- `export interface CompareRequest` — interface, line 133
+- `export function comparePayload(request: CompareRequest): Required<CompareRequestDto>` — function, line 154
+- `export interface ScopeChips` — interface, line 171
+- `export type SourceCaller =` — type, line 191
+- `export interface LibraryAskRequest` — interface, line 193
+- `export const JOB_POLL_MS = 250` — const, line 221
+- `export type LibraryAskIntent =` — type, line 243
+- `export interface LibraryAskState` — interface, line 245
+- `export function notesPhase(status: string): ModelActionPhase` — function, line 281
+- `export function comparePhase(status: string): ModelActionPhase` — function, line 290
+- `export function useLibraryAsk(` — function, line 305
+- `export type LibraryAskController = ReturnType<typeof useLibraryAsk>` — type, line 936
 
 ## Internal implementation anchors
 
-- `const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight"]` — const, line 126
-- `function countWord(n: number): string` — function, line 127
-- `interface Stage<T>` — interface, line 206
-- `const IDLE =` — const, line 214
-- `const CANCELLED =` — const, line 215
-- `type JobStage = "ask" | "notes" | "compare" | "tutor" | "scope"` — type, line 217
-- `const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor", "scope"]` — const, line 218
-- `function pause(ms: number): Promise<void>` — function, line 222
-- `const SAYS_WHY = new Set(["exam_material", "comparison_withheld"])` — const, line 228
-- `function failureLine(error: unknown, fallback: string): string` — function, line 231
-- `const code = getCommandError(error)?.code` — const, line 232
-- `function shownCompared(current: LibraryAskState): string[]` — function, line 298
-- `const table = current.compare.value ?? current.previous?.[current.previous.length - 1] ?? null` — const, line 300
-- `const openSourceRef = useRef(openSourceId)` — const, line 316
-- `const openOf = useCallback((state: LibraryAskState | null | undefined): string | null` — const, line 318
-- `const settings = contract?.libraryAsk ?? null` — const, line 320
-- `const enabled = Boolean(settings)` — const, line 321
-- `const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null` — const, line 323
-- `const scopeOn = Boolean(settings?.compare && settings?.compareScope)` — const, line 325
-- `const byPoint = Boolean(settings?.compare && settings?.compareByPoint)` — const, line 327
-- `const keyRef = useRef(0)` — const, line 329
-- `const stateRef = useRef<LibraryAskState | null>(null)` — const, line 330
-- `const update = useCallback((key: number, patch: (current: LibraryAskState)` — const, line 333
-- `const jobsRef = useRef<Partial<Record<JobStage, string>>>(` — const, line 339
-- `const epochsRef = useRef<Record<JobStage, number>>(` — const, line 340
-- `const cancelStage = useCallback((stage: JobStage)` — const, line 342
-- `const jobId = jobsRef.current[stage]` — const, line 344
-- `const runJob = useCallback(async <T,>(stage: JobStage, start: ()` — const, line 352
-- `const epoch = epochsRef.current[stage]` — const, line 354
-- `const live = ()` — const, line 355
-- `let job = await start()` — let, line 357
-- `const loadNotes = useCallback(async (key: number, askId: string)` — const, line 379
-- `const notes = await runJob("notes", ()` — const, line 382
-- `const runCompareRef = useRef<(key: number, askId: string, pins: string[])` — const, line 391
-- `const run = useCallback(async (request: LibraryAskRequest, personalized: boolean, intent: LibraryAskIntent =` — const, line 393
-- `const key = ++keyRef.current` — const, line 398
-- `const comparing = intent.kind === "compare"` — const, line 399
-- `const ask = await runJob("ask", ()` — const, line 407
-- `const ask = useCallback((request: LibraryAskRequest)` — const, line 425
-- `const retry = useCallback(()` — const, line 430
-- `const current = stateRef.current` — const, line 431
-- `const setPersonalized = useCallback((on: boolean)` — const, line 436
-- `const current = stateRef.current` — const, line 437
-- `const retryNotes = useCallback(()` — const, line 441
-- `const current = stateRef.current` — const, line 442
-- `const cancelNotes = useCallback(()` — const, line 447
-- `const current = stateRef.current` — const, line 448
-- `const cancelCompare = useCallback(()` — const, line 452
-- `const current = stateRef.current` — const, line 453
-- `const cancelTutor = useCallback(()` — const, line 457
-- `const current = stateRef.current` — const, line 458
-- `const togglePin = useCallback((hitKey: string)` — const, line 463
-- `const current = stateRef.current` — const, line 464
-- `const pinned = s.pinned.includes(hitKey) ? s.pinned.filter((k)` — const, line 467
-- `const canCompare = (()` — const, line 474
-- `const sources = new Set(state.pinned.map((k)` — const, line 476
-- `const runCompare = useCallback(async (key: number, request: CompareRequest)` — const, line 481
-- `const about = stateRef.current?.key === key ? stateRef.current.tutorBasis : null` — const, line 484
-- `const table = await runJob("compare", ()` — const, line 493
-- `const phase = comparePhase(table.status)` — const, line 495
-- `const runPinsCompare = useCallback(async (key: number, askId: string, pinnedSpanKeys: string[], perspectives: string[] = [])` — const, line 507
-- `const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : []` — const, line 508
-- `const openSourceId = openOf(stateRef.current)` — const, line 509
-- `const table = await runJob("compare", ()` — const, line 518
-- `const phase = comparePhase(table.status)` — const, line 521
-- `const compare = useCallback(async (perspectives: string[] = [])` — const, line 530
-- `const current = stateRef.current` — const, line 531
-- `const compareWith = useCallback(async (request: LibraryAskRequest, pins: string[])` — const, line 542
-- `const compareFrom = useCallback((request: CompareRequest, chips: ScopeChips | null = null, library: LibraryBookDto[] = [])` — const, line 548
-- `const key = ++keyRef.current` — const, line 552
-- `const query = request.question ?? ""` — const, line 553
-- `const askBox = useCallback(async (request: LibraryAskRequest)` — const, line 567
-- `const key = ++keyRef.current` — const, line 574
-- `let reading: CompareScopeReadingDto | null = null` — let, line 579
-- `const titles = new Map((reading.library ?? []).map((book)` — const, line 587
-- `const missed = !reading || reading.status === "fallback" && reading.reason !== "too_few_books" && reading.reason !== "cold_attempt"` — const, line 599
-- `const compareAll = useCallback(()` — const, line 604
-- `const current = stateRef.current` — const, line 605
-- `const compareBooks = useCallback(()` — const, line 615
-- `const current = stateRef.current` — const, line 616
-- `const ask = current?.ask.value` — const, line 617
-- `const seen = new Map<string, string>()` — const, line 619
-- `const books = [...seen].map(([sourceId, title])` — const, line 621
-- `const comparisonAskId = (current: LibraryAskState): string | null` — const, line 630
-- `const compareChosen = useCallback((current: LibraryAskState, books: LibraryBookDto[], chips: Partial<ScopeChips> =` — const, line 637
-- `const key = current.key` — const, line 639
-- `const last = current.lastCompare ?? current.direct ?? null` — const, line 640
-- `const askId = comparisonAskId(current)` — const, line 653
-- `const sourceIds = books.map((book)` — const, line 654
-- `const requestedPerspectives = perspectives ?? last?.requestedPerspectives ?? []` — const, line 655
-- `const base = stateRef.current?.chips ?? current.chips` — const, line 661
-- `const setBooks = useCallback((books: LibraryBookDto[])` — const, line 667
-- `const current = stateRef.current` — const, line 668
-- `const judgmentId = current.chips.judgmentId` — const, line 671
-- `const reword = useCallback((): string | null` — const, line 679
-- `const current = stateRef.current` — const, line 680
-- `const chips = current?.chips` — const, line 681
-- `const judgmentId = chips?.askJudgmentId ?? null` — const, line 683
-- `const refine = useCallback(async (words: string)` — const, line 691
-- `const current = stateRef.current` — const, line 692
-- `const text = words.trim()` — const, line 693
-- `const key = current.key` — const, line 695
-- `const compared = current.chips.books.length ? current.chips.books : (current.compare.value?.rows ?? []).flatMap((row)` — const, line 696
-- `let reading: CompareScopeReadingDto | null = null` — let, line 699
-- `const now = stateRef.current?.key === key ? stateRef.current : null` — const, line 707
-- `const askId = now ? comparisonAskId(now) : null` — const, line 708
-- `const titles = new Map([...(reading.library ?? []), ...compared].map((book)` — const, line 710
-- `const named = reading.sourceIds` — const, line 711
-- `const ids = reading.change === "add" ? [...new Set([...compared.map((book)` — const, line 712
-- `const books = ids.map((sourceId)` — const, line 714
-- `const before = now.lastCompare?.requestedPerspectives ?? []` — const, line 723
-- `const requested = [...before.filter((value)` — const, line 730
-- `const replaceView = useCallback((remove: string)` — const, line 741
-- `const current = stateRef.current` — const, line 742
-- `const limit = current?.viewLimit` — const, line 743
-- `const askId = current ? comparisonAskId(current) : null` — const, line 744
-- `const compared = shownCompared(current)` — const, line 746
-- `const keepViews = useCallback(()` — const, line 751
-- `const current = stateRef.current` — const, line 752
-- `const askTutor = useCallback(async (question: string, about?: "pins" | "comparison")` — const, line 763
-- `const current = stateRef.current` — const, line 764
-- `const basis = about ?? (current.pinned.length || !current.direct ? "pins" : "comparison")` — const, line 766
-- `const shown = basis === "comparison" ? current.compare.value : null` — const, line 767
-- `const comparisonId = shown?.comparisonId ?? null` — const, line 768
-- `const passagesId = comparisonId ? null : shown?.passagesId ?? null` — const, line 769
-- `const pins = basis !== "comparison" ? current.pinned : []` — const, line 770
-- `const askIdOf = basis === "comparison" ? shown?.askId ?? null : current.ask.value?.askId ?? null` — const, line 771
-- `const key = current.key` — const, line 773
-- `const askId = askIdOf` — const, line 775
-- `const pinnedSpanKeys = pins` — const, line 776
-- `const answer = await runJob("tutor", ()` — const, line 778
-- `const practice = useCallback(async ()` — const, line 790
-- `const current = stateRef.current` — const, line 791
-- `const ask = current?.ask.value ?? (current?.direct ?` — const, line 793
-- `const key = current.key` — const, line 797
-- `const result = await api.findPractice(` — const, line 800
-- `const peek = useCallback(async (hitKey: string, title: string | null = null)` — const, line 818
-- `const current = stateRef.current` — const, line 819
-- `const hit = current?.ask.value?.hits.find((h)` — const, line 820
-- `const at = hitKey.indexOf(":")` — const, line 823
-- `const target = hit ?` — const, line 824
-- `const key = current.key` — const, line 827
-- `const closePeek = useCallback(()` — const, line 838
-- `const current = stateRef.current` — const, line 839
-- `const close = useCallback(()` — const, line 844
-- `const retryCompare = useCallback(()` — const, line 867
-- `const current = stateRef.current` — const, line 868
-- `const last = current?.lastCompare` — const, line 869
-- `const compareAgain = useCallback((table: CompareTableDto)` — const, line 875
-- `const current = stateRef.current` — const, line 876
-- `const pinnedSpanKeys = table.rows.map((row)` — const, line 878
-- `const requested = keep?.perspectives ? (table.requestedPerspectives ?? []).slice(0, keep.maxPerspectives) : []` — const, line 880
-- `const openSourceId = openOf(current)` — const, line 881
-- `const sourceIds = [...new Set(table.rows.map((row)` — const, line 886
-- `const key = current.key` — const, line 891
-- `const next = await runJob("compare", ()` — const, line 895
-- `const phase = comparePhase(next.status)` — const, line 899
-- `const whereElse = useCallback((words: string, asked: string | null = null)` — const, line 912
-- `const current = stateRef.current` — const, line 913
-- `const view = words.trim()` — const, line 914
-- `const question = (asked ?? current.compare.value?.scope?.question ?? current.compare.value?.query ?? current.request.query ?? "").trim()` — const, line 916
+- `const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight"]` — const, line 127
+- `function countWord(n: number): string` — function, line 128
+- `interface Stage<T>` — interface, line 207
+- `const IDLE =` — const, line 215
+- `const CANCELLED =` — const, line 216
+- `type JobStage = "ask" | "notes" | "compare" | "tutor" | "scope"` — type, line 218
+- `const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor", "scope"]` — const, line 219
+- `function pause(ms: number): Promise<void>` — function, line 223
+- `const SAYS_WHY = new Set(["exam_material", "comparison_withheld"])` — const, line 229
+- `function failureLine(error: unknown, fallback: string): string` — function, line 232
+- `const code = getCommandError(error)?.code` — const, line 233
+- `function shownCompared(current: LibraryAskState): string[]` — function, line 299
+- `const table = current.compare.value ?? current.previous?.[current.previous.length - 1] ?? null` — const, line 301
+- `const openSourceRef = useRef(openSourceId)` — const, line 317
+- `const openOf = useCallback((state: LibraryAskState | null | undefined): string | null` — const, line 319
+- `const settings = contract?.libraryAsk ?? null` — const, line 321
+- `const enabled = Boolean(settings)` — const, line 322
+- `const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null` — const, line 324
+- `const scopeOn = Boolean(settings?.compare && settings?.compareScope)` — const, line 326
+- `const byPoint = Boolean(settings?.compare && settings?.compareByPoint)` — const, line 328
+- `const keyRef = useRef(0)` — const, line 330
+- `const stateRef = useRef<LibraryAskState | null>(null)` — const, line 331
+- `const update = useCallback((key: number, patch: (current: LibraryAskState)` — const, line 334
+- `const jobsRef = useRef<Partial<Record<JobStage, string>>>(` — const, line 340
+- `const epochsRef = useRef<Record<JobStage, number>>(` — const, line 341
+- `const cancelStage = useCallback((stage: JobStage)` — const, line 343
+- `const jobId = jobsRef.current[stage]` — const, line 345
+- `const runJob = useCallback(async <T,>(stage: JobStage, start: ()` — const, line 353
+- `const epoch = epochsRef.current[stage]` — const, line 355
+- `const live = ()` — const, line 356
+- `let job = await start()` — let, line 358
+- `const loadNotes = useCallback(async (key: number, askId: string)` — const, line 380
+- `const notes = await runJob("notes", ()` — const, line 383
+- `const runCompareRef = useRef<(key: number, askId: string, pins: string[])` — const, line 392
+- `const run = useCallback(async (request: LibraryAskRequest, personalized: boolean, intent: LibraryAskIntent =` — const, line 394
+- `const key = ++keyRef.current` — const, line 399
+- `const comparing = intent.kind === "compare"` — const, line 400
+- `const ask = await runJob("ask", ()` — const, line 408
+- `const ask = useCallback((request: LibraryAskRequest)` — const, line 427
+- `const retry = useCallback(()` — const, line 432
+- `const current = stateRef.current` — const, line 433
+- `const setPersonalized = useCallback((on: boolean)` — const, line 438
+- `const current = stateRef.current` — const, line 439
+- `const retryNotes = useCallback(()` — const, line 443
+- `const current = stateRef.current` — const, line 444
+- `const cancelNotes = useCallback(()` — const, line 449
+- `const current = stateRef.current` — const, line 450
+- `const cancelCompare = useCallback(()` — const, line 454
+- `const current = stateRef.current` — const, line 455
+- `const cancelTutor = useCallback(()` — const, line 459
+- `const current = stateRef.current` — const, line 460
+- `const togglePin = useCallback((hitKey: string)` — const, line 465
+- `const current = stateRef.current` — const, line 466
+- `const pinned = s.pinned.includes(hitKey) ? s.pinned.filter((k)` — const, line 469
+- `const canCompare = (()` — const, line 476
+- `const sources = new Set(state.pinned.map((k)` — const, line 478
+- `const runCompare = useCallback(async (key: number, request: CompareRequest)` — const, line 483
+- `const about = stateRef.current?.key === key ? stateRef.current.tutorBasis : null` — const, line 486
+- `const table = await runJob("compare", ()` — const, line 495
+- `const phase = comparePhase(table.status)` — const, line 497
+- `const runPinsCompare = useCallback(async (key: number, askId: string, pinnedSpanKeys: string[], perspectives: string[] = [])` — const, line 509
+- `const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : []` — const, line 510
+- `const openSourceId = openOf(stateRef.current)` — const, line 511
+- `const table = await runJob("compare", ()` — const, line 520
+- `const phase = comparePhase(table.status)` — const, line 523
+- `const compare = useCallback(async (perspectives: string[] = [])` — const, line 532
+- `const current = stateRef.current` — const, line 533
+- `const compareWith = useCallback(async (request: LibraryAskRequest, pins: string[])` — const, line 544
+- `const compareFrom = useCallback((request: CompareRequest, chips: ScopeChips | null = null, library: LibraryBookDto[] = [])` — const, line 550
+- `const key = ++keyRef.current` — const, line 554
+- `const query = request.question ?? ""` — const, line 555
+- `const askBox = useCallback(async (request: LibraryAskRequest)` — const, line 569
+- `const key = ++keyRef.current` — const, line 576
+- `let reading: CompareScopeReadingDto | null = null` — let, line 581
+- `const titles = new Map((reading.library ?? []).map((book)` — const, line 589
+- `const missed = !reading || reading.status === "fallback" && reading.reason !== "too_few_books" && reading.reason !== "cold_attempt"` — const, line 601
+- `const compareAll = useCallback(()` — const, line 606
+- `const current = stateRef.current` — const, line 607
+- `const compareBooks = useCallback(()` — const, line 617
+- `const current = stateRef.current` — const, line 618
+- `const ask = current?.ask.value` — const, line 619
+- `const seen = new Map<string, string>()` — const, line 621
+- `const books = [...seen].map(([sourceId, title])` — const, line 623
+- `const comparisonAskId = (current: LibraryAskState): string | null` — const, line 632
+- `const compareChosen = useCallback((current: LibraryAskState, books: LibraryBookDto[], chips: Partial<ScopeChips> =` — const, line 639
+- `const key = current.key` — const, line 641
+- `const last = current.lastCompare ?? current.direct ?? null` — const, line 642
+- `const askId = comparisonAskId(current)` — const, line 655
+- `const sourceIds = books.map((book)` — const, line 656
+- `const requestedPerspectives = perspectives ?? last?.requestedPerspectives ?? []` — const, line 657
+- `const base = stateRef.current?.chips ?? current.chips` — const, line 663
+- `const setBooks = useCallback((books: LibraryBookDto[])` — const, line 669
+- `const current = stateRef.current` — const, line 670
+- `const judgmentId = current.chips.judgmentId` — const, line 673
+- `const reword = useCallback((): string | null` — const, line 681
+- `const current = stateRef.current` — const, line 682
+- `const chips = current?.chips` — const, line 683
+- `const judgmentId = chips?.askJudgmentId ?? null` — const, line 685
+- `const refine = useCallback(async (words: string)` — const, line 693
+- `const current = stateRef.current` — const, line 694
+- `const text = words.trim()` — const, line 695
+- `const key = current.key` — const, line 697
+- `const compared = current.chips.books.length ? current.chips.books : (current.compare.value?.rows ?? []).flatMap((row)` — const, line 698
+- `let reading: CompareScopeReadingDto | null = null` — let, line 701
+- `const now = stateRef.current?.key === key ? stateRef.current : null` — const, line 709
+- `const askId = now ? comparisonAskId(now) : null` — const, line 710
+- `const titles = new Map([...(reading.library ?? []), ...compared].map((book)` — const, line 712
+- `const named = reading.sourceIds` — const, line 713
+- `const ids = reading.change === "add" ? [...new Set([...compared.map((book)` — const, line 714
+- `const books = ids.map((sourceId)` — const, line 716
+- `const before = now.lastCompare?.requestedPerspectives ?? []` — const, line 725
+- `const requested = [...before.filter((value)` — const, line 732
+- `const replaceView = useCallback((remove: string)` — const, line 743
+- `const current = stateRef.current` — const, line 744
+- `const limit = current?.viewLimit` — const, line 745
+- `const askId = current ? comparisonAskId(current) : null` — const, line 746
+- `const compared = shownCompared(current)` — const, line 748
+- `const keepViews = useCallback(()` — const, line 753
+- `const current = stateRef.current` — const, line 754
+- `const askTutor = useCallback(async (question: string, about?: "pins" | "comparison")` — const, line 765
+- `const current = stateRef.current` — const, line 766
+- `const basis = about ?? (current.pinned.length || !current.direct ? "pins" : "comparison")` — const, line 768
+- `const shown = basis === "comparison" ? current.compare.value : null` — const, line 769
+- `const comparisonId = shown?.comparisonId ?? null` — const, line 770
+- `const passagesId = comparisonId ? null : shown?.passagesId ?? null` — const, line 771
+- `const pins = basis !== "comparison" ? current.pinned : []` — const, line 772
+- `const askIdOf = basis === "comparison" ? shown?.askId ?? null : current.ask.value?.askId ?? null` — const, line 773
+- `const key = current.key` — const, line 775
+- `const askId = askIdOf` — const, line 777
+- `const pinnedSpanKeys = pins` — const, line 778
+- `const answer = await runJob("tutor", ()` — const, line 780
+- `const practice = useCallback(async ()` — const, line 792
+- `const current = stateRef.current` — const, line 793
+- `const ask = current?.ask.value ?? (current?.direct ?` — const, line 795
+- `const key = current.key` — const, line 799
+- `const result = await api.findPractice(` — const, line 802
+- `const peek = useCallback(async (hitKey: string, title: string | null = null)` — const, line 820
+- `const current = stateRef.current` — const, line 821
+- `const hit = current?.ask.value?.hits.find((h)` — const, line 822
+- `const at = hitKey.indexOf(":")` — const, line 825
+- `const target = hit ?` — const, line 826
+- `const key = current.key` — const, line 829
+- `const closePeek = useCallback(()` — const, line 840
+- `const current = stateRef.current` — const, line 841
+- `const close = useCallback(()` — const, line 846
+- `const retryCompare = useCallback(()` — const, line 869
+- `const current = stateRef.current` — const, line 870
+- `const last = current?.lastCompare` — const, line 871
+- `const compareAgain = useCallback((table: CompareTableDto)` — const, line 877
+- `const current = stateRef.current` — const, line 878
+- `const pinnedSpanKeys = table.rows.map((row)` — const, line 880
+- `const requested = keep?.perspectives ? (table.requestedPerspectives ?? []).slice(0, keep.maxPerspectives) : []` — const, line 882
+- `const openSourceId = openOf(current)` — const, line 883
+- `const sourceIds = [...new Set(table.rows.map((row)` — const, line 888
+- `const key = current.key` — const, line 893
+- `const next = await runJob("compare", ()` — const, line 897
+- `const phase = comparePhase(next.status)` — const, line 901
+- `const whereElse = useCallback((words: string, asked: string | null = null)` — const, line 914
+- `const current = stateRef.current` — const, line 915
+- `const view = words.trim()` — const, line 916
+- `const question = (asked ?? current.compare.value?.scope?.question ?? current.compare.value?.query ?? current.request.query ?? "").trim()` — const, line 918
 
 ## Who imports or calls it
 
@@ -258,6 +258,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CompareDoor`, `CompareRequestDto`, `CompareScopeReadingDto`, `CompareTableDto`, `FindPracticeResultDto`, `LibraryAskDto`, `LibraryAskEntry`, `LibraryBookDto`, `LibraryJobDto`, `LibraryNotesDto`, `LibraryTutorDto`, `ReaderPromptContractDto`, `SourceIdentity`, `SpanViewDto`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`, `getCommandError`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 
 ### Assets, platform, and third-party dependencies
 

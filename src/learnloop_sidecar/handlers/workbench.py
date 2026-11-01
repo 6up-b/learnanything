@@ -418,6 +418,9 @@ class WorkbenchSourceExerciseInput(ParamsModel):
     proposal_id: str
     extraction_id: str
     span_ids: list[str] = Field(min_length=1, max_length=40)
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=40)
 
 
 class WorkbenchExercisePickInput(ParamsModel):
@@ -457,6 +460,9 @@ class WorkbenchOpenInput(ParamsModel):
     practice_item_id: str | None = None
     extraction_id: str | None = None
     span_ids: list[str] = []
+    #: Reader follow-ups Nov 1: the passages as ``extraction:span`` keys, formed where
+    #: they were taken; each must name this request's reading (None: not sent).
+    span_keys: list[str] | None = Field(default=None, max_length=200)
     parent_session_id: str | None = None
     source_visible: bool | None = None
     client_idempotency_key: str | None = None
@@ -540,7 +546,8 @@ def _require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None:
     from learnloop.reader.source_identity import MISMATCH_CODE
 
     if params.extraction_id:
-        require_identity(repository, extraction_id=params.extraction_id, span_ids=params.span_ids or [])
+        require_identity(repository, extraction_id=params.extraction_id, span_ids=params.span_ids or [],
+                         reading_span_keys=params.span_keys)
     request = dict(params.import_request) if params.import_request else None
     if request:
         reading = str(request.get("extraction_id") or request.get("extractionId") or "")
@@ -558,7 +565,8 @@ def _require_open_identity(repository: Any, params: WorkbenchOpenInput) -> None:
                                             "span_ids": []})
     if params.source_exercise:
         require_identity(repository, extraction_id=params.source_exercise.extraction_id,
-                         span_ids=params.source_exercise.span_ids)
+                         span_ids=params.source_exercise.span_ids,
+                         reading_span_keys=params.source_exercise.span_keys)
 
 
 @method("workbench.open", WorkbenchOpenInput)

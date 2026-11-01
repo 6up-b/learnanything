@@ -7109,6 +7109,8 @@ export interface ReaderAskInput {
   personalized?: boolean;
   /** RW1c: the bound workbench session the Ask comes from (its item's practice policy). */
   workbenchSessionId?: string | null;
+  /** Reader follow-ups Nov 1: the passages as `extraction:span` keys (readerShared.passageKeys). */
+  spanKeys?: string[];
 }
 export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate";
 /** RW1c's "From your books": a verbatim excerpt, quote-verified against its passage. */
@@ -8209,6 +8211,8 @@ export interface ReaderEnqueueRequestInput {
   annotationId?: string | null;
   commitmentId?: string | null;
   clientIdempotencyKey?: string | null;
+  /** Reader follow-ups Nov 1: the passage as an `extraction:span` key (readerShared.passageKeys). */
+  spanKeys?: string[];
 }
 export interface ReaderRequestScopeDto {
   spanIds: string[];
@@ -8847,13 +8851,15 @@ export interface WorkbenchOpenInput {
   practiceItemId?: string | null;
   extractionId?: string | null;
   spanIds?: string[];
+  /** Reader follow-ups Nov 1: the passages as `extraction:span` keys (readerShared.passageKeys). */
+  spanKeys?: string[];
   parentSessionId?: string | null;
   sourceVisible?: boolean | null;
   clientIdempotencyKey?: string | null;
   importRequest?: ReaderImportExerciseInput | null;
   /** RW4b: a textbook exercise picked from a find_practice proposal; the
    *  sources service's import runs while the problem is open. */
-  sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[] } | null;
+  sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[]; spanKeys?: string[] } | null;
   /** RW4b: a fallback exercise the learner picked: its listing's `pick`, sent
    *  back as it came (beside its importRequest). */
   exercisePick?: ExercisePickDto | null;
@@ -9830,7 +9836,7 @@ export interface FigurePassageDto {
 /** RW5d P1: FigureRequestV1 (spec §7.1). goalAuthor, the policy and the tiers are the server's, never sent. */
 export interface FigureRequestV1Input {
   goalText?: string | null;
-  anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null } | null;
+  anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; spanKeys?: string[] } | null;
   origin: "selection" | "library" | "tutor" | "show_me";
   hostRef?: { questionEventId?: string | null } | null;
   readingAt?: { extractionId: string; spanId: string } | null;

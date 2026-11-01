@@ -385,12 +385,15 @@ def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
         from learnloop.ai.execution import record_model_calls
         from learnloop.db.repositories import Repository
 
-        def gate_on() -> bool:
-            # C1's complete gate on the vault as it is now (fix round 5, Medium 2): asked
-            # before the job starts, before its claim, before each request and in the write.
+        def gate_on(now_vault: Any = None) -> bool:
+            # C1's complete gate (fix round 5, Medium 2): asked before the job starts and
+            # before its claim on the vault as it is now (no vault given), then of each
+            # snapshot the coverage guard admits, before each request and in the write
+            # (Reader follow-ups Nov 1: the gate and protection read one snapshot).
             from learnloop.daily_plan.engine import deliverable_plan_active
 
-            now_vault = live_vault()
+            if now_vault is None:
+                now_vault = live_vault()
             return (now_vault is not None and Path(now_vault.root).resolve() == root
                     and deliverable_plan_active(now_vault) and DP.plan_refresh_reason(now_vault) is None)
 

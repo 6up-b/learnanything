@@ -683,7 +683,7 @@ def test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold(tmp_path, mo
     monkeypatch.setattr(policy, "cold_administration_open", lambda repo, item_id: item_id == ITEM)
     values = {"answerMode": "answer_directly", "extractionId": "ext_text", "parentExchangeId": None,
               "question": ROOT_QUESTION, "selectionQuote": "the determinant changes sign",
-              "selectionSpanIds": ["t3"], "spanId": "t3", "workbenchSessionId": session}
+              "selectionSpanIds": ["t3"], "spanId": "t3", "spanKeys": ["ext_text:t3"], "workbenchSessionId": session}
     request = {key: values[key] for key in fixture["requestKeys"]}
     assert request["workbenchSessionId"] == session
     unbound = call(ctx, "reader.ask", {key: value for key, value in request.items() if key != "workbenchSessionId"})
