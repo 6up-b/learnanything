@@ -1675,6 +1675,39 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the background job a completed extraction queues to judge the already-covered LOs "
         "again (quiet: plan only); display and retrieval context only, no measurement, scheduling or serving "
         "authority (no algorithm successor)."),
+    # Deliverable curriculum C2 (spec §10, §12 C2): notes in the learner's
+    # voice, linked through tend. Two booleans (classified so every new key
+    # has a rule), the adapter's executable, allowlist and Pocket Notes
+    # folders (privacy and display settings: which folders may be read, how
+    # a page is labelled), and three `keep` bounds: the tend call's timeout
+    # (a stalled subprocess never holds a job), the sections one query asks
+    # for and the notes one judgment reads (prompt bounds). None is a model or
+    # decision parameter: links are display and learner-voice records, never
+    # evidence, and which note discusses what is the model's judgment.
+    _ConfigRule(_exact(
+        "notes.enabled",
+        "notes.tend.lexical_only",
+    ), "structural", "operational",
+        "kill switches for curriculum C2's notes (tend search and read, the note link judge, the margin marks, "
+        "path lines and Compare's your-take band) and for tend's meaning search (words only: no query leaves "
+        "the machine); display and learner-voice records, no measurement, scheduling or serving authority (no "
+        "algorithm successor)."),
+    _ConfigRule(_exact(
+        "notes.tend.binary",
+        "notes.tend.paths",
+        "notes.tend.pocket_notes_paths",
+    ), "structural", "operational",
+        "the tend executable, the allowlist of note folders LearnLoop may read (a hit outside it is dropped "
+        "before anything is stored or sent) and the folders whose pages are labelled handwritten, transcribed "
+        "by Pocket Notes; privacy and display settings, never a weight, margin or threshold."),
+    _ConfigRule(_exact(
+        "notes.tend.timeout_seconds",
+        "notes.tend.k",
+        "notes.max_candidates",
+    ), "structural", "operational",
+        "keep: a tend call's time bound (a stalled subprocess never holds a job), the sections one search asks "
+        "for and the notes one note link judgment reads (prompt bounds); size and time bounds, never a "
+        "threshold on any score."),
     # Reader CA6 (ux_reader_compare_ask_v1 §6.4, §13): side by side. A boolean
     # (classified so every new key has a rule): two panes, follow along at
     # section crossings to the first judged correspondent in the API's order;

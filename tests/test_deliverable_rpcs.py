@@ -162,7 +162,9 @@ def test_the_report_cli_prints_aggregates_and_refuses_when_off(tmp_path):
     result = CliRunner().invoke(app, ["curriculum", "report", "--vault", str(paths.root), "--json"])
     assert result.exit_code == 0, result.output
     out = json.loads(result.output)
-    assert set(out) == {"coverage", "choice", "time", "never_success"} and out["choice"]["path_lines"] == 1
+    # Curriculum C2 adds the notes row (counts only) while notes.enabled is on (its default).
+    assert set(out) == {"coverage", "choice", "time", "never_success", "notes"} and out["choice"]["path_lines"] == 1
+    assert out["notes"]["proposals"] == 0 and out["notes"]["takes"] == 0
     with (paths.root / "learnloop.toml").open("a", encoding="utf-8") as handle:
         handle.write("\n[curriculum]\nenabled = false\n")
     off = CliRunner().invoke(app, ["curriculum", "report", "--vault", str(paths.root)])

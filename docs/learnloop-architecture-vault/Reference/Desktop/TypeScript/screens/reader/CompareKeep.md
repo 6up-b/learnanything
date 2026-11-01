@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx"
-source_commit: "46cb596ef925fa8fbcb7ac721e12b7443a6b1564"
-source_commit_timestamp: "2026-10-27T20:13:37-04:00"
+source_commit: "b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5"
+source_commit_timestamp: "2026-11-01T09:39:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/CompareKeep.tsx) |
-| Source lines | 297 |
+| Source lines | 306 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `46cb596ef925fa8fbcb7ac721e12b7443a6b1564` |
-| Commit timestamp | `2026-10-27T20:13:37-04:00` |
+| Source commit | `b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5` |
+| Commit timestamp | `2026-11-01T09:39:06-05:00` |
 
 ## Activation and status evidence
 
@@ -60,47 +60,47 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const KEEP_COPY =` — const, line 28
-- `export const FINE_LABELS: Record<string, string> =` — const, line 50
-- `export function fineLabel(fine: string | null | undefined): string` — function, line 59
-- `export function shortDate(iso: string | null | undefined): string` — function, line 63
-- `export function relationPairs(table: CompareTableDto): RelationPair[]` — function, line 84
-- `export type KeepTarget =` — type, line 117
-- `export function CompareKeep(` — function, line 120
-- `export function KeptComparisonView(` — function, line 252
+- `export const KEEP_COPY =` — const, line 29
+- `export const FINE_LABELS: Record<string, string> =` — const, line 51
+- `export function fineLabel(fine: string | null | undefined): string` — function, line 60
+- `export function shortDate(iso: string | null | undefined): string` — function, line 64
+- `export function relationPairs(table: CompareTableDto): RelationPair[]` — function, line 85
+- `export type KeepTarget =` — type, line 118
+- `export function CompareKeep(` — function, line 121
+- `export function KeptComparisonView(` — function, line 261
 
 ## Internal implementation anchors
 
-- `const date = new Date(iso)` — const, line 65
-- `const linkStyle =` — const, line 69
-- `const quietStyle =` — const, line 73
-- `const headStyle =` — const, line 74
-- `interface RelationPair` — interface, line 76
-- `const seen = new Map<string, RelationPair>()` — const, line 85
-- `const title = row.sourceTitle ?? "a source"` — const, line 87
-- `const other = cell.otherSourceTitle ?? "a source"` — const, line 89
-- `const titles = [title, other].sort() as [string, string]` — const, line 90
-- `const key = `$` — const, line 91
-- `interface TakeTarget` — interface, line 98
-- `function takeTargets(table: CompareTableDto): TakeTarget[]` — function, line 104
-- `const rows = table.rows` — const, line 105
-- `const title = (index: number)` — const, line 106
-- `const pairs: TakeTarget[] = []` — const, line 107
-- `const claims = rows.map((row, index)` — const, line 113
-- `const ctx = useCompareKeep()` — const, line 121
-- `const allowed = ctx ? ("askId" in target ? ctx.settings.library || Boolean(table.kept) : ctx.settings.tutor) : false` — const, line 124
-- `const targets = takeTargets(table)` — const, line 127
-- `const comparisonId = table.comparisonId` — const, line 141
-- `const pairs = relationPairs(table)` — const, line 142
-- `const keep = async (withTake: boolean)` — const, line 144
-- `const chosen = targets.find((entry)` — const, line 145
-- `const text = take.trim()` — const, line 146
-- `const takes = withTake && text && chosen ? [` — const, line 147
-- `const result = await api.readerLibraryCompareKeep(` — const, line 151
-- `const remove = async ()` — const, line 171
-- `const ctx = useCompareKeep()` — const, line 261
-- `const openSourceId = ctx?.openSourceId ?? null` — const, line 265
-- `let cancelled = false` — let, line 267
+- `const date = new Date(iso)` — const, line 66
+- `const linkStyle =` — const, line 70
+- `const quietStyle =` — const, line 74
+- `const headStyle =` — const, line 75
+- `interface RelationPair` — interface, line 77
+- `const seen = new Map<string, RelationPair>()` — const, line 86
+- `const title = row.sourceTitle ?? "a source"` — const, line 88
+- `const other = cell.otherSourceTitle ?? "a source"` — const, line 90
+- `const titles = [title, other].sort() as [string, string]` — const, line 91
+- `const key = `$` — const, line 92
+- `interface TakeTarget` — interface, line 99
+- `function takeTargets(table: CompareTableDto): TakeTarget[]` — function, line 105
+- `const rows = table.rows` — const, line 106
+- `const title = (index: number)` — const, line 107
+- `const pairs: TakeTarget[] = []` — const, line 108
+- `const claims = rows.map((row, index)` — const, line 114
+- `const ctx = useCompareKeep()` — const, line 122
+- `const allowed = ctx ? ("askId" in target ? ctx.settings.library || Boolean(table.kept) : ctx.settings.tutor) : false` — const, line 125
+- `const targets = takeTargets(table)` — const, line 128
+- `const comparisonId = table.comparisonId` — const, line 142
+- `const pairs = relationPairs(table)` — const, line 143
+- `const keep = async (withTake: boolean, noteText?: string): Promise<boolean>` — const, line 147
+- `const chosen = targets.find((entry)` — const, line 148
+- `const text = (noteText ?? take).trim()` — const, line 149
+- `const takes = withTake && text && chosen ? [` — const, line 150
+- `const result = await api.readerLibraryCompareKeep(` — const, line 154
+- `const remove = async ()` — const, line 176
+- `const ctx = useCompareKeep()` — const, line 270
+- `const openSourceId = ctx?.openSourceId ?? null` — const, line 274
+- `let cancelled = false` — let, line 276
 
 ## Who imports or calls it
 
@@ -121,6 +121,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CompareTableDto`, `KeptComparisonDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `NotesTakeBand`
 - [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `useCompareKeep`
 - [[Reference/Desktop/TypeScript/screens/reader/comparePoints|src/screens/reader/comparePoints.ts]] — import-or-re-export; imports `byPoint`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `LearnerVoice`, `MeaningLabel`, `ModelVoice`

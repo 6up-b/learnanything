@@ -345,6 +345,13 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "learner_gap_commitments": (
         "id gap_id learning_object_id practice_item_id first_review_due algorithm_version created_at",
         ""),
+    "learner_note_links": (
+        "id note_id note_key target_kind target_key learning_object_id extraction_id section_id span_id goal_id "
+        "authorship status how state_key ledger_id model prompt_version created_at",
+        "how_line"),
+    "learner_notes": (
+        "id note_key line content_hash captured_on origin truncated created_at",
+        "path heading_path title heading text_md"),
     "learner_text_gap_reversals": (
         "id gap_id reversal actor created_at",
         "detail_json"),

@@ -533,6 +533,12 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/projects/git.py", "run_git", "subprocess.run"),
     ("src/learnloop_mobile/doctor.py", "_command", "subprocess.run"),
     ("src/learnloop_sidecar/handlers/cli.py", "run_cli_command", "subprocess.run"),
+    # Curriculum C2 (reviewed at landing): the one notes adapter runs the owner's `tend`
+    # (`notes.tend.binary`, LEARNLOOP_NOTES_TEND, else `tend` on PATH; absent or `off` runs
+    # nothing): `tend search -k K --json --local --notes-only [--words] -- QUERY` and
+    # `tend serve` (read ops on stdin). Argv lists, no shell, a timeout, no model call.
+    ("src/learnloop/curriculum/notes_tend.py", "search", "subprocess.run"),
+    ("src/learnloop/curriculum/notes_tend.py", "_serve_reads", "subprocess.run"),
 }
 
 

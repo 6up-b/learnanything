@@ -1434,6 +1434,13 @@ sidecar_passthrough!(curriculum_path_override, "curriculum.path_override");
 sidecar_passthrough!(curriculum_ready, "curriculum.ready");
 sidecar_passthrough!(curriculum_ready_check, "curriculum.ready_check");
 sidecar_passthrough!(curriculum_also_about, "curriculum.also_about");
+// Curriculum C2: your notes, linked (desktop only).
+sidecar_passthrough!(notes_path, "notes.path");
+sidecar_passthrough!(notes_marks, "notes.marks");
+sidecar_passthrough!(notes_passages, "notes.passages");
+sidecar_passthrough!(notes_search, "notes.search");
+sidecar_passthrough!(notes_link, "notes.link");
+sidecar_passthrough!(notes_decide, "notes.decide");
 // Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
 sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's

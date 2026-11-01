@@ -929,6 +929,33 @@ def vault_on_disk(root: Path | str) -> Any:
     return loaded.vault
 
 
+def published_snapshot(live_vault: Callable[[], Any] | None, root: Path | str) -> tuple[Any | None, Any]:
+    """``(the vault now, its reload generation or None)``, read as one snapshot: the
+    provider's ``snapshot()`` when it has one (the sidecar's), else the provider and its
+    ``generation()``; with no provider, the files loaded again (:func:`vault_on_disk`)."""
+
+    if live_vault is None:
+        return vault_on_disk(root), None
+    snapshot = getattr(live_vault, "snapshot", None)
+    if snapshot is not None:
+        vault, generation = snapshot()
+        return vault, generation
+    reader = getattr(live_vault, "generation", None)
+    return live_vault(), (reader() if reader is not None else None)
+
+
+def still_published(live_vault: Callable[[], Any] | None, generation: Any) -> bool:
+    """Whether the snapshot of ``generation`` is still the published one (compared under
+    the provider's publication lock when it has ``admit``)."""
+
+    if live_vault is None or generation is None:
+        return True  # the files were read settled, or the provider has no generation
+    admit = getattr(live_vault, "admit", None)
+    if admit is not None:
+        return bool(admit(generation))
+    return published_snapshot(live_vault, "")[1] == generation
+
+
 def protection_on_disk(vault: Any, repository: Repository) -> Protection:
     """:func:`read_protection` of the vault's files now (:func:`vault_on_disk`)."""
 
@@ -963,52 +990,56 @@ class CoverageGuard:
     of the same snapshot, inside the same validation: the verdict counts only
     if that snapshot is still the published one, so a reload that turns the
     caller's switches off cannot slip between the gate's read and the
-    admission. Closed (or unreadable: fail closed) raises :class:`GateClosed`."""
+    admission. Closed (or unreadable: fail closed) raises :class:`GateClosed`.
+
+    ``also`` (curriculum C2, Codex re-review F2): a further authorization
+    judged on the *same* snapshot (``also(vault)`` is why it refuses, or
+    None), so a reload between the two can never admit on one snapshot's
+    authorization and the other's protection; its refusal raises
+    ``also_refusal``. Both may be given: ``also`` is judged first."""
 
     def __init__(self, library: Library, keys: Iterable[tuple[str, str]], *,
                  live_vault: Callable[[], Any] | None = None,
-                 gate: Callable[[Any], bool] | None = None) -> None:
+                 gate: Callable[[Any], bool] | None = None,
+                 also: Callable[[Any], str | None] | None = None,
+                 also_refusal: type[BaseException] = ProtectionChanged) -> None:
         self._library = library
         self._root = Path(library.vault.root).resolve()
         self._keys = list(dict.fromkeys(keys))
         self._live = live_vault
         self._gate = gate
+        self._also = also
+        self._also_refusal = also_refusal
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the judgment's requests and records are refused (None: they are not).
         self.changed: str | None = None
+        #: What a refusal raises (:class:`GateClosed` when the gate is closed, ``also_refusal``
+        #: when ``also`` refused).
+        self._refused_with: type[BaseException] = ProtectionChanged
 
     def _snapshot(self) -> tuple[Any | None, Any]:
         """``(the vault now, its reload generation or None)``, read as one snapshot."""
 
-        if self._live is None:
-            return vault_on_disk(self._root), None
-        snapshot = getattr(self._live, "snapshot", None)
-        if snapshot is not None:
-            vault, generation = snapshot()
-            return vault, generation
-        reader = getattr(self._live, "generation", None)
-        return self._live(), (reader() if reader is not None else None)
+        return published_snapshot(self._live, self._root)
 
     def _still_published(self, generation: Any) -> bool:
-        if self._live is None or generation is None:
-            return True  # the files were read settled, or the provider has no generation
-        admit = getattr(self._live, "admit", None)
-        if admit is not None:
-            return bool(admit(generation))
-        return self._snapshot()[1] == generation
+        return still_published(self._live, generation)
 
-    def _refusal(self) -> str | None:
-        """Why the judgment may send or record nothing more now (None: it may)."""
+    def _refusal(self) -> tuple[str, type[BaseException]] | None:
+        """Why the judgment may send or record nothing more now, and what that raises
+        (None: it may)."""
 
+        unreadable = ("the library's exam material could not be checked", ProtectionChanged)
         for _attempt in range(1 + RELOAD_RETRIES):
             try:
                 vault, generation = self._snapshot()
             except Exception:  # noqa: BLE001 - an unreadable vault admits nothing
-                return "the library's exam material could not be checked"
-            if vault is None or Path(vault.root).resolve() != self._root:
-                return "another vault is open"
-            if self._gate is not None:
+                return unreadable
+            also = None if self._also is None else self._also(vault)
+            if also is None and (vault is None or Path(vault.root).resolve() != self._root):
+                return "another vault is open", ProtectionChanged
+            if also is None and self._gate is not None:
                 try:
                     gate_open = bool(self._gate(vault))
                 except Exception:  # noqa: BLE001 - an unreadable gate admits nothing
@@ -1017,33 +1048,38 @@ class CoverageGuard:
                     try:
                         published = self._still_published(generation)
                     except Exception:  # noqa: BLE001 - an unreadable provider never admits
-                        return GATE_CLOSED
+                        return GATE_CLOSED, GateClosed
                     if published:
-                        return GATE_CLOSED
+                        return GATE_CLOSED, GateClosed
                     continue  # read on a snapshot already replaced: read the published one
-            try:
-                protection = read_protection(vault, self._library.repository)
-            except CoverageError:
-                return "the library's exam material could not be checked"
-            sendable = self._library.sendable_under(protection, self._keys)
+            sendable = False
+            if also is None:
+                try:
+                    protection = read_protection(vault, self._library.repository)
+                except CoverageError:
+                    return unreadable
+                sendable = self._library.sendable_under(protection, self._keys)
             try:
                 published = self._still_published(generation)
             except Exception:  # noqa: BLE001 - an unreadable provider never admits
-                return "the library's exam material could not be checked"
+                return unreadable
             if published:
-                return None if sendable else "a section it reads is protected now"
-        return "the vault kept being reloaded while its protection was checked"
+                if also is not None:
+                    return also, self._also_refusal
+                return None if sendable else ("a section it reads is protected now", ProtectionChanged)
+        return "the vault kept being reloaded while its protection was checked", ProtectionChanged
 
     def check(self, purpose: str = "request") -> None:
-        """Raise :class:`ProtectionChanged` when the judgment may send or record nothing more."""
+        """Raise :class:`ProtectionChanged` (:class:`GateClosed` when the gate is closed, or
+        ``also_refusal``) when the judgment may send or record nothing more."""
 
         with self._lock:
             if self.changed is None:
-                self.changed = self._refusal()
-            if self.changed == GATE_CLOSED:
-                raise GateClosed(f"{purpose} refused: {self.changed}")
+                refusal = self._refusal()
+                if refusal is not None:
+                    self.changed, self._refused_with = refusal
             if self.changed is not None:
-                raise ProtectionChanged(f"{purpose} refused: {self.changed}")
+                raise self._refused_with(f"{purpose} refused: {self.changed}")
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
         # The outer gate first, then this check: a refusal settles the outer
@@ -1052,7 +1088,7 @@ class CoverageGuard:
                                                                        budget=budget)
         try:
             self.check(purpose)
-        except ProtectionChanged:
+        except (ProtectionChanged, self._also_refusal):
             if self._outer is not None:
                 self._outer.settle(admission, {})
             raise

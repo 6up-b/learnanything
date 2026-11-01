@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx"
-source_commit: "8aaceff1c1d67d468de00bf69fe1ad22c94e630c"
-source_commit_timestamp: "2026-10-31T13:59:58-04:00"
+source_commit: "b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5"
+source_commit_timestamp: "2026-11-01T09:39:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ComparePointTable.tsx) |
-| Source lines | 804 |
+| Source lines | 819 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8aaceff1c1d67d468de00bf69fe1ad22c94e630c` |
-| Commit timestamp | `2026-10-31T13:59:58-04:00` |
+| Source commit | `b23e92d402b0bbc32e00f4c6e1d3121b79bed9e5` |
+| Commit timestamp | `2026-11-01T09:39:06-05:00` |
 
 ## Activation and status evidence
 
@@ -60,128 +60,130 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const POINT_COPY =` — const, line 40
-- `export interface CompareGridActions` — interface, line 70
-- `export const CompareGridActionsContext = createContext<CompareGridActions | null>(null)` — const, line 81
-- `export function useCompareGridActions(): CompareGridActions` — function, line 83
-- `export function ComparePointTable(` — function, line 133
+- `export const POINT_COPY =` — const, line 41
+- `export interface CompareGridActions` — interface, line 71
+- `export const CompareGridActionsContext = createContext<CompareGridActions | null>(null)` — const, line 82
+- `export function useCompareGridActions(): CompareGridActions` — function, line 84
+- `export function ComparePointTable(` — function, line 134
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 87
-- `const quietStyle =` — const, line 91
-- `const headStyle =` — const, line 92
-- `const chipStyle =` — const, line 93
-- `const sourceRule =` — const, line 95
-- `const modelRule =` — const, line 96
-- `const learnerRule =` — const, line 97
-- `const CLAMP_CHARS = 140` — const, line 99
-- `type Target = "comparison" | string` — type, line 101
-- `function useWidth(ref: RefObject<HTMLElement | null>): number | null` — function, line 103
-- `const node = ref.current` — const, line 106
-- `const measure = ()` — const, line 108
-- `const observer = new ResizeObserver(measure)` — const, line 111
-- `function useWindowWidth(): number` — function, line 118
-- `const onResize = ()` — const, line 121
-- `function splitKey(key: string):` — function, line 128
-- `const at = key.indexOf(":")` — const, line 129
-- `const keepCtx = useCompareKeep()` — const, line 134
-- `const actions = useCompareGridActions()` — const, line 135
-- `const points = table.points ?? []` — const, line 136
-- `const columns = table.rows` — const, line 137
-- `const titles = columnTitles(table)` — const, line 138
-- `const moved = useRef(false)` — const, line 151
-- `const frameRef = useRef<HTMLDivElement | null>(null)` — const, line 152
-- `const takeRef = useRef<HTMLInputElement | null>(null)` — const, line 153
-- `const paneWidth = useWidth(frameRef)` — const, line 158
-- `const windowWidth = useWindowWidth()` — const, line 159
-- `const desired = useRef<string[]>(hidden)` — const, line 164
-- `const confirmed = useRef<string[]>(hidden)` — const, line 165
-- `const queue = useRef<Promise<unknown>>(Promise.resolve())` — const, line 166
-- `const hidesWaiting = useRef(0)` — const, line 167
-- `const keeping = useRef(false)` — const, line 170
-- `const keptNow = useRef<KeptComparisonDto | null>(kept)` — const, line 171
-- `const draftsRef = useRef(drafts)` — const, line 172
-- `const cards = layout === "by_point" && cardsByPoint(paneWidth, windowWidth)` — const, line 181
-- `const canKeep = Boolean(keepCtx && (keepCtx.settings.library || table.kept) && table.status === "ok" && table.comparisonId)` — const, line 183
-- `const comparisonId = table.comparisonId` — const, line 184
-- `const byBook = layout === "by_book"` — const, line 187
-- `const shownPoints = points.filter((point)` — const, line 188
-- `const youCard = byBook && Boolean(keepCtx)` — const, line 191
-- `const rowCount = byBook ? columns.length + (youCard ? 1 : 0) : points.length` — const, line 192
-- `const colsOf = (row: number)` — const, line 193
-- `const point = points[row]` — const, line 195
-- `const row = Math.min(focus.row, Math.max(rowCount - 1, 0))` — const, line 202
-- `const col = Math.min(focus.col, Math.max(colsOf(row) - 1, 0))` — const, line 203
-- `const active = document.activeElement` — const, line 205
-- `const setLayout = (next: CompareLayout)` — const, line 216
-- `const takesOf = (target: Target)` — const, line 221
-- `const serial = <T,>(job: ()` — const, line 224
-- `const next = queue.current.then(job, job)` — const, line 225
-- `const send = async (input:` — const, line 230
-- `const result = await api.readerLibraryCompareKeep(` — const, line 235
-- `const keep = async ()` — const, line 261
-- `const rowsHidden = desired.current` — const, line 266
-- `const entries = Object.entries(drafts).filter(([, text])` — const, line 267
-- `const sent = entries.filter(([target])` — const, line 268
-- `const takes: KeepTakeDto[] = sent.map(([target, text])` — const, line 269
-- `const ok = await serial(async ()` — const, line 272
-- `const syncHidden = ()` — const, line 286
-- `const want = desired.current` — const, line 289
-- `const before = confirmed.current` — const, line 297
-- `const shownAgain = before.filter((id)` — const, line 303
-- `const takes: KeepTakeDto[] = shownAgain.map((id)` — const, line 304
-- `const ok = await send(takes.length ?` — const, line 305
-- `const remove = async ()` — const, line 313
-- `const toggleHidden = (pointId: string)` — const, line 329
-- `const base = desired.current` — const, line 330
-- `const next = base.includes(pointId) ? base.filter((id)` — const, line 331
-- `const openTake = (target: Target)` — const, line 340
-- `const submitTake = async (target: Target)` — const, line 346
-- `const text = takeText.trim()` — const, line 347
-- `const take: KeepTakeDto = target === "comparison" ?` — const, line 353
-- `const toggle = (list: string[], value: string)` — const, line 366
-- `const cellAt = (at: CellPosition):` — const, line 369
-- `const book = at.col > 0 && at.row < columns.length ? at.row : null` — const, line 371
-- `const point = points[at.row] ?? null` — const, line 374
-- `const quotedCell = (point: ComparePointDto | null, column: number | null): ComparePointCellDto | null` — const, line 378
-- `const cell = point.cells.find((entry)` — const, line 380
-- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 384
-- `const target = event.target as HTMLElement` — const, line 385
-- `const next = moveCell(focus, event.key, rowCount, colsOf)` — const, line 397
-- `const cell = quotedCell(point, column)` — const, line 406
-- `const handled = ()` — const, line 407
-- `const cellProps = (row: number, col: number, label: string)` — const, line 473
-- `const question = table.scope?.question ?? table.query ?? null` — const, line 483
-- `const firstModelPoint = points.findIndex((point)` — const, line 484
-- `const quote = (point: ComparePointDto, cell: ComparePointCellDto)` — const, line 486
-- `const open = expanded.includes(`$` — const, line 487
-- `const text = cell.quote ?? ""` — const, line 488
-- `const long = text.length > CLAMP_CHARS` — const, line 489
-- `const bookCell = (point: ComparePointDto, column: number): ReactNode` — const, line 506
-- `const cell = point.cells.find((entry)` — const, line 507
-- `const cellLabel = (point: ComparePointDto, column: number): string` — const, line 524
-- `const title = columns[column].sourceTitle ?? "a source"` — const, line 525
-- `const cell = point.cells.find((entry)` — const, line 526
-- `const chips = (point: ComparePointDto)` — const, line 533
-- `const list = rowChips(point, titles)` — const, line 534
-- `const pairs = chipPairs(point)` — const, line 536
-- `const open = pairsOpen.includes(point.id)` — const, line 537
-- `const pairsBand = (point: ComparePointDto)` — const, line 557
-- `const rowHeader = (point: ComparePointDto, index: number)` — const, line 575
-- `const learner = point.labelVoice === "learner"` — const, line 576
-- `const takeBox = (target: Target, placeholder: string)` — const, line 597
-- `const youCell = (target: Target)` — const, line 615
-- `const takes = takesOf(target)` — const, line 617
-- `const draft = drafts[target]` — const, line 618
-- `const youOrAdd = (point: ComparePointDto, empty: ReactNode = null): ReactNode` — const, line 637
-- `const hiddenRow = (point: ComparePointDto, row: number)` — const, line 643
-- `const grid = ()` — const, line 654
-- `const template = `$` — const, line 655
-- `const stickyHead =` — const, line 656
-- `const cardsView = ()` — const, line 687
-- `const byBookView = ()` — const, line 708
-- `const unverified = table.unverifiedSources ?? []` — const, line 743
+- `const linkStyle =` — const, line 88
+- `const quietStyle =` — const, line 92
+- `const headStyle =` — const, line 93
+- `const chipStyle =` — const, line 94
+- `const sourceRule =` — const, line 96
+- `const modelRule =` — const, line 97
+- `const learnerRule =` — const, line 98
+- `const CLAMP_CHARS = 140` — const, line 100
+- `type Target = "comparison" | string` — type, line 102
+- `function useWidth(ref: RefObject<HTMLElement | null>): number | null` — function, line 104
+- `const node = ref.current` — const, line 107
+- `const measure = ()` — const, line 109
+- `const observer = new ResizeObserver(measure)` — const, line 112
+- `function useWindowWidth(): number` — function, line 119
+- `const onResize = ()` — const, line 122
+- `function splitKey(key: string):` — function, line 129
+- `const at = key.indexOf(":")` — const, line 130
+- `const keepCtx = useCompareKeep()` — const, line 135
+- `const actions = useCompareGridActions()` — const, line 136
+- `const points = table.points ?? []` — const, line 137
+- `const columns = table.rows` — const, line 138
+- `const titles = columnTitles(table)` — const, line 139
+- `const moved = useRef(false)` — const, line 152
+- `const frameRef = useRef<HTMLDivElement | null>(null)` — const, line 153
+- `const takeRef = useRef<HTMLInputElement | null>(null)` — const, line 154
+- `const paneWidth = useWidth(frameRef)` — const, line 159
+- `const windowWidth = useWindowWidth()` — const, line 160
+- `const desired = useRef<string[]>(hidden)` — const, line 165
+- `const confirmed = useRef<string[]>(hidden)` — const, line 166
+- `const queue = useRef<Promise<unknown>>(Promise.resolve())` — const, line 167
+- `const hidesWaiting = useRef(0)` — const, line 168
+- `const keeping = useRef(false)` — const, line 171
+- `const keptNow = useRef<KeptComparisonDto | null>(kept)` — const, line 172
+- `const draftsRef = useRef(drafts)` — const, line 173
+- `const cards = layout === "by_point" && cardsByPoint(paneWidth, windowWidth)` — const, line 182
+- `const canKeep = Boolean(keepCtx && (keepCtx.settings.library || table.kept) && table.status === "ok" && table.comparisonId)` — const, line 184
+- `const comparisonId = table.comparisonId` — const, line 185
+- `const byBook = layout === "by_book"` — const, line 188
+- `const shownPoints = points.filter((point)` — const, line 189
+- `const youCard = byBook && Boolean(keepCtx)` — const, line 192
+- `const rowCount = byBook ? columns.length + (youCard ? 1 : 0) : points.length` — const, line 193
+- `const colsOf = (row: number)` — const, line 194
+- `const point = points[row]` — const, line 196
+- `const row = Math.min(focus.row, Math.max(rowCount - 1, 0))` — const, line 203
+- `const col = Math.min(focus.col, Math.max(colsOf(row) - 1, 0))` — const, line 204
+- `const active = document.activeElement` — const, line 206
+- `const setLayout = (next: CompareLayout)` — const, line 217
+- `const takesOf = (target: Target)` — const, line 222
+- `const serial = <T,>(job: ()` — const, line 225
+- `const next = queue.current.then(job, job)` — const, line 226
+- `const send = async (input:` — const, line 231
+- `const result = await api.readerLibraryCompareKeep(` — const, line 236
+- `const keep = async ()` — const, line 262
+- `const rowsHidden = desired.current` — const, line 267
+- `const entries = Object.entries(drafts).filter(([, text])` — const, line 268
+- `const sent = entries.filter(([target])` — const, line 269
+- `const takes: KeepTakeDto[] = sent.map(([target, text])` — const, line 270
+- `const ok = await serial(async ()` — const, line 273
+- `const syncHidden = ()` — const, line 287
+- `const want = desired.current` — const, line 290
+- `const before = confirmed.current` — const, line 298
+- `const shownAgain = before.filter((id)` — const, line 304
+- `const takes: KeepTakeDto[] = shownAgain.map((id)` — const, line 305
+- `const ok = await send(takes.length ?` — const, line 306
+- `const remove = async ()` — const, line 314
+- `const toggleHidden = (pointId: string)` — const, line 330
+- `const base = desired.current` — const, line 331
+- `const next = base.includes(pointId) ? base.filter((id)` — const, line 332
+- `const openTake = (target: Target)` — const, line 341
+- `const submitTake = async (target: Target)` — const, line 347
+- `const text = takeText.trim()` — const, line 348
+- `const take: KeepTakeDto = target === "comparison" ?` — const, line 354
+- `const takeFromNote = async (text: string): Promise<NoteTakeOutcome>` — const, line 369
+- `const saved = await serial(()` — const, line 372
+- `const toggle = (list: string[], value: string)` — const, line 379
+- `const cellAt = (at: CellPosition):` — const, line 382
+- `const book = at.col > 0 && at.row < columns.length ? at.row : null` — const, line 384
+- `const point = points[at.row] ?? null` — const, line 387
+- `const quotedCell = (point: ComparePointDto | null, column: number | null): ComparePointCellDto | null` — const, line 391
+- `const cell = point.cells.find((entry)` — const, line 393
+- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 397
+- `const target = event.target as HTMLElement` — const, line 398
+- `const next = moveCell(focus, event.key, rowCount, colsOf)` — const, line 410
+- `const cell = quotedCell(point, column)` — const, line 419
+- `const handled = ()` — const, line 420
+- `const cellProps = (row: number, col: number, label: string)` — const, line 486
+- `const question = table.scope?.question ?? table.query ?? null` — const, line 496
+- `const firstModelPoint = points.findIndex((point)` — const, line 497
+- `const quote = (point: ComparePointDto, cell: ComparePointCellDto)` — const, line 499
+- `const open = expanded.includes(`$` — const, line 500
+- `const text = cell.quote ?? ""` — const, line 501
+- `const long = text.length > CLAMP_CHARS` — const, line 502
+- `const bookCell = (point: ComparePointDto, column: number): ReactNode` — const, line 519
+- `const cell = point.cells.find((entry)` — const, line 520
+- `const cellLabel = (point: ComparePointDto, column: number): string` — const, line 537
+- `const title = columns[column].sourceTitle ?? "a source"` — const, line 538
+- `const cell = point.cells.find((entry)` — const, line 539
+- `const chips = (point: ComparePointDto)` — const, line 546
+- `const list = rowChips(point, titles)` — const, line 547
+- `const pairs = chipPairs(point)` — const, line 549
+- `const open = pairsOpen.includes(point.id)` — const, line 550
+- `const pairsBand = (point: ComparePointDto)` — const, line 570
+- `const rowHeader = (point: ComparePointDto, index: number)` — const, line 588
+- `const learner = point.labelVoice === "learner"` — const, line 589
+- `const takeBox = (target: Target, placeholder: string)` — const, line 610
+- `const youCell = (target: Target)` — const, line 628
+- `const takes = takesOf(target)` — const, line 630
+- `const draft = drafts[target]` — const, line 631
+- `const youOrAdd = (point: ComparePointDto, empty: ReactNode = null): ReactNode` — const, line 650
+- `const hiddenRow = (point: ComparePointDto, row: number)` — const, line 656
+- `const grid = ()` — const, line 667
+- `const template = `$` — const, line 668
+- `const stickyHead =` — const, line 669
+- `const cardsView = ()` — const, line 700
+- `const byBookView = ()` — const, line 721
+- `const unverified = table.unverifiedSources ?? []` — const, line 756
 
 ## Who imports or calls it
 
@@ -199,6 +201,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|src/screens/reader/CompareKeep.tsx]] — import-or-re-export; imports `KEEP_COPY`, `fineLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `NoteTakeOutcome`, `NotesTakeBand`
 - [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `useCompareKeep`
 - [[Reference/Desktop/TypeScript/screens/reader/comparePoints|src/screens/reader/comparePoints.ts]] — import-or-re-export; imports `CellPosition`, `CompareLayout`, `POINT_COLUMN_PX`, `READABLE_CELL_PX`, `YOU_COLUMN_PX`, `cardsByPoint`, `chipPairs`, `columnTitles`, `moveCell`, `notFound`, `readLayout`, `rowChips`, `writeLayout`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`, `SpokenOnly`

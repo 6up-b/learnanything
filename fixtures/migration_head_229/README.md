@@ -37,6 +37,26 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Curriculum C2 (migration 229), branch `curriculum/c2-notes-linked`, 2026-11-01
+
+Renamed from `migration_head_228` on the C2 branch
+(`docs/reviews/curriculum-c2-notes-linked.md`). Rebuilt from main's tracked,
+sanitized `migration_head_228/state.sqlite` (main `2eb4bf6e61`): a backup-API
+copy under `fixtures-local/` with only `229_learner_notes.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 229 adds exactly its objects: `learner_notes` and `learner_note_links`
+  (both RAW_LEDGER), their three autoindexes, four indexes and four
+  append-only triggers, with no row (no note text is in this fixture).
+
+No other object changed definition, and only `schema_migrations` gained a row
+(229); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical to main's).
+
 ## Reader RW6b part 1 (migration 227), landing of `reader/rw6b-followups`, 2026-10-31
 
 Curriculum C0b's 228 landed first, so at the landing of RW6b part 1 onto main

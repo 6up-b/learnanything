@@ -3,13 +3,13 @@ title: "practice_pool_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c6a9063313677b1ef8662ca7da53df534a733900"
-source_commit_timestamp: "2026-11-01T15:02:31-05:00"
+source_commit: "63224444311cdddfd02843e2a455d24ce18ac540"
+source_commit_timestamp: "2026-11-01T13:41:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_pool_events"
   - "table practice_pool_events"
-schema_head: 228
+schema_head: 229
 table_name: "practice_pool_events"
 table_role: "receipt"
 functionality_status: "active"

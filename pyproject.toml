@@ -404,6 +404,36 @@ forbidden_modules = ["learnloop.instructional"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "notes-are-never-a-source-or-evidence"
+name = "A learner's note is never a source, a generation input or evidence: only the sidecar and the CLI reach the notes' code (curriculum C2, spec §10.2)"
+type = "forbidden"
+source_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.substrate",
+    "learnloop.tutor",
+    "learnloop.adaptive_difficulty",
+    "learnloop.hints",
+    "learnloop.daily_plan",
+    "learnloop.practice_index",
+    "learnloop.ops",
+    "learnloop.reader",
+    "learnloop.source_retrieval.find_sources",
+    "learnloop.source_retrieval.corpus",
+    "learnloop.source_retrieval.deliverable_path",
+    "learnloop.source_retrieval.section_coverage",
+]
+forbidden_modules = [
+    "learnloop.source_retrieval.note_links",
+    "learnloop.curriculum.notes_tend",
+    "learnloop.db.stores.learner_notes",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "instructional-service-never-imports-the-plan"
 name = "The instructional service takes expected minutes by injection, never from the daily plan (sources SC12)"
 type = "forbidden"
