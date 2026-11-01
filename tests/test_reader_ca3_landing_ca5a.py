@@ -200,7 +200,7 @@ def test_iii_each_switch_moves_only_its_own_contract_key_and_palette_action(tmp_
             assert contract["libraryAsk"]["compareScope"] is True
         assert ("compare_books" in _palette_ids(contract)) is scope, (scope, corr)
         if corr:
-            assert contract["correspondence"] == {"enabled": True, "findSection": True}
+            assert contract["correspondence"] == {"enabled": True, "findSection": True, "alsoInBooks": True, "hiddenEverywhere": False, "hiddenSources": []}
         else:
             assert "correspondence" not in contract, (scope, corr)
     # Nothing else differs between the four.

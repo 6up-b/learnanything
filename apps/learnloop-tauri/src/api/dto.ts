@@ -6764,7 +6764,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean; /** RW5d P2: the sketch tier (figures.sketch_enabled, engine ready). */ sketch?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -6773,9 +6773,31 @@ export interface ReaderPromptContractDto {
   readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
   /** Reader CA5a: "find this section in my other books" in the Guide's footer
    *  (present only while reader.correspondence.enabled and curriculum.enabled are on). */
-  correspondence?: { enabled: boolean; findSection: boolean };
+  correspondence?: {
+    enabled: boolean;
+    findSection: boolean;
+    /** Reader CA5: the Guide's one-line "also in your books" over judged coverage, and the
+     *  learner's hide preferences for it (absent on an older sidecar: the line is off). */
+    alsoInBooks?: boolean;
+    hiddenEverywhere?: boolean;
+    hiddenSources?: string[];
+  };
   /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
   sideBySide?: { enabled: boolean };
+}
+
+/** Reader CA5: the line's hide preferences (Settings brings it back). */
+export interface CorrespondencePreferencesDto {
+  enabled: boolean;
+  hideEverywhere: boolean;
+  hiddenSources: Array<{ sourceId: string; title: string }>;
+}
+
+/** What the learner kept comparing two sections (RW4d): when, and the kept relations' fine labels. */
+export interface CorrespondentKeptDto {
+  askId: string | null;
+  keptAt: string | null;
+  relations: string[];
 }
 
 // ── Reader CA5a: find this section in my other books ───────────────────────
@@ -6798,6 +6820,15 @@ export interface CorrespondentSectionDto {
   /** "found by search, not checked" on a search hit. */
   label?: string;
   by: "search" | "judge" | "learner";
+  /** Judged lines (CA5): the treatment in the learner's words, the coverage judge's
+   *  notation line (LearnLoop's voice), what the learner kept, and the other shared LOs. */
+  treatmentWords?: string | null;
+  roles?: string[];
+  notation?: string | null;
+  notationLabel?: string | null;
+  linkedByYou?: boolean;
+  kept?: CorrespondentKeptDto[];
+  alsoLearningObjectIds?: string[];
 }
 
 export interface CorrespondentSourceDto {
@@ -7209,6 +7240,10 @@ export interface ReaderActivityEvent {
     | "figure_animated"
     | "corresponding_section_peeked"
     | "corresponding_section_opened"
+    /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */
+    | "sketch_paused"
+    | "sketch_error"
+    /** Reader CA6: side by side sessions and follow along. */
     | "side_by_side_opened"
     | "side_by_side_closed"
     | "follow_along_moved"
@@ -9325,6 +9360,109 @@ export interface ReadingPathDto {
   reason?: string | null;
 }
 
+/** Deliverable curriculum C0b (spec §7.3): a path line's choice; "none" clears an earlier one. */
+export type DeliverablePathChoice = "use_instead" | "read_anyway" | "skip" | "check_later" | "none";
+/** §7.1's labels (code keeps them honest: "already_shown" only while demonstrated). */
+export type DeliverablePathLabel = "core" | "prerequisite" | "alternate" | "already_shown" | "assumed";
+
+/** One section of one book on a deliverable's path (never its text). */
+export interface DeliverableSectionDto {
+  extractionId: string;
+  sectionId: string;
+  title: string;
+  book: string;
+  sourceId: string;
+  startSpanId: string;
+  minutes: number;
+  treatment: string;
+  treatmentWords: string;
+  read: boolean;
+  /** An alternate's one line: how it differs ("more geometric"). */
+  difference?: string;
+  /** Whether *use this one instead* is offered: the section introduces or develops the topic (§7.1). */
+  canUseInstead?: boolean;
+}
+
+export interface DeliverableLineDto {
+  learningObjectId: string;
+  title: string;
+  /** The phrase of the learner's own words this topic answers. */
+  phrase: string;
+  kind: "needed" | "prerequisite";
+  label: DeliverablePathLabel;
+  chip: string;
+  /** check_pending: "check me later" is waiting; skipped: "skip it". */
+  effectiveLabel: DeliverablePathLabel | "skipped" | "check_pending";
+  reason: string;
+  reasonBy: "model" | "code";
+  override: Exclude<DeliverablePathChoice, "none"> | null;
+  section: DeliverableSectionDto;
+  alternates: DeliverableSectionDto[];
+  exercise: { label: string; extractionId: string; spanIds: string[]; page: number | null } | null;
+  check: { commitmentId: string | null; state: string | null } | null;
+  ordinal: number;
+  /** The Guide's slice: this book's alternate for a topic whose primary is elsewhere. */
+  elsewhere?: DeliverableSectionDto;
+}
+
+/** curriculum.guide_slice: the deliverable's slice for the open book ("none": RW7a's card). */
+export interface DeliverableSliceDto {
+  version?: number;
+  extractionId: string;
+  status: "none" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
+  goal?: { id: string; title: string; kind: "exam" | "quest"; dueAt: string | null };
+  depth?: ReadingPathDepth | null;
+  depthLabel?: string | null;
+  depths?: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  lines?: DeliverableLineDto[];
+  elsewhere?: Array<{ learningObjectId: string; title: string; section: DeliverableSectionDto; label: DeliverablePathLabel }>;
+  notNeeded?: Array<{ sectionId: string; title: string; startSpanId: string }>;
+  notNeededLabel?: string;
+  uncovered?: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  message?: string | null;
+  reason?: string | null;
+  /** Coverage of the deliverable's topics is being checked now. */
+  covering?: boolean;
+}
+
+/** curriculum.ready: "Am I ready?" per topic (never what was read). */
+export interface DeliverableReadyDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  dueAt: string | null;
+  lines: Array<{
+    learningObjectId: string;
+    title: string;
+    phrase: string | null;
+    state: "demonstrated" | "likely" | "untested";
+    line: string;
+    checks: Array<{ commitmentId: string; dueHint: string | null }>;
+  }>;
+  checksOwed: string[];
+  summary: string;
+}
+
+/** curriculum.scope: the topics the learner's words resolved to, and what isn't in the library. */
+export interface DeliverableScopeDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  sentence: string | null;
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  depth: ReadingPathDepth | null;
+  topics: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  unmatched: Array<{ phrase: string; proposedTitle: string; proposedStatement: string; status: "open" | "created" | "declined";
+    createdLearningObjectId: string | null }>;
+  inputs: Array<{ id: string; kind: string; text: string | null; extractionId: string | null; createdAt: string }>;
+  resolution: { id: string; origin: string; model: string; createdAt: string; facetScope: Record<string, string[]> } | null;
+  /** The subject a new topic joins: the one the needed topics share, else null (the learner picks; F16). */
+  subjectId: string | null;
+  /** The vault's active subjects, offered when subjectId is null. */
+  subjects: Array<{ subjectId: string; title: string }>;
+}
+
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
 export interface KeepTakeDto {
   text: string;
@@ -9359,9 +9497,12 @@ export interface FigurePredictionResultDto {
 export interface FigurePredictionDto {
   index: number;
   prompt: string;
-  kind: "direction" | "area";
+  /** RW5d P2 adds "choice" (a sketch: which entry of a series probe is largest). */
+  kind: "direction" | "area" | "choice";
   choices: Array<{ value: string; label: string }>;
   answered: FigurePredictionResultDto | null;
+  /** RW5d P2, a sketch's prediction: the clock step its answer is graded at (playback stops exactly there). */
+  targetStep?: number;
 }
 
 export interface FigureViewDto {
@@ -9396,6 +9537,41 @@ export interface FigureViewDto {
   grounding?: FigureGrounding;
   /** The passages found in the learner's books it was built from (grounding "retrieved"). */
   passages?: FigurePassageDto[];
+  /** RW5d P2 (present only while figures.sketch_enabled is on): a declarative figure or a sketch. */
+  tier?: "grammar" | "sketch";
+  /** A shown sketch's code-owned check lines and the engine it was verified under (specJson is its SketchProgramV1). */
+  sketch?: FigureSketchDto | null;
+}
+
+/** RW5d P2: one check code ran on a sketch (spec §9.5); the Reader words it from these closed fields. */
+export interface FigureSketchCheckDto {
+  claim: number;
+  kind: "equals" | "follows" | "invariant" | "distribution";
+  probe: string;
+  /** The drawn elements (ids) bound to the probe that the check speaks for whole. */
+  elements: string[];
+  /** Bound elements the check speaks for in one attribute only (Codex review F3): a line's y values,
+   *  a heat map's cell values or a circle's radius. */
+  partial?: Array<{ element: string; attribute: "y" | "values" | "r" }>;
+  /** The stated equation as the grammar parsed it (AI-stated), or an invariant's property. */
+  statement: string;
+  settings: number;
+}
+
+export interface FigureSketchDto {
+  engineSha256: string;
+  /** The verified sample's seed (the first one drawn). */
+  seed: number;
+  checks: FigureSketchCheckDto[];
+  /** Drawn elements no check covers (ids). */
+  notCovered: string[];
+  unnamedElements: number;
+  settings: number;
+  /** Fix round 4: the read schedule every run follows (the verifier's read_steps). */
+  readSteps?: number[];
+  /** Fix round 4: per grid point, its parameter values (declared order), the checked steps and the digest of
+   *  each read there; the desktop compares its own reads and withdraws the checks on any difference. */
+  tested?: Array<{ values: number[]; steps: number[]; digests: string[] }>;
 }
 
 export type FigureGrounding = "anchor" | "retrieved" | "none";

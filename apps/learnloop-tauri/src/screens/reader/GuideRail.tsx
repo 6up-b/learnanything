@@ -90,6 +90,8 @@ export interface GuideRailProps {
   path?: ReactNode;
   /** Reader CA5a: "find this section in my other books", in the footer (absent when off: today's Guide). */
   findSection?: ReactNode;
+  /** Reader CA5: "also in your books", directly under the section's progress (absent when off). */
+  alsoInBooks?: ReactNode;
 }
 
 export function GuideRail({
@@ -139,6 +141,7 @@ export function GuideRail({
   header = null,
   path = null,
   findSection = null,
+  alsoInBooks = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
   // Without a read count (an older caller) the bar follows the reading marker.
@@ -172,6 +175,7 @@ export function GuideRail({
           >
             <div style={{ height: "100%", width: `${sectionRead * 100}%`, background: COLOR.cyan }} />
           </div>
+          {alsoInBooks}
           <Faint style={{ fontSize: 10 }}>
             {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
               ? answeredSections.includes(currentGuideSection.id)

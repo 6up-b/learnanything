@@ -1464,6 +1464,17 @@ class AIRoutingConfig(BaseModel):
     # curriculum.max_daily_cost_usd (and, in learnloop curriculum cover, to
     # curriculum.cover_max_cost_usd), checked before each call.
     section_coverage_judge: str | None = None
+    # Deliverable curriculum C0b (spec_deliverable_curriculum_v1 §5.3, §7.2):
+    # the scope resolver (a pressed action: the learner's scope words, in
+    # order, and the vault's active LOs as compact records; never exam text)
+    # and the deliverable path judge (one call per deliverable and depth over
+    # the needed LOs' coverage across books and the learner's own reading
+    # context). Empty = ai.active_provider (the ChatGPT plan under T1;
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # curriculum.max_daily_cost_usd, checked before each call.
+    deliverable_scope_resolver: str | None = None
+    deliverable_path_judge: str | None = None
     # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
     # figures. figure_author writes the declarative figure spec (a chat route;
     # a region or figure block sends its crop as an image when the profile
@@ -2579,6 +2590,22 @@ class FiguresConfig(BaseModel):
     labelled "not from your books". Off: figures are exactly RW5a/b's, and
     the tutor's prompt and output are RW5b's.
 
+    RW5d P2: ``sketch_enabled``: the sketch tier. When the declarative grammar
+    cannot express an idea (a random process, a simulation with state, a
+    geometric construction, a discrete structure), the author may write a
+    small program instead (``SketchProgramV1``), which runs in a sealed
+    interpreter (QuickJS compiled to WebAssembly: no files, network, clock or
+    app access) in the desktop and, for verification, in the sidecar; it
+    returns a display list the Reader draws and declared probes that code
+    checks against the claims it states. Labelled an AI-written simulation,
+    never "checked against the book". Off: the author's contract is RW5b's
+    byte for byte, and stored sketches list as "can't draw this yet".
+    Default **off** at landing (orchestrator decision 2026-10-31): it ships
+    off until the spec's merge gate G-SM14 (an IPC probe from inside the
+    sketch Worker in the real Tauri webview) passes; the owner turns it on
+    with ``figures.sketch_enabled = true`` after running the probe (recipe in
+    docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2594,6 +2621,7 @@ class FiguresConfig(BaseModel):
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
     show_me_enabled: bool = True
+    sketch_enabled: bool = False
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 
@@ -2796,12 +2824,27 @@ class CurriculumConfig(BaseModel):
     prompt (the passages share it equally). Display and retrieval context
     only: nothing in scoring, scheduling, projection or serving reads
     coverage, so no algorithm successor.
+
+    C0b adds the deliverable: scope from the learner's words resolved to LOs
+    (``ai.routing.deliverable_scope_resolver``), the goal's facet scope written
+    by ``curriculum.set_scope``, the curated path across every book
+    (``ai.routing.deliverable_path_judge``) with the learner's overrides,
+    the Guide's slice of it, and "Am I ready?" (Check once commitments the
+    learner presses for, served by DL2's unchanged rule). ``enabled`` off is
+    today's Guide and RW7a exactly. The three routes share
+    ``max_daily_cost_usd``. Display only: no successor.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
     cover_max_cost_usd: float = Field(default=5.0, ge=0.0)
     max_prompt_tokens: int = Field(default=24_000, ge=2_000, le=400_000)
+    # C0b (spec §6.3, §12): a completed extraction (a book added or re-read)
+    # queues one background job that judges again the LOs already covered,
+    # so the new reading's sections join their coverage (quiet: plan only,
+    # never an OpenRouter offer; coalesced per LO, a fresh state pays
+    # nothing). Off: coverage changes only when pressed or owner-run.
+    coverage_on_extract: bool = True
 
 
 class ReaderCorrespondenceConfig(BaseModel):
@@ -2820,9 +2863,20 @@ class ReaderCorrespondenceConfig(BaseModel):
     (or with ``curriculum.enabled`` off, which gates the data), the Reader's
     prompt contract carries no ``correspondence`` key and the Guide is
     exactly as before CA5a. Navigation and display only: no successor.
+
+    Reader CA5 (*also in your books*, §6.2–§6.3) shares the switch: one dim
+    line under the Guide's section progress naming the other books' sections
+    whose judged coverage shares this section's LOs, expanded into a list by
+    LO (peek, go there, compare, *not about this*, *also about…*). It never
+    shows unchecked search hits. ``hide_everywhere`` and ``hidden_sources``
+    are the learner's own off switch on the line (*hide everywhere* / *hide
+    for this book*, by source id); Settings brings it back. They hide that
+    line only, never the data or CA5a's pressed action.
     """
 
     enabled: bool = True
+    hide_everywhere: bool = False
+    hidden_sources: list[str] = Field(default_factory=list)
 
 
 class ReaderSideBySideConfig(BaseModel):
@@ -2850,7 +2904,7 @@ class ReaderSideBySideConfig(BaseModel):
 class ReaderConfig(BaseModel):
     """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
 
-    ``correspondence``: CA5a's (and later CA5's) switch.
+    ``correspondence``: CA5a's and CA5's switch, and CA5's hide preferences.
     ``side_by_side``: CA6's switch.
     """
 

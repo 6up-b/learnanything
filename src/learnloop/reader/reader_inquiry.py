@@ -56,14 +56,19 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "tutor_offer_pressed",  # RW1c: the learner pressed one (its kind, the tool call it runs, what it found)
     "figure_opened",      # RW5a: an explorable figure expanded (its id; spec §11 events)
     "figure_animated",    # RW5a: "play" (or a step under reduced motion) on a figure's parameter
-    # Reader CA6 (ux_reader_compare_ask_v1 §6.5 Records; salience only): a
-    # corresponding section peeked or opened (go there), side by side opened
-    # and closed (a session: its id and how long it was open, for §14's
-    # side-by-side minutes), follow along moving the following pane at a
-    # section crossing, and the learner taking that pane back to where it was
-    # (§14's undone follow-along moves: the pairing was wrong).
+    # Reader CA5 (ux_reader_compare_ask_v1 §6.5 Records; salience only; CA5a's
+    # deferred events): a corresponding section peeked, or opened (go there).
+    # CA6 records the same two events from side by side's doors (one
+    # definition; the same payload keys as CA5's correspondenceEvents.ts).
     "corresponding_section_peeked",
     "corresponding_section_opened",
+    "sketch_paused",      # RW5d P2: the Worker watchdog paused a slow sketch (spec §6.6, §13.4)
+    "sketch_error",       # RW5d P2: a sketch call failed at the learner's settings (the kind, never the text)
+    # Reader CA6 (ux_reader_compare_ask_v1 §6.5 Records; salience only): side
+    # by side opened and closed (a session: its id and how long it was open,
+    # for §14's side-by-side minutes), follow along moving the following pane
+    # at a section crossing, and the learner taking that pane back to where it
+    # was (§14's undone follow-along moves: the pairing was wrong).
     "side_by_side_opened",
     "side_by_side_closed",
     "follow_along_moved",
@@ -143,12 +148,14 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     "offer_kind", "tool_call_id", "offer_result",
     # RW5a: which figure, and the parameter a play or step swept.
     "figure_id", "parameter",
-    # Reader CA6: the section a correspondence act starts from and the one it
-    # reaches (ids), whether that one is judged or an unchecked search hit,
-    # and which pane leads (main or side) when follow along moves the other;
-    # a side-by-side session's id and how many seconds it was open.
-    "section_id", "target_source_id", "target_extraction_id", "target_section_id", "by", "leader",
-    "side_by_side_id", "seconds_open",
+    # Reader CA5: the section a correspondence act starts from and the one it
+    # reaches (ids), and whether that one is judged or an unchecked search hit.
+    "section_id", "target_source_id", "target_extraction_id", "target_section_id", "by",
+    # RW5d P2: a sketch error's kind (work_cap, memory_cap, error, scene, ...).
+    "error_kind",
+    # Reader CA6: which pane leads (main or side) when follow along moves the
+    # other; a side-by-side session's id and how many seconds it was open.
+    "leader", "side_by_side_id", "seconds_open",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

@@ -56,6 +56,13 @@ MEDIA_SUFFIXES = {
 DATABASE_SUFFIXES = {".sqlite", ".sqlite3", ".db", ".db3"}
 DOCS_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 APP_ASSET_SUFFIXES = {".png", ".ico", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf"}
+#: RW5d P2: the sketch engine, the one WebAssembly asset (spec_reader_show_me_figures_v1
+#: §9.3, "Packaging"): built from pinned sources by its checked-in script, with
+#: its third-party notices beside the script. Each entry names that notice.
+APP_WASM = {
+    "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm":
+        "apps/learnloop-tauri/sketch-engine/LICENSES.txt",
+}
 HISTORICAL_FIXTURE = re.compile(r"^fixtures/(migration_head_\d+|mvp017_route_check_replay)/")
 ALLOWED_DATABASE = re.compile(r"^fixtures/(migration_head_\d+|mvp017_route_check_replay)/state\.sqlite$")
 
@@ -132,10 +139,23 @@ def test_no_other_binary_file(tracked):
             or ALLOWED_DATABASE.match(path) is not None
             or (path.startswith("docs/") and suffix in DOCS_IMAGE_SUFFIXES)
             or (path.startswith("apps/") and suffix in APP_ASSET_SUFFIXES)
+            or path in APP_WASM
         )
 
     stray = [path for path in tracked if _is_binary(path) and not allowed(path)]
     assert stray == [], f"binary files outside docs/ images, apps/ assets and samples/: {stray}"
+
+
+def test_every_tracked_wasm_is_the_listed_engine_with_its_notice(tracked):
+    """A WebAssembly binary is tracked only when listed in APP_WASM, beside a
+    third-party notice that names it (RW5d P2)."""
+
+    wasm = [path for path in tracked if Path(path).suffix.lower() == ".wasm"]
+    assert sorted(wasm) == sorted(path for path in APP_WASM if path in tracked), wasm
+    for path in wasm:
+        notice = APP_WASM[path]
+        assert notice in tracked, f"{path} needs its notice {notice} tracked"
+        assert Path(path).name in (REPOSITORY / notice).read_text(encoding="utf-8")
 
 
 def test_no_originals_store_outside_the_historical_fixtures(tracked):
@@ -179,11 +199,11 @@ def test_no_file_over_five_megabytes(tracked):
 
 
 def test_the_historical_databases_size_exception_is_bounded():
-    head, replay = "fixtures/migration_head_226/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
+    head, replay = "fixtures/migration_head_228/state.sqlite", "fixtures/mvp017_route_check_replay/state.sqlite"
     assert oversized([(head, 6_696_960), (replay, 5_976_064)]) == []
     assert [row[0] for row in oversized([(head, 100 * 1024 * 1024), (replay, 7 * 1024 * 1024)])] == [head, replay]
     # The exception is for those two databases only, never for a name elsewhere.
-    for path in ("fixtures/migration_head_226/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
+    for path in ("fixtures/migration_head_228/big.bin", "docs/state.sqlite", "fixtures/other/state.sqlite"):
         assert oversized([(path, MAX_BYTES + 1)]) != []
     assert all(limit < 2 * MAX_BYTES for _pattern, limit in HISTORICAL_DATABASE_MAX_BYTES)
 

@@ -134,6 +134,9 @@ LEDGER_RIGHT = "reader_section"
 PROMPT_VERSION = "section_coverage_judge.v1"
 CORRECTION_VERSION = "section_coverage_correction.v1"
 ENVELOPE = "curriculum.max_daily_cost_usd"
+#: The routes that one daily cap counts: this judge and C0b's scope resolver and path judge
+#: (``source_retrieval.deliverables``), so the curriculum spends at most one cap a day.
+CURRICULUM_OWNER_KINDS: tuple[str, ...] = (ROUTE_TASK, "deliverable_scope_resolver", "deliverable_path_judge")
 COVER_CAP_SETTING = "curriculum.cover_max_cost_usd"
 #: The retrieval consumers this module names to the space resolver.
 SEARCH_CONSUMER = "coverage"
@@ -294,10 +297,13 @@ class Library:
     reads it again: a batch does so before each LO); an unreadable predicate
     raises ``CoverageError("withheld")`` (fail closed)."""
 
-    def __init__(self, vault: Any, repository: Repository, *, protection: Protection | None = None) -> None:
+    def __init__(self, vault: Any, repository: Repository, *, protection: Protection | None = None,
+                 scope: Scope | None = None) -> None:
         self.vault = vault
         self.repository = repository
-        base = library_scope(repository)
+        base = scope if scope is not None else library_scope(repository)
+        #: What the library was read from (Reader CA5's cache compares it).
+        self.scope_signature = scope_signature(base)
         self.protection = protection if protection is not None else read_protection(vault, repository)
         self.material = self.protection.material
         self.excluded_spans = self.protection.excluded_spans
@@ -452,6 +458,53 @@ class Library:
                 self._section_los[(extraction_id, sid)] = tuple(
                     lo for lo in by_section.get(sid, ()) if _active(self.vault, lo))
         return self._section_los.get(key, ())
+
+
+def scope_signature(scope: Scope) -> str:
+    """A digest of the readings a library is read from (ids, books, titles,
+    reader switch): an import, a re-extraction or a book switched off changes it."""
+
+    return content_key(sorted([extraction_id, extraction.source_id, extraction.title, bool(extraction.reader_enabled)]
+                              for extraction_id, extraction in scope.extractions.items()))
+
+
+class LibraryCache:
+    """Reader CA5's per-vault library for the Guide's reads (CA5a open item 7).
+
+    ``reader.correspondents`` runs on every crossing into a new section, on
+    the serial sidecar. A fresh :class:`Library` parses each reading it
+    touches again (the open book's IR at least twice: its sections and its
+    LO map). This keeps one library and hands it out again while nothing it
+    was read from has changed: the same loaded vault object (a reload, which
+    LO, provenance and source-set edits make, gives a new one), the same
+    protection key and the same readings. Protection is read afresh on every
+    :meth:`get` (fail closed, as a new library would), so an exam mark or a
+    held-back reading is honoured on the very next read; only the parsed
+    readings and the LO map are reused. Coverage rows, corrections, keeps and
+    read marks are never cached: :func:`correspondents` reads them each time."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._library: Library | None = None
+        self.builds = 0
+
+    def get(self, vault: Any, repository: Repository) -> Library:
+        protection = read_protection(vault, repository)
+        scope = library_scope(repository)
+        signature = scope_signature(scope)
+        with self._lock:
+            current = self._library
+            if (current is not None and current.vault is vault and current.repository is repository
+                    and current.protection.key == protection.key and current.scope_signature == signature):
+                return current
+            library = Library(vault, repository, protection=protection, scope=scope)
+            self._library = library
+            self.builds += 1
+            return library
+
+    def clear(self) -> None:
+        with self._lock:
+            self._library = None
 
 
 def _active(vault: Any, lo_id: str) -> bool:
@@ -790,7 +843,7 @@ STALE_MESSAGE = ("Your library changed while LearnLoop was checking (its protect
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
     return SharedDailyEnvelope(vault, repository, day=midnight(clock),
                                cap=float(vault.config.curriculum.max_daily_cost_usd), clock=clock, name=ENVELOPE,
-                               owner_kinds=(ROUTE_TASK,),
+                               owner_kinds=CURRICULUM_OWNER_KINDS,
                                price_per_million=vault.config.source_retrieval.llm_price_per_million)
 
 
@@ -1078,6 +1131,11 @@ def judge(vault: Any, repository: Repository, learning_object_id: str, *, librar
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None or learning_object.status != "active":
         raise CoverageError("validation_error", f"No active learning object {learning_object_id!r}.")
+    if not enabled(vault):
+        # The kill switch, for every caller (C0b Codex review F3): off, nothing is searched,
+        # called or written, whoever asks (a queued job included).
+        return JudgeResult("unavailable", learning_object_id, reason="curriculum_disabled",
+                           message="The deliverable curriculum is off (curriculum.enabled = false).")
     library = library or Library(vault, repository)
     with spend_envelopes(_daily_if_inactive(vault, repository, clock)):
         return _judge(vault, repository, learning_object, library=library, client=client, embedder=embedder,
@@ -1197,6 +1255,92 @@ def cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str]
         if result.status in ("unavailable", "capped", "stale"):
             break
     return results
+
+
+# ---------------------------------------------------------------------------
+# C0b: curriculum.coverage_on_extract (spec §6.3)
+# ---------------------------------------------------------------------------
+
+#: The ingest job a completed extraction queues while both switches are on.
+ON_EXTRACT_JOB = "curriculum_coverage_on_extract"
+
+
+def on_extract_reason(config: Any) -> str | None:
+    """Why a completed extraction queues no coverage job (None: it does)."""
+
+    section = getattr(config, "curriculum", None)
+    if not bool(getattr(section, "enabled", False)):
+        return "curriculum.enabled is false"
+    if not bool(getattr(section, "coverage_on_extract", False)):
+        return "curriculum.coverage_on_extract is false"
+    return None
+
+
+def covered_learning_objects(repository: Repository) -> list[str]:
+    """Every LO some judgment has covered (the on-extract job's work list)."""
+
+    with repository.connection() as connection:
+        if not store.table_present(connection):
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT learning_object_id FROM section_coverage WHERE learner_override IS NULL "
+            "ORDER BY learning_object_id")]
+
+
+def rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None = None,
+                       embedder: Any | None = None, clock: Clock | None = None,
+                       cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+    """The on-extract job: judge every covered LO again, so the new (or re-read) reading's
+    candidate sections join its next judgment (§6.3). Coalesced per LO: each is judged at
+    most once, and a state already judged (nothing new among its candidates) is ``fresh``
+    and pays nothing. Quiet (``plan_fallback.quiet``): the plan only, no OpenRouter offer
+    and no grant honoured; when the plan cannot run, the job stops ``waiting`` and the
+    next extraction or a pressed check judges again.
+
+    **Both switches are read when the job runs and again before each LO** (Codex review
+    F3), from the vault's files (:func:`vault_on_disk`), as protection is: a learner who
+    turns ``curriculum.enabled`` or ``curriculum.coverage_on_extract`` off after the job
+    was queued stops it (``switched_off``), with nothing searched, called or written after."""
+
+    from learnloop.ai import plan_fallback
+
+    out: dict[str, Any] = {"job": ON_EXTRACT_JOB, "extraction_id": extraction_id, "status": "done",
+                           "learning_objects": [], "results": []}
+    reason = on_extract_reason(vault.config)
+    if reason is not None:
+        return {**out, "status": "switched_off", "reason": reason}
+    learning_objects = [lo for lo in covered_learning_objects(repository) if _active(vault, lo)]
+    out["learning_objects"] = learning_objects
+    if not learning_objects:
+        return out
+    with plan_fallback.quiet():
+        library: Library | None = None
+        for lo_id in learning_objects:
+            if cancelled():
+                out["status"] = "cancelled"
+                break
+            try:
+                current = vault_on_disk(vault.root)
+                reason = on_extract_reason(current.config)
+                if reason is not None:
+                    out.update(status="switched_off", reason=reason)
+                    break
+                protection = read_protection(current, repository)
+                library = (Library(current, repository, protection=protection) if library is None
+                           else library.refreshed(current, protection=protection))
+            except CoverageError as exc:
+                out.update(status="withheld", reason=str(exc))
+                break
+            if not _active(current, lo_id):
+                continue
+            result = judge(current, repository, lo_id, library=library, client=client, embedder=embedder,
+                           clock=clock)
+            out["results"].append(result.as_dict())
+            if result.status in STOPPING:
+                out.update(status="waiting" if result.status in ("unavailable", "capped") else result.status,
+                           reason=result.reason)
+                break
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1446,6 +1590,8 @@ class Standing:
     rank: int
     by: str
     learner_text: str | None = None
+    #: The LOs the judge read the section as taking for known (C0b's prerequisite choice reads them).
+    assumes: tuple[str, ...] = ()
 
     @property
     def about(self) -> bool:
@@ -1498,7 +1644,8 @@ def standing(vault: Any, repository: Repository, library: Library,
             entries[section.key] = Standing(
                 extraction_id=section.extraction_id, section_id=section.section_id, learning_object_id=lo_id,
                 treatment=str(row["treatment"]), roles=tuple(row.get("roles") or ()), notation=row.get("notation_md"),
-                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge")
+                origin=str(row["origin"]), rank=int(row["candidate_rank"] or 0), by="judge",
+                assumes=tuple(str(lo) for lo in row.get("assumes") or ()))
         for (extraction_id, section_id, fix_lo), row in fixes.items():
             if fix_lo != lo_id or row["learner_override"] == "none":
                 continue
@@ -1515,7 +1662,8 @@ def standing(vault: Any, repository: Repository, library: Library,
                 roles=base.roles if base is not None else section.book_roles,
                 notation=base.notation if base is not None else None,
                 origin=base.origin if base is not None else "learner",
-                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"))
+                rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"),
+                assumes=base.assumes if base is not None else ())
         out[lo_id] = entries
     return out
 
@@ -1642,7 +1790,8 @@ def _operation_view(row: Mapping[str, Any], *, replayed: bool) -> dict[str, Any]
 
 
 def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target: tuple[str, str], *,
-            operation_id: str, undo_of: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
+            operation_id: str, undo_of: str | None = None, learning_object_ids: Sequence[str] | None = None,
+            clock: Clock | None = None) -> dict[str, Any]:
     """*Not about this* on an unchecked hit (``undo_of``: undo that operation), in one transaction.
 
     ``origin`` is the open section, ``target`` the hit. Both are read under
@@ -1650,7 +1799,13 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
     per LO of the origin, a ``not_about`` learner row on the target. Undo: the
     pair verdict ``none`` (superseding the one undone) and ``none`` on each of
     that operation's LOs whose newest correction on the target is still
-    ``not_about``. Idempotent by ``operation_id``."""
+    ``not_about``. Idempotent by ``operation_id``.
+
+    ``learning_object_ids`` (Reader CA5, a judged line): the LOs the line is
+    listed under, the shared LOs the learner says the hit is not about. Each
+    must be one of the origin's LOs; the correction is written for those only
+    (the pair verdict is the operation's record as before). Absent, every LO
+    of the origin (CA5a's unchecked hit, which has no LO of its own)."""
 
     if not _OPERATION_ID.match(operation_id or ""):
         raise CoverageError("validation_error", "operation_id must be 8-80 letters, digits, '-' or '_'.")
@@ -1663,7 +1818,13 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
         raise CoverageError("validation_error", "A section is never a correspondent within its own book.")
     left_id, right_id = _section_ref(*origin_section.key), _section_ref(*target_section.key)
     # The origin's LOs (provenance and coverage rows), read before the write.
-    learning_object_ids = section_learning_objects(vault, repository, library, *origin_section.key)
+    origin_los = section_learning_objects(vault, repository, library, *origin_section.key)
+    if learning_object_ids is None:
+        chosen = list(origin_los)
+    else:
+        chosen = list(dict.fromkeys(str(lo) for lo in learning_object_ids))
+        if not chosen or any(lo not in origin_los for lo in chosen):
+            raise CoverageError("validation_error", "Name only LOs of the open section.")
     now = utc_now_iso(clock)
 
     def same_question(row: Mapping[str, Any]) -> bool:
@@ -1675,12 +1836,18 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
         existing = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(operation_id),)).fetchone()
         if existing is not None:
             record = _operation_view(existing, replayed=True)
-            if not same_question(existing) or record["undo_of"] != undo_of:
+            # The id binds the whole correction: its pair, what it undoes and,
+            # when the caller names them, its LOs (Codex review F1: a retry
+            # after "also about…" must not acknowledge the earlier LO set).
+            reused = not same_question(existing) or record["undo_of"] != undo_of
+            if undo_of is None and learning_object_ids is not None:
+                reused = reused or set(record["learning_object_ids"]) != set(chosen)
+            if reused:
                 raise CoverageError("validation_error", "That operation id was used for another correction.")
             return record
         supersedes: str | None = None
         if undo_of is None:
-            choice, los = "not_about", list(learning_object_ids)
+            choice, los = "not_about", chosen
             for lo_id in los:
                 _write_correction(connection, vault, target_section, lo_id, "not_about", None, now,
                                   operation_id=operation_id)
@@ -1729,7 +1896,8 @@ def _pair_dismissed(repository: Repository, origin: Section) -> set[str]:
 PEEK_BLOCKS = 3
 
 
-def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]:
+def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str, *,
+         cache: LibraryCache | None = None) -> dict[str, Any]:
     """A section's first blocks, from its jump locator, for CA5a's peek.
 
     Protection is read now (a book marked exam material after the search is
@@ -1737,7 +1905,7 @@ def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str
     so a peek never runs on into the next unit, protected or not. A pure read:
     the caller records the exposure of exactly these blocks."""
 
-    library = Library(vault, repository)
+    library = cache.get(vault, repository) if cache is not None else Library(vault, repository)
     section = _readable_section(library, extraction_id, section_id)
     reading = library.reading(extraction_id)
     ir = repository.load_document_ir(extraction_id)
@@ -1892,7 +2060,8 @@ def _withheld_view(extraction_id: str, section_id: str, message: str) -> dict[st
 
 
 def correspondents(vault: Any, repository: Repository, extraction_id: str, section_id: str, *,
-                   search_fallback: bool = True, embedder: Any | None = None) -> dict[str, Any]:
+                   search_fallback: bool = True, embedder: Any | None = None,
+                   cache: LibraryCache | None = None) -> dict[str, Any]:
     """From one section, the other books' sections that treat the same LOs
     (judged coverage), or, with none and ``search_fallback``, the live search
     hits per book labelled *found by search, not checked*. No model call and
@@ -1900,7 +2069,7 @@ def correspondents(vault: Any, repository: Repository, extraction_id: str, secti
     section has no correspondents."""
 
     try:
-        library = Library(vault, repository)
+        library = cache.get(vault, repository) if cache is not None else Library(vault, repository)
     except CoverageError as exc:
         return _withheld_view(extraction_id, section_id, str(exc))
     if extraction_id in library.left_out:
@@ -2004,6 +2173,10 @@ def _fallback(vault: Any, repository: Repository, library: Library, origin: Sect
 
 
 __all__ = [
+    "ON_EXTRACT_JOB",
+    "covered_learning_objects",
+    "on_extract_reason",
+    "rejudge_on_extract",
     "ABOUT",
     "COVERAGE_TASK",
     "STALE_MESSAGE",
@@ -2025,6 +2198,7 @@ __all__ = [
     "CoverageGuard",
     "JudgeResult",
     "Library",
+    "LibraryCache",
     "Protection",
     "ProtectionChanged",
     "Section",
@@ -2046,6 +2220,7 @@ __all__ = [
     "peek",
     "query_embedding_plan",
     "read_protection",
+    "scope_signature",
     "search_sections",
     "section_learning_objects",
     "section_text",

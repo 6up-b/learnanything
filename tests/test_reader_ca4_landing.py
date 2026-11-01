@@ -261,7 +261,7 @@ def test_iii_each_of_the_three_switches_moves_only_its_own_contract_key_and_pale
         assert contract["libraryAsk"].get("compareScope", None) is (True if scope else None), key
         assert ("compare_books" in _palette_ids(contract)) is scope, key
         if corr:
-            assert contract["correspondence"] == {"enabled": True, "findSection": True}, key
+            assert contract["correspondence"] == {"enabled": True, "findSection": True, "alsoInBooks": True, "hiddenEverywhere": False, "hiddenSources": []}, key
         else:
             assert "correspondence" not in contract, key
     base = matrix[(False, False, False)]

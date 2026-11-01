@@ -142,6 +142,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Deliverable curriculum C0a: section_coverage (migration 222), the
         # coverage judge's rows and the learner's corrections (append-only).
         "src/learnloop/db/stores/section_coverage.py",
+        # Deliverable curriculum C0b: the scope inputs, resolutions and the
+        # deliverable path (migration 228; append-only).
+        "src/learnloop/db/stores/deliverables.py",
         # Mobile PR-4: session ownership (migration 226): the exclusive start,
         # the adopt compare-and-swap and the session_handoffs receipts.
         "src/learnloop/db/stores/session_ownership.py",

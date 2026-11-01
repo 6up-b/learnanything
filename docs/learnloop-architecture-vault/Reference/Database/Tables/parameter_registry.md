@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2e59093c48d98dfdf7b4b6fe674dce9aad997a"
-source_commit_timestamp: "2026-10-31T18:53:30-04:00"
+source_commit: "201517ccdce390dbe54db9b238126190c5352489"
+source_commit_timestamp: "2026-10-31T19:55:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 226
+schema_head: 228
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_attempt_content_state_successor.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_constraint_engine.py`
+- `tests/test_deliverable_codex_review.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_grading_cli.py`
@@ -138,7 +139,6 @@ Indexes and uniqueness:
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_rw2b_review.py`
-- `tests/test_reading_paths.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

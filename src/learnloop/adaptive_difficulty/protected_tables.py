@@ -69,6 +69,11 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("controller_ownership", DENIED),
     ("daily_plans", NEUTRAL),
     ("decision_features", DENIED),
+    # Curriculum C0b (migration 228): a path row names a reading's section; the scope inputs may name
+    # a passage; the resolutions name LOs only. AD reads none of them (spec §9.4).
+    ("deliverable_path_sections", PROTECTED),
+    ("deliverable_scope_inputs", PROTECTED),
+    ("deliverable_scope_resolutions", NEUTRAL),
     ("depth_envelope_versions", NEUTRAL),
     ("depth_policy_versions", NEUTRAL),
     ("derived_state_rebuilds", NEUTRAL),
@@ -401,6 +406,19 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="id learning_object_id origin learner_override ledger_id model prompt_version created_at",
         derived="treatment roles_json assumes_json notation_md candidate_rank learner_text section_hash lo_hash "
                 "state_key"),
+    # Curriculum C0b (migration 228): a deliverable path row names one reading's section (and an
+    # exercise span): a READING row; the label, reason and the state key it was judged under (the
+    # learner state of the moment) are never read as stored (AD reads no path).
+    "deliverable_path_sections": _table({
+        "extraction_id": "extraction", "section_id": "section@extraction_id", "exercise_span_id": "span@extraction_id",
+    },
+        values="id goal_id depth learning_object_id ordinal learner_override commitment_id ledger_id model "
+               "prompt_version created_at",
+        derived="label reason state_key"),
+    # Curriculum C0b: a scope input may name a passage of a reading (a syllabus page): a READING row;
+    # the learner's words are never read as stored.
+    "deliverable_scope_inputs": _table({"extraction_id": "extraction", "span_ids_json": "spans@extraction_id"},
+        values="id goal_id kind created_at", derived="text_md context_json"),
     "reveal_events": _table({
         "practice_item_id": "item", "attempt_id": "attempt", "question_event_id": "question_event",
     },
@@ -518,6 +536,12 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
         "kind", "learning_object_id", "suppressed_reason", "propensity", "p_open", "p_open_source", "density")},
     **{("reader_path_sections", column): "unread: the path judge's label under the incumbent's learner state; "
                                          "AD reads no reading path" for column in ("label", "reason", "state_key")},
+    # Curriculum C0b: AD reads no deliverable path and no scope input.
+    **{("deliverable_path_sections", column): "unread: the path judge's label for a deliverable under the "
+                                              "learner state of the moment; AD reads no deliverable path"
+       for column in ("label", "reason", "state_key")},
+    **{("deliverable_scope_inputs", column): "unread: the learner's own words scoping a deliverable; AD reads "
+                                             "no scope input" for column in ("text_md", "context_json")},
     # Curriculum C0a: AD reads no section coverage.
     **{("section_coverage", column): "unread: the coverage judge's (or the learner's) reading of a section "
                                      "against an LO, ranked among other readings' sections; AD reads no "
@@ -543,6 +567,8 @@ READING = frozenset({
     "passage_links", "reader_cue_impressions", "interactive_figures", "figure_predictions", "reader_path_sections",
     # Curriculum C0a: section coverage (display and retrieval context, never attempt evidence).
     "section_coverage",
+    # Curriculum C0b: the deliverable path and the passage scope inputs (display only).
+    "deliverable_path_sections", "deliverable_scope_inputs",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

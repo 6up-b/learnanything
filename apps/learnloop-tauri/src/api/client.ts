@@ -11,12 +11,17 @@ import type {
   KeepComparisonResultDto,
   KeepTakeDto,
   KeptMarksDto,
+  DeliverablePathChoice,
+  DeliverableReadyDto,
+  DeliverableScopeDto,
+  DeliverableSliceDto,
   ReadingPathChoice,
   ReadingPathDepth,
   ReadingPathDto,
   CorrespondentsDto,
   CorrespondentOperationDto,
   CorrespondentPeekDto,
+  CorrespondencePreferencesDto,
   SideBySideSectionDto,
   CoverageCorrectionChoice,
   LibraryAskDto,
@@ -1639,6 +1644,29 @@ export const api = {
   // Reader workbench RW7a: the Guide's reading path (answers at once; a
   // judgment runs in the background and the Guide reads the path again),
   // the depth for this book, and "read it anyway" / "skip it".
+  // Deliverable curriculum C0b: the deliverable's scope, its path across books, the Guide's slice,
+  // the learner's overrides and "Am I ready?" (desktop only; refused while curriculum.enabled is off).
+  curriculumDeliverables: () => call<{ deliverables: DeliverableScopeDto[] }>("curriculum_deliverables", { input: {} }),
+  curriculumCreateDeliverable: (input: { sentence: string; dueAt?: string | null; exam?: boolean }) =>
+    call<{ goalId: string; status: string; message: string | null; scope: DeliverableScopeDto }>("curriculum_create_deliverable", { input }),
+  curriculumSetScope: (input: { goalId: string; kind: "text" | "topic_list" | "passage" | "correction"; text?: string;
+    extractionId?: string; spanIds?: string[]; context?: Record<string, unknown> }) =>
+    call<{ status: string; message: string | null; scope: DeliverableScopeDto }>("curriculum_set_scope", { input }),
+  curriculumScope: (input: { goalId: string }) => call<DeliverableScopeDto>("curriculum_scope", { input }),
+  curriculumScopeDecide: (input: { goalId: string; phrase: string; decision: "create" | "decline"; subjectId?: string }) =>
+    call<{ created: { learningObjectId: string } | null; scope: DeliverableScopeDto }>("curriculum_scope_decide", { input }),
+  curriculumSetDepth: (input: { goalId: string; depth: ReadingPathDepth }) => call<unknown>("curriculum_set_depth", { input }),
+  curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) => call<unknown>("curriculum_path", { input }),
+  curriculumGuideSlice: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
+    call<DeliverableSliceDto>("curriculum_guide_slice", { input }),
+  curriculumPathOverride: (input: { goalId: string; learningObjectId: string; choice: DeliverablePathChoice; sectionRef?: string }) =>
+    call<unknown>("curriculum_path_override", { input }),
+  curriculumReady: (input: { goalId: string }) => call<DeliverableReadyDto>("curriculum_ready", { input }),
+  curriculumReadyCheck: (input: { goalId: string }) =>
+    call<{ created: Array<{ commitmentId: string; dueHint: string; learningObjectId: string }>; readiness: DeliverableReadyDto }>(
+      "curriculum_ready_check", { input }),
+  curriculumAlsoAbout: (input: { extractionId: string; sectionId: string; text: string }) =>
+    call<{ status: string; learningObjectId: string | null; message?: string; title?: string }>("curriculum_also_about", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
@@ -1656,8 +1684,13 @@ export const api = {
   // operation (undoOf: its undo), idempotent by the client's operation id.
   readerCorrespondentPeek: (input: { extractionId: string; sectionId: string }) =>
     call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
-  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
+  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null; learningObjectIds?: string[] | null }) =>
     call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
+  /** Reader CA5: the also-in-your-books line's hide preferences (Settings brings it back). */
+  readerCorrespondencePreferences: () =>
+    call<CorrespondencePreferencesDto>("reader_correspondence_preferences", { input: {} }),
+  readerSetCorrespondencePreferences: (input: { sourceId?: string | null; hideSource?: boolean | null; hideEverywhere?: boolean | null }) =>
+    call<CorrespondencePreferencesDto>("reader_set_correspondence_preferences", { input }),
   /** Reader CA6: one section of the other book for side by side's second pane. */
   readerSideBySideSection: (input: { extractionId: string; sectionId: string }) =>
     call<{ section: SideBySideSectionDto }>("reader_side_by_side_section", { input }),

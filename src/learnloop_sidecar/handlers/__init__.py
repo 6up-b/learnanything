@@ -15,6 +15,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     compare_scope,
     correspondents,
     daily_plan,
+    deliverables,
     diagnosis_card,
     diagnostic,
     epigraphs,

@@ -3,13 +3,13 @@ title: "cold_measurement_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ca2e59093c48d98dfdf7b4b6fe674dce9aad997a"
-source_commit_timestamp: "2026-10-31T18:53:30-04:00"
+source_commit: "201517ccdce390dbe54db9b238126190c5352489"
+source_commit_timestamp: "2026-10-31T19:55:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunities"
   - "table cold_measurement_opportunities"
-schema_head: 226
+schema_head: 228
 table_name: "cold_measurement_opportunities"
 table_role: "receipt"
 functionality_status: "active"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_cold_retry_reschedule.py`
+- `tests/test_curriculum_c0b_landing.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_ca5a_find_section.py`
 - `tests/test_certification_cold_probe.py`
