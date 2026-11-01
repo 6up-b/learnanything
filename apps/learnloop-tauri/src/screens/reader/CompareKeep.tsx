@@ -24,6 +24,7 @@ import { errorMessage } from "../../errors";
 import { byPoint } from "./comparePoints";
 import { useCompareKeep } from "./compareKeepContext";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
+import { NotesTakeBand } from "./ReaderNotes";
 
 export const KEEP_COPY = {
   inferred: "how LearnLoop reads the relations",
@@ -141,9 +142,9 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
   const comparisonId = table.comparisonId;
   const pairs = relationPairs(table);
 
-  const keep = async (withTake: boolean) => {
+  const keep = async (withTake: boolean, noteText?: string) => {
     const chosen = targets.find((entry) => entry.value === about) ?? targets[0];
-    const text = take.trim();
+    const text = (noteText ?? take).trim();
     const takes = withTake && text && chosen ? [{ text, keys: chosen.keys }] : [];
     setPhase("pending");
     setFailure(null);
@@ -160,7 +161,7 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
         takes,
       });
       setKept(result.kept);
-      setTake("");
+      if (noteText === undefined) setTake("");
       setPhase("idle");
       ctx.onChanged();
     } catch (error) {
@@ -200,6 +201,10 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
         {kept?.takes.length ? kept.takes.map((entry) => (
           <LearnerVoice key={entry.id} label="your take">{entry.learnerText}</LearnerVoice>
         )) : null}
+        {/* Curriculum C2: the notes linked to these passages; *use as my take* keeps one as
+            your take (RW4d's own write, quoting the note), on the passages chosen below. */}
+        <NotesTakeBand keys={table.rows.map((row) => row.key)} busy={phase === "pending"}
+          onUse={(text) => void keep(true, text)} />
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={headStyle}><span aria-hidden="true">› </span>{KEEP_COPY.take}</span>
           <input
