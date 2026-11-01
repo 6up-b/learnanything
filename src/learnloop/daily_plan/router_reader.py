@@ -482,8 +482,12 @@ def _prediction_los(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
 
     from learnloop.reader.reader_progression import learning_objects_for_span
 
-    wanted = sorted({str(event) for row in rows for record in (row.get("summary") or {}).get("predictions_missed") or ()
-                     if isinstance(record, Mapping) for event in record.get("source_event_ids") or ()})
+    # Both lists that carry a missed prediction (re-review F6): the session's
+    # missed predictions and its formative records.
+    wanted = sorted({str(event) for row in rows for key in ("predictions_missed", "observations")
+                     for record in (row.get("summary") or {}).get(key) or ()
+                     if isinstance(record, Mapping) and record.get("kind") == "prediction_missed"
+                     for event in record.get("source_event_ids") or ()})
     if not wanted:
         return {}
     with repository.connection() as connection:
@@ -636,13 +640,14 @@ def reader_activity_for_card(vault: Any, repository: Any, learning_object_ids: S
             and _touches(row.get("summary") or {}, los, facets)]
     scope = los | facets
     pending = _pending_followups(repository, rows, los, cutoff, as_of)
+    prediction_los = _prediction_los(vault, repository, rows)
     activity.update({
         "open_inquiries": _open_inquiries(vault, repository, rows, los, cutoff),
         "assisted_only": _assisted_only(vault, repository, rows, facets, los, cutoff),
         "pending_followups": pending,
-        "missed_predictions": _records(rows, scope, "predictions_missed", _prediction_los(vault, repository, rows)),
+        "missed_predictions": _records(rows, scope, "predictions_missed", prediction_los),
         "open_hypotheses": _open_hypotheses(repository, rows, los, cutoff),
-        "formative_records": _records(rows, scope, "observations"),
+        "formative_records": _records(rows, scope, "observations", prediction_los),
         "kept_comparisons": _kept_comparisons(vault, repository, lo_ids, as_of),
         "candidate_actions": _candidate_actions(repository, rows, pending, los),
         # Off: no saved narrative in any payload (Codex review F4).

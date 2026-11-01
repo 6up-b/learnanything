@@ -394,8 +394,13 @@ def test_a_real_missed_prediction_reaches_the_section_through_its_figure(tmp_pat
     activity = RR.reader_activity_for_card(vault, repo, [LO], iso(400))
     assert [r["source_event_ids"] for r in activity["missed_predictions"]] == [[prediction_id]]
     assert "s1" in spans_asked
+    # The session's formative records carry the same prediction, scoped the same way (re-review F6).
+    observed = [r for r in row["summary"]["observations"] if r.get("kind") == "prediction_missed"]
+    assert [r["source_event_ids"] for r in observed] == [[prediction_id]]
+    assert [r["source_event_ids"] for r in activity["formative_records"]
+            if r.get("kind") == "prediction_missed"] == [[prediction_id]]
     other = RR.reader_activity_for_card(vault, repo, ["lo_unrelated"], iso(400))
-    assert other["missed_predictions"] == []
+    assert other["missed_predictions"] == [] and other["formative_records"] == []
 
 
 # -- F8: open hypotheses as they stood, once each -------------------------------------------------
