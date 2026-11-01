@@ -335,20 +335,25 @@ def request_timeout_seconds(vault: Any, route: PaidRoute) -> float:
 
 def narration_lease_seconds(timeout_seconds: float) -> int:
     """The session claim's lease (final verify F3): it outlives the route's
-    configured request timeout, so a successor can take the claim over only
-    once the holder has stopped renewing it for longer than that timeout,
-    which in practice means the holder died or froze (ruling R3: the timeout
-    is per network operation, so it is not a hard bound on the request).
+    request, so a successor can take the claim over only once the holder has
+    stopped renewing it for longer than its request can last, which in
+    practice means the holder died or froze.
 
-    It is the route's configured request timeout plus a margin. keep: the
-    margin is the claims' ordinary liveness lease
+    It is the request's ENFORCED bound plus a margin. The OpenAI-compatible
+    chat adapter (``openai_chat`` / ``openrouter``, the metered routes)
+    aborts a physical request at its total transport deadline, the timeout
+    the narration sends (``openai_chat.enforced_total_seconds``; Reader
+    follow-ups Nov 1, closing ruling R3's open item: before, the timeout was
+    per network operation, so a dribbling response could outlast it). keep:
+    the margin is the claims' ordinary liveness lease
     (``hints.map_builder.CLAIM_LEASE_SECONDS``), reused, not a new number:
     it covers the time between the renewal and the send, and it stays longer
     than the heartbeat interval, so every beat keeps the lease ahead."""
 
+    from learnloop.ai.providers.openai_chat import enforced_total_seconds
     from learnloop.hints import map_builder as claims
 
-    return int(math.ceil(float(timeout_seconds))) + claims.CLAIM_LEASE_SECONDS
+    return int(math.ceil(enforced_total_seconds(timeout_seconds))) + claims.CLAIM_LEASE_SECONDS
 
 
 class NarrativeRoute:
@@ -536,21 +541,22 @@ def narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client
     # (the approach-map builds' and AD's); whoever holds it re-reads the row
     # first.
     #
-    # Its lease outlives the request timeout (final verify F3): it is the
-    # route's request timeout plus a margin, every request carries that
-    # timeout, the lease is renewed in full just before each send, and the
-    # heartbeat renews it while the call is in flight. A successor can take
-    # it over only once it expired with its holder no longer renewing it for
-    # longer than the request timeout: while the holder lives, no takeover
-    # sends. A dead holder's lease lapses and the next Today build retries.
-    # (No transport offers an idempotency key, so the claim is the only
-    # guard.) The request
-    # timeout is per network operation, not a total deadline, so a holder
-    # that froze or died mid-request can be taken over while its response is
-    # still arriving; it can never publish (fenced), and the worst case is one
-    # duplicate charge on a metered route, within digest.max_daily_cost_usd
-    # (ruling R3; an abortable total deadline is an open item for the AI
-    # transport layer).
+    # Its lease outlives the request (final verify F3): it is the request's
+    # enforced bound plus a margin (:func:`narration_lease_seconds`), every
+    # request carries the route's timeout, the lease is renewed in full just
+    # before each send, and the heartbeat renews it while the call is in
+    # flight. A successor can take it over only once it expired with its
+    # holder no longer renewing it for longer than the request can last:
+    # while the holder lives, no takeover sends. A dead holder's lease lapses
+    # and the next Today build retries. (No transport offers an idempotency
+    # key, so the claim is the only guard.) On the metered OpenAI-compatible
+    # routes the timeout is a TOTAL transport deadline (Reader follow-ups
+    # Nov 1, closing ruling R3's open item): a live holder's request is
+    # aborted at it, so a dribbling response can no longer hold the claim or
+    # run past the lease. A process that is itself frozen or dead cannot
+    # abort anything; it can never publish (fenced), and the worst case stays
+    # one duplicate charge on a metered route, within
+    # digest.max_daily_cost_usd (ruling R3).
     from learnloop.hints import map_builder as claims
 
     route = NarrativeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))
