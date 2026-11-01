@@ -398,3 +398,77 @@ def test_gc3_readiness_checks_never_pick_exam_reserved_or_held_out_items(tmp_pat
     out = DP.ready_checks(vault, repository, goal_id)
     chosen = {entry["learning_object_id"]: entry["item_id"] for entry in out["created"]}
     assert chosen["lo_matrices"] == picked
+
+
+# --- G-C1 for note_link_judge (curriculum C2's judge, swept at the C3 landing) ---------------
+
+def test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources(tmp_path, monkeypatch):
+    """C2's ``note_link_judge`` over the exam-scope fixture, with C2's FAKE tend over synthetic notes
+    (never the owner's tend or notes). A note's text is the learner's own words and is sent as such,
+    so the one synthetic note that quotes an exam sentinel (copied from the fixture) reaches the judge
+    in its own ``notes[].text`` only. Everything else in every request (the topic, the passage's
+    book, section and opening, the other notes) and every tend query names no exam material from
+    the sources, no held-out section and not the syllabus: candidates and LO/passage leads come
+    from the path, which never holds them."""
+
+    from learnloop.source_retrieval import note_links as NL
+    from tests.notes_fixtures import NoteLinkFake, install_fake_tend
+    from tests.notes_fixtures import prompt_context as note_prompt_context
+
+    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
+    quoted = PAPER["paper_q1"][1][0][0]  # the fixture's practice-available past-paper question, verbatim
+    fake_tend.add(fake_tend.notes / "eigen.org", "* Eigen notes\nEigenvalues: det(A - lI) = 0, worked by hand.\n",
+                  words=["eigenvalues"], heading="Eigen notes", line=1, title="eigen")
+    fake_tend.add(fake_tend.notes / "det.org", "* Determinant notes\nDeterminants flip sign when rows swap.\n",
+                  words=["determinants"], heading="Determinant notes", line=1, title="det")
+    fake_tend.add(fake_tend.pocket / "2026-10-05.md", f"# Copied from the midterm\nI copied this: {quoted}\n",
+                  words=["determinants", "eigenvalues", "matrix"], heading="Copied from the midterm", line=1,
+                  title="2026-10-05")
+    paths, repository = build_exam_scope_vault(tmp_path / "vault", config=fake_tend.config())
+    vault = load_vault(paths.root)
+    judge = CoverageJudgeFake()
+    for lo_id in ALL_LOS:
+        SC.judge(vault, repository, lo_id, client=judge)
+    goal_id, vault = _deliverable(paths, repository, "eigenvalues, determinants, matrix computations, spectral")
+    DL.add_input(vault, repository, goal_id, "passage", extraction_id="ext_syl", span_ids=[SPANS["syl_main"]])
+    scope = DeliverableFake()
+    assert DL.resolve(load_vault(paths.root), repository, goal_id, client=scope).status == "ready"
+    DL.add_input(load_vault(paths.root), repository, goal_id, "depth", text="learn_to_use_it")
+    path = DeliverableFake()
+    DP.judge(load_vault(paths.root), repository, goal_id, client=path)
+    assert path.calls == 1
+
+    notes = NoteLinkFake(discusses=("det(A - lI)", "flip sign", "I copied this"))
+    run = NL.link_goal(load_vault(paths.root), repository, goal_id, client=notes)
+    assert run.status == "done", run
+    assert notes.calls >= 2  # a request per topic with candidates: the sweep is not vacuous
+    copied_sent = 0
+    for prompt, context in zip(notes.prompts, notes.contexts, strict=True):
+        assert context == note_prompt_context(prompt)
+        own_words = [note["text"] for note in context["notes"]]
+        copied_sent += sum(quoted in text for text in own_words)
+        # Outside the learner's own note texts, nothing names exam material, the syllabus or a held-out section.
+        rest = prompt
+        for text in own_words:
+            rest = rest.replace(json.dumps(text)[1:-1], "")
+        _clean(rest)
+        assert SYLLABUS_MARKER not in rest
+        for extraction_id in NEVER_ON_A_PATH:
+            assert extraction_id not in rest
+        passage = context["passage"]
+        for title in {unit[0] for unit in PAPER.values()} | {"Course syllabus", "Midterm syllabus"}:
+            assert passage["section"] != title
+        # The learner's notes that quote nothing from the exam carry no sentinel either.
+        for text in own_words:
+            if quoted not in text:
+                _clean(text)
+    assert copied_sent >= 1  # the copied note was a candidate, and only its own text carries the quote
+    # tend was searched only with path topics' and sections' titles: no exam text, no syllabus.
+    for argv in fake_tend.calls():
+        _clean(" ".join(argv))
+        assert SYLLABUS_MARKER not in " ".join(argv)
+    # Every stored link points at a path section, never at exam material or a held-out section.
+    links = _rows(repository, "SELECT extraction_id, section_id FROM learner_note_links")
+    path_rows = set(_rows(repository, "SELECT extraction_id, section_id FROM deliverable_path_sections"))
+    assert links and set(links) <= path_rows
+    assert not {row[0] for row in links} & set(NEVER_ON_A_PATH)
