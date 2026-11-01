@@ -54,6 +54,8 @@ pins below move with it (see "Renumbering at landing").
 6. **The v2 receipt keeps `rw7b`** (RW7b's own receipt) so that turning C1 off restores RW7b's reading exactly
    and turning both paths off restores the order's. When C1 and RW7b choose the same section, C1 off still moves
    the stored reading to RW7b's own copy (RW7b's `core` label, not C1's `prerequisite`): RW7b's plan exactly.
+   The two switches may reach the plan in separate reads (Codex review F2): C1 off, then RW7b's switch off, moves
+   the reading on to the order's while unstarted; `transition` is the latest, `transitions` keeps both.
 7. **The daily re-judgment runs in the background and the build never waits.** The sidecar answers one request
    at a time and the plan calls no model, so a synchronous judgment before the build would freeze the app for
    a model call. It starts with the first plan RPC of the day (`get_daily_plan` and every other plan RPC go
@@ -64,9 +66,12 @@ pins below move with it (see "Renumbering at landing").
 8. **Refresh adoption (beyond the letter of §7.6).** The path's key holds the days left before the deadline and
    the books read (C0b's learner context), so a deadline deliverable's path is stale at **every** day's build,
    and starting a new book makes it stale too. Without adoption C1 would almost never act for an exam. A plan
-   built stale takes the deliverable's step on a later read, once a judgment was recorded after the build (the
-   cheap gate `judged_since`) and the path is fresh, while its reading is unstarted; recorded once as
-   `refreshed` (not `transition`, so the kill switch still reaches the plan afterwards).
+   built stale takes the deliverable's step on a later read, once a deliverable the build found stale was judged
+   since the build read it and the path is fresh, while its reading is unstarted; recorded once as `refreshed`
+   (not `transition`, so the kill switch still reaches the plan afterwards). Codex review fixes: the cheap gate
+   is the newest judgment's identity (`judged_since_read`, the ledger id each stale `consulted` entry records),
+   never the clock (F3); a nearer deliverable found stale while a farther fresh path was followed is adopted
+   once refreshed (F4); a reading the refresh withdrew holds no history, so the switch still restores RW7b's (F1).
 9. **One block reason.** Any path withdrawal ends the block with `reading_path_off` (so
    `PlannedBlock.withdrawn_path_reading` keeps its meaning); the transition's own reason distinguishes
    `deliverable_path_off` and `deliverable_path_refreshed`.
