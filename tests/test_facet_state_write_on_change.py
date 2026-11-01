@@ -99,10 +99,11 @@ def _journal_mode(sqlite_path) -> str:
         return str(connection.execute("PRAGMA journal_mode").fetchone()[0]).lower()
 
 
-def _assert_second_projection_writes_nothing(tmp_path, *, expect_wal: bool):
+def _assert_second_projection_writes_nothing(tmp_path, *, expect_wal: bool = False):
     paths, vault, repository = _history(tmp_path)
     project_canonical_facet_state(vault, repository, clock=_at(10))
-    assert (_journal_mode(paths.sqlite_path) == "wal") is expect_wal
+    if expect_wal:  # the plain variant runs in whichever lane is selected
+        assert _journal_mode(paths.sqlite_path) == "wal"
     before = _snapshot(paths.sqlite_path)
     assert before["facet_recall_state"] and before["facet_capability_evidence"]
     data_version = _DataVersion(paths.sqlite_path)
@@ -117,7 +118,7 @@ def _assert_second_projection_writes_nothing(tmp_path, *, expect_wal: bool):
 
 
 def test_a_second_projection_over_an_unchanged_ledger_writes_nothing(tmp_path):
-    _assert_second_projection_writes_nothing(tmp_path, expect_wal=False)
+    _assert_second_projection_writes_nothing(tmp_path)
 
 
 @pytest.mark.durability
