@@ -113,9 +113,13 @@ def test_the_view_sends_closed_property_check_keys_only(tmp_path):
     claim = "matches the book's equation (checked)"
     spec = flagship(kind="illustrative", demonstrates=claim)
     spec["panels"].append({"kind": "readout", "label": claim, "expr": "1"})
-    figure = build(context(paths.root, author=AuthorFake([spec])))["figure"]
+    figure = build(context(paths.root, author=AuthorFake([spec, spec])))["figure"]
     assert figure["propertyChecks"] == ["values_finite", "integrates_to_one", "nonnegative", "shaded_areas"]
     assert set(figure["propertyChecks"]) <= set(FS.PROPERTY_CHECKS)
-    # The model's words reach the Reader as model text (spec and demonstrates),
-    # inside the code-owned frame; the badge is the Reader's own.
-    assert figure["demonstrates"] == claim and figure["verification"] == "illustrative"
+    # The model's words reach the Reader as model text, inside the code-owned
+    # frame; the badge is the Reader's own. Reader follow-ups Nov 1b (§9b.4,
+    # P2b ruling R2): free text that reads like a check label is repaired, and
+    # still there after the repair it is left out (a panel's label is drawn
+    # inside the frame and is not the rule's field).
+    assert figure["demonstrates"] == "" and figure["verification"] == "illustrative"
+    assert claim in figure["specJson"]
