@@ -337,3 +337,168 @@ MemorySwapMax=1G`, pytest at `-n 6` at most, and vitest at `--maxWorkers=4`.
    *AI-written simulation · sandboxed*.
 7. **The engine digest is in the reuse key** (§8.5). An engine upgrade therefore makes a repeated request build again
    (paid), while stored sketches are re-verified for listing.
+
+## Landing onto main (2026-10-31)
+
+- **Main at landing:** `6a8256517` (Curriculum C0b; includes Reader CA3, CA4, CA5a). Reader CA5, CA6 and RW6b part 1
+  (mvp-0.39, migration 227) were landing in parallel and had not reached main when this landing finished.
+- **No migration, no successor.** Owner copies stay at mvp-0.35 → `upgrade --to mvp-0.38`, as before this stage.
+
+### The default-off decision (orchestrator, 2026-10-31)
+
+The spec's merge gate **G-SM14** (an IPC probe from inside the sketch Worker in the real Linux Tauri webview) has **not**
+been run: it needs a GUI window and the owner's permission, and this landing launched no app or window. So P2 **ships
+off until G-SM14 passes; the owner turns it on with `figures.sketch_enabled = true` after running the probe (recipe
+below).**
+
+- `FiguresConfig.sketch_enabled` defaults to `false` (`config/schema.py`, docstring says why). The template is
+  decision-only and never carried the key, so no template text changed. The registry entry (structural, operational
+  kill switch) is kept unchanged.
+- Every defaults snapshot moved only by the house recompute (the effective config gains `figures.sketch_enabled =
+  false` at every version). Nothing else in earlier versions' snapshots was rewritten.
+- "Off" is exactly what the stage built for off: the author's contract, prompt and reuse key are RW5b's/P1's byte for
+  byte, no `figure_tier` row is written, a stored sketch lists as *can't draw this yet*, and the prompt contract has no
+  `figures.sketch` key (main's contract byte for byte).
+
+### G-SM14 probe recipe (for the owner or a permitted agent)
+
+**What it answers.** Can code running inside the sketch Worker, in the real desktop webview on Linux (WebKitGTK via
+Wry), reach the app's IPC? The program inside the engine has no bindings at all; this gate is about the Worker itself,
+which is a same-origin Worker under the app CSP (`connect-src` names `ipc:` and `http://ipc.localhost`).
+
+**How to run it** (a dev build; nothing is committed):
+1. In a scratch branch, add a debug-only message to `sketch.worker.ts` (for example `{"kind": "probe"}`), handled
+   **after** the Worker's normal start-up (after it has verified the wasm and deleted `fetch`, `XMLHttpRequest`,
+   `WebSocket`, `importScripts`, `indexedDB` and `caches`). The handler tries, each in `try/catch`, and posts back one
+   line per attempt (`ok` / the error name):
+   - `fetch("ipc://localhost/plugin:app|ping")` and `fetch("http://ipc.localhost/plugin:app|ping", {method: "POST"})`
+     through any surviving reference (`self.fetch`, `globalThis.fetch`, `Object.getPrototypeOf(self).fetch`,
+     `WorkerGlobalScope.prototype.fetch`);
+   - `new XMLHttpRequest()` to both URLs, and `new WebSocket("ws://ipc.localhost")`;
+   - `self.__TAURI_INTERNALS__`, `self.__TAURI__`, `self.ipc`, `self.webkit?.messageHandlers` (each: present or
+     absent);
+   - `new Worker(...)`/`importScripts(...)` of a `blob:` URL that calls `fetch` to the IPC URL (a nested context with
+     fresh globals).
+2. Wire a dev-only button (or the devtools console) to send the probe to a live sketch Worker, run
+   `LEARNLOOP_VAULT=<a throwaway vault> npm run dev` on Linux, open a figure with a sketch so the Worker is running,
+   send the probe, and read the lines. Also run the same attempts once from the devtools console of the Worker itself.
+3. Keep a log of the Rust side (`RUST_LOG=debug`) to see whether any IPC request reached a command handler.
+
+**Success (G-SM14 passes):** every attempt fails (`TypeError`/`NetworkError`/CSP refusal or "absent"), and no IPC request
+reaches the Rust side. Record the lines in this stage record, then set `figures.sketch_enabled = true`.
+
+**Failure:** any attempt reaches an IPC handler (even one that then refuses for lack of the initialization key), or a
+Tauri/WebKit handler is reachable. Then P2 stays off and the Worker moves into an opaque-origin compartment before it is
+turned on (spec §9.4, §16), per the independent (Astra) review's **fallback recipe**:
+- an iframe with `sandbox="allow-scripts"` and **without** `allow-same-origin`, with a restrictive CSP inside it,
+  including `connect-src 'none'`, and the Worker created **inside** that frame;
+- the pinned wasm bytes transferred to it over a narrowly validated private message channel (the shape of
+  `sketchProtocol.ts`'s fix-round-4 validation); generic IPC is never forwarded;
+- probe the native WebKit message handlers (`window.webkit.messageHandlers`) from the frame as well as fetch-based IPC
+  (Wry's WebKitGTK handler attributes messages by the webview's URI, so a frame-URL check alone is not assumed
+  sufficient); if those remain reachable from the frame, use a separate webview with no capabilities.
+- Then rerun this probe from inside the new compartment.
+
+### Commits and conflicts
+
+| Commit | What |
+|---|---|
+| `66387ad86` | `--no-ff` merge of `6a8256517`. **Conflicts:** `config/template.py` only: every default snapshot (mvp-0.9 … mvp-0.38) keeps main's CA5a/CA3/CA4/C0b notes and P2's note. **All 29 fingerprints** recomputed with `defaults_fingerprint_for_version` (template `.pyc` cleared before and after; a recheck found 0 mismatches), with `sketch_enabled` already `false`; dropping `figures.sketch_enabled` from each version's effective config reproduces main's hash at **every** version (29/29). **Auto-merged:** `params/parameter_registry.py` (both sides' rules), `config/schema.py`, `api/dto.ts`, `tests/test_figures_switch_off.py` (CA3/CA4's contract pops beside P2's), `tests/test_public_tip_guards.py` (G8: P2's one-path wasm allowance beside main's changes). Main's head fixture move to `migration_head_228` needed nothing here (P2 has no migration and names no head path). Same commit: the default flip. |
+| `3c6a83f16` | Tests for the shipped default (below). |
+| `1c07df896` | DB/config reference regenerated; `ux_reader_workbench_v1.md` cross-spec notes (§20). |
+| `f9eeba937` | This record's header: the kill switch ships off. The full suite ran at this tip. |
+| (next) | This landing section. |
+
+### Interactions
+
+- **(i) Off, the shipped default = main.**
+  - `test_figures_switch_off::test_figures_on_adds_only_its_key_and_its_action` now pins that with figures on and the
+    sketch tier at its default, the contract's `figures` is main's `{predictions, region, revisions, offers, showMe}`
+    (no `sketch` key). New `test_sketch_on_adds_only_its_flag`: turned on, the contract gains `figures.sketch = true`
+    and nothing else.
+  - New `test_sketch_service::test_the_shipped_default_is_off_and_never_loads_the_engine`: a vault that never set
+    the key gets RW5b's contract, no `figure_tier` row, and `engine_ready`/`_compile` are never called (both patched
+    to raise). New `test_sidecar_start_imports_neither_wasmtime_nor_the_engine` (a subprocess: importing the sidecar
+    server and registry loads neither `wasmtime` nor `sketch_engine`).
+  - **Fail-first:** with the schema default put back to `true`, the shipped-default test and the contract test fail;
+    with `false` all pass.
+  - The stage's own off tests (contract, prompt and reuse key byte for byte; stored sketch lists as *can't draw this
+    yet*; revise/predict refuse `sketch_disabled`) pass unchanged.
+  - Against main's own code on owner copies (smoke below): the prompt contract and `reader.figures` for every
+    extraction are byte-identical, and no `wasmtime`/engine library is mapped into the sidecar process.
+- **(ii) On (tests only): never "checked".** Code forces a sketch's `kind` to `illustrative` (`service.py`
+  `_store_sketch`), and its label is the code-owned `SKETCH_LABEL` *AI-written simulation · sandboxed · not checked
+  against the book* (`test_a_sketch_answer_is_verified_stored_and_shown_with_its_check_lines`; `SketchFigure.test.tsx`
+  pins the badge and *(drawn, not checked)*). RW5c's checked label is unbuilt and nothing in P2 claims it.
+- **(iii) Reader surfaces.** The whole vitest (234 files) passes on the merge, including CA3's compare scope, CA4's
+  table by point, CA5a's find-section and the figure components (the inline slot, `figuresWithReadingPath`). CA5 (the
+  rest) and CA6 were not on main yet: when they land after this, their landing reruns the whole vitest over P2's figure
+  components.
+
+### Regeneration
+
+- `db_generate_reference.py` (433 notes rewritten, mostly the source-commit stamp; `figures.sketch_enabled` now
+  `false`), the two prose counts moved to **1077** effective leaves (P2's key on main's 1076); `db_validate_reference.py`
+  **errors []**; `validate_vault.py` passes (1166 notes).
+- CLI help, RPC/serializer pins and the mobile allowlist needed no change (their tests pass on the merge).
+- §20 cross-spec notes recorded: `ux_reader_workbench_v1.md` §4.7 gains the sketch badge row, §11.2's label becomes
+  *AI-written simulation · sandboxed* (both say it ships off until G-SM14). `spec_mcp_frontend_v1.md` §9.3 already
+  carries the Q13 amendment.
+
+### Gate (`env -i` with empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`; logs in `fixtures-local/landing/logs/`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (wasmtime 50.0.1 from the lock); `lint-imports --no-cache` | **36 kept**, 0 broken |
+| `sketch-engine/build.py --check` (inputs already cached; nothing downloaded) | reproduced `7fc76715…74cbfe` |
+| After the merge, targeted contract run (switch-off pins, sketch service and sandbox review, config refactor (fingerprints), vault template, CLI help, serializer snapshot, registry audit, public-tip guards, mobile allowlist; `-n 6`, 5G) | 429 passed, 1 failed (`test_figures_on_adds_only_its_key_and_its_action`: the default flip; updated, see interactions (i)); then 9/9 and the two new shipped-default tests pass |
+| **Full suite** at `f9eeba937` (`flock`, 10G/2G scope, `pytest -n 8 --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml`) | **22,708 passed, 0 failed**, 89 skipped, 47 xfailed. pytest 2,066.2 s (34:26); wall **34 min 29 s** after a 27 min 27 s wait for the lock. No flake reruns were needed |
+| Durability (`-m durability`, 5G, `-n 6`) | **176 passed**, 1 skipped (64.1 s; wall 65 s) |
+| Owner lane (`-m owner_vaults`, 5G, `-n 6`; fresh backup-API copies of `fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}` in `fixtures-local/owner-lane-rw5d/`) | 83 passed, **2 failed**, 4 skipped (61.7 s; wall 62 s). The failures are exactly the expected `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies[arxiv_v2]`; the skips are the vaults with no copy |
+| Frontend (`apps/learnloop-tauri`) | `npm install` ok (run once outside the 5G scope by mistake; an install, no tests); `npm run typecheck` clean (14 s); whole vitest (`--maxWorkers=4`, 5G): **234 files, 2152 passed** (57.8 s; wall 58 s); `npm run frontend:build` ok (emits `sketch.worker-*.js` and `sketch-engine-*.wasm`, 869.39 kB); `cargo check --manifest-path src-tauri/Cargo.toml` ok (B3 re-confirmed; `src-tauri` unchanged by P2) |
+
+### Smoke on owner copies
+
+- Fresh backup-API copies of `fixtures-local/owner-copies-mvp035/{linear_algebra,probability,arxiv_v2}`, twice (one
+  set for the branch, one for main's code from `git archive 6a8256517 src migrations`), in `fixtures-local/smoke-rw5d/run2/`.
+  `env -i`, AI base URLs at `127.0.0.1:9`, `LEARNLOOP_FIGURE_MODELS=off`, `LEARNLOOP_COVERAGE_MODELS=off`; the sidecar
+  ran as a real process under audit hooks refusing non-loopback sockets and process starts (**they logged nothing**).
+  Counts and digests only. Driver: `fixtures-local/landing/smoke_rw5d/smoke.py`.
+- **Upgrade:** `mvp-0.35 -> mvp-0.38` (rc 0) and `rebuild-derived-state` (rc 0) on both sides; branch and main copies
+  have **identical table counts** (no migration in P2); no table lost rows except arxiv_v2's FTS5 internals
+  (`source_block_fts_data`/`_idx`, as in every landing); integrity ok.
+- **Figures with the tier off:** the copies hold **0 stored figures** (so "unchanged" is 0 → 0, row digest
+  unchanged). `reader.prompt_contract` plus `reader.figures` for every extraction: **5/5, 5/5, 13/13 byte-identical
+  to main's code**; the contract's figure flags are main's (no `sketch`). No `wasmtime` or engine library was mapped into
+  the sidecar process after the calls.
+- **`rebuild --shadow`: 0/0/0** on all three, after the upgrade and at the end.
+- **Receipts:** **0** `model_call_receipts` rows added (0 real, 0 fake). Spend $0. Nothing under `~/learnloop-vaults`,
+  `~/learnloop-retired` or `~/learnloop-books` was opened or listed.
+
+### Owner notes
+
+- **Turning it on:** after G-SM14 passes (recipe above), set `[figures] sketch_enabled = true` in the vault's
+  `learnloop.toml`. With the tier on, the author may answer with a sketch; "show me" and *make this explorable* then
+  build sketches where the grammar can't, labelled *AI-written simulation · sandboxed · not checked against the book*.
+- **The committed engine:** `apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm`, **869 KB**
+  (869,392 bytes), QuickJS-ng 0.17.0 compiled to wasm32, with its notices in
+  `apps/learnloop-tauri/sketch-engine/LICENSES.txt` (QuickJS-ng, MIT; wasi-libc from wasi-sdk 34; compiler-rt builtins
+  from LLVM 23.1.0) and a three-way pin (`engine.lock.json`, the Python and TS constants). G8 allows exactly that one
+  path.
+- **Rebuilding it** (`build.py`, or `build.py --check`) needs a **119 MB** pinned wasi-sysroot download (cached under
+  `~/.cache/learnloop-build/sketch-engine/`) plus a local Clang and `wasm-ld`; tests and the app use the tracked
+  artifact. `--check` reproduced the pinned digest here from the cache.
+
+### Open items
+
+1. **G-SM14** (above): the merge gate the spec names; the tier stays off until it passes.
+2. **Toolchain pinning:** `build.py` checks only Clang's major version and does not pin `wasm-ld`; pin the exact
+   compiler/linker distribution or a build image.
+3. **Verification read cost:** about 110 engine reads per grid point (the one read schedule shared by verification,
+   grading and playback); fine at today's grids, worth watching if grids grow.
+4. **Digests cover samples and graded steps** only; reads outside them are not compared by the desktop.
+5. **Withdrawal is per session, not recorded:** when the desktop's digests differ from the verifier's, the checks are
+   withdrawn for that session but nothing is written.
+6. **Stricter bindings:** the Worker protocol and shim could be narrowed further (the review's follow-up list).
+7. **Owner checkpoint:** five real sketches from the owner's subjects (probability, linear algebra, ML), after the tier
+   is on; none was built here (no live calls).
