@@ -26,6 +26,34 @@ from tests.test_reader_workbench_rw2a import (  # noqa: F401 - grader is a fixtu
 )
 
 
+def _readings(repository) -> None:
+    """Reader CA6b fix round 5: the sidecar checks a problem's passages against
+    its reading (fail closed), so the readings these problems name exist, with
+    those passages. Sources are still mapped by the fixture below."""
+
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+    from tests.test_source_inventory import _persist
+
+    def reading(extraction_id: str, source_id: str, revision_id: str, spans: list[str]) -> None:
+        with repository.connection() as connection:
+            if connection.execute("SELECT 1 FROM source_artifacts WHERE id = ?", (source_id,)).fetchone() is None:
+                connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
+                                   "VALUES (?,?,?,?,?)", (source_id, "pdf", f"file:///{source_id}.pdf", "2026-01-01", "2026-01-01"))
+            connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+                               (revision_id, source_id, f"sha256:{revision_id}", "2026-01-01"))
+            connection.commit()
+        blocks = [DocumentBlock.build(span_id=span, block_type="Text", text=f"Passage {span}.", ordinal=index, page=1)
+                  for index, span in enumerate(spans)]
+        unit = DocumentUnit(unit_id=f"u_{extraction_id}", label="Section", ordinal=0, semantic_hash=f"sha256:{extraction_id}",
+                            page_start=1, page_end=1, span_ids=spans)
+        _persist(repository, DocumentIR(extractor="marker", extractor_version="1", units=[unit], blocks=blocks, assets=[],
+                                        health=ExtractionHealth()), revision_id=revision_id, extraction_id=extraction_id)
+
+    reading("ext_other", "src_paper", "rev_paper", ["s5", "p1"])
+    reading("ext_gone", "src_gone", "rev_gone", ["s5"])
+    reading("ext_book_v1", "src_wb", "rev_wb_v1", ["s5", "old7"])
+
+
 @pytest.fixture
 def sources(monkeypatch):
     """Map extractions to sources (the RW2a harness has no extraction runs)."""
@@ -42,6 +70,7 @@ def sources(monkeypatch):
 
 def test_open_problems_lists_every_sources_open_problems_newest_first_with_their_source(tmp_path, grader, sources):
     paths, repository = _vault(tmp_path)
+    _readings(repository)
     ctx = _context(paths.root)
     first = _open(ctx)
     _step(ctx, first["sessionId"], "a", bodyMd="one")
@@ -67,6 +96,7 @@ def test_open_problems_lists_every_sources_open_problems_newest_first_with_their
 
 def test_a_submitted_problem_and_one_without_a_source_are_not_threads(tmp_path, grader, sources):
     paths, _repository = _vault(tmp_path)
+    _readings(_repository)
     ctx = _context(paths.root)
     done = _open(ctx)
     _step(ctx, done["sessionId"], "a", bodyMd="A = U Sigma V^T")
@@ -91,6 +121,7 @@ def test_a_problem_on_an_earlier_reading_of_its_book_is_not_a_thread(tmp_path, g
     the Reader, which opens the current one, so Today does not offer it."""
 
     paths, _repository = _vault(tmp_path)
+    _readings(_repository)
     ctx = _context(paths.root)
     earlier = _open(ctx, practiceItemId=OTHER_ITEM, extractionId="ext_book_v1", spanIds=["old7"])
     _step(ctx, earlier["sessionId"], "a", bodyMd="on the first reading")
