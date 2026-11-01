@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/FindSection.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/FindSection.tsx"
-source_commit: "2ce89d4f4134f634f37b200cae73c52ac7a9cec0"
-source_commit_timestamp: "2026-10-31T19:42:55-04:00"
+source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
+source_commit_timestamp: "2026-10-31T22:15:39-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/FindSection.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/FindSection.tsx) |
-| Source lines | 453 |
+| Source lines | 478 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2ce89d4f4134f634f37b200cae73c52ac7a9cec0` |
-| Commit timestamp | `2026-10-31T19:42:55-04:00` |
+| Source commit | `952a54d9d4963ef00dd1d49410b4a92eba28f51d` |
+| Commit timestamp | `2026-10-31T22:15:39-04:00` |
 
 ## Activation and status evidence
 
@@ -60,72 +60,73 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const FIND_COPY =` — const, line 41
-- `export interface FindSectionOrigin` — interface, line 64
-- `export interface FindSectionProps` — interface, line 71
-- `export function sectionShort(title: string): string` — function, line 99
-- `export function bookShort(title: string): string` — function, line 106
-- `export interface PeekCrumb` — interface, line 112
-- `export function peekCrumb(hit: Pick<CorrespondentSectionDto, "sourceTitle" | "title">): PeekCrumb` — function, line 116
-- `export function hitKey(hit: Pick<CorrespondentSectionDto, "extractionId" | "sectionId">): string` — function, line 120
-- `export function newOperationId(): string` — function, line 125
-- `export function FindSection(` — function, line 136
+- `export const FIND_COPY =` — const, line 45
+- `export interface FindSectionOrigin` — interface, line 71
+- `export interface FindSectionProps` — interface, line 78
+- `export function sectionShort(title: string): string` — function, line 108
+- `export function bookShort(title: string): string` — function, line 115
+- `export interface PeekCrumb` — interface, line 121
+- `export function peekCrumb(hit: Pick<CorrespondentSectionDto, "sourceTitle" | "title">): PeekCrumb` — function, line 125
+- `export function hitKey(hit: Pick<CorrespondentSectionDto, "extractionId" | "sectionId">): string` — function, line 129
+- `export function newOperationId(): string` — function, line 134
+- `export function FindSection(` — function, line 145
 
 ## Internal implementation anchors
 
-- `type Pressed = |` — type, line 87
-- `interface Peek` — interface, line 92
-- `const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "")` — const, line 100
-- `const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed)` — const, line 101
-- `const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim()` — const, line 107
-- `const id = globalThis.crypto?.randomUUID?.() ?? `$` — const, line 126
-- `const LINK: CSSProperties =` — const, line 130
-- `const HEAD: CSSProperties =` — const, line 134
-- `const sectionId = section?.id ?? null` — const, line 139
-- `const lineRefs = useRef<Map<string, HTMLButtonElement>>(new Map())` — const, line 148
-- `const token = useRef(0)` — const, line 151
-- `const search = useRef(0)` — const, line 152
-- `const pendingOps = useRef<Map<string, string>>(new Map())` — const, line 155
-- `const mine = ++token.current` — const, line 158
-- `const press = useCallback(()` — const, line 181
-- `const mine = token.current` — const, line 183
-- `const searching = ++search.current` — const, line 184
-- `const live = ()` — const, line 185
-- `const fold = useCallback(()` — const, line 202
-- `const view = pressed?.phase === "landed" ? pressed.view : null` — const, line 209
-- `const sources = (view?.search?.sources ?? []).map((source)` — const, line 210
-- `const lines = sources.flatMap((source)` — const, line 213
-- `const liveLines = lines.filter((hit)` — const, line 214
-- `const focusLine = (key: string)` — const, line 216
-- `const openPeek = useCallback(async (hit: CorrespondentSectionDto)` — const, line 218
-- `const key = hitKey(hit)` — const, line 219
-- `const mine = token.current` — const, line 221
-- `const closePeek = useCallback(()` — const, line 236
-- `const key = peek?.key` — const, line 237
-- `const peekChange = useRef(onPeekChange)` — const, line 244
-- `const seenClose = useRef(closePeekToken)` — const, line 250
-- `const goThere = useCallback((hit: CorrespondentSectionDto)` — const, line 257
-- `const runOperation = useCallback(async (key: string, act: string, request: (operationId: string)` — const, line 264
-- `const mine = token.current` — const, line 266
-- `const opKey = `$` — const, line 267
-- `const operationId = pendingOps.current.get(opKey) ?? newOperationId()` — const, line 268
-- `const notAbout = useCallback(async (hit: CorrespondentSectionDto)` — const, line 284
-- `const key = hitKey(hit)` — const, line 286
-- `let recorded: string | null = null` — let, line 287
-- `const operationId = recorded` — const, line 294
-- `const undo = useCallback(async (key: string)` — const, line 301
-- `const entry = dismissed.get(key)` — const, line 302
-- `const next = new Map(current)` — const, line 309
-- `const onListKey = (event: KeyboardEvent<HTMLDivElement>)` — const, line 316
-- `const target = event.target as HTMLElement` — const, line 319
-- `const keyOf = target.closest<HTMLElement>("[data-find-line]")?.dataset.findLine ?? null` — const, line 320
-- `const index = keyOf ? liveLines.findIndex((hit)` — const, line 321
-- `const hit = index >= 0 && target.dataset.findTitle !== undefined ? liveLines[index] : null` — const, line 324
-- `const consume = ()` — const, line 325
-- `const next = index < 0 ? 0 : (index + (event.key === "ArrowDown" ? 1 : -1) + liveLines.length) % liveLines.length` — const, line 332
-- `const key = hitKey(hit)` — const, line 381
-- `const gone = dismissed.get(key)` — const, line 382
-- `const peeking = peek?.key === key` — const, line 393
+- `type Pressed = |` — type, line 96
+- `interface Peek` — interface, line 101
+- `const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "")` — const, line 109
+- `const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed)` — const, line 110
+- `const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim()` — const, line 116
+- `const id = globalThis.crypto?.randomUUID?.() ?? `$` — const, line 135
+- `const LINK: CSSProperties =` — const, line 139
+- `const HEAD: CSSProperties =` — const, line 143
+- `const sectionId = section?.id ?? null` — const, line 148
+- `const lineRefs = useRef<Map<string, HTMLButtonElement>>(new Map())` — const, line 157
+- `const token = useRef(0)` — const, line 160
+- `const search = useRef(0)` — const, line 161
+- `const pendingOps = useRef<Map<string, string>>(new Map())` — const, line 164
+- `const mine = ++token.current` — const, line 167
+- `const press = useCallback(()` — const, line 190
+- `const mine = token.current` — const, line 192
+- `const searching = ++search.current` — const, line 193
+- `const live = ()` — const, line 194
+- `const fold = useCallback(()` — const, line 211
+- `const view = pressed?.phase === "landed" ? pressed.view : null` — const, line 218
+- `const sources = (view?.search?.sources ?? []).map((source)` — const, line 219
+- `const lines = sources.flatMap((source)` — const, line 222
+- `const liveLines = lines.filter((hit)` — const, line 223
+- `const focusLine = (key: string)` — const, line 225
+- `const openPeek = useCallback(async (hit: CorrespondentSectionDto)` — const, line 227
+- `const key = hitKey(hit)` — const, line 228
+- `const mine = token.current` — const, line 230
+- `const closePeek = useCallback(()` — const, line 245
+- `const key = peek?.key` — const, line 246
+- `const peekChange = useRef(onPeekChange)` — const, line 253
+- `const seenClose = useRef(closePeekToken)` — const, line 259
+- `const goThere = useCallback((hit: CorrespondentSectionDto)` — const, line 266
+- `const sideBySide = useCallback((hit: CorrespondentSectionDto)` — const, line 272
+- `const runOperation = useCallback(async (key: string, act: string, request: (operationId: string)` — const, line 280
+- `const mine = token.current` — const, line 282
+- `const opKey = `$` — const, line 283
+- `const operationId = pendingOps.current.get(opKey) ?? newOperationId()` — const, line 284
+- `const notAbout = useCallback(async (hit: CorrespondentSectionDto)` — const, line 300
+- `const key = hitKey(hit)` — const, line 302
+- `let recorded: string | null = null` — let, line 303
+- `const operationId = recorded` — const, line 310
+- `const undo = useCallback(async (key: string)` — const, line 317
+- `const entry = dismissed.get(key)` — const, line 318
+- `const next = new Map(current)` — const, line 325
+- `const onListKey = (event: KeyboardEvent<HTMLDivElement>)` — const, line 332
+- `const target = event.target as HTMLElement` — const, line 335
+- `const keyOf = target.closest<HTMLElement>("[data-find-line]")?.dataset.findLine ?? null` — const, line 336
+- `const index = keyOf ? liveLines.findIndex((hit)` — const, line 337
+- `const hit = index >= 0 && target.dataset.findTitle !== undefined ? liveLines[index] : null` — const, line 340
+- `const consume = ()` — const, line 341
+- `const next = index < 0 ? 0 : (index + (event.key === "ArrowDown" ? 1 : -1) + liveLines.length) % liveLines.length` — const, line 348
+- `const key = hitKey(hit)` — const, line 400
+- `const gone = dismissed.get(key)` — const, line 401
+- `const peeking = peek?.key === key` — const, line 412
 
 ## Who imports or calls it
 
@@ -162,6 +163,9 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/sideBySideReader.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sideBySideCorrespondence.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideCorrespondence.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/findSectionSideBySide.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSectionSideBySide.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/findSectionReader.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSectionReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/findSectionByPoint.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSectionByPoint.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/findSection.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

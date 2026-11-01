@@ -115,6 +115,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/ReconnectLine|src/screens/reader/ReconnectLine.tsx]] — import-or-re-export: `LearnerQuote`, `MeaningLabel`; references `LearnerQuote`, `MeaningLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|src/screens/reader/WrapUpPanel.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`

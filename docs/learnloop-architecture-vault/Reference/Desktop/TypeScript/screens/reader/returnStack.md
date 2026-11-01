@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/returnStack.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/returnStack.ts"
-source_commit: "d417dd9d3637496910cfd36dd6b756f8a63d2073"
-source_commit_timestamp: "2026-10-13T06:07:23-04:00"
+source_commit: "42fc3a995cf040e1c4fd84e7656601631e56cb84"
+source_commit_timestamp: "2026-10-31T19:41:54-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/returnStack.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/returnStack.ts) |
-| Source lines | 112 |
+| Source lines | 145 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d417dd9d3637496910cfd36dd6b756f8a63d2073` |
-| Commit timestamp | `2026-10-13T06:07:23-04:00` |
+| Source commit | `42fc3a995cf040e1c4fd84e7656601631e56cb84` |
+| Commit timestamp | `2026-10-31T19:41:54-04:00` |
 
 ## Activation and status evidence
 
@@ -60,28 +60,34 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type DetourKind = "branch" | "peek" | "citation" | "source"` — type, line 11
-- `export type RailTab = "guide" | "ask" | "notes"` — type, line 12
-- `export interface ReturnEntry` — interface, line 14
-- `export interface ReturnStack` — interface, line 30
-- `export const EMPTY_STACK: ReturnStack =` — const, line 39
-- `export function hasDetour(stack: ReturnStack): boolean` — function, line 42
-- `export function canGoBack(stack: ReturnStack): boolean` — function, line 46
-- `export function canGoForward(stack: ReturnStack): boolean` — function, line 50
-- `export function pushDetour(stack: ReturnStack, origin: ReturnEntry, entry: ReturnEntry): ReturnStack` — function, line 59
-- `export function goTo(stack: ReturnStack, index: number):` — function, line 78
-- `export function back(stack: ReturnStack):` — function, line 83
-- `export function forward(stack: ReturnStack):` — function, line 87
-- `export function stackInquiryExchange(stack: ReturnStack): string | null` — function, line 92
-- `export function openDetours(stack: ReturnStack): ReturnEntry[]` — function, line 97
-- `export function unreturnedDetours(stack: ReturnStack): ReturnEntry[]` — function, line 103
-- `export function markReturned(stack: ReturnStack, ids: readonly string[]): ReturnStack` — function, line 109
+- `export type DetourKind = "branch" | "peek" | "citation" | "source" | "side_by_side"` — type, line 14
+- `export type RailTab = "guide" | "ask" | "notes"` — type, line 15
+- `export interface ReturnEntry` — interface, line 17
+- `export interface ReturnStack` — interface, line 36
+- `export const EMPTY_STACK: ReturnStack =` — const, line 45
+- `export function hasDetour(stack: ReturnStack): boolean` — function, line 48
+- `export function canGoBack(stack: ReturnStack): boolean` — function, line 52
+- `export function canGoForward(stack: ReturnStack): boolean` — function, line 56
+- `export function pushDetour(stack: ReturnStack, origin: ReturnEntry, entry: ReturnEntry): ReturnStack` — function, line 65
+- `export function goTo(stack: ReturnStack, index: number):` — function, line 87
+- `export function back(stack: ReturnStack):` — function, line 92
+- `export function forward(stack: ReturnStack):` — function, line 96
+- `export function stackInquiryExchange(stack: ReturnStack): string | null` — function, line 101
+- `export function openDetours(stack: ReturnStack): ReturnEntry[]` — function, line 106
+- `export function unreturnedDetours(stack: ReturnStack): ReturnEntry[]` — function, line 112
+- `export function markReturned(stack: ReturnStack, ids: readonly string[]): ReturnStack` — function, line 118
+- `export function dropCurrent(stack: ReturnStack, id: string): ReturnStack` — function, line 127
+- `export function replaceCurrent(stack: ReturnStack, id: string, patch: Partial<Pick<ReturnEntry, "label" | "sideBySide">>): ReturnStack` — function, line 139
 
 ## Internal implementation anchors
 
-- `const current = stack.entries[stack.cursor]` — const, line 63
-- `const entries = [...stack.entries.slice(0, stack.cursor + 1), entry]` — const, line 73
-- `const returned = new Set(stack.returned ?? [])` — const, line 104
+- `const current = stack.entries[stack.cursor]` — const, line 69
+- `const entries = [...stack.entries.slice(0, stack.cursor + 1), entry]` — const, line 82
+- `const returned = new Set(stack.returned ?? [])` — const, line 113
+- `const current = stack.entries[stack.cursor]` — const, line 128
+- `const entries = stack.entries.slice(0, stack.cursor)` — const, line 130
+- `const current = stack.entries[stack.cursor]` — const, line 140
+- `const entries = stack.entries.slice()` — const, line 142
 
 ## Who imports or calls it
 
@@ -90,13 +96,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `stackGoTo`; references `stackGoTo`
 - [[Reference/Desktop/TypeScript/screens/reader/DetourStrip|src/screens/reader/DetourStrip.tsx]] — import-or-re-export: `ReturnStack`, `hasDetour`; references `ReturnStack`, `hasDetour`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `hasDetour`, `markReturned`, `pushDetour`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`; references `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `hasDetour`, `markReturned`, `pushDetour`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`; references `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`
 
 ## Dependencies
 
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `ReaderSelection`
+- [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]] — import-or-re-export; imports `PaneTarget`
 
 ### Assets, platform, and third-party dependencies
 

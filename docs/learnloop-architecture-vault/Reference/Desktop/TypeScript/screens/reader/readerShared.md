@@ -90,6 +90,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `answerModeLabel`; references `answerModeLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/ReconnectLine|src/screens/reader/ReconnectLine.tsx]] — import-or-re-export: `clip`; references `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export: `ReaderSelection`; references `ReaderSelection`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`

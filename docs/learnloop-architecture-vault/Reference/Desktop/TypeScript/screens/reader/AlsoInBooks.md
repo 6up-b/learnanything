@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/AlsoInBooks.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/AlsoInBooks.tsx"
-source_commit: "2ce89d4f4134f634f37b200cae73c52ac7a9cec0"
-source_commit_timestamp: "2026-10-31T19:42:55-04:00"
+source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
+source_commit_timestamp: "2026-10-31T22:15:39-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/AlsoInBooks.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/AlsoInBooks.tsx) |
-| Source lines | 730 |
+| Source lines | 732 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2ce89d4f4134f634f37b200cae73c52ac7a9cec0` |
-| Commit timestamp | `2026-10-31T19:42:55-04:00` |
+| Source commit | `952a54d9d4963ef00dd1d49410b4a92eba28f51d` |
+| Commit timestamp | `2026-10-31T22:15:39-04:00` |
 
 ## Activation and status evidence
 
@@ -122,44 +122,44 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const mine = token.current` — const, line 340
 - `const goThere = useCallback((hit: CorrespondentSectionDto)` — const, line 355
 - `const sideBySide = useCallback((hit: CorrespondentSectionDto)` — const, line 361
-- `const runOperation = useCallback(async (key: string, act: string, request: (operationId: string)` — const, line 367
-- `const mine = token.current` — const, line 369
-- `const opKey = `$` — const, line 370
-- `const operationId = pendingOps.current.get(opKey) ?? newOperationId()` — const, line 371
-- `const notAbout = useCallback(async (line: AlsoLine)` — const, line 389
-- `let recorded: string | null = null` — let, line 391
-- `const operationId = recorded` — const, line 400
-- `const title = groups.find((group)` — const, line 402
-- `const undo = useCallback(async (key: string)` — const, line 408
-- `const entry = gone.get(key)` — const, line 409
-- `const next = new Map(current)` — const, line 416
-- `const sendAlsoAbout = useCallback(async (line: AlsoLine, text: string)` — const, line 425
-- `const words = text.trim()` — const, line 426
-- `const mine = token.current` — const, line 428
-- `const result = await api.curriculumAlsoAbout(` — const, line 432
-- `const message = result.status === "corrected" ? `$` — const, line 434
-- `const onListKey = (event: KeyboardEvent<HTMLDivElement>)` — const, line 449
-- `const target = event.target as HTMLElement` — const, line 452
-- `const keyOf = target.closest<HTMLElement>("[data-also-line]")?.dataset.alsoLine ?? null` — const, line 453
-- `const index = keyOf ? liveLines.findIndex((line)` — const, line 454
-- `const line = index >= 0 && target.dataset.alsoTitle !== undefined ? liveLines[index] : null` — const, line 457
-- `const consume = ()` — const, line 458
-- `const next = index < 0 ? 0 : (index + (event.key === "ArrowDown" ? 1 : -1) + liveLines.length) % liveLines.length` — const, line 465
-- `const back = menuKey ?? alsoAbout?.key ?? null` — const, line 483
-- `const blockMenuView = blockMenu ? ( <span role="menu" aria-label=` — const, line 494
-- `const blockMore = ( <button type="button" aria-label=` — const, line 500
-- `const goneRow = (key: string, entry:` — const, line 534
-- `const peekRoles = peek ? roleWords(peek.hit.roles) : null` — const, line 545
-- `const groupIds = new Set(groups.map((group)` — const, line 546
-- `const strayGroups: Array<` — const, line 548
-- `let stray = strayGroups.find((group)` — let, line 551
-- `const keyHints = [ ALSO_COPY.keys.peek, ALSO_COPY.keys.go, ...(onSideBySide ? [ALSO_COPY.keys.side] : []), ...(onCompare ? [ALSO_COPY.keys.compare] : []), ALSO_COPY.keys.fix, ].join(" · ")` — const, line 559
-- `const removed = gone.get(key)` — const, line 582
-- `const focused = focusedKey === key` — const, line 584
-- `const peeking = peek?.key === key` — const, line 585
-- `const kept = keptWords(hit.kept)` — const, line 586
-- `const treatment = hit.linkedByYou ? ALSO_COPY.linkedByYou : hit.treatmentWords ?? (hit.treatment ? ALSO_COPY.treatment[hit.treatment] ?? null : null)` — const, line 587
-- `const box = alsoAbout?.key === key ? alsoAbout : null` — const, line 589
+- `const runOperation = useCallback(async (key: string, act: string, request: (operationId: string)` — const, line 369
+- `const mine = token.current` — const, line 371
+- `const opKey = `$` — const, line 372
+- `const operationId = pendingOps.current.get(opKey) ?? newOperationId()` — const, line 373
+- `const notAbout = useCallback(async (line: AlsoLine)` — const, line 391
+- `let recorded: string | null = null` — let, line 393
+- `const operationId = recorded` — const, line 402
+- `const title = groups.find((group)` — const, line 404
+- `const undo = useCallback(async (key: string)` — const, line 410
+- `const entry = gone.get(key)` — const, line 411
+- `const next = new Map(current)` — const, line 418
+- `const sendAlsoAbout = useCallback(async (line: AlsoLine, text: string)` — const, line 427
+- `const words = text.trim()` — const, line 428
+- `const mine = token.current` — const, line 430
+- `const result = await api.curriculumAlsoAbout(` — const, line 434
+- `const message = result.status === "corrected" ? `$` — const, line 436
+- `const onListKey = (event: KeyboardEvent<HTMLDivElement>)` — const, line 451
+- `const target = event.target as HTMLElement` — const, line 454
+- `const keyOf = target.closest<HTMLElement>("[data-also-line]")?.dataset.alsoLine ?? null` — const, line 455
+- `const index = keyOf ? liveLines.findIndex((line)` — const, line 456
+- `const line = index >= 0 && target.dataset.alsoTitle !== undefined ? liveLines[index] : null` — const, line 459
+- `const consume = ()` — const, line 460
+- `const next = index < 0 ? 0 : (index + (event.key === "ArrowDown" ? 1 : -1) + liveLines.length) % liveLines.length` — const, line 467
+- `const back = menuKey ?? alsoAbout?.key ?? null` — const, line 485
+- `const blockMenuView = blockMenu ? ( <span role="menu" aria-label=` — const, line 496
+- `const blockMore = ( <button type="button" aria-label=` — const, line 502
+- `const goneRow = (key: string, entry:` — const, line 536
+- `const peekRoles = peek ? roleWords(peek.hit.roles) : null` — const, line 547
+- `const groupIds = new Set(groups.map((group)` — const, line 548
+- `const strayGroups: Array<` — const, line 550
+- `let stray = strayGroups.find((group)` — let, line 553
+- `const keyHints = [ ALSO_COPY.keys.peek, ALSO_COPY.keys.go, ...(onSideBySide ? [ALSO_COPY.keys.side] : []), ...(onCompare ? [ALSO_COPY.keys.compare] : []), ALSO_COPY.keys.fix, ].join(" · ")` — const, line 561
+- `const removed = gone.get(key)` — const, line 584
+- `const focused = focusedKey === key` — const, line 586
+- `const peeking = peek?.key === key` — const, line 587
+- `const kept = keptWords(hit.kept)` — const, line 588
+- `const treatment = hit.linkedByYou ? ALSO_COPY.linkedByYou : hit.treatmentWords ?? (hit.treatment ? ALSO_COPY.treatment[hit.treatment] ?? null : null)` — const, line 589
+- `const box = alsoAbout?.key === key ? alsoAbout : null` — const, line 591
 
 ## Who imports or calls it
 
@@ -196,6 +196,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/sideBySideCorrespondence.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySideCorrespondence.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/alsoInBooksReader.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/alsoInBooksReader.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/alsoInBooks.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/alsoInBooks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

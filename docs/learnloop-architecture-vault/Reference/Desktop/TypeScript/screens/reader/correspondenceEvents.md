@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/correspondenceEvents.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/correspondenceEvents.ts"
-source_commit: "c1642215eb413a66183f89ba6991707422043f6c"
-source_commit_timestamp: "2026-10-31T18:28:19-04:00"
+source_commit: "952a54d9d4963ef00dd1d49410b4a92eba28f51d"
+source_commit_timestamp: "2026-10-31T22:15:39-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `CorrespondentAct`, `logCorrespondentAct` within the desktop's TypeScript/screens/reader ownership area.
+Provides `CorrespondentAct`, `CorrespondentActTarget`, `logCorrespondentAct` within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/correspondenceEvents.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/correspondenceEvents.ts) |
-| Source lines | 22 |
+| Source lines | 36 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c1642215eb413a66183f89ba6991707422043f6c` |
-| Commit timestamp | `2026-10-31T18:28:19-04:00` |
+| Source commit | `952a54d9d4963ef00dd1d49410b4a92eba28f51d` |
+| Commit timestamp | `2026-10-31T22:15:39-04:00` |
 
 ## Activation and status evidence
 
@@ -60,8 +60,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type CorrespondentAct = "corresponding_section_peeked" | "corresponding_section_opened"` — type, line 8
-- `export function logCorrespondentAct( event: CorrespondentAct, extractionId: string, sectionId: string | null, hit: Pick<CorrespondentSectionDto, "sourceId" | "extractionId" | "sectionId" | "jump" | "by">, via: "also_list" | "find_list", ): void` — function, line 10
+- `export type CorrespondentAct = "corresponding_section_peeked" | "corresponding_section_opened"` — type, line 10
+- `export interface CorrespondentActTarget` — interface, line 13
+- `export function logCorrespondentAct( event: CorrespondentAct, extractionId: string, sectionId: string | null, hit: CorrespondentActTarget, via: "also_list" | "find_list" | "peek" | "key", // CA6's side-by-side sheet adds the visit's ids and the open book's (n…` — function, line 21
 
 ## Internal implementation anchors
 
@@ -74,12 +75,13 @@ No non-exported declaration anchor was detected by the static extractor.
 
 - [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|src/screens/reader/AlsoInBooks.tsx]] — import-or-re-export: `logCorrespondentAct`; references `logCorrespondentAct`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `logCorrespondentAct`; references `logCorrespondentAct`
+- [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `logCorrespondentAct`; references `logCorrespondentAct`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CorrespondentSectionDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CorrespondentSectionDto`, `ReaderActivityEvent`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `logReaderAction`
 
 ### Assets, platform, and third-party dependencies
