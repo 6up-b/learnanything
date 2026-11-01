@@ -7,8 +7,8 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "7e007245e5c13cc7036f1f99007cadde6903d948"
-source_commit_timestamp: "2026-11-01T15:15:28-05:00"
+source_commit: "workspace/uncommitted @ ad2c282a43b99042c49d31e5dec5b2e76e3a3958"
+source_commit_timestamp: "2026-11-01T17:33:11-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -21,7 +21,7 @@ tags:
 # Desktop Module Catalog
 
 > [!abstract] Exact coverage
-> One generated note exists for each of the **299 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **5 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
+> One generated note exists for each of the **300 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **5 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
 
 ^desktop-catalog-coverage
 
@@ -61,7 +61,7 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] | 28 | Top-level routed workflow screens in the desktop shell. |
 | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] | 3 | The post-answer feedback surface: answer exposure, method comparison, and its exposure contract. |
 | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] | 7 | Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen. |
-| [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 81 | Reader request-state coordination extracted from the main reader screen. |
+| [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 82 | Reader request-state coordination extracted from the main reader screen. |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] | 8 | Reader "show me" figures: the figure grammar and spec, inline figures, panels, predictions, and their state. |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] | 10 | The sandboxed sketch tier: the pinned engine host, its Worker protocol and runner, and the scene renderer. |
 | [[Reference/Desktop/TypeScript/screens/startBackdrops/_area|TypeScript/screens/startBackdrops]] | 8 | Canvas/SVG simulations and workers used as the start-screen visual backdrop. |
@@ -73,14 +73,14 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 
 | Refactor status | Modules | Positive evidence required |
 |---|---:|---|
-| `ACTIVE` | 304 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
+| `ACTIVE` | 305 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
 | `DORMANT` | 0 | An owned retained seam plus evidence that no primary workflow uses it. |
 | `COMPAT` | 0 | An explicitly frozen compatibility contract. |
 | `EVALUATION` | 0 | A simulation/audit surface that measures rather than serves the learner. |
 
-The audit proves **291 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **6 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **5 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
+The audit proves **292 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **6 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **5 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
 
-The reachability set includes all **2 app fixture modules** through current Reader/GoldenPath screens (the other 2 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 304 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
+The reachability set includes all **2 app fixture modules** through current Reader/GoldenPath screens (the other 2 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 305 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
 
 > [!warning] Static graph limits
 > Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.

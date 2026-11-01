@@ -37,6 +37,32 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
+
+Renamed from `migration_head_229` on the C5 branch
+(`docs/reviews/curriculum-c5-notes-as-learner-text.md`). Numbered 231 because
+learner/data-relax-2 claims 230 (the runner is set-based and has no contiguity
+rule, so this head holds 229 and 231 and no 230; renumbered or rebuilt at the
+landing on whatever main's head is then). Rebuilt from main's tracked, sanitized
+`migration_head_229/state.sqlite` (main `ea1366fff5`): a backup-API copy under
+`fixtures-local/` with only `231_learner_note_source_kind.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 231 adds no object: it rebuilds `learner_text_gaps` and
+  `learner_text_gap_jobs` in place (temp-then-rename under
+  `PRAGMA foreign_keys = OFF`, the FK-safe precedent of 208 and 212), whose
+  `source_kind` CHECKs gain `learner_note`; the same columns, keys, indexes and
+  append-only triggers, every row and id kept.
+
+Only those two definitions changed and only `schema_migrations` gained a row
+(231); every table's rows are identical, so the sanitized content carries over
+(every companion file is byte-identical to main's). No note text is in this
+fixture.
+
 ## Curriculum C2 (migration 229), branch `curriculum/c2-notes-linked`, 2026-11-01
 
 Renamed from `migration_head_228` on the C2 branch

@@ -10,6 +10,11 @@
 // * NoteLinkPicker: *link one of your notes…* from the Reader's passage menu: tend's
 //   notes for the passage's section, or a words-only search of the learner's own words.
 //
+// Curriculum C5 (spec §10.2, UX §4.10): with the learner's opt-in (the contract's
+// `gaps`, Settings), every notes surface also says *where this goes*: a linked note may be
+// read for gaps in their understanding, which only steers what to suggest. Without the
+// opt-in nothing here changes.
+//
 // A model's link says "linked by LearnLoop's model"; one tap hides it (*hide*), and it
 // stays hidden. Keeping it needs no tap. A Pocket Notes page says "handwritten ·
 // transcribed by Pocket Notes". A note is never a source, never evidence and never
@@ -39,6 +44,7 @@ export const NOTES_COPY = {
   forSection: "your notes for this section",
   whereThisGoes: "ⓘ where this goes",
   whereLine: "Your note is shown beside the book in your own words. It is never a source, never used to write questions and never grades you.",
+  gapsLine: "You let your linked notes steer suggestions (Settings): LearnLoop's model on your ChatGPT plan reads a note you linked for gaps in your understanding. It only ever steers what to suggest, never grades you, and a note you hide is never read.",
   truncated: "(shortened)",
 } as const;
 
@@ -136,6 +142,25 @@ export function NoteCard({ link, isHidden, onHide, onUndo, extra }: {
   );
 }
 
+/** *ⓘ where this goes* (UX §4.10). `always`: the picker's own disclosure (C2), shown
+ *  whatever the opt-in says; otherwise only with the opt-in on (curriculum C5), so the
+ *  notes surfaces are today's exactly without it. */
+export function NotesWhereThisGoes({ ctx, always = false }: { ctx: NotesContextValue | null; always?: boolean }) {
+  const [why, setWhy] = useState(false);
+  const gaps = Boolean(ctx?.settings.gaps);
+  if (!always && !gaps) return null;
+  return (
+    <>
+      <button type="button" data-notes-where={always ? undefined : ""} style={{ ...quietStyle, alignSelf: "flex-start" }} aria-expanded={why}
+        onClick={() => setWhy((value) => !value)}>
+        {NOTES_COPY.whereThisGoes}
+      </button>
+      {why ? <MeaningLabel>{NOTES_COPY.whereLine}</MeaningLabel> : null}
+      {why && gaps ? <MeaningLabel>{NOTES_COPY.gapsLine}</MeaningLabel> : null}
+    </>
+  );
+}
+
 function NoteList({ links, ctx }: { links: NoteLinkDto[]; ctx: NotesContextValue | null }) {
   const { isHidden, failure, decide } = useDecide(ctx);
   return (
@@ -145,6 +170,7 @@ function NoteList({ links, ctx }: { links: NoteLinkDto[]; ctx: NotesContextValue
           onHide={() => void decide(link, "hide")} onUndo={() => void decide(link, "keep")} />
       ))}
       {failure ? <span role="status"><MeaningLabel>{failure}</MeaningLabel></span> : null}
+      <NotesWhereThisGoes ctx={ctx} />
     </div>
   );
 }
@@ -409,7 +435,6 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
   const [hits, setHits] = useState<NoteHitDto[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [linked, setLinked] = useState<string[]>([]);
-  const [why, setWhy] = useState(false);
 
   const search = useCallback(async (words: string) => {
     setBusy(true);
@@ -478,10 +503,7 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
           </span>
         </div>
       ))}
-      <button type="button" style={{ ...quietStyle, alignSelf: "flex-start" }} aria-expanded={why} onClick={() => setWhy((value) => !value)}>
-        {NOTES_COPY.whereThisGoes}
-      </button>
-      {why ? <MeaningLabel>{NOTES_COPY.whereLine}</MeaningLabel> : null}
+      <NotesWhereThisGoes ctx={ctx} always />
     </div>
   );
 }

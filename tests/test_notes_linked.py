@@ -21,7 +21,8 @@ from tests.notes_fixtures import (SENTINEL, MeteredNoteLinkFake, NoteLinkFake, e
 from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
-RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide")
+RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide",
+        "notes.set_gaps")  # curriculum C5's opt-in
 
 
 def _ctx(paths, **attrs):
@@ -283,7 +284,8 @@ def test_switched_off_every_rpc_refuses_nothing_is_called_and_the_reader_is_toda
               "notes.search": {"query": "eigen"},
               "notes.link": {"note": {"path": str(fake_tend.notes / "linear.org"), "line": 2},
                              "extraction_id": "ext_book", "span_id": "s2"},
-              "notes.decide": {"link_id": "nl_x", "choice": "hide"}}
+              "notes.decide": {"link_id": "nl_x", "choice": "hide"},
+              "notes.set_gaps": {"enabled": True}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params[name])

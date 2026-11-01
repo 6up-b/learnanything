@@ -108,6 +108,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `EvidenceMarker`, `MeaningLabel`, `ModelVoice`, `SourceVoice`; references `EvidenceMarker`, `MeaningLabel`, `ModelVoice`, `SourceVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/MarginMark|src/screens/reader/MarginMark.tsx]] — import-or-re-export: `LearnerVoice`, `MeaningLabel`, `ModelVoice`; references `LearnerVoice`, `MeaningLabel`, `ModelVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/NotesGapsSettings|src/screens/reader/NotesGapsSettings.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `MeaningLabel`, `ModelVoice`; references `MeaningLabel`, `ModelVoice`
 - [[Reference/Desktop/TypeScript/screens/reader/ProposalExercises|src/screens/reader/ProposalExercises.tsx]] — import-or-re-export: `MeaningLabel`; references `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `LearnerVoice`, `MeaningLabel`, `SourceVoice`; references `LearnerVoice`, `MeaningLabel`, `SourceVoice`

@@ -133,7 +133,7 @@ _READING_NOTE: ContextVar[bool] = ContextVar("learnloop_text_gaps_reading_note",
 #: The route whose provider may read the learner's notes (curriculum C2's,
 #: spec §10.4: the ChatGPT plan only; ``plan_fallback.PLAN_ONLY_TASKS``).
 NOTE_READER_TASK = "note_link_judge"
-#: The one provider type that may read a note (C2's ``note_links.PLAN_PROFILE_TYPE``).
+#: The one provider type that may read a note (C2's rule, spec §10.4: the ChatGPT plan).
 PLAN_PROFILE_TYPE = "chatgpt_plan"
 #: ``LEARNLOOP_NOTE_LINK_MODELS=off`` (C2's switch; the test suite sets it): no
 #: real client is resolved for a note's reading.

@@ -1686,6 +1686,8 @@ export const api = {
   }) => call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
   notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
     call<{ linkId: string; status: string }>("notes_decide", { input }),
+  // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).
+  notesSetGaps: (input: { enabled: boolean }) => call<{ gapsEnabled: boolean; line: string }>("notes_set_gaps", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>

@@ -3,13 +3,13 @@ title: "learner_notes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57a051a4145cf050849d781a7b8d09f644eeda8e"
-source_commit_timestamp: "2026-11-01T15:17:41-05:00"
+source_commit: "ad2c282a43b99042c49d31e5dec5b2e76e3a3958"
+source_commit_timestamp: "2026-11-01T17:33:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_notes"
   - "table learner_notes"
-schema_head: 229
+schema_head: 231
 table_name: "learner_notes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/learner_notes.py"
+  - "src/learnloop/source_retrieval/note_gaps.py"
   - "src/learnloop/source_retrieval/note_links.py"
 tags:
   - "learnloop/database/table"
@@ -46,7 +47,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/229_learner_notes.sql`.
-- **Schema touched by:** `229_learner_notes.sql`.
+- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -108,7 +109,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_notes_migration.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_never_read.py`
 

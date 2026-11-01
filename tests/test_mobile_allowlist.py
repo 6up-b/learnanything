@@ -492,6 +492,8 @@ CURRICULUM_C2_RPCS = (
     "notes.search",
     "notes.link",
     "notes.decide",
+    # Curriculum C5: Settings' opt-in for linked notes to steer suggestions (desktop only).
+    "notes.set_gaps",
 )
 
 
