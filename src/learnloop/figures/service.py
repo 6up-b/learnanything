@@ -113,6 +113,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import sqlite3
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -243,6 +244,10 @@ class FigureRequest:
     #: RW5d P2b: the menu also needs a way to start the rich job (the sidecar's
     #: durable queue); set by the build from its ``spawn_rich``.
     rich_spawnable: bool = False
+    #: RW5d P2b (spec §8.5): "try a different kind of figure" in the note box
+    #: of an animation's "not right?": the note re-runs the tier choice
+    #: instead of going to the rich author with the earlier program.
+    different_kind: bool = False
 
 
 @dataclass
@@ -1156,7 +1161,7 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         rich_view = figure_view(vault, repository, rich)
         return {"state": "ready", "figure": rich_view, "tier": "manim", "phase": None, "reason": None,
                 "rich_job_id": None}
-    job = RICH.rich_job_for(RICH.rich_jobs(repository), fast_figure_id=str(row["id"]))
+    job = RICH.rich_job_for_quick(repository, str(row["id"]))
     if job is not None:
         state = RICH.job_state(job)
         if state["state"] != "done":
@@ -1166,6 +1171,12 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         failed = rows[-1]
         return {"state": "failed", "tier": "manim", "figure": None, "phase": None, "rich_job_id": None,
                 "reason": str((failed.get("verification_report") or {}).get("reason") or "")[:300] or None}
+    if job is None and isinstance((row.get("verification_report") or {}).get(RICH_INTENT_KEY), dict):
+        # Codex review F8: the intent committed but no job was started (the
+        # sidecar stopped first, or the enqueue failed): reading this source
+        # starts it (resume_rich_intents); until then the line says so.
+        return {"state": "pending", "tier": "manim", "figure": None, "phase": "writing", "reason": None,
+                "rich_job_id": None}
     return None
 
 
@@ -1319,7 +1330,8 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
                          origin=request.origin, supersedes_id=request.supersedes_id, revision_note=note,
                          goal_text=goal, goal_author=goal_author, reading_at=reading_at,
                          host_ref=dict(request.host_ref or {}), caller=request.caller, grounding_keys=keys,
-                         grounding_fixed=request.grounding_fixed if request.grounding_fixed in GROUNDINGS else None)
+                         grounding_fixed=request.grounding_fixed if request.grounding_fixed in GROUNDINGS else None,
+                         different_kind=bool(request.different_kind and request.supersedes_id is not None))
 
 
 def check_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
@@ -1347,12 +1359,15 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
                                                     "(figures.show_me_enabled).")
         if row_withheld(vault, repository, base) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
-        if rich_row(base):
-            # RW5d P2b: "not right?" on an animation (its note and program to
-            # the rich author) comes in a later version; asking again with the
-            # note in the box re-runs the tier choice.
-            raise FigureRefused("rich_revision_later", "A better version of an animation comes in a later version: "
-                                                       "ask again with what was wrong in your words.")
+        if rich_row(base) and not rich_enabled(vault):
+            # RW5d P2b: an animation is revised only with the rich tiers on
+            # (it lists as "can't show this kind here" while they are off).
+            raise FigureRefused("rich_disabled", "That figure is an animation, and rich figures are switched off "
+                                                 "(figures.rich_tiers_enabled).")
+        if rich_row(base) and not request.different_kind and (
+                base.get("verification") not in store.SHOWN or not base.get("spec_json")):
+            raise FigureRefused("not_found", "That animation is not shown, so there is no version to improve: "
+                                             "ask again.")
         if sketch_row(base) and not sketch_enabled(vault):
             # RW5d P2: a sketch is revised only by the sketch tier (RW5b's
             # contract can't write one back).
@@ -1407,7 +1422,20 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
             payload["learner_request"] = {"text": request.goal_text, "written_by": request.goal_author}
         payload["grounding"] = (grounding or Grounding("anchor")).mode
     if previous is not None:
-        if sketch_row(previous):
+        if rich_row(previous):
+            # RW5d P2b (spec §8.5): "try a different kind of figure" on an
+            # animation: what it showed, never its program (the tier choice
+            # runs again with the note).
+            try:
+                program = json.loads(previous.get("spec_json") or "{}")
+            except (TypeError, ValueError):
+                program = {}
+            payload["earlier_version"] = {"animation": {"title": program.get("title") or "",
+                                                        "demonstrates": program.get("demonstrates") or "",
+                                                        "brief": program.get("brief") or ""},
+                                          "verification": previous.get("verification"),
+                                          "learner_asks_for_a_different_kind": True}
+        elif sketch_row(previous):
             # RW5d P2: an earlier sketch goes back as its program.
             payload["earlier_version"] = {"sketch_json": previous.get("spec_json") or "",
                                           "verification": previous.get("verification")}
@@ -1527,7 +1555,10 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # its row, so only this read can tell its figure is reusable.
             reused = _reusable(vault, connection, input_hash, other_hash)
             latest = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
-            generation = store.builds_for_input(connection, input_hash, SPEC_VERSIONS)
+            # Codex review F7: a stored rich failure (a rich-only build that
+            # used both attempts) starts the next generation too, so "try
+            # again" asks the author, and then the rich author, afresh.
+            generation = store.builds_for_input(connection, input_hash, ALL_SPEC_VERSIONS)
         if reused is not None:
             return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
@@ -1538,6 +1569,13 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
         # with no second request; a stored failure starts the next
         # generation, so "try again" asks afresh.
         request_id = content_key({"input_hash": input_hash, "generation": generation})
+        if previous is not None and rich_row(previous) and not request.different_kind:
+            # RW5d P2b (spec §8.5, Codex review F11): "not right?" on an
+            # animation goes to the rich author with the note and the earlier
+            # program, never back to the tier choice.
+            return _rich_revision(vault, repository, request, context, grounding, previous=previous,
+                                  input_hash=input_hash, digest=digest, asset_id=asset_id, generation=generation,
+                                  request_id=request_id, spawn_rich=spawn_rich, gate=gate, clock=clock)
         author.bind_owner(f"figure:{request_id}")
         return _author_and_store(vault, repository, request, context, author, previous=previous,
                                  versions=versions, image=image, asset_id=asset_id, digest=digest,
@@ -1572,6 +1610,33 @@ def _rich_line(request: FigureRequest, job: Mapping[str, Any], state: Mapping[st
             "anchor_span_id": anchor, "tier": payload.get("tier"), "goal_text": base.get("goal_text"),
             "state": state.get("state"), "phase": state.get("phase"), "reason": state.get("reason"),
             "rich_job_id": job.get("id")}
+
+
+def retry_rich_job(vault: Any, repository: Repository, job_id: str) -> str:
+    """Codex review F9: the error code of a rich job that ended with no row
+    and may be requeued (failed, not waiting for the plan, never cancelled),
+    or :class:`FigureRefused`. The requeued job is the same build (its
+    payload and request identity), so a paid answer is recovered, not paid
+    for again."""
+
+    if not rich_enabled(vault):
+        raise FigureRefused("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
+    job = repository.get_ingest_job(job_id)
+    if job is None or job.get("job_type") != RICH.RICH_JOB_TYPE:
+        raise FigureRefused("not_found", "That animation build is no longer kept.")
+    code = str((job.get("error") or {}).get("code") or "")
+    if job.get("status") != "failed" or job.get("cancel_requested") or not code:
+        raise FigureRefused("not_failed", "That animation build hasn't failed, so there is nothing to try again.")
+    payload = job.get("payload") or {}
+    if _withheld_payload(vault, repository, payload):
+        raise FigureRefused("exam_material", "That figure's passage is held out now.")
+    return code
+
+
+def _withheld_payload(vault: Any, repository: Repository, payload: Mapping[str, Any]) -> bool:
+    from learnloop.figures.rich import _withheld
+
+    return _withheld(vault, repository, payload.get("base") or {}) is not None
 
 
 _BUILDS_GUARD = threading.Lock()
@@ -1809,7 +1874,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     asked = _request_row(request, grounding, figure_id=None, clock=clock)
     rich_spawn = None
     if brief is not None:
-        rich_spawn = _RichSpawn(spawn_rich, brief, request, context, grounding, digest, input_hash, asset_id,
+        rich_spawn = _RichSpawn(repository, spawn_rich, brief, request, context, grounding, digest, input_hash, asset_id,
                                 verdict, author, prompt_version, generation, previous, request_id, quick_dropped)
         if compiled is None and sketched is None:
             return rich_spawn.only(vault, repository, asked, gate=gate, clock=clock)
@@ -1859,6 +1924,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     gate.check("store")
     row["verification"] = report.outcome
     row.setdefault("verification_report", report.as_dict())
+    if rich_spawn is not None and row["verification"] in store.SHOWN:
+        # Codex review F8: the rich job's intent commits with the quick figure.
+        row["verification_report"] = rich_spawn.with_intent(row["verification_report"], asked["id"], figure_id)
     try:
         with repository.atomic():
             connection = repository.connection()
@@ -1886,6 +1954,61 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                         author_calls=author.made)
 
 
+_LOG = logging.getLogger(__name__)
+#: The key a quick figure's verification report keeps its rich job's intent
+#: under (Codex review F8): the job's payload, committed with the figure.
+RICH_INTENT_KEY = "rich_intent"
+_RICH_SPAWN_GUARD = threading.Lock()
+
+
+def ensure_rich_job(repository: Repository, spawn: SpawnRich, payload: dict[str, Any]) -> str | None:
+    """Start a quick figure's rich job unless it already has one (in any
+    state: a cancelled one stays cancelled) or a stored fuller version
+    (Codex review F8). One process-wide lock makes the check and the enqueue
+    one step, so the build that stored the figure and a reader recovering its
+    intent never start two jobs. Returns the job's id (None: nothing to start)."""
+
+    fast = payload.get("fast_figure_id")
+    with _RICH_SPAWN_GUARD:
+        if fast:
+            existing = RICH.rich_job_id_for_quick(repository, str(fast))
+            if existing is not None:
+                return existing
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                if store.fuller_rows(connection, str(fast)):
+                    return None
+        return spawn(payload)
+
+
+def resume_rich_intents(vault: Any, repository: Repository, extraction_id: str, spawn: SpawnRich | None) -> int:
+    """Codex review F8: start the rich job of every shown quick figure of this
+    source whose intent committed but whose job was never enqueued (the
+    sidecar stopped between the two, or the enqueue failed). The recovered
+    job belongs to no action (no grant: it waits for the plan when it is
+    down). Returns how many were started."""
+
+    if spawn is None or not enabled(vault) or not rich_enabled(vault):
+        return 0
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not store.has_tables(connection):
+            return 0
+        rows = store.figures_for_extraction(connection, extraction_id)
+    started = 0
+    for row in rows:
+        intent = (row.get("verification_report") or {}).get(RICH_INTENT_KEY)
+        if row.get("verification") not in store.SHOWN or not isinstance(intent, dict) or rich_row(row):
+            continue
+        payload = {**intent, "build_mode": "recovered"}
+        if RICH.rich_job_id_for_quick(repository, str(row["id"])) is not None:
+            continue
+        try:
+            if ensure_rich_job(repository, spawn, payload) is not None:
+                started += 1
+        except Exception:  # noqa: BLE001 - the line says it couldn't start; a later read tries again
+            _LOG.warning("could not start the rich job of figure %s", row["id"], exc_info=True)
+    return started
+
+
 class _RichSpawn:
     """RW5d P2b (spec §8.6): starting the rich job of a rich status, after
     the quick figure is stored (:meth:`after_quick`) or with none
@@ -1893,10 +2016,12 @@ class _RichSpawn:
     (the author's context, the brief) and what its row needs (the input's
     spans and keys, its home, the tier verdict)."""
 
-    def __init__(self, spawn: SpawnRich | None, brief: RICH.RichBrief, request: FigureRequest,
-                 context: SourceContext, grounding: Grounding, digest: str | None, input_hash: str,
-                 asset_id: str | None, verdict: tuple[str, str] | None, author: R.FigureRoute, prompt_version: str,
-                 generation: int, previous: Mapping[str, Any] | None, request_id: str, quick_dropped: str | None):
+    def __init__(self, repository: Repository, spawn: SpawnRich | None, brief: RICH.RichBrief,
+                 request: FigureRequest, context: SourceContext, grounding: Grounding, digest: str | None, input_hash: str,
+                 asset_id: str | None, verdict: tuple[str, str] | None, author: R.FigureRoute | None,
+                 prompt_version: str, generation: int, previous: Mapping[str, Any] | None, request_id: str,
+                 quick_dropped: str | None, extra: Mapping[str, Any] | None = None):
+        self.repository = repository
         self.spawn = spawn
         self.brief = brief
         self.request = request
@@ -1912,12 +2037,15 @@ class _RichSpawn:
         self.previous = previous
         self.request_id = request_id
         self.quick_dropped = quick_dropped
+        self.extra = dict(extra or {})
 
     def payload(self, request_row_id: str, fast_figure_id: str | None) -> dict[str, Any]:
         request = self.request
+        # The author's context keeps its request_id (Codex review F7): the
+        # input and its retry generation, so the rich prompt (and its paid
+        # checkpoint) is the same across a crash and new after "try again".
         author_context = _author_context(request, self.context, self.digest, None, (), request_id=self.request_id,
                                          grounding=self.grounding)
-        author_context.pop("request_id", None)
         base = {
             "extraction_id": request.extraction_id, "span_ids": list(request.span_ids), "region": request.region,
             "asset_id": self.asset_id,
@@ -1930,43 +2058,104 @@ class _RichSpawn:
         return {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
                 "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
                 "span_texts": dict(self.context.span_texts), "base": base,
-                "verdict": list(self.verdict) if self.verdict else None, "author_model": self.author.model,
+                "verdict": list(self.verdict) if self.verdict else None,
+                "author_model": self.author.model if self.author is not None else None,
                 "prompt_version": self.prompt_version, "build_mode": "pressed", "generation": self.generation,
-                "quick_dropped": self.quick_dropped}
+                "quick_dropped": self.quick_dropped, **self.extra}
 
-    def start(self, request_row_id: str, fast_figure_id: str | None) -> str | None:
-        if self.spawn is None:
-            return None
-        try:
-            return self.spawn(self.payload(request_row_id, fast_figure_id))
-        except Exception:  # noqa: BLE001 - the quick figure stays; the fuller line is absent
-            return None
+    def with_intent(self, report: Mapping[str, Any], request_row_id: str, figure_id: str) -> dict[str, Any]:
+        """The quick figure's report with its rich job's intent (Codex review F8)."""
+
+        return {**dict(report), RICH_INTENT_KEY: self.payload(request_row_id, figure_id)}
 
     def after_quick(self, request_row_id: str, figure_id: str, row: Mapping[str, Any]) -> None:
-        self.start(request_row_id, figure_id)
+        """Start the rich job of a stored quick figure. A failure is logged,
+        never swallowed silently: the intent committed with the figure, so the
+        next read of this source starts it (:func:`resume_rich_intents`)."""
+
+        if self.spawn is None:
+            return
+        try:
+            ensure_rich_job(self.repository, self.spawn, self.payload(request_row_id, figure_id))
+        except Exception:  # noqa: BLE001 - recovered from the durable intent on the next read
+            _LOG.warning("could not start the rich job of figure %s; it starts on the next read", figure_id,
+                         exc_info=True)
 
     def only(self, vault: Any, repository: Repository, asked: dict[str, Any], *, gate: FiguresGate,
              clock: Clock | None) -> BuildOutcome:
-        """No quick figure: the request is recorded (its figure named when the
-        rich one is stored) and the rich job started; the pending line shows."""
+        """No quick figure: the request is recorded with the author's tier
+        receipt (Codex review F10: the judgment is the request's, whatever the
+        job does next; the figure, once stored, is named by the request) and
+        the rich job started; the pending line shows."""
 
         gate.check("store")
         with repository.atomic():
-            store.insert_request(repository.connection(), asked)
-        job_id = self.start(asked["id"], None)
+            connection = repository.connection()
+            store.insert_request(connection, asked)
+            if self.verdict is not None and self.author is not None:
+                _append_tier(connection, str(asked["id"]), self.input_hash, self.verdict, self.author,
+                             self.prompt_version, str(asked.get("created_at") or utc_now_iso(clock)),
+                             left_kind="figure_request")
+        job_id = self.spawn(self.payload(asked["id"], None)) if self.spawn is not None else None
         if job_id is None:
             raise FigureRefused("unavailable", "LearnLoop couldn't start building the animation just now.")
         job = {"id": job_id, "payload": self.payload(asked["id"], None), "status": "queued", "phase": "writing"}
-        return BuildOutcome(None, reused=False, author_calls=self.author.made,
+        return BuildOutcome(None, reused=False, author_calls=self.author.made if self.author is not None else 0,
                             rich=_rich_line(self.request, job, RICH.job_state(job)))
 
 
-def _append_tier(connection: Any, figure_id: str, input_hash: str, verdict: tuple[str, str], author: R.FigureRoute,
-                 prompt_version: str, created_at: str) -> None:
-    """The tier judgment's receipt (spec §8.4): the author's status, its reason
-    (``why_not_spec`` or the unsupported reason), the model and prompt."""
+def _rich_revision(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                   grounding: Grounding, *, previous: Mapping[str, Any], input_hash: str, digest: str | None,
+                   asset_id: str | None, generation: int, request_id: str, spawn_rich: SpawnRich | None,
+                   gate: FiguresGate, clock: Clock | None) -> BuildOutcome:
+    """RW5d P2b (spec §8.5, Codex review F11): "not right?" on a Manim
+    figure. The learner's note and the earlier program (its scene, declared
+    functions and claims, and what it showed) go to ``figure_rich_author``
+    on a rich job; the new version is checked, rendered and stored like any
+    rich figure and supersedes the earlier one (kept: the version chain). A
+    fuller version's revision stays that quick figure's fuller version."""
 
-    append_judgment(connection, task=TIER_LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
+    if spawn_rich is None or "manim" not in (request.tiers_allowed or ()):
+        raise FigureRefused("manim_unavailable", "A new version of an animation needs Manim figures on this "
+                                                 "computer (figures.rich_tiers_enabled, the standing permission, "
+                                                 "bubblewrap and Manim).")
+    try:
+        program = json.loads(previous.get("spec_json") or "{}")
+    except (TypeError, ValueError):
+        program = {}
+    brief = RICH.RichBrief(
+        tier="manim", brief=str(program.get("brief") or "")[:RICH.RICH_BRIEF_MAX],
+        demonstrates=str(program.get("demonstrates") or ""),
+        assumptions=[dict(item) for item in program.get("assumptions") or () if isinstance(item, dict)],
+        source_claims=[dict(item) for item in program.get("source_claims") or () if isinstance(item, dict)])
+    report = previous.get("verification_report") or {}
+    revision = {
+        "note": request.revision_note or "",
+        "earlier_program": {
+            "title": program.get("title") or "", "scene_class": program.get("scene_class") or "",
+            "scene_code": str(program.get("scene_code") or "")[:12_000],
+            "narration_md": program.get("narration_md") or "",
+            "declared_json": json.dumps({key: program.get(key) or [] for key in ("functions", "claims",
+                                                                                   "plotted_from")}),
+            "checks_it_passed": [dict(check) for check in report.get("checks") or ()],
+        },
+    }
+    asked = _request_row(request, grounding, figure_id=None, clock=clock)
+    spawn = _RichSpawn(repository, spawn_rich, brief, request, context, grounding, digest, input_hash, asset_id, None, None,
+                       RICH.RICH_PROMPT_VERSION, generation, previous, request_id, None,
+                       extra={"supersedes_id": previous["id"], "fuller_of_id": previous.get("fuller_of_id"),
+                              "revision": revision})
+    return spawn.only(vault, repository, asked, gate=gate, clock=clock)
+
+
+def _append_tier(connection: Any, figure_id: str, input_hash: str, verdict: tuple[str, str], author: R.FigureRoute,
+                 prompt_version: str, created_at: str, *, left_kind: str = "interactive_figure") -> None:
+    """The tier judgment's receipt (spec §8.4): the author's status, its reason
+    (``why_not_spec`` or the unsupported reason), the model and prompt.
+    ``left_kind`` ``figure_request`` (RW5d P2b, Codex review F10): a
+    rich-only build's receipt, against its request."""
+
+    append_judgment(connection, task=TIER_LEDGER_TASK, left_kind=left_kind, left_id=figure_id,
                     judge="llm", input_hash=input_hash, verdict=verdict[0], judge_model=author.model,
                     prompt_version=prompt_version, rationale=verdict[1][:400], created_at=created_at)
 
@@ -2007,6 +2196,9 @@ def _store_sketch(vault: Any, repository: Repository, request: FigureRequest, co
         failed.update({"outcome": V.FAILED, "reason": str(reason)[:300]})
         row.update({"verification": V.FAILED, "verification_report": failed})
     gate.check("store")
+    if rich_spawn is not None and row["verification"] in store.SHOWN:
+        # Codex review F8: the rich job's intent commits with the quick figure.
+        row["verification_report"] = rich_spawn.with_intent(row["verification_report"], asked["id"], figure_id)
     try:
         with repository.atomic():
             connection = repository.connection()
@@ -2180,12 +2372,19 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
     """RW5d P2b (spec §6.8): the rich builds with no quick figure for this
     source that have not ended (pending, or waiting for the plan), each as
     the pending line under its passage; empty while the rich tiers are off.
-    A build whose passage is held out now is left out."""
+    A build whose passage is held out now is left out.
+
+    Codex review F9: a build that ended with no row (interrupted when
+    LearnLoop stopped, or stopped with code's reason) stays as a ``failed``
+    line with that reason and its job (``figure.rich_retry`` requeues it),
+    until a later build of the same input replaces it; a cancelled one is
+    gone (the learner chose)."""
 
     if not enabled(vault) or not rich_enabled(vault):
         return []
     lines = []
     seen: set[str] = set()
+    stored_inputs: set[str] | None = None
     for job in RICH.rich_jobs(repository):
         payload = job.get("payload") or {}
         base = payload.get("base") or {}
@@ -2195,7 +2394,13 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
             continue
         seen.add(str(payload.get("input_hash")))
         state = RICH.job_state(job)
-        if state["state"] not in ("pending", "waiting_for_plan"):
+        if state["state"] not in ("pending", "waiting_for_plan", "failed"):
+            continue
+        if state["state"] == "failed" and stored_inputs is None:
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                stored_inputs = {row["input_hash"] for row in store.figures_for_extraction(connection, extraction_id)}
+        if state["state"] == "failed" and payload.get("input_hash") in (stored_inputs or set()):
+            # A stored row (the figure, or its stored failure) lists itself.
             continue
         if base.get("goal_text") is not None and not show_me_enabled(vault):
             continue
@@ -2358,6 +2563,9 @@ __all__ = [
     "show_me_enabled",
     "show_me_input",
     "fuller_state",
+    "ensure_rich_job",
+    "resume_rich_intents",
+    "retry_rich_job",
     "rich_enabled",
     "rich_off_row",
     "rich_pending",

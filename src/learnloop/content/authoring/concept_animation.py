@@ -37,7 +37,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from learnloop.ai.errors import AIProviderUnavailable, VideoGenerationFailed, VideoGenerationTimeout
 from learnloop.ai.providers.openrouter_video import (
@@ -344,12 +344,40 @@ RENDER_CPU_QUOTA = "200%"
 RENDER_TASKS_MAX = 512
 
 
+#: Reader RW5d P2b (Codex review F1): what ``systemd-run --user`` needs to
+#: reach the user manager (the session bus). The render's own env drops them
+#: (:func:`_render_env`), so the scope launcher is given them back
+#: (:func:`render_launch`) and bubblewrap unsets them again before any model
+#: code runs (``--unsetenv``): the sandboxed render never sees the bus.
+SCOPE_SESSION_ENV = ("DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR")
+#: keep (machine safety, Codex review F3): the most stdout+stderr bytes one
+#: render may print. The sidecar drains both pipes as they fill and keeps only
+#: their tails (:func:`bounded_run`), so this bounds the work, not memory; a
+#: render past it is stopped (its whole process group) and fails. Manim's log
+#: for a figure-length scene is kilobytes.
+RENDER_MAX_OUTPUT_BYTES = 16 * 1024 * 1024
+#: keep (machine safety, Codex review F3): the largest rendered mp4 read into
+#: the sidecar. A figure-length video at the inspector's top quality is tens of
+#: MiB; a larger file fails as too large, unread.
+RENDER_MAX_VIDEO_BYTES = 512 * 1024 * 1024
+
+
+def scope_session_env() -> dict[str, str]:
+    """The session variables the scope launcher needs, from this process's env."""
+
+    import os
+
+    return {key: os.environ[key] for key in SCOPE_SESSION_ENV if os.environ.get(key)}
+
+
 _SCOPE_PROBE: dict[str, bool] = {}
 
 
 def _systemd_scope_works(run=None) -> bool:
     """Whether ``systemd-run --user --scope`` can start a scope here (a user
-    manager on the session bus), probed once per process with ``true``."""
+    manager on the session bus), probed once per process with ``true``,
+    launched exactly as a render's scope is (Codex review F1): the render's
+    minimal env plus :func:`scope_session_env`, nothing else inherited."""
 
     run = run or subprocess.run
     if "ok" in _SCOPE_PROBE:
@@ -357,9 +385,10 @@ def _systemd_scope_works(run=None) -> bool:
     systemd_run = shutil.which("systemd-run")
     ok = False
     if systemd_run and sys.platform == "linux":
+        env = {**_render_env(), "HOME": tempfile.gettempdir(), **scope_session_env()}
         try:
             ok = run([systemd_run, "--user", "--scope", "--quiet", "--", "true"],
-                     capture_output=True, timeout=15).returncode == 0
+                     capture_output=True, timeout=15, env=env).returncode == 0
         except (OSError, subprocess.SubprocessError):
             ok = False
     _SCOPE_PROBE["ok"] = ok
@@ -413,14 +442,19 @@ def _executable_mount_roots(executable: str) -> set[str]:
     return roots
 
 
-def _sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool = True) -> list[str]:
+def _sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool = True,
+                       unset_env: tuple[str, ...] = ()) -> list[str]:
     """Wrap a render command in bubblewrap: every namespace unshared (so no
     network), system + interpreter mounts read-only, the scratch workdir as
     the only writable path, and the sandbox dying with the sidecar.
 
     ``hardened`` (Reader RW5d P2b, Q17: the figure renders' and the
     inspector's profile): also :data:`HARDENED_BWRAP_FLAGS` (a mandatory user
-    namespace with no further ones, every capability dropped)."""
+    namespace with no further ones, every capability dropped).
+
+    ``unset_env`` (Codex review F1): variables the launcher outside the
+    sandbox needed (the scope's session bus) that the sandboxed command must
+    not see; bubblewrap unsets them before it execs."""
 
     args = [
         bwrap,
@@ -452,6 +486,8 @@ def _sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardene
         if prefix and prefix != "/usr" and not prefix.startswith("/usr/"):
             args += ["--ro-bind-try", prefix, prefix]
     args += ["--bind", str(workdir), str(workdir), "--chdir", str(workdir)]
+    for name in unset_env:
+        args += ["--unsetenv", name]
     return [*args, "--", *command]
 
 
@@ -662,6 +698,121 @@ def lint_scene_pacing(code: str, *, min_seconds: float, max_seconds: float) -> l
     return []
 
 
+def render_launch(command: list[str], workdir: Path, bwrap: str | None,
+                  wrapper: list[str] | None) -> tuple[list[str], dict[str, str]]:
+    """The argv and env a render is launched with (Codex review F1: one path,
+    the one :func:`_systemd_scope_works` probes): the render's minimal env;
+    under bubblewrap, ``HOME`` and the caches in the scratch dir; under a
+    ``systemd-run`` wrapper, the session variables the launcher needs
+    (:data:`SCOPE_SESSION_ENV`), which bubblewrap unsets before the render
+    runs, so the sandboxed code never sees them."""
+
+    env = _render_env()
+    session: dict[str, str] = {}
+    if wrapper and Path(wrapper[0]).name == "systemd-run":
+        session = scope_session_env()
+    if bwrap is not None:
+        command = _sandboxed_command(command, workdir, bwrap, unset_env=tuple(session))
+        # Caches (matplotlib, fontconfig, manim) land in the scratch dir,
+        # the sandbox's only writable path.
+        env["HOME"] = str(workdir)
+        env["XDG_CACHE_HOME"] = str(workdir / ".cache")
+    elif session:
+        # No sandbox (tests only): the launcher still gets the bus, the
+        # command does not.
+        command = ["env", *(f"--unset={name}" for name in session), *command]
+    if wrapper:
+        command = [*wrapper, *command]
+    return command, {**env, **session}
+
+
+@dataclass
+class BoundedResult:
+    """What :func:`bounded_run` returns: ``subprocess.CompletedProcess``'s
+    fields with the output tails, and whether the output budget stopped it."""
+
+    args: list[str]
+    returncode: int | None
+    stdout: bytes
+    stderr: bytes
+    output_exceeded: bool = False
+
+
+def bounded_run(command: list[str], *, cwd: str | None = None, env: Mapping[str, str] | None = None,
+                capture_output: bool = True, timeout: float | None = None,
+                max_output_bytes: int = RENDER_MAX_OUTPUT_BYTES,
+                tail_bytes: int = _STDERR_TAIL_CHARS) -> BoundedResult:
+    """``subprocess.run(capture_output=True)`` without unbounded buffers
+    (Reader RW5d P2b, Codex review F3). Both pipes are drained by threads
+    as they fill; only the last ``tail_bytes`` of each are kept. When the two
+    together pass ``max_output_bytes``, or ``timeout`` passes, the child's
+    whole process group (it is started in a session of its own) is killed:
+    the scope launcher, bubblewrap and, with ``--die-with-parent``, the
+    sandbox. Raises ``subprocess.TimeoutExpired`` on the timeout."""
+
+    import os
+    import signal
+    import threading
+
+    del capture_output  # always captured (the tails)
+    process = subprocess.Popen(command, cwd=cwd, env=dict(env) if env is not None else None,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               start_new_session=True)
+    tails = {"stdout": bytearray(), "stderr": bytearray()}
+    total = [0]
+    exceeded = threading.Event()
+    guard = threading.Lock()
+
+    def kill_group() -> None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            try:
+                process.kill()
+            except OSError:
+                pass
+
+    def drain(stream: Any, name: str) -> None:
+        while True:
+            chunk = stream.read1(65536) if hasattr(stream, "read1") else stream.read(65536)
+            if not chunk:
+                break
+            with guard:
+                total[0] += len(chunk)
+                tail = tails[name]
+                tail += chunk
+                if len(tail) > tail_bytes:
+                    del tail[:len(tail) - tail_bytes]
+                over = total[0] > max_output_bytes
+            if over and not exceeded.is_set():
+                exceeded.set()
+                kill_group()
+
+    readers = [threading.Thread(target=drain, args=(process.stdout, "stdout"), daemon=True),
+               threading.Thread(target=drain, args=(process.stderr, "stderr"), daemon=True)]
+    for reader in readers:
+        reader.start()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_group()
+        process.wait()
+        for reader in readers:
+            reader.join(timeout=5)
+        raise
+    finally:
+        if process.poll() is None:
+            kill_group()
+            process.wait()
+    for reader in readers:
+        reader.join(timeout=5)
+    for stream in (process.stdout, process.stderr):
+        if stream is not None:
+            stream.close()
+    return BoundedResult(list(command), process.returncode, bytes(tails["stdout"]), bytes(tails["stderr"]),
+                         exceeded.is_set())
+
+
 def render_scene(
     scene_code: str,
     scene_class: str,
@@ -671,7 +822,7 @@ def render_scene(
     manim_executable: str | None = None,
     manim_command: list[str] | None = None,
     sandbox: bool | None = None,
-    run=subprocess.run,
+    run=None,
     wrapper: list[str] | None = None,
 ) -> RenderResult:
     """Render one validated scene to mp4 in a fresh temp cwd with a timeout.
@@ -685,8 +836,11 @@ def render_scene(
     the requirement on any platform; ``False`` opts out (tests only).
 
     The ``run`` parameter is the offline-test seam (a fake writes an mp4 into
-    the expected media glob). The temp directory is always cleaned."""
+    the expected media glob); unset, :func:`bounded_run` (Codex review F3:
+    the render's output is drained with bounded buffers, never accumulated).
+    The temp directory is always cleaned."""
 
+    run = run or bounded_run
     prefix = manim_command or _manim_command(manim_executable)
     quality_flag = f"-q{quality[-1].lower()}" if quality else "-ql"
     bwrap = None
@@ -713,15 +867,7 @@ def render_scene(
             str(scene_path),
             scene_class,
         ]
-        env = _render_env()
-        if bwrap is not None:
-            command = _sandboxed_command(command, workdir, bwrap)
-            # Caches (matplotlib, fontconfig, manim) land in the scratch dir,
-            # the sandbox's only writable path.
-            env["HOME"] = str(workdir)
-            env["XDG_CACHE_HOME"] = str(workdir / ".cache")
-        if wrapper:
-            command = [*wrapper, *command]
+        command, env = render_launch(command, workdir, bwrap, wrapper)
         try:
             result = run(
                 command,
@@ -735,6 +881,10 @@ def render_scene(
         except FileNotFoundError:
             return RenderResult(False, None, "manim executable not found", None)
         stderr_tail = (result.stderr or b"").decode("utf-8", errors="replace")[-_STDERR_TAIL_CHARS:]
+        if getattr(result, "output_exceeded", False):
+            return RenderResult(False, None, f"the render printed more than "
+                                f"{RENDER_MAX_OUTPUT_BYTES // (1024 * 1024)} MiB of output and was stopped",
+                                result.returncode)
         if result.returncode != 0:
             return RenderResult(False, None, stderr_tail, result.returncode)
         videos = _combined_scene_videos(workdir / "media", scene_class)
@@ -745,6 +895,10 @@ def render_scene(
                 stderr_tail or "manim produced no combined mp4 (only partial movie files)",
                 result.returncode,
             )
+        # Codex review F3: the size is looked at before a byte is read.
+        if videos[-1].stat().st_size > RENDER_MAX_VIDEO_BYTES:
+            return RenderResult(False, None, f"the rendered video is larger than "
+                                f"{RENDER_MAX_VIDEO_BYTES // (1024 * 1024)} MiB", result.returncode)
         return RenderResult(True, videos[-1].read_bytes(), stderr_tail, result.returncode)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

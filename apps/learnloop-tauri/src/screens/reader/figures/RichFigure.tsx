@@ -14,6 +14,7 @@
 // its passage naming the job's real phase. Nothing here is a toast, a count or
 // a badge elsewhere, and nothing takes focus or plays by itself (SM10, W12).
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { FigureFullerDto, FigureManimCheckDto, FigureRichPendingDto, FigureViewDto } from "../../../api/dto";
 import { AnimationPlayer } from "../../../components/AnimationPlayer";
 import { COLOR, FONT_MONO } from "../../../components/term";
@@ -41,6 +42,14 @@ export const RICH_FRAME = {
   fullerWaiting: "the fuller animation is waiting for the ChatGPT plan",
   collapsedReady: "a fuller animation is ready",
   cancel: "cancel",
+  tryAgain: "try again",
+  richFailed: "the animation couldn't be built",
+  notRight: "not right?",
+  notRightPlaceholder: "what should change? (optional)",
+  notRightWhere: "Goes to the animation writer with this version; the new version is checked and rendered like this "
+    + "one, and this one is kept.",
+  differentKind: "try a different kind of figure",
+  askBetter: "ask for a better version",
   richWaiting: "◐ the animation is waiting for the ChatGPT plan",
   optIn: "LearnLoop can make narrated animations by running AI-written animation code in a sealed sandbox on this "
     + "computer (no network, no access to your files)",
@@ -75,8 +84,38 @@ export function manimCheckLine(check: FigureManimCheckDto): string {
   return `${check.function} ${property} ${settings}`;
 }
 
+/** "Not right?" on an animation (spec §8.5): the note (and, unless "try a different kind
+ * of figure" is ticked, this version's program) goes to the animation writer. */
+export function ManimNotRight({ onRevise }: { onRevise: (note: string, differentKind: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [differentKind, setDifferentKind] = useState(false);
+  if (!open) {
+    return <button type="button" style={linkStyle} onClick={() => setOpen(true)}>{RICH_FRAME.notRight}</button>;
+  }
+  return (
+    <form data-manim-not-right="" style={{ display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap" }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onRevise(note, differentKind);
+        setOpen(false);
+        setNote("");
+        setDifferentKind(false);
+      }}>
+      <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={600} aria-label={RICH_FRAME.notRight}
+        placeholder={RICH_FRAME.notRightPlaceholder}
+        style={{ fontFamily: FONT_MONO, fontSize: 11, width: 300, background: COLOR.bgInput, color: COLOR.text, border: `1px solid ${COLOR.border}` }} />
+      <label style={{ fontFamily: FONT_MONO, fontSize: 11 }}>
+        <input type="checkbox" checked={differentKind} onChange={(event) => setDifferentKind(event.target.checked)} /> {RICH_FRAME.differentKind}
+      </label>
+      <button type="submit" style={linkStyle}>{RICH_FRAME.askBetter}</button>
+      <MeaningLabel>{RICH_FRAME.notRightWhere}</MeaningLabel>
+    </form>
+  );
+}
+
 /** A shown Manim figure's body: what it shows, the video, the transcript and the checks. */
-export function ManimFigureBody({ figure }: { figure: FigureViewDto }) {
+export function ManimFigureBody({ figure, notRight }: { figure: FigureViewDto; notRight?: ReactNode }) {
   const [transcript, setTranscript] = useState(false);
   const manim = figure.manim;
   if (!manim || !manim.mediaFileName) return <MeaningLabel>couldn't play this version here</MeaningLabel>;
@@ -93,6 +132,7 @@ export function ManimFigureBody({ figure }: { figure: FigureViewDto }) {
           {transcript ? RICH_FRAME.hideTranscript : RICH_FRAME.transcript}
         </button>
         <span title={RICH_FRAME.info} aria-label={RICH_FRAME.info} style={{ color: COLOR.textDim }}>ⓘ</span>
+        {notRight ?? null}
       </div>
       {transcript ? (
         <div data-manim-transcript="" style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
@@ -155,8 +195,25 @@ export function FullerLine({ fuller, showing, onOpen, onBack, onCancel }: {
   return null;
 }
 
-/** A rich build with no quick figure: its pending line under the passage, naming the job's phase. */
-export function RichPendingLine({ line, onCancel }: { line: FigureRichPendingDto; onCancel: (richJobId: string) => void }) {
+/** A rich build with no quick figure: its pending line under the passage, naming the job's phase.
+ * Codex review F9: one that ended with no figure (interrupted, or stopped) says so, with code's
+ * reason behind "why" and "try again". */
+export function RichPendingLine({ line, onCancel, onRetry }: {
+  line: FigureRichPendingDto;
+  onCancel: (richJobId: string) => void;
+  onRetry?: (richJobId: string) => void;
+}) {
+  const [why, setWhy] = useState(false);
+  if (line.state === "failed") {
+    return (
+      <div data-rich-pending={line.richJobId ?? ""} data-rich-failed="" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
+        <span>{RICH_FRAME.richFailed}</span>
+        <button type="button" style={linkStyle} aria-expanded={why} onClick={() => setWhy((value) => !value)}>{RICH_FRAME.why}</button>
+        {line.richJobId && onRetry ? <button type="button" style={linkStyle} onClick={() => onRetry(line.richJobId as string)}>{RICH_FRAME.tryAgain}</button> : null}
+        {why && line.reason ? <MeaningLabel style={{ fontSize: 11 }}>{line.reason}</MeaningLabel> : null}
+      </div>
+    );
+  }
   const text = line.state === "waiting_for_plan" ? RICH_FRAME.richWaiting : (RICH_PHASES[line.phase ?? "writing"] ?? RICH_PHASES.writing);
   return (
     <div data-rich-pending={line.richJobId ?? ""} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px" }}>

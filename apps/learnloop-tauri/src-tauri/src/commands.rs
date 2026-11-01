@@ -1443,6 +1443,8 @@ sidecar_passthrough!(reader_figure_request, "reader.figure_request");
 sidecar_passthrough!(figure_request, "figure.request");
 // Reader RW5d P2b (rich figures, the Manim half: cancel a rich build; the standing opt-in): desktop only.
 sidecar_passthrough!(figure_rich_cancel, "figure.rich_cancel");
+// Reader RW5d P2b (Codex review F9): try a rich build again that ended with no row: desktop only.
+sidecar_passthrough!(figure_rich_retry, "figure.rich_retry");
 sidecar_passthrough!(figure_manim_opt_in, "figure.manim_opt_in");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");

@@ -81,7 +81,9 @@ export interface FiguresCtl {
   setExpanded: (figure: FigureViewDto | null) => void;
   /** Resolves once the build has ended (never rejects). */
   request: (input: FigureRequestInput) => Promise<FigureRequestOutcome>;
-  revise: (figure: FigureViewDto, note: string) => void;
+  /** "Not right?". RW5d P2b: on an animation, ``differentKind`` re-runs the tier choice
+   * with the note instead of sending it and the earlier program to the rich author. */
+  revise: (figure: FigureViewDto, note: string, differentKind?: boolean) => void;
   predict: (figure: FigureViewDto, index: number, answer: string) => Promise<FigurePredictionResultDto | null>;
   explain: (figure: FigureViewDto, predictionId: string, text: string) => Promise<FigurePredictionResultDto | null>;
   /** The figures and pending lines under one passage (RW5d P2b: and its rich builds with no quick figure). */
@@ -92,6 +94,8 @@ export interface FiguresCtl {
   richPending: FigureRichPendingDto[];
   /** RW5d P2b: cancel a rich build (only it: a quick figure stays). */
   cancelRich: (richJobId: string) => void;
+  /** RW5d P2b (Codex review F9): try a rich build again that ended with no row. */
+  retryRich: (richJobId: string) => void;
   /** RW5d P2b: the Manim opt-in's state, and the passage its one inline ask sits under (after a press). */
   manimOptIn: "ask" | "standing" | "declined" | "unavailable" | null;
   optInSpanId: string | null;
@@ -308,6 +312,12 @@ export function useFigures({
     void Promise.resolve(api.figureRichCancel({ richJobId })).then(refresh, refresh);
   }, [refresh]);
 
+  const retryRich = useCallback((richJobId: string) => {
+    setRichPending((list) => list.map((line) => line.richJobId !== richJobId ? line
+      : { ...line, state: "pending", phase: "writing", reason: null }));
+    void Promise.resolve(api.figureRichRetry({ richJobId })).then(refresh, refresh);
+  }, [refresh]);
+
   const answerManimOptIn = useCallback((choice: "allow" | "decline") => {
     setOptInSpanId(null);
     setManimOptIn(choice === "allow" ? "standing" : "declined");
@@ -317,9 +327,10 @@ export function useFigures({
   }, []);
 
   const revise = useCallback(
-    (figure: FigureViewDto, note: string) => {
+    (figure: FigureViewDto, note: string, differentKind?: boolean) => {
       if (!enabled || !contract?.revisions) return;
-      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise({ figureId: figure.figureId, note }));
+      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise(differentKind
+        ? { figureId: figure.figureId, note, differentKind: true } : { figureId: figure.figureId, note }));
     },
     [enabled, contract, run],
   );
@@ -379,11 +390,12 @@ export function useFigures({
       under,
       richPending,
       cancelRich,
+      retryRich,
       manimOptIn,
       optInSpanId,
       answerManimOptIn,
     }),
     [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under,
-     richPending, cancelRich, manimOptIn, optInSpanId, answerManimOptIn],
+     richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
   );
 }

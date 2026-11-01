@@ -33,12 +33,14 @@ import ast
 import itertools
 import json
 import math
+import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.figures import grammar as G
-from learnloop.figures.sketch import CLAIM_REL_TOL, impersonates
+from learnloop.figures.sketch import CLAIM_REL_TOL, SKETCH_MAX_CLAIM_WORK, expression_steps, impersonates
 
 MANIM_FIG_VERSION = "manim-fig-v1"
 #: keep (operational): declared functions per figure (check work, check lines).
@@ -55,17 +57,37 @@ MAX_NARRATION = 4_000
 #: keep (operational): the declared-function check's sandbox wall clock and memory.
 FUNCTION_CHECK_SECONDS = 30
 FUNCTION_CHECK_MEMORY_MB = 1024
+#: keep (machine safety, Codex review F2): the most grammar-expression steps
+#: the claim oracle may take over one figure's claims, metered as they run
+#: (``grammar.Meter``): the sketch verifier's cap, reused.
+MAX_CLAIM_WORK = SKETCH_MAX_CLAIM_WORK
+#: keep (machine safety, Codex review F2): the wall clock of one figure's
+#: whole check (the sandboxed run and the oracle), as the sketch verifier's
+#: (``sketch.SKETCH_VERIFY_SECONDS``); past it the claims fail as too slow.
+CHECK_SECONDS = 60.0
+#: keep (operational): how often a long oracle phase calls its ``interrupt``
+#: hook (the rich job's heartbeat, where a cancel is noticed), at most.
+INTERRUPT_SECONDS = 1.0
+#: How many metered steps pass between the oracle's looks at the clock (about
+#: a millisecond), as the sketch verifier's.
+_TICK_WORK = 4_096
 CLAIM_KINDS = ("equals", "invariant")
 INVARIANT_PROPERTIES = ("finite", "nonnegative", "bounded")
 #: The names a declared function may read besides its arguments, the module's
 #: math/numpy names, its constants and other checkable declared functions.
 SAFE_BUILTINS = frozenset({"abs", "min", "max", "round", "pow", "float", "int", "sum", "range", "len",
                            "enumerate", "zip", "list", "tuple", "bool", "True", "False", "None"})
-#: The calls a ``plotted_from`` entry may name the function inside (Manim's plotting entry points).
-PLOT_CALLS = frozenset({"plot", "plot_parametric_curve", "plot_polar_graph", "plot_line_graph", "get_graph",
-                        "plot_implicit_curve", "plot_surface", "ParametricFunction", "FunctionGraph",
-                        "ImplicitFunction", "ParametricSurface", "Surface", "ArrowVectorField", "StreamLines",
-                        "always_redraw", "add_updater"})
+#: Manim's plotting entry points a ``plotted_from`` entry may name the function
+#: in, each with the keyword of its function argument (else the first
+#: positional one). Only that argument counts (Codex review F5): a name in
+#: ``x_range`` or a colour is not the curve's function.
+PLOT_FUNCTION_ARGS: dict[str, str] = {
+    "plot": "function", "plot_parametric_curve": "function", "plot_polar_graph": "r_func",
+    "get_graph": "function", "plot_implicit_curve": "func", "plot_surface": "function",
+    "ParametricFunction": "function", "FunctionGraph": "function", "ImplicitFunction": "func",
+    "ParametricSurface": "func", "Surface": "func", "ArrowVectorField": "func", "StreamLines": "func",
+}
+PLOT_CALLS = frozenset(PLOT_FUNCTION_ARGS)
 _ALLOWED_MODULES = ("math", "numpy")
 
 
@@ -308,9 +330,129 @@ def _forbidden_shape(node: ast.AST) -> str | None:
     return None
 
 
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+#: Builtins whose result is an immutable scalar (a constant built only from
+#: these, literals, math and other immutable constants can't be mutated).
+_SCALAR_BUILTINS = frozenset({"abs", "min", "max", "round", "pow", "float", "int", "bool", "len", "sum"})
+
+
+def module_bindings(tree: ast.Module) -> Counter[str]:
+    """How many times each name is bound in the module's own scope (Codex
+    review F4): assignments (augmented included), deletions, defs, classes,
+    imports and loop or ``with`` targets at module level, outside any def,
+    lambda or class body; a name declared ``global`` anywhere counts twice
+    (any function may rebind it)."""
+
+    counts: Counter[str] = Counter()
+
+    def visit(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                counts[child.name] += 1
+                for part in (*child.decorator_list, *getattr(child, "bases", ()),
+                             *(k.value for k in getattr(child, "keywords", ()))):
+                    visit_expr(part)
+                if not isinstance(child, ast.ClassDef):
+                    for default in (*child.args.defaults, *(d for d in child.args.kw_defaults if d is not None)):
+                        visit_expr(default)
+                continue
+            if isinstance(child, (ast.Import, ast.ImportFrom)):
+                for alias in child.names:
+                    counts[alias.asname or alias.name.split(".")[0]] += 1
+                continue
+            visit_expr(child) if isinstance(child, ast.expr) else visit(child)
+
+    def visit_expr(node: ast.AST) -> None:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, (ast.Store, ast.Del)):
+                counts[child.id] += 1
+
+    visit(tree)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Global, ast.Nonlocal)):
+            for name in node.names:
+                counts[name] += 2
+    return counts
+
+
+def _root_name(node: ast.AST) -> str | None:
+    while isinstance(node, (ast.Attribute, ast.Subscript, ast.Starred)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _mutated_names(tree: ast.Module) -> set[str]:
+    """Names whose object is mutated somewhere in the scene, in any scope
+    (Codex review F4): an item or attribute assigned, augmented or deleted
+    (``A[0] = 1``, ``A.x += 1``, ``del A[0]``), or a method called on it
+    (``A.fill(0)``, ``L.append(1)``)."""
+
+    mutated: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Attribute, ast.Subscript)) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            name = _root_name(node)
+            if name:
+                mutated.add(name)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            name = _root_name(node.func.value)
+            if name and not isinstance(node.func.value, ast.Call):
+                mutated.add(name)
+    return mutated
+
+
+def _passed_names(tree: ast.Module, skip: Sequence[ast.AST]) -> set[str]:
+    """Names handed bare to a call as an argument (``g(A)``, ``g(x=A)``,
+    ``g(*A)``) anywhere outside ``skip`` (the declared functions and the
+    constants' own definitions): a mutable object handed to arbitrary code may
+    be changed by it."""
+
+    skipped = {id(node) for root in skip for node in ast.walk(root)}
+    passed: set[str] = set()
+    for node in ast.walk(tree):
+        if id(node) in skipped or not isinstance(node, ast.Call):
+            continue
+        for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
+            name = _root_name(argument)
+            if name:
+                passed.add(name)
+    return passed
+
+
+def _immutable_value(node: ast.AST, aliases: Mapping[str, str], immutable: set[str]) -> bool:
+    """A constant's value can't be a mutable object: literals, arithmetic,
+    tuples, ``math`` (or ``numpy`` scalar names, never calls), scalar
+    builtins and other immutable constants (Codex review F4)."""
+
+    for child in ast.walk(node):
+        if isinstance(child, (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.SetComp, ast.DictComp,
+                              ast.GeneratorExp, ast.Lambda, ast.NamedExpr)):
+            return False
+        if isinstance(child, ast.Call):
+            func = child.func
+            if isinstance(func, ast.Name) and (func.id in _SCALAR_BUILTINS or aliases.get(func.id, "").startswith("math")):
+                continue
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and aliases.get(func.value.id) == "math":
+                continue
+            return False
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+            if child.id in aliases or child.id in immutable or child.id in SAFE_BUILTINS:
+                continue
+            return False
+    return True
+
+
 def extract_functions(scene_code: str, functions: Sequence[Function]) -> Extraction:
     """The checkable part of the scene (module docstring). Never raises for
-    model code: what can't be extracted is dropped with a reason."""
+    model code: what can't be extracted is dropped with a reason.
+
+    Codex review F4: a module constant is kept only when the scene can't
+    change what the declared functions read through it: bound once in the
+    module's scope (no ``A += 1``, no rebinding, never ``global``), never
+    mutated in any scope (no item or attribute assigned, no method called on
+    it) and, when its value may be a mutable object (a ``numpy`` call, a
+    list), never handed to other code as an argument. A declared function is
+    also bound once (no later ``f = ...`` or second ``def f``). A function
+    that reads a constant that isn't kept is not checkable."""
 
     try:
         tree = ast.parse(scene_code)
@@ -319,21 +461,54 @@ def extract_functions(scene_code: str, functions: Sequence[Function]) -> Extract
     aliases, import_lines = _module_aliases(tree)
     defs = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
     declared = {f.name for f in functions}
+    bindings = module_bindings(tree)
+    mutated = _mutated_names(tree)
     # Module constants: a plain NAME = <expression over literals, math/numpy and earlier constants>.
     constants: dict[str, ast.Assign] = {}
+    immutable: set[str] = set()
+    unstable: dict[str, str] = {}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            name = node.targets[0].id
             reads = _free_reads(node.value)
             if _forbidden_shape(node.value) is None and all(
-                    name in aliases or name in constants or name in SAFE_BUILTINS for name in reads):
-                constants[node.targets[0].id] = node
+                    read in aliases or read in constants or read in SAFE_BUILTINS for read in reads):
+                constants[name] = node
+                if _immutable_value(node.value, aliases, immutable):
+                    immutable.add(name)
+                else:
+                    immutable.discard(name)
             else:
-                constants.pop(node.targets[0].id, None)
+                constants.pop(name, None)
+    passed = _passed_names(tree, [*(defs[name] for name in declared if name in defs),
+                                  *(node.value for node in constants.values())])
+    for name in list(constants):
+        if bindings[name] != 1:
+            unstable[name] = "the scene changes it after setting it"
+        elif name in mutated:
+            unstable[name] = "the scene changes what it holds"
+        elif name not in immutable and name in passed:
+            unstable[name] = "the scene hands it (which may be changed in place) to other code"
+        else:
+            continue
+        del constants[name]
+    # A constant built from one the scene changes is not kept either.
+    grew = True
+    while grew:
+        grew = False
+        for name, node in list(constants.items()):
+            bad = sorted(read for read in _free_reads(node.value) if read in unstable)
+            if bad:
+                unstable[name] = f"it is built from {bad[0]!r}, which the scene changes"
+                del constants[name]
+                grew = True
     dropped: dict[str, str] = {}
     for function in functions:
         node = defs.get(function.name)
         if node is None:
             dropped[function.name] = "it is not a top-level def in the scene"
+        elif bindings[function.name] != 1:
+            dropped[function.name] = "the scene binds its name more than once"
         elif node.decorator_list:
             dropped[function.name] = "it is decorated"
         elif node.args.vararg or node.args.kwarg or node.args.kwonlyargs or node.args.posonlyargs:
@@ -360,6 +535,7 @@ def extract_functions(scene_code: str, functions: Sequence[Function]) -> Extract
                 if name == function.name:
                     continue
                 dropped[function.name] = (f"it calls {name!r}, which is not checkable" if name in declared
+                                          else f"it reads {name!r}, and {unstable[name]}" if name in unstable
                                           else f"it needs {name!r}, which is neither math, numpy, a module "
                                                "constant nor another declared function")
                 changed = True
@@ -500,33 +676,142 @@ def _close(value: float, expected: float) -> bool:
     return math.isfinite(expected) and abs(value - expected) <= CLAIM_REL_TOL * max(1.0, abs(expected))
 
 
+def _scope_binds(scope: ast.AST, name: str) -> bool:
+    """``name`` is bound in this def, lambda or class (its arguments or any
+    store in its body; nested scopes included, which only errs towards
+    *not* recognizing a plotted function)."""
+
+    for node in ast.walk(scope):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node is not scope \
+                and node.name == name:
+            return True
+        if isinstance(node, (ast.Import, ast.ImportFrom)) and any(
+                (alias.asname or alias.name.split(".")[0]) == name for alias in node.names):
+            return True
+    return name in _bound_names(scope)
+
+
+def _function_argument(call: ast.Call, keyword: str) -> ast.AST | None:
+    for item in call.keywords:
+        if item.arg == keyword:
+            return item.value
+    return call.args[0] if call.args and not isinstance(call.args[0], ast.Starred) else None
+
+
+def _draws_from(argument: ast.AST, function: str) -> bool:
+    """The plot call's function argument is the module's ``function``: the
+    bare name, or a lambda that calls it (and doesn't take it as an argument)."""
+
+    if isinstance(argument, ast.Name):
+        return argument.id == function
+    if isinstance(argument, ast.Lambda):
+        if function in _bound_names(argument):
+            return False
+        return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == function
+                   for node in ast.walk(argument.body))
+    return False
+
+
 def plotted_from_ok(scene_code: str, function: str) -> bool:
-    """``function`` is an argument (or read inside a lambda argument) of a
-    Manim plot call in the scene (spec §9b.1, AST-checked)."""
+    """``function`` supplies a Manim plot call's curve (spec §9b.1,
+    AST-checked; Codex review F5): it is that call's function argument
+    (:data:`PLOT_FUNCTION_ARGS`), by name or inside a lambda that calls it,
+    and the name there resolves to the module's ``def``: bound once in the
+    module and not rebound in any def, lambda or class around the call.
+    When that can't be shown, the check line keeps the function check and
+    drops the curve."""
 
     try:
         tree = ast.parse(scene_code)
     except SyntaxError:
         return False
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", None)
-        if name not in PLOT_CALLS:
-            continue
-        for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
-            if any(isinstance(child, ast.Name) and child.id == function for child in ast.walk(argument)):
-                return True
-    return False
+    if module_bindings(tree)[function] != 1 or not any(
+            isinstance(node, ast.FunctionDef) and node.name == function for node in tree.body):
+        return False
+
+    def visit(node: ast.AST, scopes: tuple[ast.AST, ...]) -> bool:
+        if isinstance(node, ast.Call):
+            name = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", None)
+            if name in PLOT_FUNCTION_ARGS:
+                argument = _function_argument(node, PLOT_FUNCTION_ARGS[name])
+                if argument is not None and _draws_from(argument, function) and not any(
+                        _scope_binds(scope, function) for scope in scopes):
+                    return True
+        inner = (*scopes, node) if isinstance(node, _SCOPES) else scopes
+        return any(visit(child, inner) for child in ast.iter_child_nodes(node))
+
+    return visit(tree, ())
 
 
-def check_claims(figure: ManimFigure, *, runner: FunctionRunner | None = None) -> CheckReport:
+class ClaimWorkExceeded(Exception):
+    """The claim check passed its work cap or its wall clock (code's words in ``reason``)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+class _ClaimBudget(G.Meter):
+    """The oracle's limits (Codex review F2), the sketch verifier's pattern:
+    every node the grammar evaluates for a claim is charged as it runs
+    (:data:`MAX_CLAIM_WORK`), and every :data:`_TICK_WORK` steps the clock is
+    read against the deadline of the whole check (:data:`CHECK_SECONDS`)
+    and, at most every :data:`INTERRUPT_SECONDS`, the caller's ``interrupt``
+    hook runs (the rich job's heartbeat, which raises when it is cancelled)."""
+
+    def __init__(self, deadline: float, interrupt: Callable[[], None] | None) -> None:
+        super().__init__(MAX_CLAIM_WORK, _TICK_WORK)
+        self.deadline = deadline
+        self.interrupt = interrupt
+        self.last_interrupt = time.monotonic()
+
+    def foresee(self, work: int) -> None:
+        if self.used + work > self.limit:
+            self._refuse(self.used + work)
+
+    def _refuse(self, steps: int) -> None:
+        raise ClaimWorkExceeded(f"the claims need more computation than checking may do (at least {steps:,} "
+                                f"expression steps; at most {self.limit:,})")
+
+    def exhausted(self) -> None:
+        self._refuse(self.used)
+
+    def checkpoint(self) -> None:
+        self.tick()
+
+    def tick(self) -> None:
+        now = time.monotonic()
+        if now > self.deadline:
+            raise ClaimWorkExceeded(f"the claims take longer than {CHECK_SECONDS:g} s to check")
+        if self.interrupt is not None and now - self.last_interrupt >= INTERRUPT_SECONDS:
+            self.last_interrupt = now
+            self.interrupt()
+
+
+def check_claims(figure: ManimFigure, *, runner: FunctionRunner | None = None,
+                 interrupt: Callable[[], None] | None = None) -> CheckReport:
     """Check the figure's declared claims (module docstring). A claim on an
     unextractable function is dropped (``not_checkable``); an expression that
     doesn't parse, a value off the expression, a non-finite value or a failed
-    run is a failure (the figure gets its second attempt, then isn't shown)."""
+    run is a failure (the figure gets its second attempt, then isn't shown).
 
+    Codex review F2: the whole check has one deadline (:data:`CHECK_SECONDS`)
+    and the oracle a metered work cap (:data:`MAX_CLAIM_WORK`); a claim set
+    past either fails as too costly to check. ``interrupt`` is called now and
+    then while the oracle runs (it may raise to stop the check)."""
+
+    budget = _ClaimBudget(time.monotonic() + CHECK_SECONDS, interrupt)
     report = CheckReport()
+    try:
+        return _check_claims(figure, runner=runner, budget=budget, report=report)
+    except ClaimWorkExceeded as exc:
+        report.failures.append(exc.reason)
+        report.checks = []
+        return report
+
+
+def _check_claims(figure: ManimFigure, *, runner: FunctionRunner | None, budget: _ClaimBudget,
+                  report: CheckReport) -> CheckReport:
     if not figure.claims:
         return report
     extraction = extract_functions(figure.scene_code, figure.functions)
@@ -555,7 +840,12 @@ def check_claims(figure: ManimFigure, *, runner: FunctionRunner | None = None) -
     if report.failures:
         return report
     points = {name: grid(by_name[name]) for name in dict.fromkeys(claim.function for claim in wanted)}
+    # An early refusal of what plainly can't fit (nothing is charged: the
+    # meter charges what actually runs, so the cap holds without it).
+    budget.foresee(sum(expression_steps(node, {a.name: (a.low, a.high) for a in by_name[wanted[index].function].args})
+                       * len(points[wanted[index].function]) for index, node in compiled.items()))
     found = (runner or sandboxed_runner)(extraction.source, points)
+    budget.tick()
     if found.get("error") or not isinstance(found.get("results"), Mapping):
         report.failures.append(f"the declared functions could not be run in the sandbox ({found.get('error') or 'no results'})")
         return report
@@ -575,7 +865,8 @@ def check_claims(figure: ManimFigure, *, runner: FunctionRunner | None = None) -
                 break
             if claim.kind == "equals":
                 try:
-                    expected = G.evaluate(compiled[index], dict(zip((a.name for a in function.args), point)))
+                    expected = G.evaluate(compiled[index], dict(zip((a.name for a in function.args), point)),
+                                          meter=budget)
                 except (G.GrammarError, ArithmeticError, ValueError) as exc:
                     bad = f"the claimed expression for {claim.function} can't be evaluated at {at} ({exc})"
                     break
@@ -610,6 +901,7 @@ def check_claims(figure: ManimFigure, *, runner: FunctionRunner | None = None) -
 __all__ = [
     "CLAIM_KINDS",
     "CheckReport",
+    "ClaimWorkExceeded",
     "Extraction",
     "Function",
     "FunctionRunner",

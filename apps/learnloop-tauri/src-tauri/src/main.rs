@@ -651,6 +651,7 @@ fn main() {
             reader_figure_request,
             figure_request,
             figure_rich_cancel,
+            figure_rich_retry,
             figure_manim_opt_in,
             reader_figure_revise,
             reader_figure_job,

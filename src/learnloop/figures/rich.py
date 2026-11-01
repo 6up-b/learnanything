@@ -311,7 +311,7 @@ def rich_instructions() -> str:
 
 
 def rich_context(vault: Any, author_context: Mapping[str, Any], brief: Mapping[str, Any],
-                 problems: Sequence[str]) -> dict[str, Any]:
+                 problems: Sequence[str], revision: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """What the rich author is sent: what the figure author saw (passages, the
     request, its grounding), the brief, the animation settings the concept
     pipeline uses, and the problems of the last attempt (code's words)."""
@@ -328,6 +328,11 @@ def rich_context(vault: Any, author_context: Mapping[str, Any], brief: Mapping[s
         "latex_available": bool(config.latex_enabled), "resolution": resolution, "fps": fps,
         "scene_scaffold": CONCEPT_ANIMATION_SCENE_SCAFFOLD,
     })
+    if revision:
+        # RW5d P2b (spec §8.5, Codex review F11): "not right?" on an animation:
+        # the learner's note and the earlier program, for a new version.
+        context["learner_note"] = str(revision.get("note") or "")
+        context["earlier_version"] = dict(revision.get("earlier_program") or {})
     if problems:
         context["problems_with_the_last_attempt"] = list(problems)[:12]
     return context
@@ -452,7 +457,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     try:
         with gate_model_requests(gate):
             return _run(vault, repository, payload, base=base, gate=gate, client=client, report=report,
-                        renderer=renderer, function_runner=function_runner, clock=clock)
+                        renderer=renderer, function_runner=function_runner, clock=clock,
+                        cancellation=tuple(cancellation))
     except FiguresChanged as exc:
         raise RichJobStopped("figures_changed", str(exc)) from exc
 
@@ -464,9 +470,19 @@ def _plan_down(exc: BaseException) -> bool:
         isinstance(exc, R.FigureUnavailable) and exc.reason == "unavailable")
 
 
+def _interrupt(report: Report | None, phase: str) -> Callable[[], None] | None:
+    """The claim check's ``interrupt`` hook: the job's heartbeat in its
+    current phase, where a cancel is noticed (Codex review F2, F6)."""
+
+    if report is None:
+        return None
+    return lambda: report(phase, PHASES.get(phase, phase))
+
+
 def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any],
          gate: FiguresGate, client: Any | None, report: Report | None, renderer: Renderer | None,
-         function_runner: M.FunctionRunner | None, clock: Clock | None) -> dict[str, Any]:
+         function_runner: M.FunctionRunner | None, clock: Clock | None,
+         cancellation: tuple[type[BaseException], ...] = ()) -> dict[str, Any]:
     from learnloop.ai.spend import SpendLimitExceeded
     from learnloop.content.authoring.concept_animation import (
         capped_scope_prefix,
@@ -502,11 +518,11 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
     for attempt in range(MAX_RICH_ATTEMPTS):
         last = attempt == MAX_RICH_ATTEMPTS - 1
         _say(report, "writing", "writing an animation for this passage")
-        prompt = rich_prompt(rich_context(vault, author_context, brief, problems))
+        prompt = rich_prompt(rich_context(vault, author_context, brief, problems, payload.get("revision")))
         try:
             output = route.ask(prompt, FigureManimOutputV1, metadata={"attempt": attempt + 1,
                                                                      "prompt_version": RICH_PROMPT_VERSION})
-        except FiguresChanged:
+        except (FiguresChanged, *cancellation):
             raise
         except R.FigureUnavailable as exc:
             if attempt == 0:
@@ -539,7 +555,7 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
                                   candidate.narration_md, candidate.functions, candidate.claims,
                                   candidate.plotted_from)
         gate.check("checks")
-        found = M.check_claims(candidate, runner=function_runner)
+        found = M.check_claims(candidate, runner=function_runner, interrupt=_interrupt(report, "checking"))
         if found.failed:
             problems, failure = list(found.failures), found.failures[0]
             continue
@@ -561,6 +577,9 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
                         timeout_seconds=config.timeout_seconds, manim_executable=config.manim_executable,
                         manim_command=resolve_manim_command(config, vault.root),
                         wrapper=capped_scope_prefix(background=payload.get("build_mode") == "prefetch"))
+        # Codex review F6: a cancel pressed while the render ran is noticed
+        # here, before anything is stored or asked again.
+        _say(report, "rendering", PHASES["rendering"])
         if result.ok and result.video_bytes:
             video = result.video_bytes
         else:
@@ -570,7 +589,8 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
                 # when an attempt is left: rewrite, check and render once more.
                 return _repair_render(vault, repository, payload, base=base, gate=gate, route=route,
                                       report=report, render=render, function_runner=function_runner,
-                                      stderr=result.stderr_tail or "", previous=figure, clock=clock)
+                                      stderr=result.stderr_tail or "", previous=figure, clock=clock,
+                                      cancellation=cancellation)
             figure = None
     gate.check("store")
     return _store(vault, repository, payload, base=base, route=route, figure=figure, checks=checks, video=video,
@@ -581,7 +601,7 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
 def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any],
                    gate: FiguresGate, route: R.FigureRoute, report: Report | None, render: Renderer,
                    function_runner: M.FunctionRunner | None, stderr: str, previous: M.ManimFigure,
-                   clock: Clock | None) -> dict[str, Any]:
+                   clock: Clock | None, cancellation: tuple[type[BaseException], ...] = ()) -> dict[str, Any]:
     from learnloop.content.authoring.concept_animation import (
         capped_scope_prefix,
         resolve_manim_command,
@@ -600,7 +620,7 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
     _say(report, "writing", "writing an animation for this passage")
     try:
         output = route.ask(rich_prompt(rich_context(vault, dict(payload.get("author_context") or {}), brief,
-                                                    problems)),
+                                                    problems, payload.get("revision"))),
                            FigureManimOutputV1, metadata={"attempt": route.made + 1, "repair": "render",
                                                           "prompt_version": RICH_PROMPT_VERSION})
         candidate = M.parse_figure(output)
@@ -612,7 +632,7 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
                                       candidate.narration_md, candidate.functions, candidate.claims,
                                       candidate.plotted_from)
             gate.check("checks")
-            found = M.check_claims(candidate, runner=function_runner)
+            found = M.check_claims(candidate, runner=function_runner, interrupt=_interrupt(report, "checking"))
             if found.failed:
                 failure = found.failures[0]
             else:
@@ -622,11 +642,14 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
                                 timeout_seconds=config.timeout_seconds, manim_executable=config.manim_executable,
                                 manim_command=resolve_manim_command(config, vault.root),
                                 wrapper=capped_scope_prefix(background=payload.get("build_mode") == "prefetch"))
+                _say(report, "rendering", PHASES["rendering"])  # Codex review F6: the cancel checkpoint
                 if result.ok and result.video_bytes:
                     figure, checks, video = candidate, found, result.video_bytes
                 else:
                     failure = f"the video couldn't be rendered: {(result.stderr_tail or 'manim failed')[-300:]}"
-    except FiguresChanged:
+    except (FiguresChanged, *cancellation):
+        # Codex review F6: a cancel (the job's report() raising) is never an
+        # honest failure to store.
         raise
     except M.ManimFigureError as exc:
         failure = exc.problems[0]
@@ -672,10 +695,13 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
         "input_span_keys": [tuple(key) for key in base.get("input_span_keys") or ()],
         "request_id": payload.get("request_id"), "goal_text": base.get("goal_text"),
         "grounding": base.get("grounding") or "anchor", "tier": "manim", "origin": base.get("origin") or "selection",
-        "supersedes_id": None, "revision_note": None, "spec_version": M.MANIM_FIG_VERSION, "model": route.model,
+        "supersedes_id": payload.get("supersedes_id"), "revision_note": (payload.get("revision") or {}).get("note"),
+        "spec_version": M.MANIM_FIG_VERSION, "model": route.model,
         "prompt_version": RICH_PROMPT_VERSION, "input_hash": str(payload["input_hash"]), "created_at": created_at,
         "spec_json": None, "kind": None, "unsupported_kind": None, "program_version": M.MANIM_FIG_VERSION,
-        "runtime_digest": runtime_digest(vault), "fuller_of_id": payload.get("fast_figure_id"), "checks": [],
+        "runtime_digest": runtime_digest(vault),
+        # A revision of a fuller version stays that quick figure's fuller version (§8.5).
+        "fuller_of_id": payload.get("fast_figure_id") or payload.get("fuller_of_id"), "checks": [],
         "media_file_name": None,
     }
     if figure is not None and video is not None and checks is not None:
@@ -702,13 +728,10 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
                             judge="verifier", input_hash=str(payload["input_hash"]), verdict=row["verification"],
                             rationale=str(row["verification_report"].get("reason") or
                                           f"{len(row['checks'])} checks")[:400], created_at=created_at)
-            if not payload.get("fast_figure_id") and payload.get("verdict"):
-                # With no quick figure the tier receipt is this row's (§8.4).
-                verdict = payload["verdict"]
-                append_judgment(connection, task=TIER_LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
-                                judge="llm", input_hash=str(payload["input_hash"]), verdict=str(verdict[0]),
-                                judge_model=payload.get("author_model"), prompt_version=payload.get("prompt_version"),
-                                rationale=str(verdict[1])[:400], created_at=created_at)
+            # With no quick figure the tier receipt was appended against the
+            # request when the author's choice was accepted (Codex review
+            # F10); the request now names this figure (above), never a
+            # second receipt.
     except sqlite3.IntegrityError:
         found = _existing(repository, str(payload["input_hash"]))
         if found is None:
@@ -753,6 +776,30 @@ def job_state(job: Mapping[str, Any]) -> dict[str, Any]:
         reason = "interrupted when LearnLoop stopped" if code == "interrupted" else str(error.get("message") or "")
         return {"state": "failed", "reason": reason[:300] or "the job failed", "rich_job_id": job["id"]}
     return {"state": "done", "rich_job_id": job["id"]}
+
+
+def rich_job_for_quick(repository: Repository, fast_figure_id: str) -> dict[str, Any] | None:
+    """The newest rich job started for this quick figure, in any state,
+    looked up by its payload over the whole queue (not a recent window), so
+    a recovered intent (Codex review F8) never restarts a build that ran,
+    failed or was cancelled long ago."""
+
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            found = connection.execute(
+                "SELECT id FROM ingest_jobs WHERE job_type = ? AND json_extract(payload_json, '$.fast_figure_id') = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1", (RICH_JOB_TYPE, fast_figure_id)).fetchone()
+    except sqlite3.Error:
+        return None
+    if found is None:
+        return None
+    job = repository.get_ingest_job(str(found[0]))
+    return dict(job) if job is not None else None
+
+
+def rich_job_id_for_quick(repository: Repository, fast_figure_id: str) -> str | None:
+    job = rich_job_for_quick(repository, fast_figure_id)
+    return str(job["id"]) if job is not None else None
 
 
 def rich_job_for(jobs: Sequence[Mapping[str, Any]], *, input_hash: str | None = None,
@@ -807,6 +854,8 @@ __all__ = [
     "rich_build_key",
     "rich_context",
     "rich_job_for",
+    "rich_job_for_quick",
+    "rich_job_id_for_quick",
     "rich_jobs",
     "rich_on_menu",
     "rich_prompt",

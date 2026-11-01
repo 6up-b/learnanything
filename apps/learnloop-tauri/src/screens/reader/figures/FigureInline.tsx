@@ -95,7 +95,7 @@ import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFi
 import { checksStand, SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
 import { useChecksWithdrawn } from "./sketch/checksWithdrawn";
 import { parseProgram } from "./sketch/sketchScene";
-import { FullerLine, ManimFigureBody, ManimOptInLine, manimBadge, RICH_FRAME, RichPendingLine } from "./RichFigure";
+import { FullerLine, ManimFigureBody, ManimNotRight, ManimOptInLine, manimBadge, RICH_FRAME, RichPendingLine } from "./RichFigure";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -530,10 +530,13 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
     logReaderAction("quick_version_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
     setShowingFuller(false);
   };
+  // RW5d P2b (spec §8.5, Codex review F11): "not right?" on the animation shown.
+  const notRightOn = (target: FigureViewDto) => (ctl.contract?.revisions
+    ? <ManimNotRight onRevise={(note, differentKind) => ctl.revise(target, note, differentKind)} /> : null);
   const body = showingFuller && fullerReady
-    ? <ManimFigureBody figure={fullerReady} />
+    ? <ManimFigureBody figure={fullerReady} notRight={notRightOn(fullerReady)} />
     : isManim
-    ? <ManimFigureBody figure={figure} />
+    ? <ManimFigureBody figure={figure} notRight={notRightOn(figure)} />
     : isSketch
     ? (program ? <SketchFigure figure={figure} ctl={ctl} program={program} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>)
     : compiled ? <FigureBody figure={figure} ctl={ctl} compiled={compiled} /> : <MeaningLabel>{FIGURE_COPY.unreadable}</MeaningLabel>;
@@ -572,7 +575,7 @@ export function FiguresUnder({ ctl, spanId }: { ctl: FiguresCtl; spanId: string 
     <div data-figures-under={spanId}>
       {pending.map((item) => <FigurePendingLine key={item.key} pending={item} />)}
       {askOptIn ? <ManimOptInLine onAnswer={(choice) => ctl.answerManimOptIn(choice)} /> : null}
-      {richPending.map((line) => <RichPendingLine key={line.richJobId ?? line.requestId ?? ""} line={line} onCancel={(id) => ctl.cancelRich(id)} />)}
+      {richPending.map((line) => <RichPendingLine key={line.richJobId ?? line.requestId ?? ""} line={line} onCancel={(id) => ctl.cancelRich(id)} onRetry={(id) => ctl.retryRich(id)} />)}
       {figures.map((figure) => <FigureInline key={figure.figureId} figure={figure} ctl={ctl} />)}
     </div>
   );

@@ -63,6 +63,7 @@ from learnloop_sidecar.registry import method
 FIGURE_RPCS: tuple[str, ...] = (
     "figure.request",
     "figure.rich_cancel",
+    "figure.rich_retry",
     "figure.manim_opt_in",
     "reader.figure_request",
     "reader.figure_revise",
@@ -163,7 +164,7 @@ def _wake_gap_worker(ctx: SidecarContext) -> Any:
     return lambda _job_id: ctx.post_attempt_worker.notify()
 
 
-def _rich_spawner(ctx: SidecarContext, vault: Any) -> Any:
+def _rich_spawner(ctx: SidecarContext, vault: Any, *, granted: bool = True) -> Any:
     """RW5d P2b (spec §8.6, SM9): how a build starts its rich job on the
     durable queue. Taken here, in the pressed request: the press's token and
     action when that action is granted for this session (the grant covers
@@ -175,7 +176,9 @@ def _rich_spawner(ctx: SidecarContext, vault: Any) -> Any:
     jobs = getattr(ctx, "ingest_jobs", None)
     if jobs is None or not hasattr(jobs, "enqueue_figure_rich"):
         return None
-    token = plan_fallback.unit_token(vault.root)
+    # ``granted`` False (Codex review F8: a recovered intent, started from a
+    # read): no action's grant, whatever this request carries.
+    token = plan_fallback.unit_token(vault.root) if granted else None
     origin = plan_fallback.unit_origin() if token is not None else None
 
     def spawn(payload: dict[str, Any]) -> str:
@@ -504,6 +507,9 @@ def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[st
 class FigureReviseInput(ParamsModel):
     figure_id: str
     note: str = Field(default="", max_length=2000)
+    #: RW5d P2b (spec §8.5): on an animation, "try a different kind of figure"
+    #: (the note re-runs the tier choice instead of going to the rich author).
+    different_kind: bool = False
 
 
 @method("reader.figure_revise", FigureReviseInput)
@@ -520,7 +526,9 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
         raise SidecarError("not_found", "That figure is no longer kept.")
     try:
         # RW5d: a show-me figure keeps its goal, home and grounding.
-        request = FS.check_request(vault, repository, FS.revision_request(repository, base, params.note))
+        revision = FS.revision_request(repository, base, params.note)
+        revision.different_kind = bool(params.different_kind)
+        request = FS.check_request(vault, repository, revision)
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_revision_requested", {"extraction_id": base["extraction_id"],
@@ -569,6 +577,14 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
     offer)."""
 
     vault, repository = _require(ctx)
+    if FS.rich_enabled(vault):
+        # Codex review F8: a quick figure whose rich job's intent committed but
+        # whose job never started (a stop between the two) starts it now.
+        try:
+            FS.resume_rich_intents(vault, repository, params.extraction_id,
+                                   _rich_spawner(ctx, vault, granted=False))
+        except Exception:  # noqa: BLE001 - the fuller line keeps saying it is pending; a later read retries
+            pass
     figures = FS.list_figures(vault, repository, params.extraction_id)
     payload: dict[str, Any] = {"extraction_id": params.extraction_id, "figures": figures}
     if FS.rich_enabled(vault):
@@ -617,6 +633,29 @@ def figure_rich_cancel(ctx: SidecarContext, params: RichCancelInput) -> dict[str
                                                 "tier": (job.get("payload") or {}).get("tier")},
            extraction_id=base.get("extraction_id"))
     return versioned({"rich_job_id": params.rich_job_id, "state": "cancelled"})
+
+
+class RichRetryInput(ParamsModel):
+    rich_job_id: str = Field(min_length=1, max_length=200)
+
+
+@method("figure.rich_retry", RichRetryInput)
+def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, Any]:
+    """RW5d P2b (Codex review F9): try a rich build again that ended with no
+    row (interrupted when LearnLoop stopped, or stopped with code's reason).
+    The same job is requeued (its payload and request identity: a paid answer
+    is recovered, never paid for twice); a cancelled build is not."""
+
+    vault, repository = _require(ctx)
+    try:
+        code = FS.retry_rich_job(vault, repository, params.rich_job_id)
+    except FS.FigureRefused as exc:
+        raise _refused(exc) from exc
+    jobs = getattr(ctx, "ingest_jobs", None)
+    if jobs is None or not hasattr(jobs, "retry_figure_rich") or not jobs.retry_figure_rich(
+            params.rich_job_id, error_code=code):
+        raise SidecarError("unavailable", "LearnLoop couldn't start that animation again just now.")
+    return versioned({"rich_job_id": params.rich_job_id, "state": "pending"})
 
 
 class ManimOptInInput(ParamsModel):
