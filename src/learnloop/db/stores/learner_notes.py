@@ -9,6 +9,7 @@ the only reader is ``source_retrieval.note_links`` (display and learner-voice re
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -73,6 +74,21 @@ def latest_note(connection: sqlite3.Connection, note_key: str) -> dict[str, Any]
     return rows[0] if rows else None
 
 
+def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The newest snapshot of each note, by note key (a link made by hand shows its note's
+    newest text: refreshing a snapshot never writes a link row; Codex review F9)."""
+
+    wanted = sorted({str(key) for key in note_keys})
+    if not wanted:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for row in _dicts(connection.execute(
+            f"SELECT * FROM learner_notes WHERE note_key IN ({','.join('?' for _ in wanted)}) "
+            "ORDER BY created_at, rowid", wanted)):
+        out[str(row["note_key"])] = row
+    return out
+
+
 def note_count(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM learner_notes").fetchone()[0])
 
@@ -130,18 +146,31 @@ def judged(connection: sqlite3.Connection, task: str, learning_object_id: str, s
         "AND input_hash = ? AND judge = 'llm' LIMIT 1", (task, learning_object_id, state_key)).fetchone() is not None
 
 
-def latest_states(connection: sqlite3.Connection, task: str, learning_object_ids: Iterable[str]) -> dict[str, str]:
-    """The newest judged state per topic (an older judgment's proposals give way to it)."""
+def topic_key(goal_id: str, learning_object_id: str) -> str:
+    """A deliverable's topic as a shown-state marker names it."""
+
+    return f"{goal_id}|{learning_object_id}"
+
+
+def current_states(connection: sqlite3.Connection, task: str,
+                   learning_object_ids: Iterable[str]) -> dict[tuple[str, str], str]:
+    """The candidate state each deliverable's topic shows now, by (goal, LO) (Codex review
+    F7): the newest shown-state marker per topic, appended whenever the topic's candidate
+    state changes (a state judged now, one judged before and reused, or no candidates)."""
 
     wanted = sorted({str(lo) for lo in learning_object_ids})
     if not wanted:
         return {}
-    out: dict[str, str] = {}
-    for left_id, input_hash in connection.execute(
-            f"SELECT left_id, input_hash FROM judgment_ledger WHERE task = ? AND left_kind = 'learning_object' "
-            f"AND judge = 'llm' AND left_id IN ({','.join('?' for _ in wanted)}) ORDER BY created_at, rowid",
+    out: dict[tuple[str, str], str] = {}
+    for rationale, input_hash in connection.execute(
+            f"SELECT rationale, input_hash FROM judgment_ledger WHERE task = ? AND left_kind = 'deliverable_topic' "
+            f"AND judge = 'exact_key' AND right_id IN ({','.join('?' for _ in wanted)}) ORDER BY created_at, rowid",
             (task, *wanted)):
-        out[str(left_id)] = str(input_hash)
+        try:
+            named = json.loads(rationale)
+        except ValueError:
+            continue
+        out[(str(named.get("goal_id") or ""), str(named.get("learning_object_id") or ""))] = str(input_hash)
     return out
 
 
@@ -172,8 +201,10 @@ __all__ = [
     "NOTE_COLUMNS",
     "ai_rows_for_state",
     "insert_link",
+    "current_states",
     "judged",
-    "latest_states",
+    "latest_notes",
+    "topic_key",
     "takes_quoting_notes",
     "insert_note",
     "latest_note",

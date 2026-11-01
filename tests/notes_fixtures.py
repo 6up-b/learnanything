@@ -14,7 +14,9 @@ corpus of notes also written there:
 
 Every invocation's argv is appended to the log (one JSON line each).
 ``FAKE_TEND_MODE``: ``slow`` (sleeps past any timeout), ``no_read`` (``unknown op``),
-``fail`` (exit 1).
+``fail`` (exit 1); ``serve_fail`` (``serve`` exits 1 and says nothing), ``serve_garbage``
+(``serve`` prints unreadable lines), ``serve_slow`` (``serve`` sleeps past any timeout):
+search still answers in those three (Codex review F1: tend's read is down, its search up).
 
 ``NoteLinkFake`` answers the note link judge from the prompt's context: a note whose
 text contains one of ``discusses`` words discusses it (``how`` and ``about`` as
@@ -28,7 +30,7 @@ import json
 import stat
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
@@ -58,6 +60,14 @@ if args and args[0] == "search":
             for entry in corpus["entries"] if any(word.casefold() in text for word in entry["words"])]
     print(json.dumps({{"results": hits[:k], "warning": None}}))
 elif args and args[0] == "serve":
+    if mode == "serve_fail":
+        sys.exit(1)
+    if mode == "serve_slow":
+        time.sleep(30)
+    if mode == "serve_garbage":
+        for line in sys.stdin:
+            print("not json at all", flush=True)
+        sys.exit(0)
     private = set(corpus.get("private", []))
     for line in sys.stdin:
         if not line.strip():
@@ -184,11 +194,17 @@ class NoteLinkFake(StructuredClientFake):
     model = "fake-note-link-model"
 
     def __init__(self, *, discusses: Sequence[str] = ("Av = lv", "eigen example"), how: str = "restates",
-                 about: str = "passage", fail: Exception | None = None) -> None:
+                 about: str = "passage", fail: Exception | None = None,
+                 shape: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
+                 on_call: Callable[[], None] | None = None) -> None:
         self.discusses = tuple(discusses)
         self.how = how
         self.about = about
         self.fail = fail
+        #: Rewrites the verdicts before they are returned (an incomplete answer, F12).
+        self.shape = shape
+        #: Runs when a request arrives (the learner acting meanwhile, F2).
+        self.on_call = on_call
         self.prompts: list[str] = []
         self.contexts: list[dict[str, Any]] = []
 
@@ -201,6 +217,8 @@ class NoteLinkFake(StructuredClientFake):
         self.contexts.append(context)
         report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 60,
                            "resolved_model": self.model})
+        if self.on_call is not None:
+            self.on_call()
         if self.fail is not None:
             raise self.fail
         verdicts = []
@@ -210,6 +228,8 @@ class NoteLinkFake(StructuredClientFake):
                                  "line": f"your note {self.how} it"})
             else:
                 verdicts.append({"note": note["id"], "verdict": "unrelated"})
+        if self.shape is not None:
+            verdicts = self.shape(verdicts)
         return request.result_model.model_validate({"notes": verdicts})
 
     @property

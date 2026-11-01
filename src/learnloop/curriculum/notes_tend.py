@@ -20,9 +20,15 @@ with a timeout, and nothing else:
   folder tend marks private). LearnLoop keeps the hit's heading section: from the hit's
   line up to the next heading of any level (tend's own chunk boundary). When tend
   answers a read with an error (a private note, a file it no longer indexes) the note
-  is dropped. Only when ``tend serve`` cannot answer at all (it would not start, timed
-  out, or does not know the op) is the section read from the file itself, and only
-  inside the allowlist.
+  is dropped. **tend's read is the only way a note's text is read** (Codex review F1):
+  its ``private`` setting ("never handed to models") lives in tend's own config, which
+  LearnLoop does not read, so no other path could tell a private note from a public
+  one. When ``tend serve`` cannot answer at all (it would not start, timed out, answered
+  nothing readable, or does not know the op) :class:`TendUnavailable` is raised and the
+  work waits for tend; the file is never opened by LearnLoop.
+* A hit's line is checked against the text tend read (Codex review F8): when that line
+  is a heading other than the hit's own (the note moved since tend indexed it, or a
+  stored reference is out of date), the note is dropped, never another section's text.
 
 **The allowlist** (``notes.tend.paths``): the folders of tend's corpus LearnLoop may
 use (default: grove notes, Quicknote, the Obsidian vault and ``~/org``; project
@@ -56,11 +62,15 @@ ORIGINS: tuple[str, ...] = ("tend", "pocket_notes")
 #: and as the judge reads it. Tend's own sections are cut near 6000 characters; this keeps
 #: a candidate list inside one prompt.
 NOTE_CHARS = 3000
-#: ``keep`` (a guardrail): the most one file read through the fallback may hold.
-FALLBACK_MAX_BYTES = 2_000_000
 
 _ORG_HEADING = re.compile(r"^\*+\s")
 _MD_HEADING = re.compile(r"^#{1,6}\s")
+# tend's own heading normalization (chunk.py): a heading's text without its org TODO
+# keyword and tags, or its Markdown closing hashes.
+_ORG_HEADING_TEXT = re.compile(r"^(\*+)\s+(.*?)\s*$")
+_ORG_TAGS = re.compile(r"\s+:[\w@#%:]+:\s*$")
+_ORG_TODO = re.compile(r"^(?:TODO|NEXT|WAIT|DONE|CANCELLED|PROPOSED)\s+")
+_MD_HEADING_TEXT = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _MD_FENCE = re.compile(r"^\s*(```|~~~)")
 _ORG_BLOCK = re.compile(r"^\s*#\+(begin|end)_\w+", re.I)
 
@@ -127,7 +137,7 @@ class NoteText:
     hit: NoteHit
     text: str
     truncated: bool
-    #: tend (its read op) | file (the fallback, inside the allowlist)
+    #: Always ``tend`` (its read op; Codex review F1: there is no file fallback).
     read_via: str
 
 
@@ -287,17 +297,49 @@ def _bounded(text: str) -> tuple[str, bool]:
     return value[: NOTE_CHARS - 1].rstrip() + "…", True
 
 
-def _serve_reads(config: TendSettings, paths: Sequence[str]) -> dict[str, dict[str, Any]] | None:
-    """``tend serve``'s read op for each path: the answers by path, or None when tend
-    could not answer at all (the fallback's only trigger)."""
+def heading_text(line: str, *, org: bool) -> str | None:
+    """The heading a line opens, normalized as tend does (org TODO keyword and tags
+    dropped; Markdown closing hashes dropped), or None when the line is no heading."""
+
+    match = (_ORG_HEADING_TEXT if org else _MD_HEADING_TEXT).match(line)
+    if match is None:
+        return None
+    text = match.group(2)
+    if org:
+        text = _ORG_TODO.sub("", _ORG_TAGS.sub("", text))
+    return " ".join(text.split())
+
+
+def line_is_hit(text: str, hit: NoteHit) -> bool:
+    """Does the hit's line still belong to its own heading section? False when that line
+    opens another heading (Codex review F8: the note moved since the reference was
+    taken). A line that is no heading (the preamble, or a later part of a long section
+    tend split at a blank line) is the hit's as tend indexed it."""
+
+    lines = text.splitlines()
+    index = int(hit.line) - 1
+    if index < 0 or index >= len(lines):
+        return False
+    opened = heading_text(lines[index], org=hit.path.endswith(".org"))
+    if opened is None:
+        return True
+    return bool(hit.heading) and opened == " ".join(hit.heading.split())
+
+
+def _serve_reads(config: TendSettings, paths: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """``tend serve``'s read op for each path: the answers by path. Raises
+    :class:`TendUnavailable` when tend could not answer at all (Codex review F1: the
+    work then waits for tend; nothing is read around it)."""
 
     requests = "".join(json.dumps({"op": "read", "path": path, "id": index}) + "\n"
                        for index, path in enumerate(paths))
     try:
         done = subprocess.run([config.binary, "serve"], input=requests, capture_output=True, text=True,
                               timeout=config.timeout, check=False)
-    except (subprocess.TimeoutExpired, OSError):
-        return None
+    except subprocess.TimeoutExpired as exc:
+        raise TendUnavailable("timeout", "Your notes didn't answer in time.") from exc
+    except OSError as exc:
+        raise TendUnavailable("absent", "LearnLoop couldn't run tend to read your notes.") from exc
     answers: dict[str, dict[str, Any]] = {}
     for raw in (done.stdout or "").splitlines():
         try:
@@ -310,55 +352,39 @@ def _serve_reads(config: TendSettings, paths: Sequence[str]) -> dict[str, dict[s
         if 0 <= index < len(paths):
             answers[paths[index]] = answer
     if not answers:
-        return None
+        raise TendUnavailable("unreadable", "tend couldn't open your notes just now.")
     if all(str(answer.get("error") or "").startswith("unknown op") for answer in answers.values()):
-        return None  # this tend has no read op
+        raise TendUnavailable("no_read_op", "This tend can't open notes for LearnLoop (it has no read op).")
     return answers
-
-
-def _read_file(path: str, roots: Sequence[Path]) -> str | None:
-    if not allowed(path, roots):
-        return None
-    try:
-        file = Path(os.path.realpath(path))
-        if not file.is_file() or file.stat().st_size > FALLBACK_MAX_BYTES:
-            return None
-        return file.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return None
 
 
 def read_sections(config: TendSettings, hits: Sequence[NoteHit]) -> dict[str, NoteText]:
     """The text of each hit's heading section, by note key, bounded per note
-    (:data:`NOTE_CHARS`). A note tend refuses to read is dropped; the file itself is read
-    only when ``tend serve`` cannot answer at all, and only inside the allowlist."""
+    (:data:`NOTE_CHARS`), read through tend's read op only. A note tend refuses to read
+    (a private one, an unindexed file) is dropped, and so is a hit whose line now opens
+    another heading. Raises :class:`TendUnavailable` when tend cannot answer at all."""
 
     wanted = [hit for hit in hits if allowed(hit.path, config.roots)]
     paths = list(dict.fromkeys(hit.path for hit in wanted))
     if not paths:
         return {}
     answers = _serve_reads(config, paths)
-    texts: dict[str, tuple[str, str]] = {}
+    texts: dict[str, str] = {}
     for path in paths:
-        if answers is not None:
-            answer = answers.get(path)
-            if answer is None or "error" in answer or not isinstance(answer.get("text"), str):
-                continue  # tend refused (a private note, an unindexed file) or said nothing: dropped
-            texts[path] = (str(answer["text"]), "tend")
-        else:
-            body = _read_file(path, config.roots)
-            if body is not None:
-                texts[path] = (body, "file")
+        answer = answers.get(path)
+        if answer is None or "error" in answer or not isinstance(answer.get("text"), str):
+            continue  # tend refused (a private note, an unindexed file) or said nothing: dropped
+        texts[path] = str(answer["text"])
     out: dict[str, NoteText] = {}
     for hit in wanted:
         found = texts.get(hit.path)
-        if found is None or hit.note_key in out:
+        if found is None or hit.note_key in out or not line_is_hit(found, hit):
             continue
-        section = slice_section(found[0], hit.line, org=hit.path.endswith(".org"))
+        section = slice_section(found, hit.line, org=hit.path.endswith(".org"))
         if not section:
             continue
         text, truncated = _bounded(section)
-        out[hit.note_key] = NoteText(hit=hit, text=text, truncated=truncated, read_via=found[1])
+        out[hit.note_key] = NoteText(hit=hit, text=text, truncated=truncated, read_via="tend")
     return out
 
 
@@ -372,6 +398,8 @@ __all__ = [
     "TendUnavailable",
     "allowed",
     "executable",
+    "heading_text",
+    "line_is_hit",
     "note_key",
     "origin_of",
     "read_sections",

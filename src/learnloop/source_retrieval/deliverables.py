@@ -179,11 +179,13 @@ class ChatRoute:
         return None
 
     def ask(self, prompt: str, result_model: type[WireModel], *, owner_id: str, prompt_version: str,
-            guard: SC.CoverageGuard | None = None) -> Any:
+            guard: SC.CoverageGuard | None = None, validate: Callable[[Any], Any] | None = None) -> Any:
         """One call. ``guard`` (Codex review F1): protection read again, from the vault as
         it is now, before each attempt and each physical request (a retry or a
         provider's follow-up too); a change raises :class:`SC.ProtectionChanged`, which
-        no layer here retries or relabels."""
+        no layer here retries or relabels. ``validate`` (curriculum C2, Codex review
+        F12): ``PaidCalls``' semantic check, so an unusable answer is retried and never
+        checkpointed (a recovered one is checked again)."""
 
         problem = self.problem()
         if problem is not None:
@@ -207,7 +209,7 @@ class ChatRoute:
                 stack.enter_context(call_labels(judge="llm", question_set_version=prompt_version))
                 return self.calls.call(self.client, purpose=self.task, prompt=prompt, result_model=result_model,
                                        output_tokens=self.route.output_tokens,
-                                       metadata={"prompt_version": prompt_version})
+                                       metadata={"prompt_version": prompt_version}, validate=validate)
         except RouteUnavailable:
             raise
         except SpendLimitExceeded as exc:
