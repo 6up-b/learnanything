@@ -516,7 +516,8 @@ def test_each_core_section_names_its_exercise_block_and_try_it_carries_the_reade
     assert eigen["label"] == "Exercise 1.1" and eigen["spanIds"] == [spans["sec_eigen"][2]]
     assert eigen["importRequest"] == {
         "extractionId": EXT, "sourceId": SOURCE, "revisionId": "rev_text",
-        "rawSelection": {"nodes": [{"spanId": spans["sec_eigen"][2], "start": 0, "end": len(
+        # Reader CA6b fix round 6: the selection names its reading (span ids repeat across books).
+        "rawSelection": {"extractionId": EXT, "nodes": [{"spanId": spans["sec_eigen"][2], "start": 0, "end": len(
             "Exercise 1.1 Compute the eigenvalues of the diagonal matrix [[2,0],[0,3]].")}]}}
     # Only core sections name one (sec_diag is enrichment), and only where one exists.
     assert by["sec_diag"]["exercise"] is None and by["sec_spectral"]["exercise"] is None

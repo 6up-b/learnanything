@@ -303,8 +303,11 @@ def twins(tmp_path):
         _register_revision(repository, source_id=f"src_{book}", revision_id=f"rev_{book}")
         _persist(repository, _ir("s", 3), revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
         _view(repository, source_id=f"src_{book}", revision_id=f"rev_{book}", extraction_id=f"ext_{book}")
-    # A later reading of book x (a re-extraction of the same source).
-    _register_revision(repository, source_id="src_x", revision_id="rev_x2")
+    # A later reading of book x (a re-extraction of the same source, another revision).
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+                           ("rev_x2", "src_x", "sha256:x2", NOW.isoformat()))
+        connection.commit()
     _persist(repository, _ir("s", 3), revision_id="rev_x2", extraction_id="ext_x2")
     return paths, repository
 
