@@ -3,8 +3,8 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "693ca5adda6e118de9be5ed7e41d7b184ee2d32e"
-source_commit_timestamp: "2026-11-01T08:43:41-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
@@ -120,6 +120,7 @@ None found by exact static reference scan.
 - `tests/test_figure_requests_migration.py`
 - `tests/test_figure_rich_contract.py`
 - `tests/test_figure_rich_job.py`
+- `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_sketch_service.py`

@@ -3,8 +3,8 @@ title: "capability_residual_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "693ca5adda6e118de9be5ed7e41d7b184ee2d32e"
-source_commit_timestamp: "2026-11-01T08:43:41-05:00"
+source_commit: "06439a8a28432b246badcaa79ce4077511e8a63f"
+source_commit_timestamp: "2026-11-01T10:53:23-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capability_residual_state"
@@ -21,7 +21,6 @@ source_paths:
   - "migrations/050_capability_residual_and_identifiability.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
-  - "src/learnloop/substrate/canonical_projection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -88,7 +87,6 @@ Indexes and uniqueness:
 
 - `Repository.capability_residual_state()`
 - `Repository.capability_residual_states()`
-- `Repository.replace_capability_residual_state()`
 
 ### Direct SQL readers
 
@@ -96,17 +94,18 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/substrate/canonical_projection.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_facet_state_write_on_change.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_capability_residual.py`
 - `tests/test_km5_sim_gates.py`
