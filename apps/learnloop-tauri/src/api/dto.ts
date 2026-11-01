@@ -8983,6 +8983,31 @@ export interface ReaderFollowupsDto extends ReaderComingUpDto {
   retired: ReaderFollowupLineDto[];
 }
 
+// ── Reader workbench RW6b part 2: the session narrative ─────────────────────
+// spec_reader_workbench_v1 §9.2; UX §4.8, W14. At most 120 words written once
+// per session by LearnLoop's model from the typed summary, citing its ids;
+// shown collapsed and labelled, never a source of a filled mark (salience only).
+export type ReaderDigestNarrativeState = "pending" | "landed" | "failed" | "unreachable" | "capped";
+
+export interface ReaderDigestNarrativeDto {
+  state: ReaderDigestNarrativeState;
+  /** "summary written by LearnLoop's model". */
+  label: string;
+  authority: string;
+  narrativeVersion?: string;
+  digestId: string | null;
+  /** Landed: the narrative and the summary ids it cites. */
+  text?: string | null;
+  citedEventIds?: string[];
+  model?: string | null;
+  promptVersion?: string | null;
+  /** Failed, unreachable, capped: what to say. */
+  message?: string | null;
+  reason?: string | null;
+  /** Capped: the narrative's metered daily cap. */
+  capUsd?: number;
+}
+
 export interface ReaderRecapCardDto {
   recapVersion: string;
   extractionId: string;
@@ -9005,6 +9030,8 @@ export interface ReaderRecapCardDto {
   };
   /** RW6b: the source's scheduled checks (absent before RW6b's sidecar). */
   comingUp?: ReaderComingUpDto;
+  /** RW6b part 2: the last session's narrative (absent when switched off or not yet planned). */
+  narrative?: ReaderDigestNarrativeDto;
 }
 
 export interface ReaderRecapDto {
@@ -9056,6 +9083,8 @@ export interface ReaderWrapUpDto {
   worthReinforcing: ReaderWrapUpReinforceLineDto[];
   /** RW6b: worth reinforcing also lists the checks coming up with their dates. */
   comingUp?: ReaderComingUpDto;
+  /** RW6b part 2: the session's narrative, collapsed at the foot (absent when off or not ready). */
+  narrative?: ReaderDigestNarrativeDto;
 }
 
 export interface ReaderWrapUpOfferDto {

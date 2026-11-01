@@ -9,6 +9,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderRecapCardDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ComingUp } from "./ComingUp";
+import { DigestNarrative } from "./DigestNarrative";
 import { RECAP_COPY, aboutMinutes, fullDay, observationLine, retiredCheckLine, shortDay, stepsLabel } from "./recapCopy";
 import { MeaningLabel } from "./voices";
 
@@ -200,6 +201,8 @@ export function RecapCard({
           onRestore={onRestoreFollowup}
         />
       ) : null}
+      {/* RW6b part 2: the narrative, collapsed, never the first thing shown. */}
+      <DigestNarrative narrative={recap.narrative} />
     </section>
   );
 }

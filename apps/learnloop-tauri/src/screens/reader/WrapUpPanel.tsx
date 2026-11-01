@@ -8,6 +8,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import type { ReaderWrapUpActionDto, ReaderWrapUpDto, ReaderWrapUpInquiryLineDto, ReaderWrapUpReinforceLineDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ComingUp, type ComingUpProps } from "./ComingUp";
+import { DigestNarrative } from "./DigestNarrative";
 import { Quoted, RecapLink } from "./RecapCard";
 import { RECAP_COPY, observationLine } from "./recapCopy";
 import { MeaningLabel } from "./voices";
@@ -117,6 +118,8 @@ export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone, followup
         </div>
       ) : null}
       {wrapUp.comingUp && followups ? <ComingUp comingUp={wrapUp.comingUp} {...followups} /> : null}
+      {/* RW6b part 2: the narrative sits collapsed at the foot when ready. */}
+      <DigestNarrative narrative={wrapUp.narrative} />
     </section>
   );
 }

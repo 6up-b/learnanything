@@ -183,6 +183,11 @@ def test_a_citation_outside_the_summary_or_none_at_all_is_refused():
     assert RN.validate_narrative(_answer("   ", ["ex1"]), summary) == ["empty"]
 
 
+def test_the_wells_evidence_markers_never_appear_in_a_narrative():
+    summary = {"inquiry_exchanges": ["ex1"]}
+    assert RN.validate_narrative(_answer("You ● demonstrated it.", ["ex1"]), summary) == ["evidence_marker"]
+
+
 def test_an_invalid_citation_drops_the_narrative_records_why_and_is_never_paid_again(tmp_path):
     vault, repo, row = _session_with_question(tmp_path)
     fake = NarrativeFake(cite=["evt_bogus"])

@@ -97,6 +97,9 @@ _INSTRUCTIONS = (
     "cite at least one, and nothing that is not in citable_event_ids."
 )
 
+#: The knowledge well's markers (UX §3.4): evidence's vocabulary, never a narrative's.
+EVIDENCE_MARKERS = ("●", "◌", "○")
+
 #: The W14 states :func:`narrative_view` reports (``off`` is no view at all).
 STATES = ("pending", "landed", "failed", "unreachable", "capped")
 
@@ -200,13 +203,18 @@ def count_words(text: str) -> int:
 
 def validate_narrative(answer: ReaderDigestNarrativeV1, summary: Mapping[str, Any]) -> list[str]:
     """Why the narrative cannot stand, or [] (code's check, spec §9.2 / G25):
-    the text is non-empty and at most :data:`MAX_WORDS` words, and it cites at
-    least one id, every one of them in the summary."""
+    the text is non-empty, at most :data:`MAX_WORDS` words and free of the
+    well's evidence markers, and it cites at least one id, every one of them
+    in the summary."""
 
     reasons: list[str] = []
     text = str(answer.narrative or "").strip()
     if not text:
         reasons.append("empty")
+    if any(marker in text for marker in EVIDENCE_MARKERS):
+        # Never a source of a filled mark (round 2 §1): the well's markers are
+        # evidence's alone, never in model text about the session.
+        reasons.append("evidence_marker")
     words = count_words(text)
     if words > MAX_WORDS:
         reasons.append(f"over_word_cap:{words}")

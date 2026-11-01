@@ -167,7 +167,10 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "compare_scope", "library_organizer", "approach_map", "hint_chooser", "hint_writer",
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
                            "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
-                           "deliverable_scope_resolver", "deliverable_path_judge"}
+                           "deliverable_scope_resolver", "deliverable_path_judge", "reader_digest"}
+    # Reader RW6b part 2: the narrative sends the typed summary, never the learner's words.
+    assert "Nothing you wrote" in judges["reader_digest"]["disclosure"]
+    assert "never material held out for an exam" in judges["reader_digest"]["disclosure"]
     # Curriculum C0b: the resolver reads the learner's scope words; the path judge their reading context.
     assert "your words in order" in judges["deliverable_scope_resolver"]["disclosure"]
     assert "never material held out for an exam" in judges["deliverable_scope_resolver"]["disclosure"]
