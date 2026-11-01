@@ -74,6 +74,8 @@ export interface UseIntentBoxArgs {
   protectedSelection: boolean;
   notes: boolean;
   canWorkThrough: boolean;
+  /** Reader CA6b: effects this pane's palette leaves out (absent: none, the main pane). */
+  hiddenKinds?: ReadonlyArray<string>;
   hostRef: RefObject<HTMLDivElement | null>;
   /** Run an action; a capture or import resolves to what "change" may undo. */
   onRun: (action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void;
@@ -86,7 +88,7 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 export function useIntentBox(args: UseIntentBoxArgs) {
-  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hostRef, onRun, onCancelRun } = args;
+  const { contract, extractionId, spanIds, quote, muted, protectedSelection, notes, canWorkThrough, hiddenKinds, hostRef, onRun, onCancelRun } = args;
   const enabled = contract !== null && extractionId !== null;
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState(false);
@@ -107,7 +109,7 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   const latest = useRef({ extractionId, spanIds, quote, notes });
   latest.current = { extractionId, spanIds, quote, notes };
 
-  const groups = contract ? visiblePalette(contract, { notes, protectedSelection, canWorkThrough }) : [];
+  const groups = contract ? visiblePalette(contract, { notes, protectedSelection, canWorkThrough, ...(hiddenKinds ? { hiddenKinds } : {}) }) : [];
   const actionsRef = useRef<ReaderIntentActionDto[]>([]);
   actionsRef.current = paletteActions(groups);
 
@@ -167,7 +169,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     if (!rect || (rect.width === 0 && rect.height === 0)) {
       const last = latest.current.spanIds[latest.current.spanIds.length - 1];
       const element = last
-        ? Array.from(host.querySelectorAll<HTMLElement>("[data-span-id]")).find((node) => node.dataset.spanId === last) ?? null
+        // Reader CA6b: the second pane marks its passages data-sbs-span.
+        ? Array.from(host.querySelectorAll<HTMLElement>("[data-span-id], [data-sbs-span]")).find((node) => (node.dataset.spanId ?? node.dataset.sbsSpan) === last) ?? null
         : null;
       rect = element instanceof HTMLElement ? element.getBoundingClientRect() : null;
     }

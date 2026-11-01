@@ -66,7 +66,7 @@ import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
 import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
-import type { PdfPageLayout } from "./reader/cues";
+import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
 import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
@@ -107,7 +107,7 @@ import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
 import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
-import type { ReaderIntentActionDto } from "../api/dto";
+import type { ReaderIntentActionDto, ReaderPresetReceiptDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { STYLE_ANSWER_MODE, StoredHelpStyle, useStoredHelpStyle } from "../components/askPanel";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
@@ -118,6 +118,8 @@ import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
 import { clampSplit, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
+import { useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
+import type { AskAnchor } from "./reader/useReaderInquiry";
 import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
@@ -237,6 +239,20 @@ export interface ReaderCheckMeRequest extends CueCheckMeRequest {
  *  on its verbatim statement, in the source it comes from. */
 export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
 
+
+/** Reader CA6b: what an intent acts on (one router, a context per pane): the
+ *  main pane's selection, active reading and figures, or side by side's
+ *  second pane's (`side`: its book, reading and capture target). */
+interface IntentPane {
+  side: SidePane | null;
+  spanIds: string[];
+  /** The selection's words (an edited capture's, in the main pane). */
+  words: string;
+  active: ReturnType<typeof useActiveReading>;
+  fold: (spanIds: string[]) => string[];
+  figures: ReturnType<typeof useFigures>;
+  region: { spanId: string; bbox: number[] } | null;
+}
 export function ReaderScreen({
   onError,
   initialSource = null,
@@ -484,6 +500,11 @@ export function ReaderScreen({
   const askPersonalizedOn = askPersonalized ?? readerTutor?.personalizedDefault ?? true;
   const askPersonalizedRef = useRef<boolean | null>(null);
   askPersonalizedRef.current = readerTutor?.retrieval ? askPersonalizedOn : null;
+  // Reader CA6b: an empty Enter in side by side's second pane opens the
+  // composer on that pane's selection (null: the open book's, as before).
+  const [askComposerAnchor, setAskComposerAnchor] = useState<AskAnchor | null>(null);
+  const askComposerAnchorRef = useRef<AskAnchor | null>(null);
+  askComposerAnchorRef.current = askComposerAnchor;
   // RW1c (Codex review F6): the offers' lookups belong to their exchanges, so
   // collapsing an answer runs nothing again.
   const [tutorOfferStore] = useState(createTutorOfferStore);
@@ -597,6 +618,7 @@ export function ReaderScreen({
     onRestored: progress.noteRestored,
     workbenchSessionRef: askWorkbenchSessionRef,
     personalizedRef: askPersonalizedRef,
+    composerAnchorRef: askComposerAnchorRef,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -1414,6 +1436,41 @@ export function ReaderScreen({
   const sbsEscBusyRef = useRef(false);
   sbsEscBusyRef.current = Boolean(selection) || Boolean(tagMenu);
   const sbsPaneRef = useRef<HTMLDivElement | null>(null);
+  // Reader CA6b: the second pane's own context -- its selection and intent
+  // box, capture target, active reading, figures and margin cues
+  // (screens/reader/useSidePane). Its intents run through the same router as
+  // the main pane's (runIntentIn, below), with this pane's context.
+  const runSideIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void>(() => undefined);
+  const cancelSideIntentRunRef = useRef<(cancel: IntentCancel) => void>(() => undefined);
+  const sbsSection = sbs.section && sbs.target && sbs.section.sectionId === sbs.target.sectionId ? sbs.section : null;
+  const side = useSidePane({
+    shown: sbsPanes,
+    section: sbsSection,
+    intentContract,
+    muted,
+    notes: Boolean(sbsSection && library?.find((card) => card.sourceId === sbsSection.sourceId)?.acquisitionKind === "textfile"),
+    hostRef: sbsPaneRef,
+    onRun: (action, text, how) => runSideIntentRef.current(action, text, how),
+    onCancelRun: (cancel) => cancelSideIntentRunRef.current(cancel),
+    onSelectedHere: noteIntentCleared,
+    activeReadingOn,
+    figuresContract: contract?.figures ?? null,
+    densityKey: cueCtl.cues ? `${cueCtl.cues.density}:${cueCtl.cues.sourceOff ? 1 : 0}` : null,
+    reloadMainPlan: reloadGuidePlan,
+    visitPayload,
+    onError,
+  });
+  // Selecting in the main pane: the second pane's box lets go of its keys (one box answers keys at a time).
+  const { releaseKeys: releaseSideKeys } = side;
+  useEffect(() => {
+    if (!selection) return;
+    if (sbsPanesRef.current) releaseSideKeys();
+    setAskComposerAnchor(null);
+  }, [selection, releaseSideKeys]);
+  // The composer the second pane opened goes back to the open book once that pane closes or its selection goes.
+  useEffect(() => {
+    if (!side.selection) setAskComposerAnchor(null);
+  }, [side.selection]);
   const [sbsRailOverlay, setSbsRailOverlay] = useState(false);
   useEffect(() => {
     if (!sbsPanes) setSbsRailOverlay(false);
@@ -1483,12 +1540,14 @@ export function ReaderScreen({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [sbs.enabled]);
-  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false) => {
+  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false, anchorExtractionId?: string) => {
     if (!render || offline) return;
     setLibraryCompose(null);
+    // Reader CA6b: a palette verb in side by side's second pane is anchored on that pane's reading.
+    const extractionId = anchorExtractionId ?? render.extractionId;
     // CA3: the ask box (Ctrl+Shift+F) reads named books first; a palette verb asks as before.
-    if (box) void libraryCtl.askBox({ query, entry, extractionId: render.extractionId, spanIds });
-    else libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
+    if (box) void libraryCtl.askBox({ query, entry, extractionId, spanIds });
+    else libraryCtl.ask({ query, entry, extractionId, spanIds });
   }, [render, offline, libraryCtl]);
   const closeLibrary = useCallback(() => {
     setLibraryCompose(null);
@@ -1890,7 +1949,7 @@ export function ReaderScreen({
   // Reader CA5's `x`: only while its line is there to open.
   const alsoKeyRef = useRef<() => boolean>(() => false);
   // Not while comparing either (Codex review F5): the comparing posture hides the Guide's rail.
-  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !comparing && !intentBox.open;
+  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !comparing && !intentBox.open && !side.box.open;
   // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
   // tabs; \ collapses or expands the rail (remembered on this device); x opens
   // "also in your books" (CA5).
@@ -1968,7 +2027,9 @@ export function ReaderScreen({
   const [compareWaitsForWork, setCompareWaitsForWork] = useState<CompareRequest | null>(null);
   const startCompareRef = useRef<(request: CompareRequest) => void>(() => undefined);
   startCompareRef.current = (request) => {
-    if (!render || offline || render.extractionId !== request.extractionId) return;
+    // Reader CA6b: or the second pane's reading, anchored there (side by side shown).
+    const sideAnchor = Boolean(side.extractionId) && side.extractionId === request.extractionId;
+    if (!render || offline || (render.extractionId !== request.extractionId && !sideAnchor)) return;
     setLibraryCompose(null);
     libraryCtl.compareFrom(request);
   };
@@ -1979,12 +2040,60 @@ export function ReaderScreen({
     startCompareRef.current(request);
   }, [working, compareWaitsForWork]);
 
+  // Reader CA6b: a capture on side by side's second pane, on its own book --
+  // a preset (reader.invoke_preset) or a highlight or note (reader.capture) --
+  // the same calls as the main pane's, with that pane's source, revision,
+  // reading and selection. The main pane's margin and capture state are not
+  // touched; the second pane re-reads its own marks.
+  const sideMarksChanged = side.marksChanged;
+  const captureIn = useCallback(async (target: PaneCaptureTarget, what: { preset: string } | { highlight: true }, learnerText: string,
+                                       meta?: Record<string, unknown>): Promise<string | null> => {
+    if (offline) return null;
+    setBusy(true);
+    try {
+      const common = {
+        sourceId: target.sourceId, revisionId: target.revisionId, extractionId: target.extractionId,
+        clientIdempotencyKey: newKey(), renderViewId: target.renderViewId, rawSelection: { nodes: target.nodes }, learnerText,
+      };
+      const receipt: ReaderPresetReceiptDto = "preset" in what
+        ? await api.readerInvokePreset({ preset: what.preset, ...common, subjectId: target.spanId })
+        : await api.readerCapture({ ...common, action: "highlight" });
+      logReaderAction("action_invoked", {
+        ...visitPayload(), action_kind: "preset" in what ? `preset:${what.preset}` : "highlight",
+        target_source_id: target.sourceId, target_extraction_id: target.extractionId, ...(meta ?? {}),
+      });
+      if ("preset" in what) {
+        if (receipt.arc) setArc(receipt.arc);
+        // The demand-paged request starts as the main pane's do (a drain failure is a delayed job, not a failed capture).
+        try {
+          const drained = await api.readerDrainOutbox();
+          if (drained.failed.length > 0) {
+            onError(`${drained.failed.length} saved Reader request${drained.failed.length === 1 ? " is" : "s are"} still waiting to start.`);
+          }
+        } catch (error) {
+          onError(`Saved locally, but background processing has not started yet: ${errorMessage(error)}`);
+        }
+        void refreshRequests();
+      }
+      sideMarksChanged();
+      return receipt.annotationId ?? null;
+    } catch (error) {
+      onError(errorMessage(error));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [offline, onError, refreshRequests, sideMarksChanged]);
+
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
   const invokePreset = useCallback(
     // RW1b: the intent box passes its own words as the annotation's learner
     // text, and names the intention and entry in the funnel event.
-    async (preset: string, learnerTextOverride?: string, meta?: Record<string, unknown>): Promise<string | null> => {
+    // Reader CA6b: `target` is side by side's second pane (its book, revision,
+    // reading and selection); absent, the main pane's, exactly as before.
+    async (preset: string, learnerTextOverride?: string, meta?: Record<string, unknown>, target?: PaneCaptureTarget): Promise<string | null> => {
+      if (target) return captureIn(target, { preset }, learnerTextOverride ?? "", meta);
       if (!render || !selection) return null;
       const note_ = learnerTextOverride ?? note;
       const nodes = selectionNodes(selection);
@@ -2041,13 +2150,15 @@ export function ReaderScreen({
         setBusy(false);
       }
     },
-    [render, selection, note, offline, onError, refreshAnnotations, refreshRequests, optimisticSegments],
+    [render, selection, note, offline, onError, refreshAnnotations, refreshRequests, optimisticSegments, captureIn],
   );
 
   // A plain highlight is a slice-1 CAPTURE action, not one of the nine presets —
   // reader.invoke_preset rejects "highlight" deterministically. Route it through
   // reader.capture so the annotation lands with no commitment and no synthesis.
-  const captureHighlight = useCallback(async (learnerTextOverride?: string, meta?: Record<string, unknown>): Promise<string | null> => {
+  const captureHighlight = useCallback(async (learnerTextOverride?: string, meta?: Record<string, unknown>, target?: PaneCaptureTarget): Promise<string | null> => {
+    // Reader CA6b: the second pane's selection, to its own book.
+    if (target) return captureIn(target, { highlight: true }, learnerTextOverride ?? "", meta);
     if (!render || !selection) return null;
     const note_ = learnerTextOverride ?? note;
     const nodes = selectionNodes(selection);
@@ -2087,7 +2198,7 @@ export function ReaderScreen({
     } finally {
       setBusy(false);
     }
-  }, [render, selection, note, offline, onError, refreshAnnotations, optimisticSegments]);
+  }, [render, selection, note, offline, onError, refreshAnnotations, optimisticSegments, captureIn]);
 
   // §10.2 arc controls: pause or change depth policy. Neither widens the envelope.
   const pauseArc = useCallback(async () => {
@@ -2119,32 +2230,44 @@ export function ReaderScreen({
   // background authoring job. The exercise text stays verbatim (source-owned);
   // AI completes the answer, rubric, facets, hints, and depth-rung metadata.
   const importJobRef = useRef<{ jobId: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
-  const importExercise = useCallback(async (): Promise<string | null> => {
-    if (!render || !selection || offline) return null;
-    const nodes = selectionNodes(selection);
-    const editedText = selection.editedText?.trim();
+  // Reader CA6b: `target` is side by side's second pane (the exercise is that
+  // book's, verbatim); absent, the main pane's selection, exactly as before.
+  const importExercise = useCallback(async (target?: PaneCaptureTarget): Promise<string | null> => {
+    if (!render || (!selection && !target) || offline) return null;
+    const nodes = target ? target.nodes : selectionNodes(selection!);
+    const editedText = target ? undefined : selection!.editedText?.trim();
     setBusy(true);
     try {
-      const receipt = await api.readerImportExercise({
+      const receipt = await api.readerImportExercise(target ? {
+        extractionId: target.extractionId,
+        sourceId: target.sourceId,
+        revisionId: target.revisionId,
+        renderViewId: target.renderViewId,
+        rawSelection: { nodes },
+        clientIdempotencyKey: newKey(),
+      } : {
         extractionId: render.extractionId,
         sourceId: render.sourceId,
         revisionId: render.revisionId,
         renderViewId: render.renderViewId,
         // Reader CA1 (§12.4): a region selection keeps its sub-box, so the
         // problem as printed is the learner's crop.
-        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection.region ? { region: selection.region } : {}) },
+        rawSelection: { ...(editedText ? { nodes, editedText } : { nodes }), ...(selection!.region ? { region: selection!.region } : {}) },
         clientIdempotencyKey: newKey(),
       });
       setExerciseImport({
         batchId: receipt.batchId,
         status: receipt.status || "queued",
-        quote: editedText ? editedText.replace(/\s+/g, " ") : selection.quote,
+        quote: target ? target.quote : editedText ? editedText.replace(/\s+/g, " ") : selection!.quote,
         result: null,
         error: null,
         spanIds: [...new Set(nodes.map((node) => node.spanId))],
       });
-      setSelectionActions((prev) => [...prev, "exercise_import"]);
-      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "import_exercise" });
+      if (!target) setSelectionActions((prev) => [...prev, "exercise_import"]);
+      logReaderAction("action_invoked", {
+        ...visitPayload(), action_kind: "import_exercise",
+        ...(target ? { target_source_id: target.sourceId, target_extraction_id: target.extractionId } : {}),
+      });
       importJobRef.current = { jobId: receipt.batchId, startedAt: Date.now(), activity: learnerActivitySnapshot() };
       logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: receipt.batchId, job_kind: "import_exercise" } });
       return receipt.batchId ?? null;
@@ -2776,11 +2899,59 @@ export function ReaderScreen({
   };
   // RW3b: a try-first cue opens the next-step question at its line (the same act as RW1c's button).
   tryFirstRef.current = (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]));
-  runIntentRef.current = (action, text, how) => {
-    const meta = { intention: action.intention, entry: how.entry };
+  // Reader CA6b: one router for both panes. The pane context says what an
+  // intent acts on -- the main pane's selection, book and reading, or side by
+  // side's second pane's -- so a routed action makes the palette's own call
+  // with that pane's source (the main pane's path is unchanged).
+  const mainPane: IntentPane = {
+    side: null,
+    spanIds: selectionSpanIds,
+    words: selection ? (selection.editedText ?? selection.quote) : "",
+    active: activeCtl,
+    fold: localFold,
+    figures: figuresCtl,
+    region: selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null,
+  };
+  const sidePane: IntentPane | null = side.extractionId ? {
+    side,
+    spanIds: side.selection?.spanIds ?? [],
+    words: side.selection?.quote ?? "",
+    active: side.active,
+    fold: (spanIds) => side.fold(spanIds, foldBlocks),
+    figures: side.figures,
+    region: null,
+  } : null;
+  // "how do my other books treat this?" and the funnel name the book beside.
+  const sideMeta = (pane: IntentPane): Record<string, string> => (pane.side?.section
+    ? { target_source_id: pane.side.section.sourceId, target_extraction_id: pane.side.section.extractionId } : {});
+  const runIntentIn = (pane: IntentPane, action: ReaderIntentActionDto, text: string, how: IntentRunHow): Promise<IntentRunHandle | null> | void => {
+    const meta = { intention: action.intention, entry: how.entry, ...sideMeta(pane) };
     const effect = action.effect;
+    const sideSection = pane.side?.section ?? null;
     switch (effect.kind) {
       case "ask": {
+        if (sideSection && pane.side) {
+          // The second pane's Ask is about its own book and selection; the
+          // answer lands in the Ask rail (side by side's overlay), labelled so.
+          const anchor: AskAnchor = {
+            about: { extractionId: sideSection.extractionId, label: `${sideSection.sourceTitle} · ${clip(sideSection.title, 48)}` },
+            spanId: pane.spanIds[0] ?? sideSection.jumpSpanId,
+            selectionSpanIds: pane.spanIds,
+            selectionQuote: pane.words.trim() || null,
+          };
+          setSbsRailOverlay(true);
+          setRailTab("ask");
+          if (text) {
+            setAskComposerAnchor(null);
+            void submitAsk(text, null, { answerMode: "answerMode" in effect ? effect.answerMode : undefined, meta, anchor });
+          } else {
+            // An empty Enter: the composer, on the second pane's selection (no model call).
+            setAskComposerAnchor(anchor);
+            logReaderAction("action_invoked", { ...visitPayload(), action_kind: "ask_opened", ...meta });
+            window.requestAnimationFrame(() => askComposerRef.current?.focus({ preventScroll: true }));
+          }
+          return;
+        }
         // A routed Ask opens the Ask tab, because the learner asked (D41).
         setRailCollapsed(false);
         setRailTab("ask");
@@ -2794,33 +2965,58 @@ export function ReaderScreen({
         return;
       }
       // A capture or an import resolves to what "change" may undo (F4).
+      // In the second pane: its own book (the pane's capture target).
       case "preset":
+        if (pane.side) {
+          const target = pane.side.target;
+          return target ? invokePreset(effect.preset, text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+        }
         return invokePreset(effect.preset, text, meta).then((annotationId) => ({ annotationId }));
       case "highlight":
+        if (pane.side) {
+          const target = pane.side.target;
+          return target ? captureHighlight(text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+        }
         return captureHighlight(text, meta).then((annotationId) => ({ annotationId }));
       case "import_exercise":
+        if (pane.side) {
+          const target = pane.side.target;
+          return target ? importExercise(target).then((importBatchId) => ({ importBatchId })) : undefined;
+        }
         return importExercise().then((importBatchId) => ({ importBatchId }));
       case "work_through":
+        // Not in the second pane's palette (the working posture closes side by side).
+        if (pane.side) return;
         workThroughSelection();
         return;
       case "active_reading":
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.style, ...meta });
-        void activeCtl.start(effect.style, selectionSpanIds, localFold(selectionSpanIds));
+        void pane.active.start(effect.style, pane.spanIds, pane.fold(pane.spanIds));
         return;
       case "another_way":
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "another_way", ...meta });
-        void activeCtl.anotherWay(selection ? (selection.editedText ?? selection.quote) : "", selectionSpanIds);
+        void pane.active.anotherWay(pane.words, pane.spanIds);
         return;
       case "library_ask":
-        // RW4a: Orient's and Transfer's library asks, in the comparing posture.
+        // RW4a: Orient's and Transfer's library asks, in the comparing posture
+        // (the second pane's: anchored on its reading; side by side comes back when it closes).
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
-        askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
+        askLibraryHere(text || pane.words, effect.entry, pane.spanIds, false, sideSection?.extractionId);
         return;
       case "compare":
         // CA3: Transfer's "how do my other books treat this?": a comparison
         // anchored on the selection, every other book, no pins (§4.1).
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "compare_books", ...meta });
         if (!render || offline) return;
+        if (sideSection) {
+          // Reader CA6b: in the second pane, anchored there; the source is the other pane's book (§4.1).
+          startCompareRef.current({
+            door: "selection", question: text || pane.words, extractionId: sideSection.extractionId,
+            anchorSpanIds: pane.spanIds, openSourceId: sideSection.sourceId, sourceIds: [render.sourceId],
+            workbenchSessionId: null,
+          });
+          return;
+        }
         {
           // The bound workbench session, when one is active, goes with the
           // request (the server derives its practice policy: Codex review F1).
@@ -2841,6 +3037,8 @@ export function ReaderScreen({
         }
         return;
       case "reading_path":
+        // Not in the second pane's palette (the Guide's reading path is the open book's).
+        if (pane.side) return;
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
         setRailCollapsed(false);
@@ -2850,18 +3048,20 @@ export function ReaderScreen({
       case "figure": {
         // RW5a: built in the background; it lands under its passage.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "make_explorable", ...meta });
-        const region = selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null;
+        const region = pane.region;
         const words = text?.trim();
         if (words && showMeOn) {
           // RW5d P1: "show me…" with words: the selection and the learner's words, jointly.
-          figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region, goalText: words, origin: "show_me" });
+          pane.figures.request({ spanIds: region ? [] : pane.spanIds, region, goalText: words, origin: "show_me" });
         } else {
-          figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+          pane.figures.request({ spanIds: region ? [] : pane.spanIds, region });
         }
         return;
       }
     }
   };
+  runIntentRef.current = (action, text, how) => runIntentIn(mainPane, action, text, how);
+  runSideIntentRef.current = (action, text, how) => (sidePane ? runIntentIn(sidePane, action, text, how) : undefined);
   // RW5d P1: the Ask rail's "show me ▸": the box's words as a figure goal, landing
   // under the passage the learner was reading (the inquiry's, else the
   // selection's, else the reading position); the thread keeps one line for it.
@@ -2888,20 +3088,25 @@ export function ReaderScreen({
   // late result can't reopen it); a capture already made is reverted (its
   // annotation, and a commit preset's commitment and synthesis, through the
   // sidecar); an import still running is cancelled.
-  cancelIntentRunRef.current = (cancel) => {
+  const cancelIntentIn = (pane: IntentPane, cancel: IntentCancel) => {
     const kind = cancel.action.effect.kind;
     if (kind === "ask" && askPhase === "pending") cancelAsk();
-    if (kind === "active_reading") activeCtl.close();
-    if (kind === "another_way") activeCtl.closeAnother();
+    if (kind === "active_reading") pane.active.close();
+    if (kind === "another_way") pane.active.closeAnother();
     if (kind === "library_ask" || kind === "compare") closeLibrary();
     void cancel.handle.then(async (handle) => {
       if (handle?.annotationId && cancel.routingId) {
         const annotationId = handle.annotationId;
         try {
           await api.readerIntentOutcome({ routingId: cancel.routingId, outcome: "reverted", annotationId });
-          setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
-          setSelectionActions((actions) => actions.filter((action) => action !== (kind === "preset" && "preset" in cancel.action.effect ? cancel.action.effect.preset : "highlight")));
-          void refreshAnnotations();
+          if (pane.side) {
+            // The second pane's capture: its own marks re-read (nothing of the main pane's to drop).
+            pane.side.marksChanged();
+          } else {
+            setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
+            setSelectionActions((actions) => actions.filter((action) => action !== (kind === "preset" && "preset" in cancel.action.effect ? cancel.action.effect.preset : "highlight")));
+            void refreshAnnotations();
+          }
           void refreshRequests();
         } catch (error) {
           onError(errorMessage(error));
@@ -2917,6 +3122,10 @@ export function ReaderScreen({
         setExerciseImport((current) => (current && current.batchId === batchId ? null : current));
       }
     });
+  };
+  cancelIntentRunRef.current = (cancel) => cancelIntentIn(mainPane, cancel);
+  cancelSideIntentRunRef.current = (cancel) => {
+    if (sidePane) cancelIntentIn(sidePane, cancel);
   };
   const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false, generation?: number) => {
     // A stale departure (another problem opened since) returns null: nothing jumps (RW4b fix round 5, R5).
@@ -3348,6 +3557,47 @@ export function ReaderScreen({
               // Highlights and notes in the second pane go to its own book (§6.4).
               onCaptured={(kind) => logReaderAction("action_invoked", { ...visitPayload(), action_kind: kind === "annotate" ? "note" : "highlight", entry: "side_by_side" })}
               onError={onError}
+              // Reader CA6b: the intent box, cue marks, figures, fold and active reading of this pane.
+              intent={side.box.enabled ? { box: side.box, onSelection: side.noteSelection } : null}
+              marginFor={side.cues.cues ? (spanId) => {
+                const cue = side.cues.markOn(spanId);
+                return cue ? (
+                  <MarginMark
+                    key={cue.cueId}
+                    cue={cue}
+                    open={side.cues.openCueId === cue.cueId}
+                    onOpenChange={(open) => side.cues.setOpenCueId(open ? cue.cueId : null)}
+                    surface="text"
+                    canCheckMe={false}
+                    checkPhase="idle"
+                    onOpenEarlier={() => side.cues.openEarlier(cue)}
+                    onCheckMe={() => undefined}
+                    onNotRelevant={(text) => side.cues.notRelevant(cue, text)}
+                    onFewer={side.cues.fewer}
+                    onOffBook={side.cues.offBook}
+                    onOffEverywhere={side.cues.offEverywhere}
+                    onSeen={() => side.cues.noteSeen(cue)}
+                    {...(activeReadingOn && cue.kind === "try_first" && side.cues.cues?.discovery?.tryFirst
+                      ? { onTryFirst: () => { side.cues.setOpenCueId(null); void side.active.start("next_step", [cue.spanId], side.fold([cue.spanId], foldBlocks)); } }
+                      : {})}
+                  />
+                ) : null;
+              } : null}
+              under={side.figures.enabled ? (spanId) => <FiguresUnder ctl={side.figures} spanId={spanId} /> : null}
+              fold={side.active.folded.size ? { spans: side.active.folded, line: <NextStepFoldLine ctl={side.active} /> } : null}
+              card={activeReadingOn && (side.active.active || side.active.another) ? (
+                <ActiveReadingCard ctl={side.active} sourceTitle={sbsSection?.sourceTitle ?? null} onShowPassage={(spanId) => {
+                  const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
+                  if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+                }} />
+              ) : null}
+              foot={side.cues.receipt ? (
+                <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                  <span>{side.cues.receipt.label}</span>
+                  <button type="button" onClick={side.cues.receipt.onUndo} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2 }}>{CUE_COPY.undo}</button>
+                </span>
+              ) : null}
+              marksVersion={side.marksVersion}
               onCompareSelection={libraryCtl.scopeOn && render ? (picked) => {
                 // CA3's selection verb in the second pane: anchored there, the source the main pane's book.
                 if (!sbs.section) return;

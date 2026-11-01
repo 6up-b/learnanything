@@ -44,7 +44,7 @@ import {
 } from "./activity";
 import { checkOffer } from "./checkOffer";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
-import { type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
+import { type AskAbout, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
@@ -89,6 +89,23 @@ function newKey(): string {
 }
 
 /** The reconnect line: an open inquiry's root, asked "does this make sense now?". */
+/** Reader CA6b: an Ask anchored on side by side's second pane (its book, its selection). */
+export interface AskAnchor {
+  about: AskAbout;
+  spanId: string;
+  selectionSpanIds: string[];
+  selectionQuote: string | null;
+}
+
+/** What a submitted Ask may override: RW1b's routed answer mode and funnel
+ *  names, RW1c's retrieval intent, and (Reader CA6b) the second pane's anchor. */
+export interface AskOverride {
+  answerMode?: ReaderAnswerMode;
+  meta?: Record<string, unknown>;
+  retrievalIntent?: ReaderRetrievalIntent;
+  anchor?: AskAnchor;
+}
+
 export interface ReconnectState {
   rootId: string;
   question: string;
@@ -152,6 +169,9 @@ export interface ReaderInquiryInput {
   /** RW1c: the composer's personalized chip while the tutor looks things up
    *  (null: retrieval off, nothing sent and the server's default holds). */
   personalizedRef?: MutableRefObject<boolean | null>;
+  /** Reader CA6b: an empty Enter in side by side's second pane: the composer's
+   *  next new question is anchored there (null: the open book, as before). */
+  composerAnchorRef?: MutableRefObject<AskAnchor | null>;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
@@ -182,7 +202,7 @@ export interface ReaderInquiry {
   reconnect: ReconnectState | null;
   inquiryChecks: Record<string, InquiryCheckState>;
   passageCheckOffered: boolean;
-  submitAsk: (asked: string, parent: ReaderExchange | null, override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown>; retrievalIntent?: ReaderRetrievalIntent }) => Promise<void>;
+  submitAsk: (asked: string, parent: ReaderExchange | null, override?: AskOverride) => Promise<void>;
   ask: () => void;
   /** RW1c: "another way" and "that didn't help…" under an answer. */
   askAnotherWay: (exchange: ReaderExchange) => void;
@@ -229,7 +249,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
-    askComposerRef, openSourceRef, onRestored, workbenchSessionRef, personalizedRef,
+    askComposerRef, openSourceRef, onRestored, workbenchSessionRef, personalizedRef, composerAnchorRef,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -601,12 +621,16 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     parent: ReaderExchange | null,
     // RW1b: a routed Ask runs in its routed answer mode, and its funnel event
     // names the intention and the entry (the intent box or its palette).
-    override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown>; retrievalIntent?: ReaderRetrievalIntent },
+    override?: AskOverride,
   ) => {
     // A follow-up keeps its saved anchor even when the current selection moves.
     // New roots use the capture selection (the same selection Notes>Capture
     // acts on), then the jump/resume fallback.
-    const groundingSpan = parent?.spanId ?? selection?.spanId ?? activeSpan;
+    // Reader CA6b: a new root asked in the second pane is anchored there (its
+    // book and selection); a follow-up keeps the book its thread was about.
+    const anchor = parent ? null : override?.anchor ?? null;
+    const about = parent ? parent.about ?? null : anchor?.about ?? null;
+    const groundingSpan = parent?.spanId ?? anchor?.spanId ?? selection?.spanId ?? activeSpan;
     if (!groundingSpan || !asked || !render || askPending.current) return;
     if (inquiry && offline) return;
     const epoch = askEpoch.current;
@@ -616,13 +640,15 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     // parent's saved selection instead.
     const selectionSpanIds = parent
       ? parent.selectionSpanIds
+      : anchor ? anchor.selectionSpanIds
       : selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [];
     const selectionQuote = parent
       ? parent.selectionQuoteMd
+      : anchor ? anchor.selectionQuote
       : selection ? (selection.editedText ?? selection.quote).trim() || null : null;
     // An edited capture is the learner's wording: the source's own is sent
     // beside it (reader_inquiry on), so history never shows it as the book's.
-    const edited = !parent && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim();
+    const edited = !parent && !anchor && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim();
     const selectionSourceQuote = parent
       ? parent.selectionSourceQuoteMd ?? null
       : edited && selection ? selection.quote.trim() || null : null;
@@ -635,7 +661,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (inquiry) setAskPhase("pending");
     try {
       const answer = await api.readerAsk({
-        extractionId: render.extractionId,
+        extractionId: about?.extractionId ?? render.extractionId,
         spanId: groundingSpan,
         question: asked,
         ...(inquiry ? { parentExchangeId: parent?.id ?? null } : {}),
@@ -667,7 +693,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       const exchange: ReaderExchange = {
         id: answer.readerAnswerEventId,
         parentExchangeId: answer.parentExchangeId ?? null,
-        extractionId: render.extractionId,
+        extractionId: about?.extractionId ?? render.extractionId,
         selectionSpanIds,
         selectionQuoteMd: selectionQuote,
         selectionSourceQuoteMd: inquiry ? selectionSourceQuote : null,
@@ -688,12 +714,14 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
             buttons: answer.tutorOffers.buttons ?? [],
           },
         } : {}),
+        ...(about ? { about } : {}),
       };
       if (inquiry) {
         setParentExchange(exchange);
         setAskPhase("idle");
         if (railTab !== "ask") setAskTabMarked(true);
-        if (parent) {
+        // A thread about the book beside (CA6b) is no detour of the open book's.
+        if (parent && !about) {
           // A branch is a detour: the strip shows the inquiry's path.
           const branchEntry = (target: ReaderExchange, label: string): ReturnEntry => ({
             id: newActivityId(), kind: "branch", sourceId: render.sourceId, sourceTitle,
@@ -767,8 +795,14 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     pushDetours, question, setBusy, noteUsableResult, askComposerRef]);
 
   const ask = useCallback(() => {
+    // Reader CA6b: a new question from the composer the second pane opened is about that pane's selection.
+    const anchor = composerAnchorRef?.current ?? null;
+    if (anchor && !(inquiry && parentExchange)) {
+      void submitAsk(question.trim(), null, { anchor });
+      return;
+    }
     void submitAsk(question.trim(), inquiry ? parentExchange : null);
-  }, [submitAsk, question, inquiry, parentExchange]);
+  }, [submitAsk, question, inquiry, parentExchange, composerAnchorRef]);
 
   /** RW1c: "another way" under an answer -- a follow-up that retrieves with
    *  intent alternative, every passage the inquiry showed excluded (server-side). */

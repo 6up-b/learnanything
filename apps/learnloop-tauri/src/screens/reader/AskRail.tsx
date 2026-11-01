@@ -8,7 +8,7 @@ import { AffectTap, PrimaryButton, SecondaryButton } from "../../components/gold
 import { MarkdownMath } from "../../render/MarkdownMath";
 import type { InquiryResolution } from "../../api/dto";
 import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
-import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
+import { ReaderAskBranches, aboutLine, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { TutorAnswer, type TutorRailProps } from "./TutorAnswer";
 import { ANSWER_MODE_OPTIONS, answerModeLabel, clip, type ReaderSelection } from "./readerShared";
 import { LearnerQuote, LearnerVoice, MeaningLabel } from "./voices";
@@ -91,7 +91,16 @@ export interface AskRailProps {
     onPeekPassage?: ((passage: FigurePassageDto) => void) | null;
     onDismiss: (key: string) => void;
   } | null;
+  /** Reader CA6b: an empty Enter in side by side's second pane opened the
+   *  composer on that pane's selection: its book and words, and a way back to
+   *  the open book's passage. Absent: the open book's grounding, as before. */
+  composerAbout?: { label: string; quote: string; onClear: () => void } | null;
 }
+
+export const ASK_ABOUT_COPY = {
+  heading: "ASKING ABOUT YOUR SELECTION IN",
+  clear: "ask about this book instead",
+} as const;
 
 export const PERSONALIZED_COPY = {
   on: "personalized ●",
@@ -182,6 +191,7 @@ export function AskRail({
   tutor,
   personalized = null,
   showMe = null,
+  composerAbout = null,
 }: AskRailProps) {
   const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
@@ -198,7 +208,7 @@ export function AskRail({
         </Card>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {(inquiry && parentExchange) || activeSpan ? (
+          {(inquiry && parentExchange) || activeSpan || composerAbout ? (
             <>
               {/* The Ask grounding is the SAME selection Capture uses —
                   the learner never targets extraction blocks directly. */}
@@ -208,6 +218,14 @@ export function AskRail({
                   <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
                   <SecondaryButton onClick={() => peek(parentExchange.spanId)}>show inherited passage</SecondaryButton>
                   <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
+                </Card>
+              ) : composerAbout ? (
+                <Card data-ask-about="" style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
+                  <Faint style={{ fontSize: 10 }}>{ASK_ABOUT_COPY.heading} {composerAbout.label}</Faint>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                    <MarkdownMath value={clip(composerAbout.quote.replace(/\s+/g, " ").trim(), 300)} />
+                  </div>
+                  <SecondaryButton disabled={busy} onClick={composerAbout.onClear}>{ASK_ABOUT_COPY.clear}</SecondaryButton>
                 </Card>
               ) : selection ? (
                 <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
@@ -416,7 +434,9 @@ export function AskRail({
                     </LearnerVoice>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                       <Pill color="cyan">{answerModeLabel(exchange.answerMode)}</Pill>
-                      <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
+                      {exchange.about ? <MeaningLabel>{aboutLine(exchange.about)}</MeaningLabel> : (
+                        <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
+                      )}
                       {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
                     </div>
                     <TutorAnswer exchange={exchange} tutor={tutor ? { ...tutor, anotherWay: false } : undefined} />

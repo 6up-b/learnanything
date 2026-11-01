@@ -23,7 +23,11 @@ export const INTENT_COPY = {
 /** The groups this selection may offer: none emptied, none disabled (U13). */
 export function visiblePalette(
   contract: ReaderIntentContractDto,
-  options: { notes: boolean; protectedSelection: boolean; canWorkThrough: boolean; canAnotherWay?: boolean },
+  options: {
+    notes: boolean; protectedSelection: boolean; canWorkThrough: boolean; canAnotherWay?: boolean;
+    /** Reader CA6b: effects this pane cannot run (the second pane: none of the main pane's book-bound views). */
+    hiddenKinds?: ReadonlyArray<string>;
+  },
 ): ReaderIntentGroupDto[] {
   const groups = options.notes ? contract.notesPalette : contract.palette;
   return groups
@@ -33,6 +37,7 @@ export function visiblePalette(
         if (options.protectedSelection && action.model) return false;
         if (action.effect.kind === "work_through" && !options.canWorkThrough) return false;
         if (action.effect.kind === "another_way" && options.canAnotherWay === false) return false;
+        if (options.hiddenKinds?.includes(action.effect.kind)) return false;
         return true;
       }),
     }))

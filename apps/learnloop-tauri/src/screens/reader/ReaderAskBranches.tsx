@@ -39,7 +39,21 @@ export interface ReaderExchange {
   tutor?: ReaderTutorViewDto | null;
   /** RW1c: the offers a freshly landed answer carries (never restored from history). */
   offers?: ExchangeOffers | null;
+  /** Reader CA6b: asked about a passage of side by side's second pane, the
+   *  book beside the open one (its follow-ups keep that book; its passage is
+   *  shown there, not jumped to in the open book). Absent: the open book. */
+  about?: AskAbout | null;
 }
+
+/** Reader CA6b: the other book an Ask was about (side by side's second pane). */
+export interface AskAbout {
+  extractionId: string;
+  /** "Axler · 5.C Eigenspaces", the rail's label. */
+  label: string;
+}
+
+/** Reader CA6b: the rail's line for an Ask about the book beside. */
+export const aboutLine = (about: AskAbout): string => `about ${about.label}`;
 
 export type InquiryCommitment = "test_me_later" | "help_me_remember";
 
@@ -218,7 +232,9 @@ export function ReaderAskBranches({
             ) : null}
             <TutorAnswer exchange={exchange} tutor={tutor} />
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => onShowPassage(exchange.spanId)} style={buttonStyle}>show passage</button>
+              {exchange.about ? <MeaningLabel>{aboutLine(exchange.about)}</MeaningLabel> : (
+                <button type="button" onClick={() => onShowPassage(exchange.spanId)} style={buttonStyle}>show passage</button>
+              )}
               <button type="button" disabled={busy} onClick={() => onFollowUp(exchange)} style={buttonStyle}>ask follow-up</button>
               {!isRoot && onBranchDone && exchange.questionEventId ? (
                 resolution === "open" ? (
@@ -227,7 +243,7 @@ export function ReaderAskBranches({
                   <MeaningLabel>done</MeaningLabel>
                 )
               ) : null}
-              {exchange.citations.map((citation, index) => citation.extractionId === exchange.extractionId ? (
+              {exchange.citations.map((citation, index) => citation.extractionId === exchange.extractionId && !exchange.about ? (
                 <button type="button" key={index} onClick={() => onShowPassage(citation.spanId)} style={buttonStyle}>
                   <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
                 </button>

@@ -13,6 +13,14 @@
 // highlight and note, which go to this pane's own book (reader.capture on its
 // reading), and CA3's selection verb, naming the other pane's book. The
 // learner's own highlights and notes in this book are marked in the margin.
+//
+// Reader CA6b: with the intent box on (reader_intent), selecting here shows
+// the intent box exactly as in the main pane, its actions acting on this
+// pane's book, reading and selection (screens/reader/useSidePane); the
+// one-line bar above is then the box's palette. The pane also draws, as the
+// Reader alone would, RW3a/RW3b's margin cues for this book in its gutter
+// (static, out of the text column), figures under their passages, the
+// next-step fold and the active-reading card.
 import { forwardRef, useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { api } from "../../api/client";
 import { COLOR, FONT_MONO } from "../../components/term";
@@ -21,6 +29,8 @@ import { newActivityId } from "./activity";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { clip } from "./readerShared";
 import { MeaningLabel } from "./voices";
+import { IntentBox } from "./IntentBox";
+import type { IntentBoxController } from "./useIntentBox";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, type SideBySide } from "./useSideBySide";
 
 const LINK: CSSProperties = {
@@ -47,6 +57,20 @@ export interface SideBySidePaneProps {
   /** Highlight and note on a selection here, saved to this pane's book (null: not offered, as in the peek sheet). */
   onCaptured?: ((kind: "highlight" | "annotate") => void) | null;
   onError?: (message: string) => void;
+  /** Reader CA6b: the intent box on a selection here (null: off, CA6's bar instead). */
+  intent?: { box: IntentBoxController; onSelection: (selection: PaneSelection | null) => void } | null;
+  /** Reader CA6b: the cue mark in a passage's gutter (null: none). */
+  marginFor?: ((spanId: string) => ReactNode) | null;
+  /** Reader CA6b: what lands under a passage (its figures). */
+  under?: ((spanId: string) => ReactNode) | null;
+  /** Reader CA6b: the next-step fold over this book's following lines. */
+  fold?: { spans: ReadonlySet<string>; line: ReactNode } | null;
+  /** Reader CA6b: the active-reading card for a selection here, under the text. */
+  card?: ReactNode;
+  /** Reader CA6b: a line under the text (a cue preference's receipt). */
+  foot?: ReactNode;
+  /** Reader CA6b: bumps when a capture made through the intent box should re-read the margin marks. */
+  marksVersion?: number;
 }
 
 export const SIDE_PANE_COPY = {
@@ -58,7 +82,7 @@ export const SIDE_PANE_COPY = {
 } as const;
 
 /** The learner's highlights and notes in this book, by passage (the margin marks). */
-function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean): [Map<string, string>, () => void] {
+function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean, version = 0): [Map<string, string>, () => void] {
   const [marks, setMarks] = useState<Map<string, string>>(new Map());
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -83,7 +107,7 @@ function useOwnMarks(sourceId: string | null, extractionId: string | null, enabl
       })
       .catch(() => undefined);
     return () => { live = false; };
-  }, [sourceId, extractionId, enabled, tick]);
+  }, [sourceId, extractionId, enabled, tick, version]);
   return [marks, () => setTick((value) => value + 1)];
 }
 
@@ -110,7 +134,7 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
 }
 
 export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(
-  { ctl, otherTitle, onCompareSelection, grow = 1, onCaptured = null, onError },
+  { ctl, otherTitle, onCompareSelection, grow = 1, onCaptured = null, onError, intent = null, marginFor = null, under = null, fold = null, card = null, foot = null, marksVersion = 0 },
   bodyRef,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -121,7 +145,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
   const target = ctl.target;
   const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null;
   const canCapture = Boolean(onCaptured && section?.revisionId);
-  const [marks, refreshMarks] = useOwnMarks(section?.sourceId ?? null, section?.extractionId ?? null, Boolean(onCaptured));
+  const [marks, refreshMarks] = useOwnMarks(section?.sourceId ?? null, section?.extractionId ?? null, Boolean(onCaptured), marksVersion);
   const sheet = ctl.sheet;
   const leads = ctl.panes && ctl.leader === "side";
 
@@ -234,28 +258,45 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           }
           setSelection(picked);
           if (!picked) setNoting(null);
+          intent?.onSelection(picked);
         }}
-        style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 24px", display: "flex", flexDirection: "column", gap: 10, outline: "none" }}
+        // CA6b: the box sits over this pane's text (positioned in it); the gutter holds the cue marks.
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: marginFor ? "14px 24px 14px 34px" : "14px 24px", display: "flex", flexDirection: "column", gap: 10, outline: "none", position: "relative" }}
       >
+        {intent ? <IntentBox box={intent.box} /> : null}
         {ctl.phase === "failed" ? (
           <MeaningLabel>{SIDE_BY_SIDE_COPY.failed}</MeaningLabel>
         ) : !section ? (
           <MeaningLabel>{SIDE_BY_SIDE_COPY.loading}</MeaningLabel>
         ) : (
-          section.blocks.map((block) => (
-            <div
-              key={block.spanId}
-              data-sbs-span={block.spanId}
-              {...(marks.has(block.spanId) ? { "data-sbs-marked": "", title: marks.get(block.spanId) || SIDE_PANE_COPY.marked } : {})}
-              style={{
-                ...(block.blockType === "SectionHeader" ? { fontWeight: 600 } : {}),
-                // The learner's own highlight or note here: a quiet margin mark, as in the main pane.
-                ...(marks.has(block.spanId) ? { borderLeft: `2px solid ${COLOR.amber}`, paddingLeft: 8, marginLeft: -10 } : {}),
-              }}
-            >
-              <MarkdownMath value={block.text} />
-            </div>
-          ))
+          section.blocks.map((block, index) => {
+            const folded = Boolean(fold?.spans.has(block.spanId));
+            const firstFolded = folded && !(index > 0 && fold?.spans.has(section.blocks[index - 1].spanId));
+            const cue = folded ? null : marginFor?.(block.spanId) ?? null;
+            return (
+              <div key={block.spanId} style={{ display: "contents" }}>
+                {firstFolded ? <div data-next-step-fold="">{fold?.line}</div> : null}
+                <div
+                  data-sbs-span={block.spanId}
+                  {...(folded ? { "data-folded": "" } : {})}
+                  {...(marks.has(block.spanId) ? { "data-sbs-marked": "", title: marks.get(block.spanId) || SIDE_PANE_COPY.marked } : {})}
+                  style={{
+                    ...(block.blockType === "SectionHeader" ? { fontWeight: 600 } : {}),
+                    // The learner's own highlight or note here: a quiet margin mark, as in the main pane.
+                    ...(marks.has(block.spanId) ? { borderLeft: `2px solid ${COLOR.amber}`, paddingLeft: 8, marginLeft: -10 } : {}),
+                    // CA6b: a cue mark sits in the gutter beside its passage, as in the main pane.
+                    ...(cue ? { position: "relative" as const } : {}),
+                  }}
+                >
+                  {folded ? null : (<>
+                    {cue}
+                    <MarkdownMath value={block.text} />
+                  </>)}
+                </div>
+                {folded ? null : under?.(block.spanId) ?? null}
+              </div>
+            );
+          })
         )}
         {section && !sheet && (section.previous || section.next) ? (
           <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: `1px solid ${COLOR.border}` }}>
@@ -294,7 +335,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           />
           <MeaningLabel>{target.sourceTitle}</MeaningLabel>
         </div>
-      ) : selection && section && (canCapture || onCompareSelection) ? (
+      ) : selection && section && !intent && (canCapture || onCompareSelection) ? (
         <div data-sbs-selection="" style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "6px 14px", borderTop: `1px solid ${COLOR.border}`, flexWrap: "wrap" }}>
           {canCapture ? (
             <>
@@ -316,6 +357,8 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           <MeaningLabel>{SIDE_PANE_COPY.saved(target.sourceTitle)}</MeaningLabel>
         </div>
       ) : null}
+      {card ? <div data-sbs-card="" className="ll-scroll" style={{ maxHeight: "45%", overflowY: "auto", padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}>{card}</div> : null}
+      {foot ? <div data-sbs-foot="" style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}>{foot}</div> : null}
       {sheet ? null : <div style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}><MeaningLabel>{SIDE_BY_SIDE_COPY.keys}</MeaningLabel></div>}
     </div>
   );
