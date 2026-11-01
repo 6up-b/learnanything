@@ -19,7 +19,7 @@ from learnloop.content.synthesis.source_unit_selection import save_unit_selectio
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.vault.loader import add_subject, load_vault
 from learnloop.vault.writer import upsert_source_set
-from learnloop.vault.yaml_io import read_yaml, write_yaml
+from learnloop.vault.yaml_io import read_markdown_frontmatter_data, read_yaml, write_markdown_with_frontmatter, write_yaml
 from tests.deliverable_fixtures import DeliverableFake, prompt_context
 from tests.exam_scope_fixtures import PAPER, PAST_PAPER_LOS, SPANS, build_exam_scope_vault, ref, set_refs
 from tests.practice_index_fakes import _learning_object
@@ -383,3 +383,39 @@ def test_a_vault_without_a_syllabus_keeps_c0b_s_view(tmp_path):
     paths, repository = build_exam_scope_vault(tmp_path / "vault", syllabus_role="exam")
     goal_id = _deliverable(paths, repository)
     assert "syllabi" not in DL.scope_view(load_vault(paths.root), repository, goal_id)
+
+
+def test_a_second_active_subject_without_topics_leaves_an_unresolved_deliverable_without_past_papers(tmp_path):
+    """Orchestrator scoped verify remainder of F1: the last fallback is the vault's only *active
+    subject*, not the only subject its active topics happen to name. Physics is active but has no
+    topics yet, so an unresolved deliverable (possibly a physics one) gets no linear-algebra papers."""
+
+    paths, repository = build_exam_scope_vault(tmp_path / "vault")
+    add_subject(paths.root, "physics", "Physics")
+    goal_id = _deliverable(paths, repository, "everything on my midterm")
+    vault = load_vault(paths.root)
+    assert {"linear-algebra", "physics"} <= set(vault.subjects)
+    assert not any("physics" in (lo.subjects or ()) for lo in vault.learning_objects.values())
+    assert DL.deliverable_subjects(vault, repository, goal_id, _scope_rows(repository, goal_id)) == frozenset()
+    prompt = _prompt(paths, repository, goal_id)
+    assert prompt.version == DL.SCOPE_PROMPT_VERSION and "past_papers_test" not in prompt_context(prompt.text)
+    fake = DeliverableFake()
+    assert DL.resolve(vault, repository, goal_id, client=fake).status == "ready"
+    assert "past_papers_test" not in fake.contexts[0]
+
+
+def test_a_paused_second_subject_keeps_the_only_active_subject_s_past_papers(tmp_path):
+    """Control: a paused subject is not active, so the vault's only active subject still names the
+    deliverable's subject."""
+
+    paths, repository = build_exam_scope_vault(tmp_path / "vault")
+    add_subject(paths.root, "physics", "Physics")
+    vault = load_vault(paths.root)
+    subject_file = vault.subjects["physics"].path
+    metadata, body = read_markdown_frontmatter_data(subject_file)
+    write_markdown_with_frontmatter(subject_file, {**metadata, "status": "paused"}, body)
+    goal_id = _deliverable(paths, repository, "everything on my midterm")
+    vault = load_vault(paths.root)
+    assert vault.subjects["physics"].metadata.status == "paused"
+    assert DL.deliverable_subjects(vault, repository, goal_id, _scope_rows(repository, goal_id)) == frozenset(LA)
+    assert prompt_context(_prompt(paths, repository, goal_id).text)["past_papers_test"] == list(PAST_PAPER_LOS)

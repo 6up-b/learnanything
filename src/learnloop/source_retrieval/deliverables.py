@@ -877,7 +877,7 @@ def deliverable_subjects(vault: Any, repository: Repository, goal_id: str,
 
     1. the source sets holding the readings its passage inputs (a syllabus) come from;
     2. the subjects of the topics its newest resolution needs, when they are one subject;
-    3. the vault's subject, when every active topic belongs to one.
+    3. the vault's only active subject, when it has exactly one (``vault.subjects``).
 
     Otherwise ambiguous: empty, and no past paper contributes (an unrelated subject's
     papers are never presented as this course's). An unreadable reading names nothing."""
@@ -898,8 +898,12 @@ def deliverable_subjects(vault: Any, repository: Repository, goal_id: str,
         return frozenset(needed)
     if needed:
         return frozenset()
-    every = _active_subjects(vault, vault.learning_objects)
-    return frozenset(every) if len(every) == 1 else frozenset()
+    # The vault's only *active subject* (orchestrator scoped verify, F1 remainder): not the
+    # only subject its active topics name. A second active subject with no topics yet may be
+    # this deliverable's, so its absence from the LOs says nothing: ambiguous, no papers.
+    active = [subject_id for subject_id, subject in (getattr(vault, "subjects", None) or {}).items()
+              if getattr(getattr(subject, "metadata", None), "status", None) == "active"]
+    return frozenset(str(subject_id) for subject_id in active) if len(active) == 1 else frozenset()
 
 
 def _learning_object_refs(vault: Any, learning_object: Any) -> list[Any]:
