@@ -158,6 +158,185 @@ def _projection_id(prefix: str, *identity: object) -> str:
     return f"{prefix}_{hashlib.sha256(encoded).hexdigest()[:26]}"
 
 
+# -- write-on-change for whole-projection derived tables (followups-oct31, fix 1)
+
+
+@dataclass(frozen=True)
+class _ProjectionTable:
+    """A derived table a projection persists whole.
+
+    ``key`` names a cell (the table's unique key); ``values`` are every column
+    the projection decides. ``created_at`` and ``updated_at`` are bookkeeping,
+    never compared: ``updated_at`` records when a cell's values last changed.
+    """
+
+    name: str
+    key: tuple[str, ...]
+    values: tuple[str, ...]
+
+
+_FACET_RECALL_PROJECTION = _ProjectionTable(
+    "facet_recall_state",
+    ("facet_id", "capability_key", "practice_item_id"),
+    (
+        "id", "recall_alpha", "recall_beta", "recall_mean", "recall_variance",
+        "independent_evidence_mass", "raw_coverage_mass", "last_observed_at",
+        "last_error_at", "consecutive_failures", "algorithm_version",
+    ),
+)
+_FACET_CAPABILITY_PROJECTION = _ProjectionTable(
+    "facet_capability_evidence",
+    ("facet_id", "capability"),
+    (
+        "direct_positive_mass", "direct_negative_mass", "embedded_positive_mass",
+        "embedded_negative_mass", "certification_credit", "direct_certification_credit",
+        "embedded_certification_credit", "unexercised_supporting_mass",
+        "independent_surface_groups_json", "algorithm_version",
+    ),
+)
+_CAPABILITY_RESIDUAL_PROJECTION = _ProjectionTable(
+    "capability_residual_state",
+    ("facet_id", "capability"),
+    (
+        "id", "active", "activation_reason", "residual_alpha", "residual_beta",
+        "residual_mean", "parent_alpha", "parent_beta", "parent_mean", "divergence",
+        "independent_groups", "independent_mass", "algorithm_version",
+    ),
+)
+
+
+@dataclass
+class _ProjectionChanges:
+    vanished: list[int] = field(default_factory=list)
+    changed: list[tuple[int, Mapping[str, Any], str]] = field(default_factory=list)
+    new: list[Mapping[str, Any]] = field(default_factory=list)
+
+    def __bool__(self) -> bool:
+        return bool(self.vanished or self.changed or self.new)
+
+
+def _projection_changes(
+    connection: sqlite3.Connection,
+    table: _ProjectionTable,
+    cells: Sequence[Mapping[str, Any]],
+) -> _ProjectionChanges:
+    """Compare a projection with the stored rows, cell by cell.
+
+    A cell's ``created_at`` of ``None`` means "keep the stored one"; a non-null
+    one is projected and differs only when the projection moved it.
+    """
+
+    projected: dict[tuple[Any, ...], Mapping[str, Any]] = {}
+    for cell in cells:
+        key = tuple(cell[column] for column in table.key)
+        if key in projected:
+            # The full DELETE+INSERT this replaces failed on the unique index.
+            raise sqlite3.IntegrityError(
+                f"UNIQUE constraint failed: {table.name} {dict(zip(table.key, key))}"
+            )
+        projected[key] = cell
+    columns = ", ".join((*table.key, *table.values))
+    stored = {
+        tuple(row[column] for column in table.key): row
+        for row in connection.execute(
+            f"SELECT rowid AS stored_rowid, {columns}, created_at FROM {table.name}"
+        )
+    }
+    changes = _ProjectionChanges()
+    for key, row in stored.items():
+        if key not in projected:
+            changes.vanished.append(int(row["stored_rowid"]))
+    for key, cell in projected.items():
+        row = stored.get(key)
+        if row is None:
+            changes.new.append(cell)
+            continue
+        created_at = cell["created_at"] if cell.get("created_at") is not None else row["created_at"]
+        if created_at != row["created_at"] or any(
+            cell[column] != row[column] for column in table.values
+        ):
+            changes.changed.append((int(row["stored_rowid"]), cell, created_at))
+    return changes
+
+
+def _apply_projection_changes(
+    connection: sqlite3.Connection,
+    table: _ProjectionTable,
+    changes: _ProjectionChanges,
+    *,
+    now: str,
+) -> None:
+    # Deletes first, so a new cell can never collide with a vanished one.
+    connection.executemany(
+        f"DELETE FROM {table.name} WHERE rowid = ?",
+        [(rowid,) for rowid in changes.vanished],
+    )
+    assignments = ", ".join(f"{column} = ?" for column in table.values)
+    connection.executemany(
+        f"UPDATE {table.name} SET {assignments}, created_at = ?, updated_at = ? WHERE rowid = ?",
+        [
+            (*(cell[column] for column in table.values), created_at, now, rowid)
+            for rowid, cell, created_at in changes.changed
+        ],
+    )
+    columns = (*table.key, *table.values)
+    placeholders = ", ".join("?" for _ in range(len(columns) + 2))
+    connection.executemany(
+        f"INSERT INTO {table.name}({', '.join(columns)}, created_at, updated_at) "
+        f"VALUES ({placeholders})",
+        [
+            (
+                *(cell[column] for column in columns),
+                cell["created_at"] if cell.get("created_at") is not None else now,
+                now,
+            )
+            for cell in changes.new
+        ],
+    )
+
+
+def _write_projection_on_change(
+    connection: sqlite3.Connection,
+    projections: Sequence[tuple[_ProjectionTable, Sequence[Mapping[str, Any]]]],
+    *,
+    now: str,
+) -> bool:
+    """Persist whole projections, writing only the cells that changed.
+
+    Returns whether anything was written. Outside an owning transaction the
+    comparison first runs on a read snapshot, so the common no-op takes no
+    write lock and commits nothing; when something differs it is compared
+    again under ``BEGIN IMMEDIATE`` and applied from that comparison, so a
+    writer that committed in between is never applied against stale rowids.
+    Inside an owning transaction (``Repository.atomic``) the one comparison
+    already runs under its lock.
+    """
+
+    def compare() -> list[tuple[_ProjectionTable, _ProjectionChanges]]:
+        return [
+            (table, _projection_changes(connection, table, cells))
+            for table, cells in projections
+        ]
+
+    if not connection.in_transaction:
+        connection.execute("BEGIN")
+        try:
+            pending = any(changes for _, changes in compare())
+        finally:
+            connection.rollback()  # a read snapshot only: nothing to commit
+        if not pending:
+            return False
+        connection.execute("BEGIN IMMEDIATE")
+    planned = compare()
+    written = False
+    for table, changes in planned:
+        if changes:
+            _apply_projection_changes(connection, table, changes, now=now)
+            written = True
+    connection.commit()
+    return written
+
+
 def _non_negative_tokens(value: Any) -> int:
     """Coerce a token count for a NOT NULL DEFAULT 0 column (migration 131).
 
@@ -6243,85 +6422,83 @@ class Repository(
         algorithm_version: str,
         clock: Clock | None = None,
     ) -> None:
-        """Replace the entire canonical belief cache from a derived projection.
+        """Make the canonical belief cache equal a derived projection.
 
         The canonical state is a pure, order-independent (beta masses accumulate
-        additively) projection over the immutable observation ledger, so a full
-        rebuild is the safe, replay-identical way to persist it: no per-LO reset
-        can shear a facet shared across LOs. Idempotent.
+        additively) projection over the immutable observation ledger, so the
+        whole projection is handed in: no per-LO reset can shear a facet shared
+        across LOs. Idempotent.
+
+        Write only on change (followups-oct31, fix 1): every load and reload
+        re-projects, and almost always to the same values. Each cell is compared
+        with the stored row on its value columns; a vanished cell is deleted, a
+        new one inserted, a changed one updated with ``updated_at = now``, and an
+        unchanged one is not touched. When nothing differs nothing is written at
+        all, so a no-op reload leaves the database file (``PRAGMA data_version``)
+        unchanged. ``updated_at`` therefore means "this estimate last changed
+        then". A recall row's ``created_at`` is projected (its first
+        observation's time) and written as projected; a capability row carries
+        none, so it keeps the stored one (``now`` when the cell first appears).
         """
 
         now = utc_now_iso(clock)
-        with self.connection() as connection:
-            connection.execute("DELETE FROM facet_recall_state")
-            connection.execute("DELETE FROM facet_capability_evidence")
-            for state in recall_rows:
-                connection.execute(
-                    """
-                    INSERT INTO facet_recall_state(
-                      id, facet_id, capability_key, practice_item_id, recall_alpha,
-                      recall_beta, recall_mean, recall_variance,
-                      independent_evidence_mass, raw_coverage_mass, last_observed_at,
-                      last_error_at, consecutive_failures, algorithm_version,
-                      created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        str(
-                            state.get("id")
-                            or _projection_id(
-                                "frs",
-                                state["facet_id"],
-                                state.get("capability_key", "shared"),
-                                state.get("practice_item_id"),
-                            )
-                        ),
+        recall_cells = [
+            {
+                "id": str(
+                    state.get("id")
+                    or _projection_id(
+                        "frs",
                         state["facet_id"],
                         state.get("capability_key", "shared"),
                         state.get("practice_item_id"),
-                        state["recall_alpha"],
-                        state["recall_beta"],
-                        state["recall_mean"],
-                        state["recall_variance"],
-                        state.get("independent_evidence_mass", 0.0),
-                        state.get("raw_coverage_mass", 0.0),
-                        state.get("last_observed_at"),
-                        state.get("last_error_at"),
-                        int(state.get("consecutive_failures", 0)),
-                        algorithm_version,
-                        state.get("created_at", now),
-                        now,
-                    ),
-                )
-            for row in capability_rows:
-                connection.execute(
-                    """
-                    INSERT INTO facet_capability_evidence(
-                      facet_id, capability, direct_positive_mass, direct_negative_mass,
-                      embedded_positive_mass, embedded_negative_mass, certification_credit,
-                      direct_certification_credit, embedded_certification_credit,
-                      unexercised_supporting_mass,
-                      independent_surface_groups_json, algorithm_version, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        row["facet_id"],
-                        row["capability"],
-                        row.get("direct_positive_mass", 0.0),
-                        row.get("direct_negative_mass", 0.0),
-                        row.get("embedded_positive_mass", 0.0),
-                        row.get("embedded_negative_mass", 0.0),
-                        row.get("certification_credit", 0.0),
-                        row.get("direct_certification_credit", 0.0),
-                        row.get("embedded_certification_credit", 0.0),
-                        row.get("unexercised_supporting_mass", 0.0),
-                        _json(sorted(row.get("independent_surface_groups", []))),
-                        algorithm_version,
-                        row.get("created_at", now),
-                        now,
-                    ),
-                )
-            connection.commit()
+                    )
+                ),
+                "facet_id": state["facet_id"],
+                "capability_key": state.get("capability_key", "shared"),
+                "practice_item_id": state.get("practice_item_id"),
+                "recall_alpha": state["recall_alpha"],
+                "recall_beta": state["recall_beta"],
+                "recall_mean": state["recall_mean"],
+                "recall_variance": state["recall_variance"],
+                "independent_evidence_mass": state.get("independent_evidence_mass", 0.0),
+                "raw_coverage_mass": state.get("raw_coverage_mass", 0.0),
+                "last_observed_at": state.get("last_observed_at"),
+                "last_error_at": state.get("last_error_at"),
+                "consecutive_failures": int(state.get("consecutive_failures", 0)),
+                "algorithm_version": algorithm_version,
+                "created_at": state.get("created_at"),
+            }
+            for state in recall_rows
+        ]
+        capability_cells = [
+            {
+                "facet_id": row["facet_id"],
+                "capability": row["capability"],
+                "direct_positive_mass": row.get("direct_positive_mass", 0.0),
+                "direct_negative_mass": row.get("direct_negative_mass", 0.0),
+                "embedded_positive_mass": row.get("embedded_positive_mass", 0.0),
+                "embedded_negative_mass": row.get("embedded_negative_mass", 0.0),
+                "certification_credit": row.get("certification_credit", 0.0),
+                "direct_certification_credit": row.get("direct_certification_credit", 0.0),
+                "embedded_certification_credit": row.get("embedded_certification_credit", 0.0),
+                "unexercised_supporting_mass": row.get("unexercised_supporting_mass", 0.0),
+                "independent_surface_groups_json": _json(
+                    sorted(row.get("independent_surface_groups", []))
+                ),
+                "algorithm_version": algorithm_version,
+                "created_at": row.get("created_at"),
+            }
+            for row in capability_rows
+        ]
+        with self.connection() as connection:
+            _write_projection_on_change(
+                connection,
+                (
+                    (_FACET_RECALL_PROJECTION, recall_cells),
+                    (_FACET_CAPABILITY_PROJECTION, capability_cells),
+                ),
+                now=now,
+            )
 
     # -- capability residual activation (§4.2, KM5; DEFAULT OFF) -----------------
 
@@ -6332,55 +6509,45 @@ class Repository(
         algorithm_version: str,
         clock: Clock | None = None,
     ) -> None:
-        """Replace the derived capability-residual activation state (§4.2).
+        """Make the derived capability-residual activation state equal a projection (§4.2).
 
-        Like :meth:`replace_canonical_facet_state`, this is a full DELETE+INSERT
-        of a pure projection over the observation ledger + closed episodes, so a
-        rebuild reproduces it byte-identically. When residual activation is
-        disabled in config the projection passes ``rows=[]`` and the table stays
-        empty — determinism holds with the feature on and off.
+        Like :meth:`replace_canonical_facet_state`, this persists a pure
+        projection over the observation ledger + closed episodes, so a rebuild
+        reproduces its values, and it writes only the cells that changed
+        (nothing when none did). When residual activation is disabled in config
+        the projection passes ``rows=[]`` and the table stays empty —
+        determinism holds with the feature on and off.
         """
 
         now = utc_now_iso(clock)
+        cells = [
+            {
+                "id": str(
+                    row.get("id")
+                    or _projection_id("crs", row["facet_id"], row["capability"])
+                ),
+                "facet_id": row["facet_id"],
+                "capability": row["capability"],
+                "active": 1 if row.get("active") else 0,
+                "activation_reason": row.get("activation_reason"),
+                "residual_alpha": float(row["residual_alpha"]),
+                "residual_beta": float(row["residual_beta"]),
+                "residual_mean": float(row["residual_mean"]),
+                "parent_alpha": float(row["parent_alpha"]),
+                "parent_beta": float(row["parent_beta"]),
+                "parent_mean": float(row["parent_mean"]),
+                "divergence": float(row.get("divergence", 0.0)),
+                "independent_groups": int(row.get("independent_groups", 0)),
+                "independent_mass": float(row.get("independent_mass", 0.0)),
+                "algorithm_version": algorithm_version,
+                "created_at": row.get("created_at"),
+            }
+            for row in rows
+        ]
         with self.connection() as connection:
-            connection.execute("DELETE FROM capability_residual_state")
-            for row in rows:
-                connection.execute(
-                    """
-                    INSERT INTO capability_residual_state(
-                      id, facet_id, capability, active, activation_reason,
-                      residual_alpha, residual_beta, residual_mean,
-                      parent_alpha, parent_beta, parent_mean, divergence,
-                      independent_groups, independent_mass, algorithm_version,
-                      created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        str(
-                            row.get("id")
-                            or _projection_id(
-                                "crs", row["facet_id"], row["capability"]
-                            )
-                        ),
-                        row["facet_id"],
-                        row["capability"],
-                        1 if row.get("active") else 0,
-                        row.get("activation_reason"),
-                        float(row["residual_alpha"]),
-                        float(row["residual_beta"]),
-                        float(row["residual_mean"]),
-                        float(row["parent_alpha"]),
-                        float(row["parent_beta"]),
-                        float(row["parent_mean"]),
-                        float(row.get("divergence", 0.0)),
-                        int(row.get("independent_groups", 0)),
-                        float(row.get("independent_mass", 0.0)),
-                        algorithm_version,
-                        row.get("created_at", now),
-                        now,
-                    ),
-                )
-            connection.commit()
+            _write_projection_on_change(
+                connection, ((_CAPABILITY_RESIDUAL_PROJECTION, cells),), now=now
+            )
 
     def capability_residual_states(self) -> list[dict[str, Any]]:
         with self.connection() as connection:
