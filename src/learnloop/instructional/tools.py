@@ -36,7 +36,7 @@ from learnloop.ids import new_ulid
 from learnloop.instructional.exercises import exercise_region_count
 from learnloop.instructional.policy import caller_for_question_event, cold_administration_open, cold_notes
 from learnloop.instructional.practice import continuation_cursor, propose_practice
-from learnloop.instructional.sources import propose_comparison, propose_sources
+from learnloop.instructional.sources import propose_comparison, propose_sources, refuse_withheld_comparison
 from learnloop.instructional.valuation import HYPOTHESIS_ALIASES, REFERENCE_KINDS, named_gap_target
 from learnloop.practice_index.retrieval import (
     INTENTS as PRACTICE_INTENTS,
@@ -458,6 +458,11 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                         client=client.get("source_compare"),
                                         verify_client=client.get("source_rerank"),
                                         embedder=injected.get("embedder"), clock=clock)
+        # RW4d's whole-comparison rule before any of it is shown or read by a
+        # model: a protected contributor withholds it whole (the run is
+        # recorded failed with the refusal's code). The view's per-passage
+        # filtering below stays for everything else.
+        refuse_withheld_comparison(vault, repository, comparison.comparison_id)
         view = _comparison_view(vault, repository, comparison, withhold)
         out.update(result=view, result_ref=comparison.comparison_id,
                    result_keys=[f"{s.get('extraction_id')}:{s.get('span_id')}" for s in view["sources"]],

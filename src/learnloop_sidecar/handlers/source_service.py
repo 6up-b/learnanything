@@ -236,9 +236,12 @@ def find_sources_rpc(ctx: SidecarContext, params: FindSourcesInput) -> dict[str,
 
 @method("compare_sources", CompareSourcesInput)
 def compare_sources_rpc(ctx: SidecarContext, params: CompareSourcesInput) -> dict[str, Any]:
-    """How the learner's sources treat one question: quote-verified, no consensus (S3, §9.4)."""
+    """How the learner's sources treat one question: quote-verified, no consensus (S3, §9.4).
+    RW4d's whole-comparison rule applies (Reader follow-ups Nov 1): a comparison any
+    of whose contributing passages is protected now is refused whole
+    (``comparison_withheld``)."""
 
-    from learnloop.instructional.sources import propose_comparison
+    from learnloop.instructional.sources import propose_comparison, refuse_withheld_comparison
     from learnloop.source_retrieval.policy import PolicyRefused
 
     vault, repository = ctx.require_vault()
@@ -249,6 +252,7 @@ def compare_sources_rpc(ctx: SidecarContext, params: CompareSourcesInput) -> dic
             requested_perspectives=params.requested_perspectives, pinned_span_ids=params.pinned_span_ids,
             pinned_span_keys=params.pinned_span_keys, policy=params.policy,
         )
+        refuse_withheld_comparison(vault, repository, comparison.comparison_id)
     except PolicyRefused as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     except ValueError as exc:

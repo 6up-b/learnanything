@@ -122,8 +122,13 @@ def propose_sources(vault: LoadedVault, repository: Repository, query: str, *, c
     # Retrieval, its embeddings and rewrite, and verification all run under the
     # service's shared daily cap (Codex re-review F2).
     with service_spend(vault, repository, clock=kwargs.get("clock")):
-        return find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
+        hits = find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
                                        misconceptions=misconceptions or (), **kwargs)
+    if hits.manifest.get("delegated_to") == "compare_sources":
+        # ``intent="compare"`` carries the whole comparison on its manifest:
+        # RW4d's whole-comparison rule, as on compare_sources (follow-ups Nov 1).
+        refuse_withheld_comparison(vault, repository, hits.manifest.get("comparison_id"))
+    return hits
 
 
 def propose_comparison(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext,
@@ -135,11 +140,37 @@ def propose_comparison(vault: LoadedVault, repository: Repository, query: str, *
         return compare_sources(vault, repository, query, caller=caller, **kwargs)
 
 
+#: The refusal of a comparison withheld whole, in RW4d's words (the library's
+#: ``comparison_withheld``), so every surface says the same.
+COMPARISON_WITHHELD_MESSAGE = ("Part of this comparison is held out for an exam now (or its sources can't be "
+                               "checked), so it isn't shown.")
+
+
+def refuse_withheld_comparison(vault: LoadedVault, repository: Repository, comparison_id: str | None) -> None:
+    """RW4d's whole-comparison rule on the direct ``compare_sources`` RPC and the
+    tutor's tool run (Reader follow-ups Nov 1; RW4d's queued follow-up). Raises
+    ``PolicyRefused("comparison_withheld")`` when any passage that contributed
+    to the stored comparison (its sources, counterparts, dropped pins, the tutor
+    question it was asked for) is exam or held out now, or its provenance cannot
+    be read: RW4d's own helper decides (``reader.source_objects.withheld_comparisons``,
+    failing closed), never a copy of it. Nothing compared (no comparison id: too
+    few sources, or a failed call) has nothing to withhold."""
+
+    if not comparison_id:
+        return
+    from learnloop.reader import source_objects as SO
+
+    if SO.withheld_comparisons(vault, repository, [(str(comparison_id), None)]):
+        raise PolicyRefused("comparison_withheld", COMPARISON_WITHHELD_MESSAGE)
+
+
 __all__ = [
+    "COMPARISON_WITHHELD_MESSAGE",
     "ServiceDisabled",
     "active_misconceptions",
     "propose_comparison",
     "propose_sources",
+    "refuse_withheld_comparison",
     "remediation_passage_provider",
     "resolve_misconceptions",
     "tutor_intent_for",
