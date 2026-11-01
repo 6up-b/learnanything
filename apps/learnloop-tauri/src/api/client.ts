@@ -21,6 +21,7 @@ import type {
   CorrespondentsDto,
   CorrespondentOperationDto,
   CorrespondentPeekDto,
+  CorrespondencePreferencesDto,
   CoverageCorrectionChoice,
   LibraryAskDto,
   LibraryAskEntry,
@@ -1665,7 +1666,7 @@ export const api = {
     call<{ created: Array<{ commitmentId: string; dueHint: string; learningObjectId: string }>; readiness: DeliverableReadyDto }>(
       "curriculum_ready_check", { input }),
   curriculumAlsoAbout: (input: { extractionId: string; sectionId: string; text: string }) =>
-    call<{ status: string; learningObjectId: string | null; message?: string }>("curriculum_also_about", { input }),
+    call<{ status: string; learningObjectId: string | null; message?: string; title?: string }>("curriculum_also_about", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
@@ -1683,8 +1684,13 @@ export const api = {
   // operation (undoOf: its undo), idempotent by the client's operation id.
   readerCorrespondentPeek: (input: { extractionId: string; sectionId: string }) =>
     call<{ peek: CorrespondentPeekDto }>("reader_correspondent_peek", { input }),
-  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null }) =>
+  readerCorrespondentDismiss: (input: { extractionId: string; sectionId: string; targetExtractionId: string; targetSectionId: string; operationId: string; undoOf?: string | null; learningObjectIds?: string[] | null }) =>
     call<{ operation: CorrespondentOperationDto }>("reader_correspondent_dismiss", { input }),
+  /** Reader CA5: the also-in-your-books line's hide preferences (Settings brings it back). */
+  readerCorrespondencePreferences: () =>
+    call<CorrespondencePreferencesDto>("reader_correspondence_preferences", { input: {} }),
+  readerSetCorrespondencePreferences: (input: { sourceId?: string | null; hideSource?: boolean | null; hideEverywhere?: boolean | null }) =>
+    call<CorrespondencePreferencesDto>("reader_set_correspondence_preferences", { input }),
   /** Reader CA3 (Codex re-review F10): `comparisonId` names the stored comparison shown; the
    *  server reads every passage it compared (`pinnedSpanKeys` then adds to them, or is empty). */
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; comparisonId?: string; passagesId?: string; question?: string | null }) =>

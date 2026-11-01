@@ -1417,6 +1417,9 @@ sidecar_passthrough!(reader_correspondents, "reader.correspondents");
 sidecar_passthrough!(curriculum_coverage_correct, "curriculum.coverage_correct");
 sidecar_passthrough!(reader_correspondent_peek, "reader.correspondent_peek");
 sidecar_passthrough!(reader_correspondent_dismiss, "reader.correspondent_dismiss");
+// Reader CA5: also in your books (the line's hide preferences; Settings brings it back).
+sidecar_passthrough!(reader_correspondence_preferences, "reader.correspondence_preferences");
+sidecar_passthrough!(reader_set_correspondence_preferences, "reader.set_correspondence_preferences");
 // Deliverable curriculum C0b (the deliverable's scope, its path across books, the
 // Guide's slice, overrides, "Am I ready?", "also about"): desktop only.
 sidecar_passthrough!(curriculum_deliverables, "curriculum.deliverables");

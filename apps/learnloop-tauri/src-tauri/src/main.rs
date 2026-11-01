@@ -633,6 +633,8 @@ fn main() {
             curriculum_coverage_correct,
             reader_correspondent_peek,
             reader_correspondent_dismiss,
+            reader_correspondence_preferences,
+            reader_set_correspondence_preferences,
             curriculum_deliverables,
             curriculum_create_deliverable,
             curriculum_set_scope,

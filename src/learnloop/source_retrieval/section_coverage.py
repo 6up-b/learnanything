@@ -297,10 +297,13 @@ class Library:
     reads it again: a batch does so before each LO); an unreadable predicate
     raises ``CoverageError("withheld")`` (fail closed)."""
 
-    def __init__(self, vault: Any, repository: Repository, *, protection: Protection | None = None) -> None:
+    def __init__(self, vault: Any, repository: Repository, *, protection: Protection | None = None,
+                 scope: Scope | None = None) -> None:
         self.vault = vault
         self.repository = repository
-        base = library_scope(repository)
+        base = scope if scope is not None else library_scope(repository)
+        #: What the library was read from (Reader CA5's cache compares it).
+        self.scope_signature = scope_signature(base)
         self.protection = protection if protection is not None else read_protection(vault, repository)
         self.material = self.protection.material
         self.excluded_spans = self.protection.excluded_spans
@@ -455,6 +458,53 @@ class Library:
                 self._section_los[(extraction_id, sid)] = tuple(
                     lo for lo in by_section.get(sid, ()) if _active(self.vault, lo))
         return self._section_los.get(key, ())
+
+
+def scope_signature(scope: Scope) -> str:
+    """A digest of the readings a library is read from (ids, books, titles,
+    reader switch): an import, a re-extraction or a book switched off changes it."""
+
+    return content_key(sorted([extraction_id, extraction.source_id, extraction.title, bool(extraction.reader_enabled)]
+                              for extraction_id, extraction in scope.extractions.items()))
+
+
+class LibraryCache:
+    """Reader CA5's per-vault library for the Guide's reads (CA5a open item 7).
+
+    ``reader.correspondents`` runs on every crossing into a new section, on
+    the serial sidecar. A fresh :class:`Library` parses each reading it
+    touches again (the open book's IR at least twice: its sections and its
+    LO map). This keeps one library and hands it out again while nothing it
+    was read from has changed: the same loaded vault object (a reload, which
+    LO, provenance and source-set edits make, gives a new one), the same
+    protection key and the same readings. Protection is read afresh on every
+    :meth:`get` (fail closed, as a new library would), so an exam mark or a
+    held-back reading is honoured on the very next read; only the parsed
+    readings and the LO map are reused. Coverage rows, corrections, keeps and
+    read marks are never cached: :func:`correspondents` reads them each time."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._library: Library | None = None
+        self.builds = 0
+
+    def get(self, vault: Any, repository: Repository) -> Library:
+        protection = read_protection(vault, repository)
+        scope = library_scope(repository)
+        signature = scope_signature(scope)
+        with self._lock:
+            current = self._library
+            if (current is not None and current.vault is vault and current.repository is repository
+                    and current.protection.key == protection.key and current.scope_signature == signature):
+                return current
+            library = Library(vault, repository, protection=protection, scope=scope)
+            self._library = library
+            self.builds += 1
+            return library
+
+    def clear(self) -> None:
+        with self._lock:
+            self._library = None
 
 
 def _active(vault: Any, lo_id: str) -> bool:
@@ -1740,7 +1790,8 @@ def _operation_view(row: Mapping[str, Any], *, replayed: bool) -> dict[str, Any]
 
 
 def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target: tuple[str, str], *,
-            operation_id: str, undo_of: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
+            operation_id: str, undo_of: str | None = None, learning_object_ids: Sequence[str] | None = None,
+            clock: Clock | None = None) -> dict[str, Any]:
     """*Not about this* on an unchecked hit (``undo_of``: undo that operation), in one transaction.
 
     ``origin`` is the open section, ``target`` the hit. Both are read under
@@ -1748,7 +1799,13 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
     per LO of the origin, a ``not_about`` learner row on the target. Undo: the
     pair verdict ``none`` (superseding the one undone) and ``none`` on each of
     that operation's LOs whose newest correction on the target is still
-    ``not_about``. Idempotent by ``operation_id``."""
+    ``not_about``. Idempotent by ``operation_id``.
+
+    ``learning_object_ids`` (Reader CA5, a judged line): the LOs the line is
+    listed under, the shared LOs the learner says the hit is not about. Each
+    must be one of the origin's LOs; the correction is written for those only
+    (the pair verdict is the operation's record as before). Absent, every LO
+    of the origin (CA5a's unchecked hit, which has no LO of its own)."""
 
     if not _OPERATION_ID.match(operation_id or ""):
         raise CoverageError("validation_error", "operation_id must be 8-80 letters, digits, '-' or '_'.")
@@ -1761,7 +1818,13 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
         raise CoverageError("validation_error", "A section is never a correspondent within its own book.")
     left_id, right_id = _section_ref(*origin_section.key), _section_ref(*target_section.key)
     # The origin's LOs (provenance and coverage rows), read before the write.
-    learning_object_ids = section_learning_objects(vault, repository, library, *origin_section.key)
+    origin_los = section_learning_objects(vault, repository, library, *origin_section.key)
+    if learning_object_ids is None:
+        chosen = list(origin_los)
+    else:
+        chosen = list(dict.fromkeys(str(lo) for lo in learning_object_ids))
+        if not chosen or any(lo not in origin_los for lo in chosen):
+            raise CoverageError("validation_error", "Name only LOs of the open section.")
     now = utc_now_iso(clock)
 
     def same_question(row: Mapping[str, Any]) -> bool:
@@ -1773,12 +1836,18 @@ def dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target:
         existing = connection.execute("SELECT * FROM judgment_ledger WHERE id = ?", (_pair_id(operation_id),)).fetchone()
         if existing is not None:
             record = _operation_view(existing, replayed=True)
-            if not same_question(existing) or record["undo_of"] != undo_of:
+            # The id binds the whole correction: its pair, what it undoes and,
+            # when the caller names them, its LOs (Codex review F1: a retry
+            # after "also about…" must not acknowledge the earlier LO set).
+            reused = not same_question(existing) or record["undo_of"] != undo_of
+            if undo_of is None and learning_object_ids is not None:
+                reused = reused or set(record["learning_object_ids"]) != set(chosen)
+            if reused:
                 raise CoverageError("validation_error", "That operation id was used for another correction.")
             return record
         supersedes: str | None = None
         if undo_of is None:
-            choice, los = "not_about", list(learning_object_ids)
+            choice, los = "not_about", chosen
             for lo_id in los:
                 _write_correction(connection, vault, target_section, lo_id, "not_about", None, now,
                                   operation_id=operation_id)
@@ -1827,7 +1896,8 @@ def _pair_dismissed(repository: Repository, origin: Section) -> set[str]:
 PEEK_BLOCKS = 3
 
 
-def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]:
+def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str, *,
+         cache: LibraryCache | None = None) -> dict[str, Any]:
     """A section's first blocks, from its jump locator, for CA5a's peek.
 
     Protection is read now (a book marked exam material after the search is
@@ -1835,7 +1905,7 @@ def peek(vault: Any, repository: Repository, extraction_id: str, section_id: str
     so a peek never runs on into the next unit, protected or not. A pure read:
     the caller records the exposure of exactly these blocks."""
 
-    library = Library(vault, repository)
+    library = cache.get(vault, repository) if cache is not None else Library(vault, repository)
     section = _readable_section(library, extraction_id, section_id)
     reading = library.reading(extraction_id)
     ir = repository.load_document_ir(extraction_id)
@@ -1939,7 +2009,8 @@ def _withheld_view(extraction_id: str, section_id: str, message: str) -> dict[st
 
 
 def correspondents(vault: Any, repository: Repository, extraction_id: str, section_id: str, *,
-                   search_fallback: bool = True, embedder: Any | None = None) -> dict[str, Any]:
+                   search_fallback: bool = True, embedder: Any | None = None,
+                   cache: LibraryCache | None = None) -> dict[str, Any]:
     """From one section, the other books' sections that treat the same LOs
     (judged coverage), or, with none and ``search_fallback``, the live search
     hits per book labelled *found by search, not checked*. No model call and
@@ -1947,7 +2018,7 @@ def correspondents(vault: Any, repository: Repository, extraction_id: str, secti
     section has no correspondents."""
 
     try:
-        library = Library(vault, repository)
+        library = cache.get(vault, repository) if cache is not None else Library(vault, repository)
     except CoverageError as exc:
         return _withheld_view(extraction_id, section_id, str(exc))
     if extraction_id in library.left_out:
@@ -2076,6 +2147,7 @@ __all__ = [
     "CoverageGuard",
     "JudgeResult",
     "Library",
+    "LibraryCache",
     "Protection",
     "ProtectionChanged",
     "Section",
@@ -2097,6 +2169,7 @@ __all__ = [
     "peek",
     "query_embedding_plan",
     "read_protection",
+    "scope_signature",
     "search_sections",
     "section_learning_objects",
     "source_learning_objects",

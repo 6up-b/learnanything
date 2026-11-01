@@ -19,6 +19,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
+import { setQueryData } from "../api/queryCache";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
@@ -114,6 +115,7 @@ import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExerci
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
+import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -640,6 +642,26 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // Reader CA5: "also in your books" (the contract names it only while
+  // reader.correspondence.enabled and curriculum.enabled are on). Shown in skim
+  // mode (a table of contents), never in the working posture or offline.
+  const alsoOn = Boolean(contract?.correspondence?.alsoInBooks) && !offline;
+  // The learner's hide preferences: the contract's, or what was just set here
+  // (until the contract itself changes, e.g. Settings brought the line back).
+  const [alsoPrefs, setAlsoPrefs] = useState<{ everywhere: boolean; sources: string[] } | null>(null);
+  useEffect(() => setAlsoPrefs(null), [contract]);
+  const alsoHidden = alsoPrefs
+    ? alsoPrefs.everywhere || Boolean(render && alsoPrefs.sources.includes(render.sourceId))
+    : Boolean(contract?.correspondence?.hiddenEverywhere)
+      || Boolean(render && (contract?.correspondence?.hiddenSources ?? []).includes(render.sourceId));
+  const [alsoAvailable, setAlsoAvailable] = useState(false);
+  const [alsoExpandToken, setAlsoExpandToken] = useState(0);
+  const [alsoClosePeekToken, setAlsoClosePeekToken] = useState(0);
+  const [alsoPeek, setAlsoPeek] = useState<AlsoPeekCrumb | null>(null);
+  // CA5a's pressed list peeks too (Codex review F4): one display-only crumb for either list.
+  const [findPeek, setFindPeek] = useState<AlsoPeekCrumb | null>(null);
+  const peekCrumbShown = alsoPeek ?? findPeek;
+  const [coverageRefresh, setCoverageRefresh] = useState(0);
   // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
   // re-reads on, a landed progress save included.
   // The Guide being shown again, the plan re-read (a diagnosis landed), a
@@ -1757,8 +1779,13 @@ export function ReaderScreen({
   );
 
 
+  // Reader CA5's `x`: only while its line is there to open.
+  const alsoKeyRef = useRef<() => boolean>(() => false);
+  // Not while comparing either (Codex review F5): the comparing posture hides the Guide's rail.
+  alsoKeyRef.current = () => alsoOn && alsoAvailable && !alsoHidden && !working && !comparing && !intentBox.open;
   // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
-  // tabs; \ collapses or expands the rail (remembered on this device).
+  // tabs; \ collapses or expands the rail (remembered on this device); x opens
+  // "also in your books" (CA5).
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -1773,6 +1800,13 @@ export function ReaderScreen({
       } else if (event.key === "\\") {
         event.preventDefault();
         setRailCollapsed((collapsed) => !collapsed);
+      } else if ((event.key === "x" || event.key === "X") && alsoKeyRef.current()) {
+        // Reader CA5: open "also in your books" at its first line (off while the
+        // intent box shows, in the working posture, or with no line to open).
+        event.preventDefault();
+        setRailCollapsed(false);
+        setRailTab("guide");
+        setAlsoExpandToken((token) => token + 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -2257,6 +2291,33 @@ export function ReaderScreen({
       { query: currentGuideSection.label, entry: "where_else_explained", extractionId: render.extractionId, spanIds: [here] },
       [`${render.extractionId}:${here}`, `${hit.jump.extractionId}:${hit.jump.spanId}`],
     );
+  };
+  // Reader CA5: "hide for this book" / "hide everywhere" on the line, kept in
+  // the vault's config (Settings brings it back). The cached contract follows
+  // at once, and settles on the sidecar's answer (or goes back on a failure).
+  const hideAlsoInBooks = (scope: "book" | "everywhere") => {
+    if (!render || !contract?.correspondence) return;
+    const before = alsoPrefs ?? {
+      everywhere: Boolean(contract.correspondence.hiddenEverywhere), sources: contract.correspondence.hiddenSources ?? [],
+    };
+    setAlsoPrefs(scope === "book"
+      ? { everywhere: before.everywhere, sources: [...new Set([...before.sources, render.sourceId])] }
+      : { everywhere: true, sources: before.sources });
+    setAlsoPeek(null);
+    const base = contract;
+    Promise.resolve()
+      .then(() => api.readerSetCorrespondencePreferences(scope === "book" ? { sourceId: render.sourceId, hideSource: true } : { hideEverywhere: true }))
+      .then((prefs) => {
+        // Every Reader reads it from the contract from now on.
+        setQueryData(["reader_prompt_contract"], {
+          ...base, correspondence: { ...base.correspondence!, hiddenEverywhere: prefs.hideEverywhere,
+            hiddenSources: prefs.hiddenSources.map((entry) => entry.sourceId) },
+        }, [TAG.reader, TAG.settings]);
+      })
+      .catch((error) => {
+        setAlsoPrefs(before);
+        onError(errorMessage(error));
+      });
   };
   // RW5b: an offered figure's press (see offeredFigure above). It resolves to
   // how the press ended: built, or why nothing was (fix round 2, F9).
@@ -2847,6 +2908,13 @@ export function ReaderScreen({
             const { stack, target } = stackGoTo(returnStackRef.current, index);
             if (target) void restoreEntry(stack, target, index === 0 ? "crumb_origin" : "crumb");
           }}
+          // Reader CA5: a peek at another book's section from the Guide is a crumb
+          // only (never a return-stack entry, so Alt+→ never opens that book).
+          peek={peekCrumbShown ? {
+            label: peekCrumbShown.label,
+            origin: currentGuideSection?.label ?? sourceTitle ?? "where I was",
+            onClose: () => setAlsoClosePeekToken((token) => token + 1),
+          } : null}
         />
       ) : null}
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}), ...(comparingStacked ? { flexDirection: "column" as const } : {}) }}>
@@ -3372,6 +3440,28 @@ export function ReaderScreen({
                 onGoThere={(target) => void openLibraryHit(target)}
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
                 onError={onError}
+                refreshKey={coverageRefresh}
+                onPeekChange={setFindPeek}
+                closePeekToken={alsoClosePeekToken}
+              />
+            ) : undefined}
+            alsoInBooks={alsoOn && !working ? (
+              <AlsoInBooks
+                extractionId={render.extractionId}
+                section={currentGuideSection
+                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+                  : null}
+                hidden={alsoHidden}
+                onHide={hideAlsoInBooks}
+                onGoThere={(target) => void openLibraryHit(target)}
+                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+                // `s` side by side: CA6's entry is wired here when it lands (a seam: absent, `s` does nothing).
+                onPeekChange={setAlsoPeek}
+                onAvailableChange={setAlsoAvailable}
+                onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
+                onError={onError}
+                expandToken={alsoExpandToken}
+                closePeekToken={alsoClosePeekToken}
               />
             ) : undefined}
             footer={cueCtl.cues ? (
@@ -3672,6 +3762,8 @@ export function ReaderScreen({
           ...(cueCtl.placement.shown.length > 0 ? [{ key: "alt+↓", label: "next mark" }] : []),
           // RW6a: once the session has something to wrap up (UX W1).
           ...(recapCtl.wrapUpOffered && !working ? [{ key: "w", label: "wrap up" }] : []),
+          // Reader CA5: while the Guide has its "also in your books" line.
+          ...(inquiry && alsoOn && alsoAvailable && !alsoHidden && !working && !comparing ? [{ key: "x", label: "also in your books" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />

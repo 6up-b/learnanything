@@ -23,11 +23,18 @@
 // writes. Unchecked hits never appear unasked (§6.5). Off (no
 // `correspondence` in the prompt contract) the Reader never mounts this, so
 // the Guide is exactly as before.
+//
+// Reader CA5: the quiet read is shared with the one-line "also in your books"
+// (one request per crossing), `refreshKey` asks it again (after that line's
+// last correspondent is corrected away, this action may be due), and peeks and
+// go there record CA5a's deferred salience-only events.
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../../api/client";
 import type { CorrespondentPeekDto, CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
+import { logCorrespondentAct } from "./correspondenceEvents";
+import { quietCorrespondents } from "./correspondentsRead";
 import { clip } from "./readerShared";
 import { MeaningLabel, SourceVoice } from "./voices";
 
@@ -69,6 +76,12 @@ export interface FindSectionProps {
   /** Compares this section's passage with the hit's (null: comparing is off). */
   onCompare: ((hit: CorrespondentSectionDto) => void) | null;
   onError: (message: string) => void;
+  /** Reader CA5: a change asks the quiet read again (the section's coverage was corrected). */
+  refreshKey?: number;
+  /** Reader CA5 (Codex review F4): the detour strip's `› peek Axler §5.A` (null when no peek is open). */
+  onPeekChange?: (crumb: PeekCrumb | null) => void;
+  /** The detour strip's crumb: each new nonzero value closes the peek. */
+  closePeekToken?: number;
 }
 
 type Pressed =
@@ -80,6 +93,28 @@ interface Peek {
   key: string;
   hit: CorrespondentSectionDto;
   view: CorrespondentPeekDto | null;
+}
+
+/** The section's own number ("5.A", "5.1"), else its title clipped (the book's words). */
+export function sectionShort(title: string): string {
+  const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "");
+  const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed);
+  return match ? match[1] : clip(trimmed, 22);
+}
+
+/** A book's name as a line shows it: its title before any subtitle, clipped. */
+export function bookShort(title: string): string {
+  const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim();
+  return head.length > 20 ? `${head.slice(0, 20).trimEnd()}…` : head;
+}
+
+/** The detour strip's display-only crumb for a peek (`› peek Axler §5.A`, §6.3). */
+export interface PeekCrumb {
+  label: string;
+}
+
+export function peekCrumb(hit: Pick<CorrespondentSectionDto, "sourceTitle" | "title">): PeekCrumb {
+  return { label: `peek ${bookShort(hit.sourceTitle)} §${sectionShort(hit.title)}` };
 }
 
 export function hitKey(hit: Pick<CorrespondentSectionDto, "extractionId" | "sectionId">): string {
@@ -98,7 +133,9 @@ const LINK: CSSProperties = {
 };
 const HEAD: CSSProperties = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" };
 
-export function FindSection({ extractionId, section, onGoThere, onCompare, onError }: FindSectionProps) {
+export function FindSection({
+  extractionId, section, onGoThere, onCompare, onError, refreshKey = 0, onPeekChange, closePeekToken = 0,
+}: FindSectionProps) {
   const sectionId = section?.id ?? null;
   // The quiet read (no search): whether the action may show for this section.
   const [quiet, setQuiet] = useState<{ sectionId: string; show: boolean } | null>(null);
@@ -130,7 +167,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
       return;
     }
     setQuiet(null);
-    api.readerCorrespondents({ extractionId, sectionId, searchFallback: false }).then((view) => {
+    quietCorrespondents(extractionId, sectionId).then((view) => {
       if (token.current !== mine) return;
       // Judged coverage is CA5's one-line entry (not built yet): no action then;
       // a protected section has none at all.
@@ -139,7 +176,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
       // Fails closed: no action rather than an error line nobody asked for.
       if (token.current === mine) setQuiet({ sectionId, show: false });
     });
-  }, [extractionId, sectionId]);
+  }, [extractionId, sectionId, refreshKey]);
 
   const press = useCallback(() => {
     if (!sectionId) return;
@@ -183,6 +220,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     if (!hit.jump.spanId) return;
     const mine = token.current;
     setPeek({ key, hit, view: null });
+    logCorrespondentAct("corresponding_section_peeked", extractionId, sectionId, hit, "find_list");
     try {
       // The hit's own section, protection read now; what it shows is recorded.
       const { peek: shown } = await api.readerCorrespondentPeek({ extractionId: hit.extractionId, sectionId: hit.sectionId });
@@ -193,7 +231,7 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
       onError(errorMessage(error));
       setPeek((current) => (current?.key === key ? null : current));
     }
-  }, [onError]);
+  }, [onError, extractionId, sectionId]);
 
   const closePeek = useCallback(() => {
     const key = peek?.key;
@@ -201,10 +239,26 @@ export function FindSection({ extractionId, section, onGoThere, onCompare, onErr
     if (key) focusLine(key);
   }, [peek]);
 
+  // The detour strip's crumb follows the peek (display only: never a
+  // return-stack entry), and the strip's close closes it; it goes with the list.
+  const peekChange = useRef(onPeekChange);
+  peekChange.current = onPeekChange;
+  useEffect(() => {
+    peekChange.current?.(peek ? peekCrumb(peek.hit) : null);
+  }, [peek]);
+  useEffect(() => () => peekChange.current?.(null), []);
+  const seenClose = useRef(closePeekToken);
+  useEffect(() => {
+    if (closePeekToken === seenClose.current) return;
+    seenClose.current = closePeekToken;
+    if (peek) closePeek();
+  }, [closePeekToken, peek, closePeek]);
+
   const goThere = useCallback((hit: CorrespondentSectionDto) => {
     if (!hit.jump.spanId) return;
+    logCorrespondentAct("corresponding_section_opened", extractionId, sectionId, hit, "find_list");
     onGoThere({ sourceId: hit.sourceId, extractionId: hit.jump.extractionId, spanId: hit.jump.spanId });
-  }, [onGoThere]);
+  }, [onGoThere, extractionId, sectionId]);
 
   /** One correction as one operation; it lands only on the section it was made from (F4). */
   const runOperation = useCallback(async (key: string, act: string, request: (operationId: string) => Promise<unknown>, landed: () => void) => {

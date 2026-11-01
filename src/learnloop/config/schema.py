@@ -2905,15 +2905,26 @@ class ReaderCorrespondenceConfig(BaseModel):
     (or with ``curriculum.enabled`` off, which gates the data), the Reader's
     prompt contract carries no ``correspondence`` key and the Guide is
     exactly as before CA5a. Navigation and display only: no successor.
+
+    Reader CA5 (*also in your books*, §6.2–§6.3) shares the switch: one dim
+    line under the Guide's section progress naming the other books' sections
+    whose judged coverage shares this section's LOs, expanded into a list by
+    LO (peek, go there, compare, *not about this*, *also about…*). It never
+    shows unchecked search hits. ``hide_everywhere`` and ``hidden_sources``
+    are the learner's own off switch on the line (*hide everywhere* / *hide
+    for this book*, by source id); Settings brings it back. They hide that
+    line only, never the data or CA5a's pressed action.
     """
 
     enabled: bool = True
+    hide_everywhere: bool = False
+    hidden_sources: list[str] = Field(default_factory=list)
 
 
 class ReaderConfig(BaseModel):
     """The Reader's presentation switches (ux_reader_compare_ask_v1 §13).
 
-    ``correspondence``: CA5a's (and later CA5's) switch.
+    ``correspondence``: CA5a's and CA5's switch, and CA5's hide preferences.
     """
 
     correspondence: ReaderCorrespondenceConfig = Field(default_factory=ReaderCorrespondenceConfig)
