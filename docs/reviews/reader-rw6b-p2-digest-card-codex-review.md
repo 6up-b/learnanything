@@ -216,3 +216,126 @@ Not run here:
    row's summary are read as they are now at a past `as_of`. A historical card replay would need their history.
 3. **The original record's open questions 2–4** (narratives need part 1's row; the card section not rendered; the
    narrative's time) are closed by F2, F1 and F5.
+
+## Re-review (Codex, gpt-6.1-sol, job 20261101-025003-aq6LSo)
+
+Codex re-reviewed `a53f72a398..ce77fe9317`. It confirmed F1, F2, F4, F7 and F8 as fixed. It reopened F3, F5 and F6,
+and it added F9. Each reopened or new finding was reproduced first: a test failed before the fix and passes after it.
+The exception is F5, which is rejected below.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F3 | High (reopened) | The narrative's claim is never checked for liveness before the request or at publication | fixed | `0fc1074705` | `test_reader_digest_narrative.py::test_a_lease_lost_before_the_request_sends_nothing_and_writes_nothing`, `::test_a_lease_lost_during_the_call_never_publishes_and_the_answer_is_not_paid_twice` |
+| F5 | (reopened) | A later re-plan rewrites the summary and valuation that a historical `as_of` reads | rejected | — | See below. No read path uses a historical cutoff. A real fix needs a version history of the digest rows, which means a migration outside this stage |
+| F6 | (reopened) | `formative_records` misses the figure-provenance scope that `missed_predictions` got | fixed | `fab9938103` | `test_router_reader_activity.py::test_a_real_missed_prediction_reaches_the_section_through_its_figure` (extended) |
+| F9 | Medium | Reader activity can push the card past its token budget | fixed | `28c1e434c1` | `test_router_reader_activity.py::test_the_reader_section_fits_wherever_the_predecessor_card_fits` (budgets 1000, 1500, 2000), `::test_the_budget_trims_reader_entries_deterministically_and_says_so` |
+
+### F3: the claim is checked when it matters
+
+`reader_digest._narrate_claimed` now checks the session's claim at two points.
+
+- **Before each request.** `NarrativeRoute` passes PaidCalls' `admit` hook a liveness check. The hook runs before every
+  attempt, retries included. The check is `map_builder._require_live`: owner, epoch, an unexpired lease, and the
+  heartbeat's own lost signal. A lost claim raises `_LeaseLost`, so no request is sent.
+- **At publication.** `_record` takes the claim and re-checks it with `_holds` inside the write transaction
+  (BEGIN IMMEDIATE), before the conditional `set_narrative`. A lost claim writes nothing: no narrative and no ledger
+  verdict.
+
+When the claim is lost, the result is `claimed`, with the reason recorded.
+
+The paid answer is not lost. PaidCalls checkpoints a validated answer before returning it, so the next holder of the
+claim lands it from the checkpoint without sending a second request; the second test checks this. This replaces the
+first fix round's rule that "a writer whose lease lapsed still records what it paid for". It follows the precedent of
+the approach-map builder (fix round 2, M3).
+
+**Reproduced before the fix:** the lease was taken over after the prompt was built and before the request. The stale
+worker still sent its request and published (`narrated`).
+
+### F5: rejected, with the reason
+
+The finding is accurate: a digest row is mutable. Part 1 re-plans an `incomplete` row, which rewrites `summary_json`
+and `valuation_json` in place, and no earlier version is kept. A past `as_of` therefore cannot be replayed exactly.
+This step does not fix it, for these reasons:
+
+- **No path reads a past cutoff.** The only caller is the card gatherer, which reads at `utc_now_iso(clock)`, the
+  decision's own time. The card it builds is stored with its hash (`router_decision_payloads`), and that stored payload
+  is the replay record. No rebuild or replay rebuilds a card.
+- **The predecessor card has the same property.** `named_gaps_for_card` returns reversals with no cutoff, and the
+  projection-backed topic status is read as it is now. Exact replay of a past cutoff has never been a property of the
+  card.
+- **A real fix is a schema change.** Determinism needs append-only digest versions, or a summary recomputed from the
+  ledger as of the cutoff (`RC.session_summary` reads current resolutions and gap names). Either is a migration or a
+  rewrite of part 1's summary, outside this stage, which has no migration.
+- **The owner's proportionate protection bar (2026-10-24).** No learner sees a past-cutoff card, and no spend depends
+  on one.
+
+It stays an open item for the owner (item 2 below).
+
+### F6: both lists use the figure's passages
+
+`_prediction_los` now collects `prediction_missed` records from both `predictions_missed` and `observations`.
+`reader_activity_for_card` computes the provenance map once and passes it to both `_records` calls.
+
+**Reproduced before the fix:** the production-shaped prediction appeared in `missed_predictions` but not in
+`formative_records`.
+
+### F9: the reader section is inside the budget
+
+`router.card.build_card` now trims the Reader activity section before anything else. It removes one entry at a time:
+
+1. the model-written narrative;
+2. then one entry from the longest list (on a tie, the later list), taken from its oldest end. For the lists stored
+   oldest first, that is the first entry; for follow-ups and next actions, the last.
+
+Each removal is counted in the section's own `omitted`, which the card renders as "(N older reader entries left out)".
+If the card is still over budget with every entry gone, the whole section is dropped.
+
+With the section gone, the card is the predecessor's byte for byte. A card with the section therefore fits whenever
+the predecessor's card fits, and it never trades the predecessor's recent work or confidence events for reader entries.
+The builder's record is `dropped_reader_entries` and `dropped_reader_section`. Both are metadata-only truncation keys,
+so they appear in the stored payload's `truncation` and not in the typed card.
+
+The new constants in `router/card.py` are structural, so nothing goes into the parameter registry:
+
+- `READER_SECTION`, `_READER_LISTS` and `_READER_OLDEST_FIRST` restate `router_reader`'s section key, list names and
+  ordering. `card.py` is a leaf module, so it cannot import them.
+- The trimming order is a rule, not a tuned weight.
+
+**Reproduced before the fix:** with a budget of 1000 tokens, three graded attempts and six full-length inquiries, the
+card came to **1400 tokens** with recent work stripped. The predecessor card fit and kept its work.
+
+### Re-review gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G --` at `-n 6`.
+The targeted run was serialized behind `flock /tmp/learnloop-fullsuite.lock`. `TMPDIR` was outside the worktree.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **36 kept, 0 broken** |
+| `pytest tests/test_reader_digest_narrative.py` (after F3) | 31 passed |
+| `pytest tests/test_router_reader_activity.py` (after F6) | 20 passed |
+| `pytest tests/test_router_reader_activity.py tests/test_router_card.py` (after F9) | 34 passed |
+| `pytest tests/test_architecture.py` | 18 passed |
+| `pytest -n 6` over the 50 files listed below, behind the flock | **787 passed, 6 skipped** (69.6 s), exit 0 |
+
+**The 50 files:** every test file that imports or names `router.card` / `build_card` / `render_text` / `CardInputs`,
+`reader_digest`, `router_reader` / `reader_activity`, the parameter registry or the judgment claims, plus every
+`test_router_*.py` and `test_architecture.py`:
+
+`test_ad1_codex_review_fixes.py`, `test_ad23_owner_decisions.py`, `test_ad3_subject_view.py`, `test_approach_maps.py`, `test_architecture.py`, `test_card_lineage.py`, `test_intent_checks.py`, `test_judge_routes.py`, `test_mcp_c1a_landing.py`, `test_mcp_tools.py`, `test_measurement_state_labels.py`, `test_method_explicit_landing.py`, `test_reader_digest_narrative.py`, `test_reader_followups.py`, `test_reader_followups_rereview.py`, `test_reader_followups_review.py`, `test_reader_followups_round3.py`, `test_reader_followups_round4.py`, `test_reader_followups_round5.py`, `test_reader_followups_round6.py`, `test_reader_followups_round7.py`, `test_reader_followups_round8.py`, `test_reader_session_digests_migration.py`, `test_router_card.py`, `test_router_coldness_covariates.py`, `test_router_g1_feasibility.py`, `test_router_g3_propensity.py`, `test_router_g4_restraint.py`, `test_router_g7_fallback.py`, `test_router_ladder_parity.py`, `test_router_offer_log.py`, `test_router_outcomes.py`, `test_router_p2_bridge.py`, `test_router_presentations.py`, `test_router_probe_ties.py`, `test_router_r1_composition.py`, `test_router_r2a_landing.py`, `test_router_r2a_serving.py`, `test_router_r2b_agreement.py`, `test_router_r2bc_landing.py`, `test_router_r2b_requests.py`, `test_router_r2b_serving.py`, `test_router_r2c_retrieval.py`, `test_router_r2c_teach_back.py`, `test_router_reader_activity.py`, `test_router_staged_p2.py`, `test_router_why_copy.py`, `test_teacher_te0_confidence_events.py`, `test_teacher_te0_fix_round2.py`, `test_teacher_te0_review_fixes.py`.
+
+Not run, and why:
+
+- **vitest, npm and cargo:** no frontend or `src-tauri` file changed.
+- **The durability lane:** no migration and no DB or connection code changed. The claim checks reuse the existing
+  `judgment_work_claims` helpers.
+- **The DB reference scripts:** neither the schema nor the config changed.
+- **The full suite:** it runs once, in the landing gate.
+
+### Open items for the owner (re-review)
+
+1. **F1's successor:** unchanged from the fix round (item 1 above).
+2. **F5, historical replay of the reader section:** exact replay of a past `as_of` would need digest-row versions (a
+   migration) or a summary recomputed as of the cutoff. Nothing reads a past cutoff today, and the stored card payload
+   is the record. Queue it as a follow-up if replays of past cards become a goal.
