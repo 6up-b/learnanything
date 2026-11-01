@@ -38,6 +38,14 @@ vi.mock("../components/useSourceFileDrop", () => ({ useSourceFileDrop: () => fal
 vi.mock("../components/InboxStrip", () => ({ InboxStrip: () => null }));
 
 const PROB = { sourceId: "src_prob", title: "Probability" };
+const BESIDE_TRAIL = {
+  entries: [
+    { id: "o", kind: "origin", sourceId: "src_strang" },
+    { id: "s", kind: "side_by_side", sourceId: "src_strang" },
+    { id: "d", kind: "source", sourceId: "src_prob" },
+  ],
+  cursor: 2,
+};
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
@@ -66,7 +74,7 @@ function stub(name: string) {
 vi.mock("../screens/ReaderScreen", () => ({
   ReaderScreen: (props: Record<string, unknown>) => {
     stubs.reader.push(props);
-    const initial = props.initialSource as { card: { sourceId: string }; spanId: string | null; reading?: string | null } | null;
+    const initial = props.initialSource as { card: { sourceId: string }; spanId: string | null; reading?: string | null; besideTrail?: { cursor: number } | null } | null;
     const workbench = props.workbench as { resumeProblem?: { sessionId: string; extractionId?: string | null } | null } | undefined;
     return (
       <div
@@ -76,6 +84,7 @@ vi.mock("../screens/ReaderScreen", () => ({
         data-reading={initial?.reading ?? ""}
         data-resume={workbench?.resumeProblem?.sessionId ?? ""}
         data-resume-reading={workbench?.resumeProblem?.extractionId ?? ""}
+        data-beside-trail={initial?.besideTrail ? String(initial.besideTrail.cursor) : ""}
       >
         <button
           type="button"
@@ -93,6 +102,21 @@ vi.mock("../screens/ReaderScreen", () => ({
         </button>
         <button
           type="button"
+          onClick={() =>
+            (props.onCheckMe as (request: unknown) => void)({
+              practiceItemId: "pi_check",
+              spanId: "sp3",
+              card: PROB,
+              proposalId: null,
+              importId: null,
+              besideTrail: BESIDE_TRAIL
+            })
+          }
+        >
+          check me beside
+        </button>
+        <button
+          type="button"
           onClick={() => (props.onSourceChange as (source: unknown) => void)({ card: { sourceId: "src_strang", title: "Strang" }, spanId: "st1" })}
         >
           open Strang
@@ -105,9 +129,10 @@ vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
 vi.mock("../screens/PracticeScreen", () => ({
-  PracticeScreen: ({ practiceItemId, session }: { practiceItemId: string; session: { sessionId: string } }) => (
+  PracticeScreen: ({ practiceItemId, session, onBack }: { practiceItemId: string; session: { sessionId: string }; onBack?: () => void }) => (
     <div data-testid="practice-stub" data-item={practiceItemId} data-session={session.sessionId}>
       practice
+      <button type="button" onClick={() => onBack?.()}>practice back</button>
     </div>
   )
 }));
@@ -718,5 +743,30 @@ describe("CA6b, F8: a check from the book beside opens in that book", () => {
     // The same Reader (not mounted again on another book).
     expect(screen.getByTestId("reader-stub")).toBe(reader);
     expect(stubs.reader.length).toBeGreaterThanOrEqual(mounts);
+  });
+});
+
+// Reader CA6b (Codex re-review F8): with the workbench off, a check begun in
+// side by side's second pane goes to the practice screen; back returns to the
+// Reader at its passage WITH the way back to side by side (the Reader's
+// return stack, which the Reader seeds). A check from anywhere else returns
+// as before (no trail).
+describe("CA6b re-review, F8: back from a check begun beside keeps the way back to side by side", () => {
+  it("the practice screen's back opens the Reader with the trail; an ordinary check's back has none", async () => {
+    stubs.session = { ...STARTED, sessionId: "s1" };
+    todayApis();
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Places" });
+    await press({ key: "3", altKey: true });
+    fireEvent.click(await screen.findByRole("button", { name: "check me beside" }));
+    fireEvent.click(await screen.findByRole("button", { name: "practice back" }));
+    const reader = await screen.findByTestId("reader-stub");
+    expect(reader.getAttribute("data-source")).toBe("src_prob");
+    expect(reader.getAttribute("data-span")).toBe("sp3");
+    expect(reader.getAttribute("data-beside-trail")).toBe("2");
+    // An ordinary check: back is the passage alone.
+    fireEvent.click(screen.getByRole("button", { name: "check me" }));
+    fireEvent.click(await screen.findByRole("button", { name: "practice back" }));
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe(""));
   });
 });

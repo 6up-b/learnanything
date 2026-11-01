@@ -56,3 +56,22 @@ it("check me with the workbench on opens in the Reader as the pick's serve, plan
   const planOff = readerCheckOffer({ enabled: false, step: null } as never, "pi_c", "prop_1");
   expect(readerWorkbenchCheck(request, planOff, "Q")).toMatchObject({ schedulerCandidateId: null, planPresentationId: null });
 });
+
+// Reader CA6b (Codex re-review F8): a submit made on a book taken from side by
+// side's second pane keeps the way back to side by side (the Reader's return
+// stack) through feedback; back opens the Reader with it. Without one, as before.
+it("the way back to side by side goes with a submit and comes back with the Reader (absent: as before)", () => {
+  const trail = {
+    entries: [
+      { id: "o", kind: "origin", sourceId: "src_strang" },
+      { id: "s", kind: "side_by_side", sourceId: "src_strang" },
+      { id: "d", kind: "source", sourceId: "src" },
+    ],
+    cursor: 2,
+  } as never;
+  const back = workbenchReturn(result, { card, spanId: "b2", besideTrail: trail });
+  expect(back).toEqual({ card, spanId: "b2", practiceItemId: "pi_514", workbenchAttemptId: "att_1", besideTrail: trail });
+  expect(readerTargetBack(back, { showProblem: false })).toEqual({ source: { card, spanId: "b2", besideTrail: trail }, initialAttemptId: null });
+  expect(readerTargetBack(back, { showProblem: true }).source).toEqual({ card, spanId: "b2", besideTrail: trail });
+  expect(workbenchReturn(result, { card, spanId: "b2", besideTrail: null })).not.toHaveProperty("besideTrail");
+});

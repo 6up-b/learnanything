@@ -3,6 +3,7 @@
 import { expect, it } from "vitest";
 import {
   back,
+  besideTrail,
   canGoBack,
   canGoForward,
   dropCurrent,
@@ -115,4 +116,17 @@ it("Reader CA6 (Codex review F6): side by side with another section is another d
   expect(replaced.entries[1]).toMatchObject({ id: "sbs", label: "side by side with Lay §5.2", sideBySide: lay });
   expect(replaced.cursor).toBe(1);
   expect(replaceCurrent(one, "origin", { label: "x" })).toBe(one);
+});
+
+// Reader CA6b (Codex re-review F8): the way back to side by side is kept only
+// while side by side comes before the current entry (a detour from it).
+it("besideTrail: the stack while a side_by_side entry is behind the current one; otherwise none", () => {
+  const sbs = entry("s", { kind: "side_by_side" });
+  const onCrumb = pushDetour(EMPTY_STACK, origin, sbs);
+  expect(besideTrail(EMPTY_STACK)).toBeNull();
+  expect(besideTrail(onCrumb)).toBeNull();
+  const detour = pushDetour(onCrumb, origin, entry("d", { kind: "source", sourceId: "src_other" }));
+  expect(besideTrail(detour)).toBe(detour);
+  expect(besideTrail(back(detour).stack)).toBeNull();
+  expect(besideTrail(pushDetour(EMPTY_STACK, origin, entry("p")))).toBeNull();
 });
