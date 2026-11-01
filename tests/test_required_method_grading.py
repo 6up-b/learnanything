@@ -21,7 +21,7 @@ rules). Replay reads every record as written. Fakes only; no network.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -65,6 +65,7 @@ PREDECESSOR = ROUTER_MIXTURE_ALGORITHM_VERSION
 ITEM = "pi_svd_compute_001"  # setup (2) + result (2); its LO's concept (SVD) is a procedure
 METHOD = "singular value decomposition"
 CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
+SUBMITTED = CLOCK.now() - timedelta(hours=1)  # before CLOCK's regrades (see test_route_rules_in_grader)
 KILL_SWITCH = "[required_method]\nenabled = false"
 
 
@@ -360,7 +361,7 @@ def test_the_kill_switch_grades_exactly_as_the_predecessor(tmp_path, setup):
 
 def test_a_regrade_at_the_successor_keeps_the_method_rule_and_a_full_credit_regrade_clears_it(tmp_path):
     _paths, vault, repository = _method_vault(tmp_path)
-    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
                     runtime=ReadyRuntime(), client=DivergentGrader(), grading_source="ai", clock=CLOCK)
     rule = _support(repository, result.attempt_id)["proof_route_check"]

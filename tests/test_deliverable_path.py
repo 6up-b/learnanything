@@ -229,7 +229,11 @@ def test_check_due_is_bounded_by_tomorrow_fourteen_days_and_the_deadline(tmp_pat
 
 def test_am_i_ready_creates_one_check_per_untested_lo_never_an_exam_reserved_item(tmp_path):
     paths, repository = build_deliverable_vault(tmp_path / "vault")
-    goal_id, vault = _scoped(paths, repository, "matrix computations and vector lists", due_at="2026-12-01")
+    # A deadline a month after the wall clock the checks are created on: a fixed
+    # date would pass and pin every check to today (check_due never schedules
+    # before now), failing the bound below once that date was behind us.
+    deadline = (datetime.now(UTC) + timedelta(days=30)).strftime("%Y-%m-%d")
+    goal_id, vault = _scoped(paths, repository, "matrix computations and vector lists", due_at=deadline)
     needs = [entry["learning_object_id"] for entry in DL.needed_learning_objects(vault, repository, goal_id)]
     assert needs == ["lo_matrices", "lo_vectors"]
     items = sorted(item.id for item in vault.practice_items.values() if item.learning_object_id == "lo_matrices")
@@ -241,7 +245,7 @@ def test_am_i_ready_creates_one_check_per_untested_lo_never_an_exam_reserved_ite
     out = DP.ready_checks(vault, repository, goal_id)
     picked = {entry["learning_object_id"]: entry["item_id"] for entry in out["created"]}
     assert picked["lo_matrices"] and picked["lo_matrices"] != items[0]  # G-C3: never the reserved item
-    assert all(entry["due_hint"] <= "2026-12-01" for entry in out["created"])
+    assert all(entry["due_hint"] <= deadline for entry in out["created"])
     assert out["readiness"]["checks_owed"] == []
     # Pressed again: no second check while one is pending.
     assert DP.ready_checks(vault, repository, goal_id)["created"] == []

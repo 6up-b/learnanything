@@ -67,6 +67,11 @@ ITEM = "pi_svd_compute_001"  # setup (2) + result (2)
 #: ``result`` with the located quote "Take the eigenvectors".
 ALTERNATIVE = "Take the eigenvectors of A^T A for V, then U = A V Sigma^{-1}."
 CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
+#: When a test that regrades at ``CLOCK`` submits its attempt. ``submit`` with
+#: no ``when`` stamps the attempt with the wall clock, and the latest grade is
+#: the latest by ``created_at``: once the wall clock passed ``CLOCK`` (12:00 UTC on
+#: 2026-11-01) such a regrade sorted before the grade it replaced.
+SUBMITTED = CLOCK.now() - timedelta(hours=1)
 
 
 class DivergentGrader(ReviewFakeClient):
@@ -829,7 +834,7 @@ def test_f3_a_quote_from_the_learners_clarification_reply_locates_an_error():
 
 def test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    result = submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE)
+    result = submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
                     runtime=ReadyRuntime(), client=ClarifiedErrorGrader(), grading_source="ai",
                     clock=CLOCK, clarification_exchange=_exchange())
@@ -864,7 +869,7 @@ def _route_judgments(repository, attempt_id):
 
 def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     blind = repository.latest_blind_grade_record(result.attempt_id)
     [first] = _route_judgments(repository, result.attempt_id)
     assert first["judge"] == "llm" and first["judge_model"] == "fake-model"
@@ -920,7 +925,7 @@ def _latest_regrade_run(repository):
 
 def test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict(tmp_path):
     paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     [first] = _route_judgments(repository, held.attempt_id)
     assert json.loads(first["verdict"])["held_for_review"] is True
     append_config(paths.root, "[proof_check]\nenabled = false")
@@ -961,13 +966,14 @@ def test_f5_a_joint_regrade_supersedes_a_route_verdict(tmp_path):
     from learnloop.db.stores.judgments import append_judgment
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[diagnosis]\nsplit_enabled = false")
-    result = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE)
+    result = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE, when=SUBMITTED)
     assert repository.latest_blind_grade_record(result.attempt_id) is None
     with connect(repository.sqlite_path) as connection:
         seeded = append_judgment(
             connection, task="own_route_rule", left_kind="attempt", left_id=result.attempt_id,
             judge="llm", judge_model="fake-model", prompt_version="seeded", input_hash="seeded",
             verdict=json.dumps({"status": "checked", "held_for_review": True}), rationale="seeded",
+            created_at=(SUBMITTED + timedelta(minutes=1)).isoformat(),  # between the grade and the regrade
         )
         connection.commit()
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
