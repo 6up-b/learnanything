@@ -142,3 +142,89 @@ MemorySwapMax=1G -- ...`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one run 
   ACTIVE 302, reproducible).
 
 Test files of round 1: `test_ad1_codex_review_fixes.py`, `test_ad23_owner_decisions.py`, `test_ad23_successor.py`, `test_architecture.py`, `test_attempt_content_state_successor.py`, `test_batch3_landing.py`, `test_cli_help_snapshot.py`, `test_codex_lockdown_round3.py`, `test_codex_output_schema.py`, `test_cold_retry_reschedule.py`, `test_concept_animation_service.py`, `test_concept_animation_store.py`, `test_concept_animation_validator.py`, `test_constraint_engine.py`, `test_curriculum_c1_plan_follows_path.py`, `test_deliverable_codex_review.py`, `test_desktop_rpc_contract.py`, `test_field_workbench_signals.py`, `test_figure_grammar.py`, `test_figure_offers.py`, `test_figure_panels.py`, `test_figure_predictions.py`, `test_figure_property.py`, `test_figure_region.py`, `test_figure_requests_migration.py`, `test_figure_revisions.py`, `test_figure_rich_contract.py`, `test_figure_rich_job.py`, `test_figure_rich_review_fixes.py`, `test_figure_rich_rpc.py`, `test_figures_codex_review.py`, `test_figures_final_round.py`, `test_figures_fix_round2.py`, `test_figures_fix_round3.py`, `test_figures_fix_round4.py`, `test_figures_fix_round5.py`, `test_figures_migration.py`, `test_figures_rpc.py`, `test_figures_rw5b_fix_round2.py`, `test_figures_rw5b_review.py`, `test_figures_scope_redesign.py`, `test_figures_show_me_codex_review.py`, `test_figures_show_me.py`, `test_figures_switch_off.py`, `test_figure_verification.py`, `test_grading_cli.py`, `test_ingest_queue_store.py`, `test_kinship_feature.py`, `test_library_exercises.py`, `test_lp_claim_fixes.py`, `test_manim_figure_checks.py`, `test_manim_sandbox_hostile.py`, `test_method_explicit_upgrade.py`, `test_mobile_allowlist.py`, `test_openai_chat_client.py`, `test_open_world_gate.py`, `test_p0_cutover_mvp08.py`, `test_pf_sandbox.py`, `test_plan_first_transport_offer_grants.py`, `test_plan_first_transport_offer_grants_r5.py`, `test_plan_follows_path.py`, `test_provider_resolution_parity.py`, `test_reader_ca2_one_ask.py`, `test_reader_ca4_table_by_point.py`, `test_reader_followups_successor.py`, `test_reader_report.py`, `test_reader_rw2b_review.py`, `test_reader_source_identity_guard.py`, `test_reading_paths.py`, `test_rebuild_equivalence_review.py`, `test_recurrence_commands.py`, `test_registry_audit.py`, `test_regrade_contract_upgrade.py`, `test_rw2c_switch_off.py`, `test_sensitivity_certificates.py`, `test_sidecar_animation.py`, `test_sidecar_contract.py`, `test_sidecar_registry.py`, `test_sidecar_serializer_snapshot.py`, `test_sketch_engine.py`, `test_sketch_hostile.py`, `test_sketch_parity.py`, `test_sketch_sandbox_review.py`, `test_sketch_scene_parity.py`, `test_sketch_service.py`, `test_sketch_verify.py`, `test_source_roles.py`, `test_structured_transport_parity.py`, `test_table_roles.py`, `test_teacher_te0_review_fixes.py`, `test_tracked_fixture_databases.py`, `test_ux_phase2_shell.py`, `test_vault_template.py`.
+
+## Re-review (Codex job `20261101-101854-JLOeCV`, verdict REOPENED)
+
+The re-review marked F1-F3 CONFIRMED-FIXED and raised three new Medium findings (F12-F14). Each one was reproduced
+before it was fixed. F13 and F14 are reproduced by `tests/test_figure_rich_rereview_fixes.py`: all 6 cases failed
+against the unfixed `service.py`. Before the fix, the F13 pending case returned the ordinary correction's
+`reused=True` rich line. The F13 reuse case returned the stored animation with `reused=True`. Each F14 case
+listed no line. F12 is reproduced by the new cases in `tests/test_manim_sandbox_hostile.py`, run against
+`git show HEAD:concept_animation.py`, which was swapped in temporarily and then restored: 4 failed and 2
+errored. Under simulated Windows (`os.killpg` absent), both the timeout and the output-limit cleanup raised
+`AttributeError: module 'os' has no attribute 'killpg'`. The flood ran until the 60 s timeout, which shows that
+the renderer was never killed. A check afterwards found no orphaned child process.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F12 | Medium | Windows timeout cleanup leaves the renderer running | fixed | `681d1a7b01` | `tests/test_manim_sandbox_hostile.py::test_a_timeout_on_windows_ends_the_tree_and_reaps_the_renderer`, `::test_an_output_flood_on_windows_ends_the_tree_and_reaps_the_renderer`, `::test_the_tree_kill_always_falls_back_to_killing_the_renderer[True,False]` |
+| F13 | Medium | "Different kind" collides with ordinary animation corrections | fixed | `681d1a7b01` | `tests/test_figure_rich_rereview_fixes.py::test_a_different_kind_hashes_apart_from_the_ordinary_correction`, `::test_a_different_kind_never_takes_the_pending_ordinary_correction`, `::test_a_different_kind_never_reuses_the_ordinary_corrections_animation` |
+| F14 | Medium | Failed animation corrections disappear without failure feedback | fixed | `681d1a7b01` | `tests/test_figure_rich_rereview_fixes.py::test_a_failed_animation_correction_keeps_the_earlier_version_and_says_so`, `::test_a_later_correction_replaces_the_failed_line`, `::test_a_failed_correction_of_a_fuller_version_says_so_too`; `tests/test_figure_rich_rpc.py::test_a_failed_animation_correction_reads_as_failed_and_rich_retry_asks_again` |
+
+### What changed
+
+- **F12** (`content/authoring/concept_animation.py`):
+  - The new `terminate_process_tree` kills the whole process tree, by platform. On POSIX it sends `SIGKILL`
+    to the process group. On Windows (`_WINDOWS`) it runs `taskkill /F /T /PID <pid>`, a fixed argv with no
+    shell, bounded by `_TASKKILL_SECONDS`.
+  - It then always calls `process.kill()`, whatever the tree kill did. That covers a failed tree kill, a
+    missing `os.killpg`, or `taskkill` being absent. The exception set it catches includes `AttributeError`
+    and `SubprocessError`. The caller's `wait()` therefore always reaps the process.
+  - `bounded_run` uses `terminate_process_tree` for the timeout, the output budget and the `finally`
+    cleanup. It starts the child through `_session_kwargs`: a new session on POSIX, and on Windows
+    `CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW`.
+  - `_TASKKILL_SECONDS` is registered as a `keep` (operational) constant.
+  - The three new launch references (`_session_kwargs` getattr x2, plus `_kill_windows_tree` getattr and
+    `subprocess.run`) are reviewed and approved in `tests/test_codex_lockdown_round3.py`.
+- **F13** (`figures/service.py`, `request_hash`):
+  - A request with `different_kind` adds `"different_kind": true` to the reuse key. The request id follows
+    the key, because the request id is `content_key(input_hash, generation)`, and so does the pending and
+    reuse lookup.
+  - Every other request hashes exactly as before, because the key is absent. The test pins this against the
+    literal key, so stored figures stay reusable.
+- **F14** (`figures/service.py`, `learnloop_sidecar/handlers/figures.py`):
+  - `rich_pending` now handles a correction job (one whose payload carries `supersedes_id`) that ended
+    `done`/`failed` with its request's row stored `failed`. When that row is still the newest version of the
+    figure it corrects (`_failed_correction`), the job lists as a `failed` line with the stored reason and
+    the job id. `list_figures` keeps showing the earlier animation.
+  - A newer correction of the same figure replaces the line. Jobs are read newest first, so the later
+    correction's own line, or its stored version, takes over.
+  - `figure.rich_retry` on that job calls the new `rich_revision_retry`. This rebuilds the same correction
+    (the same base figure and note). Same input, but the stored failure starts the next generation, so the
+    rich author is asked afresh, never with the failed checkpoint. It makes no author call, and the response
+    names the new rich job.
+  - Any other job keeps F9's requeue path.
+  - The frontend is unchanged. The existing failed line already gives the reason ("why") and "try again",
+    which calls `figure.rich_retry`. The response shape (`richJobId`, `state: "pending"`) is unchanged.
+
+### Re-review gate
+
+All pytest runs used `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- ...` at `-n 6`, one
+at a time, with TMPDIR outside the worktree. No live calls were made, no Manim render ran, and no owner data was
+touched.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: done.
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted batch 1, 32 files: **759 passed**. One earlier run of the same batch had 1 failure,
+  `test_codex_lockdown_round3.py::test_every_process_launch_site_is_approved`, caused by the new launch
+  references. After they were approved, that file passed on its own (**16 passed**), and the batch above was
+  then rerun clean. Files: `test_figure_rich_rereview_fixes.py`, `test_figure_rich_rpc.py`,
+  `test_manim_sandbox_hostile.py`, `test_figure_rich_review_fixes.py`, `test_figure_rich_job.py`,
+  `test_figure_rich_contract.py`, `test_manim_figure_checks.py`, `test_codex_lockdown_round3.py`,
+  `test_concept_animation_service.py`, `test_concept_animation_store.py`, `test_concept_animation_validator.py`,
+  `test_sidecar_animation.py`, `test_ingest_queue_store.py`, `test_batch3_landing.py`, `test_figure_offers.py`,
+  `test_figures_codex_review.py`, `test_figures_final_round.py`, `test_figures_fix_round2.py`,
+  `test_figures_fix_round5.py`, `test_figures_rw5b_review.py`, `test_figures_scope_redesign.py`,
+  `test_figures_show_me_codex_review.py`, `test_figures_show_me.py`, `test_figure_verification.py`,
+  `test_sketch_service.py`, `test_mobile_allowlist.py`, `test_registry_audit.py`, `test_architecture.py`,
+  `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_sidecar_registry.py`,
+  `test_cli_help_snapshot.py`.
+- Targeted batch 2, 16 files: **402 passed, 5 skipped**. Files: `test_figure_grammar.py`,
+  `test_figure_panels.py`, `test_figure_predictions.py`, `test_figure_property.py`, `test_figure_region.py`,
+  `test_figure_requests_migration.py`, `test_figure_revisions.py`, `test_figures_fix_round3.py`,
+  `test_figures_fix_round4.py`, `test_figures_migration.py`, `test_figures_rpc.py`,
+  `test_figures_rw5b_fix_round2.py`, `test_figures_switch_off.py`, `test_reader_report.py`, `test_pf_sandbox.py`,
+  `test_sidecar_contract.py`.
+- No migration, schema, config key, DB/connection code, frontend or `src-tauri` change: no durability run, DB
+  reference regeneration, vitest, frontend build or cargo check needed.
+- The owner checkpoint (three real requests built on the plan) is still an owner item, not part of this stage.
