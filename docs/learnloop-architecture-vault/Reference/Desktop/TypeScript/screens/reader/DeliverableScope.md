@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/DeliverableScope.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/DeliverableScope.tsx"
-source_commit: "1bd537ae4527bb8d6bd5360ec8560b6947c7827c"
-source_commit_timestamp: "2026-10-31T16:21:48-04:00"
+source_commit: "e63a81c0807f929ac4cc5b77e209a5beace229a1"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/DeliverableScope.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DeliverableScope.tsx) |
-| Source lines | 328 |
+| Source lines | 335 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `1bd537ae4527bb8d6bd5360ec8560b6947c7827c` |
-| Commit timestamp | `2026-10-31T16:21:48-04:00` |
+| Source commit | `e63a81c0807f929ac4cc5b77e209a5beace229a1` |
+| Commit timestamp | `2026-11-01T13:52:05-05:00` |
 
 ## Activation and status evidence
 
@@ -62,35 +62,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export const SCOPE_DEPTHS: Array<` — const, line 30
 - `export const SCOPE_COPY =` — const, line 36
-- `export function scopeSummary(scope: DeliverableScopeDto): string` — function, line 69
-- `export function scopeNotice(result:` — function, line 74
-- `export interface DeliverableScopePanelProps` — interface, line 78
-- `export function DeliverableScopePanel(` — function, line 84
-- `export interface DeliverableEntryProps` — interface, line 219
-- `export function DeliverableEntry(` — function, line 226
+- `export function scopeSummary(scope: DeliverableScopeDto): string` — function, line 71
+- `export function scopeNotice(result:` — function, line 76
+- `export interface DeliverableScopePanelProps` — interface, line 80
+- `export function DeliverableScopePanel(` — function, line 86
+- `export interface DeliverableEntryProps` — interface, line 226
+- `export function DeliverableEntry(` — function, line 233
 
 ## Internal implementation anchors
 
 - `const LINK =` — const, line 20
 - `const INPUT =` — const, line 24
-- `const subjects = scope.subjects ?? []` — const, line 94
-- `const choosing = (scope.subjectId == null || askSubject) && subjects.length > 0 && scope.unmatched.some((entry)` — const, line 95
-- `const send = async (kind: "correction" | "text", text: string, clear: ()` — const, line 98
-- `const out = await api.curriculumSetScope(` — const, line 101
-- `const decide = async (phrase: string, decision: "create" | "decline")` — const, line 112
-- `const chosen = decision === "create" && choosing && subjectId ?` — const, line 115
-- `const out = await api.curriculumScopeDecide(` — const, line 116
-- `const setDepth = async (depth: ReadingPathDepth)` — const, line 127
-- `function TextBox(` — function, line 203
-- `const load = useCallback(async ()` — const, line 236
-- `const out = await api.curriculumDeliverables()` — const, line 238
-- `const replace = (scope: DeliverableScopeDto)` — const, line 247
-- `const others = current.filter((entry)` — const, line 249
-- `const make = async ()` — const, line 255
-- `const created = await api.curriculumCreateDeliverable(` — const, line 258
-- `let scope = created.scope` — let, line 259
-- `let message = scopeNotice(created)` — let, line 260
-- `const listed = await api.curriculumSetScope(` — const, line 262
+- `const subjects = scope.subjects ?? []` — const, line 96
+- `const choosing = (scope.subjectId == null || askSubject) && subjects.length > 0 && scope.unmatched.some((entry)` — const, line 97
+- `const send = async (kind: "correction" | "text", text: string, clear: ()` — const, line 100
+- `const out = await api.curriculumSetScope(` — const, line 103
+- `const decide = async (phrase: string, decision: "create" | "decline")` — const, line 114
+- `const chosen = decision === "create" && choosing && subjectId ?` — const, line 117
+- `const out = await api.curriculumScopeDecide(` — const, line 118
+- `const setDepth = async (depth: ReadingPathDepth)` — const, line 129
+- `function TextBox(` — function, line 210
+- `const load = useCallback(async ()` — const, line 243
+- `const out = await api.curriculumDeliverables()` — const, line 245
+- `const replace = (scope: DeliverableScopeDto)` — const, line 254
+- `const others = current.filter((entry)` — const, line 256
+- `const make = async ()` — const, line 262
+- `const created = await api.curriculumCreateDeliverable(` — const, line 265
+- `let scope = created.scope` — let, line 266
+- `let message = scopeNotice(created)` — let, line 267
+- `const listed = await api.curriculumSetScope(` — const, line 269
 
 ## Who imports or calls it
 
@@ -123,6 +123,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/DeliverableSliceCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DeliverableSliceCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/components/syllabusRole.test.tsx](../../../../../../../apps/learnloop-tauri/src/components/syllabusRole.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/OutlineAndPlan.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/OutlineAndPlan.tsx"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "e63a81c0807f929ac4cc5b77e209a5beace229a1"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/OutlineAndPlan.tsx](../../../../../../apps/learnloop-tauri/src/components/OutlineAndPlan.tsx) |
-| Source lines | 1361 |
+| Source lines | 1365 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `e63a81c0807f929ac4cc5b77e209a5beace229a1` |
+| Commit timestamp | `2026-11-01T13:52:05-05:00` |
 
 ## Activation and status evidence
 
@@ -60,99 +60,99 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function OutlinePlanFlow(` — function, line 193
+- `export function OutlinePlanFlow(` — function, line 194
 
 ## Internal implementation anchors
 
-- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes" ] as const` — const, line 26
-- `const ASSESSMENT_ONLY_ROLES = new Set(["exam", "problem_set"])` — const, line 37
-- `function Card(` — function, line 44
-- `const SIGNAL_ORDER = ["examples", "exercises", "equations", "figures", "definitions", "theorems", "tables"]` — const, line 50
-- `const BUDGET_FIELDS: IngestBudgetField[] = [ "inventoryInputTokens", "inventoryOutputTokens", "synthesisShardInputTokens", "synthesisShardOutputTokens", "synthesisTotalInputCeiling" ]` — const, line 53
-- `const BUDGET_LABELS: Record<IngestBudgetField, string> =` — const, line 60
-- `type PinnedCollection =` — type, line 69
-- `function ModelInputPreview(` — function, line 77
-- `const firstFetch = useRef(true)` — const, line 92
-- `let cancelled = false` — let, line 95
-- `const isFirst = firstFetch.current` — const, line 96
-- `const run = ()` — const, line 100
-- `const timer = window.setTimeout(run, isFirst ? 0 : 500)` — const, line 118
-- `function PreviewToggle(` — function, line 184
-- `const load = useCallback(async ()` — const, line 216
-- `const next = await api.getSourceOutline(sourceRef)` — const, line 219
-- `const prior = next.selection.selectedUnitIds` — const, line 221
-- `const priorOverrides: Record<string, string> =` — const, line 223
-- `const unitId = ov["unitId"] as string | undefined` — const, line 225
-- `const op = ov["op"] as string | undefined` — const, line 226
-- `const escCloses = simpleShell()` — const, line 248
-- `function onKeyDown(e: KeyboardEvent)` — function, line 250
-- `const tag = (e.target as HTMLElement | null)?.tagName` — const, line 253
-- `function toggleUnit(unitId: string)` — function, line 264
-- `const next = new Set(current)` — const, line 266
-- `function cycleOverride(unitId: string)` — function, line 273
-- `const next =` — const, line 275
-- `const now = next[unitId]` — const, line 276
-- `async function persistSelection(roleValue: string = role)` — function, line 284
-- `const boundaryOverrides = Object.entries(overrides).map(([unitId, op])` — const, line 286
-- `async function onRoleChange(nextRole: string)` — function, line 296
-- `async function toPlan()` — function, line 306
-- `const active = step === s.id` — const, line 353
-- `function kindGlyph(unit: EffectiveUnitDto):` — function, line 432
-- `function ResultingShape(` — function, line 438
-- `const overridesKey = JSON.stringify(overrides)` — const, line 448
-- `let cancelled = false` — let, line 451
-- `const boundaryOverrides = Object.entries(overrides).map(([unitId, op])` — const, line 453
-- `const run = ()` — const, line 454
-- `const timer = window.setTimeout(run, 400)` — const, line 470
-- `const units = shape?.units ?? []` — const, line 479
-- `function RoleControl(` — function, line 541
-- `const effectiveRole = role || suggestedRole || ""` — const, line 550
-- `const overridden = role !== "" && suggestedRole != null && role !== suggestedRole` — const, line 551
-- `const assessmentOnly = ASSESSMENT_ONLY_ROLES.has(effectiveRole)` — const, line 552
-- `function OutlineView(` — function, line 585
-- `const selectedIds = outline.units.filter((u)` — const, line 613
-- `const selectedCount = selectedIds.length` — const, line 614
-- `const selectedTokens = outline.units.filter((u)` — const, line 615
-- `async function save()` — function, line 617
-- `function UnitRow(` — function, line 713
-- `const pages = unit.pageStart != null ? `p$` — const, line 726
-- `const signals = SIGNAL_ORDER.filter((k)` — const, line 728
-- `function SingleUnitSummary(` — function, line 778
-- `const label = unit.label || unit.unitId` — const, line 793
-- `const scheme = typeof unit.locator?.scheme === "string" ? (unit.locator.scheme as string) : ""` — const, line 794
-- `const isTimed = scheme === "time_range" || /transcript|caption|subtitle/i.test(label)` — const, line 795
-- `const noun = isTimed ? "transcript" : "document"` — const, line 796
-- `function BuildPlanView(` — function, line 824
-- `const firstPlanFetch = useRef(true)` — const, line 858
-- `let cancelled = false` — let, line 861
-- `const invalidCeilings = useMemo(()` — const, line 878
-- `const value = ceilings[field]` — const, line 881
-- `const overrides = useMemo(()` — const, line 886
-- `const diff: Partial<IngestBudgetsDto> =` — const, line 888
-- `const overridesKey = JSON.stringify(overrides)` — const, line 895
-- `const planSubjectId = pinned?.subjectId ?? subjectId` — const, line 898
-- `let cancelled = false` — let, line 901
-- `const isFirst = firstPlanFetch.current` — const, line 902
-- `const run = ()` — const, line 904
-- `const timer = window.setTimeout(run, isFirst ? 0 : 400)` — const, line 915
-- `const canStart = pinned !== null && invalidCeilings.length === 0` — const, line 924
-- `async function startBuild()` — function, line 925
-- `const batch = await api.buildStudyMap(` — const, line 932
-- `const routingColor = plan.routing === "create" ? COLOR.green : COLOR.cyan` — const, line 948
-- `function StageRow(` — function, line 1084
-- `const color = stage.exceedsCeiling ? COLOR.red : COLOR.cyan` — const, line 1085
-- `const pct = Math.min(100, (stage.inputTokens / Math.max(stage.ceiling, 1)) * 100)` — const, line 1086
-- `function ConsentSummary(` — function, line 1112
-- `function CeilingControls(` — function, line 1129
-- `const dirty = defaults != null && BUDGET_FIELDS.some((field)` — const, line 1150
-- `const bad = invalid.includes(field)` — const, line 1175
-- `function RepairDialog(` — function, line 1220
-- `async function start()` — function, line 1238
-- `const pageList = pages .split(",") .map((s)` — const, line 1247
-- `const input: StartExtractionRepairInput =` — const, line 1255
-- `function OptionChip(` — function, line 1339
-- `const color = on ? (danger ? COLOR.red : COLOR.amber) : COLOR.textFaint` — const, line 1340
-- `function buttonStyle(primary: boolean): CSSProperties` — function, line 1351
+- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes", "syllabus" ] as const` — const, line 26
+- `const ASSESSMENT_ONLY_ROLES = new Set(["exam", "problem_set"])` — const, line 38
+- `function Card(` — function, line 45
+- `const SIGNAL_ORDER = ["examples", "exercises", "equations", "figures", "definitions", "theorems", "tables"]` — const, line 51
+- `const BUDGET_FIELDS: IngestBudgetField[] = [ "inventoryInputTokens", "inventoryOutputTokens", "synthesisShardInputTokens", "synthesisShardOutputTokens", "synthesisTotalInputCeiling" ]` — const, line 54
+- `const BUDGET_LABELS: Record<IngestBudgetField, string> =` — const, line 61
+- `type PinnedCollection =` — type, line 70
+- `function ModelInputPreview(` — function, line 78
+- `const firstFetch = useRef(true)` — const, line 93
+- `let cancelled = false` — let, line 96
+- `const isFirst = firstFetch.current` — const, line 97
+- `const run = ()` — const, line 101
+- `const timer = window.setTimeout(run, isFirst ? 0 : 500)` — const, line 119
+- `function PreviewToggle(` — function, line 185
+- `const load = useCallback(async ()` — const, line 217
+- `const next = await api.getSourceOutline(sourceRef)` — const, line 220
+- `const prior = next.selection.selectedUnitIds` — const, line 222
+- `const priorOverrides: Record<string, string> =` — const, line 224
+- `const unitId = ov["unitId"] as string | undefined` — const, line 226
+- `const op = ov["op"] as string | undefined` — const, line 227
+- `const escCloses = simpleShell()` — const, line 249
+- `function onKeyDown(e: KeyboardEvent)` — function, line 251
+- `const tag = (e.target as HTMLElement | null)?.tagName` — const, line 254
+- `function toggleUnit(unitId: string)` — function, line 265
+- `const next = new Set(current)` — const, line 267
+- `function cycleOverride(unitId: string)` — function, line 274
+- `const next =` — const, line 276
+- `const now = next[unitId]` — const, line 277
+- `async function persistSelection(roleValue: string = role)` — function, line 285
+- `const boundaryOverrides = Object.entries(overrides).map(([unitId, op])` — const, line 287
+- `async function onRoleChange(nextRole: string)` — function, line 297
+- `async function toPlan()` — function, line 307
+- `const active = step === s.id` — const, line 354
+- `function kindGlyph(unit: EffectiveUnitDto):` — function, line 433
+- `function ResultingShape(` — function, line 439
+- `const overridesKey = JSON.stringify(overrides)` — const, line 449
+- `let cancelled = false` — let, line 452
+- `const boundaryOverrides = Object.entries(overrides).map(([unitId, op])` — const, line 454
+- `const run = ()` — const, line 455
+- `const timer = window.setTimeout(run, 400)` — const, line 471
+- `const units = shape?.units ?? []` — const, line 480
+- `function RoleControl(` — function, line 542
+- `const effectiveRole = role || suggestedRole || ""` — const, line 551
+- `const overridden = role !== "" && suggestedRole != null && role !== suggestedRole` — const, line 552
+- `const assessmentOnly = ASSESSMENT_ONLY_ROLES.has(effectiveRole)` — const, line 553
+- `function OutlineView(` — function, line 589
+- `const selectedIds = outline.units.filter((u)` — const, line 617
+- `const selectedCount = selectedIds.length` — const, line 618
+- `const selectedTokens = outline.units.filter((u)` — const, line 619
+- `async function save()` — function, line 621
+- `function UnitRow(` — function, line 717
+- `const pages = unit.pageStart != null ? `p$` — const, line 730
+- `const signals = SIGNAL_ORDER.filter((k)` — const, line 732
+- `function SingleUnitSummary(` — function, line 782
+- `const label = unit.label || unit.unitId` — const, line 797
+- `const scheme = typeof unit.locator?.scheme === "string" ? (unit.locator.scheme as string) : ""` — const, line 798
+- `const isTimed = scheme === "time_range" || /transcript|caption|subtitle/i.test(label)` — const, line 799
+- `const noun = isTimed ? "transcript" : "document"` — const, line 800
+- `function BuildPlanView(` — function, line 828
+- `const firstPlanFetch = useRef(true)` — const, line 862
+- `let cancelled = false` — let, line 865
+- `const invalidCeilings = useMemo(()` — const, line 882
+- `const value = ceilings[field]` — const, line 885
+- `const overrides = useMemo(()` — const, line 890
+- `const diff: Partial<IngestBudgetsDto> =` — const, line 892
+- `const overridesKey = JSON.stringify(overrides)` — const, line 899
+- `const planSubjectId = pinned?.subjectId ?? subjectId` — const, line 902
+- `let cancelled = false` — let, line 905
+- `const isFirst = firstPlanFetch.current` — const, line 906
+- `const run = ()` — const, line 908
+- `const timer = window.setTimeout(run, isFirst ? 0 : 400)` — const, line 919
+- `const canStart = pinned !== null && invalidCeilings.length === 0` — const, line 928
+- `async function startBuild()` — function, line 929
+- `const batch = await api.buildStudyMap(` — const, line 936
+- `const routingColor = plan.routing === "create" ? COLOR.green : COLOR.cyan` — const, line 952
+- `function StageRow(` — function, line 1088
+- `const color = stage.exceedsCeiling ? COLOR.red : COLOR.cyan` — const, line 1089
+- `const pct = Math.min(100, (stage.inputTokens / Math.max(stage.ceiling, 1)) * 100)` — const, line 1090
+- `function ConsentSummary(` — function, line 1116
+- `function CeilingControls(` — function, line 1133
+- `const dirty = defaults != null && BUDGET_FIELDS.some((field)` — const, line 1154
+- `const bad = invalid.includes(field)` — const, line 1179
+- `function RepairDialog(` — function, line 1224
+- `async function start()` — function, line 1242
+- `const pageList = pages .split(",") .map((s)` — const, line 1251
+- `const input: StartExtractionRepairInput =` — const, line 1259
+- `function OptionChip(` — function, line 1343
+- `const color = on ? (danger ? COLOR.red : COLOR.amber) : COLOR.textFaint` — const, line 1344
+- `function buttonStyle(primary: boolean): CSSProperties` — function, line 1355
 
 ## Who imports or calls it
 
@@ -169,7 +169,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `BuildPlan`, `BuildPlanStage`, `CommandError`, `EffectiveOutlineDto`, `EffectiveUnitDto`, `IngestBudgetBoundsDto`, `IngestBudgetField`, `IngestBudgetsDto`, `OutlineUnit`, `SelectionPreviewDto`, `SourceOutline`, `StartExtractionRepairInput`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export; imports `simpleShell`
-- [[Reference/Desktop/TypeScript/components/AddToCollection|src/components/AddToCollection.tsx]] — import-or-re-export; imports `AddToCollectionPanel`
+- [[Reference/Desktop/TypeScript/components/AddToCollection|src/components/AddToCollection.tsx]] — import-or-re-export; imports `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermCheckbox`, `TermSelect`
 
 ### Assets, platform, and third-party dependencies

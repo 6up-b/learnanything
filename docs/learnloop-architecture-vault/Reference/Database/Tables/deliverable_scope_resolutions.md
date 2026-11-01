@@ -3,8 +3,8 @@ title: "deliverable_scope_resolutions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
-source_commit_timestamp: "2026-11-01T12:28:24-05:00"
+source_commit: "42940bc38d52a27aa9ac16265014ae2c5fd1a5ff"
+source_commit_timestamp: "2026-11-01T13:56:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_scope_resolutions"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_deliverable_curriculum_migration.py`
 - `tests/test_deliverable_scope.py`
 

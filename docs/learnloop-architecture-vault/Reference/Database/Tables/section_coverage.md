@@ -3,8 +3,8 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6b0cbdce63781735c73d60f68364c2bc35f6a554"
-source_commit_timestamp: "2026-11-01T12:28:24-05:00"
+source_commit: "42940bc38d52a27aa9ac16265014ae2c5fd1a5ff"
+source_commit_timestamp: "2026-11-01T13:56:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
@@ -126,6 +126,7 @@ None found by exact static reference scan.
 - `tests/test_coverage_on_extract.py`
 - `tests/test_curriculum_c0b_landing.py`
 - `tests/test_curriculum_c1_plan_follows_path.py`
+- `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
