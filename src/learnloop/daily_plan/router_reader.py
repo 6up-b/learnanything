@@ -90,16 +90,30 @@ def _excerpt(text: Any) -> str:
 
 
 def _facets_of(vault: Any, lo_ids: Sequence[str]) -> set[str]:
+    """The LOs' facets (canonical): their own facet union and the evidence
+    facets of their practice items (an item's facets are what a claim or a
+    formative record names)."""
+
     from learnloop.vault.models import learning_object_facet_union
 
+    wanted = set(lo_ids)
     out: set[str] = set()
-    for lo_id in lo_ids:
+    for lo_id in wanted:
         lo = vault.learning_objects.get(lo_id)
         if lo is None:
             continue
         for facet in learning_object_facet_union(lo):
             out.add(vault.canonical_facet_id(str(facet)))
+    for item in vault.practice_items.values():
+        if getattr(item, "learning_object_id", None) in wanted:
+            for facet in item.evidence_facets or ():
+                out.add(vault.canonical_facet_id(str(facet)))
     return out
+
+
+def _item_lo(vault: Any, item_id: Any) -> str | None:
+    item = vault.practice_items.get(str(item_id or ""))
+    return getattr(item, "learning_object_id", None) if item is not None else None
 
 
 def _touches(summary: Mapping[str, Any], lo_ids: set[str], facets: set[str]) -> bool:
@@ -211,7 +225,8 @@ def _assisted_only(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any]
                 "hints": max((int(line.get("hints") or 0) for line in lines), default=0),
                 "book_counted": any(bool(line.get("book_counted")) for line in lines),
                 "at": row.get("ended_at"), "since": row.get("started_at"), "digest_id": row["id"],
-                "learning_object_ids": sorted(lo for lo in lo_ids if facet in _facets_of(vault, [lo])),
+                "learning_object_ids": sorted({lo for lo in (_item_lo(vault, line.get("practice_item_id"))
+                                                             for line in lines) if lo in lo_ids}),
             }
             previous = claims.get(facet)
             if previous is None or str(entry["at"] or "") > str(previous["at"] or ""):

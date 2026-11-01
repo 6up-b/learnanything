@@ -394,11 +394,31 @@ def test_a_narrative_written_meanwhile_never_supersedes_part_1s_plan(tmp_path):
     first = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)],
                                                    raise_first=SpendLimitExceeded("cap")))
     assert first["status"] == "incomplete"
-    assert RN.narrate_digest(vault, repo, first["id"], client=NarrativeFake(), now=_now(),
-                             clock=at(300)).status == "narrated"
-    second = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]), minutes=310)
+
+    class NarratesMeanwhile(FakeSearch):
+        """The narrative lands while the re-asked search runs (another
+        process's job), between the plan's read and its publication."""
+
+        def __call__(self, *args, **kwargs):
+            assert RN.narrate_digest(vault, repo, first["id"], client=NarrativeFake(), now=_now(),
+                                     clock=at(305)).status == "narrated"
+            return super().__call__(*args, **kwargs)
+
+    second = _plan(vault, repo, session, NarratesMeanwhile([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]),
+                   minutes=310)
     assert second["status"] == "planned" and second["followup_commitment_ids"]
     assert second["narrative_md"] == NarrativeFake().text  # the narrative stays
+
+
+def test_the_narrative_is_written_once_even_when_two_writers_race(tmp_path):
+    vault, repo, row = _session_with_question(tmp_path)
+    with repo.connection() as connection:
+        assert RDG.set_narrative(connection, row["id"], narrative_md="first", cited_event_ids=["x"], model="m",
+                                 prompt_version=RN.PROMPT_VERSION)
+        assert not RDG.set_narrative(connection, row["id"], narrative_md="second", cited_event_ids=["y"],
+                                     model="m", prompt_version=RN.PROMPT_VERSION)
+        connection.commit()
+    assert _row(repo, row["id"])["narrative_md"] == "first"
 
 
 def test_rebuild_shadow_is_zero_with_a_narrative_present(tmp_path):
