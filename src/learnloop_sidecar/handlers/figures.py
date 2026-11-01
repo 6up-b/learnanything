@@ -62,6 +62,8 @@ from learnloop_sidecar.registry import method
 #: Every RPC this module registers (pinned desktop-only).
 FIGURE_RPCS: tuple[str, ...] = (
     "figure.request",
+    "figure.rich_cancel",
+    "figure.manim_opt_in",
     "reader.figure_request",
     "reader.figure_revise",
     "reader.figure_job",
@@ -91,7 +93,23 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
         # RW5d P2: present only while the sketch tier is on (and the engine
         # ready), so off the contract is P1's, key for key.
         figures["sketch"] = True
+    if FS.rich_enabled(vault):
+        # RW5d P2b: present only while the rich tiers are on (so off the
+        # contract is P2's, key for key), with the Manim tier's opt-in state:
+        # "ask" (ready here, never asked: the press shows allow · not now once),
+        # "standing", "declined", or "unavailable" (not Linux, no bwrap or Manim).
+        figures["rich"] = {"manim_opt_in": manim_opt_in_state(vault)}
     return {"figures": figures}
+
+
+def manim_opt_in_state(vault: Any) -> str:
+    from learnloop.figure_admission import manim_opt_in
+    from learnloop.figures import rich as RICH
+
+    given = manim_opt_in(vault)
+    if given is not None:
+        return given
+    return "ask" if RICH.manim_opt_in_needed(vault) else "unavailable"
 
 
 def _require(ctx: SidecarContext):
@@ -145,6 +163,27 @@ def _wake_gap_worker(ctx: SidecarContext) -> Any:
     return lambda _job_id: ctx.post_attempt_worker.notify()
 
 
+def _rich_spawner(ctx: SidecarContext, vault: Any) -> Any:
+    """RW5d P2b (spec §8.6, SM9): how a build starts its rich job on the
+    durable queue. Taken here, in the pressed request: the press's token and
+    action when that action is granted for this session (the grant covers
+    the job), else none (the job belongs to no action: it makes no offer and
+    honours no grant, and waits for the plan when it is down)."""
+
+    from learnloop.ai import plan_fallback
+
+    jobs = getattr(ctx, "ingest_jobs", None)
+    if jobs is None or not hasattr(jobs, "enqueue_figure_rich"):
+        return None
+    token = plan_fallback.unit_token(vault.root)
+    origin = plan_fallback.unit_origin() if token is not None else None
+
+    def spawn(payload: dict[str, Any]) -> str:
+        return jobs.enqueue_figure_rich(payload=payload, grant=token, origin=origin)
+
+    return spawn
+
+
 def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
     from learnloop_sidecar.handlers.library_ask import _job_payload
 
@@ -152,16 +191,21 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
     author = getattr(ctx, "figure_author_client", None)
     # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
     find = getattr(ctx, "figure_find_sources", None)
+    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) else None
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
             # Every request is admitted against the vault loaded NOW (the
             # build's FiguresGate), not the one captured here.
             outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
-                                      live_vault=ctx.loaded_vault, find=find)
+                                      live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
-        return {"figure": outcome.view, "reused": outcome.reused}
+        result: dict[str, Any] = {"figure": outcome.view, "reused": outcome.reused}
+        if outcome.rich is not None:
+            # RW5d P2b: only a rich figure is being built (its pending line).
+            result["rich"] = outcome.rich
+        return result
 
     job = _jobs(ctx).start(ctx, "figure_build", None, work, deliver=lambda result: deliver_figure(ctx, result))
     return _job_payload(job)
@@ -518,11 +562,95 @@ class FiguresInput(ParamsModel):
 
 @method("reader.figures", FiguresInput)
 def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
-    """The open source's figures as the Reader shows them (no model call)."""
+    """The open source's figures as the Reader shows them (no model call).
+    RW5d P2b: each quick figure carries its fuller version's state, and the
+    rich builds with no quick figure are listed as pending lines; a build
+    waiting for the plan is asked again (at most once per interval, never an
+    offer)."""
 
     vault, repository = _require(ctx)
-    return versioned({"extraction_id": params.extraction_id,
-                      "figures": FS.list_figures(vault, repository, params.extraction_id)})
+    figures = FS.list_figures(vault, repository, params.extraction_id)
+    payload: dict[str, Any] = {"extraction_id": params.extraction_id, "figures": figures}
+    if FS.rich_enabled(vault):
+        pending = FS.rich_pending(vault, repository, params.extraction_id)
+        payload["rich_pending"] = pending
+        _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures)])
+    return versioned(payload)
+
+
+def _retry_plan_waits(ctx: SidecarContext, lines: list[dict[str, Any]]) -> None:
+    from learnloop.figures import rich as RICH
+
+    jobs = getattr(ctx, "ingest_jobs", None)
+    if jobs is None or not hasattr(jobs, "retry_figure_rich"):
+        return
+    for line in lines:
+        job_id = line.get("rich_job_id") if line.get("state") == "waiting_for_plan" else None
+        if job_id and RICH.due_for_plan_retry(str(job_id)):
+            try:
+                jobs.retry_figure_rich(str(job_id), error_code=RICH.WAITING_FOR_PLAN)
+            except Exception:  # noqa: BLE001 - the line keeps saying it waits
+                pass
+
+
+class RichCancelInput(ParamsModel):
+    rich_job_id: str = Field(min_length=1, max_length=200)
+
+
+@method("figure.rich_cancel", RichCancelInput)
+def figure_rich_cancel(ctx: SidecarContext, params: RichCancelInput) -> dict[str, Any]:
+    """RW5d P2b: cancel a rich build (the fuller animation, or a rich-only
+    figure's pending line). Only the rich job: a quick figure stays. A paid
+    call already sent finishes and keeps its receipt; nothing is stored."""
+
+    vault, repository = _require(ctx)
+    if not FS.rich_enabled(vault):
+        raise SidecarError("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
+    job = repository.get_ingest_job(params.rich_job_id)
+    if job is None or job.get("job_type") != "figure_rich":
+        raise SidecarError("not_found", "That animation build is no longer kept.")
+    jobs = getattr(ctx, "ingest_jobs", None)
+    if jobs is not None:
+        jobs.cancel(params.rich_job_id)
+    base = (job.get("payload") or {}).get("base") or {}
+    _event(repository, "rich_build_cancelled", {"extraction_id": base.get("extraction_id"),
+                                                "tier": (job.get("payload") or {}).get("tier")},
+           extraction_id=base.get("extraction_id"))
+    return versioned({"rich_job_id": params.rich_job_id, "state": "cancelled"})
+
+
+class ManimOptInInput(ParamsModel):
+    choice: Literal["allow", "decline"]
+
+
+@method("figure.manim_opt_in", ManimOptInInput)
+def figure_manim_opt_in(ctx: SidecarContext, params: ManimOptInInput) -> dict[str, Any]:
+    """RW5d P2b (spec §9b.3, Q17): the standing opt-in for Manim figures,
+    asked once inline on a press: "allow" writes ``figures.manim_opt_in =
+    "standing"`` with the date; "not now" writes ``"declined"`` (Manim stays
+    off the menu and is not asked again; settings can change it, and
+    revoke it). Linux with bwrap and Manim only."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+
+    vault, _repository = _require(ctx)
+    if not FS.rich_enabled(vault):
+        raise SidecarError("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
+    value = "standing" if params.choice == "allow" else "declined"
+    if value == "standing":
+        from learnloop.figures import rich as RICH
+
+        if not RICH.manim_runtime_state(vault)["ready"]:
+            raise SidecarError("manim_unavailable", "Manim figures need Linux with bubblewrap and Manim installed.")
+    try:
+        apply_config_updates(vault.root / "learnloop.toml", {("figures", "manim_opt_in"): value,
+                                                             ("figures", "manim_opt_in_at"): utc_now_iso(None)[:10]})
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    ctx.reload(maintenance=False)
+    vault, _repository = _require(ctx)
+    return versioned({"manim_opt_in": manim_opt_in_state(vault)})
 
 
 class FigurePredictInput(ParamsModel):

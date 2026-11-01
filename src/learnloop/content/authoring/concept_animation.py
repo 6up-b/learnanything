@@ -9,7 +9,12 @@ a temp directory with a timeout; the mp4 lands content-addressed under
 SECURITY POSTURE, stated honestly: the AST allowlist below is best-effort
 hardening against accidents and lazy exfiltration attempts — it is NOT a
 sandbox, and a determined adversary-shaped model output could in principle
-reach the OS through library internals. The boundaries are (1) the per-run
+reach the OS through library internals. On Linux, bubblewrap IS the sandbox
+(Reader RW5d P2b, spec_reader_show_me_figures_v1 §9b.3: every namespace
+unshared, no home, vault or network, a mandatory user namespace with no
+further ones and every capability dropped, ``HARDENED_BWRAP_FLAGS``) and the
+allowlist is hardening on top; figure renders also run in a memory- and
+CPU-capped scope (``capped_scope_prefix``). The boundaries are (1) the per-run
 learner consent click (server-side re-checked before any model call), (2) on
 Linux, a mandatory bubblewrap sandbox around the render subprocess — no
 network, read-only system/venv mounts, the scratch dir as the only writable
@@ -316,6 +321,77 @@ def _sandbox_bwrap_path() -> str | None:
     return shutil.which("bwrap")
 
 
+def sandbox_bwrap_path() -> str | None:
+    """Public name of :func:`_sandbox_bwrap_path` (Reader RW5d P2b: the figure
+    service asks whether the Manim tier can run here)."""
+
+    return _sandbox_bwrap_path()
+
+
+#: Reader RW5d P2b (spec_reader_show_me_figures_v1 §9b.3, Q17): the hardened
+#: profile's extra flags. ``--unshare-user`` makes the user namespace
+#: mandatory (``--unshare-all`` only tries it), which ``--disable-userns``
+#: needs: the sandboxed code can create no further user namespace (the usual
+#: first step of a kernel exploit from inside one), and holds no capability
+#: (``--cap-drop ALL``). keep: a security boundary.
+HARDENED_BWRAP_FLAGS: tuple[str, ...] = ("--unshare-user", "--disable-userns", "--cap-drop", "ALL")
+#: Reader RW5d P2b: a figure render's memory and CPU caps, and its task cap
+#: (fork bombs), applied by a ``systemd-run --user --scope`` around the
+#: sandbox (else ``prlimit --as``). keep: oomd history; a render never starves
+#: the desktop (spec §15: 4 GiB, 200%).
+RENDER_MEMORY_MAX = 4 * 1024 * 1024 * 1024
+RENDER_CPU_QUOTA = "200%"
+RENDER_TASKS_MAX = 512
+
+
+_SCOPE_PROBE: dict[str, bool] = {}
+
+
+def _systemd_scope_works(run=subprocess.run) -> bool:
+    """Whether ``systemd-run --user --scope`` can start a scope here (a user
+    manager on the session bus), probed once per process with ``true``."""
+
+    if "ok" in _SCOPE_PROBE:
+        return _SCOPE_PROBE["ok"]
+    systemd_run = shutil.which("systemd-run")
+    ok = False
+    if systemd_run and sys.platform == "linux":
+        try:
+            ok = run([systemd_run, "--user", "--scope", "--quiet", "--", "true"],
+                     capture_output=True, timeout=15).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+    _SCOPE_PROBE["ok"] = ok
+    return ok
+
+
+def capped_scope_prefix(*, memory_bytes: int = RENDER_MEMORY_MAX, cpu_quota: str = RENDER_CPU_QUOTA,
+                        tasks_max: int = RENDER_TASKS_MAX, background: bool = False,
+                        run=subprocess.run) -> list[str]:
+    """The resource caps a sandboxed render runs under (Reader RW5d P2b,
+    spec §9b.3): a ``systemd-run --user --scope`` with ``MemoryMax``,
+    ``MemorySwapMax=0``, ``CPUQuota`` and ``TasksMax`` when a user scope can
+    start here (the owner's test-run rule, for the same oomd reason), else
+    ``prlimit --as`` (address space). ``background`` (prebuilds, P5) also runs
+    the render at ``nice 19`` and ``ionice -c3``. Empty off Linux."""
+
+    if sys.platform != "linux":
+        return []
+    prefix: list[str] = []
+    if _systemd_scope_works(run):
+        prefix = [shutil.which("systemd-run") or "systemd-run", "--user", "--scope", "--quiet",
+                  "-p", f"MemoryMax={int(memory_bytes)}", "-p", "MemorySwapMax=0",
+                  "-p", f"CPUQuota={cpu_quota}", "-p", f"TasksMax={int(tasks_max)}", "--"]
+    elif shutil.which("prlimit"):
+        prefix = [shutil.which("prlimit") or "prlimit", f"--as={int(memory_bytes)}", "--"]
+    if background:
+        if shutil.which("ionice"):
+            prefix += [shutil.which("ionice") or "ionice", "-c3"]
+        if shutil.which("nice"):
+            prefix += [shutil.which("nice") or "nice", "-n", "19"]
+    return prefix
+
+
 def _executable_mount_roots(executable: str) -> set[str]:
     """Install roots (``<root>/bin/exe`` → ``<root>``) for an executable and
     every hop of its symlink chain, so a venv python that links into e.g. a
@@ -336,16 +412,21 @@ def _executable_mount_roots(executable: str) -> set[str]:
     return roots
 
 
-def _sandboxed_command(command: list[str], workdir: Path, bwrap: str) -> list[str]:
+def _sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool = True) -> list[str]:
     """Wrap a render command in bubblewrap: every namespace unshared (so no
     network), system + interpreter mounts read-only, the scratch workdir as
-    the only writable path, and the sandbox dying with the sidecar."""
+    the only writable path, and the sandbox dying with the sidecar.
+
+    ``hardened`` (Reader RW5d P2b, Q17: the figure renders' and the
+    inspector's profile): also :data:`HARDENED_BWRAP_FLAGS` (a mandatory user
+    namespace with no further ones, every capability dropped)."""
 
     args = [
         bwrap,
         "--die-with-parent",
         "--new-session",
         "--unshare-all",
+        *(HARDENED_BWRAP_FLAGS if hardened else ()),
         "--proc", "/proc",
         "--dev", "/dev",
         "--tmpfs", "/tmp",
@@ -590,8 +671,12 @@ def render_scene(
     manim_command: list[str] | None = None,
     sandbox: bool | None = None,
     run=subprocess.run,
+    wrapper: list[str] | None = None,
 ) -> RenderResult:
     """Render one validated scene to mp4 in a fresh temp cwd with a timeout.
+
+    ``wrapper`` (Reader RW5d P2b) is a command prefix around the (sandboxed)
+    render: a figure render's capped scope (:func:`capped_scope_prefix`).
 
     ``sandbox=None`` (the default) requires bubblewrap on Linux — a Linux
     machine without ``bwrap`` gets a typed failure telling the user to install
@@ -634,6 +719,8 @@ def render_scene(
             # the sandbox's only writable path.
             env["HOME"] = str(workdir)
             env["XDG_CACHE_HOME"] = str(workdir / ".cache")
+        if wrapper:
+            command = [*wrapper, *command]
         try:
             result = run(
                 command,
@@ -863,18 +950,23 @@ def build_animation_context(
     )
 
 
-def _store_video(
-    repository: Any, vault_root: Path, animation_id: str, video_bytes: bytes, clock: Any, **fields: Any
-) -> dict[str, Any]:
-    """Remux, content-address, write, and mark the row completed (shared by both renderers)."""
+@dataclass(frozen=True)
+class StoredVideo:
+    digest: str
+    file_name: str
+    duration_seconds: float | None
+
+
+def store_video_bytes(vault_root: Path, video_bytes: bytes) -> StoredVideo:
+    """Remux for streaming and write content-addressed under ``media/animations/``
+    (the one store: the inspector's animations and, Reader RW5d P2b, Manim
+    figures). The hash names the STORED bytes: remuxed for streaming
+    playback, so a re-render of byte-identical output still dedupes."""
 
     import hashlib
 
-    from learnloop.clock import utc_now_iso
     from learnloop.vault.paths import animation_video_path
 
-    # The hash names the STORED bytes: remuxed for streaming playback, so a
-    # re-render of byte-identical output still dedupes.
     video_bytes = remux_faststart(video_bytes)
     digest = "sha256:" + hashlib.sha256(video_bytes).hexdigest()
     video_path = animation_video_path(vault_root, digest)
@@ -883,12 +975,23 @@ def _store_video(
         tmp = video_path.with_name(video_path.name + ".tmp")
         tmp.write_bytes(video_bytes)
         tmp.replace(video_path)
+    return StoredVideo(digest, video_path.name, probe_duration_seconds(video_bytes))
+
+
+def _store_video(
+    repository: Any, vault_root: Path, animation_id: str, video_bytes: bytes, clock: Any, **fields: Any
+) -> dict[str, Any]:
+    """Remux, content-address, write, and mark the row completed (shared by both renderers)."""
+
+    from learnloop.clock import utc_now_iso
+
+    stored = store_video_bytes(vault_root, video_bytes)
     repository.update_concept_animation(
         animation_id,
         status="completed",
-        video_hash=digest,
-        video_file_name=video_path.name,
-        duration_seconds=probe_duration_seconds(video_bytes),
+        video_hash=stored.digest,
+        video_file_name=stored.file_name,
+        duration_seconds=stored.duration_seconds,
         render_stderr=None,
         completed_at=utc_now_iso(clock),
         clock=clock,

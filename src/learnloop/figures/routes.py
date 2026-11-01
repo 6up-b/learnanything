@@ -41,6 +41,7 @@ contract, the prompt and the reuse key are RW5b's (and P1's) byte for byte.
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from typing import Any
 
 from learnloop.ai.schemas import WireModel
@@ -54,7 +55,8 @@ from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnig
 AUTHOR_TASK = "figure_author"
 AUTHOR_PROMPT_VERSION = "figure_author.v1"
 ENVELOPE = "figures.max_daily_cost_usd"
-OWNER_KINDS = (AUTHOR_TASK,)
+#: RW5d P2b: the rich author (``figure_rich_author``) shares the figure envelope.
+OWNER_KINDS = (AUTHOR_TASK, "figure_rich_author")
 MODELS_ENV = "LEARNLOOP_FIGURE_MODELS"
 MAX_AUTHOR_ATTEMPTS = 2
 
@@ -269,14 +271,116 @@ def sketch_text() -> str:
     return text
 
 
-def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch: bool = False) -> str:
+class FigureAuthorOutputV3(WireModel):
+    """RW5d P2b: the author's answer with a rich tier on the menu (spec §8.4):
+    the medium chosen by what best explains the idea, with ``why_this_tier``."""
+
+    #: "spec", "sketch", "js_animation", "manim" or "unsupported" (the tier
+    #: judgment; its receipt is a ``figure_tier`` judgment row).
+    status: str
+    #: One sentence: why this medium explains this idea best (every status but unsupported).
+    why_this_tier: str
+    #: The InteractiveFigureSpecV1 as JSON text (status spec, or a rich status's quick figure; else '').
+    spec_json: str
+    #: The SketchProgramV1 as JSON text (status sketch, or a rich status's quick figure; else '').
+    sketch_json: str
+    #: The rich brief as JSON text (a rich status; else ''): tier, brief, demonstrates,
+    #: assumptions, source_claims, claims_planned.
+    rich_json: str
+    unsupported_kind: str
+    unsupported_reason: str
+
+
+#: RW5d P2b: with a rich tier on the menu, the prompt version carries this
+#: suffix and the menu (after any show-me and sketch suffix), so every
+#: earlier prompt and reuse key is unchanged while no rich tier is offered.
+RICH_SUFFIX = "+rich-v1"
+
+#: One neutral sentence per medium (spec §8.4: facts, no ranking word), in
+#: the spec's order; only the media on the menu are named.
+TIER_SENTENCES = {
+    "grammar": ("\"spec\": a declarative figure. Ready in seconds; every number checked by LearnLoop; sliders, "
+                "predictions and a values table come with it; reusable and accessible."),
+    "sketch": ("\"sketch\": a small sealed program drawing shapes. Ready in tens of seconds; stated claims checked; "
+               "interactive; summaries rather than thousands of objects."),
+    "js_animation": ("\"js_animation\": a full web animation (canvas, WebGL, SVG, DOM, 3-D, its own controls). Takes a "
+                     "few minutes to write; only its declared model functions can be checked, not the drawing; "
+                     "desktop only."),
+    "manim": ("\"manim\": a narrated video rendered on this computer. Takes a few minutes to write and render; not "
+              "interactive; only its declared functions can be checked; desktop only."),
+}
+
+RICH_CHOICE_TEXT = (
+    "Choose the medium that best explains this idea to this request, and say why in why_this_tier. If you choose "
+    "a rich medium and a spec or sketch can show a useful part of it now, also write that one."
+)
+
+
+def rich_status_text(tiers: Sequence[str]) -> str:
+    """How the status names the medium (only the media on the menu)."""
+
+    quick = "spec_json or sketch_json" if "sketch" in tiers else "spec_json"
+    named = ["\"spec\" with spec_json"]
+    if "sketch" in tiers:
+        named.append("\"sketch\" with sketch_json")
+    rich = [f"\"{tier}\"" for tier in ("js_animation", "manim") if tier in tiers]
+    named.append(" or ".join(rich) + f" with rich_json (and {quick} for the optional quick figure)")
+    return (RICH_CHOICE_TEXT + " status is the medium you chose: " + ", ".join(named) + "; if no medium on the "
+            "list can express it, status \"unsupported\" with its kind and why, and why_this_tier ''. Leave every "
+            "field the status doesn't use ''.")
+
+
+RICH_TEXT = (
+    " RICH (rich_json, JSON text, for a rich status): {\"tier\" (the status), \"brief\" (what to build, what to "
+    "vary and what it must show, at most {brief} characters), \"demonstrates\" (one sentence), \"assumptions\" "
+    "[{text, span_id?, quote?}], \"source_claims\" [{span_id, quote}] (verbatim), \"claims_planned\" [one line "
+    "each: what the animation's declared functions will claim, checkable by LearnLoop]}. A second writer builds the "
+    "rich figure from the brief in a few minutes, with the same passages and request. With grounding \"none\", "
+    "source_claims [] and no quotes."
+)
+
+
+def tier_menu_text(tiers: Sequence[str]) -> str:
+    """The media the author may answer with (spec §8.4): one neutral sentence each, in order."""
+
+    named = [TIER_SENTENCES[tier] for tier in ("grammar", "sketch", "js_animation", "manim") if tier in tiers]
+    return "Media you may answer with: " + " ".join(named) + " " + rich_status_text(tiers)
+
+
+def rich_text() -> str:
+    from learnloop.figures.rich import RICH_BRIEF_MAX
+
+    return RICH_TEXT.replace("{brief}", f"{RICH_BRIEF_MAX:,}")
+
+
+def rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None:
+    """The menu when it includes a rich tier (V3), else None (V1/V2 exactly)."""
+
+    if not tiers or not any(tier in ("js_animation", "manim") for tier in tiers):
+        return None
+    return tuple(tiers)
+
+
+def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch: bool = False,
+                        tiers: Sequence[str] | None = None) -> str:
     text = AUTHOR_INSTRUCTIONS
     if advanced:
         marker = "annotations [{target, text}]."
         assert marker in AUTHOR_INSTRUCTIONS
         text = AUTHOR_INSTRUCTIONS.replace(_UNSUPPORTED_V1, _UNSUPPORTED_V2).replace(
             marker, marker + advanced_panels_text(), 1)
-    if sketch:
+    menu = rich_menu(tiers)
+    if menu is not None:
+        # RW5d P2b (spec §8.4): the neutral menu replaces the status sentence
+        # (no preference for the cheaper medium); the sketch's contract follows
+        # when it is on the menu, then the rich brief's.
+        status = _STATUS_V1_PANELS if advanced else _STATUS_V1
+        assert status in text
+        text = text.replace(status, tier_menu_text(menu), 1)
+        if "sketch" in menu:
+            text += sketch_text()
+        text += rich_text()
+    elif sketch:
         # RW5d P2 (spec §8.4): the status sentence prefers the grammar and
         # names the sketch; the sketch's contract follows the grammar's.
         status = _STATUS_V1_PANELS if advanced else _STATUS_V1
@@ -285,23 +389,29 @@ def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch
     return text + SHOW_ME_TEXT if show_me else text
 
 
-def author_prompt_version(*, advanced: bool = False, show_me: bool = False, sketch: bool = False) -> str:
+def author_prompt_version(*, advanced: bool = False, show_me: bool = False, sketch: bool = False,
+                          tiers: Sequence[str] | None = None) -> str:
     base = ADVANCED_PROMPT_VERSION if advanced else AUTHOR_PROMPT_VERSION
     base = base + SHOW_ME_SUFFIX if show_me else base
-    return base + SKETCH_SUFFIX if sketch else base
+    base = base + SKETCH_SUFFIX if sketch else base
+    menu = rich_menu(tiers)
+    return base + RICH_SUFFIX + "[" + ",".join(menu) + "]" if menu is not None else base
 
 
 def author_prompt(context: dict[str, Any], *, advanced: bool = False, show_me: bool = False,
-                  sketch: bool = False) -> str:
+                  sketch: bool = False, tiers: Sequence[str] | None = None) -> str:
     return render_structured_prompt(
-        "Explorable figure", author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch),
-        {"instructions": author_instructions(advanced=advanced, show_me=show_me, sketch=sketch),
+        "Explorable figure", author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers),
+        {"instructions": author_instructions(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers),
          "context": context})
 
 
-def output_model(*, sketch: bool = False) -> type[WireModel]:
-    """The author's output contract: RW5b's V1 off, V2 with the sketch tier on."""
+def output_model(*, sketch: bool = False, tiers: Sequence[str] | None = None) -> type[WireModel]:
+    """The author's output contract: RW5b's V1 off, V2 with the sketch tier
+    on, V3 (RW5d P2b) with a rich tier on the menu."""
 
+    if rich_menu(tiers) is not None:
+        return FigureAuthorOutputV3
     return FigureAuthorOutputV2 if sketch else FigureAuthorOutputV1
 
 
@@ -435,11 +545,13 @@ __all__ = [
     "ENVELOPE",
     "FigureAuthorOutputV1",
     "FigureAuthorOutputV2",
+    "FigureAuthorOutputV3",
     "FigureRoute",
     "FigureUnavailable",
     "MAX_AUTHOR_ATTEMPTS",
     "MODELS_ENV",
     "OWNER_KINDS",
+    "RICH_SUFFIX",
     "SHOW_ME_SUFFIX",
     "SHOW_ME_TEXT",
     "SKETCH_SUFFIX",
@@ -452,5 +564,7 @@ __all__ = [
     "daily_envelope",
     "models_off",
     "output_model",
+    "rich_menu",
     "sketch_text",
+    "tier_menu_text",
 ]

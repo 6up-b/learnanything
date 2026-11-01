@@ -209,6 +209,12 @@ class RunnerServices:
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
     video_client_factory: Callable[["JobContext"], Any] | None = None
+    #: Reader RW5d P2b: the rich figure job's seams (None: the routed client,
+    #: the concept pipeline's render_scene and the sandboxed function checks;
+    #: tests inject fakes so no model, Manim or bubblewrap runs).
+    figure_rich_client_factory: Callable[["JobContext"], Any] | None = None
+    figure_rich_renderer: Callable[..., Any] | None = None
+    figure_function_runner: Callable[..., Any] | None = None
     #: Canonical sources S1: the Reader import's answer-key check runs in a
     #: background thread after the import (tests turn it off for determinism).
     background_key_checks: bool = True

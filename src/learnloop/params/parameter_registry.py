@@ -1674,6 +1674,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "kill switch for RW5d's sketch tier (a sealed, verified simulation when the figure grammar can't express "
         "an idea); on-off availability of content, no measurement, scheduling or serving authority."),
+    # Reader RW5d P2b: the rich tiers (a narrated Manim figure; JS behind its
+    # build flag). A kill switch over content, and the learner's standing
+    # opt-in for running AI-written animation code in the sandbox (a
+    # permission and its date, not a number).
+    _ConfigRule(_exact(
+        "figures.rich_tiers_enabled",
+        "figures.manim_opt_in",
+        "figures.manim_opt_in_at",
+    ), "structural", "operational",
+        "kill switch for RW5d's rich tiers (a narrated Manim animation built from the author's brief) / the "
+        "learner's standing opt-in to render AI-written animation code in the sandbox and its date; on-off "
+        "availability of content and a permission, no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.show_me_enabled",
     ), "structural", "operational",
