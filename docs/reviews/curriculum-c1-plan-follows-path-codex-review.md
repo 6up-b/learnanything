@@ -303,3 +303,24 @@ Same rules as rounds 2 and 3 (5G scope, at most `-n 6`, `env -i` with empty `HOM
   plus `tests/test_curriculum_c1_fix_round4.py`: 139 files after de-duplication. Tree `3bf062c5a7`: **3210 passed,
   21 skipped** (owner-vault lane and optional extras), 0 failed, in 20 min 9 s.
 - No migration, schema, config key, CLI, RPC signature, frontend or `src-tauri` change, and no new numeric constant.
+
+## Fix round 5
+
+Final verify: Codex job `20261101-030938-zfScC7` (gpt-6.1-sol), tip `a2c69d4b8a`. It closed all four round-4
+findings and found two new Mediums that the round-4 ruling does not cover (metered spend; a kill switch).
+Every model in the tests is a fake; no live or paid calls.
+
+### Verbatim findings
+
+> 1. Medium — deliverable_path.py:1844: automatic refresh can incur metered spend. Configure `deliverable_path_judge` to a metered provider, set its price, and leave daily budget available. The first `get_daily_plan` on a stale path starts a charged judgment. `quiet()` suppresses offers and grants; it does not reject configured metered routes. Decision 7 acknowledges this behaviour, but it fails the no-spend bar. Fix: restrict automatic refresh to a subscription route; otherwise return `unavailable`.
+> 2. Medium — deliverables.py:393: a queued refresh can run after its gate is disabled. Queue the daily refresh, then disable `reading_paths.plan_uses_path` or `plan.enabled` and reload before the worker runs. The worker reads the new vault but never rechecks `deliverable_plan_active`; the domain refresh checks only the curriculum switches. It can therefore call the model and persist a judgment while C1 is inactive. Fix: recheck the complete gate in the worker, and enforce the current switches at request and write admission.
+
+### How each is closed
+
+| # | change | tests (`tests/test_curriculum_c1_fix_round5.py`) |
+|---|---|---|
+| 1 | `deliverable_path.plan_refresh_route_problem(vault, client)`: the route the path judge resolves to (`practice_index.paid.plan_route`, an injected client's profile type included) must be the subscription ChatGPT-plan route (`chatgpt_plan`). Otherwise `refresh_for_plan` returns `unavailable` (`not_plan_route`) before any judgment, so no call is sent and the plan's receipt stays `stale`. A learner-initiated Guide judgment (`_judge_path`) is unchanged. Decision 7 is updated. The automatic-refresh tests now use `PlanDeliverableFake` (`DeliverableFake` typed `chatgpt_plan`) | `test_m1_a_metered_route_is_never_asked_by_the_automatic_refresh` (a priced metered fake: 0 calls, `unavailable`, receipt `stale`, then a Guide open on it judges once; failed before with 1 call), `test_m1_the_plan_route_is_asked` |
+| 2 | The sidecar worker's `gate_on()` reads the live vault and asks `deliverable_plan_active` (the tag, both RW7b switches, both curriculum switches, `plan.enabled`) plus `plan_refresh_reason`. It is asked before the job starts and passed as `still_wanted` to `refresh_for_plan`, which asks it before the claim and hands it to `judge`. `judge` wraps its coverage guard (`_GatedGuard`), so the gate is also asked at each attempt, at each physical request (`admit`) and inside the write transaction. Off, the judgment is `switched_off`: nothing is sent, or nothing is kept | `test_m2_a_refresh_queued_before_a_switch_went_off_sends_and_writes_nothing[plan_uses_path, curriculum, rw7b, guide, plan]` (queued, switch off, reload, run: 0 calls, no rows; the rw7b, guide and plan cases failed before), `test_m2_the_gate_going_off_at_the_request_or_the_write_keeps_nothing` |
+
+Fail-first: against `a2c69d4b8a`'s sources, 6 of the 8 fail. The two curriculum-switch cases held before, because
+the domain refresh already checked those switches.

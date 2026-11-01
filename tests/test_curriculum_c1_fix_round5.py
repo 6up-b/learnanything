@@ -52,10 +52,10 @@ def test_m1_a_metered_route_is_never_asked_by_the_automatic_refresh(tmp_path, mo
     c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", config=PRICED)
     c1.clock.advance(days=1)
     fake = MeteredFake(primaries=PRIMARIES)
-    assert DP.plan_refresh_route_problem(c1.vault, fake) == "not_plan_route"
     ctx = context(c1.paths.root, deliverable_path_client=fake, deliverable_inline=True)
     call(ctx, "get_daily_plan", {})
     assert fake.calls == 0
+    assert DP.plan_refresh_route_problem(c1.vault, fake) == "not_plan_route"
     assert _work(ctx).refresh["status"] == "unavailable" and _work(ctx).refresh["reason"] == "not_plan_route"
     split = _split(c1.repository)
     assert split["reading_path"]["deliverable"]["status"] == "stale" and _at(split["reading"]) == ("ext_book", "ch_eigen")

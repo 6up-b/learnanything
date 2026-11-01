@@ -64,9 +64,15 @@ pins below move with it (see "Renumbering at landing").
    at a time and the plan calls no model, so a synchronous judgment before the build would freeze the app for
    a model call. It starts with the first plan RPC of the day (`get_daily_plan` and every other plan RPC go
    through `_require`), once a local day per vault in a sidecar process (an in-memory marker: a restart may run it
-   once more, and a fresh path pays nothing). "Plan route only" is `plan_fallback.quiet()` (no offer, no grant),
-   as C0b's on-extract job; an explicitly metered route would still be held to `curriculum.max_daily_cost_usd`.
-   The CLI builds plans without it (a CLI build on a stale path follows RW7b and says `stale`).
+   once more, and a fresh path pays nothing). "Plan route only" is `plan_fallback.quiet()` (no offer, no grant)
+   **and** the route itself (fix round 5): the job asks only when the path judge resolves to the subscription
+   ChatGPT-plan route (`chatgpt_plan`, `deliverable_path.plan_refresh_route_problem`); any other resolution,
+   a metered provider priced and with budget left included, is `unavailable`, sends no call, and the plan's
+   receipt stays `stale`. A learner's own Guide judgment keeps its route rules. The queued job rechecks C1's
+   complete gate (`deliverable_plan_active` and the curriculum switches) on the vault as it is now before it
+   starts and before its claim, and the judge asks it at every request and inside the write: a switch turned
+   off meanwhile sends and keeps nothing. The CLI builds plans without it (a CLI build on a stale path follows
+   RW7b and says `stale`).
 8. **One invariant for plans already built (beyond the letter of §7.6; fix round 2).** The path's key holds the
    days left before the deadline and the books read (C0b's learner context), so a deadline deliverable's path is
    stale at **every** day's build, and starting a new book makes it stale too; without following later
