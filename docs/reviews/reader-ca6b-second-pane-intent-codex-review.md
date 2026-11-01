@@ -615,3 +615,74 @@ outside the worktree.
   existing test). `npm run frontend:build`: ok.
 - Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added. Two Python modules were added:
   `src/learnloop/reader/source_identity.py` and `src/learnloop_sidecar/source_identity.py`.
+
+## Fix round 6
+
+The Sol verify of round 5 (job `20261101-040043-V8LEGp`, on `b7255deb00`) closed the three round-4 findings and found
+no false refusal on the common main-pane flows. It found three new issues: two Highs and one Medium. The direction
+was to tighten the guard. Span-id membership alone is not identity, because production extractors number every
+book's blocks the same way (`s0`, `s1`, …). So wherever the guard sees a render view, a node id, a crosswalk or a
+region, it must check that it belongs to the named reading. The other guarded RPCs were audited for the same
+weakness.
+
+Commits:
+- `47cec5279e`: the guard, the client, the tests.
+- A second commit with two test fixes.
+- The record commit (this section).
+
+No migration, no config key, no new parameter, no schema change, no write path changed shape, no paid or live call,
+no vault opened and no GUI launched.
+
+### Verbatim findings
+
+> 1. High — reader.py:885: capture still accepts another book's selection. Production extractors reuse ids such as `s1`. Submit B's `s1` and B's `renderViewId` with stale A source, revision and extraction fields: the guard checks membership in A but ignores render provenance. An isolated handler reproduction reached the write transaction with B's passage and learner text attributed to A. Fix: validate the render view's extraction and crosswalk; carry extraction-qualified provenance for selections without a render view. Test with overlapping span ids.
+> 2. High — reader.py:2175 and reader.py:999: reanchoring does not validate annotation ownership. Both `reader.manual_anchor(ann_A, ext_B, B_selection)` and `reader.reanchor(ann_A, ext_B)` reached successor writes in isolated reproductions. Manual anchoring attaches A's annotation to B; automatic reanchoring combines A's source with B's revision and extraction. Fix: require the destination extraction's source to match the annotation's source before writing, while still allowing earlier readings and revisions of the same source.
+> 3. Medium — SideBySidePane.tsx:143: plain note drafts still disappear during pauses. With intent routing off, select a second-pane passage, choose note, type an unfinished note, then open a comparison from the main pane and return. Unmounting destroys `noting` and its selection. Reproduced "My unfinished note" becoming "". Fix: keep the draft and selection in the persistent pane controller across temporary hiding.
+
+### Closures
+
+| finding | severity | verdict | how | test |
+|---|---|---|---|---|
+| 1 | High | **fixed** | (i) `require_selection_provenance`: a request's `render_view_id` must be a view of the named reading (a missing view is refused too). Its crosswalk is what resolves display nodes, so display nodes are covered. (ii) Every node, region or selection that names its reading must name the request's. (iii) The client now sends the reading on every raw selection (`ReaderRawSelection.extractionId`, required), and so do the server-built import requests (reading paths' *try it*, library exercises). | `test_round6_capture_refuses_another_books_render_view_with_an_id_this_book_also_has` (two books that both have `s0`–`s2`: B's view with A's fields, B-qualified selection and node, a missing view; each refused, nothing written); `test_round6_the_same_ids_in_their_own_book_capture_as_before`; `test_round6_preset_import_and_the_workbench_import_check_render_view_and_selection_reading` |
+| 2 | High | **fixed** | `require_annotation_source`: in both `reader.manual_anchor` and `reader.reanchor`, the destination reading's source must be the annotation's own source. Earlier or later readings and revisions of the same book are allowed. | `test_round6_reanchoring_moves_an_annotation_only_within_its_own_book` (both paths refuse `ext_y` with `reason: annotation_source`; both move to `ext_x2`, a later reading of the same source) |
+| 3 | Medium | **fixed** | The CA6 bar's selection and unfinished note now live in side by side's controller (`useSideBySide.draft`, keyed by section), not in `SideBySidePane`'s state. They are cleared when side by side ends. | `sideBySideIntent.test.tsx` *finding 3 (round 6): with the intent box off, an unfinished note in the second pane survives a comparison opened from the main pane* (fails on `b7255deb00`; after the fix, saving it captures that book's passage with those words) |
+
+Rejected: none.
+
+### The audit for colliding ids (all guarded RPCs)
+
+| RPC | provenance beyond span ids | checked |
+|---|---|---|
+| `reader.capture`, `create_annotation`, `invoke_preset`, `import_exercise` (and the workbench's import request) | render view; the selection's and each node's reading | yes (round 6), plus source and revision |
+| `reader.manual_anchor` | render view; the selection's reading; the annotation's book | yes (round 6) |
+| `reader.reanchor` | the annotation's book | yes (round 6) |
+| `reader.set_inquiry_status`, `reconnect_answer`, `inquiry_question`; `reader.ask`'s parent | the exchange's recorded reading (its event payload) | yes (round 5; an event id does not repeat across books) |
+| `reader.library_compare` pins, `library_ask_tutor` pins | each key is `extraction:span` | yes (round 5) |
+| `reader.library_compare` anchored door | the leading source (`open_source_id`) must be the reading's source | yes (round 5) |
+| `workbench.open` (problem spans, source exercise), `reader.ask` (span and selection), `set_answer_mode`, `route_intent`, `active_question`, `reader.figure_request` and `figure.request` (anchor spans, region span, reading place), `reader.library_ask` (anchor spans), `enqueue_request` | none on the wire: the reading id is the only provenance of these span ids | membership only |
+
+For the last row, the wire carries nothing that could tell a colliding id apart. The reading id comes from the
+client's required `SourceIdentity` (round 5), taken from the passage's own object, never from the main render. A
+mismatch there needs a reading the UI does not produce, so a hand-crafted RPC. Closing that fully would mean adding
+extraction-qualified span keys to these wire formats, which is a follow-up. It is listed here, not done in this
+round.
+
+### Gate (fix round 6)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G`; pytest also under `flock /tmp/learnloop-fullsuite.lock`. One test run at a time, with TMPDIR
+outside the worktree.
+
+- `uv run lint-imports --no-cache`: **36 kept, 0 broken**.
+- Targeted pytest (`-n 6`): round 5's 82 files plus every test file on import requests, reading paths, library
+  exercises and reanchoring: 104 files, **7570 passed, 3 skipped**.
+  - A first run had 1 failure and 4 errors. The errors were the new fixture registering the same source twice; the
+    failure was `test_reading_paths.py`'s exact import request, which now carries the selection's reading. Both are
+    fixed, and the rerun is the count above.
+  - Run against the round-5 backend (`b7255deb00`), the three round-6 refusal tests fail. The matching-case control
+    passes, as it should.
+- No write path changed shape, so no durability run. No migration. `src-tauri` is unchanged.
+- Frontend: `npm run typecheck` clean. Vitest (`--maxWorkers=4`), the 122-file set: **1332 passed** (1331 + 1 new).
+  Two existing expectations were updated for the selection's `extractionId`: `ReaderScreen.inquiry.test.tsx` and
+  `ReaderScreen.pdfSelection.test.tsx`, plus four test fixtures. `npm run frontend:build`: ok.
+- Open item 1 (desktop catalog at landing) is unchanged. No new TS/TSX file was added.
