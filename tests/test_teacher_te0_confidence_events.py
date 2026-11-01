@@ -307,6 +307,7 @@ def test_with_no_confidence_data_the_tutor_context_renders_and_hashes_as_before(
     assert context.learner_confidence is None
     before = asdict(context)
     before.pop("learner_confidence")
+    before.pop("learner_state")  # the learner-blindness relax's Reader block, absent here too
     assert tutor_context_payload(context) == before
     expected = hashlib.sha256(json.dumps(before, sort_keys=True, separators=(",", ":"), default=str)
                               .encode("utf-8")).hexdigest()

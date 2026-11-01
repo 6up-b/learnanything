@@ -138,8 +138,9 @@ _WHEN = {
         "statement, topic and skill names (llm_v1:item, never the reference answer, rubric or hints); and after "
         "each daily-plan question is served, the same plus a short record of your earlier answers on its topic "
         "and the topics it builds on, as of when it was served (each earlier question, whether it was right, the "
-        "hints used, never your answer text), so LearnLoop can score how well each forecaster predicts your "
-        "answers (llm_v3:llm on ai.routing.ad_forecast_llm, llm_v3:decider on ai.routing.ad_forecast_decider). "
+        "hints used and, while adaptive_difficulty.history_answer_excerpts is on (the default), a short excerpt "
+        "of your answer; off, never your answer text), so LearnLoop can score how well each forecaster predicts "
+        "your answers (llm_v3:llm on ai.routing.ad_forecast_llm, llm_v3:decider on ai.routing.ad_forecast_decider). "
         "Measurement only: nothing served, graded or scheduled changes. Never material held out for an exam."
     ),
     "ad_feature_audit": (
@@ -227,8 +228,10 @@ _WHEN = {
         "after the session has ended: the session's typed summary (which sections you read, the ids and status "
         "of the questions you opened, the problems you worked with the help level and grade, missed predictions "
         "and the gaps named from your questions, as ids, kinds and verdicts) with the titles of the topics and "
-        "sections it names, so LearnLoop's model can write a short summary of what you did. Nothing you wrote, "
-        "no passage text, never material held out for an exam. It never grades you and is never evidence."
+        "sections it names, so LearnLoop's model can write a short summary of what you did. While "
+        "digest.narrative_quotes_inquiry is on (the default) the words of the questions you opened go too (a "
+        "short excerpt each), so the summary may quote them; off, nothing you wrote. No passage text, never "
+        "material held out for an exam. It never grades you and is never evidence."
     ),
     "notes": (
         "While notes.enabled is on and tend is installed, in the background for each topic on a deliverable's "

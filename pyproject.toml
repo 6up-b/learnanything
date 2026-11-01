@@ -302,6 +302,18 @@ forbidden_modules = ["learnloop.confidence_events"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "graders-never-read-the-learner-relax-contexts"
+name = "The grader never reads the diagnoser's prior-analysis arm or the Reader tutor's learner state (learner-blindness relax)"
+type = "forbidden"
+# Owner direction 2026-11-01: blindness only where it matters, the grader.
+# Every grading prompt builder lives in learnloop.attempts; the relaxed
+# contexts (the diagnoser's earlier analyses and workbench traces, the Reader
+# tutor's learner state) never reach one.
+source_modules = ["learnloop.attempts"]
+forbidden_modules = ["learnloop.diagnosis.split.prior_analysis", "learnloop.reader_learner_state"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "projects-stay-standalone"
 name = "Project understanding M1 stays off vault state, scheduling and adapters"
 type = "forbidden"
@@ -542,6 +554,7 @@ source_modules = [
     "learnloop.projects",
     "learnloop.proof_check_upgrade",
     "learnloop.reader",
+    "learnloop.reader_learner_state",
     "learnloop.reading_path_plan_upgrade",
     "learnloop.recurrence",
     "learnloop.regrade_contract_upgrade",
@@ -774,6 +787,46 @@ forbidden_modules = [
     "learnloop.instructional.reader_digest",
     "learnloop.daily_plan.router_reader",
 ]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "reader-learner-state-is-context-only"
+name = "The Reader tutor's learner state imports no evidence writer, and nothing that writes evidence reads it (learner-blindness relax)"
+type = "forbidden"
+# Learner-blindness relax (owner direction 2026-11-01): the Reader tutor's
+# learner state reads the ledger through learner_protection, the Today
+# headline's classes and TE0's confidence events, and is handed to the tutor
+# by the sidecar. It records no attempt, claim, mastery or grade.
+source_modules = ["learnloop.reader_learner_state"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.curriculum",
+    "learnloop.router",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "evidence-never-reads-the-reader-learner-state"
+name = "Replay, evidence and serving internals never read the Reader tutor's learner state (learner-blindness relax)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+]
+forbidden_modules = ["learnloop.reader_learner_state"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]

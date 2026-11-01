@@ -114,12 +114,17 @@ def run_diagnosis(
     snapshot_parent: Path | None = None,
     token_budget: int | None = None,
     registry_retriever: RegistryRetriever | None = None,
+    prior_analysis: Any = None,
 ) -> DiagnosisOutcome:
     """Diagnose one blind-graded attempt in one history mode.
 
     Provider failures and invalid output become ``status='failed'`` with the
     error class recorded; a spend refusal or cancellation propagates, because
     the caller must stop rather than record a diagnosis that never ran.
+
+    ``prior_analysis`` (learner-blindness relax): the prior-analysis arm and
+    its reader (``prior_analysis.PriorAnalysis``), handed to the context
+    assembly; None assembles exactly as before.
     """
 
     mode = mode or settings.history_mode
@@ -147,6 +152,7 @@ def run_diagnosis(
                     snapshot_manifest=manifest.as_context_note(),
                     token_budget=token_budget,
                     registry_retriever=registry_retriever,
+                    prior_analysis=prior_analysis,
                 )
                 outcome.receipt = dict(assembled.receipt)
                 outcome.context_hash = assembled.context_hash
@@ -198,6 +204,7 @@ def run_diagnosis(
                 retriever=retriever,
                 token_budget=token_budget,
                 registry_retriever=registry_retriever,
+                prior_analysis=prior_analysis,
             )
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash

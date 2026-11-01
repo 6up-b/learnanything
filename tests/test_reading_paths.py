@@ -75,6 +75,15 @@ def _without_rw5a(contract: dict) -> dict:
     assert contract.pop("correspondence") == {"enabled": True, "findSection": True, "alsoInBooks": True, "hiddenEverywhere": False, "hiddenSources": []}
     # Reader CA6 (on by default) adds its own key too, pinned by tests/test_reader_ca6_side_by_side.py.
     assert contract.pop("sideBySide") == {"enabled": True}
+    # The learner-blindness relax (on by default, pinned by tests/test_learner_blindness_relax.py): the
+    # version suffix, the learner-state manifest line and the ability reading out of the never-list.
+    from learnloop.reader.reader_dialogue import reader_prompt_contract
+
+    base, relaxed = reader_prompt_contract(branches=True), reader_prompt_contract(branches=True, learner_state=True)
+    assert (contract["version"], contract["manifestIncludes"], contract["manifestNeverIncludes"]) == (
+        relaxed["version"], relaxed["manifest_includes"], relaxed["manifest_never_includes"])
+    contract.update(version=base["version"], manifestIncludes=base["manifest_includes"],
+                    manifestNeverIncludes=base["manifest_never_includes"])
     return contract
 
 

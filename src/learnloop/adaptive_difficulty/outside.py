@@ -17,7 +17,8 @@
   the item's LO and its prerequisites as it stood at the serve (the
   incumbent's numbers from its receipt, and the attempts completed before
   it with their grades as they then stood: result category, hints, primed,
-  the question asked; never an answer text). After the serve, in the
+  the question asked; with ``history_answer_excerpts`` on, a bounded excerpt
+  of each answer, state ``ad-forecast-state-v2``; off, never an answer text). After the serve, in the
   background, they are sent exactly as frozen (``inputs_as_of`` = the
   serve, true whatever was regraded or edited since); a presentation
   without frozen inputs is never forecast. With them the serve freezes the
@@ -93,6 +94,12 @@ from learnloop.adaptive_difficulty.material_view import current_view
 LOG = logging.getLogger(__name__)
 
 STATE_VERSION = "ad-forecast-state-v1"
+#: Learner-blindness relax (``adaptive_difficulty.history_answer_excerpts``;
+#: owner direction 2026-11-01): the frozen ``llm_v3`` state whose history card
+#: carries a bounded excerpt of each earlier answer. Off: :data:`STATE_VERSION`.
+STATE_VERSION_ANSWER_EXCERPTS = "ad-forecast-state-v2"
+#: ``keep``: a prompt-size bound on each answer excerpt (never a judgement).
+HISTORY_ANSWER_LIMIT = 300
 V1_PROMPT_VERSION = "ad-llm-v1-item-v1"
 V3_PROMPT_VERSION = "ad-llm-v3-v1"
 DECIDER_QUESTION_SET = "ad-llm-v3-decider-v1"
@@ -175,11 +182,23 @@ def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str,
             "whole": sorted(str(extraction) for extraction in whole)}
 
 
+def answer_excerpts_enabled(vault: Any) -> bool:
+    """``adaptive_difficulty.history_answer_excerpts`` (learner-blindness relax; default on)."""
+
+    section = getattr(getattr(vault, "config", None), "adaptive_difficulty", None)
+    return bool(getattr(section, "history_answer_excerpts", True))
+
+
 def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
-                 incumbent: Mapping[str, Any] | None) -> dict[str, Any]:
+                 incumbent: Mapping[str, Any] | None, answers: bool = False) -> dict[str, Any]:
     """The learner's history on the item's LO and its prerequisites, as of the serve, read through
     the serve's material view (no withheld item's attempt is ever on the card). The card is frozen
-    with the view's protection epoch: it is sent only at that epoch (the AD23 redesign, E2)."""
+    with the view's protection epoch: it is sent only at that epoch (the AD23 redesign, E2).
+
+    ``answers`` (learner-blindness relax, ``history_answer_excerpts``): each attempt listed also
+    carries ``answer_excerpt``, at most :data:`HISTORY_ANSWER_LIMIT` characters of the learner's
+    answer as the view hands it out (a withheld attempt is never listed at all). False: the card of
+    before, exactly."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
@@ -189,7 +208,7 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
              if str(attempt.get("learning_object_id")) in scope and attempt.get("attempt_type") != "self_report"]
     found.sort(key=lambda attempt: (str(attempt.get("created_at") or ""), str(attempt["id"])), reverse=True)
     rows = [(a["id"], a["practice_item_id"], a["learning_object_id"], a.get("attempt_type"), a.get("correctness"),
-             a.get("hints_used"), a.get("primed"), a.get("created_at")) for a in found]
+             a.get("hints_used"), a.get("primed"), a.get("created_at"), a.get("learner_answer_md")) for a in found]
     attempts = []
     for row in rows:
         stamp = parse_utc(str(row[7])) if row[7] else None
@@ -206,6 +225,8 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
             "attempt_type": str(row[3]),
             "days_before": round(max(0.0, (served - stamp).total_seconds() / 86400.0), 2),
         })
+        if answers and str(row[8] or "").strip():
+            attempts[-1]["answer_excerpt"] = _excerpt(row[8], HISTORY_ANSWER_LIMIT)
         if len(attempts) >= HISTORY_LIMIT:
             break
     topics = [vault.learning_objects[lo_id].title for lo_id in scope if lo_id in vault.learning_objects]
@@ -304,14 +325,15 @@ def _ask_decider(vault: Any, repository: Any, client: Any, *, state: Any, owner_
 
 def _receipt(*, key: str, forecaster: str, version: str, scope: str, decision_kind: str, binding_kind: str,
              inputs: Mapping[str, Any], inputs_as_of: str, p: float | None, status: str, received_at: str,
-             columns: Mapping[str, Any], model: str | None, request_hash: str) -> ForecastReceipt:
+             columns: Mapping[str, Any], model: str | None, request_hash: str,
+             state_version: str = STATE_VERSION) -> ForecastReceipt:
     return ForecastReceipt(
         receipt_key=key, kind=ITEM_UNASSISTED_SUCCESS, forecaster=forecaster,
         forecaster_version=f"{version}:{model or 'unknown'}", scope=scope, decision_kind=decision_kind,
         binding_kind=binding_kind, event=EVENT,
         forecast={"p": None if p is None else round(float(p), 8), "event": EVENT, "p_categories": None,
                   "request_hash": request_hash},
-        inputs=dict(inputs), parameters=[], versions={"state": STATE_VERSION, "prompt": version, "model": model},
+        inputs=dict(inputs), parameters=[], versions={"state": state_version, "prompt": version, "model": model},
         inputs_as_of=inputs_as_of, p=p,
         columns={**dict(columns), "status": status, "received_at": received_at},
     )
@@ -545,12 +567,16 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
     from learnloop.adaptive_difficulty.operation import epoch_of
 
     content_hash, _json = item_revision(item)
+    # Learner-blindness relax: the card's answer excerpts and their state version (off: v1's card).
+    answers = answer_excerpts_enabled(vault)
     state = {"item": item_view(vault, item),
              "learner": history_card(vault, connection, item, served_at=served_at, view=view,
-                                     incumbent=_incumbent_inputs(connection, presentation_id, view))}
+                                     incumbent=_incumbent_inputs(connection, presentation_id, view),
+                                     answers=answers)}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
-        "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
+        "state": state, "state_version": STATE_VERSION_ANSWER_EXCERPTS if answers else STATE_VERSION,
+        "state_hash": content_key(state),
         "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
         "content_hash": content_hash, "inputs_as_of": served_at,
         # The protection epoch the state was read under (E2): sent only while it is unchanged, so no
@@ -719,7 +745,7 @@ def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str,
             key=final_key, forecaster=name, version=version,
             scope="presentation", decision_kind="serve", binding_kind="plan_presentation", inputs=inputs,
             inputs_as_of=served_at, p=p, status=status, received_at=received, model=model,
-            request_hash=request_hash,
+            request_hash=request_hash, state_version=str(frozen.get("state_version") or STATE_VERSION),
             columns={"practice_item_id": str(frozen["practice_item_id"]),
                      "learning_object_id": frozen.get("learning_object_id"),
                      "plan_presentation_id": presentation_id, "decision_ref": presentation_id},

@@ -329,13 +329,15 @@ def _base_contract(vault) -> dict:
 
 @pytest.mark.parametrize("toml", [
     # RW4a's library ask, RW1c's tutor, RW4d's keep, RW7a's reading paths, RW5a's figures, CA5a's
-    # correspondence and CA6's side by side add their own keys;
+    # correspondence, CA6's side by side and the learner-blindness relax's learner state add their own keys;
     # their switches are off here too (G20).
     "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n"
-    "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n[reader_compare]\nkeep_enabled = false\n"
+    "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\nlearner_state_enabled = false\n"
+    "[reader_compare]\nkeep_enabled = false\n"
     "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n[reader.correspondence]\nenabled = false\n"
     "[reader.side_by_side]\nenabled = false\n",
     "\n[reader_inquiry]\nenabled = false\n[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n"
+    "learner_state_enabled = false\n"
     "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n[reader.correspondence]\nenabled = false\n"
     "[reader.side_by_side]\nenabled = false\n",
 ])

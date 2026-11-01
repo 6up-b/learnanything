@@ -232,6 +232,29 @@ def _signals(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     }
 
 
+def _e2_prior_analysis_arms(repository: Repository) -> dict[str, Any]:
+    """E2's ``anchoring_suspect`` rate per prior-analysis arm (learner-blindness
+    relax): completed live diagnoses, grouped by the arm their context receipt
+    records (``unassigned``: written before the arm existed). Each rate with
+    its Wilson interval and n; no threshold (O10)."""
+
+    groups: dict[str, list[bool]] = {}
+    assignments: Counter = Counter()
+    for row in repository.all_attempt_diagnoses():
+        if row["mode"] != "live" or row["status"] != "completed":
+            continue
+        receipt = repository.diagnosis_context_receipt(str(row["id"])) or {}
+        arm = (receipt.get("retrieval") or {}).get("prior_analysis") or {}
+        name = str(arm.get("arm") or "unassigned")
+        groups.setdefault(name, []).append(bool(receipt.get("anchoring_suspect")))
+        assignments[f"{name}:{arm.get('assignment') or 'none'}"] += 1
+    return {
+        "anchoring_suspect_by_arm": {name: wilson(sum(values), len(values)) for name, values in sorted(groups.items())},
+        "assignments": dict(sorted(assignments.items())),
+        "note": "the diagnosis.history_includes_prior_analysis arm; compare against run-to-run spread (O10)",
+    }
+
+
 def m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     from learnloop.ai.execution import content_key
     from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
@@ -245,6 +268,7 @@ def m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
             "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
             "history_mode": getattr(config, "history_mode", None),
             "split_enabled": getattr(config, "split_enabled", None),
+            "history_includes_prior_analysis": getattr(config, "history_includes_prior_analysis", None),
             "embedding_model": vault.config.embedding.model if vault.config.embedding.enabled else None,
             "config_hash": content_key(vault.config.model_dump(mode="json")),
             "blind_graded_attempts": len(blind),
@@ -258,6 +282,7 @@ def m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
         "e5_recurrence_shadow": _e5(repository),
         "e7_operational": _e7(repository),
         "learner_signals": _signals(vault, repository),
+        "e2_prior_analysis_arms": _e2_prior_analysis_arms(repository),
         "thresholds": "none in Slice 1 (O10); compare against run-to-run spread",
     }
 
@@ -313,6 +338,12 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         f"- regrades: blind {_fmt(signals['regrade_rate_blind'])} vs joint {_fmt(signals['regrade_rate_joint'])}",
         "",
     ]
+    arms = report.get("e2_prior_analysis_arms")
+    if arms:
+        lines += ["## E2 anchoring by prior-analysis arm", ""]
+        lines += [f"- {name}: anchoring suspect {_fmt(rate)}"
+                  for name, rate in (arms.get("anchoring_suspect_by_arm") or {}).items()] or ["- no completed live diagnoses"]
+        lines += [f"- assignments {json.dumps(arms.get('assignments') or {}, sort_keys=True)}", ""]
     return "\n".join(lines)
 
 

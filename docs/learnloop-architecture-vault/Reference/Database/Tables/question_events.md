@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3ddfd2d0d480d497bf2949bde8b7ae6f81ebd059"
-source_commit_timestamp: "2026-11-01T18:19:58-05:00"
+source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
+source_commit_timestamp: "2026-11-01T18:37:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/hints/report.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_report.py`
+- `src/learnloop/reader_learner_state.py`
 - `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
@@ -153,6 +154,7 @@ Indexes and uniqueness:
 - `src/learnloop/experiments/contextual_embeddings/bank.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/instructional/reader_digest.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
@@ -165,7 +167,6 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/question_queue.py`
 - `src/learnloop/tutor/question_signal.py`
-- `src/learnloop/tutor/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -1539,6 +1539,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
         "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
         "or serving authority."),
+    # Learner-blindness relax (owner direction 2026-11-01: blindness only
+    # where it matters, the grader; docs/reviews/learner-blindness-relax.md).
+    # Three kill switches (booleans, classified so every new key has a rule)
+    # and the diagnoser's prior-analysis arm (a string: a randomized
+    # equipoise arm by default, recorded on each diagnosis receipt and read
+    # per arm in the m2 report, never a fixed preference). Every one changes
+    # a model context only: the tutor, the narrative, the diagnoser and AD's
+    # reporting-only forecasters never write an attempt, a claim, mastery or
+    # a grade, and the blind grader's inputs are untouched.
+    _ConfigRule(_exact(
+        "reader_tutor.learner_state_enabled",
+        "digest.narrative_quotes_inquiry",
+        "adaptive_difficulty.history_answer_excerpts",
+        "diagnosis.history_includes_prior_analysis",
+    ), "structural", "operational",
+        "kill switches for the Reader tutor's learner state (readiness in words, confidence events, recent "
+        "exchanges and outcomes through learner_protection) / the narrative's quotes of the learner's own "
+        "inquiry questions / the llm_v3 history card's answer excerpts / the diagnoser's prior-analysis arm "
+        "(randomized by default, measured per arm); model context only, no measurement, scheduling or serving "
+        "authority, never the grader."),
     # Reader workbench RW4b: the kill switches of the textbook-exercise view and
     # of its retired fallback search (booleans, so Inventory A's numeric walk
     # never reaches them; classified here so every new key has a rule, as

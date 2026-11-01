@@ -74,6 +74,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         set_config(paths, "reader.correspondence", enabled=False)
         # Reader CA6 (after this golden too): off, so its contract key is absent.
         set_config(paths, "reader.side_by_side", enabled=False)
+        # The learner-blindness relax (after this golden too): off, so the
+        # contract and the tutor's manifest are the base's; these pins are RW4d's.
+        set_config(paths, "reader_tutor", learner_state_enabled=False)
     ctx = context(paths.root)
     real = service.propose_comparison
     llm = FakeServiceLLM()
