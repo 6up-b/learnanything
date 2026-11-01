@@ -8,8 +8,11 @@
 // (sketchRunner.portRunner) refuses a reply whose shape is not the one its
 // request expects. The hostile sketch can't send these messages at all (its
 // realm is inside wasm, and a Worker's postMessage answers only its owner):
-// this bounds a future caller's mistakes, and it is the shape a private
-// channel to an opaque-origin frame would use (G-SM14's fallback).
+// this bounds a future caller's mistakes. Since the sketch compartment
+// (sketchCompartment.ts), it is also what travels over the private
+// MessageChannel between the Reader and the Worker inside the sandboxed,
+// opaque-origin frame: a read's scene and probes cross as the engine's own
+// text, so the Reader can bound each reply's size exactly before parsing it.
 import { sceneDigest, SketchRunError, STATUS_NAMES, type SketchEngineHost, type SketchErrorKind } from "./sketchEngine";
 
 /** keep (machine safety): the program's size cap (sketch.py SKETCH_MAX_SOURCE_BYTES). */
@@ -20,11 +23,16 @@ export const SKETCH_MAX_CLOCK_STEPS = 2_000;
 export const SKETCH_MAX_PARAMETERS = 4;
 /** keep (display): the longest error message a reply may carry. */
 export const REPLY_MESSAGE_MAX = 600;
+/** keep (machine safety): the longest text one engine call may return (the harness's output cap, 4 MiB; a
+ *  UTF-16 length never exceeds the UTF-8 byte count it came from). A read's scene and probes are each one call. */
+export const SKETCH_MAX_OUTPUT_CHARS = 4 * 1024 * 1024;
 
 export const WORKER_OPS = ["load", "init", "step", "read"] as const;
 export type WorkerOp = (typeof WORKER_OPS)[number];
 export type WorkerRequest = { id: number; op: WorkerOp; args: unknown[] };
 export type SketchRead = { scene: unknown; probes: unknown; digest: string };
+/** A read as it crosses the channel: the text the engine wrote, and its digest. */
+export type SketchReadText = { sceneText: string; probesText: string; digest: string };
 export type WorkerResponse =
   | { id: number; ok: true; result: unknown }
   | { id: number; ok: false; error: { kind: SketchErrorKind; message: string } };
@@ -112,7 +120,7 @@ export async function answerRequest(host: () => Promise<SketchEngineHost>, data:
       return { id, ok: true, result: null };
     }
     const { sceneText, probesText } = sketch.readText(params, args[1] as number);
-    const read: SketchRead = { scene: JSON.parse(sceneText), probes: JSON.parse(probesText), digest: sceneDigest(sceneText, probesText) };
+    const read: SketchReadText = { sceneText, probesText, digest: sceneDigest(sceneText, probesText) };
     return { id, ok: true, result: read };
   } catch (caught) {
     const error = caught instanceof SketchRunError
@@ -145,8 +153,16 @@ export function parseWorkerReply(data: unknown, expected: (id: number) => Worker
       || ENTRY_POINTS.some((key) => typeof result[key] !== "boolean")) return malformed;
     return { id, ok: true, result };
   }
-  if (!isObject(result) || !("scene" in result) || !("probes" in result) || typeof result.digest !== "string" || !DIGEST.test(result.digest)) {
+  // A read: the engine's text, each bounded before it is parsed here (never trusted as objects).
+  if (!isObject(result) || Object.keys(result).length !== 3 || typeof result.sceneText !== "string" || typeof result.probesText !== "string"
+    || result.sceneText.length > SKETCH_MAX_OUTPUT_CHARS || result.probesText.length > SKETCH_MAX_OUTPUT_CHARS
+    || typeof result.digest !== "string" || !DIGEST.test(result.digest)) {
     return malformed;
   }
-  return { id, ok: true, result: { scene: result.scene, probes: result.probes, digest: result.digest } };
+  try {
+    const read: SketchRead = { scene: JSON.parse(result.sceneText), probes: JSON.parse(result.probesText), digest: result.digest };
+    return { id, ok: true, result: read };
+  } catch {
+    return malformed;
+  }
 }
