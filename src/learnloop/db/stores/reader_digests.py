@@ -59,6 +59,42 @@ def update_digest(connection: sqlite3.Connection, digest_id: str, **columns: Any
         (*[values[name] for name in names], digest_id))
 
 
+#: RW6b part 2: the narrative's columns. Written once per session by
+#: :func:`set_narrative` (``learnloop.instructional.reader_digest``), never by
+#: ``update_digest``; part 1's planner compares a row without them.
+NARRATIVE_COLUMNS = ("narrative_md", "cited_event_ids_json", "model", "prompt_version")
+#: The narrative's label on every surface (spec §9.2, UX §4.8) and its
+#: authority (W1 tier 1: salience only, never evidence).
+NARRATIVE_LABEL = "summary written by LearnLoop's model"
+NARRATIVE_AUTHORITY = "salience_only"
+#: The decoded keys of the narrative's columns (``_decode``'s names).
+NARRATIVE_KEYS = frozenset({"narrative_md", "cited_event_ids", "model", "prompt_version"})
+
+
+def set_narrative(connection: sqlite3.Connection, digest_id: str, *, narrative_md: str | None,
+                  cited_event_ids: Sequence[str] | None, model: str, prompt_version: str) -> bool:
+    """Write the session's narrative once (RW6b part 2): True when written.
+
+    ``narrative_md`` None records an attempt whose narrative was dropped
+    (``prompt_version`` set marks the session as narrated either way: once
+    per session). A row already narrated is left as it is (another process
+    got there first). ``updated_at`` is left alone: it is part 1's planning
+    clock, and a narrative never supersedes a plan."""
+
+    cursor = connection.execute(
+        "UPDATE reader_session_digests SET narrative_md = ?, cited_event_ids_json = ?, model = ?, "
+        "prompt_version = ? WHERE id = ? AND prompt_version IS NULL",
+        (narrative_md, _dumps(list(cited_event_ids)) if cited_event_ids is not None else None, model,
+         prompt_version, digest_id))
+    return cursor.rowcount == 1
+
+
+def without_narrative(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A decoded digest row without its narrative (part 1's comparisons)."""
+
+    return None if row is None else {key: value for key, value in row.items() if key not in NARRATIVE_KEYS}
+
+
 def _decode(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]:
     out = dict(row)
     for column, (name, default) in _JSON_COLUMNS.items():
@@ -110,5 +146,6 @@ def session_keys(connection: sqlite3.Connection, extraction_ids: Sequence[str] |
     return {(str(r[0]), str(r[1])) for r in rows if wanted is None or str(r[0]) in wanted}
 
 
-__all__ = ["MUTABLE_COLUMNS", "STATUSES", "TABLE", "digest", "digest_for_commitment", "digest_for_session",
-           "digests", "insert_digest", "session_keys", "update_digest"]
+__all__ = ["MUTABLE_COLUMNS", "NARRATIVE_AUTHORITY", "NARRATIVE_COLUMNS", "NARRATIVE_KEYS", "NARRATIVE_LABEL", "STATUSES", "TABLE", "digest",
+           "digest_for_commitment", "digest_for_session", "digests", "insert_digest", "session_keys",
+           "set_narrative", "update_digest", "without_narrative"]

@@ -1483,6 +1483,14 @@ class AIRoutingConfig(BaseModel):
     # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_author: str | None = None
+    # Reader workbench RW6b part 2 (spec_reader_workbench_v1 §9.2): the
+    # session narrative, one call per reader session in the background from
+    # the session's typed summary only (ids, kinds, verdicts and the titles
+    # they name; never the learner's words). Empty = ai.active_provider (the
+    # ChatGPT plan under T1; estimated_only). Metered calls are held to
+    # digest.max_daily_cost_usd at digest.price_per_million (unset: refused
+    # before sending).
+    reader_digest: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2443,6 +2451,39 @@ class FollowupsConfig(BaseModel):
     generate_when_nothing_fits: bool = False
     max_wait_days: int = Field(default=14, ge=1, le=365)
     max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
+
+
+class DigestConfig(BaseModel):
+    """Reader workbench RW6b part 2: the session narrative and the router
+    card's reader section (spec_reader_workbench_v1 §9.2, §9.6; UX §4.8).
+
+    * ``narrative_enabled``: after a reader session RW6b planned (its digest
+      row), one background call (route ``reader_digest``) writes at most 120
+      words from the session's typed summary only, citing the summary's event
+      ids. Code validates the citations and the word bound: an invalid
+      narrative is dropped and why is recorded (``judgment_ledger``, task
+      ``reader_digest_narrative``). Written once per session, stored on the
+      digest row, shown collapsed in "Last time here" and Wrap up, labelled
+      "summary written by LearnLoop's model". Tier 1 (salience only): never a
+      source of a filled mark and never evidence. Off: no route call and no
+      narrative anywhere (RW6b part 1 exactly).
+    * ``enabled``: RW6b part 2 as a whole: the narrative and the reader
+      section of the router's learner-state card
+      (``reader_activity_for_card``), which is data beside the card and never
+      in its hash, its text or anything a router model reads, so no decision
+      changes. Off: neither.
+    * ``price_per_million``: the owner's price for a metered narrative route
+      (unset: a metered route is refused before sending). The ChatGPT plan
+      needs none (estimated_only).
+    * ``max_daily_cost_usd`` (keep): the metered spend a UTC day of the
+      narrative calls (the owner's spending authority); subscription calls
+      are estimated_only and uncapped (Slice A §5 rule 6).
+    """
+
+    enabled: bool = True
+    narrative_enabled: bool = True
+    price_per_million: float | None = Field(default=None, gt=0)
+    max_daily_cost_usd: float = Field(default=0.25, ge=0.0)
 
 
 class ReaderIntentConfig(BaseModel):
@@ -4189,6 +4230,7 @@ class LearnLoopConfig(BaseModel):
     workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
     recap: RecapConfig = Field(default_factory=RecapConfig)
     followups: FollowupsConfig = Field(default_factory=FollowupsConfig)
+    digest: DigestConfig = Field(default_factory=DigestConfig)
     reader_intent: ReaderIntentConfig = Field(default_factory=ReaderIntentConfig)
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)

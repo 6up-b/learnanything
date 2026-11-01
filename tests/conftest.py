@@ -76,6 +76,10 @@ os.environ["LEARNLOOP_CURRICULUM_MODELS"] = "off"
 # client unless the test injected a fake (ctx.figure_author_client, or the
 # service's author_client argument).
 os.environ["LEARNLOOP_FIGURE_MODELS"] = "off"
+# Reader workbench RW6b part 2: the session narrative (reader_digest) resolves no
+# real client unless the test injected a fake (the client argument, or
+# ctx.reader_digest_client).
+os.environ["LEARNLOOP_DIGEST_MODELS"] = "off"
 # Local retrieval P2: no query-student generator model is reached and no query
 # process is started unless the test injected a fake (a client, or a spawn).
 os.environ["LEARNLOOP_QUERY_STUDENT_MODELS"] = "off"

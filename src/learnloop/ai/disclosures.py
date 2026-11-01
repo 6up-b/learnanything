@@ -38,6 +38,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("deliverable_scope_resolver", "llm", "curriculum_scope"),
     ("deliverable_path_judge", "llm", "curriculum_path"),
     ("figure_author", "llm", "figures"),
+    ("reader_digest", "llm", "reader_digest"),
 )
 
 _WHEN = {
@@ -203,6 +204,14 @@ _WHEN = {
         "figures.show_me_enabled, \"show me\" sends your request in your words (or the goal LearnLoop's tutor "
         "wrote, when you press it) and, when you select no passage, the passages LearnLoop finds in your books for "
         "it (or none) -- never to grade you. Nothing else about you, and never material held out for an exam."
+    ),
+    "reader_digest": (
+        "While digest.enabled and digest.narrative_enabled are on, once per reader session, in the background "
+        "after the session has ended: the session's typed summary (which sections you read, the ids and status "
+        "of the questions you opened, the problems you worked with the help level and grade, missed predictions "
+        "and the gaps named from your questions, as ids, kinds and verdicts) with the titles of the topics and "
+        "sections it names, so LearnLoop's model can write a short summary of what you did. Nothing you wrote, "
+        "no passage text, never material held out for an exam. It never grades you and is never evidence."
     ),
 }
 

@@ -142,6 +142,8 @@ AITask = Literal[
     "deliverable_path_judge",
     # Reader workbench RW5a: the figure author (the declarative spec).
     "figure_author",
+    # Reader workbench RW6b part 2: the session narrative (background, once per session).
+    "reader_digest",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -275,6 +277,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",
+    # Reader workbench RW6b part 2: one session narrative from the typed
+    # summary (background, once per reader session; salience only).
+    "reader_digest": "reader_digest",
     # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
     # subject; vault content only, never learner text), on AD's own route (the
     # compose onto T1: the plan's medium tier by default, spec §5.10).
