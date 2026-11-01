@@ -86,3 +86,35 @@ def test_r1_a_replaced_failed_correction_lists_nothing_outside_the_window(tmp_pa
     rig.ingest.drain()
     _age_out(monkeypatch, failed_job, again.rich["rich_job_id"])
     assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+
+
+def test_codex_f4_a_newer_cancelled_correction_still_speaks_for_the_figure_after_500_newer_rich_jobs(
+        tmp_path, monkeypatch):
+    """Codex review F4 (reader-followups-nov1b): correction A stores a
+    failure; a later correction B of the same figure is cancelled (no row).
+    B speaks for the figure, so A's failure lists no line, and it still
+    doesn't once 500 newer rich jobs push both out of the queue's window (a
+    real 500-job queue, not a filtered window)."""
+
+    from learnloop.content.pipeline.runner import JobSpec
+
+    rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], [RF.scene_output(), WRONG, WRONG])
+    first = _first_animation(rig)
+    failed_job = rig.build(_revision(rig, first["figure_id"], "red please")).rich["rich_job_id"]
+    rig.ingest.drain()
+    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    assert line["state"] == "failed" and line["rich_job_id"] == failed_job
+    cancelled_job = rig.build(_revision(rig, first["figure_id"], "blue please")).rich["rich_job_id"]
+    rig.ingest.cancel_batch(rig.batches[-1])
+    assert rig.repository.get_ingest_job(cancelled_job)["status"] == "cancelled"
+    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+
+    batch = rig.ingest.enqueue_batch("figure_rich", [
+        JobSpec("figure_rich", {"base": {"extraction_id": "ext_elsewhere"}, "input_hash": f"elsewhere-{index}"})
+        for index in range(500)])
+    with rig.repository.connection() as connection:
+        connection.execute("UPDATE ingest_jobs SET created_at = '2999-01-01T00:00:00Z' WHERE batch_id = ?", (batch,))
+        connection.commit()
+    window = {job["id"] for job in RICH.rich_jobs(rig.repository)}
+    assert len(window) == 500 and failed_job not in window and cancelled_job not in window
+    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []

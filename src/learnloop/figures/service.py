@@ -2468,13 +2468,19 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
     def failed_corrections() -> list[dict[str, Any]]:
         # P2b ruling R1: the stored failures of animation corrections, newest
         # first, each with its job (by its request, over the whole queue).
+        # Codex review F4 (Nov 1b): only while that job is still the newest
+        # correction of the figure over the whole queue; a newer one (even a
+        # cancelled one, which stores no row) speaks for it, as in the window.
         found = []
         for row in reversed(stored_rows()):
             if row.get("verification") != "failed" or row.get("spec_version") not in RICH_SPEC_VERSIONS \
                     or not row.get("supersedes_id") or not row.get("request_id"):
                 continue
             job = RICH.rich_job_for_request(repository, str(row["request_id"]))
-            if job is not None and (job.get("payload") or {}).get("supersedes_id") == row["supersedes_id"]:
+            if job is None or (job.get("payload") or {}).get("supersedes_id") != row["supersedes_id"]:
+                continue
+            newest = RICH.rich_job_for_figure(repository, str(row["supersedes_id"]))
+            if newest is not None and str(newest.get("id")) == str(job.get("id")):
                 found.append(job)
         return found
 

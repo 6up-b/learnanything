@@ -804,6 +804,19 @@ def rich_job_for_request(repository: Repository, request_id: str) -> dict[str, A
     return dict(job) if job is not None else None
 
 
+def rich_job_for_figure(repository: Repository, figure_id: str) -> dict[str, Any] | None:
+    """The newest rich job correcting this figure (payload ``supersedes_id``),
+    in any state, over the whole queue (Reader follow-ups Nov 1b, Codex
+    review F4: a newer correction speaks for the figure even after it left
+    the recent window, a cancelled one that stored no row included)."""
+
+    try:
+        job = repository.newest_ingest_job_by_payload(RICH_JOB_TYPE, "supersedes_id", figure_id)
+    except sqlite3.Error:
+        return None
+    return dict(job) if job is not None else None
+
+
 def rich_job_id_for_quick(repository: Repository, fast_figure_id: str) -> str | None:
     job = rich_job_for_quick(repository, fast_figure_id)
     return str(job["id"]) if job is not None else None
@@ -862,6 +875,7 @@ __all__ = [
     "rich_context",
     "rich_job_for",
     "rich_job_for_quick",
+    "rich_job_for_figure",
     "rich_job_for_request",
     "rich_job_id_for_quick",
     "rich_jobs",
