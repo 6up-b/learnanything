@@ -223,21 +223,30 @@ def _link_exclusions(connection, link: AssessmentLink,
         whole.update(source_extraction_ids(connection, source_id=link.source_id))
 
 
-def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
+def teaching_exclusions(vault: LoadedVault, repository: Repository, *,
+                        readable_roles: frozenset[str] = frozenset()) -> Exclusions:
     """Everything a teaching context never reads, vault-wide.
 
     Exam and held-out material, by the one predicate
     (``content.sources.exam_material``: exam members and exam units in every
     revision of their source, every ``held_out_evaluation`` unit whatever its
     role, unresolvable units failing closed); source-set material of the
-    other roles without teaching authority (problem_set, notes and unknown
-    roles, whole members or unit overrides, resolved the same way); and every
-    span an ``exercise`` or ``assessment_alignment`` link cites (or, for a
-    locator that does not name a block, its whole extraction).
+    other roles without teaching authority (problem_set, notes, syllabus and
+    unknown roles, whole members or unit overrides, resolved the same way);
+    and every span an ``exercise`` or ``assessment_alignment`` link cites (or,
+    for a locator that does not name a block, its whole extraction).
+
+    ``readable_roles`` (curriculum C3): roles without teaching authority that
+    a caller which is not a teaching context may read (the deliverable scope
+    input reads ``syllabus`` passages). It never lifts exam or held-out
+    material, which is the predicate's whatever the role.
     """
 
     exam = EM.exam_material(vault, repository).material
-    others = EM.role_material(vault, repository, _withheld_besides_exams)
+    lifted = frozenset(str(role).strip() for role in readable_roles)
+    others = EM.role_material(vault, repository, (lambda role: _withheld_besides_exams(role)
+                                                  and str(role or "").strip() not in lifted)
+                              if lifted else _withheld_besides_exams)
     whole: set[str] = set(exam.extractions | others.extractions)
     spans: set[tuple[str, str]] = set(exam.spans | others.spans)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:

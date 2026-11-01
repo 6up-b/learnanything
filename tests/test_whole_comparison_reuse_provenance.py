@@ -264,3 +264,33 @@ def test_f1_rereview_a_reuse_for_an_unknown_question_is_not_persisted(tmp_path, 
                             verify_client=llm)
     assert again.comparison_id == comparison_id and again.reused
     assert not SO.withheld_comparisons(vault, repository, [(comparison_id, None)])
+
+
+# -- Reader follow-ups Nov 1b, item 4: the FRESH path's pin naming no passage ---------------------
+
+
+def test_nov1_open_item_3_a_fresh_comparisons_pin_naming_no_passage_is_not_persisted(library):
+    """Reader follow-ups Nov 1, open item 3 (pre-existing RW4d fresh path):
+    before the fix a FRESH comparison stored every dropped pin, including one
+    dropped as "no such passage", which RW4d's ``comparison_passages`` cannot
+    resolve, so the stored comparison was withheld whole for every later
+    reader. Now the fresh path writes it as the reuse path does: not at all.
+    The current call still fails closed on it."""
+
+    from learnloop.reader import source_objects as SO
+    from learnloop.source_retrieval.compare import NO_SUCH_PASSAGE
+
+    _paths, ctx, repository, _spans = library
+    with pytest.raises(SidecarError) as caught:
+        _compare(ctx, [*PINS, "ext_book:no_such_span"])
+    assert caught.value.code == "comparison_withheld"  # this call: fail closed
+    with repository.connection() as connection:
+        stored = connection.execute("SELECT id, dropped_pins_json FROM source_comparisons").fetchall()
+    assert len(stored) == 1, "the fresh comparison was made and stored"
+    comparison_id, pins_json = stored[0]
+    assert NO_SUCH_PASSAGE not in (pins_json or "")
+    vault, _ = ctx.require_vault()
+    # A later reader of the same comparison is not refused for a pin that contributed nothing.
+    assert not SO.withheld_comparisons(vault, repository, [(comparison_id, None)])
+    again = _compare(ctx, PINS)
+    assert again["status"] == "ok" and again["comparisonId"] == comparison_id

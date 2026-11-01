@@ -243,16 +243,22 @@ class Protection:
     excluded_extractions: frozenset[str]
     excluded_spans: frozenset[tuple[str, str]]
     held_back: frozenset[str]
+    #: Roles without teaching authority this protection lets through (curriculum C3's
+    #: scope input reads ``syllabus`` passages); never exam or held-out material.
+    readable_roles: frozenset[str] = frozenset()
 
     @property
     def key(self) -> str:
         """A digest of everything withheld: equal keys withhold exactly the same."""
 
-        return content_key({"exam": sorted(self.material.extractions),
-                            "exam_spans": sorted(list(key) for key in self.material.spans),
-                            "excluded": sorted(self.excluded_extractions),
-                            "excluded_spans": sorted(list(key) for key in self.excluded_spans),
-                            "held_back": sorted(self.held_back)})
+        withheld: dict[str, Any] = {"exam": sorted(self.material.extractions),
+                                    "exam_spans": sorted(list(key) for key in self.material.spans),
+                                    "excluded": sorted(self.excluded_extractions),
+                                    "excluded_spans": sorted(list(key) for key in self.excluded_spans),
+                                    "held_back": sorted(self.held_back)}
+        if self.readable_roles:
+            withheld["readable_roles"] = sorted(self.readable_roles)
+        return content_key(withheld)
 
     def reading_out(self, extraction_id: str) -> bool:
         return (extraction_id in self.excluded_extractions or extraction_id in self.held_back
@@ -262,8 +268,13 @@ class Protection:
         return (extraction_id, span_id) in self.excluded_spans or self.material.covers(extraction_id, span_id)
 
 
-def read_protection(vault: Any, repository: Repository) -> Protection:
+def read_protection(vault: Any, repository: Repository, *,
+                    readable_roles: frozenset[str] = frozenset()) -> Protection:
     """The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed).
+
+    ``readable_roles``: the teaching exclusions' roles a non-teaching reader may read
+    (``corpus.teaching_exclusions``; curriculum C3's scope input: ``syllabus``). Coverage,
+    the path and correspondents never pass it.
 
     A vault whose source sets did not load is never a protection snapshot
     (landing F1): the loader turns a nonempty source-sets file it cannot parse
@@ -281,13 +292,14 @@ def read_protection(vault: Any, repository: Repository) -> Protection:
                                         + "; ".join(problems) + ". Fix the file (learnloop doctor) and try again.")
     try:
         material = EM.exam_material(vault, repository)
-        exclusions = teaching_exclusions(vault, repository)
+        exclusions = teaching_exclusions(vault, repository, readable_roles=readable_roles)
         held_back = {extraction_id for marks in EM.source_marks(vault, repository).values()
                      for extraction_id in marks.unmarked}
     except Exception as exc:  # noqa: BLE001 - an unreadable predicate shows and sends nothing
         raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material.") from exc
     return Protection(material=material, excluded_extractions=frozenset(exclusions.extractions),
-                      excluded_spans=frozenset(exclusions.spans), held_back=frozenset(held_back))
+                      excluded_spans=frozenset(exclusions.spans), held_back=frozenset(held_back),
+                      readable_roles=frozenset(readable_roles))
 
 
 class Library:
@@ -323,7 +335,8 @@ class Library:
         vault's files, :func:`protection_on_disk`), else ``vault``'s."""
 
         vault = vault if vault is not None else self.vault
-        protection = protection if protection is not None else read_protection(vault, self.repository)
+        protection = protection if protection is not None else read_protection(
+            vault, self.repository, readable_roles=self.protection.readable_roles)
         if vault is self.vault and protection.key == self.protection.key:
             return self
         return Library(vault, self.repository, protection=protection)
@@ -1055,7 +1068,8 @@ class CoverageGuard:
             sendable = False
             if also is None:
                 try:
-                    protection = read_protection(vault, self._library.repository)
+                    protection = read_protection(vault, self._library.repository,
+                                                 readable_roles=self._library.protection.readable_roles)
                 except CoverageError:
                     return unreadable
                 sendable = self._library.sendable_under(protection, self._keys)

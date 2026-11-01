@@ -3,8 +3,8 @@ title: "learner_note_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5c246bbc0b5c8a98488a74f99a19a49e38910c3c"
-source_commit_timestamp: "2026-11-01T15:45:10-05:00"
+source_commit: "5fae2f76d65e28cf5f94461990fa8013acd483fd"
+source_commit_timestamp: "2026-11-01T15:52:32-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_note_links"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_learner_notes_migration.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_never_read.py`

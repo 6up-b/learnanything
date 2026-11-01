@@ -879,6 +879,15 @@ def write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, ext
     """Write one draft as a vault item and mark it with ``learner_item_authored``."""
 
     payload = {**draft.payload, **dict(extra_payload or {})}
+    # Curriculum C3 (Codex review F3): the one write of an authored exercise never
+    # publishes scope-only material (a syllabus), whichever path authored it, read from
+    # the vault as it is now. Not exam material, so no exam check here stops it.
+    from learnloop.content.sources.exam_material import SCOPE_ONLY_REFUSAL, reference_keys, scope_only_among
+
+    cited, cited_whole = reference_keys([payload.get("provenance"), payload.get("canonical_exercise")],
+                                        extraction_id=extraction_id)
+    if scope_only_among(load_vault(root), repository, cited, cited_whole):
+        raise ExerciseAuthoringError(SCOPE_ONLY_REFUSAL)
     upsert_practice_item(root, payload, clock=clock)
     try:
         repository.append_interaction_event(
