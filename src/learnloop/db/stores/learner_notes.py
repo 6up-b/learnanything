@@ -75,8 +75,8 @@ def latest_note(connection: sqlite3.Connection, note_key: str) -> dict[str, Any]
 
 
 def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
-    """The newest snapshot of each note, by note key (a link made by hand shows its note's
-    newest text: refreshing a snapshot never writes a link row; Codex review F9)."""
+    """The newest snapshot of each note, by note key (the fallback of :func:`current_notes`
+    for a note with no current-snapshot marker)."""
 
     wanted = sorted({str(key) for key in note_keys})
     if not wanted:
@@ -86,6 +86,29 @@ def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> di
             f"SELECT * FROM learner_notes WHERE note_key IN ({','.join('?' for _ in wanted)}) "
             "ORDER BY created_at, rowid", wanted)):
         out[str(row["note_key"])] = row
+    return out
+
+
+def current_notes(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The snapshot each note shows now, by note key (Codex re-review F13): the one named
+    by the note's newest current-snapshot marker (``judgment_ledger`` task ``task``,
+    ``right_id`` the snapshot's id), appended whenever a read finds the note's text is
+    another snapshot's, a text it had before included; a note with no marker shows its
+    newest snapshot."""
+
+    newest = latest_notes(connection, note_keys)
+    if not newest:
+        return {}
+    by_id = {str(row["id"]): row for row in _dicts(connection.execute(
+        f"SELECT * FROM learner_notes WHERE note_key IN ({','.join('?' for _ in newest)})", sorted(newest)))}
+    out = dict(newest)
+    wanted = sorted(by_id)
+    for (right_id,) in connection.execute(
+            f"SELECT right_id FROM judgment_ledger WHERE task = ? AND judge = 'exact_key' "
+            f"AND right_id IN ({','.join('?' for _ in wanted)}) ORDER BY created_at, rowid", (task, *wanted)):
+        row = by_id.get(str(right_id))
+        if row is not None:
+            out[str(row["note_key"])] = row
     return out
 
 
@@ -201,6 +224,7 @@ __all__ = [
     "NOTE_COLUMNS",
     "ai_rows_for_state",
     "insert_link",
+    "current_notes",
     "current_states",
     "judged",
     "latest_notes",

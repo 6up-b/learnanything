@@ -652,3 +652,179 @@ def test_f12_verdict_problem_names_each_defect():
     assert "judged twice: n1" in problem and "discusses without about and how: n3" in problem
     good = NL.NoteLinkOutputV1.model_validate({"notes": [{"note": "n1", "verdict": "unrelated"}]})
     assert NL.verdict_problem(good, ["n1"]) is None
+
+
+# -- Codex re-review (2026-11-01) --------------------------------------------------------------------
+
+class _Published:
+    """A loaded-vault provider shaped as the sidecar's (``snapshot()`` and a
+    generation-bound ``admit``): ``publish`` is a settings reload."""
+
+    def __init__(self, vault):
+        self.vault, self.generation = vault, 1
+
+    def publish(self, vault):
+        self.vault, self.generation = vault, self.generation + 1
+
+    def __call__(self):
+        return self.vault
+
+    def snapshot(self):
+        return self.vault, self.generation
+
+    def admit(self, generation):
+        return generation == self.generation
+
+
+def _reload_during_notes_reading(monkeypatch, provider, to):
+    """Publish ``to`` right after the guard reads the notes settings for the ``at``-th time
+    (a reload landing between the notes reading and the admission it decides)."""
+
+    real = NL.tend_settings
+    plan = {"at": None, "readings": 0}
+
+    def reading(vault):
+        out = real(vault)
+        plan["readings"] += 1
+        if plan["at"] == plan["readings"]:
+            provider.publish(to)
+        return out
+
+    monkeypatch.setattr(NL, "tend_settings", reading)
+    return plan
+
+
+def test_re_f2_a_reload_during_the_requests_admission_refuses_it(tmp_path, monkeypatch):
+    """Codex re-review F2: the notes were read on one published snapshot and a reload that
+    switches them off is published before the protection check reads the next: both are
+    judged on one snapshot, so the request is refused and nothing is sent or written."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    vault, target = _target(paths, repository, goal_id)
+    settings = NL.tend_settings(vault)
+    provider = _Published(vault)
+    plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
+    plan["at"] = 1  # the request's admission (the fake client is gated once, before its call)
+    before = table_counts(repository)
+    result = NL.judge_target(vault, repository, target, settings=settings, client=notes, live_vault=provider)
+    assert result.status == "switched_off" and notes.calls == 0
+    assert table_counts(repository) == before
+
+
+def test_re_f2_the_composed_gate_admits_on_one_snapshot(tmp_path, monkeypatch):
+    """The request gate itself (a real transport's admission of each physical request):
+    a reload published between the notes reading and the protection check is refused,
+    and every later admission and record of the judgment is refused too."""
+
+    from learnloop.source_retrieval import section_coverage as SC
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    vault, target = _target(paths, repository, goal_id)
+    provider = _Published(vault)
+    plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
+    guard = NL.NotesGuard(vault, NL.tend_settings(vault), live_vault=provider).with_coverage(
+        SC.Library(vault, repository), [(target.extraction_id, target.section_id)])
+    plan["at"] = plan["readings"] + 1  # the admission's notes reading
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard.admit(notes, purpose="note_link_judge", prompt="p", budget=None)
+    provider.publish(vault)  # switched on again: the judgment still refuses
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard.check("recording note links")
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard.check_notes("recording which notes show")
+
+
+def test_re_f2_a_reload_during_the_records_check_records_nothing(tmp_path, monkeypatch):
+    """Codex re-review F2 (persistence): the answer came back, then a reload switching the
+    notes off is published while the record's check reads the notes settings: nothing is
+    written."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch)
+    vault, target = _target(paths, repository, goal_id)
+    settings = NL.tend_settings(vault)
+    provider = _Published(vault)
+    plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
+    notes = NoteLinkFake(on_call=lambda: plan.update(at=plan["readings"] + 1))  # the next reading: the record's
+    with repository.connection() as connection:
+        ledger_before = connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0]
+    result = NL.judge_target(vault, repository, target, settings=settings, client=notes, live_vault=provider)
+    assert result.status == "switched_off" and notes.calls == 1
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0] == ledger_before
+    assert _count(repository, "learner_notes") == 0 and _count(repository, "learner_note_links") == 0
+
+
+def test_re_f2_an_unchanged_reload_still_links(tmp_path, monkeypatch):
+    """A reload that changes nothing the notes depend on is read again and admitted."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    vault, target = _target(paths, repository, goal_id)
+    provider = _Published(vault)
+    plan = _reload_during_notes_reading(monkeypatch, provider, load_vault(paths.root))
+    plan["at"] = 2
+    result = NL.judge_target(vault, repository, target, settings=NL.tend_settings(vault), client=notes,
+                             live_vault=provider)
+    assert result.status == "linked" and notes.calls == 1
+
+
+def _set_note(fake_tend, entry, text, content_hash):
+    Path(entry["hit"]["path"]).write_text(text, encoding="utf-8")
+    entry["hit"]["hash"] = content_hash
+    fake_tend.save()
+
+
+def test_re_f13_a_note_linked_by_hand_changed_and_changed_back_shows_its_text_now(tmp_path, monkeypatch):
+    """Codex re-review F13: a note linked by hand reads A, then B, then A again: the link
+    shows A (the snapshot read last), A's snapshot is reused (no new row) and no link row
+    (no new acceptance) is written."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    text_a, hash_a = Path(entry["hit"]["path"]).read_text(encoding="utf-8"), entry["hit"]["hash"]
+    vault = load_vault(paths.root)
+    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    assert refresh() == 1 and all("Version B" in text for text in _hand_texts(ctx))
+    _set_note(fake_tend, entry, text_a, hash_a)
+    assert refresh() == 1
+    texts = _hand_texts(ctx)
+    assert texts and all("Worked the 2x2 eigen example" in text and "Version B" not in text for text in texts)
+    assert _count(repository, "learner_notes") == 2 and _count(repository, "learner_note_links") == 1
+    assert refresh() == 0  # unchanged since: nothing more is written
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    assert refresh() == 1 and all("Version B" in text for text in _hand_texts(ctx))
+    assert _count(repository, "learner_notes") == 2 and _count(repository, "learner_note_links") == 1
+
+
+def _tend_searches(fake_tend) -> int:
+    return sum(1 for argv in fake_tend.calls() if "search" in argv)
+
+
+def test_re_f14_a_waiting_run_is_not_restarted_by_every_read(tmp_path, monkeypatch):
+    """Codex re-review F14: a run that waits is not restarted by the reads that poll it
+    (each would search tend again, and the next poll would come at the running cadence):
+    only once the wait has passed, or when the learner asks again (``retry``)."""
+
+    from learnloop_sidecar.handlers import notes as NH
+
+    metered = MeteredNoteLinkFake()
+    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch, notes=metered)
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(NH, "_monotonic", lambda: clock["now"])
+    assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
+    searches = _tend_searches(fake_tend)
+    assert searches > 0
+    for _poll in range(3):
+        assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
+    assert _tend_searches(fake_tend) == searches  # the polls restarted nothing
+    clock["now"] += NL.WAITING_RETRY_SECONDS
+    assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
+    assert _tend_searches(fake_tend) > searches  # the wait passed: tried again once
+    searches = _tend_searches(fake_tend)
+    assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
+    assert _tend_searches(fake_tend) == searches
+    assert call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})["linking"] == "waiting"
+    assert _tend_searches(fake_tend) > searches  # asked again: tried now
+    assert metered.calls == 0

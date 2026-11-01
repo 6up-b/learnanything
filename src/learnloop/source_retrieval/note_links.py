@@ -44,9 +44,11 @@ hidden link stays hidden. On a model's proposal the learner's word is a decision
 (Codex review F6): a hide hides the note for that topic, and *undo* (``keep``) shows the
 topic's current proposal again, never the proposal the hide was made on. The learner can
 link a note by hand from the Reader (``authorship = 'learner'``, ``accepted``); such a
-link shows its note's newest snapshot, and the background run refreshes that snapshot
-(the heading found again through tend first, Codex review F8) without writing a link
-row, and only while the learner's link still stands (Codex review F9).
+link shows its note's current snapshot (its text when last read: a current-snapshot
+marker, Codex re-review F13, so a note changed back shows its earlier text again), and
+the background run refreshes it (the heading found again through tend first, Codex
+review F8) without writing a link row, and only while the learner's link still stands
+(Codex review F9).
 
 **A note is never a source, a generation input or evidence**: nothing here writes a
 source artifact, an item, an attempt, a claim, a self-report or a reading opportunity,
@@ -95,6 +97,18 @@ LEDGER_RIGHT = "learner_note"
 SHOWN_TASK = "note_link_shown"
 SHOWN_VERSION = "note_link_shown.v1"
 SHOWN_LEFT = "deliverable_topic"
+#: The current-snapshot marker (Codex re-review F13): which snapshot of a note it shows now
+#: (its text when last read), so a note changed back to an earlier text shows that text.
+CURRENT_TASK = "note_snapshot_current"
+CURRENT_VERSION = "note_snapshot_current.v1"
+CURRENT_LEFT = "learner_note"
+CURRENT_RIGHT = "learner_note_snapshot"
+#: ``keep`` (a guardrail, not a model parameter: a bound on how often a run that waits for
+#: the plan or tend searches tend again; Codex re-review F14): a run that waited is
+#: started again by a read of the path only once this long has passed since it stopped
+#: (the learner asking again, ``retry``, starts it at once). The Reader's waiting poll
+#: (``NOTES_POLL_MS.waiting``) is the same minute.
+WAITING_RETRY_SECONDS = 60.0
 #: The state of a topic tend found no readable candidate for: nothing shows.
 NO_CANDIDATES_STATE = "none"
 #: ``LEARNLOOP_NOTE_LINK_MODELS=off``: no real client is resolved (the test suite sets
@@ -175,35 +189,41 @@ class NotesGuard:
     (a request gate, composed with C0a's :class:`SC.CoverageGuard` when given) and before
     every record. It admits only while ``notes.enabled`` is on, tend is present, and the
     allowlist, Pocket Notes folders and ``lexical_only`` are the ones the run started
-    with. The first refusal refuses every later request and record of the run."""
+    with. The first refusal refuses every later request and record of the run.
 
-    def __init__(self, vault: Any, settings: NT.TendSettings, *, live_vault: Callable[[], Any] | None = None,
-                 coverage: SC.CoverageGuard | None = None) -> None:
+    Generation-bound (Codex re-review F2), as the coverage guard: the provider's published
+    snapshot is read once and admitted only if it is still the published one when the
+    verdict is reached (a reload meanwhile is read again, up to ``SC.RELOAD_RETRIES``
+    times, then refused). Composed with a judgment's protection check
+    (:meth:`with_coverage`), the notes' authorization and the protection are judged on
+    that *one* snapshot, at each request's final admission and before each record."""
+
+    def __init__(self, vault: Any, settings: NT.TendSettings, *, live_vault: Callable[[], Any] | None = None) -> None:
         self._root = Path(vault.root).resolve()
         self._authorized = _authorization(settings)
         self._live = live_vault
-        self._coverage = coverage
-        self._outer = None if coverage is not None else active_request_gate()
+        self._coverage: SC.CoverageGuard | None = None
+        self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the run may send or record nothing more (None: it may).
         self.changed: str | None = None
 
-    def with_coverage(self, coverage: SC.CoverageGuard) -> "NotesGuard":
-        """The same authorization composed with one judgment's protection check."""
+    def with_coverage(self, library: SC.Library, keys: Iterable[tuple[str, str]]) -> "NotesGuard":
+        """The same authorization composed with one judgment's protection check over
+        ``keys``: both judged on one published snapshot (Codex re-review F2)."""
 
         guard = NotesGuard.__new__(NotesGuard)
         guard.__dict__.update(self.__dict__)
-        guard._coverage = coverage
-        guard._outer = None
+        guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=self._refusal_in,
+                                           also_refusal=NotesSwitchedOff)
+        guard._outer = None  # the coverage guard composes with the outer gate itself
         guard._lock = threading.Lock()
         guard.changed = self.changed
         return guard
 
-    def _refusal(self) -> str | None:
-        try:
-            vault = self._live() if self._live is not None else SC.vault_on_disk(self._root)
-        except Exception:  # noqa: BLE001 - an unreadable vault authorizes nothing
-            return "the notes settings could not be read"
+    def _refusal_in(self, vault: Any) -> str | None:
+        """Why ``vault`` (one published snapshot) authorizes nothing more (None: it does)."""
+
         if vault is None or Path(vault.root).resolve() != self._root:
             return "another vault is open"
         try:
@@ -216,6 +236,34 @@ class NotesGuard:
             return "the notes settings changed (the folders LearnLoop may read, or words-only search)"
         return None
 
+    def _refusal(self) -> str | None:
+        unreadable = "the notes settings could not be read"
+        for _attempt in range(1 + SC.RELOAD_RETRIES):
+            try:
+                vault, generation = SC.published_snapshot(self._live, self._root)
+            except Exception:  # noqa: BLE001 - an unreadable vault authorizes nothing
+                return unreadable
+            reason = self._refusal_in(vault)
+            try:
+                published = SC.still_published(self._live, generation)
+            except Exception:  # noqa: BLE001 - an unreadable provider never admits
+                return unreadable
+            if published:
+                return reason
+        return "the vault kept being reloaded while the notes settings were read"
+
+    def _refuse_if_changed(self, purpose: str) -> None:
+        with self._lock:
+            if self.changed is not None:
+                raise NotesSwitchedOff(f"{purpose} refused: {self.changed}")
+
+    def _adopt(self) -> None:
+        """The composed check refused on the notes: so does every later check of this guard."""
+
+        with self._lock:
+            if self.changed is None and self._coverage is not None:
+                self.changed = self._coverage.changed
+
     def check_notes(self, purpose: str = "request") -> None:
         """Raise :class:`NotesSwitchedOff` when the run may send or record nothing more."""
 
@@ -226,16 +274,28 @@ class NotesGuard:
                 raise NotesSwitchedOff(f"{purpose} refused: {self.changed}")
 
     def check(self, purpose: str = "request") -> None:
-        self.check_notes(purpose)
-        if self._coverage is not None:
+        """The notes (and, composed, the protection, on the same snapshot)."""
+
+        if self._coverage is None:
+            self.check_notes(purpose)
+            return
+        self._refuse_if_changed(purpose)
+        try:
             self._coverage.check(purpose)
+        except NotesSwitchedOff:
+            self._adopt()
+            raise
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
-        # The notes first (nothing is reserved yet), then the protection check, which
-        # composes with any outer gate itself.
         if self._coverage is not None:
-            self.check_notes(purpose)
-            return self._coverage.admit(client, purpose=purpose, prompt=prompt, budget=budget)
+            # Refused already: nothing is reserved. Otherwise the coverage guard admits the
+            # outer gate, then judges the notes and the protection on one snapshot.
+            self._refuse_if_changed(purpose)
+            try:
+                return self._coverage.admit(client, purpose=purpose, prompt=prompt, budget=budget)
+            except NotesSwitchedOff:
+                self._adopt()
+                raise
         admission = None if self._outer is None else self._outer.admit(client, purpose=purpose, prompt=prompt,
                                                                        budget=budget)
         try:
@@ -538,8 +598,7 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
     problem = route.problem()
     if problem is not None:
         return JudgeResult("unavailable", lo, state_key=key, reason=problem.reason, message=problem.message)
-    guard = notes_guard.with_coverage(
-        SC.CoverageGuard(library, [(target.extraction_id, target.section_id)], live_vault=live_vault))
+    guard = notes_guard.with_coverage(library, [(target.extraction_id, target.section_id)])
     prompt = build_prompt(target, lead, notes)
     by_id = {f"n{index}": note for index, note in enumerate(notes, start=1)}
     try:
@@ -597,14 +656,24 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
 
 
 def _snapshot(connection: Any, note: NT.NoteText, now: str) -> str:
-    """The note's snapshot (stored once per content hash; only ever for a linked note)."""
+    """The note's snapshot (stored once per content hash; only ever for a linked note),
+    made the snapshot the note shows now (Codex re-review F13: a marker is appended when
+    it was not, a text the note had before included). Never a link row."""
 
-    return store.insert_note(connection, {
-        "id": "ln_" + new_ulid(), "note_key": note.hit.note_key, "path": note.hit.path,
+    note_key = note.hit.note_key
+    current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
+    snapshot_id = store.insert_note(connection, {
+        "id": "ln_" + new_ulid(), "note_key": note_key, "path": note.hit.path,
         "heading_path": note.hit.heading_path, "line": note.hit.line, "content_hash": _content_hash(note),
         "title": note.hit.title, "heading": note.hit.heading, "captured_on": note.hit.captured_on,
         "origin": note.hit.origin if note.hit.origin in NT.ORIGINS else "tend", "text_md": note.text,
         "truncated": 1 if note.truncated else 0, "created_at": now})
+    if current is None or str(current["id"]) != snapshot_id:
+        append_judgment(
+            connection, task=CURRENT_TASK, left_kind=CURRENT_LEFT, left_id=opaque(note_key), right_kind=CURRENT_RIGHT,
+            right_id=snapshot_id, judge="exact_key", prompt_version=CURRENT_VERSION,
+            input_hash=_content_hash(note), verdict="current", rationale="{}", created_at=now)
+    return snapshot_id
 
 
 @dataclass(frozen=True)
@@ -674,8 +743,9 @@ def _resolve(settings: NT.TendSettings, note: Mapping[str, Any]) -> NT.NoteHit |
 def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.TendSettings,
                           clock: Clock | None = None, guard: NotesGuard | None = None) -> int:
     """Read again each note the learner linked by hand (and still keeps), found again
-    through tend first (Codex review F8): a changed text is a new snapshot, which the
-    link shows (its note's newest snapshot). No link row is written (refreshing is never
+    through tend first (Codex review F8): a changed text is a new snapshot, or the
+    earlier snapshot of the same text made current again (Codex re-review F13), which the
+    link shows (its note's current snapshot). No link row is written (refreshing is never
     a new acceptance), and a note the learner hid meanwhile is not refreshed: the
     learner's word is read again inside the write (Codex review F9). Returns how many
     were refreshed."""
@@ -687,7 +757,7 @@ def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.Te
     if not kept:
         return 0
     with repository.connection() as connection:
-        latest = store.latest_notes(connection, (row["note_key"] for row in kept))
+        latest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in kept))
     resolved: dict[str, NT.NoteHit] = {}
     for note_key, note in latest.items():
         hit = _resolve(settings, note)
@@ -711,8 +781,11 @@ def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.Te
             if not still:
                 continue  # hidden (or changed) meanwhile: the learner's newest word stands
             guard.check_notes("refreshing a note you linked")
-            if store.snapshot(connection, note_key, _content_hash(read)) is not None:
-                continue
+            current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
+            if current is not None and current["content_hash"] == _content_hash(read):
+                continue  # another writer made it current meanwhile
+            # A new text is a new snapshot; a text the note had before is that snapshot,
+            # current again (Codex re-review F13). Neither is a new acceptance.
             _snapshot(connection, read, now)
             refreshed += 1
     return refreshed
@@ -745,7 +818,7 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     hidden link stays hidden. On a proposal that word is a decision only (Codex review
     F6): a kept one shows the topic's *current* proposal (its snapshot, how and anchor),
     never the proposal the learner's row was copied from. A link made by hand shows its
-    note's newest snapshot."""
+    note's current snapshot (Codex re-review F13)."""
 
     if not rows:
         return []
@@ -765,7 +838,7 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     by_hand = [row for row in shown.values() if row["authorship"] == "learner"]
     with repository.connection() as connection:
         notes = store.notes_by_id(connection, (row["note_id"] for row in shown.values() if row["authorship"] == "ai"))
-        newest = store.latest_notes(connection, (row["note_key"] for row in by_hand))
+        newest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in by_hand))
     views = []
     for row in sorted(shown.values(), key=lambda r: (str(r["created_at"]), str(r["id"]))):
         note = notes.get(str(row["note_id"])) if row["authorship"] == "ai" else newest.get(str(row["note_key"]))

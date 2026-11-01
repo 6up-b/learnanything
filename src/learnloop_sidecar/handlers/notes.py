@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,8 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
 LOG = logging.getLogger(__name__)
+#: The clock a waiting run's retry time is read on (a test sets it).
+_monotonic = time.monotonic
 
 #: Every RPC this module registers (pinned desktop-only).
 NOTES_RPCS: tuple[str, ...] = (
@@ -123,7 +126,9 @@ def _spawn(ctx: SidecarContext, name: str, run: Any) -> None:
 def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, targets: list[NL.Target], *,
           retry: bool) -> None:
     """Start the deliverable's note linking in the background: once a local day per path
-    (its topics and their passages), again after a run that waited for the plan."""
+    (its topics and their passages), again after a run that waited for the plan or tend,
+    once ``NL.WAITING_RETRY_SECONDS`` have passed since it stopped (Codex re-review F14:
+    the reads polling a waiting run never restart it each time), or at once on ``retry``."""
 
     from learnloop.daily_plan.engine import local_date
 
@@ -137,6 +142,8 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
         if state.get("state") == "running":
             return
         if work.started.get(goal_id) == key and state.get("state") == "done" and not retry:
+            return
+        if state.get("state") == "waiting" and not retry and _monotonic() < float(state.get("retry_at") or 0.0):
             return
         work.started[goal_id] = key
         work.state[goal_id] = {"state": "running"}
@@ -172,6 +179,8 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
         except BaseException as exc:  # noqa: BLE001 - a failed run answers the next read, never the loop
             LOG.warning("note linking failed: %s", type(exc).__name__, exc_info=exc)
             outcome = {"state": "waiting", "status": "failed", "reason": type(exc).__name__}
+        if outcome["state"] == "waiting":
+            outcome["retry_at"] = _monotonic() + NL.WAITING_RETRY_SECONDS
         with work.lock:
             work.state[goal_id] = outcome
 
