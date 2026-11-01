@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/recapCopy.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/recapCopy.ts"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "e18e9fb8b5f903f06535b1d65a98ebad905273af"
+source_commit_timestamp: "2026-10-31T14:17:21-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/recapCopy.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/recapCopy.ts) |
-| Source lines | 73 |
+| Source lines | 116 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c89c84851bd6efb2023a8365288d63d797f70a63` |
-| Commit timestamp | `2026-10-17T15:04:44-04:00` |
+| Source commit | `e18e9fb8b5f903f06535b1d65a98ebad905273af` |
+| Commit timestamp | `2026-10-31T14:17:21-04:00` |
 
 ## Activation and status evidence
 
@@ -66,6 +66,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function aboutMinutes(minutes: number): string | null` — function, line 44
 - `export function observationLine(kind: ReaderObservationKind | string, quoted?: string | null, observed?: Record<string, unknown> | null): string` — function, line 51
 - `export function stepsLabel(count: number): string` — function, line 71
+- `export const COMING_UP_COPY =` — const, line 77
+- `export function retiredCheckLine( line:` — function, line 93
+- `export function upcomingDay(day: string, now: Date = new Date()): string` — function, line 102
+- `export function aboutCheckMinutes(minutes: number | null | undefined): string | null` — function, line 113
 
 ## Internal implementation anchors
 
@@ -75,6 +79,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const when = new Date(iso)` — const, line 36
 - `const days = (now.getTime() - when.getTime()) / 86_400_000` — const, line 38
 - `const whose = observed?.answerBasis === "model" ? "LearnLoop's model's answer" : "the book's"` — const, line 54
+- `const match = /^(\d` — const, line 103
+- `const when = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))` — const, line 105
+- `const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())` — const, line 106
+- `const days = Math.round((when.getTime() - today.getTime()) / 86_400_000)` — const, line 107
 
 ## Who imports or calls it
 
@@ -82,7 +90,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `RECAP_COPY`; references `RECAP_COPY`
-- [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export: `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `shortDay`, `stepsLabel`; references `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `shortDay`, `stepsLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export: `COMING_UP_COPY`, `aboutCheckMinutes`, `upcomingDay`; references `COMING_UP_COPY`, `aboutCheckMinutes`, `upcomingDay`
+- [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export: `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `retiredCheckLine`, `shortDay`, `stepsLabel`; references `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `retiredCheckLine`, `shortDay`, `stepsLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export: `RECAP_COPY`; references `RECAP_COPY`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|src/screens/reader/WrapUpPanel.tsx]] — import-or-re-export: `RECAP_COPY`, `observationLine`; references `RECAP_COPY`, `observationLine`
 
@@ -107,6 +116,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/recapCopyBasis.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/recapCopyBasis.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/ComingUp.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ComingUp.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "7d758bada6a6c22ef6150798a279d918f4049bd1"
+source_commit_timestamp: "2026-10-27T20:48:01-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx) |
-| Source lines | 118 |
+| Source lines | 122 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `7d758bada6a6c22ef6150798a279d918f4049bd1` |
+| Commit timestamp | `2026-10-27T20:48:01-04:00` |
 
 ## Activation and status evidence
 
@@ -60,22 +60,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface WrapUpPanelProps` — interface, line 15
-- `export function WrapUpPanel(` — function, line 43
+- `export interface WrapUpPanelProps` — interface, line 16
+- `export function WrapUpPanel(` — function, line 46
 
 ## Internal implementation anchors
 
-- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 26
-- `const headingStyle: CSSProperties =` — const, line 33
-- `const listStyle: CSSProperties =` — const, line 34
-- `const lineStyle: CSSProperties =` — const, line 35
-- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 37
-- `const onKey = (event: KeyboardEvent)` — const, line 46
-- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 54
-- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 57
-- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 58
-- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 59
-- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 61
+- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 29
+- `const headingStyle: CSSProperties =` — const, line 36
+- `const listStyle: CSSProperties =` — const, line 37
+- `const lineStyle: CSSProperties =` — const, line 38
+- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 40
+- `const onKey = (event: KeyboardEvent)` — const, line 49
+- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 57
+- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 60
+- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 61
+- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 62
+- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 64
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderWrapUpActionDto`, `ReaderWrapUpDto`, `ReaderWrapUpInquiryLineDto`, `ReaderWrapUpReinforceLineDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export; imports `ComingUp`, `ComingUpProps`
 - [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export; imports `Quoted`, `RecapLink`
 - [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]] — import-or-re-export; imports `RECAP_COPY`, `observationLine`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`

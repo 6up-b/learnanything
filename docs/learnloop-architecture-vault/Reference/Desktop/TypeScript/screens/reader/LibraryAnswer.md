@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx"
-source_commit: "1b846449d64d821865c07709b3d17092db9afe2a"
-source_commit_timestamp: "2026-10-31T22:16:54-04:00"
+source_commit: "0d3a5b4235a2cdca57d50efb1e15faa754f9cb2f"
+source_commit_timestamp: "2026-11-01T00:12:47-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx) |
-| Source lines | 682 |
+| Source lines | 693 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `1b846449d64d821865c07709b3d17092db9afe2a` |
-| Commit timestamp | `2026-10-31T22:16:54-04:00` |
+| Source commit | `0d3a5b4235a2cdca57d50efb1e15faa754f9cb2f` |
+| Commit timestamp | `2026-11-01T00:12:47-04:00` |
 
 ## Activation and status evidence
 
@@ -101,14 +101,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const prerequisites = ask?.expansions.find((expansion)` — const, line 383
 - `const perspectiveList = ()` — const, line 384
 - `const pinsCompare = state.compare.phase !== "idle" ? ( <ModelActionState phase=` — const, line 389
-- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 407
-- `const target = event.target as HTMLElement` — const, line 408
-- `const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[data-library-hit]"))` — const, line 416
-- `const current = target.closest<HTMLElement>("[data-library-hit]")` — const, line 417
-- `const key = current?.getAttribute("data-library-hit") ?? null` — const, line 418
-- `const at = current ? items.indexOf(current) : -1` — const, line 422
-- `const next = items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]` — const, line 423
-- `const hit = hits.get(key)` — const, line 441
+- `const pinsTutor = ( <>` — const, line 408
+- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 460
+- `const target = event.target as HTMLElement` — const, line 461
+- `const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[data-library-hit]"))` — const, line 469
+- `const current = target.closest<HTMLElement>("[data-library-hit]")` — const, line 470
+- `const key = current?.getAttribute("data-library-hit") ?? null` — const, line 471
+- `const at = current ? items.indexOf(current) : -1` — const, line 475
+- `const next = items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]` — const, line 476
+- `const hit = hits.get(key)` — const, line 494
 
 ## Who imports or calls it
 

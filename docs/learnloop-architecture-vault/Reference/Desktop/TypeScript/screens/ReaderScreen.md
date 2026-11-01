@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
-source_commit: "2ce89d4f4134f634f37b200cae73c52ac7a9cec0"
-source_commit_timestamp: "2026-10-31T19:42:55-04:00"
+source_commit: "75044d17e2317bd008923da79bf1eb41ae17654d"
+source_commit_timestamp: "2026-10-31T22:08:30-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ReaderScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.tsx) |
-| Source lines | 3763 |
+| Source lines | 3773 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2ce89d4f4134f634f37b200cae73c52ac7a9cec0` |
-| Commit timestamp | `2026-10-31T19:42:55-04:00` |
+| Source commit | `75044d17e2317bd008923da79bf1eb41ae17654d` |
+| Commit timestamp | `2026-10-31T22:08:30-04:00` |
 
 ## Activation and status evidence
 
@@ -452,7 +452,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const active = railTab === tab` — const, line 3249
 - `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 3253
 - `const marked = tab === "ask" && askTabMarked && !active` — const, line 3254
-- `const params = (action.params ??` — const, line 3396
+- `const params = (action.params ??` — const, line 3401
 
 ## Who imports or calls it
 

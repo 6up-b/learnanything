@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/WrapUpOffer.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/WrapUpOffer.tsx"
-source_commit: "c94882abe7a8f5a7cde491603d6abba8a4c0e2db"
-source_commit_timestamp: "2026-10-22T16:58:30-04:00"
+source_commit: "7d758bada6a6c22ef6150798a279d918f4049bd1"
+source_commit_timestamp: "2026-10-27T20:48:01-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/WrapUpOffer.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUpOffer.tsx) |
-| Source lines | 102 |
+| Source lines | 112 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c94882abe7a8f5a7cde491603d6abba8a4c0e2db` |
-| Commit timestamp | `2026-10-22T16:58:30-04:00` |
+| Source commit | `7d758bada6a6c22ef6150798a279d918f4049bd1` |
+| Commit timestamp | `2026-10-27T20:48:01-04:00` |
 
 ## Activation and status evidence
 
