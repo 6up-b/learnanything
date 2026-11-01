@@ -454,6 +454,43 @@ def test_a_real_missed_prediction_reaches_the_section_through_its_figure(tmp_pat
     assert other["missed_predictions"] == [] and other["formative_records"] == []
 
 
+def test_a_session_that_touched_the_lo_only_through_a_figure_is_kept_for_its_prediction(tmp_path, monkeypatch):
+    """Final verify F6, its reproduction: the session's summary names LO A (its
+    other work), its missed prediction's figure is on a distinct LO B, and the
+    prediction names no facet or span. Asking for B keeps the session for the
+    prediction (figure, then passage, then LO) instead of discarding it before
+    the provenance is read."""
+
+    import learnloop.reader.reader_progression as progression
+    import learnloop.reader.recap as recap
+
+    lo_b = "lo_figure_only_b"
+    spans = {"s1": [lo_b], "s2": [LO]}  # the figure's passage is on B; the inquiry's on A
+    monkeypatch.setattr(recap, "learning_objects_for_span", lambda *_a, span_id=None, **_k: spans.get(span_id, []))
+    monkeypatch.setattr(progression, "learning_objects_for_span",
+                        lambda *_a, span_id=None, **_k: spans.get(span_id, []))
+    vault, repo, _session = _seeded(tmp_path)
+    ask(vault, repo, "WHY_A_7731", 5, span_id="s2")
+    prediction_id = _missed_prediction(repo, 10)
+    session = RS.sessions_for_source(repo, EXT)[0]
+    row = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]))
+    summary = row["summary"]
+    assert summary["learning_objects_touched"] == [LO]
+    [record] = summary["predictions_missed"]
+    assert record["facet_candidates"] == [] and record["span_ids"] == []
+    activity = RR.reader_activity_for_card(vault, repo, [lo_b], iso(400))
+    assert [r["source_event_ids"] for r in activity["missed_predictions"]] == [[prediction_id]]
+    assert [r["source_event_ids"] for r in activity["formative_records"]] == [[prediction_id]]
+    # The session's other work stays scoped to its own LO: nothing of A's leaks into B's lists.
+    assert activity["open_inquiries"] == [] and activity["assisted_only"] == []
+    assert activity["pending_followups"] == []
+    # A keeps its inquiry and does not take B's prediction; an unrelated LO still sees nothing.
+    for_a = RR.reader_activity_for_card(vault, repo, [LO], iso(400))
+    assert len(for_a["open_inquiries"]) == 1 and for_a["missed_predictions"] == []
+    other = RR.reader_activity_for_card(vault, repo, ["lo_unrelated"], iso(400))
+    assert other["missed_predictions"] == [] and other["formative_records"] == []
+
+
 # -- F8: open hypotheses as they stood, once each -------------------------------------------------
 
 

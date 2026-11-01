@@ -36,16 +36,18 @@ predecessor's byte for byte. **Nothing in it is evidence** (W1): no scoring,
 scheduling, projection, grading or serving path reads it, and the router
 never cites it as evidence.
 
-**As of** (Codex review F5). Every read is bounded by ``as_of``: digest rows
-created and ended before it; an inquiry's status from its
+**As of** (Codex review F5; ruling R2). Every event-timed read is bounded by
+``as_of``: digest rows created and ended before it; an inquiry's status from its
 ``inquiry_status_set`` events before it; a follow-up's disposition and date
 from its commitment events and versions before it; a claim's answer from its
 facet curve's points before it; a gap's reversal and a probe episode's close
-before it; the narrative from its ``judgment_ledger`` verdict before it. Two
+before it; the narrative from its ``judgment_ledger`` verdict before it. Three
 inputs are read as they are now, because no history of them is kept: a
 rival's facet marginal and a causal factor's pending decision (they stay
-listed, with their source rows) and a digest row's summary rewritten by a
-later re-plan of the same session.
+listed, with their source rows) and a digest row's summary and valuation,
+which are the row's latest version (a later re-plan of the same session
+shows through). No production caller reads a historical cutoff; see
+:func:`reader_activity_for_card`.
 
 Its reads are bounded by RW6b's digest rows (one per reader session with
 activity) whose sessions touched these LOs. Absent (None) with
@@ -484,10 +486,7 @@ def _prediction_los(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
 
     # Both lists that carry a missed prediction (re-review F6): the session's
     # missed predictions and its formative records.
-    wanted = sorted({str(event) for row in rows for key in ("predictions_missed", "observations")
-                     for record in (row.get("summary") or {}).get(key) or ()
-                     if isinstance(record, Mapping) and record.get("kind") == "prediction_missed"
-                     for event in record.get("source_event_ids") or ()})
+    wanted = sorted({event for row in rows for event in _prediction_events(row.get("summary") or {})})
     if not wanted:
         return {}
     with repository.connection() as connection:
@@ -515,6 +514,23 @@ def _prediction_los(vault: Any, repository: Any, rows: Sequence[Mapping[str, Any
                 vault, repository, extraction_id=str(row["extraction_id"]), span_id=span_id))
         out[str(row["prediction_id"])] = los
     return out
+
+
+def _prediction_events(summary: Mapping[str, Any]) -> list[str]:
+    """The source events of the summary's missed figure predictions (both
+    lists that carry one: missed predictions and formative records)."""
+
+    return [str(event) for key in ("predictions_missed", "observations")
+            for record in summary.get(key) or ()
+            if isinstance(record, Mapping) and record.get("kind") == "prediction_missed"
+            for event in record.get("source_event_ids") or ()]
+
+
+def _predicts_on(summary: Mapping[str, Any], prediction_los: Mapping[str, set[str]], lo_ids: set[str]) -> bool:
+    """Whether a missed prediction of the session resolves, through its
+    figure's passages, to one of these LOs (final verify F6)."""
+
+    return any(prediction_los.get(event, set()) & lo_ids for event in _prediction_events(summary))
 
 
 def _records(rows: Sequence[Mapping[str, Any]], scope: set[str], key: str,
@@ -620,7 +636,21 @@ def _narrative(repository: Any, rows: Sequence[Mapping[str, Any]], cutoff: datet
 def reader_activity_for_card(vault: Any, repository: Any, learning_object_ids: Sequence[str],
                              as_of: str | None) -> dict[str, Any] | None:
     """``ReaderActivityV1`` for these LOs, read strictly before ``as_of``
-    (a pure read; None when switched off)."""
+    (a pure read; None when switched off).
+
+    **The ``as_of`` contract** (orchestrator ruling R2 on final verify F5).
+    ``as_of`` bounds the event-timed rows: which digest rows exist (created and
+    ended before it), inquiry statuses, follow-up dispositions and dates,
+    claim answers, gap reversals, probe-episode closes and the narrative's
+    verdict. It does not version a digest row's ``summary_json`` and
+    ``valuation_json``: those are the row's latest version, so a re-plan
+    after ``as_of`` (part 1 rewrites an ``incomplete`` row in place) shows
+    through, as do a rival's facet marginal and a causal factor's pending
+    decision. No production caller reconstructs a historical card: the card
+    gatherer reads at the decision's own time, and the stored card payload
+    (``router_decision_payloads``) is the replay record. A caller that needs
+    exact historical cards needs digest versions first (open item, router
+    R2)."""
 
     if not reader_activity_enabled(vault):
         return None
@@ -636,11 +666,17 @@ def reader_activity_for_card(vault: Any, repository: Any, learning_object_ids: S
             rows: list[dict[str, Any]] = []
         else:
             rows = RDG.digests(connection)
-    rows = [row for row in rows if _before(row.get("ended_at"), cutoff) and _before(row.get("created_at"), cutoff)
-            and _touches(row.get("summary") or {}, los, facets)]
+    rows = [row for row in rows if _before(row.get("ended_at"), cutoff) and _before(row.get("created_at"), cutoff)]
+    # A missed prediction names no facet or span of its own, and the summary's
+    # touched LOs need not include its figure's (final verify F6): its
+    # provenance (figure, then passage, then LO) is resolved before rows are
+    # selected, so a session that touched these LOs only through a figure is
+    # kept for its prediction.
+    prediction_los = _prediction_los(vault, repository, rows)
+    rows = [row for row in rows if _touches(row.get("summary") or {}, los, facets)
+            or _predicts_on(row.get("summary") or {}, prediction_los, los)]
     scope = los | facets
     pending = _pending_followups(repository, rows, los, cutoff, as_of)
-    prediction_los = _prediction_los(vault, repository, rows)
     activity.update({
         "open_inquiries": _open_inquiries(vault, repository, rows, los, cutoff),
         "assisted_only": _assisted_only(vault, repository, rows, facets, los, cutoff),
