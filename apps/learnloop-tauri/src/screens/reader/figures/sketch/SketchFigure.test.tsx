@@ -281,22 +281,22 @@ it("words a partial check as the attribute it checked", () => {
 
 /** The in-process engine with the Worker's ordering (each call runs when
  *  sent), but step responses held back until released, as a slow Worker's
- *  would be. Every call is logged with the walkers it was sent. */
-function delayedSteps(log: string[], held: Array<() => void>): SketchRunnerFactory {
+ *  would be. Every call is logged with the walkers it was sent. The engine
+ *  is created before the sketch opens (`engine`), so nothing here waits on a
+ *  wasm compile: every call settles in microtasks, under the test's control. */
+function delayedSteps(log: string[], held: Array<() => void>, engine: SketchEngineHost): SketchRunnerFactory {
   return () => {
-    let created: SketchRunner | null = null;
-    const ready = newHost().then((fresh) => (created = hostRunner(fresh)));
-    const via = <T,>(call: (runner: SketchRunner) => Promise<T>) => ready.then(call);
+    const runner = hostRunner(engine);
     return {
-      load: (text) => via((runner) => runner.load(text)),
-      init: (p, s) => via((runner) => { log.push(`init ${p.walkers}`); return runner.init(p, s); }),
-      step: (p, dt, i, c) => via((runner) => {
+      load: (text) => runner.load(text),
+      init: (p, s) => { log.push(`init ${p.walkers}`); return runner.init(p, s); },
+      step: (p, dt, i, c) => {
         log.push(`step ${p.walkers}`);
         const done = runner.step(p, dt, i, c);
         return new Promise<void>((resolve, reject) => { held.push(() => { done.then(resolve, reject); }); });
-      }),
-      read: (p, i) => via((runner) => { log.push(`read ${p.walkers} ${i}`); return runner.read(p, i); }),
-      dispose: () => created?.dispose(),
+      },
+      read: (p, i) => { log.push(`read ${p.walkers} ${i}`); return runner.read(p, i); },
+      dispose: () => runner.dispose(),
     };
   };
 }
@@ -305,43 +305,77 @@ function time() {
   return document.querySelector("[data-sketch-time]")?.textContent ?? "";
 }
 
-async function settleAfterRelease(held: Array<() => void>) {
-  await act(async () => {
-    while (held.length) held.shift()!();
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  });
+/** Settle promises and React work, round by round, until `done` holds: no
+ *  wall clock (the engine is in-process and the timers are fake), so the
+ *  bound counts rounds, never milliseconds. */
+async function flushUntil(done: () => boolean, what: string, rounds = 200) {
+  for (let round = 0; round < rounds && !done(); round += 1) {
+    await act(async () => { await Promise.resolve(); });
+  }
+  if (!done()) throw new Error(`never settled: ${what}`);
+}
+
+/** Drain whatever is still queued (a fixed number of rounds past the point of interest). */
+async function drain(rounds = 50) {
+  for (let round = 0; round < rounds; round += 1) {
+    await act(async () => { await Promise.resolve(); });
+  }
+}
+
+/** Open the walk on a held-step engine, wait for its first frame, then press
+ *  play under fake timers and fire one play tick: one step(200) is in flight,
+ *  its answer held. The watchdog's timer is fake too, so a held step never
+ *  pauses the sketch however slow the machine is. */
+async function playOneHeldStep(log: string[], held: Array<() => void>) {
+  const engine = await newHost();
+  await open(sketchView(WALK), delayedSteps(log, held, engine));
+  const playButton = () => document.querySelector("[data-sketch-play]") as HTMLButtonElement | null;
+  await flushUntil(() => Boolean(playButton()) && !playButton()!.disabled && log.includes("read 200 0"), "the first frame");
+  expect(time()).toContain("t = 0 / 100");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+  fireEvent.click(playButton()!);
+  expect(held.length).toBe(0);  // play sends nothing until its first tick
+  await act(async () => { vi.advanceTimersToNextTimer(); });
+  await flushUntil(() => held.length === 1, "the first play tick's step");
+  expect(log).toEqual(["init 200", "read 200 0", "step 200"]);
+}
+
+/** Release the held step, settle everything it and the new run queued, then
+ *  let many play ticks' worth of fake time pass: nothing else may be sent. */
+async function releaseAndSettle(log: string[], held: Array<() => void>, settled: () => boolean) {
+  await act(async () => { while (held.length) held.shift()!(); });
+  await flushUntil(settled, "the new run's first frame");
+  await drain();
+  const sent = log.length;
+  await act(async () => { vi.advanceTimersByTime(WATCHDOG_MS * 4); });
+  await drain();
+  expect(log.length).toBe(sent);  // play stopped with the restart: no later step or read
+  expect(held.length).toBe(0);
 }
 
 it("never draws a superseded frame when a slider moves while a step is in flight", async () => {
   const log: string[] = [];
   const held: Array<() => void> = [];
-  await open(sketchView(WALK), delayedSteps(log, held));
-  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
-  fireEvent.click(document.querySelector("[data-sketch-play]")!);
-  await waitFor(() => expect(held.length).toBe(1));  // a step(200) sent, its answer held
+  await playOneHeldStep(log, held);
   fireEvent.change(screen.getByLabelText("walkers value"), { target: { value: "400" } });
-  await settleAfterRelease(held);
-  await waitFor(() => expect(document.querySelector('[data-sketch-element="walkers"]')?.querySelectorAll("circle").length).toBe(400));
+  expect(log).toEqual(["init 200", "read 200 0", "step 200"]);  // the new init queues behind the call in flight
+  await releaseAndSettle(log, held, () => document.querySelector('[data-sketch-element="walkers"]')?.querySelectorAll("circle").length === 400);
   expect(time()).toContain("t = 0 / 100");  // the new run's init, not the old frame's step
-  const init400 = log.indexOf("init 400");
-  expect(init400).toBeGreaterThan(log.indexOf("step 200"));  // queued behind the call in flight
-  expect(log.slice(init400).some((entry) => entry.startsWith("read 200"))).toBe(false);
-  expect(log.slice(init400).some((entry) => entry.startsWith("step"))).toBe(false);
+  // The released step's run was superseded: it reads nothing; the new run inits and reads step 0, nothing else.
+  expect(log).toEqual(["init 200", "read 200 0", "step 200", "init 400", "read 400 0"]);
 });
 
 it("never draws a superseded frame when a new sample is drawn while a step is in flight", async () => {
   const log: string[] = [];
   const held: Array<() => void> = [];
-  await open(sketchView(WALK), delayedSteps(log, held));
-  await waitFor(() => expect(time()).toContain("t = 0 / 100"));
-  fireEvent.click(document.querySelector("[data-sketch-play]")!);
-  await waitFor(() => expect(held.length).toBe(1));
+  await playOneHeldStep(log, held);
   fireEvent.click(document.querySelector("[data-sketch-new-sample]")!);
-  await settleAfterRelease(held);
-  await waitFor(() => expect(log.filter((entry) => entry === "init 200").length).toBe(2));
+  expect(log).toEqual(["init 200", "read 200 0", "step 200"]);  // the new init queues behind the call in flight
+  await releaseAndSettle(log, held, () => log.filter((entry) => entry === "init 200").length === 2 && log[log.length - 1] === "read 200 0");
   expect(time()).toContain("t = 0 / 100");
   const second = log.lastIndexOf("init 200");
   expect(log.slice(second)).toEqual(["init 200", "read 200 0"]);
+  expect(log).toEqual(["init 200", "read 200 0", "step 200", "init 200", "read 200 0"]);
 });
 
 // ---------------------------------------------------------------------------
