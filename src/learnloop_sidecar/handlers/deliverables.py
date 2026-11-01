@@ -385,16 +385,28 @@ def refresh_for_plan(ctx: SidecarContext, vault: Any, repository: Any) -> None:
         from learnloop.ai.execution import record_model_calls
         from learnloop.db.repositories import Repository
 
+        def gate_on() -> bool:
+            # C1's complete gate on the vault as it is now (fix round 5, Medium 2): asked
+            # before the job starts, before its claim, before each request and in the write.
+            from learnloop.daily_plan.engine import deliverable_plan_active
+
+            now_vault = live_vault()
+            return (now_vault is not None and Path(now_vault.root).resolve() == root
+                    and deliverable_plan_active(now_vault) and DP.plan_refresh_reason(now_vault) is None)
+
         try:
             current = live_vault()
             if current is None or Path(current.root).resolve() != root:
                 result: dict[str, Any] = {"status": "vault_switched"}
+            elif not gate_on():
+                result = {"status": "switched_off", "reason": "gate_off"}
             else:
                 worker = Repository.attach(sqlite_path)
                 with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id="curriculum.plan_refresh"):
                     result = DP.refresh_for_plan(
                         current, worker, client=client, live_vault=live_vault,
-                        in_flight=lambda goal_id, depth, state_key: _claim_path(work, goal_id, depth, state_key))
+                        in_flight=lambda goal_id, depth, state_key: _claim_path(work, goal_id, depth, state_key),
+                        still_wanted=gate_on)
         except BaseException as exc:  # noqa: BLE001 - a failed refresh leaves RW7b's plan, never the loop
             LOG.warning("the deliverable path's daily refresh failed: %s", type(exc).__name__, exc_info=exc)
             result = {"status": "failed", "reason": type(exc).__name__}

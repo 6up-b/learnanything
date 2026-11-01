@@ -25,7 +25,7 @@ from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import reading_choice as RC
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
-from tests.deliverable_fixtures import DeliverableFake
+from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
 from tests.reading_path_fixtures import call, context
 from tests.test_curriculum_c1_codex_review_fixes import _ended
 from tests.test_curriculum_c1_fix_round2 import _no_refresh
@@ -200,7 +200,7 @@ def test_m3_k0_observed_k1_prepared_and_a_concurrent_guide_open_for_k1_send_one_
 
     opened: list[dict] = []
 
-    class RefreshFake(DeliverableFake):
+    class RefreshFake(PlanDeliverableFake):
         def complete(self, request):
             if not opened:
                 # The learner opens the Guide while the refresh's K1 judgment is in flight.

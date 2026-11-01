@@ -29,7 +29,7 @@ import json
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
-from tests.deliverable_fixtures import DeliverableFake
+from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
 from tests.test_curriculum_c1_codex_review_fixes import NEAR_PRIMARIES, _ended
@@ -243,7 +243,7 @@ def test_m5_a_plan_read_while_the_guides_judgment_runs_sends_no_second_call(tmp_
     c1.clock.advance(days=1)
     nested: list[dict] = []
 
-    class GuideFake(DeliverableFake):
+    class GuideFake(PlanDeliverableFake):
         def complete(self, request):
             if not nested:
                 # The day's first plan read arrives while the Guide's judgment is in flight.
@@ -265,7 +265,7 @@ def test_m5_a_guide_open_while_the_daily_refresh_runs_sends_no_second_call(tmp_p
     c1.clock.advance(days=1)
     opened: list[dict] = []
 
-    class RefreshFake(DeliverableFake):
+    class RefreshFake(PlanDeliverableFake):
         def complete(self, request):
             if not opened:
                 # The learner opens the Guide while the quiet daily refresh is in flight.

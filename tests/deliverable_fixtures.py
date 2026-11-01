@@ -149,3 +149,12 @@ class DeliverableFake(StructuredClientFake):
     @property
     def calls(self) -> int:
         return len(self.contexts)
+
+
+class PlanDeliverableFake(DeliverableFake):
+    """``DeliverableFake`` as a subscription ChatGPT-plan route (``chatgpt_plan``): the only
+    route curriculum C1's automatic daily refresh may ask (fix round 5)."""
+
+    provider_name = "fake_plan_deliverable"
+    provider_type = "chatgpt_plan"
+

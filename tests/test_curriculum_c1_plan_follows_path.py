@@ -48,7 +48,7 @@ from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.vault.loader import load_vault
-from tests.deliverable_fixtures import DeliverableFake, build_deliverable_vault, cover_all
+from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake, build_deliverable_vault, cover_all
 from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
 from tests.reading_path_fixtures import FixedClock, PathJudgeFake, call, context
 from tests.test_plan_follows_path import HEAD, _fixture_copy, _plan_state
@@ -394,7 +394,7 @@ def test_the_daily_refresh_rejudges_quietly_before_the_plan_is_built_once_a_day(
     c1.clock.advance(days=1)
     quiet: list[bool] = []
 
-    class QuietFake(DeliverableFake):
+    class QuietFake(PlanDeliverableFake):
         def complete(self, request):
             quiet.append(plan_fallback.offers_suppressed())
             return super().complete(request)
@@ -422,7 +422,7 @@ def test_with_the_plan_down_the_plan_falls_back_to_rw7b_says_stale_and_nothing_a
 
     c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
     c1.clock.advance(days=1)
-    fake = DeliverableFake(primaries=PRIMARIES, fail=RuntimeError("plan down"))
+    fake = PlanDeliverableFake(primaries=PRIMARIES, fail=RuntimeError("plan down"))
     relayed = []
     monkeypatch.setattr(plan_fallback, "relay_hint", lambda hint: relayed.append(hint))
     ctx = context(c1.paths.root, deliverable_path_client=fake, deliverable_inline=True)
@@ -435,7 +435,7 @@ def test_with_the_plan_down_the_plan_falls_back_to_rw7b_says_stale_and_nothing_a
 
 def test_the_refresh_job_is_quiet_and_only_judges_a_stale_path(tmp_path, monkeypatch):
     c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20")
-    fake = DeliverableFake(primaries=PRIMARIES)
+    fake = PlanDeliverableFake(primaries=PRIMARIES)
     assert DP.refresh_for_plan(c1.vault, c1.repository, client=fake)["status"] == "fresh" and fake.calls == 0
     c1.clock.advance(days=1)
     assert DP.refresh_for_plan(c1.vault, c1.repository, client=fake)["status"] == "ready" and fake.calls == 1
