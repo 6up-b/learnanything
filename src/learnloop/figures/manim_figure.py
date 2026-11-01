@@ -367,7 +367,7 @@ def extract_functions(scene_code: str, functions: Sequence[Function]) -> Extract
     checkable = [f.name for f in functions if f.name not in dropped]
     if not checkable:
         return Extraction("", [], dropped)
-    body = ["# Extracted by LearnLoop: the declared functions only (no manim).", *dict.fromkeys(import_lines)]
+    body = ["# Extracted by LearnLoop: the declared functions only.", *dict.fromkeys(import_lines)]
     used = set()
     for name in checkable:
         used |= _free_reads(defs[name])
@@ -398,8 +398,12 @@ def grid(function: Function) -> list[list[float]]:
 
 
 HARNESS = '''\
-import json, math, sys
+import json, math, os, sys
 from pathlib import Path
+
+# One BLAS thread: numpy's OpenBLAS reserves memory per thread, past the address-space cap.
+for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ[name] = "1"
 
 MARKER = {marker!r}
 

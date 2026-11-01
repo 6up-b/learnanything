@@ -1488,7 +1488,16 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     pending = _rich_pending(vault, repository, request, input_hash)
     if pending is not None:
         # RW5d P2b: this input's rich figure is being built with no quick one:
-        # the same pending line, no second call.
+        # the same pending line, no second call. The request is recorded (what
+        # was asked; no figure named yet, as a rich-only request's own row).
+        gate.check("reuse")
+        try:
+            with repository.atomic():
+                store.insert_request(repository.connection(), _request_row(request, grounding, figure_id=None,
+                                                                           clock=clock))
+        except sqlite3.Error as exc:
+            raise FigureRefused(STORAGE_BUSY, "LearnLoop couldn't record this request just now (the vault is "
+                                              "busy). Try again: nothing is built twice.") from exc
         return pending
     # One build per input at a time (Codex review F7): an identical request
     # made while one runs waits for it and takes its figure, with no call.
