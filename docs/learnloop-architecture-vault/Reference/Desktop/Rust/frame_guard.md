@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src-tauri/src/frame_guard.rs"
 source_commit: "f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95"
 source_commit_timestamp: "2026-11-01T14:40:42-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/frame_guard.rs](../../../../../apps/learnloop-tauri/src-tauri/src/frame_guard.rs) |
-| Source lines | 156 |
+| Source lines | 254 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `f2835d05d57e6a0df03bbcc8e0f5a6bfdd40af95` |
 | Commit timestamp | `2026-11-01T14:40:42-05:00` |
 
@@ -60,15 +60,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `pub fn refusal(origin: Option<&str>, referer: Option<&str>) -> Option<&'static str>` — fn, line 31
-- `pub fn refusal_reason(headers: &HeaderMap) -> Option<&'static str>` — fn, line 67
+- `pub fn refusal(origin: Option<&str>, referer: Option<&str>) -> Option<&'static str>` — fn, line 67
+- `pub fn refusal_reason(headers: &HeaderMap) -> Option<&'static str>` — fn, line 112
 
 ## Internal implementation anchors
 
-- `fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str>` — fn, line 61
-- `fn the_apps_own_document_passes()` — fn, line 82
-- `fn frames_and_workers_are_refused()` — fn, line 110
-- `fn reads_the_request_headers()` — fn, line 141
+- `fn app_origin(url: &Url) -> Option<String>` — fn, line 39
+- `fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str>` — fn, line 105
+- `fn the_apps_own_document_passes()` — fn, line 127
+- `fn frames_and_workers_are_refused()` — fn, line 161
+- `fn omitted_headers_and_unexpected_origins_are_refused()` — fn, line 192
+- `fn a_replaced_same_origin_referrer_is_not_this_layers_to_catch()` — fn, line 222
+- `fn reads_the_request_headers()` — fn, line 239
 
 ## Who imports or calls it
 

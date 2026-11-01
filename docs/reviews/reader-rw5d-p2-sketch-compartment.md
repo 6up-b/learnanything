@@ -64,8 +64,13 @@ No config key was added, so nothing new to classify in `parameter_registry.py`.
   LearnLoop command runs, an invoke whose `Origin` is `null` (an opaque-origin frame) or whose `Referer` is a `blob:`,
   `data:`, `about:` (srcdoc) URL, a script asset (`/assets/…js`) or another HTML page (`/sketch-frame.html`) is
   rejected. The app's document (`/`, `/index.html`, extension-less routes, the dev origin) passes. Rust unit tests pin
-  both lists, including every Referer the first probe saw. The custom protocol carries the webview's own `Origin` and
-  `Referer` (forbidden headers for page script), so these can't be forged from a page.
+  both lists, including every Referer the first probe saw. *Corrected by the Codex review (F1):* page script can't
+  set `Origin` or `Referer` as headers, but Fetch lets a context omit its Referer (`referrer: ""`) or name any
+  same-origin URL instead. The guard now also refuses a missing Origin or Referer (the app's document sent both on
+  every call in both G-SM14 runs), an Origin that isn't one of the app's, and a Referer not on its Origin; a replaced
+  same-origin Referer stays indistinguishable at this layer. The document is authenticated by Tauri's invoke key,
+  which only the main frame's init script holds (in a closure); no Worker or frame has it
+  (`reader-rw5d-p2-sketch-compartment-codex-review.md`).
 - **Possible, and done (Linux):** the WebKit script-message handler `ipc` is unregistered after the window is built.
   WebKit exposes `window.webkit.messageHandlers` to **every** frame, and wry forwards each message with the **top**
   document's URL, so no handler can tell a sandboxed frame from the app on that path. On Linux Tauri sends every

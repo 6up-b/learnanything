@@ -721,8 +721,10 @@ fn main() {
                 reader_restore
             ];
             // RW5d P2 sketch compartment, defense in depth: a LearnLoop command
-            // asked from a frame or a worker (not the app's own document) is
-            // refused before it runs (frame_guard.rs says what this can't cover).
+            // whose Origin and Referer aren't the app's own document's (an
+            // opaque-origin frame, a worker or frame URL, an omitted Referer, a
+            // foreign origin) is refused before it runs (frame_guard.rs says
+            // what this can't cover: a replaced same-origin Referer).
             move |invoke| {
                 if let Some(reason) = frame_guard::refusal_reason(invoke.message.headers()) {
                     invoke.resolver.reject(format!("refused: {reason}"));
