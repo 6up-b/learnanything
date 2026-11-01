@@ -892,6 +892,40 @@ def comparison_row(connection: sqlite3.Connection, comparison_id: str) -> dict[s
     return None if row is None else _comparison(row)
 
 
+def add_comparison_reuse_provenance(connection: sqlite3.Connection, comparison_id: str, *,
+                                    dropped_pins: Sequence[Mapping[str, Any]],
+                                    unverified_sources: Sequence[Mapping[str, Any]]) -> bool:
+    """A reuse's contributors joined to the stored comparison's (Reader
+    follow-ups Nov 1, Codex review F1): the passages a reusing call dropped
+    or could not check, each once (by its passage), so every later read of
+    the comparison's provenance reads them. Written only when something is
+    new; True when it was."""
+
+    row = connection.execute("SELECT dropped_pins_json, unverified_sources_json FROM source_comparisons WHERE id=?",
+                             (comparison_id,)).fetchone()
+    if row is None:
+        return False
+
+    def merged(stored: list[Any], added: Sequence[Mapping[str, Any]]) -> list[Any]:
+        seen = {(entry.get("extraction_id"), entry.get("span_id")) for entry in stored if isinstance(entry, Mapping)}
+        out = list(stored)
+        for entry in added:
+            key = (entry.get("extraction_id"), entry.get("span_id"))
+            if key not in seen:
+                seen.add(key)
+                out.append(dict(entry))
+        return out
+
+    old_pins = _loads(row["dropped_pins_json"], [])
+    old_unverified = _loads(row["unverified_sources_json"], [])
+    pins, unverified = merged(old_pins, dropped_pins), merged(old_unverified, unverified_sources)
+    if len(pins) == len(old_pins) and len(unverified) == len(old_unverified):
+        return False
+    connection.execute("UPDATE source_comparisons SET dropped_pins_json=?, unverified_sources_json=? WHERE id=?",
+                       (_dumps(pins), _dumps(unverified), comparison_id))
+    return True
+
+
 def find_comparison(connection: sqlite3.Connection, *, query_hash: str, policy: str,
                     counterpart_keys: Sequence[Any]) -> dict[str, Any] | None:
     """A stored comparison of the same question over the same counterparts under the same policy."""

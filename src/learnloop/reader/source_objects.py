@@ -317,7 +317,8 @@ def _question_passages(repository: Repository, question_event_id: str) -> list[A
 
 def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: str | None = None,
                         question_event_id: str | None = None, ask_ids: Sequence[str] = (),
-                        question_event_ids: Sequence[str] = ()) -> set[tuple[str, str]]:
+                        question_event_ids: Sequence[str] = (),
+                        passages: Sequence[Any] = ()) -> set[tuple[str, str]]:
     """Every passage that contributed to a stored comparison, as the **union
     across its reuse** (Codex verify of RW4d fix round 4, F1):
 
@@ -328,7 +329,10 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
       snapshot, or a contributor its keep recorded), with each ask's anchor,
       binding and question, and ``ask_id`` / ``ask_ids`` (an ask acting now);
     * every tutor question whose request ran it (``source_tool_calls``), the
-      contributors' questions, and ``question_event_id`` / ``question_event_ids``.
+      contributors' questions, and ``question_event_id`` / ``question_event_ids``;
+    * ``passages``: what a call acting now brought to it (a reuse's anchor,
+      dropped pins and unverified sources; Reader follow-ups Nov 1, Codex
+      review F1), each resolved like the rest.
 
     Every named contributor is resolved (Codex verify of fix round 4, F3):
     each passage must exist as a block of its reading, each ask, question and
@@ -340,7 +344,7 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
 
     if not comparison_id:
         raise LookupError("no comparison named")
-    found: list[Any] = []
+    found: list[Any] = list(passages)
     asks: list[str] = [str(value) for value in (ask_id, *ask_ids) if value]
     events: list[str] = [str(value) for value in (question_event_id, *question_event_ids) if value]
     readings: list[str] = []
@@ -427,31 +431,39 @@ def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: s
 
 
 def withheld_comparisons(vault: Any, repository: Repository,
-                         comparisons: Sequence[tuple[str, str | None]]) -> frozenset[tuple[str, str | None]]:
+                         comparisons: Sequence[tuple[str, str | None]], *,
+                         question_event_ids: Sequence[str] = (),
+                         passages: Sequence[Any] = ()) -> frozenset[tuple[str, str | None]]:
     """The ``(comparison id, ask id)`` pairs with **any** contributing passage
     (:func:`comparison_passages`) that is exam or held out now. Such a
     comparison is withheld whole on every read path: every object, version,
     citation, relation and take derived from it. Fail closed: a comparison
     whose provenance cannot be read, or a predicate that cannot be, counts as
-    withheld (Codex verify of RW4d fix round 3; the orchestrator's ruling)."""
+    withheld (Codex verify of RW4d fix round 3; the orchestrator's ruling).
+
+    ``question_event_ids`` and ``passages``: the contributors a call acting
+    now brings to every pair (a reused comparison's current question, anchor
+    and dropped pins), read with the stored ones (Reader follow-ups Nov 1,
+    Codex review F1)."""
 
     wanted = list(dict.fromkeys((str(cid or ""), None if ask is None else str(ask)) for cid, ask in comparisons))
     if not wanted:
         return frozenset()
-    passages: dict[tuple[str, str | None], set[tuple[str, str]]] = {}
+    by_pair: dict[tuple[str, str | None], set[tuple[str, str]]] = {}
     unknown: set[tuple[str, str | None]] = set()
     for pair in wanted:
         try:
             if not pair[0]:
                 raise LookupError("no comparison named")
-            passages[pair] = comparison_passages(repository, pair[0], ask_id=pair[1])
+            by_pair[pair] = comparison_passages(repository, pair[0], ask_id=pair[1],
+                                                question_event_ids=question_event_ids, passages=passages)
         except Exception:  # noqa: BLE001 - unresolvable provenance is withheld (fail closed)
             unknown.add(pair)
     try:
-        held = EM.exam_material(vault, repository).withheld(sorted({key for keys in passages.values() for key in keys}))
+        held = EM.exam_material(vault, repository).withheld(sorted({key for keys in by_pair.values() for key in keys}))
     except Exception:  # noqa: BLE001 - an unreadable predicate withholds every comparison (fail closed)
         return frozenset(wanted)
-    return frozenset(unknown | {pair for pair, keys in passages.items() if keys & set(held)})
+    return frozenset(unknown | {pair for pair, keys in by_pair.items() if keys & set(held)})
 
 
 def _comparison_of(head: Mapping[str, Any]) -> tuple[str, str | None] | None:

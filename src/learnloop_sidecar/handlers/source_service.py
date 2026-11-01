@@ -252,7 +252,7 @@ def compare_sources_rpc(ctx: SidecarContext, params: CompareSourcesInput) -> dic
             requested_perspectives=params.requested_perspectives, pinned_span_ids=params.pinned_span_ids,
             pinned_span_keys=params.pinned_span_keys, policy=params.policy,
         )
-        refuse_withheld_comparison(vault, repository, comparison.comparison_id)
+        refuse_withheld_comparison(vault, repository, comparison.comparison_id, caller=caller, current=comparison)
     except PolicyRefused as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     except ValueError as exc:

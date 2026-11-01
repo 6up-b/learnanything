@@ -462,7 +462,8 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
         # model: a protected contributor withholds it whole (the run is
         # recorded failed with the refusal's code). The view's per-passage
         # filtering below stays for everything else.
-        refuse_withheld_comparison(vault, repository, comparison.comparison_id)
+        refuse_withheld_comparison(vault, repository, comparison.comparison_id, caller=caller,
+                                   current=comparison)
         view = _comparison_view(vault, repository, comparison, withhold)
         out.update(result=view, result_ref=comparison.comparison_id,
                    result_keys=[f"{s.get('extraction_id')}:{s.get('span_id')}" for s in view["sources"]],
