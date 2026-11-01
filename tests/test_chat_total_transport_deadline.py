@@ -134,6 +134,8 @@ class FakeServer:
         self.max_in_flight = 0
         self.served = 0
         self.last_operation_ended: float | None = None
+        #: Where each connection was opened: ``(host, port)``.
+        self.hosts: list[tuple[str, int]] = []
 
     def backend(self) -> httpcore.NetworkBackend:
         server = self
@@ -142,6 +144,7 @@ class FakeServer:
             def connect_tcp(self, host: str, port: int, timeout: float | None = None,
                             local_address: str | None = None, socket_options: Any = None) -> httpcore.NetworkStream:
                 server.started.append(time.monotonic())
+                server.hosts.append((host, port))
                 sock = FakeSocket(server)
                 sock._operation(server.connect_delay, timeout, httpcore.ConnectTimeout)
                 server.sockets.append(sock)
@@ -171,9 +174,10 @@ def fake_network(monkeypatch):
     return install
 
 
-def _client(monkeypatch, *, timeout: float = 1.0, name: str = "deadline_chat") -> Any:
+def _client(monkeypatch, *, timeout: float = 1.0, name: str = "deadline_chat",
+            base_url: str = "http://deadline.invalid/v1") -> Any:
     monkeypatch.setenv(KEY_ENV, "offline")
-    profile = AIProviderConfig(type="openai_chat", base_url="http://deadline.invalid/v1", api_key_env=KEY_ENV,
+    profile = AIProviderConfig(type="openai_chat", base_url=base_url, api_key_env=KEY_ENV,
                                model="deadline-model", response_format="json_object", timeout_seconds=timeout)
     return OpenAIChatProviderClient(name, profile)
 
@@ -454,3 +458,47 @@ def test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_dea
     sent = len(sock.sends)
     time.sleep(0.3)
     assert len(sock.sends) == sent, "the upload kept running after the adapter returned"
+
+
+# -- Reader follow-ups Nov 1b, item 3: no environment proxy on the metered adapter ----------------
+
+PROXY_VARIABLES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
+
+
+@pytest.mark.parametrize("scheme, port", [("https", 443), ("http", 80)])
+def test_nov1_r1_an_environment_proxy_no_longer_routes_metered_calls(monkeypatch, fake_network, scheme, port):
+    """Reader follow-ups Nov 1, ruling R1 (F2 remainder): under an
+    environment HTTPS proxy the SDK's httpx client sent metered calls through
+    the proxy, where a TLS-in-TLS read loops ``recv`` under one timeout
+    (outside the total deadline's per-operation bound). The adapter's client
+    no longer trusts the environment (``trust_env=False``; LearnLoop has no
+    proxy setting of its own), so HTTPS_PROXY no longer routes metered calls:
+    they connect straight to the provider, under the deadline."""
+
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    for name in PROXY_VARIABLES:
+        monkeypatch.setenv(name, "http://proxy.invalid:3128")
+    server = fake_network(FakeServer(_completion(Answer(text="ok").model_dump_json())))
+    client = _client(monkeypatch, timeout=5.0, base_url=f"{scheme}://deadline.invalid/v1")
+    try:
+        answer: Any = _ask(client, 5.0)
+    except CodexUnavailable as exc:  # through the proxy, the fake server answers no CONNECT
+        answer = exc
+    assert server.hosts[:1] == [("deadline.invalid", port)], "the metered call went through the environment proxy"
+    assert getattr(answer, "text", None) == "ok" and len(server.hosts) == 1
+    http_client = client._client._client
+    assert http_client.trust_env is False
+    assert not [pattern for pattern, transport in http_client._mounts.items() if transport is not None]
+    assert client._enforce_deadline
+
+
+def test_nov1_r1_the_certificate_store_still_follows_the_environment(monkeypatch, tmp_path):
+    """Only the proxy is dropped: SSL_CERT_FILE still names the certificate
+    store (a file that does not exist fails construction, as it did)."""
+
+    monkeypatch.setenv("SSL_CERT_FILE", str(tmp_path / "missing.pem"))
+    with pytest.raises((FileNotFoundError, OSError)):
+        _client(monkeypatch, timeout=5.0, base_url="https://deadline.invalid/v1")
+    monkeypatch.delenv("SSL_CERT_FILE")
+    assert _client(monkeypatch, timeout=5.0, base_url="https://deadline.invalid/v1")._enforce_deadline

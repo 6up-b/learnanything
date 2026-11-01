@@ -98,6 +98,8 @@ DEEPSEEK_API_KEY=replace-with-real-secret
 
 Credential precedence is the existing shell environment, then `<vault>/.env`, then `~/.config/learnloop/settings.env`. Existing shell values are never overwritten by an env file.
 
+`openai_chat` and `openrouter` profiles connect directly to `base_url`. They ignore `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY` and `.netrc` (the client is built with `trust_env=False`; Reader follow-ups Nov 1b, ruling R1). Through an HTTPS proxy, httpcore reads TLS inside TLS under a single timeout, which can run past the request's total transport deadline. LearnLoop has no proxy setting. The certificate store still follows `SSL_CERT_FILE` or `SSL_CERT_DIR`, as before.
+
 ### Declare input modalities
 
 A provider profile lists the media it accepts natively under `input_modalities` (values: `audio`, `pdf`, `image`, `video`); native ingestion trusts only this declaration, never a runtime probe, so extraction identity stays deterministic offline.
