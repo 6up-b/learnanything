@@ -70,7 +70,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled
+from learnloop.figure_admission import FiguresChanged, FiguresGate, author_learner_state_enabled, figures_enabled
 from learnloop.figure_admission import manim_opt_in as admission_manim_opt_in
 from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tiers_enabled
 from learnloop.figures import labels as L
@@ -449,19 +449,99 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     input_hash = str(payload["input_hash"])
     existing = _existing(repository, input_hash)
     if existing is not None:
-        return {"figure_id": existing["id"], "verification": existing["verification"], "reused": True}
+        return _recovered(vault, repository, payload, existing)
     base = dict(payload.get("base") or {})
     message = _withheld(vault, repository, base)
     if message is not None:
         raise RichJobStopped("exam_material", message)
-    gate = FiguresGate(vault, rich_build_key, live_vault=live_vault)
+    key, hold = rich_build_key, None
+    if _carries_learner_state(payload):
+        # Learner data-relax 2 (Codex review F2): the saved context carries
+        # the learner's state. Switched off since it was saved, it is never
+        # sent; otherwise what it was read from is checked again now, before
+        # every request and before the figure is stored (the gate's hold),
+        # and the switch is part of the job's key.
+        if not author_learner_state_enabled(vault):
+            raise RichJobStopped("figures_changed", LEARNER_STATE_OFF)
+        message = _learner_state_withheld(vault, repository, payload)
+        if message is not None:
+            raise RichJobStopped("exam_material", message)
+
+        def key(current: Any) -> tuple[Any, ...]:
+            return (*rich_build_key(current), author_learner_state_enabled(current))
+
+        def hold(current: Any) -> str | None:
+            return _learner_state_withheld(current, repository, payload)
+
+    gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold)
     try:
         with gate_model_requests(gate):
             return _run(vault, repository, payload, base=base, gate=gate, client=client, report=report,
                         renderer=renderer, function_runner=function_runner, clock=clock,
                         cancellation=tuple(cancellation))
     except FiguresChanged as exc:
+        if gate.held:
+            raise RichJobStopped("exam_material", str(gate.changed)) from exc
         raise RichJobStopped("figures_changed", str(exc)) from exc
+
+
+#: Learner data-relax 2: a saved rich job whose context carries the
+#: learner's state, run after ``figures.author_learner_state`` went off.
+LEARNER_STATE_OFF = ("Not sent: this animation was to be told where you stand on these topics, and that is "
+                     "switched off now (figures.author_learner_state); ask for it again.")
+#: A saved learner state something it was read from is protected now.
+LEARNER_STATE_PROTECTED = ("Not sent: something this animation was to be told about your work is protected now "
+                           "({reason}); ask for it again.")
+
+
+#: The rich figure's report key keeping what its author's learner state was
+#: read from (``LearnerStateRead.inputs``; Codex re-review F2). Present only
+#: when the author was sent a learner state; never shown or sent to a model.
+LEARNER_STATE_INPUTS_KEY = "learner_state_inputs"
+
+
+def _carries_learner_state(payload: Mapping[str, Any]) -> bool:
+    return bool((payload.get("author_context") or {}).get("learner_state"))
+
+
+def stored_learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None:
+    """Why a stored rich figure whose author was sent the learner's state may
+    not go out (be delivered, recovered or reused) now, or None: what that
+    state was read from is checked again against the protection as it is now
+    (``learner_state.inputs_withheld``; a missing record fails closed). A
+    figure whose author was sent no learner state has nothing to check here
+    (Codex re-review F2)."""
+
+    report = row.get("verification_report") or {}
+    if not isinstance(report, Mapping) or LEARNER_STATE_INPUTS_KEY not in report:
+        return None
+    return _learner_state_withheld(vault, repository, {LEARNER_STATE_INPUTS_KEY: report[LEARNER_STATE_INPUTS_KEY]})
+
+
+def _recovered(vault: Any, repository: Repository, payload: Mapping[str, Any],
+               found: Mapping[str, Any]) -> dict[str, Any]:
+    """The figure this job's input already stored (a resumed job whose row
+    committed before it was acknowledged, or a concurrent store), returned
+    only while the learner state its author was sent, as the stored row and
+    the job's payload record it, is not protected now (Codex re-review F2)."""
+
+    message = stored_learner_state_withheld(vault, repository, found)
+    if message is None and _carries_learner_state(payload):
+        message = _learner_state_withheld(vault, repository, payload)
+    if message is not None:
+        raise RichJobStopped("exam_material", message)
+    return {"figure_id": found["id"], "verification": found["verification"], "reused": True}
+
+
+def _learner_state_withheld(vault: Any, repository: Repository, payload: Mapping[str, Any]) -> str | None:
+    """Why the saved learner state may not be sent now, or None
+    (``learner_state.inputs_withheld``: its answers, items, questions and
+    passages against the protection as it is now; no record: fail closed)."""
+
+    from learnloop.figures.learner_state import inputs_withheld
+
+    reason = inputs_withheld(vault, repository, payload.get("learner_state_inputs"))
+    return None if reason is None else LEARNER_STATE_PROTECTED.format(reason=reason)
 
 
 def _plan_down(exc: BaseException) -> bool:
@@ -705,19 +785,22 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
         "fuller_of_id": payload.get("fast_figure_id") or payload.get("fuller_of_id"), "checks": [],
         "media_file_name": None,
     }
+    learner_inputs = ({LEARNER_STATE_INPUTS_KEY: payload.get(LEARNER_STATE_INPUTS_KEY)}
+                      if _carries_learner_state(payload) else {})
     if figure is not None and video is not None and checks is not None:
         stored = store_video_bytes(vault.root, video)
         claims, assumptions = _verified_quotes(brief, span_texts)
         report = {"outcome": "illustrative", "tier": "manim", "checks": list(checks.checks),
                   "not_checkable": list(checks.not_checkable), "not_covered": [MANIM_NOT_COVERED],
                   "claims": claims, "assumptions": assumptions, "duration_seconds": stored.duration_seconds,
-                  "video_digest": stored.digest}
+                  "video_digest": stored.digest, **learner_inputs}
         row.update({"spec_json": canonical_spec(figure, brief, assumptions, claims), "kind": "illustrative",
                     "verification": "illustrative", "verification_report": report, "checks": list(checks.checks),
                     "media_file_name": stored.file_name})
     else:
         row.update({"verification": "failed",
-                    "verification_report": {"outcome": "failed", "tier": "manim", "reason": failure[:300]}})
+                    "verification_report": {"outcome": "failed", "tier": "manim", "reason": failure[:300],
+                                            **learner_inputs}})
     try:
         with repository.atomic():
             connection = repository.connection()
@@ -737,7 +820,7 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
         found = _existing(repository, str(payload["input_hash"]))
         if found is None:
             raise
-        return {"figure_id": found["id"], "verification": found["verification"], "reused": True}
+        return _recovered(vault, repository, payload, found)
     return {"figure_id": figure_id, "verification": row["verification"], "reused": False}
 
 
@@ -864,6 +947,9 @@ __all__ = [
     "RICH_TASK",
     "RICH_TIERS",
     "RichBrief",
+    "LEARNER_STATE_INPUTS_KEY",
+    "LEARNER_STATE_OFF",
+    "LEARNER_STATE_PROTECTED",
     "RichJobStopped",
     "WAITING_FOR_PLAN",
     "job_state",
@@ -882,5 +968,6 @@ __all__ = [
     "rich_on_menu",
     "rich_prompt",
     "run_rich_job",
+    "stored_learner_state_withheld",
     "tiers_allowed",
 ]

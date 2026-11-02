@@ -105,6 +105,8 @@ def record_authored_reveal(
         "authored_index": int(authored_index),
         "work_hash": work_hash,
         "work_chars": work_chars,
+        # Learner data-relax 2: the draft itself, bounded (migration 230).
+        "work_md": store.kept_draft(work_md),
         "chooser": "none",
         "shown": 1,
         "counted_by": "client",

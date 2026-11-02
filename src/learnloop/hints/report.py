@@ -120,7 +120,10 @@ _ROW_COLUMNS = (
     "id, surface, assist_kind, hint_kind, level, practice_item_id, practice_item_hash, practice_session_id, "
     "attempt_id, submission_id, authored_index, work_chars, work_hash, counted_by, requested_at, shown_at, "
     "submitted_at, submit_latency_seconds, request, feedback_shortcut, options_json, contract_failures_json, "
-    "chooser, latency_ms, prompt_version, target_node_id, from_node_id, route_id, map_id, horizon"
+    "chooser, latency_ms, prompt_version, target_node_id, from_node_id, route_id, map_id, horizon, "
+    # Learner data-relax 2 (migration 230): whether the draft was kept, as a
+    # count only (the draft itself is never read here).
+    "(work_md IS NOT NULL) AS draft_kept"
 )
 #: Why "seconds into the attempt" is unknown for a row.
 INTO_ATTEMPT_UNKNOWN_REASONS = ("no_submit_time", "no_submit_latency")
@@ -523,6 +526,7 @@ def build_hints_report(
                 ).items())
             },
             "work_empty_at_request": _share(sum(1 for row in members if not row["work_chars"]), len(members)),
+            "drafts_kept": _share(sum(1 for row in members if row["draft_kept"]), len(members)),
             "seconds_reveal_to_submit": _percentiles(to_submit),
             "seconds_into_attempt": _percentiles(into_attempt),
             "seconds_into_attempt_unknown": {

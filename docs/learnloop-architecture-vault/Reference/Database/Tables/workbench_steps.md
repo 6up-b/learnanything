@@ -3,13 +3,13 @@ title: "workbench_steps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
-source_commit_timestamp: "2026-11-01T19:16:35-05:00"
+source_commit: "a9ee92e3e5dc801b9325095a7bf9061ba7a47c92"
+source_commit_timestamp: "2026-11-01T20:19:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_steps"
   - "table workbench_steps"
-schema_head: 229
+schema_head: 230
 table_name: "workbench_steps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -47,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/207_workbench.sql`.
-- **Schema touched by:** `207_workbench.sql`.
+- **Schema touched by:** `207_workbench.sql`, `230_help_assist_work_md.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
-source_commit_timestamp: "2026-11-01T19:16:35-05:00"
+source_commit: "a9ee92e3e5dc801b9325095a7bf9061ba7a47c92"
+source_commit_timestamp: "2026-11-01T20:19:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 229
+schema_head: 230
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
