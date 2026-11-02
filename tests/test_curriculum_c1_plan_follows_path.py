@@ -634,14 +634,10 @@ def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process)
     from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
     paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
-    # Teacher TE1 (mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
+    # Follow-ups Nov 2 (mvp-0.42, after TE1's mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TAG])
     assert result.exit_code == 0, result.output
-    # The latest is follow-ups Nov 2's mvp-0.42 (after TE1's mvp-0.41), chained through this tag.
-    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
-    paths = create_placement_vault(tmp_path / "w", version=PREDECESSOR)
-    assert upgrade_to_deliverable_plan(paths.root).upgraded and _version(paths) == TAG
+    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
     again = upgrade_to_deliverable_plan(paths.root)
     assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 

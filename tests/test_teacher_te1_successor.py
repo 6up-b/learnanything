@@ -193,9 +193,14 @@ def test_the_upgrade_from_the_predecessor_and_its_refusals(tmp_path):
 def test_the_cli_installs_this_links_completion():
     import inspect
 
+    from learnloop import help_fold_attach_upgrade
     from learnloop.cli import runtime
 
-    assert "learnloop.teacher_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    # Follow-ups Nov 2's mvp-0.42 is the chain's latest: the CLI installs its completion, which hands
+    # this link's journal to this link's completion.
+    assert "learnloop.help_fold_attach_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
+        help_fold_attach_upgrade)
 
 
 # --- the desktop RPCs ------------------------------------------------------------------------------
@@ -266,7 +271,7 @@ def test_a_metered_lesson_turn_needs_its_price_and_cap(tmp_path):
     assert raised.value.code == "plan_unavailable"
 
 
-def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
+def test_a_bare_upgrade_goes_through_mvp041_along_the_chain(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
     from learnloop import activation_journal
@@ -278,5 +283,6 @@ def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
     paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"mvp-0.39 -> {TAG}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    # Follow-ups Nov 2's mvp-0.42 is the bare upgrade's target now: it goes through this link.
+    assert f"mvp-0.39 -> {LATEST_ALGORITHM_VERSION}" in result.output and LATEST_ALGORITHM_VERSION == "mvp-0.42"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION

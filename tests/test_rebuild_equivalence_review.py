@@ -251,9 +251,9 @@ def test_the_successor_is_one_constant_after_its_predecessor_with_its_defaults_s
 
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the
     # cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 as the latest (all keep it).
-    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.42"
+    assert TAG == "mvp-0.34" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.42"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1]
-    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", LATEST_ALGORITHM_VERSION})
+    assert REPLAY_LEDGER_VERSIONS == frozenset({TAG, "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", LATEST_ALGORITHM_VERSION})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR] == defaults_fingerprint_for_version(PREDECESSOR)
 

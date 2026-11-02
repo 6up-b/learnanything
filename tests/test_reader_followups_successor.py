@@ -49,7 +49,7 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     from learnloop.reader_followups_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
     # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-4:-2] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
+    assert SUCCESSOR_CHAIN[-5:-3] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.42" and UPGRADE_PREDECESSOR == PREDECESSOR
     assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40", "mvp-0.41", "mvp-0.42"})
     assert FollowupsConfig().enabled is True
