@@ -3,13 +3,13 @@ title: "controller_shadow_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
-source_commit_timestamp: "2026-11-02T02:00:30-05:00"
+source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
+source_commit_timestamp: "2026-11-02T04:33:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_shadow_predictions"
   - "table controller_shadow_predictions"
-schema_head: 233
+schema_head: 235
 table_name: "controller_shadow_predictions"
 table_role: "receipt"
 functionality_status: "dormant-shadow"
