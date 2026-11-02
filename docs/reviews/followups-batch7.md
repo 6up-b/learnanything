@@ -97,8 +97,10 @@ hash) and shows the readable name by the display path.
   and search, and the persisted family map; changing it would refresh all of those for this one display matter.
 * C5's gap reading (`effective_rows`) sends an old snapshot's stored title to its model as it is. That is not a display,
   and a new snapshot's is readable already.
-* Only a `file:` URI is rewritten. A web address stays what the Library shows, and `Path.as_uri` is what writes these,
-  so no bare path was seen on the write paths read.
+* Only a `file:` URI is rewritten, which is what `Path.as_uri` writes for an imported file. A web address stays what the
+  Library shows. A legacy source note with no canonical URI keeps its relative note path as `original_uri`
+  (`source_library`), so a note on such a source would still show that path; the Library shows its file name. Not
+  observed on a vault, and not a URI, so left alone.
 
 **The Library's name, same helper.** `title_from_file_name` moved down to `content.sources.source_outline` (the
 notes may not import `content.pipeline`), and `add_source.learner_title` uses the decoded URI too. A file with a space
@@ -130,3 +132,32 @@ already a landing step. A stage's targeted tests are unaffected unless they list
 
 **Checked on the real tree.** With a stray `src/learnloop/zz_probe_module.py` the guard failed and named its note and the
 command (the probe was removed before the commit).
+
+## Gate (this stage, on `fix/followups-batch7`)
+
+The full suite, the durability lane and whole vitest were not run: they belong to the landing gate on the merged tree
+(owner rule, 2026-10-17).
+
+* `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`.
+* `lint-imports --no-cache`: 42 kept, 0 broken.
+* Targeted pytest in the 5G scope, `-n 6`, on the 60 files in `docs/reviews/followups-batch7.targeted-tests.txt`:
+  **1364 passed, 5 skipped**, 0 failed. Which tests skipped, and why, was not read (the run used `-q`).
+* `module_validate.py`: PASS, run outside pytest under `env -i` with an empty, existing `HOME`, `CODEX_HOME` and
+  `LEARNLOOP_CONFIG_DIR`. The catalog was not regenerated, since this stage adds no module; notes' contents stay stale
+  until the landing's usual regeneration.
+* Not run because nothing touched them: frontend (typecheck, vitest, build), `cargo check`, durability-marked tests,
+  the DB reference scripts. No migration, no schema change, no DB or connection code.
+
+**No live or paid call was made.** Every model is a fake. No vault was opened outside pytest's synthetic ones, and the
+desktop app was not launched. The only runs outside pytest (`lint-imports`, `module_validate.py`) ran under `env -i`.
+
+## Open questions
+
+1. **Other surfaces that name a source can show the same URI** on a source with no display title: Compare's books, tutor
+   citations, the library's text search, the source deletion dialog. They read `corpus._title` or a copy of its chain.
+   The fix at the root changes `SourceExtraction.title`, which feeds `scope_signature`, prompts and keys, so it would
+   re-judge on affected vaults. Suggested as its own item, by display at each surface, or by setting display titles on
+   those sources (the owner's call, since it writes rows). Not observed beyond the note on the probability copy.
+2. **A prebuild refused by a switch still spends a reservation.** A waiting decision with a goal, with `show_me` switched
+   off, reserves one of today's builds in this process before the build refuses it, and no request goes out. Older than
+   this item (a deferred row does it too), and only reachable with that switch off. Left under the proportionate bar.
