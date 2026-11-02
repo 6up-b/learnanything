@@ -530,18 +530,54 @@ def recap_admissible(vault: Any, repository: Any, lesson_id: str, *, current: An
 
 def _admissible(vault: Any, repository: Any, lesson_id: str, now: Mapping[str, Any],
                 notes_check: NotesCheck | None, memo: dict[str, bool], reads: dict[str, Any]) -> bool:
-    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED, withheld_items
-    from learnloop.source_retrieval.section_coverage import CoverageError, Library
+    """The verdict for ``lesson_id`` and, through ``memo``, every earlier lesson it depends on.
+
+    Depth first over an explicit stack, not recursion (Codex re-review F3): successive lessons on
+    overlapping topics each inherit their predecessor's recap, so the chain can be longer than Python's
+    recursion limit. A lesson is in ``memo`` as False while it is being judged, so a dependency that
+    reaches back to it (a cycle, which cannot be told safe) fails closed, as does any lesson above a
+    failing one."""
 
     if lesson_id in memo:
         return memo[lesson_id]
-    memo[lesson_id] = False  # while it is being judged (a cycle cannot be told safe: fail closed)
+    # Frames: [lesson id, its earlier lessons still to check (reverse order) or None before its own check].
+    stack: list[list[Any]] = [[lesson_id, None]]
+    while stack:
+        frame = stack[-1]
+        current, pending = frame
+        if pending is None:
+            own = _own_verdict(vault, repository, current, now, notes_check, reads)
+            if isinstance(own, bool):
+                memo[current] = own
+                stack.pop()
+                continue
+            memo[current] = False  # while it is being judged
+            frame[1] = pending = sorted(own, reverse=True)
+        while pending and memo.get(pending[-1]) is True:
+            pending.pop()
+        if not pending:
+            memo[current] = True
+            stack.pop()
+        elif pending[-1] in memo:  # failed, or still being judged (a cycle): this one fails, False stays
+            stack.pop()
+        else:
+            stack.append([pending[-1], None])
+    return memo[lesson_id]
+
+
+def _own_verdict(vault: Any, repository: Any, lesson_id: str, now: Mapping[str, Any],
+                 notes_check: NotesCheck | None, reads: dict[str, Any]) -> bool | list[str]:
+    """One lesson's own check: False, True (nothing more to check), or the earlier lessons whose recaps
+    it was given, each of which must still be admissible too."""
+
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED, withheld_items
+    from learnloop.source_retrieval.section_coverage import CoverageError, Library
+
     exposure = _lesson_exposure(repository, lesson_id)
     if exposure is None:
         return False
     recorded = exposure.protection
     if recorded.get("version") == now.get("version") and recorded.get("vault") == now.get("vault"):
-        memo[lesson_id] = True
         return True
     try:
         if "library" not in reads:
@@ -559,11 +595,7 @@ def _admissible(vault: Any, repository: Any, lesson_id: str, now: Mapping[str, A
         return False
     if exposure.notes and (notes_check is None or not notes_check(vault, repository, sorted(exposure.notes))):
         return False
-    if not all(_admissible(vault, repository, earlier, now, notes_check, memo, reads)
-               for earlier in sorted(exposure.lessons)):
-        return False
-    memo[lesson_id] = True
-    return True
+    return sorted(exposure.lessons) or True
 
 
 def admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *,

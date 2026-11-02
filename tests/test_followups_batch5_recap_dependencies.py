@@ -226,3 +226,63 @@ def test_f2_without_the_notes_check_a_lesson_that_was_given_notes_fails_closed(t
     vault = load_vault(paths.root)
     assert not B.recap_admissible(vault, repository, first)
     assert B.recap_admissible(vault, repository, first, notes_check=TN.notes_still_deliverable)
+
+
+# --- Codex re-review F3: a long chain of inherited recaps ---------------------------------------------
+
+
+def _synthetic_chain(monkeypatch, length, *, last=None, back_edge=None):
+    """``les_0`` <- ``les_1`` <- ... : each lesson was given only its predecessor's recap, under a recorded
+    protection that no longer matches (so every link is re-checked). ``last``: what ``les_0`` was given;
+    ``back_edge``: an extra inherited lesson for ``les_0`` (a cycle)."""
+
+    def exposure(_repository, lesson_id):
+        index = int(lesson_id.split("_")[1])
+        if index >= length:
+            return None
+        lessons = {f"les_{index - 1}"} if index else set(filter(None, [last, back_edge]))
+        return B._Exposure({"version": "older"}, B.SourceBook(), set(), lessons, set())
+
+    monkeypatch.setattr(B, "_lesson_exposure", exposure)
+
+
+def test_f3_a_chain_longer_than_the_recursion_limit_is_judged_without_crashing(tmp_path, monkeypatch):
+    import sys
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    length = sys.getrecursionlimit() + 200
+    _synthetic_chain(monkeypatch, length)
+    memo: dict[str, bool] = {}
+    assert B.recap_admissible(vault, repository, f"les_{length - 1}", memo=memo)
+    assert len(memo) == length and all(memo.values())
+
+
+def test_f3_a_missing_ancestor_at_the_bottom_of_a_long_chain_fails_every_recap_above_it(tmp_path, monkeypatch):
+    import sys
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    length = sys.getrecursionlimit() + 200
+    _synthetic_chain(monkeypatch, length, last="les_missing_x")
+    monkeypatch.setattr(B, "_lesson_exposure", _missing_aware(B._lesson_exposure))
+    memo: dict[str, bool] = {}
+    assert not B.recap_admissible(vault, repository, f"les_{length - 1}", memo=memo)
+    assert not any(memo.values())
+    assert not B.recap_admissible(vault, repository, "les_5", memo=memo)  # memoized: same verdict
+
+
+def test_f3_a_cycle_in_a_long_chain_fails_closed(tmp_path, monkeypatch):
+    import sys
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    length = sys.getrecursionlimit() + 200
+    _synthetic_chain(monkeypatch, length, back_edge=f"les_{length - 1}")
+    assert not B.recap_admissible(vault, repository, f"les_{length - 1}")
+
+
+def _missing_aware(inner):
+    def exposure(repository, lesson_id):
+        return None if lesson_id.startswith("les_missing") else inner(repository, lesson_id)
+    return exposure

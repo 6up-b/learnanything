@@ -1429,6 +1429,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_the_note_dependency_outlives_a_later_link_change`
   - `test_f2_the_recap_stays_when_protection_moved_elsewhere`
   - `test_f2_without_the_notes_check_a_lesson_that_was_given_notes_fails_closed`
+  - `test_f3_a_chain_longer_than_the_recursion_limit_is_judged_without_crashing`
+  - `test_f3_a_cycle_in_a_long_chain_fails_closed`
+  - `test_f3_a_missing_ancestor_at_the_bottom_of_a_long_chain_fails_every_recap_above_it`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_a_lesson_with_no_recorded_protection_rechecks_its_passages`
   - `test_unreadable_protection_drops_the_recap_only`
