@@ -5,7 +5,7 @@ process and its client, the resolver's cold-start rule, the teacher replay and t
 Fakes and tiny synthetic models only: no process, no download, no plan call, no GPU."""
 from __future__ import annotations
 
-from contextlib import closing
+from contextlib import closing, contextmanager
 import json
 from pathlib import Path
 import shutil
@@ -60,6 +60,56 @@ def _fresh(monkeypatch, tmp_path):
     clear_cache()
     E._ENCODERS.clear()
     shutil.rmtree(short, ignore_errors=True)
+
+
+@contextmanager
+def _serving(service, socket_path, **kwargs):
+    """The real ``serve_forever`` in a thread, entered once it listens; always stopped on exit.
+
+    Readiness is the server's own ``ready`` callback, which it calls after ``listen()`` (the real
+    query process writes its ``ready`` status there). The socket file exists from ``bind()``, one
+    step earlier, so polling for the file let a client connect before the listen and be refused
+    (follow-ups batch 6 (A)). On exit a thread still serving is asked to shut down and joined, so
+    a failed assertion never leaves it running (tests/thread_guard.py)."""
+
+    import threading
+
+    from learnloop.local_embeddings import student_server
+
+    listening = threading.Event()
+    reasons: list[str] = []
+    thread = threading.Thread(target=lambda: reasons.append(student_server.serve_forever(
+        service, socket_path, ready=listening.set, **kwargs)), daemon=True)
+    thread.start()
+    try:
+        assert listening.wait(timeout=10.0), "the query process never listened"
+        yield thread, reasons
+    finally:
+        if thread.is_alive():
+            try:
+                E.request(socket_path, {"op": "shutdown"}, timeout_s=1.0)
+            except (OSError, ValueError):
+                pass
+        thread.join(timeout=5.0)
+
+
+class _SlowChmod:
+    """``student_server.os`` with a slow ``chmod``: it widens the window between ``bind()`` (the
+    socket file appears) and ``listen()`` so a client that waits for the file, not the listen, is
+    refused every time instead of about one run in eight."""
+
+    def __init__(self, delay_s: float) -> None:
+        import os as _os
+
+        self._os = _os
+        self._delay_s = delay_s
+
+    def chmod(self, *args, **kwargs):
+        time.sleep(self._delay_s)
+        return self._os.chmod(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._os, name)
 
 
 # -- pins -------------------------------------------------------------------------------------------
@@ -527,22 +577,14 @@ def test_the_query_process_answers_over_its_unix_socket_and_exits_idle(_fresh):
 
     socket_path = _fresh / "s.sock"
     service = TeacherService()
-    import threading
 
-    reasons = []
-    thread = threading.Thread(target=lambda: reasons.append(student_server.serve_forever(
-        service, socket_path, idle_s=2.0, timeout_s=0.1)), daemon=True)
-    thread.start()
-    for _ in range(100):
-        if socket_path.exists():
-            break
-        time.sleep(0.01)
-    assert oct(socket_path.stat().st_mode & 0o777) == "0o600"
-    reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=2.0)
-    assert reply["ok"] and len(reply["vectors"][0]) == pins.MODEL_DIMENSIONS
-    assert E.request(socket_path, {"op": "nope"}, timeout_s=2.0)["error"] == "unknown_op"
-    thread.join(timeout=15)
-    assert reasons == ["idle"] and not socket_path.exists()
+    with _serving(service, socket_path, idle_s=2.0, timeout_s=0.1) as (thread, reasons):
+        assert oct(socket_path.stat().st_mode & 0o777) == "0o600"
+        reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=2.0)
+        assert reply["ok"] and len(reply["vectors"][0]) == pins.MODEL_DIMENSIONS
+        assert E.request(socket_path, {"op": "nope"}, timeout_s=2.0)["error"] == "unknown_op"
+        thread.join(timeout=15)
+        assert reasons == ["idle"] and not socket_path.exists()
 
 
 def test_the_query_process_refuses_outside_its_4g_scope_and_under_the_host_floor():
@@ -915,12 +957,15 @@ def test_the_query_process_never_runs_a_changed_base(tmp_path, monkeypatch):
     assert status["status"] == "refused" and "modeling.py" in status["reason"]
 
 
-def test_a_client_that_gives_up_never_stops_the_query_process(_fresh):
+def test_a_client_that_gives_up_never_stops_the_query_process(_fresh, monkeypatch):
     """F12: the first client times out and closes its socket before the reply; the process keeps
-    serving and the second client is answered."""
+    serving and the second client is answered.
+
+    Follow-ups batch 6 (A): the first client connects only after the server listens (its ``ready``
+    callback), not once the socket file exists; the bind-to-listen window is widened here so the
+    old wait is refused every run, and the thread is stopped whatever fails."""
 
     import socket as socket_module
-    import threading
 
     from learnloop.local_embeddings import student_server
 
@@ -929,71 +974,56 @@ def test_a_client_that_gives_up_never_stops_the_query_process(_fresh):
             time.sleep(0.4)
             return super().encode(texts)
 
+    monkeypatch.setattr(student_server, "os", _SlowChmod(0.3))
     socket_path = _fresh / "slow.sock"
-    reasons = []
-    thread = threading.Thread(target=lambda: reasons.append(student_server.serve_forever(
-        Slow(), socket_path, idle_s=5.0, timeout_s=0.2)), daemon=True)
-    thread.start()
-    for _ in range(200):
-        if socket_path.exists():
-            break
-        time.sleep(0.01)
-    with pytest.raises((TimeoutError, socket_module.timeout)):
-        E.request(socket_path, {"op": "encode", "texts": ["slow"]}, timeout_s=0.05)
-    time.sleep(0.6)  # the reply to the closed socket has failed by now
-    assert thread.is_alive()
-    reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=5.0)
-    assert reply["ok"] and len(reply["vectors"]) == 1
-    assert E.request(socket_path, {"op": "shutdown"}, timeout_s=5.0)["ok"]
-    thread.join(timeout=5)
-    assert reasons == ["shutdown"]
+    with _serving(Slow(), socket_path, idle_s=5.0, timeout_s=0.2) as (thread, reasons):
+        with pytest.raises((TimeoutError, socket_module.timeout)):
+            E.request(socket_path, {"op": "encode", "texts": ["slow"]}, timeout_s=0.05)
+        time.sleep(0.6)  # the reply to the closed socket has failed by now
+        assert thread.is_alive()
+        reply = E.request(socket_path, {"op": "encode", "texts": ["what is a basis"]}, timeout_s=5.0)
+        assert reply["ok"] and len(reply["vectors"]) == 1
+        assert E.request(socket_path, {"op": "shutdown"}, timeout_s=5.0)["ok"]
+        thread.join(timeout=5)
+        assert reasons == ["shutdown"]
 
 
 def test_a_resident_gpu_student_yields_before_an_index_batch(tmp_path, _fresh, monkeypatch):
     """F11: a student serving on the GPU is asked to exit before the 9B's start checks; the index
     batch then runs. A CPU student is not a GPU workload and is left alone."""
 
-    import threading
-
-    from learnloop.local_embeddings import student_server
-
     paths, repository, root, model, _report = student_vault(tmp_path)
     home = _fresh / "learnloop-student" / "abc"
     home.mkdir(parents=True)
     socket_path = home / "student.sock"
-    thread = threading.Thread(target=student_server.serve_forever, args=(TeacherService(model), socket_path),
-                              kwargs={"idle_s": 30.0, "timeout_s": 0.2}, daemon=True)
-    thread.start()
-    for _ in range(200):
-        if socket_path.exists():
-            break
-        time.sleep(0.01)
-    (home / "status.json").write_text(json.dumps({"status": "ready", "device": "gpu", "pid": 4242}), encoding="utf-8")
-    cpu_home = _fresh / "learnloop-student" / "cpu"
-    cpu_home.mkdir()
-    (cpu_home / "status.json").write_text(json.dumps({"status": "ready", "device": "cpu", "pid": 4343}),
+    with _serving(TeacherService(model), socket_path, idle_s=30.0, timeout_s=0.2) as (thread, _reasons):
+        (home / "status.json").write_text(json.dumps({"status": "ready", "device": "gpu", "pid": 4242}),
                                           encoding="utf-8")
-    monkeypatch.setattr(E, "_pid_alive", lambda pid: thread.is_alive() if pid == 4242 else pid == 4343)
-    order = []
+        cpu_home = _fresh / "learnloop-student" / "cpu"
+        cpu_home.mkdir()
+        (cpu_home / "status.json").write_text(json.dumps({"status": "ready", "device": "cpu", "pid": 4343}),
+                                              encoding="utf-8")
+        monkeypatch.setattr(E, "_pid_alive", lambda pid: thread.is_alive() if pid == 4242 else pid == 4343)
+        order = []
 
-    def preflight():
-        order.append("preflight")
-        return ["a concurrent GPU workload is running (python)"] if thread.is_alive() else []
+        def preflight():
+            order.append("preflight")
+            return ["a concurrent GPU workload is running (python)"] if thread.is_alive() else []
 
-    def yielder():
-        order.append("yield")
-        return E.yield_gpu_students(wait_s=5.0)
+        def yielder():
+            order.append("yield")
+            return E.yield_gpu_students(wait_s=5.0)
 
-    from tests.query_student_fakes import CALCULUS
-    from tests.source_retrieval_fakes import seed_source
+        from tests.query_student_fakes import CALCULUS
+        from tests.source_retrieval_fakes import seed_source
 
-    seed_source(repository, source_id="src_new", revision_id="rev_new", extraction_id="ext_new",
-                title="New Notes", units=CALCULUS)  # a new book: the batch has work
-    seed = local_index.run_local_index(loaded(paths), repository, launcher=InProcessLauncher(model),
-                                       preflight=preflight, locks=no_locks, force=True, yielder=yielder)
-    assert order[:2] == ["yield", "preflight"] and not thread.is_alive()
-    assert seed["students_yielded"] == {"asked": 1, "exited": 1, "still_running": 0}
-    assert seed["status"] != "waiting_for_gpu", seed
+        seed_source(repository, source_id="src_new", revision_id="rev_new", extraction_id="ext_new",
+                    title="New Notes", units=CALCULUS)  # a new book: the batch has work
+        seed = local_index.run_local_index(loaded(paths), repository, launcher=InProcessLauncher(model),
+                                           preflight=preflight, locks=no_locks, force=True, yielder=yielder)
+        assert order[:2] == ["yield", "preflight"] and not thread.is_alive()
+        assert seed["students_yielded"] == {"asked": 1, "exited": 1, "still_running": 0}
+        assert seed["status"] != "waiting_for_gpu", seed
 
 
 def test_a_due_replay_is_scheduled_for_a_fully_indexed_library(tmp_path):
