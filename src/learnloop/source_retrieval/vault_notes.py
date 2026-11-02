@@ -51,6 +51,7 @@ from datetime import date
 from types import MappingProxyType
 from typing import Any, Callable
 
+from learnloop.content.sources.source_outline import title_from_local_uri
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import query_terms
@@ -96,6 +97,9 @@ class VaultNote:
 
     ref_kind: str
     ref_id: str
+    #: The source's title as retrieval names it (``corpus.current_extractions``), a ``file://`` URI
+    #: for a source with no display title. The content hash and the embedded text read this, so
+    #: naming a note for the learner never makes it a changed note. Shown: :attr:`display_title`.
     title: str
     heading: str
     text: str
@@ -120,6 +124,12 @@ class VaultNote:
                                                    ensure_ascii=False).encode("utf-8")).hexdigest()[:40]
 
     @property
+    def display_title(self) -> str:
+        """The note's name for the learner: never a URI (follow-ups batch 7 (B))."""
+
+        return title_from_local_uri(self.title) or self.title
+
+    @property
     def origin(self) -> str:
         return ORIGIN
 
@@ -129,10 +139,10 @@ class VaultNote:
         return value if len(value) <= SNIPPET_CHARS else value[: SNIPPET_CHARS - 1].rstrip() + "…"
 
     def searchable(self) -> str:
-        return "\n".join(part for part in (self.title, self.heading, self.full_text or self.text) if part)
+        return "\n".join(part for part in (self.display_title, self.heading, self.full_text or self.text) if part)
 
     def view(self) -> dict[str, Any]:
-        return {"note_key": self.note_key, "ref_kind": self.ref_kind, "ref_id": self.ref_id, "title": self.title,
+        return {"note_key": self.note_key, "ref_kind": self.ref_kind, "ref_id": self.ref_id, "title": self.display_title,
                 "heading": self.heading, "snippet": self.snippet, "captured_on": self.captured_on,
                 "origin": ORIGIN, "content_hash": self.content_hash}
 
@@ -187,6 +197,24 @@ def _source_titles(repository: Repository) -> dict[str, str]:
         return {extraction.source_id: extraction.title for extraction in current_extractions(repository).values()}
     except Exception:  # noqa: BLE001 - a title is display only
         return {}
+
+
+def source_display_titles(repository: Repository, note_keys: Iterable[str]) -> dict[str, str]:
+    """``{note key: its source's display title now}`` of the Reader notes among ``note_keys`` whose
+    source has one (a note stored under its source's URI, shown by the name it has since been given)."""
+
+    ids = {ref[1]: key for key in note_keys if (ref := split_key(key)) is not None and ref[0] == KIND_ANNOTATION}
+    if not ids:
+        return {}
+    marks = ",".join("?" for _ in ids)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not _table(connection, "source_annotations"):
+            return {}
+        rows = connection.execute(
+            "SELECT a.id, s.display_title FROM source_annotations AS a JOIN source_artifacts AS s "
+            f"ON s.id = a.source_id WHERE a.id IN ({marks})", sorted(ids)).fetchall()
+    return {ids[str(annotation_id)]: " ".join(str(title).split()) for annotation_id, title in rows
+            if str(title or "").strip()}
 
 
 def _standing_annotation_ids(repository: Repository) -> set[str]:
@@ -773,6 +801,7 @@ __all__ = [
     "read_many",
     "records",
     "recipe_text",
+    "source_display_titles",
     "split_key",
     "words_search",
 ]

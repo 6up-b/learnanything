@@ -67,3 +67,47 @@ read. The horizon, guard and already-built tests passed before the fix as well, 
 pin what the fix must not break.
 
 **Spec.** §10b.4 and §10b.6 carry *as built* notes.
+
+## (B) A Reader note's title can be a `file://` URI
+
+**Where it comes from.** A source with no display title is titled by its URI in `corpus._title` (`display_title`, then
+the revision's `original_uri`, then `canonical_uri`). `current_extractions` carries that as `SourceExtraction.title`,
+and `vault_notes._source_titles` makes it the note's title. So the raw value is written too: `_store_snapshot` stored
+it in `learner_notes.title`, which then reached every view. It is also on the same Settings row twice: the row's
+`where` came from `reading.source_title`.
+
+**Fix.**
+
+* **New writes.** `_store_snapshot` stores `VaultNote.display_title`: the source's title, with a `file:` URI read as its
+  file name in words (`source_outline.title_from_local_uri`). The judge's prompt and the search hits use it too, and
+  the note search now matches the words the learner reads, not the path's.
+* **Stored rows, at display.** `note_links.named_for_display` shows a URI-titled snapshot by its source's display title
+  now, else its file name. `effective` (the Reader's marks, the path lines, Compare's take, the lesson's notes) and
+  `hidden` both call it. `learner_notes` is append-only and no row is rewritten.
+* **`where`** on the hidden-notes row names the book the same way.
+
+**Nothing reads as changed.** `VaultNote.title` keeps the source's title as retrieval names it, and the content hash
+and the embedded text keep reading it. A readable name changing the hash would have made every such note a new
+snapshot, a new judgment and a new embedding. So a note whose row already exists keeps it (stored once per content
+hash) and shows the readable name by the display path.
+
+**Left as it is, on purpose.**
+
+* `corpus._title` stays raw. It feeds `section_coverage.scope_signature`, the prompts and keys of Compare, the tutor
+  and search, and the persisted family map; changing it would refresh all of those for this one display matter.
+* C5's gap reading (`effective_rows`) sends an old snapshot's stored title to its model as it is. That is not a display,
+  and a new snapshot's is readable already.
+* Only a `file:` URI is rewritten. A web address stays what the Library shows, and `Path.as_uri` is what writes these,
+  so no bare path was seen on the write paths read.
+
+**The Library's name, same helper.** `title_from_file_name` moved down to `content.sources.source_outline` (the
+notes may not import `content.pipeline`), and `add_source.learner_title` uses the decoded URI too. A file with a space
+in its name showed `%20` on its Library card before; now the card and the note say the same thing.
+
+**Reproduce-first.** `tests/test_followups_batch7_note_titles.py` (14). Before the view fix, 4 failed, showing
+`file:///home...one_right.pdf` as the note's title. No real vault was opened: the batch 5 observation came from the
+probability copy, and these tests rebuild the state synthetically (no display title, a percent-encoded URI).
+
+**Open.** Other surfaces name a source by `extraction.title` and so can show the same URI on such a source (Compare's
+books, tutor citations, the library's text search via `source_search._artifact_title`, the source deletion dialog).
+They are source titles, not note titles, so they stayed out of this item. See open questions below.

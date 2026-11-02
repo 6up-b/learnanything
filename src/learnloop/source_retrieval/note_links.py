@@ -75,6 +75,7 @@ from learnloop.ai.execution import active_request_gate, content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.sources.source_outline import title_from_local_uri
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.db.stores.judgments import append_judgment
@@ -494,7 +495,7 @@ def build_prompt(target: Target, lead: str, notes: Sequence[VN.VaultNote]) -> st
         "topic": {"title": target.title, "statement": target.statement},
         "passage": {"book": target.book, "section": target.section_title, "opening": lead},
         "notes": [
-            {"id": f"n{index}", "title": note.title, "heading": note.heading,
+            {"id": f"n{index}", "title": note.display_title, "heading": note.heading,
              "date": note.captured_on or "", "text": note.text}
             for index, note in enumerate(notes, start=1)
         ],
@@ -699,7 +700,7 @@ def _store_snapshot(connection: Any, note: VN.VaultNote, now: str) -> str:
 
     return store.insert_note(connection, {
         "id": "ln_" + new_ulid(), "note_key": note.note_key, "path": None, "heading_path": note.heading,
-        "line": None, "content_hash": _content_hash(note), "title": note.title, "heading": note.heading,
+        "line": None, "content_hash": _content_hash(note), "title": note.display_title, "heading": note.heading,
         "captured_on": note.captured_on, "origin": VN.ORIGIN, "text_md": note.text,
         "truncated": 1 if note.truncated else 0, "created_at": now, "vault_ref_kind": note.ref_kind,
         "vault_ref_id": note.ref_id})
@@ -868,7 +869,23 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vaul
     note's current snapshot (Codex re-review F13). A snapshot of a Reader note any of whose
     anchors sits beside protected material now is withheld (C2b review 5 F1, re-review F1)."""
 
-    return [link_view(row, note) for row, note in effective_rows(repository, rows, vault=vault, goal_id=goal_id)]
+    pairs = effective_rows(repository, rows, vault=vault, goal_id=goal_id)
+    return [link_view(row, note) for row, note in named_for_display(repository, pairs)]
+
+
+def named_for_display(repository: Repository, pairs: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
+                      ) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    """``pairs`` with each note named for the learner (follow-ups batch 7 (B)). A snapshot stored
+    before batch 7 of a source with no display title has its ``file://`` URI as its title: it shows
+    the display title its source has now, else its file name in words. The stored row is never
+    rewritten, and only what is shown changes (C5's gap reading takes :func:`effective_rows` as it is)."""
+
+    uris = {str(note["note_key"]) for _row, note in pairs if title_from_local_uri(note.get("title"))}
+    if not uris:
+        return list(pairs)
+    titles = VN.source_display_titles(repository, uris)
+    return [(row, {**note, "title": titles.get(str(note["note_key"])) or readable}
+             if (readable := title_from_local_uri(note.get("title"))) else note) for row, note in pairs]
 
 
 def withhold_protected(vault: Any, repository: Repository,
@@ -1098,7 +1115,8 @@ def _where(vault: Any, library: SC.Library | None, row: Mapping[str, Any]) -> st
     if reading is None:
         return "a passage"
     section = reading.sections.get(str(row.get("section_id") or ""))
-    return " › ".join(part for part in (reading.source_title, getattr(section, "title", None)) if part) or "a passage"
+    book = title_from_local_uri(reading.source_title) or reading.source_title
+    return " › ".join(part for part in (book, getattr(section, "title", None)) if part) or "a passage"
 
 
 def hidden_origin_label(key: str, note: Mapping[str, Any]) -> str | None:
@@ -1145,7 +1163,7 @@ def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     # A note beside protected material now is never listed (C2b: every delivery boundary
     # withholds it, its title and its source-derived heading; the hide row stays).
-    for row, note in withhold_protected(vault, repository, pairs):
+    for row, note in named_for_display(repository, withhold_protected(vault, repository, pairs)):
         by_model = bool(row.get("learning_object_id"))
         out.append({
             "link_id": row["id"], "hidden_at": row["created_at"], "target_kind": row["target_kind"],

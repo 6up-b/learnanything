@@ -14,7 +14,10 @@ calls an LLM; it reads only persisted IR rows.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
+from pathlib import PurePosixPath
+from urllib.parse import unquote, urlparse
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -203,6 +206,26 @@ def _derive_authors(artifact, revision) -> list[str]:
     source layer today, so this is deterministically empty (M4/M6 populate it)."""
 
     return []
+
+
+def title_from_file_name(name: str) -> str:
+    stem = re.sub(r"\.[A-Za-z0-9]{1,5}$", "", name)
+    words = re.sub(r"[_\-.]+", " ", stem).split()
+    if not words:
+        return name
+    if all(word == word.lower() for word in words):
+        return " ".join(word.capitalize() for word in words)
+    return " ".join(words)
+
+
+def title_from_local_uri(value: str) -> str | None:
+    """A ``file:`` URI as its file name in words, decoded (a source with no display title carries
+    one, from ``Path.as_uri``), or None for anything else: a title, or a web address."""
+
+    if not str(value or "").startswith("file:"):
+        return None
+    name = PurePosixPath(unquote(urlparse(str(value)).path)).name
+    return title_from_file_name(name) if name else None
 
 
 def _basename(uri: object) -> str | None:
